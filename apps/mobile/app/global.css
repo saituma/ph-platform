@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   THEME COLORS - Edit these to change the theme
+   ============================================ */
+
+:root {
+	/* Backgrounds */
+	--color-bg: #FAFAFA;
+	/* Robi's Tip: Avoid pure #FFFFFF */
+	--color-bg-secondary: #F1F5F9;
+	--color-bg-input: #FFFFFF;
+	/* Inputs can be white to stand out on FAFAFA */
+
+	/* Text */
+	--color-text: #1E293B;
+	/* Soften from 0F172A */
+	--color-text-secondary: #64748B;
+	--color-text-muted: #94A3B8;
+
+	/* Accent (Primary) */
+	--color-accent: #4F46E5;
+	--color-accent-light: #EEF2FF;
+
+	/* Border & Icon */
+	--color-border: #E2E8F0;
+	--color-icon: #64748B;
+}
+
+.dark {
+	/* Backgrounds */
+	--color-bg: #0B1120;
+	/* Deep rich slate, almost black but not #000000 */
+	--color-bg-secondary: #1E293B;
+	--color-bg-input: #1E293B;
+
+	/* Text */
+	--color-text: #F8FAFC;
+	/* Soft off-white */
+	--color-text-secondary: #94A3B8;
+	--color-text-muted: #64748B;
+
+	/* Accent (Primary) */
+	--color-accent: #818CF8;
+	--color-accent-light: #312E81;
+
+	/* Border & Icon */
+	--color-border: #334155;
+	--color-icon: #94A3B8;
+}
+
+/* ============================================
+   UTILITY CLASSES - Use these in your app!
+   ============================================ */
+
+/* Backgrounds */
+.bg-app {
+	background-color: var(--color-bg);
+}
+
+.bg-secondary {
+	background-color: var(--color-bg-secondary);
+}
+
+.bg-input {
+	background-color: var(--color-bg-input);
+}
+
+.bg-accent {
+	background-color: var(--color-accent);
+}
+
+.bg-accent-light {
+	background-color: var(--color-accent-light);
+}
+
+/* Text */
+.text-app {
+	color: var(--color-text);
+}
+
+.text-secondary {
+	color: var(--color-text-secondary);
+}
+
+.text-muted {
+	color: var(--color-text-muted);
+}
+
+.text-accent {
+	color: var(--color-accent);
+}
+
+/* Border */
+.border-app {
+	border-color: var(--color-border);
+}
+
+/* Icon color helper (use in inline style) */
+.icon-color {
+	color: var(--color-icon);
+}
