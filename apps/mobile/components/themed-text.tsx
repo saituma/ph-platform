@@ -1,11 +1,11 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { useAppTheme } from '@/app/theme/AppThemeProvider';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
-  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link' | 'secondary';
 };
 
 export function ThemedText({
@@ -15,17 +15,23 @@ export function ThemedText({
   type = 'default',
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const { colors, colorScheme } = useAppTheme();
+  const color = lightColor && darkColor
+    ? (colorScheme === 'light' ? lightColor : darkColor)
+    : (type === 'secondary' ? colors.textSecondary : colors.text);
+
+  const linkColor = colors.accent;
 
   return (
     <Text
       style={[
-        { color },
+        { color: type === 'link' ? linkColor : color },
         type === 'default' ? styles.default : undefined,
         type === 'title' ? styles.title : undefined,
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
         type === 'subtitle' ? styles.subtitle : undefined,
         type === 'link' ? styles.link : undefined,
+        type === 'secondary' ? styles.secondary : undefined,
         style,
       ]}
       {...rest}
@@ -37,24 +43,34 @@ const styles = StyleSheet.create({
   default: {
     fontSize: 16,
     lineHeight: 24,
+    fontFamily: 'Outfit',
   },
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: '600',
+    fontFamily: 'Outfit',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    lineHeight: 32,
+    lineHeight: 40,
+    fontFamily: 'ClashDisplay',
   },
   subtitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    fontFamily: 'ClashDisplay',
+  },
+  secondary: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontFamily: 'Outfit',
   },
   link: {
     lineHeight: 30,
     fontSize: 16,
-    color: '#0a7ea4',
+    fontFamily: 'Outfit',
+    fontWeight: '600',
   },
 });
