@@ -1,10 +1,16 @@
-import type { PropsWithChildren, ReactElement } from 'react';
-import React, { useEffect, useState } from 'react';
-import { Platform, ScrollView, View, StyleSheet, NativeModules } from 'react-native';
+import type { PropsWithChildren, ReactElement } from "react";
+import React, { useEffect, useState } from "react";
+import {
+  NativeModules,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { ThemedView } from "@/components/themed-view";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useThemeColor } from "@/hooks/use-theme-color";
 
 const HEADER_HEIGHT = 250;
 
@@ -18,45 +24,45 @@ export default function ParallaxScrollView({
   headerImage,
   headerBackgroundColor,
 }: Props) {
-  const backgroundColor = useThemeColor({}, 'background');
-  const colorScheme = useColorScheme() ?? 'light';
+  const backgroundColor = useThemeColor({}, "background");
+  const colorScheme = useColorScheme() ?? "light";
   const [ReanimatedModule, setReanimatedModule] = useState<any>(null);
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    // If the native Reanimated module isn't present, avoid requiring it entirely
-    // since `require('react-native-reanimated')` can trigger native initialization
-    // that crashes in environments like Expo Go when versions mismatch.
+    if (Platform.OS === "web") return;
     try {
       if (!NativeModules || !NativeModules.ReanimatedModule) {
-        // eslint-disable-next-line no-console
-        console.warn('react-native-reanimated native module missing — using fallback ScrollView.');
+        console.warn(
+          "react-native-reanimated native module missing — using fallback ScrollView.",
+        );
         return;
       }
     } catch {
-      // Accessing NativeModules.ReanimatedModule can throw in some environments
-      // (for example when the native module is present but initialization fails).
-      // Fall back to the non-animated ScrollView without printing the native stack.
-      // eslint-disable-next-line no-console
-      console.warn('react-native-reanimated not available — using fallback ScrollView.');
+      console.warn(
+        "react-native-reanimated not available — using fallback ScrollView.",
+      );
       return;
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-      const R = require('react-native-reanimated');
+      const R = require("react-native-reanimated");
       setReanimatedModule(R);
     } catch (e) {
-      // fall back silently to non-animated ScrollView
-      // eslint-disable-next-line no-console
-      console.warn('react-native-reanimated not available — using fallback ScrollView.');
+      console.warn(
+        "react-native-reanimated not available — using fallback ScrollView.",
+      );
     }
   }, []);
 
   if (!ReanimatedModule) {
     return (
       <ScrollView style={{ backgroundColor, flex: 1 }} scrollEventThrottle={16}>
-        <View style={[styles.header, { backgroundColor: headerBackgroundColor[colorScheme] }]}>
+        <View
+          style={[
+            styles.header,
+            { backgroundColor: headerBackgroundColor[colorScheme] },
+          ]}
+        >
           {headerImage}
         </View>
         <ThemedView style={styles.content}>{children}</ThemedView>
@@ -64,7 +70,6 @@ export default function ParallaxScrollView({
     );
   }
 
-  // Reanimated available — render an inner component that uses its hooks (keeps hook rules safe)
   return (
     <ParallaxWithReanimated
       Reanimated={ReanimatedModule}
@@ -88,10 +93,11 @@ function ParallaxWithReanimated({
 }: Props & {
   Reanimated: any;
   backgroundColor: string;
-  colorScheme: 'dark' | 'light';
+  colorScheme: "dark" | "light";
 }) {
-  const { interpolate, useAnimatedRef, useAnimatedStyle, useScrollOffset } = Reanimated;
-  const scrollRef = useAnimatedRef<any>();
+  const { interpolate, useAnimatedRef, useAnimatedStyle, useScrollOffset } =
+    Reanimated;
+  const scrollRef = useAnimatedRef();
   const scrollOffset = useScrollOffset(scrollRef);
   const headerAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -100,11 +106,15 @@ function ParallaxWithReanimated({
           translateY: interpolate(
             scrollOffset.value,
             [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
-            [-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75]
+            [-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75],
           ),
         },
         {
-          scale: interpolate(scrollOffset.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1]),
+          scale: interpolate(
+            scrollOffset.value,
+            [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
+            [2, 1, 1],
+          ),
         },
       ],
     };
@@ -113,13 +123,18 @@ function ParallaxWithReanimated({
   const Animated = Reanimated.default ?? Reanimated;
 
   return (
-    <Animated.ScrollView ref={scrollRef} style={{ backgroundColor, flex: 1 }} scrollEventThrottle={16}>
+    <Animated.ScrollView
+      ref={scrollRef}
+      style={{ backgroundColor, flex: 1 }}
+      scrollEventThrottle={16}
+    >
       <Animated.View
         style={[
           styles.header,
           { backgroundColor: headerBackgroundColor[colorScheme] },
           headerAnimatedStyle,
-        ]}>
+        ]}
+      >
         {headerImage}
       </Animated.View>
       <ThemedView style={styles.content}>{children}</ThemedView>
@@ -133,12 +148,12 @@ const styles = StyleSheet.create({
   },
   header: {
     height: HEADER_HEIGHT,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   content: {
     flex: 1,
     padding: 32,
     gap: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
 });

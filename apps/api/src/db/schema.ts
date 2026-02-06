@@ -1,6 +1,6 @@
 import { boolean, date, integer, jsonb, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 
-export const Role = pgEnum("role", ["athlete", "guardian", "coach", "admin", "superAdmin"]);
+export const Role = pgEnum("role", ["guardian", "coach", "admin", "superAdmin"]);
 export const ProgramType = pgEnum("program_type", ["PHP", "PHP_Plus", "PHP_Premium"]);
 export const EnrollmentStatus = pgEnum("enrollment_status", ["pending", "active", "completed", "failed"]);
 export const bookingStatus = pgEnum("booking_status", ["pending", "confirmed", "declined", "cancelled"]);
@@ -13,6 +13,8 @@ export const userTable = pgTable("users", {
   email: varchar({ length: 255 }).notNull(),
   role: Role(),
   password: varchar({ length: 255 }).notNull(),
+  profilePicture: varchar({ length: 255 }),
+
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 

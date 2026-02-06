@@ -1,47 +1,87 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Redirect, Stack, useSegments } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import './global.css';
-import { Platform } from 'react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import AppThemeProvider from './theme/AppThemeProvider';
-import useLoadFonts from './hooks/useLoadFonts';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { RefreshProvider } from "@/context/RefreshContext";
+import { RoleProvider } from "@/context/RoleContext";
+import { ReduxProvider } from "@/store/Provider";
+import { DarkTheme, DefaultTheme } from "@react-navigation/native";
+import { SplashScreen, Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useColorScheme } from "nativewind";
+import React, { useEffect, useState } from "react";
+import { Platform, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import "./global.css";
+import useLoadFonts from "./hooks/useLoadFonts";
+import AppThemeProvider from "./theme/AppThemeProvider";
 
-if (Platform.OS === 'web') {
-    require('./fonts.css');
+SplashScreen.preventAutoHideAsync();
+
+if (Platform.OS === "web") {
+  require("./fonts.css");
 }
 
+function GlobalRefreshLayout({ children }: { children: React.ReactNode }) {
+  const { colorScheme } = useColorScheme();
+  const theme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
 
+  return (
+    <View
+      className={colorScheme === "dark" ? "dark" : ""}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+    >
+      {children}
+    </View>
+  );
+}
 
-const isLoggedIn = false;
 export default function RootLayout() {
-    const colorScheme = useColorScheme();
-    const segments = useSegments();
+  const { colorScheme } = useColorScheme();
+  const fontsLoaded = useLoadFonts();
+  const theme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
+  const [appIsReady, setAppIsReady] = useState(false);
 
-    const inAuthGroup = segments?.[0] === '(auth)';
-
-    const fontsLoaded = useLoadFonts();
-
-    if (Platform.OS !== 'web' && !fontsLoaded) {
-        return null;
+  useEffect(() => {
+    async function prepare() {
+      try {
+        if (fontsLoaded || Platform.OS === "web") {
+          setAppIsReady(true);
+        }
+      } catch (e) {
+        console.warn(e);
+      }
     }
+    prepare();
+  }, [fontsLoaded]);
 
-    if (!isLoggedIn && !inAuthGroup) {
-        return <Redirect href="/(auth)/login" />;
+  useEffect(() => {
+    if (appIsReady) {
+      SplashScreen.hideAsync();
     }
-    return (
+  }, [appIsReady]);
+
+  if (!appIsReady) {
+    return null;
+  }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ReduxProvider>
         <SafeAreaProvider>
-                <AppThemeProvider colorScheme={colorScheme === 'light' ? 'light' : 'dark'}>
-                    <ThemeProvider value={colorScheme === 'light' ? DefaultTheme : DarkTheme}>
-                        <Stack>
-                            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                        </Stack>
-                        <StatusBar style="auto" />
-                    </ThemeProvider>
-                </AppThemeProvider>
-
-            </SafeAreaProvider>
-    );
+          <RoleProvider>
+            <AppThemeProvider>
+              <RefreshProvider>
+                <GlobalRefreshLayout>
+                  <Stack
+                    screenOptions={{ headerShown: false, animation: "none" }}
+                  />
+                  <StatusBar
+                    style={colorScheme === "dark" ? "light" : "dark"}
+                  />
+                </GlobalRefreshLayout>
+              </RefreshProvider>
+            </AppThemeProvider>
+          </RoleProvider>
+        </SafeAreaProvider>
+      </ReduxProvider>
+    </GestureHandlerRootView>
+  );
 }
