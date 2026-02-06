@@ -1,17 +1,43 @@
 import { Feather } from "@expo/vector-icons";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
 
+const loginSchema = z.object({
+  email: z.email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
 export default function LoginScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { isDark, toggleColorScheme } = useAppTheme();
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+    mode: "onChange",
+  });
+
+  const onSubmit = (data: LoginFormData) => {
+    console.log("Login submitted:", data);
+    router.replace("/(tabs)");
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -44,36 +70,83 @@ export default function LoginScreen() {
         </View>
 
         <View className="gap-4 mb-4">
-          <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
-            <Feather name="mail" size={20} color="#64748b" />
-            <TextInput
-              className="flex-1 ml-3 text-app text-base font-outfit"
-              placeholder="Email Address"
-              placeholderTextColor="#94a3b8"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+          <View>
+            <View
+              className={`flex-row items-center bg-input border ${errors.email ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+            >
+              <Feather
+                name="mail"
+                size={20}
+                color={
+                  errors.email ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"
+                }
+              />
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    className="flex-1 ml-3 text-app text-base font-outfit"
+                    placeholder="Email Address"
+                    placeholderTextColor="#94a3b8"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoCorrect={false}
+                  />
+                )}
+              />
+            </View>
+            {errors.email && (
+              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+                {errors.email.message}
+              </Text>
+            )}
           </View>
 
-          <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
-            <Feather name="lock" size={20} color="#64748b" />
-            <TextInput
-              className="flex-1 ml-3 text-app text-base font-outfit"
-              placeholder="Password"
-              placeholderTextColor="#94a3b8"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <Pressable onPress={() => setShowPassword(!showPassword)}>
+          <View>
+            <View
+              className={`flex-row items-center bg-input border ${errors.password ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+            >
               <Feather
-                name={showPassword ? "eye" : "eye-off"}
+                name="lock"
                 size={20}
-                color="#64748b"
+                color={
+                  errors.password ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"
+                }
               />
-            </Pressable>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    className="flex-1 ml-3 text-app text-base font-outfit"
+                    placeholder="Password"
+                    placeholderTextColor="#94a3b8"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                )}
+              />
+              <Pressable onPress={() => setShowPassword(!showPassword)}>
+                <Feather
+                  name={showPassword ? "eye" : "eye-off"}
+                  size={20}
+                  color={isDark ? "#94a3b8" : "#64748b"}
+                />
+              </Pressable>
+            </View>
+            {errors.password && (
+              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+                {errors.password.message}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -85,7 +158,10 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
-        <Pressable className="bg-accent h-14 rounded-xl items-center justify-center mb-8">
+        <Pressable
+          onPress={handleSubmit(onSubmit)}
+          className="bg-accent h-14 rounded-xl items-center justify-center mb-8"
+        >
           <Text className="text-white font-bold text-lg font-outfit">
             Sign In
           </Text>

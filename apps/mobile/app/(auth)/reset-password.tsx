@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppTheme } from "../theme/AppThemeProvider";
 
 export default function ResetPasswordScreen() {
   const [code, setCode] = useState("");
@@ -13,13 +14,18 @@ export default function ResetPasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const router = useRouter();
+  const { isDark } = useAppTheme();
 
   return (
     <SafeAreaView className="flex-1 bg-app">
       {/* Back Button */}
       <View className="px-4 pt-4">
         <Pressable onPress={() => router.back()} className="p-2 self-start">
-          <Feather name="arrow-left" size={24} color="#64748b" />
+          <Feather
+            name="arrow-left"
+            size={24}
+            color={isDark ? "#94a3b8" : "#64748b"}
+          />
         </Pressable>
       </View>
 
@@ -43,7 +49,11 @@ export default function ResetPasswordScreen() {
 
         <View className="gap-4 mb-8">
           <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
-            <Feather name="shield" size={20} color="#64748b" />
+            <Feather
+              name="shield"
+              size={20}
+              color={isDark ? "#94a3b8" : "#64748b"}
+            />
             <TextInput
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="Verification Code"
@@ -68,7 +78,7 @@ export default function ResetPasswordScreen() {
               <Feather
                 name={showPassword ? "eye" : "eye-off"}
                 size={20}
-                color="#64748b"
+                color={isDark ? "#94a3b8" : "#64748b"}
               />
             </Pressable>
           </View>
@@ -89,7 +99,7 @@ export default function ResetPasswordScreen() {
               <Feather
                 name={showConfirmPassword ? "eye" : "eye-off"}
                 size={20}
-                color="#64748b"
+                color={isDark ? "#94a3b8" : "#64748b"}
               />
             </Pressable>
           </View>

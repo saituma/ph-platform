@@ -1,9 +1,8 @@
 import { Colors } from "@/constants/theme";
-import { vars } from "nativewind";
-import React, { createContext, useCallback, useContext, useState } from "react";
-import { Platform, StatusBar, View } from "react-native";
+import { useColorScheme } from "nativewind";
+import React, { createContext, useContext } from "react";
 
-type ColorSchemeName = "light" | "dark";
+type ColorSchemeName = "light" | "dark" | "system";
 
 type AppTheme = {
   colorScheme: ColorSchemeName;
@@ -25,75 +24,31 @@ export function useAppTheme() {
   return useContext(AppThemeContext);
 }
 
-const lightVars = vars({
-  "--color-bg": Colors.light.background,
-  "--color-bg-secondary": Colors.light.backgroundSecondary,
-  "--color-bg-input": Colors.light.inputBackground,
-  "--color-text": Colors.light.text,
-  "--color-text-secondary": Colors.light.textSecondary,
-  "--color-text-muted": Colors.light.placeholder,
-  "--color-accent": Colors.light.accent,
-  "--color-accent-light": Colors.light.accentLight,
-  "--color-border": Colors.light.border,
-  "--color-icon": Colors.light.icon,
-});
-
-const darkVars = vars({
-  "--color-bg": Colors.dark.background,
-  "--color-bg-secondary": Colors.dark.backgroundSecondary,
-  "--color-bg-input": Colors.dark.inputBackground,
-  "--color-text": Colors.dark.text,
-  "--color-text-secondary": Colors.dark.textSecondary,
-  "--color-text-muted": Colors.dark.placeholder,
-  "--color-accent": Colors.dark.accent,
-  "--color-accent-light": Colors.dark.accentLight,
-  "--color-border": Colors.dark.border,
-  "--color-icon": Colors.dark.icon,
-});
-
 export default function AppThemeProvider({
   children,
-  colorScheme: initialColorScheme,
 }: {
   children: React.ReactNode;
-  colorScheme: ColorSchemeName;
 }) {
-  const [colorScheme, setColorScheme] =
-    useState<ColorSchemeName>(initialColorScheme);
+  const { colorScheme, toggleColorScheme } = useColorScheme();
 
-  const toggleColorScheme = useCallback(() => {
-    setColorScheme((s) => (s === "light" ? "dark" : "light"));
-  }, []);
-
-  const colors = colorScheme === "light" ? Colors.light : Colors.dark;
+  // NativeWind 4 handle system scheme, but for our usage we imply dark if 'dark'.
+  // If 'system', we might rely on system preference?
+  // NativeWind usually resolves it in CSS.
+  // For 'isDark', let's just check strict equality or system?
+  // Actually, standard NativeWind usage:
   const isDark = colorScheme === "dark";
-  const themeVars = isDark ? darkVars : lightVars;
-
-  React.useEffect(() => {
-    if (Platform.OS === "web") {
-      const root = document.documentElement;
-      if (isDark) {
-        root.classList.add("dark");
-      } else {
-        root.classList.remove("dark");
-      }
-    }
-  }, [isDark]);
+  const colors = isDark ? Colors.dark : Colors.light;
 
   return (
     <AppThemeContext.Provider
-      value={{ colorScheme, colors, toggleColorScheme, isDark }}
+      value={{
+        colorScheme: colorScheme ?? "light",
+        colors,
+        toggleColorScheme,
+        isDark,
+      }}
     >
-      <View
-        style={[{ flex: 1, backgroundColor: colors.background }, themeVars]}
-        className={isDark ? "dark" : ""}
-      >
-        <StatusBar
-          barStyle={isDark ? "light-content" : "dark-content"}
-          backgroundColor={colors.background}
-        />
-        {children}
-      </View>
+      {children}
     </AppThemeContext.Provider>
   );
 }
