@@ -35,10 +35,13 @@ export default function PlansScreen() {
           paddingBottom: 40,
         }}
       >
-        <View className="mb-8">
-          <Text className="text-3xl font-clash text-app mb-2">
-            Choose Your Plan
-          </Text>
+        <View className="mb-6">
+          <View className="flex-row items-center gap-3 mb-3">
+            <View className="h-6 w-1.5 rounded-full bg-accent" />
+            <Text className="text-3xl font-clash text-app">
+              Choose Your Plan
+            </Text>
+          </View>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
             Select the best coaching tier for your athlete's development and
             goals.

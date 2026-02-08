@@ -2,18 +2,19 @@ import { ActionButton } from "@/components/dashboard/ActionButton";
 import { PinModal } from "@/components/PinModal";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useRole } from "@/context/RoleContext";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
   const { role, guardianPin, setGuardianPin } = useRole();
+  const { isDark, colors } = useAppTheme();
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const { isLoading } = useRefreshContext();
 
@@ -68,9 +69,19 @@ export default function ProfileSettingsScreen() {
           <ProfileSkeleton />
         ) : (
           <View className="gap-6">
-            <Animated.View
-              entering={FadeInDown.delay(100).springify()}
+            <View
               className="bg-input rounded-3xl p-6 shadow-sm border border-app"
+              style={
+                isDark
+                  ? undefined
+                  : {
+                      shadowColor: "#0F172A",
+                      shadowOpacity: 0.08,
+                      shadowRadius: 12,
+                      shadowOffset: { width: 0, height: 6 },
+                      elevation: 6,
+                    }
+              }
             >
               <View className="flex-row items-center gap-4 mb-6">
                 <View className="relative">
@@ -82,9 +93,12 @@ export default function ProfileSettingsScreen() {
                   </TouchableOpacity>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-lg font-bold font-clash text-app">
-                    Profile Details
-                  </Text>
+                  <View className="flex-row items-center gap-3 mb-1">
+                    <View className="h-4 w-1 rounded-full bg-accent" />
+                    <Text className="text-lg font-bold font-clash text-app">
+                      Profile Details
+                    </Text>
+                  </View>
                   <Text className="text-secondary font-outfit text-sm">
                     Manage your identity and avatar.
                   </Text>
@@ -105,12 +119,22 @@ export default function ProfileSettingsScreen() {
                   icon="mail"
                 />
               </View>
-            </Animated.View>
+            </View>
 
             {role === "Guardian" && (
-              <Animated.View
-                entering={FadeInDown.delay(200).springify()}
+              <View
                 className="bg-input rounded-3xl p-6 shadow-sm border border-app"
+                style={
+                  isDark
+                    ? undefined
+                    : {
+                        shadowColor: "#0F172A",
+                        shadowOpacity: 0.08,
+                        shadowRadius: 12,
+                        shadowOffset: { width: 0, height: 6 },
+                        elevation: 6,
+                      }
+                }
               >
                 <SectionHeader
                   title="Guardian Security"
@@ -131,8 +155,8 @@ export default function ProfileSettingsScreen() {
                   <Switch
                     value={!!guardianPin}
                     onValueChange={handleTogglePin}
-                    trackColor={{ false: "#e5e7eb", true: "#3b82f6" }}
-                    thumbColor={"#ffffff"}
+                    trackColor={{ false: colors.border, true: colors.accent }}
+                    thumbColor={colors.background}
                   />
                 </View>
 
@@ -170,13 +194,23 @@ export default function ProfileSettingsScreen() {
                     />
                   </View>
                 </TouchableOpacity>
-              </Animated.View>
+              </View>
             )}
 
             {role === "Athlete" && (
-              <Animated.View
-                entering={FadeInDown.delay(200).springify()}
+              <View
                 className="bg-input rounded-3xl p-6 shadow-sm border border-app"
+                style={
+                  isDark
+                    ? undefined
+                    : {
+                        shadowColor: "#0F172A",
+                        shadowOpacity: 0.08,
+                        shadowRadius: 12,
+                        shadowOffset: { width: 0, height: 6 },
+                        elevation: 6,
+                      }
+                }
               >
                 <SectionHeader
                   title="Player Details"
@@ -224,7 +258,7 @@ export default function ProfileSettingsScreen() {
                     />
                   </TouchableOpacity>
                 </View>
-              </Animated.View>
+              </View>
             )}
 
             <ActionButton
@@ -265,6 +299,7 @@ function InputField({
   placeholder?: string;
   icon?: any;
 }) {
+  const { colors } = useAppTheme();
   return (
     <View className="gap-2">
       <Text className="text-sm font-bold font-outfit text-secondary ml-1">
@@ -274,7 +309,9 @@ function InputField({
         className={`flex-row items-center bg-app border border-app rounded-2xl h-14 px-4 ${!editable ? "opacity-60" : ""}`}
       >
         {icon && (
-          <Feather name={icon} size={18} className="text-secondary mr-3" />
+          <View className="h-8 w-8 rounded-xl bg-secondary items-center justify-center mr-3">
+            <Feather name={icon} size={16} className="text-accent" />
+          </View>
         )}
         <TextInput
           className="flex-1 text-app font-outfit text-base"
@@ -282,7 +319,7 @@ function InputField({
           onChangeText={onChangeText}
           editable={editable}
           placeholder={placeholder}
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.placeholder}
         />
       </View>
     </View>
@@ -302,15 +339,16 @@ function SectionHeader({
 }) {
   return (
     <View className="flex-row items-center gap-4 mb-6">
-      <View
-        className={`w-14 h-14 bg-secondary/10 rounded-2xl items-center justify-center`}
-      >
-        <Feather name={icon} size={24} className={iconColor} />
+      <View className="w-12 h-12 bg-secondary/10 rounded-2xl items-center justify-center">
+        <Feather name={icon} size={20} className={iconColor} />
       </View>
       <View className="flex-1">
-        <Text className="text-lg font-bold font-clash text-app leading-tight mb-1">
-          {title}
-        </Text>
+        <View className="flex-row items-center gap-3 mb-1">
+          <View className="h-4 w-1 rounded-full bg-accent" />
+          <Text className="text-lg font-bold font-clash text-app leading-tight">
+            {title}
+          </Text>
+        </View>
         <Text className="text-secondary font-outfit text-xs">{subtitle}</Text>
       </View>
     </View>
@@ -321,12 +359,16 @@ function ProfileSkeleton() {
   return (
     <View className="gap-6">
       <View className="bg-input rounded-3xl p-6 shadow-sm border border-app">
-        <View className="flex-row items-center gap-4 mb-8">
-          <Skeleton circle width={80} height={80} />
+        <View className="flex-row items-center gap-4 mb-6">
+          <Skeleton circle width={72} height={72} />
           <View className="flex-1 gap-2">
             <Skeleton width="60%" height={24} />
             <Skeleton width="40%" height={16} />
           </View>
+        </View>
+        <View className="flex-row items-center gap-3 mb-4">
+          <Skeleton width={4} height={16} borderRadius={2} />
+          <Skeleton width="35%" height={18} />
         </View>
         <View className="gap-4">
           <Skeleton width="100%" height={56} borderRadius={16} />
@@ -334,14 +376,14 @@ function ProfileSkeleton() {
         </View>
       </View>
       <View className="bg-input rounded-3xl p-6 shadow-sm border border-app">
-        <View className="flex-row items-center gap-4 mb-6">
-          <Skeleton width={56} height={56} borderRadius={16} />
+        <View className="flex-row items-center gap-4 mb-5">
+          <Skeleton width={48} height={48} borderRadius={16} />
           <View className="flex-1 gap-2">
             <Skeleton width="50%" height={20} />
             <Skeleton width="70%" height={14} />
           </View>
         </View>
-        <Skeleton width="100%" height={60} borderRadius={12} />
+        <Skeleton width="100%" height={60} borderRadius={16} />
       </View>
     </View>
   );

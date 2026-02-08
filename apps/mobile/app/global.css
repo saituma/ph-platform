@@ -16,6 +16,13 @@
 
   --color-border: #e2e8f0;
   --color-icon: #64748b;
+
+  --color-success: #0f9d78;
+  --color-success-soft: #e7f6f0;
+  --color-warning: #d97706;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fee2e2;
 }
 
 .dark {
@@ -32,6 +39,13 @@
 
   --color-border: #334155;
   --color-icon: #94a3b8;
+
+  --color-success: #34d399;
+  --color-success-soft: #064e3b;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #3f2a06;
+  --color-danger: #f87171;
+  --color-danger-soft: #3f1212;
 }
 
 .bg-app {
@@ -76,4 +90,40 @@
 
 .icon-color {
   color: var(--color-icon);
+}
+
+.bg-success {
+  background-color: var(--color-success);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.bg-success-soft {
+  background-color: var(--color-success-soft);
+}
+
+.bg-warning {
+  background-color: var(--color-warning);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+
+.bg-warning-soft {
+  background-color: var(--color-warning-soft);
+}
+
+.bg-danger {
+  background-color: var(--color-danger);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.bg-danger-soft {
+  background-color: var(--color-danger-soft);
 }

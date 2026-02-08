@@ -6,6 +6,7 @@ import Animated, {
     withRepeat,
     withTiming
 } from "react-native-reanimated";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 interface SkeletonProps {
   width?: number | string;
@@ -22,6 +23,7 @@ export function Skeleton({
   style,
   circle,
 }: SkeletonProps) {
+  const { colors } = useAppTheme();
   const opacity = useSharedValue(0.3);
 
   useEffect(() => {
@@ -41,12 +43,11 @@ export function Skeleton({
           width: width as any,
           height: height as any,
           borderRadius: circle ? 999 : borderRadius,
-          backgroundColor: "#E2E8F0", // Base color (will be overridden by theme classes if applied)
+          backgroundColor: colors.backgroundSecondary,
         },
         animatedStyle,
         style,
       ]}
-      className="bg-secondary opacity-20" // Uses theme class for colors
     />
   );
 }

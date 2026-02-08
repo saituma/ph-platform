@@ -5,9 +5,11 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 export default function HelpCenterScreen() {
   const router = useRouter();
+  const { colors } = useAppTheme();
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
@@ -43,12 +45,12 @@ export default function HelpCenterScreen() {
             <TextInput
               placeholder="Search help articles..."
               className="flex-1 font-outfit text-app"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.placeholder}
             />
           </View>
         </View>
 
-        <Text className="text-xs font-bold font-outfit text-gray-400 uppercase mb-4 ml-2 tracking-wider">
+        <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
           Categories
         </Text>
 
@@ -59,7 +61,7 @@ export default function HelpCenterScreen() {
           <HelpCategory icon="shield" label="Security" />
         </View>
 
-        <Text className="text-xs font-bold font-outfit text-gray-400 uppercase mb-4 ml-2 tracking-wider">
+        <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
           Popular Articles
         </Text>
         <View className="bg-input rounded-3xl overflow-hidden border border-app shadow-sm mb-8">

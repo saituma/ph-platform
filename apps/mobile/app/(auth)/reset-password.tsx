@@ -14,7 +14,7 @@ export default function ResetPasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const router = useRouter();
-  const { isDark } = useAppTheme();
+  const { colors } = useAppTheme();
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -24,7 +24,7 @@ export default function ResetPasswordScreen() {
           <Feather
             name="arrow-left"
             size={24}
-            color={isDark ? "#94a3b8" : "#64748b"}
+            color={colors.textSecondary}
           />
         </Pressable>
       </View>
@@ -52,12 +52,12 @@ export default function ResetPasswordScreen() {
             <Feather
               name="shield"
               size={20}
-              color={isDark ? "#94a3b8" : "#64748b"}
+              color={colors.textSecondary}
             />
             <TextInput
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="Verification Code"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.placeholder}
               keyboardType="number-pad"
               value={code}
               onChangeText={setCode}
@@ -65,11 +65,11 @@ export default function ResetPasswordScreen() {
           </View>
 
           <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
-            <Feather name="lock" size={20} color="#64748b" />
+            <Feather name="lock" size={20} color={colors.textSecondary} />
             <TextInput
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="New Password"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.placeholder}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -78,17 +78,17 @@ export default function ResetPasswordScreen() {
               <Feather
                 name={showPassword ? "eye" : "eye-off"}
                 size={20}
-                color={isDark ? "#94a3b8" : "#64748b"}
+                color={colors.textSecondary}
               />
             </Pressable>
           </View>
 
           <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
-            <Feather name="lock" size={20} color="#64748b" />
+            <Feather name="lock" size={20} color={colors.textSecondary} />
             <TextInput
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="Confirm New Password"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.placeholder}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
@@ -99,7 +99,7 @@ export default function ResetPasswordScreen() {
               <Feather
                 name={showConfirmPassword ? "eye" : "eye-off"}
                 size={20}
-                color={isDark ? "#94a3b8" : "#64748b"}
+                color={colors.textSecondary}
               />
             </Pressable>
           </View>

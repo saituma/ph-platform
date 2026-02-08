@@ -9,7 +9,6 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function MoreScreen() {
@@ -29,15 +28,15 @@ export default function MoreScreen() {
       >
         <View className="px-6 pt-6 pb-8 bg-input rounded-b-[40px] shadow-sm mb-6">
           <View className="flex-row items-center justify-between mb-8">
-            <Animated.Text
-              entering={FadeInDown.delay(100).springify()}
-              className="text-4xl font-clash text-app tracking-tight"
-            >
-              Settings
-            </Animated.Text>
-            <Animated.View entering={FadeInDown.delay(100).springify()}>
+            <View className="flex-row items-center gap-3">
+              <View className="h-6 w-1.5 rounded-full bg-accent" />
+              <Text className="text-4xl font-clash text-app tracking-tight">
+                Settings
+              </Text>
+            </View>
+            <View>
               <ThemeToggle />
-            </Animated.View>
+            </View>
           </View>
 
           {isLoading ? (
@@ -49,10 +48,7 @@ export default function MoreScreen() {
               </View>
             </View>
           ) : (
-            <Animated.View
-              entering={FadeInDown.delay(200).springify()}
-              className="flex-row items-center gap-5 mb-8"
-            >
+            <View className="flex-row items-center gap-5 mb-8">
               <View className="h-16 w-16 bg-secondary rounded-full items-center justify-center border border-app shadow-sm relative">
                 <Feather name="user" size={28} className="text-secondary" />
                 <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white" />
@@ -65,13 +61,13 @@ export default function MoreScreen() {
                   john.doe@example.com
                 </Text>
               </View>
-            </Animated.View>
+            </View>
           )}
 
           {!isLoading && (
-            <Animated.View entering={FadeInDown.delay(300).springify()}>
+            <View>
               <RoleSwitcher />
-            </Animated.View>
+            </View>
           )}
         </View>
 
@@ -95,10 +91,13 @@ export default function MoreScreen() {
             </View>
           ) : (
             <>
-              <Animated.View entering={FadeInDown.delay(400).springify()}>
-                <Text className="text-xs font-bold font-outfit text-gray-400 uppercase mb-3 ml-2 tracking-wider">
-                  Account
-                </Text>
+              <View>
+                <View className="flex-row items-center gap-3 mb-3 ml-2">
+                  <View className="h-4 w-1 rounded-full bg-accent" />
+                  <Text className="text-xs font-bold font-outfit text-secondary uppercase tracking-wider">
+                    Account
+                  </Text>
+                </View>
                 <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app">
                   <MenuItem
                     icon="user"
@@ -127,12 +126,15 @@ export default function MoreScreen() {
                     onPress={() => router.navigate("/privacy-security")}
                   />
                 </View>
-              </Animated.View>
+              </View>
 
-              <Animated.View entering={FadeInDown.delay(500).springify()}>
-                <Text className="text-xs font-bold font-outfit text-gray-400 uppercase mb-3 ml-2 tracking-wider">
-                  Support & About
-                </Text>
+              <View>
+                <View className="flex-row items-center gap-3 mb-3 ml-2">
+                  <View className="h-4 w-1 rounded-full bg-accent" />
+                  <Text className="text-xs font-bold font-outfit text-secondary uppercase tracking-wider">
+                    Support & About
+                  </Text>
+                </View>
                 <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app">
                   <MenuItem
                     icon="help-circle"
@@ -153,12 +155,15 @@ export default function MoreScreen() {
                     onPress={() => router.navigate("/about")}
                   />
                 </View>
-              </Animated.View>
+              </View>
 
-              <Animated.View entering={FadeInDown.delay(600).springify()}>
-                <Text className="text-xs font-bold font-outfit text-gray-400 uppercase mb-3 ml-2 tracking-wider">
-                  Legal
-                </Text>
+              <View>
+                <View className="flex-row items-center gap-3 mb-3 ml-2">
+                  <View className="h-4 w-1 rounded-full bg-accent" />
+                  <Text className="text-xs font-bold font-outfit text-secondary uppercase tracking-wider">
+                    Legal
+                  </Text>
+                </View>
                 <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app">
                   <MenuItem
                     icon="file-text"
@@ -173,10 +178,10 @@ export default function MoreScreen() {
                     onPress={() => router.navigate("/privacy-policy")}
                   />
                 </View>
-              </Animated.View>
+              </View>
             </>
           )}
-          <Animated.View entering={FadeInDown.delay(700).springify()}>
+          <View>
             <ActionButton
               label="Logout"
               icon="log-out"
@@ -185,14 +190,11 @@ export default function MoreScreen() {
               onPress={() => {}}
               fullWidth={true}
             />
-          </Animated.View>
+          </View>
 
-          <Animated.Text
-            entering={FadeInUp.delay(800).springify()}
-            className="text-center text-gray-300 font-outfit text-xs mt-2 mb-6"
-          >
+          <Text className="text-center text-gray-300 font-outfit text-xs mt-2 mb-6">
             Version 1.0.0 (Build 124)
-          </Animated.Text>
+          </Text>
         </View>
       </ThemedScrollView>
     </SafeAreaView>

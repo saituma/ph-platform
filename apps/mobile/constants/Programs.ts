@@ -12,6 +12,7 @@ export const PROGRAM_TIERS: ProgramTier[] = [
       "1-to-1 Booking entry",
     ],
     color: "bg-blue-600",
+    highlight: "Starter",
     icon: "activity",
   },
   {
@@ -25,7 +26,8 @@ export const PROGRAM_TIERS: ProgramTier[] = [
       "Nutrition & Food Diaries",
       "Physio Referral Discount",
     ],
-    color: "bg-purple-600",
+    color: "bg-success",
+    highlight: "Most Popular",
     icon: "plus-circle",
   },
   {
@@ -39,7 +41,8 @@ export const PROGRAM_TIERS: ProgramTier[] = [
       "Role Model Meetings",
       "Lift Lab 1:1 Booking",
     ],
-    color: "bg-amber-600",
+    color: "bg-warning",
+    highlight: "Elite",
     icon: "star",
   },
 ];

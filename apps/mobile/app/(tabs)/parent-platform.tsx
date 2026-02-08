@@ -2,7 +2,6 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const CATEGORIES = [
@@ -30,7 +29,7 @@ const CATEGORIES = [
     icon: "coffee",
     color: "bg-orange-500",
   },
-  { id: "5", title: "Training Load", icon: "bar-chart-2", color: "bg-red-500" },
+  { id: "5", title: "Training Load", icon: "bar-chart-2", color: "bg-danger" },
   {
     id: "6",
     title: "Mindset & Confidence",
@@ -62,12 +61,8 @@ export default function ParentPlatformScreen() {
         </View>
 
         <View className="flex-row flex-wrap justify-between">
-          {CATEGORIES.map((cat, index) => (
-            <Animated.View
-              key={cat.id}
-              entering={FadeInDown.delay(index * 100).springify()}
-              className="w-[48%] mb-4"
-            >
+          {CATEGORIES.map((cat) => (
+            <View key={cat.id} className="w-[48%] mb-4">
               <TouchableOpacity
                 activeOpacity={0.7}
                 className="bg-input border border-app rounded-[24px] p-5 shadow-sm h-40 justify-between"
@@ -81,7 +76,7 @@ export default function ParentPlatformScreen() {
                   {cat.title}
                 </Text>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           ))}
         </View>
 

@@ -5,9 +5,9 @@ import { Platform, Pressable, View } from "react-native";
 import Animated, {
   Extrapolate,
   interpolate,
+  interpolateColor,
   SharedValue,
   useAnimatedStyle,
-  withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -42,18 +42,30 @@ const TabItem = React.memo(
     scrollOffset,
     colors,
   }: TabItemProps) => {
+    const activeBgStyle = useAnimatedStyle(() => {
+      if (!scrollOffset) {
+        return {
+          opacity: index === activeIndex ? 1 : 0,
+        };
+      }
+
+      const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
+      const opacity = interpolate(distance, [0, 1], [1, 0], Extrapolate.CLAMP);
+      return { opacity };
+    }, [scrollOffset, index, activeIndex]);
+
     const iconAnimatedStyle = useAnimatedStyle(() => {
       if (!scrollOffset) {
         const active = index === activeIndex;
         return {
-          transform: [{ scale: active ? 1.2 : 1 }],
+          transform: [{ scale: active ? 1.1 : 1 }],
           opacity: active ? 1 : 0.6,
         };
       }
 
       const distance = Math.abs(scrollOffset.value - index);
 
-      const scale = interpolate(distance, [0, 1], [1.2, 1], Extrapolate.CLAMP);
+      const scale = interpolate(distance, [0, 1], [1.1, 1], Extrapolate.CLAMP);
 
       const opacity = interpolate(
         distance,
@@ -67,6 +79,26 @@ const TabItem = React.memo(
         opacity,
       };
     }, [scrollOffset, index, activeIndex]);
+
+    const textAnimatedStyle = useAnimatedStyle(() => {
+      if (!scrollOffset) {
+        const active = index === activeIndex;
+        return {
+          color: active ? colors.tint : colors.textSecondary,
+          opacity: active ? 1 : 0.7,
+        };
+      }
+
+      const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
+      const color = interpolateColor(
+        distance,
+        [0, 1],
+        [colors.tint, colors.textSecondary],
+      );
+      const opacity = interpolate(distance, [0, 1], [1, 0.7], Extrapolate.CLAMP);
+
+      return { color, opacity };
+    }, [scrollOffset, index, activeIndex, colors]);
 
     const activeTintStyle = useAnimatedStyle(() => {
       if (!scrollOffset) return { opacity: index === activeIndex ? 1 : 0 };
@@ -92,16 +124,66 @@ const TabItem = React.memo(
       return { opacity };
     });
 
+    const indicatorStyle = useAnimatedStyle(() => {
+      if (!scrollOffset) {
+        return {
+          width: index === activeIndex ? 20 : 8,
+          opacity: index === activeIndex ? 1 : 0.35,
+          backgroundColor:
+            index === activeIndex ? colors.tint : colors.textSecondary,
+        };
+      }
+
+      const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
+      const width = interpolate(distance, [0, 1], [20, 8], Extrapolate.CLAMP);
+      const opacity = interpolate(
+        distance,
+        [0, 1],
+        [1, 0.35],
+        Extrapolate.CLAMP,
+      );
+      const backgroundColor = interpolateColor(
+        distance,
+        [0, 1],
+        [colors.tint, colors.textSecondary],
+      );
+
+      return { width, opacity, backgroundColor };
+    }, [scrollOffset, index, activeIndex, colors]);
+
     return (
       <Pressable
         onPress={() => onTabPress(index)}
-        style={{
-          flex: 1,
+        style={({ pressed }) => ({
+          flexGrow: 1,
+          flexBasis: 0,
+          height: 52,
+          marginHorizontal: 0,
+          borderRadius: 16,
           alignItems: "center",
           justifyContent: "center",
-          paddingTop: 8,
-        }}
+          paddingTop: 6,
+          opacity: pressed ? 0.9 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+        })}
       >
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: -8,
+              right: -8,
+              borderRadius: 16,
+              backgroundColor: colors.accentLight,
+              borderWidth: 1,
+              borderColor: colors.border,
+            },
+            activeBgStyle,
+          ]}
+        />
         <Animated.View
           style={[
             iconAnimatedStyle,
@@ -115,10 +197,14 @@ const TabItem = React.memo(
           ]}
         >
           <Animated.View style={[activeTintStyle, { position: "absolute" }]}>
-            <Feather name={tab.icon} size={22} color={colors.tint} />
+            <Feather name={tab.icon} size={24} color={colors.tint} />
           </Animated.View>
           <Animated.View style={[inactiveTintStyle, { position: "absolute" }]}>
-            <Feather name={tab.icon} size={22} color="#64748b" />
+            <Feather
+              name={tab.icon}
+              size={24}
+              color={colors.tabIconDefault}
+            />
           </Animated.View>
         </Animated.View>
 
@@ -126,15 +212,27 @@ const TabItem = React.memo(
           style={[
             {
               fontFamily: "Outfit-Medium",
-              fontSize: 10,
-              color: "#64748b",
+              fontSize: 11,
               marginTop: 2,
             },
             iconAnimatedStyle,
+            textAnimatedStyle,
           ]}
         >
           {tab.label}
         </Animated.Text>
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              height: 4,
+              marginTop: 4,
+              borderRadius: 999,
+            },
+            indicatorStyle,
+          ]}
+        />
       </Pressable>
     );
   },
@@ -146,70 +244,39 @@ export function TabBar({
   onTabPress,
   scrollOffset,
 }: TabBarProps) {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-
-  const tabWidth = 100 / tabs.length;
-
-  const indicatorStyle = useAnimatedStyle(() => {
-    if (scrollOffset) {
-      const position = scrollOffset.value;
-      const progress = position % 1;
-      const index = Math.floor(position);
-
-      const leadingEdge = interpolate(
-        progress,
-        [0, 0.5, 1],
-        [0, 1, 1],
-        Extrapolate.CLAMP,
-      );
-
-      const trailingEdge = interpolate(
-        progress,
-        [0, 0.5, 1],
-        [0, 0, 1],
-        Extrapolate.CLAMP,
-      );
-
-      return {
-        left: `${(index + trailingEdge) * tabWidth}%`,
-        width: `${(leadingEdge - trailingEdge + 1) * tabWidth}%`,
-      };
-    }
-    return {
-      left: withSpring(`${activeIndex * tabWidth}%`, {
-        damping: 20,
-        stiffness: 200,
-      }),
-      width: `${tabWidth}%`,
-    };
-  }, [activeIndex, tabWidth, scrollOffset]);
 
   return (
     <View
       style={{
         backgroundColor: colors.background,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-        paddingBottom: insets.bottom,
-        height: (Platform.OS === "ios" ? 56 : 60) + insets.bottom,
+        paddingHorizontal: 12,
+        paddingTop: 8,
+        paddingBottom: 8 + insets.bottom,
+        width: "100%",
+        alignSelf: "stretch",
       }}
     >
-      <Animated.View
-        style={[
-          {
-            position: "absolute",
-            top: 0,
-            height: 2,
-            backgroundColor: colors.tint,
-          },
-          indicatorStyle,
-        ]}
-      />
       <View
         style={{
+          position: "relative",
           flexDirection: "row",
+          width: "100%",
+          alignSelf: "stretch",
           height: Platform.OS === "ios" ? 56 : 60,
+          backgroundColor: colors.backgroundSecondary,
+          borderRadius: 24,
+          borderWidth: 1,
+          borderColor: colors.border,
+          justifyContent: "space-between",
+          alignItems: "center",
+          paddingHorizontal: 6,
+          shadowColor: "#0F172A",
+          shadowOpacity: isDark ? 0 : 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: isDark ? 0 : 6,
         }}
       >
         {tabs.map((tab, index) => (

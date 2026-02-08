@@ -10,7 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 export function ThemeToggle() {
-  const { isDark, toggleColorScheme } = useAppTheme();
+  const { isDark, toggleColorScheme, colors } = useAppTheme();
   const transition = useSharedValue(isDark ? 1 : 0);
 
   useEffect(() => {
@@ -46,10 +46,10 @@ export function ThemeToggle() {
       className="w-12 h-12 items-center justify-center bg-secondary rounded-full border border-app shadow-sm relative overflow-hidden"
     >
       <Animated.View style={[sunStyle, { position: "absolute" }]}>
-        <Feather name="sun" size={24} color="#f59e0b" />
+        <Feather name="sun" size={24} color={colors.themeToggleIcon} />
       </Animated.View>
       <Animated.View style={[moonStyle, { position: "absolute" }]}>
-        <Feather name="moon" size={24} color="#6366f1" />
+        <Feather name="moon" size={24} color={colors.accent} />
       </Animated.View>
     </Pressable>
   );

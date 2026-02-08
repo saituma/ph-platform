@@ -6,10 +6,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { cssInterop } from "nativewind";
 
 function interopIcon(IconSet: any, name: string) {
-  if (!IconSet) {
-    console.warn(`Icon set ${name} is undefined`);
-    return;
-  }
+  if (!IconSet) return;
 
   try {
     const Component = IconSet;
@@ -23,7 +20,7 @@ function interopIcon(IconSet: any, name: string) {
       },
     });
   } catch (e) {
-    console.warn(`Could not apply cssInterop to ${name}:`, e);
+    // Swallow nativewind interop errors to avoid noisy console warnings.
   }
 }
 
@@ -40,4 +37,3 @@ export {
   MaterialCommunityIcons,
   MaterialIcons
 };
-
