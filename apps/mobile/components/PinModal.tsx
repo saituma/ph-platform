@@ -97,7 +97,7 @@ export function PinModal({
             </Text>
             <Text className="text-secondary font-outfit text-center">
               {error ? (
-                <Text className="text-red-500 font-medium">{error}</Text>
+                <Text className="text-danger font-medium">{error}</Text>
               ) : (
                 subtitle
               )}

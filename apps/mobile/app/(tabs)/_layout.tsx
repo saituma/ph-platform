@@ -2,7 +2,8 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { SwipeableTabLayout, TabConfig } from "@/components/navigation";
 import { useRole } from "@/context/RoleContext";
 import { Slot, usePathname, useRouter, useSegments } from "expo-router";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { InteractionManager, Platform } from "react-native";
 
 import HomeScreen from "./index";
 import MessagesScreen from "./messages";
@@ -35,6 +36,7 @@ export default function TabLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
+  const pendingNavToken = useRef(0);
 
   const isOnboarding =
     segments.some((segment) => segment === "onboarding") ||
@@ -59,9 +61,13 @@ export default function TabLayout() {
   }, [pathname, visibleTabs]);
 
   const handleIndexChange = useCallback(
-    (index: number) => {
+    (index: number, source: "swipe" | "press" | "sync") => {
       const tab = visibleTabs[index];
       if (!tab) return;
+
+      if (source === "swipe") {
+        return;
+      }
 
       // Extract current tab key to avoid redundant navigation
       const relativePart = pathname.replace(/^\/\(tabs\)\/?/, "");
@@ -69,7 +75,17 @@ export default function TabLayout() {
 
       if (tab.key !== currentTabKey) {
         const path = tab.key === "index" ? "/(tabs)" : `/(tabs)/${tab.key}`;
-        router.replace(path as any);
+        // Avoid native flicker by not replacing the route on device.
+        if (Platform.OS !== "web") {
+          return;
+        }
+
+        // Defer navigation so the gesture stays responsive.
+        const token = ++pendingNavToken.current;
+        InteractionManager.runAfterInteractions(() => {
+          if (token !== pendingNavToken.current) return;
+          router.replace(path as any);
+        });
       }
     },
     [visibleTabs, router, pathname],

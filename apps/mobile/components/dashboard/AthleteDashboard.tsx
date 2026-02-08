@@ -2,14 +2,13 @@ import { Feather } from "@/components/ui/theme-icons";
 import { useRefreshContext } from "@/context/RefreshContext";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import Animated, { FadeInDown, FadeInRight } from "react-native-reanimated";
 
 export function AthleteDashboard() {
   const { isLoading } = useRefreshContext();
 
   return (
-    <View className="gap-6">
-      <Animated.View entering={FadeInDown.delay(200).duration(800).springify()}>
+    <View className="gap-8">
+      <View>
         {isLoading ? (
           <View className="bg-input p-6 rounded-[40px] h-60 justify-center border border-app shadow-sm" />
         ) : (
@@ -59,14 +58,17 @@ export function AthleteDashboard() {
             </TouchableOpacity>
           </View>
         )}
-      </Animated.View>
+      </View>
 
       {/* 📊 High-Performance Metrics */}
       <View>
         <View className="flex-row justify-between items-center mb-5 px-1">
-          <Text className="text-xl font-bold font-clash text-app">
-            Live Feed <Text className="text-accent">Stats</Text>
-          </Text>
+          <View className="flex-row items-center gap-3">
+            <View className="h-6 w-1.5 rounded-full bg-accent" />
+            <Text className="text-xl font-bold font-clash text-app">
+              Live Feed <Text className="text-accent">Stats</Text>
+            </Text>
+          </View>
           <TouchableOpacity>
             <Text className="text-accent font-medium text-xs font-outfit">
               Detailed Analysis
@@ -74,7 +76,7 @@ export function AthleteDashboard() {
           </TouchableOpacity>
         </View>
 
-        <View className="flex-row gap-3">
+        <View className="flex-row flex-wrap gap-3">
           <MetricCard
             label="Win Rate"
             value="88%"
@@ -86,13 +88,19 @@ export function AthleteDashboard() {
             label="Stamina"
             value="92"
             icon="heart"
-            color="bg-rose-500"
+            color="bg-danger"
           />
           <StatusTile
             label="Energy"
             value="100"
             icon="zap"
-            color="bg-amber-400"
+            color="bg-warning"
+          />
+          <StatusTile
+            label="Focus"
+            value="78"
+            icon="target"
+            color="bg-success"
           />
         </View>
       </View>
@@ -111,16 +119,16 @@ function MissionTag({ icon, label }: { icon: any; label: string }) {
 
 function MetricCard({ label, value, trend, good, icon }: any) {
   return (
-    <View className="bg-input p-5 rounded-[28px] border border-app shadow-sm flex-1 min-h-[140px] justify-between">
+    <View className="bg-input p-5 rounded-[28px] border border-app shadow-sm w-[48%] min-h-[140px] justify-between">
       <View className="flex-row justify-between items-start">
         <View className="bg-accent/10 p-2.5 rounded-xl">
           <Feather name={icon} size={18} className="text-accent" />
         </View>
         <View
-          className={`px-2 py-0.5 rounded-lg ${good ? "bg-emerald-500/10" : "bg-rose-500/10"}`}
+          className={`px-2 py-0.5 rounded-lg ${good ? "bg-success-soft" : "bg-danger-soft"}`}
         >
           <Text
-            className={`text-[10px] font-bold ${good ? "text-emerald-500" : "text-rose-500"}`}
+            className={`text-[10px] font-bold ${good ? "text-success" : "text-danger"}`}
           >
             {trend}
           </Text>
@@ -138,7 +146,7 @@ function MetricCard({ label, value, trend, good, icon }: any) {
 
 function StatusTile({ label, value, icon, color }: any) {
   return (
-    <View className="bg-input p-5 rounded-[28px] border border-app shadow-sm w-24 items-center justify-between">
+    <View className="bg-input p-4 rounded-[24px] border border-app shadow-sm w-[48%] h-[96px] items-center justify-between">
       <View
         className={`${color} w-10 h-10 rounded-2xl items-center justify-center shadow-lg shadow-app/5`}
       >
@@ -167,14 +175,11 @@ function PremiumBadge({
     Common: "bg-slate-400",
     Rare: "bg-blue-500",
     Epic: "bg-purple-500",
-    Legendary: "bg-amber-400",
+    Legendary: "bg-warning",
   };
 
   return (
-    <Animated.View
-      entering={FadeInRight.delay(100).duration(800).springify()}
-      className="items-center"
-    >
+    <View className="items-center">
       <View className="relative">
         <View
           className={`${rarityColors[rarity]} w-20 h-20 rounded-[28px] items-center justify-center shadow-xl shadow-app/10 mb-3 border-4 border-white`}
@@ -188,6 +193,6 @@ function PremiumBadge({
         </View>
       </View>
       <Text className="text-app font-bold font-outfit text-xs">{label}</Text>
-    </Animated.View>
+    </View>
   );
 }

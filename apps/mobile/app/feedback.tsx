@@ -12,9 +12,11 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 export default function FeedbackScreen() {
   const router = useRouter();
+  const { colors } = useAppTheme();
   const [feedback, setFeedback] = useState("");
   const [category, setCategory] = useState("Bug Report");
 
@@ -64,7 +66,7 @@ export default function FeedbackScreen() {
             </Text>
           </View>
 
-          <Text className="text-xs font-bold font-outfit text-gray-400 uppercase mb-4 ml-2 tracking-wider">
+          <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
             Select Category
           </Text>
           <View className="flex-row flex-wrap gap-2 mb-8">
@@ -89,14 +91,14 @@ export default function FeedbackScreen() {
             ))}
           </View>
 
-          <Text className="text-xs font-bold font-outfit text-gray-400 uppercase mb-4 ml-2 tracking-wider">
+          <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
             Your Message
           </Text>
           <View className="bg-input border border-app rounded-3xl p-5 mb-8 shadow-inner min-h-[200px]">
             <TextInput
               multiline
               placeholder="What's on your mind?..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.placeholder}
               value={feedback}
               onChangeText={setFeedback}
               className="font-outfit text-app text-base"

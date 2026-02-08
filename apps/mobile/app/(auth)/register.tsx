@@ -31,7 +31,7 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const router = useRouter();
-  const { isDark, toggleColorScheme } = useAppTheme();
+  const { isDark, toggleColorScheme, colors } = useAppTheme();
 
   const {
     control,
@@ -61,7 +61,7 @@ export default function RegisterScreen() {
           <Feather
             name={isDark ? "sun" : "moon"}
             size={24}
-            color={isDark ? "#FCD34D" : "#4F46E5"}
+            color={colors.themeToggleIcon}
           />
         </Pressable>
       </View>
@@ -87,12 +87,12 @@ export default function RegisterScreen() {
         <View className="space-y-4 gap-4 mb-6">
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.name ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.name ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="user"
                 size={20}
-                color={errors.name ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"}
+                color={errors.name ? colors.danger : colors.textSecondary}
               />
               <Controller
                 control={control}
@@ -101,7 +101,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Full Name"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -112,7 +112,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.name && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.name.message}
               </Text>
             )}
@@ -120,14 +120,12 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.email ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.email ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="mail"
                 size={20}
-                color={
-                  errors.email ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"
-                }
+                color={errors.email ? colors.danger : colors.textSecondary}
               />
               <Controller
                 control={control}
@@ -136,7 +134,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Email Address"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -148,7 +146,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.email && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.email.message}
               </Text>
             )}
@@ -156,14 +154,12 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.password ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.password ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="lock"
                 size={20}
-                color={
-                  errors.password ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"
-                }
+                color={errors.password ? colors.danger : colors.textSecondary}
               />
               <Controller
                 control={control}
@@ -172,7 +168,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Password"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -186,12 +182,12 @@ export default function RegisterScreen() {
                 <Feather
                   name={showPassword ? "eye" : "eye-off"}
                   size={20}
-                  color={isDark ? "#94a3b8" : "#64748b"}
+                  color={colors.textSecondary}
                 />
               </Pressable>
             </View>
             {errors.password && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.password.message}
               </Text>
             )}
@@ -199,17 +195,15 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.confirmPassword ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.confirmPassword ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="lock"
                 size={20}
                 color={
                   errors.confirmPassword
-                    ? "#ef4444"
-                    : isDark
-                      ? "#94a3b8"
-                      : "#64748b"
+                    ? colors.danger
+                    : colors.textSecondary
                 }
               />
               <Controller
@@ -219,7 +213,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Confirm Password"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -235,12 +229,12 @@ export default function RegisterScreen() {
                 <Feather
                   name={showConfirmPassword ? "eye" : "eye-off"}
                   size={20}
-                  color={isDark ? "#94a3b8" : "#64748b"}
+                  color={colors.textSecondary}
                 />
               </Pressable>
             </View>
             {errors.confirmPassword && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.confirmPassword.message}
               </Text>
             )}
@@ -280,7 +274,7 @@ export default function RegisterScreen() {
             )}
           />
           {errors.isChecked && (
-            <Text className="text-red-500 text-xs font-outfit ml-2 mt-[-24] mb-8">
+            <Text className="text-danger text-xs font-outfit ml-2 mt-[-24] mb-8">
               {errors.isChecked.message}
             </Text>
           )}

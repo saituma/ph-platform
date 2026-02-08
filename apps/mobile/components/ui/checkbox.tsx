@@ -22,7 +22,7 @@ export function Checkbox({ checked, onChange, label, error }: CheckboxProps) {
             checked
               ? "bg-accent border-accent"
               : error
-                ? "border-red-500 bg-transparent"
+                ? "border-danger bg-transparent"
                 : "border-app bg-transparent"
           }`}
         >
@@ -41,7 +41,7 @@ export function Checkbox({ checked, onChange, label, error }: CheckboxProps) {
         )}
       </View>
       {error && (
-        <Text className="text-red-500 text-xs font-outfit ml-9 mt-1">
+        <Text className="text-danger text-xs font-outfit ml-9 mt-1">
           {error}
         </Text>
       )}

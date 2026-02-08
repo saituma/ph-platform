@@ -9,7 +9,7 @@ import { useAppTheme } from "../theme/AppThemeProvider";
 export default function VerifyScreen() {
   const [otp, setOtp] = useState("");
   const router = useRouter();
-  const { isDark } = useAppTheme();
+  const { colors } = useAppTheme();
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -18,7 +18,7 @@ export default function VerifyScreen() {
           <Feather
             name="arrow-left"
             size={24}
-            color={isDark ? "#94a3b8" : "#64748b"}
+            color={colors.textSecondary}
           />
         </Pressable>
       </View>
@@ -45,12 +45,12 @@ export default function VerifyScreen() {
           <Feather
             name="shield"
             size={20}
-            color={isDark ? "#94a3b8" : "#64748b"}
+            color={colors.textSecondary}
           />
           <TextInput
             className="flex-1 ml-3 text-app text-xl font-outfit tracking-widest"
             placeholder="000000"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.placeholder}
             value={otp}
             onChangeText={setOtp}
             keyboardType="number-pad"

@@ -30,7 +30,7 @@ type AthleteRegisterFormData = z.infer<typeof athleteRegisterSchema>;
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const { setRole } = useRole();
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -79,7 +79,7 @@ export default function RegisterScreen() {
           <Feather
             name="arrow-left"
             size={24}
-            color={isDark ? "#94a3b8" : "#64748b"}
+            color={colors.textSecondary}
           />
         </Pressable>
       </View>
@@ -105,12 +105,12 @@ export default function RegisterScreen() {
         <View className="gap-4 mb-8">
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.name ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.name ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="user"
                 size={20}
-                color={errors.name ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"}
+                color={errors.name ? colors.danger : colors.textSecondary}
               />
               <Controller
                 control={control}
@@ -119,7 +119,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Athlete Name"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -129,7 +129,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.name && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.name.message}
               </Text>
             )}
@@ -137,12 +137,12 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.age ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.age ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="calendar"
                 size={20}
-                color={errors.age ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"}
+                color={errors.age ? colors.danger : colors.textSecondary}
               />
               <Controller
                 control={control}
@@ -151,7 +151,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Age"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -161,7 +161,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.age && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.age.message}
               </Text>
             )}
@@ -169,12 +169,12 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.team ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.team ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="users"
                 size={20}
-                color={errors.team ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"}
+                color={errors.team ? colors.danger : colors.textSecondary}
               />
               <Controller
                 control={control}
@@ -183,7 +183,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Team and Level"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -192,7 +192,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.team && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.team.message}
               </Text>
             )}
@@ -200,17 +200,15 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.trainingDaysPerWeek ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.trainingDaysPerWeek ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="activity"
                 size={20}
                 color={
                   errors.trainingDaysPerWeek
-                    ? "#ef4444"
-                    : isDark
-                      ? "#94a3b8"
-                      : "#64748b"
+                    ? colors.danger
+                    : colors.textSecondary
                 }
               />
               <Controller
@@ -220,7 +218,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Training days per week"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -230,7 +228,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.trainingDaysPerWeek && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.trainingDaysPerWeek.message}
               </Text>
             )}
@@ -238,13 +236,13 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.injuries ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.injuries ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="alert-circle"
                 size={20}
                 color={
-                  errors.injuries ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"
+                  errors.injuries ? colors.danger : colors.textSecondary
                 }
               />
               <Controller
@@ -254,7 +252,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Current or previous injuries"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -263,7 +261,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.injuries && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.injuries.message}
               </Text>
             )}
@@ -273,7 +271,7 @@ export default function RegisterScreen() {
             <Feather
               name="file-text"
               size={20}
-              color={isDark ? "#94a3b8" : "#64748b"}
+              color={colors.textSecondary}
               style={{ marginTop: 2 }}
             />
             <Controller
@@ -283,7 +281,7 @@ export default function RegisterScreen() {
                 <TextInput
                   className="flex-1 ml-3 text-app text-base font-outfit leading-5"
                   placeholder="Growth notes (optional)"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={colors.placeholder}
                   onBlur={onBlur}
                   onChangeText={onChange}
                   value={value}
@@ -297,17 +295,15 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-start pt-4 bg-input border ${errors.performanceGoals ? "border-red-500" : "border-app"} rounded-xl px-4 min-h-[56px] h-auto`}
+              className={`flex-row items-start pt-4 bg-input border ${errors.performanceGoals ? "border-danger" : "border-app"} rounded-xl px-4 min-h-[56px] h-auto`}
             >
               <Feather
                 name="target"
                 size={20}
                 color={
                   errors.performanceGoals
-                    ? "#ef4444"
-                    : isDark
-                      ? "#94a3b8"
-                      : "#64748b"
+                    ? colors.danger
+                    : colors.textSecondary
                 }
                 style={{ marginTop: 2 }}
               />
@@ -318,7 +314,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit leading-5"
                     placeholder="Performance goals"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -330,7 +326,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.performanceGoals && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.performanceGoals.message}
               </Text>
             )}
@@ -338,17 +334,15 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.equipmentAccess ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.equipmentAccess ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="tool"
                 size={20}
                 color={
                   errors.equipmentAccess
-                    ? "#ef4444"
-                    : isDark
-                      ? "#94a3b8"
-                      : "#64748b"
+                    ? colors.danger
+                    : colors.textSecondary
                 }
               />
               <Controller
@@ -358,7 +352,7 @@ export default function RegisterScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Equipment access"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -367,7 +361,7 @@ export default function RegisterScreen() {
               />
             </View>
             {errors.equipmentAccess && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.equipmentAccess.message}
               </Text>
             )}

@@ -6,7 +6,7 @@ import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "nativewind";
 import React, { useEffect, useState } from "react";
-import { Platform, View } from "react-native";
+import { LogBox, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
@@ -14,6 +14,21 @@ import useLoadFonts from "./hooks/useLoadFonts";
 import AppThemeProvider from "./theme/AppThemeProvider";
 
 SplashScreen.preventAutoHideAsync();
+
+LogBox.ignoreLogs([
+  "SafeAreaView has been deprecated",
+]);
+
+if (__DEV__) {
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    const firstArg = typeof args[0] === "string" ? args[0] : "";
+    if (firstArg.includes("SafeAreaView has been deprecated")) {
+      return;
+    }
+    originalWarn(...args);
+  };
+}
 
 if (Platform.OS === "web") {
   require("./fonts.css");

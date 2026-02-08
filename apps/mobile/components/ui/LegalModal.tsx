@@ -17,7 +17,7 @@ export function LegalModal({
   title,
   children,
 }: LegalModalProps) {
-  const { isDark } = useAppTheme();
+  const { colors } = useAppTheme();
 
   return (
     <Modal
@@ -39,7 +39,7 @@ export function LegalModal({
               <Feather
                 name="x"
                 size={16}
-                color={isDark ? "#94a3b8" : "#64748b"}
+                color={colors.textSecondary}
               />
             </Pressable>
           </View>

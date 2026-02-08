@@ -9,7 +9,7 @@ import { useAppTheme } from "../theme/AppThemeProvider";
 export default function ForgotScreen() {
   const [email, setEmail] = useState("");
   const router = useRouter();
-  const { isDark } = useAppTheme();
+  const { colors } = useAppTheme();
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -18,7 +18,7 @@ export default function ForgotScreen() {
           <Feather
             name="arrow-left"
             size={24}
-            color={isDark ? "#94a3b8" : "#64748b"}
+            color={colors.textSecondary}
           />
         </Pressable>
       </View>
@@ -46,12 +46,12 @@ export default function ForgotScreen() {
           <Feather
             name="mail"
             size={20}
-            color={isDark ? "#94a3b8" : "#64748b"}
+            color={colors.textSecondary}
           />
           <TextInput
             className="flex-1 ml-3 text-app text-base font-outfit"
             placeholder="Email Address"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.placeholder}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"

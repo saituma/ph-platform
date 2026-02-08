@@ -19,7 +19,7 @@ interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
   children: React.ReactNode[];
   initialIndex?: number;
-  onIndexChange?: (index: number) => void;
+  onIndexChange?: (index: number, source: "swipe" | "press" | "sync") => void;
 }
 
 export function SwipeableTabLayout({
@@ -33,61 +33,80 @@ export function SwipeableTabLayout({
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
 
-  const [isSettled, setIsSettled] = useState(true);
-
   const scrollOffset = useSharedValue(initialIndex);
 
   const lastSelectedIndex = useRef(initialIndex);
-  const prevInitialIndex = useRef(initialIndex);
+  const lastNotifiedIndex = useRef(initialIndex);
+  const lastInitialIndex = useRef(initialIndex);
+  const lastChangeSourceRef = useRef<"swipe" | "press" | "sync">("sync");
 
   const isSyncingRef = useRef(false);
+  const isUserSwipingRef = useRef(false);
 
   const staticInitialPage = useRef(initialIndex);
 
   useEffect(() => {
-    const hasExternalChange = initialIndex !== lastSelectedIndex.current;
-
-    if (hasExternalChange) {
-      setActiveIndex(initialIndex);
-      lastSelectedIndex.current = initialIndex;
-
-      if (isSettled && !isSyncingRef.current) {
-        pagerRef.current?.setPageWithoutAnimation(initialIndex);
-      }
+    if (initialIndex === lastInitialIndex.current) {
+      return;
     }
 
-    prevInitialIndex.current = initialIndex;
-  }, [initialIndex, isSettled]);
+    lastInitialIndex.current = initialIndex;
+    const needsSync = initialIndex !== activeIndex;
+    if (!needsSync) return;
+    if (isUserSwipingRef.current || isSyncingRef.current) return;
+
+    setActiveIndex(initialIndex);
+    lastSelectedIndex.current = initialIndex;
+    lastNotifiedIndex.current = initialIndex;
+
+    pagerRef.current?.setPageWithoutAnimation(initialIndex);
+  }, [initialIndex, activeIndex]);
 
   const handlePageScrollStateChanged = useCallback(
     (e: PageScrollStateChangedNativeEvent) => {
       const state = e.nativeEvent.pageScrollState;
       const idle = state === "idle";
+      const dragging = state === "dragging";
 
       if (idle) {
-        setIsSettled(true);
         isSyncingRef.current = false;
+        isUserSwipingRef.current = false;
+        lastChangeSourceRef.current = "sync";
+        return;
+      }
 
-        if (lastSelectedIndex.current !== initialIndex) {
-          onIndexChange?.(lastSelectedIndex.current);
-        }
-      } else {
-        setIsSettled(false);
+      if (dragging) {
+        isUserSwipingRef.current = true;
+        lastChangeSourceRef.current = "swipe";
       }
     },
-    [initialIndex, onIndexChange],
+    [],
   );
 
-  const handlePageSelected = useCallback((e: PagerViewOnPageSelectedEvent) => {
-    const index = e.nativeEvent.position;
-    lastSelectedIndex.current = index;
-    setActiveIndex(index);
-  }, []);
+  const handlePageSelected = useCallback(
+    (e: PagerViewOnPageSelectedEvent) => {
+      const index = e.nativeEvent.position;
+      lastSelectedIndex.current = index;
+      setActiveIndex(index);
 
-  const handlePageScroll = (e: PagerViewOnPageScrollEvent) => {
-    "worklet";
-    scrollOffset.value = e.nativeEvent.position + e.nativeEvent.offset;
-  };
+      if (lastNotifiedIndex.current !== index) {
+        lastNotifiedIndex.current = index;
+        const source =
+          lastChangeSourceRef.current ||
+          (isUserSwipingRef.current ? "swipe" : "sync");
+        onIndexChange?.(index, source);
+        lastChangeSourceRef.current = "sync";
+      }
+    },
+    [onIndexChange],
+  );
+
+  const handlePageScroll = useCallback(
+    (e: PagerViewOnPageScrollEvent) => {
+      scrollOffset.value = e.nativeEvent.position + e.nativeEvent.offset;
+    },
+    [scrollOffset],
+  );
 
   const handleTabPress = (index: number) => {
     if (index === lastSelectedIndex.current) return;
@@ -99,6 +118,7 @@ export function SwipeableTabLayout({
       .catch(() => {});
 
     isSyncingRef.current = true;
+    lastChangeSourceRef.current = "press";
     pagerRef.current?.setPage(index);
     setActiveIndex(index);
     lastSelectedIndex.current = index;
@@ -128,8 +148,8 @@ export function SwipeableTabLayout({
         onPageScroll={handlePageScroll}
         onPageScrollStateChanged={handlePageScrollStateChanged}
         scrollEnabled={true}
-        overdrag={true}
-        offscreenPageLimit={1}
+        overdrag={false}
+        offscreenPageLimit={Math.min(4, Math.max(1, tabs.length - 1))}
       >
         {pagerChildren}
       </PagerView>

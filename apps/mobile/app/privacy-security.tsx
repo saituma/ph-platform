@@ -5,9 +5,11 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 export default function PrivacySecurityScreen() {
   const router = useRouter();
+  const { isDark } = useAppTheme();
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
@@ -34,16 +36,32 @@ export default function PrivacySecurityScreen() {
           paddingBottom: 40,
         }}
       >
-        <View className="mb-8">
-          <Text className="text-3xl font-clash text-app mb-2">
-            Account Safety
-          </Text>
+        <View className="mb-6">
+          <View className="flex-row items-center gap-3 mb-3">
+            <View className="h-6 w-1.5 rounded-full bg-accent" />
+            <Text className="text-3xl font-clash text-app">
+              Account Safety
+            </Text>
+          </View>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
             Manage your data, passwords, and two-factor authentication.
           </Text>
         </View>
 
-        <View className="bg-input rounded-[32px] overflow-hidden border border-app shadow-sm mb-8">
+        <View
+          className="bg-input rounded-[32px] overflow-hidden border border-app shadow-sm mb-6"
+          style={
+            isDark
+              ? undefined
+              : {
+                  shadowColor: "#0F172A",
+                  shadowOpacity: 0.08,
+                  shadowRadius: 12,
+                  shadowOffset: { width: 0, height: 6 },
+                  elevation: 6,
+                }
+          }
+        >
           <SecurityLink label="Change Password" icon="key" onPress={() => {}} />
           <SecurityLink
             label="Two-Factor Authentication"
@@ -63,13 +81,26 @@ export default function PrivacySecurityScreen() {
           />
         </View>
 
-        <View className="bg-red-50 dark:bg-red-950/20 rounded-[32px] overflow-hidden border border-red-100 dark:border-red-900/30 p-2 mb-8">
+        <View
+          className="bg-red-50 dark:bg-red-950/20 rounded-[32px] overflow-hidden border border-red-100 dark:border-red-900/30 p-2 mb-8"
+          style={
+            isDark
+              ? undefined
+              : {
+                  shadowColor: "#0F172A",
+                  shadowOpacity: 0.08,
+                  shadowRadius: 12,
+                  shadowOffset: { width: 0, height: 6 },
+                  elevation: 6,
+                }
+          }
+        >
           <SecurityLink
             label="Delete Account"
             icon="trash-2"
             onPress={() => {}}
             isLast
-            color="text-red-500"
+            color="text-danger"
           />
         </View>
 
@@ -103,8 +134,8 @@ function SecurityLink({
       onPress={onPress}
       className={`flex-row items-center p-5 active:bg-secondary ${!isLast ? "border-b border-app" : ""}`}
     >
-      <View className="w-10 h-10 items-center justify-center bg-secondary rounded-full mr-4">
-        <Feather name={icon} size={18} className={color} />
+      <View className="w-10 h-10 items-center justify-center bg-secondary rounded-2xl mr-4">
+        <Feather name={icon} size={16} className={color} />
       </View>
       <Text className={`flex-1 font-outfit text-base font-bold ${color}`}>
         {label}

@@ -8,11 +8,8 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import Animated, {
-  FadeInRight,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 const TESTIMONIALS = [
   {
@@ -45,6 +42,7 @@ const AUTO_SCROLL_INTERVAL = 5000;
 
 export function TestimonialsSection() {
   const { width } = useWindowDimensions();
+  const { colors, isDark } = useAppTheme();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -82,17 +80,14 @@ export function TestimonialsSection() {
   }) => {
     return (
       <View style={{ width: width }} className="items-center px-6">
-        <Animated.View
-          entering={FadeInRight.delay(index * 100)
-            .duration(800)
-            .springify()}
+        <View
           className="w-full bg-input p-8 rounded-[40px] border border-app/10 shadow-xl"
           style={{
-            shadowColor: "#000",
+            shadowColor: "#0F172A",
             shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.05,
+            shadowOpacity: isDark ? 0 : 0.06,
             shadowRadius: 20,
-            elevation: 5,
+            elevation: isDark ? 0 : 5,
           }}
         >
           <View className="flex-row gap-1.5 mb-6">
@@ -101,8 +96,8 @@ export function TestimonialsSection() {
                 key={i}
                 name="star"
                 size={16}
-                color={i < item.rating ? "#FBBF24" : "#E2E8F0"}
-                fill={i < item.rating ? "#FBBF24" : "transparent"}
+                color={i < item.rating ? colors.warning : colors.border}
+                fill={i < item.rating ? colors.warning : "transparent"}
               />
             ))}
           </View>
@@ -128,7 +123,7 @@ export function TestimonialsSection() {
               />
             </View>
           </View>
-        </Animated.View>
+        </View>
       </View>
     );
   };
@@ -151,7 +146,8 @@ export function TestimonialsSection() {
               return {
                 width: withSpring(activeIndex === i ? 24 : 8),
                 opacity: withSpring(activeIndex === i ? 1 : 0.3),
-                backgroundColor: activeIndex === i ? "#4F46E5" : "#94A3B8",
+                backgroundColor:
+                  activeIndex === i ? colors.accent : colors.textSecondary,
               };
             });
             return (

@@ -1,4 +1,5 @@
 import { PinModal } from "@/components/PinModal";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRole } from "@/context/RoleContext";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -18,6 +19,7 @@ import Animated, {
 
 export function RoleSwitcher() {
   const { role, setRole, guardianPin, checkPin } = useRole();
+  const { colors } = useAppTheme();
 
   const initialWidth = Dimensions.get("window").width - 56;
   const [containerWidth, setContainerWidth] = React.useState(initialWidth);
@@ -77,16 +79,7 @@ export function RoleSwitcher() {
         },
       ],
       width: indicatorWidth,
-      // Using bg-accent (blue) logic, Reanimated needs explicit color for native driver sometimes?
-      // But NativeWind class works better.
-      // Background color animation in Reanimated usually requires specific color handling.
-      // For now we assume accent color is #3b82f6 (blue-500) or we use semantic variable?
-      // Reanimated style can't easily parse 'bg-accent'.
-      // Stick to hex for the animated blob to ensure it works,
-      // or use semantic color if we can resolve it.
-      // Let's use the explicit blue for the "Active" pill as per design,
-      // matching the text contrast.
-      backgroundColor: "#3b82f6",
+      backgroundColor: colors.accent,
     };
   });
 
@@ -122,7 +115,7 @@ export function RoleSwitcher() {
                 left: 1,
                 borderRadius: 24,
                 borderWidth: 1,
-                borderColor: "rgba(0,0,0,0.05)",
+                borderColor: colors.border,
                 elevation: 1,
               },
               animatedIndicatorStyle,

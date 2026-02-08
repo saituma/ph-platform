@@ -29,12 +29,12 @@ export function StatCard({
         </View>
         <View
           className={`px-2 py-0.5 rounded-lg ${
-            good ? "bg-green-500/10" : "bg-red-500/10"
+            good ? "bg-success-soft" : "bg-danger-soft"
           }`}
         >
           <Text
             className={`text-[10px] font-bold ${
-              good ? "text-green-500" : "text-red-500"
+              good ? "text-success" : "text-danger"
             }`}
           >
             {trend}

@@ -19,7 +19,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-  const { isDark, toggleColorScheme } = useAppTheme();
+  const { isDark, toggleColorScheme, colors } = useAppTheme();
 
   const {
     control,
@@ -46,7 +46,7 @@ export default function LoginScreen() {
           <Feather
             name={isDark ? "sun" : "moon"}
             size={24}
-            color={isDark ? "#FCD34D" : "#4F46E5"}
+            color={colors.themeToggleIcon}
           />
         </Pressable>
       </View>
@@ -72,14 +72,12 @@ export default function LoginScreen() {
         <View className="gap-4 mb-4">
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.email ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.email ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="mail"
                 size={20}
-                color={
-                  errors.email ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"
-                }
+                color={errors.email ? colors.danger : colors.textSecondary}
               />
               <Controller
                 control={control}
@@ -88,7 +86,7 @@ export default function LoginScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Email Address"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -100,7 +98,7 @@ export default function LoginScreen() {
               />
             </View>
             {errors.email && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.email.message}
               </Text>
             )}
@@ -108,14 +106,12 @@ export default function LoginScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.password ? "border-red-500" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.password ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
             >
               <Feather
                 name="lock"
                 size={20}
-                color={
-                  errors.password ? "#ef4444" : isDark ? "#94a3b8" : "#64748b"
-                }
+                color={errors.password ? colors.danger : colors.textSecondary}
               />
               <Controller
                 control={control}
@@ -124,7 +120,7 @@ export default function LoginScreen() {
                   <TextInput
                     className="flex-1 ml-3 text-app text-base font-outfit"
                     placeholder="Password"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -138,12 +134,12 @@ export default function LoginScreen() {
                 <Feather
                   name={showPassword ? "eye" : "eye-off"}
                   size={20}
-                  color={isDark ? "#94a3b8" : "#64748b"}
+                  color={colors.textSecondary}
                 />
               </Pressable>
             </View>
             {errors.password && (
-              <Text className="text-red-500 text-xs font-outfit ml-2 mt-1">
+              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
                 {errors.password.message}
               </Text>
             )}
