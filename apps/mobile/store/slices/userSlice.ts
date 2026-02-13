@@ -13,6 +13,7 @@ interface UserState {
   profile: UserProfile;
   isLoading: boolean;
   onboardingCompleted: boolean | null;
+  athleteUserId: number | null;
 }
 
 const initialState: UserState = {
@@ -26,6 +27,7 @@ const initialState: UserState = {
   },
   isLoading: false,
   onboardingCompleted: null,
+  athleteUserId: null,
 };
 
 const userSlice = createSlice({
@@ -46,6 +48,9 @@ const userSlice = createSlice({
     setOnboardingCompleted: (state, action: PayloadAction<boolean | null>) => {
       state.onboardingCompleted = action.payload;
     },
+    setAthleteUserId: (state, action: PayloadAction<number | null>) => {
+      state.athleteUserId = action.payload;
+    },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
@@ -54,11 +59,19 @@ const userSlice = createSlice({
       state.token = null;
       state.profile = initialState.profile;
       state.onboardingCompleted = null;
+      state.athleteUserId = null;
     },
   },
 });
 
-export const { setCredentials, updateProfile, setOnboardingCompleted, setLoading, logout } =
+export const {
+  setCredentials,
+  updateProfile,
+  setOnboardingCompleted,
+  setAthleteUserId,
+  setLoading,
+  logout,
+} =
   userSlice.actions;
 
 export default userSlice.reducer;

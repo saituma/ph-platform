@@ -10,7 +10,7 @@ import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
 import { useAppDispatch } from "../../store/hooks";
-import { setCredentials, setOnboardingCompleted } from "../../store/slices/userSlice";
+import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -78,6 +78,7 @@ export default function LoginScreen() {
       );
       const completed = Boolean(onboarding.athlete?.onboardingCompleted);
       dispatch(setOnboardingCompleted(completed));
+      dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
       router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
     } catch (err: any) {
       const message = err?.message ?? "Login failed";

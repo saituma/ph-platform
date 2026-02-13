@@ -1,4 +1,4 @@
-export type AppRole = "guardian" | "coach" | "admin" | "superAdmin";
+export type AppRole = "guardian" | "athlete" | "coach" | "admin" | "superAdmin";
 
 declare global {
   namespace Express {

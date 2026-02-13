@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "./hooks";
-import { setCredentials, logout, setOnboardingCompleted } from "./slices/userSlice";
+import { setCredentials, logout, setOnboardingCompleted, setAthleteUserId } from "./slices/userSlice";
 import { apiRequest } from "@/lib/api";
 
 const STORAGE_KEYS = {
@@ -42,13 +42,15 @@ export function AuthPersist() {
         );
         lastSavedToken.current = storedToken;
         try {
-          const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean } | null }>(
+          const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
             "/onboarding",
             { token: storedToken }
           );
           dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
+          dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
         } catch {
           dispatch(setOnboardingCompleted(null));
+          dispatch(setAthleteUserId(null));
         }
       } else {
         dispatch(logout());

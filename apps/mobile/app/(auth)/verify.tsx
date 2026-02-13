@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
 import { useAppDispatch } from "../../store/hooks";
-import { setCredentials, setOnboardingCompleted } from "../../store/slices/userSlice";
+import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
 
 export default function VerifyScreen() {
   const [otp, setOtp] = useState("");
@@ -113,6 +113,7 @@ export default function VerifyScreen() {
                 );
                 const completed = Boolean(onboarding.athlete?.onboardingCompleted);
                 dispatch(setOnboardingCompleted(completed));
+                dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
                 router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
                 return;
               }

@@ -8,8 +8,10 @@ import {
   legalAcceptanceTable,
   onboardingConfigTable,
   ProgramType,
+  userTable,
 } from "../db/schema";
 import { sql } from "drizzle-orm";
+import { getUserById } from "./user.service";
 
 const defaultPublicConfig = {
   version: 1,
@@ -94,8 +96,67 @@ async function ensureOnboardingConfigTable() {
 }
 
 export async function getOnboardingByUser(userId: number) {
-  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
-  return athletes[0] ?? null;
+  const user = await getUserById(userId);
+  if (!user) return null;
+  if (user.role === "athlete") {
+    const athletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
+    return athletes[0] ?? null;
+  }
+  const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
+  const guardian = guardians[0];
+  if (!guardian) return null;
+  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1);
+  const athlete = athletes[0] ?? null;
+  if (!athlete) return null;
+  return ensureAthleteUserRecord(athlete);
+}
+
+export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$inferSelect) {
+  await db.execute(sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_type t
+        JOIN pg_enum e ON t.oid = e.enumtypid
+        WHERE t.typname = 'role' AND e.enumlabel = 'athlete'
+      ) THEN
+        ALTER TYPE "role" ADD VALUE 'athlete';
+      END IF;
+    END $$;
+  `);
+  const existing = await db.select().from(userTable).where(eq(userTable.id, athlete.userId)).limit(1);
+  if (existing[0]?.role === "athlete") return athlete;
+
+  const slug = athlete.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  const cognitoSub = `local:athlete:${athlete.id}`;
+  const email = `${slug || "athlete"}-${athlete.id}@athlete.local`;
+
+  const already = await db.select().from(userTable).where(eq(userTable.cognitoSub, cognitoSub)).limit(1);
+  const athleteUser = already[0]
+    ? already[0]
+    : (
+        await db
+          .insert(userTable)
+          .values({
+            cognitoSub,
+            name: athlete.name,
+            email,
+            role: "athlete",
+            emailVerified: true,
+          })
+          .returning()
+      )[0];
+
+  await db
+    .update(athleteTable)
+    .set({ userId: athleteUser.id, updatedAt: new Date() })
+    .where(eq(athleteTable.id, athlete.id));
+
+  return { ...athlete, userId: athleteUser.id };
 }
 
 export async function submitOnboarding(input: {
@@ -117,12 +178,17 @@ export async function submitOnboarding(input: {
   appVersion: string;
   extraResponses?: Record<string, unknown>;
 }) {
-  const existing = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
   const now = new Date();
 
   let guardianId: number;
-  if (existing[0]) {
-    guardianId = existing[0].guardianId;
+  const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
+  const guardian = guardians[0] ?? null;
+  const existingAthlete = guardian
+    ? (await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1))[0]
+    : null;
+
+  if (existingAthlete) {
+    guardianId = existingAthlete.guardianId;
     await db
       .update(guardianTable)
       .set({ email: input.parentEmail, phoneNumber: input.parentPhone ?? null, relationToAthlete: input.relationToAthlete ?? null })
@@ -142,7 +208,7 @@ export async function submitOnboarding(input: {
         onboardingCompleted: true,
         onboardingCompletedAt: now,
       })
-      .where(eq(athleteTable.userId, input.userId));
+      .where(eq(athleteTable.id, existingAthlete.id));
   } else {
     const guardianResult = await db
       .insert(guardianTable)
@@ -174,8 +240,14 @@ export async function submitOnboarding(input: {
     });
   }
 
-  const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
-  const athleteId = athlete[0].id;
+  const athlete = await db
+    .select()
+    .from(athleteTable)
+    .where(eq(athleteTable.guardianId, guardianId))
+    .limit(1);
+  const athleteRow = athlete[0];
+  const updatedAthlete = await ensureAthleteUserRecord(athleteRow);
+  const athleteId = updatedAthlete.id;
 
   await db.insert(legalAcceptanceTable).values({
     athleteId,
@@ -203,7 +275,7 @@ export async function submitOnboarding(input: {
     });
   }
 
-  return { athleteId, status };
+  return { athleteId, athleteUserId: updatedAthlete.userId, status };
 }
 
 export async function getPublicOnboardingConfig() {

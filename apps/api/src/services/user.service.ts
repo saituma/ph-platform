@@ -34,7 +34,7 @@ export async function createUserFromCognito(input: {
   sub: string;
   email: string;
   name: string;
-  role?: "guardian" | "coach" | "admin" | "superAdmin";
+  role?: "guardian" | "athlete" | "coach" | "admin" | "superAdmin";
 }) {
   const result = await db
     .insert(userTable)
@@ -49,7 +49,10 @@ export async function createUserFromCognito(input: {
   return result[0];
 }
 
-export async function updateUserRole(userId: number, role: "guardian" | "coach" | "admin" | "superAdmin") {
+export async function updateUserRole(
+  userId: number,
+  role: "guardian" | "athlete" | "coach" | "admin" | "superAdmin"
+) {
   const result = await db
     .update(userTable)
     .set({ role })

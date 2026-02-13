@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../../ui/button";
 import { Textarea } from "../../ui/textarea";
 import { EmptyState } from "../empty-state";
@@ -24,6 +24,8 @@ type ConversationPanelProps = {
   } | null;
   onReact?: (messageIndex: number, emoji: string) => void;
   onSend?: (text: string) => void;
+  onTypingChange?: (isTyping: boolean) => void;
+  typingLabel?: string | null;
 };
 
 export function ConversationPanel({
@@ -32,8 +34,35 @@ export function ConversationPanel({
   profile,
   onReact,
   onSend,
+  onTypingChange,
+  typingLabel,
 }: ConversationPanelProps) {
   const [draft, setDraft] = useState("");
+  const typingRef = useRef<{ active: boolean; timer?: NodeJS.Timeout | null }>({
+    active: false,
+    timer: null,
+  });
+
+  useEffect(() => {
+    if (!onTypingChange) return;
+    if (draft.trim().length > 0) {
+      if (!typingRef.current.active) {
+        typingRef.current.active = true;
+        onTypingChange(true);
+      }
+      if (typingRef.current.timer) {
+        clearTimeout(typingRef.current.timer);
+      }
+      typingRef.current.timer = setTimeout(() => {
+        typingRef.current.active = false;
+        onTypingChange(false);
+      }, 1200);
+    } else if (typingRef.current.active) {
+      typingRef.current.active = false;
+      onTypingChange(false);
+    }
+  }, [draft, onTypingChange]);
+
   if (!name) {
     return (
       <EmptyState
@@ -121,10 +150,12 @@ export function ConversationPanel({
           );
         })}
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="h-2 w-2 rounded-full bg-primary/60" />
-        Ava is typing...
-      </div>
+      {typingLabel ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="h-2 w-2 rounded-full bg-primary/60" />
+          {typingLabel}
+        </div>
+      ) : null}
       <div className="space-y-3 rounded-2xl border border-border bg-background p-4">
         <Textarea
           placeholder="Write a response..."

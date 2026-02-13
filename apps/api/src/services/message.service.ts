@@ -1,26 +1,77 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "../db";
 import { messageTable, userTable } from "../db/schema";
+import { getSocketServer } from "../socket-hub";
 
 export async function getCoachUser() {
-  const users = await db.select().from(userTable).where(or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin"))).limit(1);
+  const users = await db
+    .select()
+    .from(userTable)
+    .where(
+      and(
+        or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
+        eq(userTable.isDeleted, false),
+        eq(userTable.isBlocked, false)
+      )
+    )
+    .orderBy(desc(userTable.updatedAt));
   return users[0] ?? null;
 }
 
-export async function listThread(userId: number) {
-  const coach = await getCoachUser();
-  if (!coach) {
-    return [];
-  }
+export async function getCoachUserById(userId: number) {
+  const users = await db
+    .select()
+    .from(userTable)
+    .where(and(eq(userTable.id, userId), eq(userTable.isDeleted, false), eq(userTable.isBlocked, false)))
+    .limit(1);
+  return users[0] ?? null;
+}
 
+async function getAdminCoachIds() {
+  const admins = await db
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(
+      and(
+        or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
+        eq(userTable.isDeleted, false),
+        eq(userTable.isBlocked, false)
+      )
+    );
+  return admins.map((row) => row.id);
+}
+
+export async function getLastAdminContact(userId: number) {
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return null;
+  const messages = await db
+    .select()
+    .from(messageTable)
+    .where(
+      or(
+        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, adminIds)),
+        and(inArray(messageTable.senderId, adminIds), eq(messageTable.receiverId, userId))
+      )
+    )
+    .orderBy(desc(messageTable.createdAt))
+    .limit(1);
+  const last = messages[0];
+  if (!last) return null;
+  const otherId = last.senderId === userId ? last.receiverId : last.senderId;
+  return getCoachUserById(otherId);
+}
+
+export async function listThread(userId: number) {
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return [];
   return db
     .select()
     .from(messageTable)
     .where(
       or(
-        and(eq(messageTable.senderId, userId), eq(messageTable.receiverId, coach.id)),
-        and(eq(messageTable.senderId, coach.id), eq(messageTable.receiverId, userId))
+        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, adminIds)),
+        and(inArray(messageTable.senderId, adminIds), eq(messageTable.receiverId, userId))
       )
     )
     .orderBy(messageTable.createdAt);
@@ -44,19 +95,21 @@ export async function sendMessage(input: {
     })
     .returning();
 
-  return result[0];
+  const message = result[0];
+  const io = getSocketServer();
+  if (io) {
+    io.to(`user:${input.senderId}`).emit("message:new", message);
+    io.to(`user:${input.receiverId}`).emit("message:new", message);
+  }
+  return message;
 }
 
 export async function markThreadRead(userId: number) {
-  const coach = await getCoachUser();
-  if (!coach) {
-    return 0;
-  }
-
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return 0;
   const result = await db
     .update(messageTable)
     .set({ read: true })
-    .where(and(eq(messageTable.receiverId, userId), eq(messageTable.senderId, coach.id)));
-
+    .where(and(eq(messageTable.receiverId, userId), inArray(messageTable.senderId, adminIds)));
   return result.rowCount ?? 0;
 }

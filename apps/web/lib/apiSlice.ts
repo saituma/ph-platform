@@ -132,6 +132,36 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["OnboardingConfig"],
     }),
+    getChatGroups: builder.query<{ groups: any[] }, void>({
+      query: () => "/chat/groups",
+    }),
+    createChatGroup: builder.mutation<{ group: any }, { name: string; memberIds: number[] }>({
+      query: (body) => ({
+        url: "/chat/groups",
+        method: "POST",
+        body,
+      }),
+    }),
+    addChatGroupMembers: builder.mutation<{ ok: boolean }, { groupId: number; memberIds: number[] }>({
+      query: ({ groupId, memberIds }) => ({
+        url: `/chat/groups/${groupId}/members`,
+        method: "POST",
+        body: { memberIds },
+      }),
+    }),
+    getChatGroupMembers: builder.query<{ members: any[] }, number>({
+      query: (groupId) => `/chat/groups/${groupId}/members`,
+    }),
+    getChatGroupMessages: builder.query<{ messages: any[] }, number>({
+      query: (groupId) => `/chat/groups/${groupId}/messages`,
+    }),
+    sendChatGroupMessage: builder.mutation<{ message: any }, { groupId: number; content: string }>({
+      query: ({ groupId, content }) => ({
+        url: `/chat/groups/${groupId}/messages`,
+        method: "POST",
+        body: { content },
+      }),
+    }),
   }),
 });
 
@@ -157,4 +187,10 @@ export const {
   useAssignProgramMutation,
   useGetOnboardingConfigQuery,
   useUpdateOnboardingConfigMutation,
+  useGetChatGroupsQuery,
+  useCreateChatGroupMutation,
+  useAddChatGroupMembersMutation,
+  useGetChatGroupMembersQuery,
+  useGetChatGroupMessagesQuery,
+  useSendChatGroupMessageMutation,
 } = apiSlice;

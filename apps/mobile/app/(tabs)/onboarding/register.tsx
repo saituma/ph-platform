@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
 import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setOnboardingCompleted } from "@/store/slices/userSlice";
+import { setAthleteUserId, setOnboardingCompleted } from "@/store/slices/userSlice";
 
 const athleteRegisterSchema = z
   .object({
@@ -280,6 +280,9 @@ export default function RegisterScreen() {
       });
 
       dispatch(setOnboardingCompleted(true));
+      if (response?.athleteUserId) {
+        dispatch(setAthleteUserId(response.athleteUserId));
+      }
       setRole("Guardian");
       router.replace("/(tabs)");
     } catch (error: any) {
@@ -331,7 +334,9 @@ export default function RegisterScreen() {
       >
         <View className="mb-8">
           <Text className="text-4xl font-clash text-app mb-2">
-            {config?.welcomeMessage || "Athlete Profile"}
+            {profile?.name
+              ? `Welcome, ${profile.name}`
+              : config?.welcomeMessage || "Athlete Profile"}
           </Text>
           <Text className="text-base font-outfit text-secondary">
             {config?.coachMessage || "Enter your child's details to personalize their training plan."}

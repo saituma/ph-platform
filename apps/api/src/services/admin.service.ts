@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, or, sql, ne } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -21,6 +21,7 @@ import {
   ProgramType,
   videoUploadTable,
 } from "../db/schema";
+import { ensureAthleteUserRecord } from "./onboarding.service";
 
 const defaultOnboardingConfig = {
   version: 1,
@@ -272,6 +273,18 @@ export async function updateOnboardingConfig(
 }
 
 export async function listUsers() {
+  const staleAthletes = await db
+    .select({ athlete: athleteTable, role: userTable.role })
+    .from(athleteTable)
+    .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
+    // Avoid enum comparison issues by comparing text
+    .where(sql`${userTable.role}::text <> 'athlete'`);
+  for (const row of staleAthletes) {
+    if (row.athlete) {
+      await ensureAthleteUserRecord(row.athlete);
+    }
+  }
+
   return db
     .select({
       id: userTable.id,

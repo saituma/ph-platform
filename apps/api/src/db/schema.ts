@@ -10,7 +10,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-export const Role = pgEnum("role", ["guardian", "coach", "admin", "superAdmin"]);
+export const Role = pgEnum("role", ["guardian", "athlete", "coach", "admin", "superAdmin"]);
 export const ProgramType = pgEnum("program_type", ["PHP", "PHP_Plus", "PHP_Premium"]);
 export const EnrollmentStatus = pgEnum("enrollment_status", ["pending", "active", "completed", "failed"]);
 export const bookingStatus = pgEnum("booking_status", ["pending", "confirmed", "declined", "cancelled"]);
@@ -188,6 +188,30 @@ export const messageTable = pgTable("messages", {
   read: boolean().notNull().default(false),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
+});
+
+export const chatGroupTable = pgTable("chat_groups", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar({ length: 255 }).notNull(),
+  createdBy: integer().notNull().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
+export const chatGroupMemberTable = pgTable("chat_group_members", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  groupId: integer().notNull().references(() => chatGroupTable.id),
+  userId: integer().notNull().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
+export const chatGroupMessageTable = pgTable("chat_group_messages", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  groupId: integer().notNull().references(() => chatGroupTable.id),
+  senderId: integer().notNull().references(() => userTable.id),
+  content: varchar({ length: 500 }).notNull(),
+  contentType: messageType().default("text").notNull(),
+  mediaUrl: varchar({ length: 500 }),
+  createdAt: timestamp().notNull().defaultNow(),
 });
 
 export const bookingTable = pgTable("bookings", {
