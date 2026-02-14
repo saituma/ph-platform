@@ -2,12 +2,17 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import { listThread, markThreadRead, sendMessage, getCoachUser, getLastAdminContact } from "../services/message.service";
+import { toggleDirectMessageReaction } from "../services/reaction.service";
 import { resolveActingUserId } from "../lib/acting-user";
 
 const sendSchema = z.object({
   content: z.string().min(1),
   contentType: z.enum(["text", "image", "video"]).default("text"),
   mediaUrl: z.string().url().optional(),
+});
+
+const reactionSchema = z.object({
+  emoji: z.string().min(1).max(16),
 });
 
 export async function listMessages(req: Request, res: Response) {
@@ -55,4 +60,28 @@ export async function markRead(req: Request, res: Response) {
   }
   const count = await markThreadRead(actingUserId);
   return res.status(200).json({ updated: count });
+}
+
+export async function toggleReaction(req: Request, res: Response) {
+  const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
+  const { emoji } = reactionSchema.parse(req.body);
+  let actingUserId = req.user!.id;
+  try {
+    actingUserId = await resolveActingUserId(req.user!.id, req.headers["x-acting-user-id"]);
+  } catch {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  try {
+    const result = await toggleDirectMessageReaction({ messageId, userId: actingUserId, emoji });
+    return res.status(200).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request failed";
+    if (message === "Forbidden") {
+      return res.status(403).json({ error: message });
+    }
+    if (message === "Message not found") {
+      return res.status(404).json({ error: message });
+    }
+    throw error;
+  }
 }

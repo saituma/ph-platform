@@ -22,6 +22,8 @@ import {
   videoUploadTable,
 } from "../db/schema";
 import { ensureAthleteUserRecord } from "./onboarding.service";
+import { getAdminCoachIds, sendMessage } from "./message.service";
+import { attachDirectMessageReactions } from "./reaction.service";
 
 const defaultOnboardingConfig = {
   version: 1,
@@ -473,17 +475,23 @@ export async function listBookingsAdmin() {
   return rows;
 }
 
-export async function listMessageThreadsAdmin(coachId: number) {
+export async function listMessageThreadsAdmin(_: number) {
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return [];
+  const adminSet = new Set(adminIds);
   const messages = await db
     .select()
     .from(messageTable)
-    .where(or(eq(messageTable.senderId, coachId), eq(messageTable.receiverId, coachId)));
+    .where(or(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, adminIds)));
 
   const threads = new Map<number, { lastMessage: typeof messages[number]; unread: number }>();
   for (const msg of messages) {
-    const otherId = msg.senderId === coachId ? msg.receiverId : msg.senderId;
+    if (adminSet.has(msg.senderId) && adminSet.has(msg.receiverId)) {
+      continue;
+    }
+    const otherId = adminSet.has(msg.senderId) ? msg.receiverId : msg.senderId;
     const current = threads.get(otherId);
-    const isUnread = msg.receiverId === coachId && !msg.read;
+    const isUnread = adminSet.has(msg.receiverId) && !msg.read;
     if (!current || new Date(msg.createdAt) > new Date(current.lastMessage.createdAt)) {
       threads.set(otherId, { lastMessage: msg, unread: (current?.unread ?? 0) + (isUnread ? 1 : 0) });
     } else if (isUnread) {
@@ -510,16 +518,20 @@ export async function listMessageThreadsAdmin(coachId: number) {
 }
 
 export async function listThreadMessagesAdmin(coachId: number, userId: number) {
-  return db
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return [];
+  if (!adminIds.includes(coachId)) return [];
+  const messages = await db
     .select()
     .from(messageTable)
     .where(
       or(
-        and(eq(messageTable.senderId, coachId), eq(messageTable.receiverId, userId)),
-        and(eq(messageTable.senderId, userId), eq(messageTable.receiverId, coachId))
+        and(inArray(messageTable.senderId, adminIds), eq(messageTable.receiverId, userId)),
+        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, adminIds))
       )
     )
     .orderBy(messageTable.createdAt);
+  return attachDirectMessageReactions(messages);
 }
 
 export async function sendMessageAdmin(input: {
@@ -527,17 +539,12 @@ export async function sendMessageAdmin(input: {
   userId: number;
   content: string;
 }) {
-  const result = await db
-    .insert(messageTable)
-    .values({
-      senderId: input.coachId,
-      receiverId: input.userId,
-      content: input.content,
-      contentType: "text",
-    })
-    .returning();
-
-  return result[0];
+  return sendMessage({
+    senderId: input.coachId,
+    receiverId: input.userId,
+    content: input.content,
+    contentType: "text",
+  });
 }
 
 export async function getDashboardMetrics(coachId: number) {

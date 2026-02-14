@@ -4,6 +4,7 @@ import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { chatGroupMemberTable, chatGroupMessageTable, chatGroupTable, messageTable, userTable } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
+import { attachGroupMessageReactions } from "./reaction.service";
 
 export async function createDirectMessage(input: { senderId: number; receiverId: number; content: string }) {
   const result = await db
@@ -125,11 +126,12 @@ export async function isGroupMember(groupId: number, userId: number) {
 
 export async function listGroupMessages(groupId: number) {
   await ensureChatTables();
-  return db
+  const messages = await db
     .select()
     .from(chatGroupMessageTable)
     .where(eq(chatGroupMessageTable.groupId, groupId))
     .orderBy(chatGroupMessageTable.createdAt);
+  return attachGroupMessageReactions(messages);
 }
 
 export async function createGroupMessage(input: { groupId: number; senderId: number; content: string }) {
@@ -146,7 +148,7 @@ export async function createGroupMessage(input: { groupId: number; senderId: num
   const message = result[0];
   const io = getSocketServer();
   if (io) {
-    io.to(`group:${input.groupId}`).emit("group:message", message);
+    io.to(`group:${input.groupId}`).emit("group:message", { ...message, reactions: [] });
   }
   return message;
 }

@@ -21,6 +21,8 @@ import {
   useGetUsersQuery,
   useSendChatGroupMessageMutation,
   useSendMessageMutation,
+  useToggleChatGroupMessageReactionMutation,
+  useToggleMessageReactionMutation,
 } from "../../lib/apiSlice";
 
 type ThreadItem = {
@@ -40,9 +42,11 @@ type ThreadItem = {
 };
 
 type MessageItem = {
+  id: string;
   author: string;
   time: string;
   text: string;
+  reactions?: { emoji: string; count: number; reactedByMe?: boolean }[];
   status?: "sent" | "delivered" | "read";
 };
 
@@ -62,6 +66,8 @@ export default function MessagingPage() {
   const [createGroup, { isLoading: isCreatingGroup }] = useCreateChatGroupMutation();
   const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
   const [sendGroupMessage, { isLoading: isSendingGroup }] = useSendChatGroupMessageMutation();
+  const [toggleMessageReaction] = useToggleMessageReactionMutation();
+  const [toggleGroupMessageReaction] = useToggleChatGroupMessageReactionMutation();
   const [newGroupName, setNewGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
 
@@ -137,18 +143,19 @@ export default function MessagingPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const getCookie = (name: string) => {
-      const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-      return match ? decodeURIComponent(match[2]) : null;
-    };
-    const token = getCookie("accessToken");
-    if (!token) return;
-    const envUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "";
-    const socketUrl = envUrl
-      ? envUrl.replace(/\/api\/?$/, "")
-      : `${window.location.protocol}//${window.location.hostname}:3001`;
+    const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
+    const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+    const localDevHost =
+      window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const fallbackLocalUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
+    const socketUrl = socketEnvUrl
+      ? socketEnvUrl.replace(/\/api\/?$/, "")
+      : localDevHost
+      ? fallbackLocalUrl
+      : apiEnvUrl
+      ? apiEnvUrl.replace(/\/api\/?$/, "")
+      : fallbackLocalUrl;
     const socket: Socket = io(socketUrl, {
-      auth: { token },
       transports: ["websocket"],
     });
     socketRef.current = socket;
@@ -164,6 +171,8 @@ export default function MessagingPage() {
     };
     socket.on("message:new", handleIncoming);
     socket.on("group:message", handleIncoming);
+    socket.on("message:reaction", handleIncoming);
+    socket.on("group:reaction", handleIncoming);
     socket.on("presence:update", (payload: number[]) => {
       setOnlineUsers(Array.isArray(payload) ? payload : []);
     });
@@ -174,19 +183,28 @@ export default function MessagingPage() {
         [key]: { name: payload.name, isTyping: payload.isTyping },
       }));
     });
+    socket.on("connect_error", (error) => {
+      console.warn("Messaging socket connection failed", error.message);
+    });
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [refetchMessages, refetchThreads, selectedUserId]);
+  }, [refetchGroups, refetchGroupMessages, refetchMessages, refetchThreads, selectedGroupId, selectedUserId]);
 
   const messages = useMemo<MessageItem[]>(() => {
     if (!selectedThread) return [];
     const source = messagesData?.messages ?? [];
     return source.map((msg: any) => ({
+      id: String(msg.id),
       author: msg.senderId === selectedUserId ? (selectedThreadName ?? selectedThread.name) : "Coach",
       time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
       text: msg.content,
+      reactions: (msg.reactions ?? []).map((reaction: any) => ({
+        emoji: reaction.emoji,
+        count: reaction.count,
+        reactedByMe: false,
+      })),
       status: msg.read ? "read" : "delivered",
     }));
   }, [messagesData, selectedThread, selectedThreadName, selectedUserId]);
@@ -197,9 +215,15 @@ export default function MessagingPage() {
     const lookup = new Map<number, string>(members.map((m: any) => [m.userId, m.name || m.email]));
     const source = groupMessagesData?.messages ?? [];
     return source.map((msg: any) => ({
+      id: `group-${msg.id}`,
       author: lookup.get(msg.senderId) ?? `User ${msg.senderId}`,
       time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
       text: msg.content,
+      reactions: (msg.reactions ?? []).map((reaction: any) => ({
+        emoji: reaction.emoji,
+        count: reaction.count,
+        reactedByMe: false,
+      })),
       status: "delivered",
     }));
   }, [groupMembersData, groupMessagesData, selectedGroupId]);
@@ -238,11 +262,11 @@ export default function MessagingPage() {
       subtitle="Priority inbox and coach responses."
     >
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <Card className="h-full">
+        <Card className="h-full lg:h-[calc(100vh-11rem)]">
           <CardHeader>
             <SectionHeader title="Inbox" description="Connect with every athlete and guardian." />
           </CardHeader>
-          <CardContent>
+          <CardContent className="h-full overflow-hidden">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <Button
                 variant={inboxMode === "direct" ? "default" : "outline"}
@@ -260,7 +284,7 @@ export default function MessagingPage() {
               </Button>
             </div>
             {inboxMode === "group" ? (
-              <div className="space-y-4">
+              <div className="space-y-4 h-[calc(100%-3.5rem)] overflow-y-auto pr-1">
                 <div className="rounded-2xl border border-border bg-secondary/30 p-4">
                   <p className="text-sm font-semibold text-foreground">Create group chat</p>
                   <p className="text-xs text-muted-foreground">Add guardians/athletes to a shared conversation.</p>
@@ -335,15 +359,17 @@ export default function MessagingPage() {
                 </div>
               </div>
             ) : (
-              <InboxList
-                threads={filteredThreads}
-                selected={selectedUserId}
-                onSelect={setSelectedUserId}
-                onFilterSelect={setActiveFilter}
-                searchValue={searchTerm}
-                onSearch={setSearchTerm}
-                activeFilter={activeFilter}
-              />
+              <div className="h-[calc(100%-3.5rem)] overflow-y-auto pr-1">
+                <InboxList
+                  threads={filteredThreads}
+                  selected={selectedUserId}
+                  onSelect={setSelectedUserId}
+                  onFilterSelect={setActiveFilter}
+                  searchValue={searchTerm}
+                  onSearch={setSearchTerm}
+                  activeFilter={activeFilter}
+                />
+              </div>
             )}
           </CardContent>
         </Card>
@@ -406,6 +432,25 @@ export default function MessagingPage() {
                   if (isSending) return;
                   await sendMessage({ userId: selectedUserId, content: text }).unwrap();
                   refetchMessages();
+                }
+              }}
+              onReact={async (messageId, emoji) => {
+                if (inboxMode === "group") {
+                  if (!selectedGroupId) return;
+                  const parsed = Number(messageId.replace("group-", ""));
+                  if (!Number.isFinite(parsed)) return;
+                  await toggleGroupMessageReaction({
+                    groupId: selectedGroupId,
+                    messageId: parsed,
+                    emoji,
+                  }).unwrap();
+                } else {
+                  const parsed = Number(messageId);
+                  if (!Number.isFinite(parsed)) return;
+                  await toggleMessageReaction({
+                    messageId: parsed,
+                    emoji,
+                  }).unwrap();
                 }
               }}
             />

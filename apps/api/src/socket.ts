@@ -35,9 +35,14 @@ export function initSocket(server: HttpServer) {
 
   io.use(async (socket, next) => {
     try {
-      const token =
-        socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.toString().replace("Bearer ", "");
+      const headerAuth = socket.handshake.headers?.authorization?.toString().replace("Bearer ", "");
+      const cookieHeader = socket.handshake.headers?.cookie?.toString() ?? "";
+      const cookieToken = cookieHeader
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("accessToken="))
+        ?.split("=")[1];
+      const token = socket.handshake.auth?.token || headerAuth || cookieToken;
       if (!token) {
         return next(new Error("Unauthorized"));
       }
@@ -60,6 +65,9 @@ export function initSocket(server: HttpServer) {
   io.on("connection", async (socket) => {
     const userId = socket.data.userId as number;
     socket.join(`user:${userId}`);
+    if (["admin", "coach", "superAdmin"].includes(socket.data.role as string)) {
+      socket.join("admin:all");
+    }
     onlineUsers.add(userId);
     broadcastPresence();
 
@@ -104,6 +112,7 @@ export function initSocket(server: HttpServer) {
       const enriched = { ...message, clientId: payload.clientId };
       io.to(`user:${senderId}`).emit("message:new", enriched);
       io.to(`user:${payload.toUserId}`).emit("message:new", enriched);
+      io.to("admin:all").emit("message:new", enriched);
     });
 
     socket.on(

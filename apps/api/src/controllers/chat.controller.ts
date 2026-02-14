@@ -10,6 +10,7 @@ import {
   listGroupMessages,
   listGroupsForUser,
 } from "../services/chat.service";
+import { toggleGroupMessageReaction } from "../services/reaction.service";
 
 const createGroupSchema = z.object({
   name: z.string().min(1),
@@ -22,6 +23,10 @@ const addMembersSchema = z.object({
 
 const sendGroupMessageSchema = z.object({
   content: z.string().min(1),
+});
+
+const reactionSchema = z.object({
+  emoji: z.string().min(1).max(16),
 });
 
 export async function listGroups(req: Request, res: Response) {
@@ -75,4 +80,29 @@ export async function sendGroupChatMessage(req: Request, res: Response) {
     content: input.content,
   });
   return res.status(201).json({ message });
+}
+
+export async function toggleGroupReaction(req: Request, res: Response) {
+  const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
+  const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
+  const { emoji } = reactionSchema.parse(req.body);
+  const allowed = await isGroupMember(groupId, req.user!.id);
+  if (!allowed) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  try {
+    const result = await toggleGroupMessageReaction({
+      groupId,
+      messageId,
+      userId: req.user!.id,
+      emoji,
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request failed";
+    if (message === "Message not found") {
+      return res.status(404).json({ error: message });
+    }
+    throw error;
+  }
 }

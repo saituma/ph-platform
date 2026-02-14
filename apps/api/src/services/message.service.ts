@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db } from "../db";
 import { messageTable, userTable } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
+import { attachDirectMessageReactions } from "./reaction.service";
 
 export async function getCoachUser() {
   const users = await db
@@ -28,7 +29,7 @@ export async function getCoachUserById(userId: number) {
   return users[0] ?? null;
 }
 
-async function getAdminCoachIds() {
+export async function getAdminCoachIds() {
   const admins = await db
     .select({ id: userTable.id })
     .from(userTable)
@@ -65,7 +66,7 @@ export async function getLastAdminContact(userId: number) {
 export async function listThread(userId: number) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
-  return db
+  const messages = await db
     .select()
     .from(messageTable)
     .where(
@@ -75,6 +76,7 @@ export async function listThread(userId: number) {
       )
     )
     .orderBy(messageTable.createdAt);
+  return attachDirectMessageReactions(messages);
 }
 
 export async function sendMessage(input: {
@@ -100,6 +102,7 @@ export async function sendMessage(input: {
   if (io) {
     io.to(`user:${input.senderId}`).emit("message:new", message);
     io.to(`user:${input.receiverId}`).emit("message:new", message);
+    io.to("admin:all").emit("message:new", message);
   }
   return message;
 }

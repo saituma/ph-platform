@@ -78,6 +78,16 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Threads"],
     }),
+    toggleMessageReaction: builder.mutation<
+      { messageId: number; reactions: { emoji: string; count: number; userIds: number[] }[] },
+      { messageId: number; emoji: string }
+    >({
+      query: ({ messageId, emoji }) => ({
+        url: `/messages/${messageId}/reactions`,
+        method: "PUT",
+        body: { emoji },
+      }),
+    }),
     createService: builder.mutation<any, any>({
       query: (body) => ({
         url: "/bookings/services",
@@ -162,6 +172,16 @@ export const apiSlice = createApi({
         body: { content },
       }),
     }),
+    toggleChatGroupMessageReaction: builder.mutation<
+      { messageId: number; reactions: { emoji: string; count: number; userIds: number[] }[] },
+      { groupId: number; messageId: number; emoji: string }
+    >({
+      query: ({ groupId, messageId, emoji }) => ({
+        url: `/chat/groups/${groupId}/messages/${messageId}/reactions`,
+        method: "PUT",
+        body: { emoji },
+      }),
+    }),
   }),
 });
 
@@ -179,6 +199,7 @@ export const {
   useGetThreadsQuery,
   useGetMessagesQuery,
   useSendMessageMutation,
+  useToggleMessageReactionMutation,
   useCreateServiceMutation,
   useCreateAvailabilityMutation,
   useCreateContentMutation,
@@ -193,4 +214,5 @@ export const {
   useGetChatGroupMembersQuery,
   useGetChatGroupMessagesQuery,
   useSendChatGroupMessageMutation,
+  useToggleChatGroupMessageReactionMutation,
 } = apiSlice;

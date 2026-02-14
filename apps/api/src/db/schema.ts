@@ -214,6 +214,22 @@ export const chatGroupMessageTable = pgTable("chat_group_messages", {
   createdAt: timestamp().notNull().defaultNow(),
 });
 
+export const messageReactionTable = pgTable("message_reactions", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  messageId: integer().notNull().references(() => messageTable.id),
+  userId: integer().notNull().references(() => userTable.id),
+  emoji: varchar({ length: 16 }).notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
+export const chatGroupMessageReactionTable = pgTable("chat_group_message_reactions", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  messageId: integer().notNull().references(() => chatGroupMessageTable.id),
+  userId: integer().notNull().references(() => userTable.id),
+  emoji: varchar({ length: 16 }).notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
 export const bookingTable = pgTable("bookings", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   athleteId: integer().notNull().references(() => athleteTable.id),
