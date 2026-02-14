@@ -73,10 +73,7 @@ export default function RegisterScreen() {
       console.error("Register failed", err);
       const message = err?.message ?? "Registration failed";
       if (message.includes("already exists")) {
-        router.replace({
-          pathname: "/(auth)/verify",
-          params: { email: data.email, password: data.password },
-        });
+        router.replace("/(auth)/login");
         return;
       }
       setFormError(message);

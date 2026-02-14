@@ -1,67 +1,98 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "@/lib/api";
+import { useAppSelector } from "@/store/hooks";
+import { useRouter } from "expo-router";
+import { setParentContentCache } from "@/lib/parentContentCache";
 
 const CATEGORIES = [
-  {
-    id: "1",
-    title: "Youth Strength Training 101",
-    icon: "book-open",
-    color: "bg-emerald-500",
-  },
-  {
-    id: "2",
-    title: "Benefits of Strength Training",
-    icon: "award",
-    color: "bg-emerald-600",
-  },
-  {
-    id: "3",
-    title: "Why We Warm Up",
-    icon: "thermometer",
-    color: "bg-emerald-700",
-  },
-  {
-    id: "4",
-    title: "Recovery for Young Athletes",
-    icon: "battery-charging",
-    color: "bg-emerald-800",
-  },
-  {
-    id: "5",
-    title: "Nutrition for Young Athletes",
-    icon: "coffee",
-    color: "bg-emerald-500",
-  },
-  {
-    id: "6",
-    title: "Training Safety Rules",
-    icon: "shield",
-    color: "bg-emerald-600",
-  },
-  {
-    id: "7",
-    title: "Signs of Overtraining",
-    icon: "alert-triangle",
-    color: "bg-emerald-700",
-  },
-  {
-    id: "8",
-    title: "Myths About Kids & Strength",
-    icon: "help-circle",
-    color: "bg-emerald-800",
-  },
+  { id: "growth", title: "Growth and maturation", icon: "book-open", color: "bg-emerald-500" },
+  { id: "injury", title: "Injury prevention", icon: "shield", color: "bg-emerald-600" },
+  { id: "sleep", title: "Sleep and recovery", icon: "battery-charging", color: "bg-emerald-700" },
+  { id: "nutrition", title: "Nutrition for young athletes", icon: "coffee", color: "bg-emerald-800" },
+  { id: "load", title: "Training load management", icon: "activity", color: "bg-emerald-600" },
+  { id: "mindset", title: "Mindset and confidence", icon: "heart", color: "bg-emerald-500" },
 ];
 
+type ParentCourseModule = {
+  id: string;
+  title: string;
+  type: "article" | "video" | "pdf" | "faq";
+  content?: string;
+  mediaUrl?: string;
+  order: number;
+  preview?: boolean;
+};
+
+type ParentCourseItem = {
+  id: number;
+  title: string;
+  summary: string;
+  description?: string | null;
+  coverImage?: string | null;
+  category?: string | null;
+  programTier?: string | null;
+  modules: ParentCourseModule[];
+  isPreview?: boolean;
+};
+
 export default function ParentPlatformScreen() {
+  const { token } = useAppSelector((state) => state.user);
+  const router = useRouter();
+  const [items, setItems] = useState<ParentCourseItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchCourses = async (options?: { refreshing?: boolean }) => {
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const data = await apiRequest<{ items: ParentCourseItem[] }>("/content/parent-courses", { token });
+      setItems(data.items ?? []);
+    } catch {
+      if (!options?.refreshing) {
+        setItems([]);
+      }
+    } finally {
+      if (options?.refreshing) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    if (!mounted) return;
+    fetchCourses();
+    return () => {
+      mounted = false;
+    };
+  }, [token]);
+
+  const grouped = useMemo(() => {
+    return CATEGORIES.map((category) => ({
+      ...category,
+      items: items.filter((item) => item.category === category.title),
+    }));
+  }, [items]);
+
+
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView
         onRefresh={async () => {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          if (!token || isRefreshing) return;
+          setIsRefreshing(true);
+          await fetchCourses({ refreshing: true });
         }}
+        refreshing={isRefreshing}
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
@@ -77,25 +108,69 @@ export default function ParentPlatformScreen() {
           </Text>
         </View>
 
-        <View className="flex-row flex-wrap justify-between">
-          {CATEGORIES.map((cat) => (
-            <View key={cat.id} className="w-[48%] mb-4">
-              <TouchableOpacity
-                activeOpacity={0.7}
-                className="bg-input border border-app rounded-[24px] p-5 shadow-sm h-40 justify-between"
-              >
-                <View
-                  className={`${cat.color} h-12 w-12 rounded-2xl items-center justify-center`}
-                >
-                  <Feather name={cat.icon as any} size={24} color="white" />
+        {isLoading ? (
+          <View className="gap-3">
+            {[1, 2, 3].map((item) => (
+              <View key={item} className="rounded-3xl border border-app/10 bg-input px-4 py-3">
+                <View className="h-4 w-32 rounded-full bg-secondary/20" />
+                <View className="h-3 w-full rounded-full bg-secondary/20 mt-2" />
+                <View className="h-3 w-2/3 rounded-full bg-secondary/20 mt-2" />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View className="gap-6">
+            {grouped.filter((cat) => cat.items.length > 0).map((cat) => (
+              <View key={cat.id}>
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center gap-2">
+                    <View className={`${cat.color} h-9 w-9 rounded-2xl items-center justify-center`}>
+                      <Feather name={cat.icon as any} size={18} color="white" />
+                    </View>
+                    <Text className="font-clash text-app text-lg">{cat.title}</Text>
+                  </View>
+                  <Text className="text-xs font-outfit text-secondary">{cat.items.length} items</Text>
                 </View>
-                <Text className="font-outfit font-bold text-app text-base leading-tight">
-                  {cat.title}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+
+                <View className="gap-3">
+                  {cat.items.length ? (
+                    cat.items.map((item) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          console.log("Parent content card pressed", { id: item.id, title: item.title });
+                          setParentContentCache({
+                            id: Number(item.id),
+                            title: item.title,
+                            summary: item.summary,
+                            description: item.description ?? null,
+                            coverImage: item.coverImage ?? null,
+                            category: item.category ?? null,
+                            programTier: item.programTier ?? null,
+                            modules: item.modules ?? [],
+                            isPreview: item.isPreview ?? false,
+                          });
+                          console.log("Navigating to detail page", { id: item.id });
+                          router.push(`/parent-platform/${item.id}`);
+                        }}
+                        className="bg-input border border-app rounded-[24px] p-5 shadow-sm"
+                      >
+                        <Text className="font-outfit font-bold text-app text-base">{item.title}</Text>
+                        <Text className="text-xs font-outfit text-secondary mt-1 uppercase">
+                          {item.modules?.length ?? 0} modules{item.isPreview ? " • Preview" : ""}
+                        </Text>
+                        <Text className="text-sm font-outfit text-secondary mt-3" numberOfLines={3}>
+                          {item.summary}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         <View className="mt-8 bg-accent/10 rounded-3xl p-6 border border-accent/20">
           <View className="flex-row items-center mb-2">

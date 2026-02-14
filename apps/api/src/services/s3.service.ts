@@ -14,3 +14,12 @@ export async function getPresignedUploadUrl(input: { key: string; contentType: s
   const url = await getSignedUrl(s3Client, command, { expiresIn: 900 });
   return url;
 }
+
+export function getPublicObjectUrl(key: string) {
+  const bucket = env.s3Bucket;
+  const region = env.awsRegion;
+  if (!bucket || !region) {
+    throw new Error("S3 bucket or region is not configured");
+  }
+  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+}

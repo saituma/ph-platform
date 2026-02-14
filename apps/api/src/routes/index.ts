@@ -11,6 +11,7 @@ import bookingRoutes from "./booking.routes";
 import videoRoutes from "./video.routes";
 import adminRoutes from "./admin.routes";
 import mediaRoutes from "./media.routes";
+import billingRoutes from "./billing.routes";
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use(bookingRoutes);
 router.use(videoRoutes);
 router.use(mediaRoutes);
 router.use(adminRoutes);
+router.use(billingRoutes);
 
 export default router;

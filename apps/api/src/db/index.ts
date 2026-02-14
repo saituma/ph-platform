@@ -17,6 +17,14 @@ function normalizeConnectionString(raw: string) {
 
 const connectionString = env.databaseSsl ? normalizeConnectionString(env.databaseUrl) : env.databaseUrl;
 
-export const pool = new Pool({ connectionString, ssl: env.databaseSsl });
+export const pool = new Pool({
+  connectionString,
+  ssl: env.databaseSsl,
+});
+
+// Ensure public schema is on the search_path for pooled Neon connections.
+pool.on("connect", (client) => {
+  client.query('set search_path to public');
+});
 
 export const db = drizzle(pool);

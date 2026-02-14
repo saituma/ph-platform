@@ -26,19 +26,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Select } from "../ui/select";
-
-const navItems = [
-  { label: "Overview", href: "/", icon: Home },
-  { label: "Parent Portal", href: "/parent", icon: UserRound },
-  { label: "Users & Tiers", href: "/users", icon: UserRound },
-  { label: "Messaging", href: "/messaging", badge: "9", icon: MessageCircle },
-  { label: "Schedule", href: "/bookings", icon: CalendarDays },
-  { label: "Video Feedback", href: "/video-review", icon: PlaySquare },
-  { label: "CMS & Content", href: "/content", icon: ClipboardList },
-  { label: "Programs", href: "/programs", icon: BookOpen },
-  { label: "Exercise Library", href: "/exercise-library", icon: BadgeCheck },
-  { label: "Settings", href: "/settings", icon: Settings },
-];
+import { useGetThreadsQuery } from "../../lib/apiSlice";
 
 type SidebarContentProps = {
   currentPath: string;
@@ -50,6 +38,27 @@ export function AdminSidebarContent({
   collapsed = false,
 }: SidebarContentProps) {
   const [premiumWindowOpen, setPremiumWindowOpen] = useState(false);
+  const { data: threadsData } = useGetThreadsQuery();
+  const unreadCount = (threadsData?.threads ?? []).reduce(
+    (sum: number, thread: any) => sum + (thread.unread ?? 0),
+    0
+  );
+
+  const navItems = [
+    { label: "Overview", href: "/", icon: Home },
+    { label: "Parent Portal", href: "/parent", icon: UserRound },
+    { label: "Users & Tiers", href: "/users", icon: UserRound },
+    {
+      label: "Messaging",
+      href: "/messaging",
+      badge: unreadCount > 0 ? String(unreadCount) : undefined,
+      icon: MessageCircle,
+    },
+    { label: "Schedule", href: "/bookings", icon: CalendarDays },
+    { label: "Video Feedback", href: "/video-review", icon: PlaySquare },
+    { label: "Exercise Library", href: "/exercise-library", icon: BadgeCheck },
+    { label: "Settings", href: "/settings", icon: Settings },
+  ];
   return (
     <div className="flex h-full flex-col gap-6">
       <div className={cn("px-2", collapsed ? "text-center" : undefined)}>

@@ -13,13 +13,15 @@ async function forward(req: NextRequest) {
   const path = url.pathname.replace("/api/backend", "");
   const target = `${apiBase}/api${path}${url.search}`;
 
-  const accessToken = req.cookies.get("accessToken")?.value;
+  const accessToken = req.cookies.get("accessToken")?.value ?? req.cookies.get("accessTokenClient")?.value;
+  const forwardedAuth = req.headers.get("authorization") ?? "";
 
   const res = await fetch(target, {
     method: req.method,
     headers: {
       "Content-Type": req.headers.get("content-type") ?? "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(forwardedAuth ? { Authorization: forwardedAuth } : {}),
     },
     body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.text(),
   });

@@ -14,10 +14,16 @@ export function AthleteDashboard() {
     if (!token) return;
     setIsLoading(true);
     try {
-      const data = await apiRequest<{ athlete: any | null }>("/onboarding", { token });
+      const data = await apiRequest<{ athlete: any | null }>("/onboarding", {
+        token,
+        suppressStatusCodes: [401],
+      });
       setAthlete(data.athlete ?? null);
     } catch (error) {
-      console.warn("Failed to load athlete data", error);
+      const message = error instanceof Error ? error.message : "";
+      if (!message.includes("401")) {
+        console.warn("Failed to load athlete data", error);
+      }
     } finally {
       setIsLoading(false);
     }

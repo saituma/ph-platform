@@ -5,6 +5,10 @@ import { env } from "../config/env";
 import { createUserFromCognito, getUserByCognitoSub, getUserById } from "../services/user.service";
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  // Public endpoints that should bypass auth even if guarded.
+  if (req.method === "GET" && (req.path === "/billing/public-plans" || req.path === "/billing/plans")) {
+    return next();
+  }
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Unauthorized" });

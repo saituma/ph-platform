@@ -5,6 +5,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  text,
   timestamp,
   uniqueIndex,
   varchar,
@@ -14,10 +15,18 @@ export const Role = pgEnum("role", ["guardian", "athlete", "coach", "admin", "su
 export const ProgramType = pgEnum("program_type", ["PHP", "PHP_Plus", "PHP_Premium"]);
 export const EnrollmentStatus = pgEnum("enrollment_status", ["pending", "active", "completed", "failed"]);
 export const bookingStatus = pgEnum("booking_status", ["pending", "confirmed", "declined", "cancelled"]);
-export const bookingType = pgEnum("booking_type", ["group_call", "one_on_one", "role_model"]);
+export const bookingType = pgEnum("booking_type", [
+  "call",
+  "group_call",
+  "individual_call",
+  "lift_lab_1on1",
+  "role_model",
+  "one_on_one",
+]);
 export const contentType = pgEnum("content_type", ["article", "video", "image", "audio", "document", "link", "pdf", "faq"]);
 export const contentSurface = pgEnum("content_surface", ["home", "parent_platform"]);
 export const messageType = pgEnum("message_type", ["text", "image", "video"]);
+export const subscriptionStatus = pgEnum("subscription_status", ["pending_payment", "pending_approval", "approved", "rejected"]);
 export const sessionType = pgEnum("session_type", [
   "program",
   "warmup",
@@ -145,7 +154,11 @@ export const programTable = pgTable("programs", {
 export const exerciseTable = pgTable("exercises", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 255 }).notNull(),
+  category: varchar({ length: 100 }),
   cues: varchar({ length: 500 }),
+  howTo: varchar({ length: 500 }),
+  progression: varchar({ length: 500 }),
+  regression: varchar({ length: 500 }),
   sets: integer(),
   reps: integer(),
   duration: integer(),
@@ -261,6 +274,49 @@ export const contentTable = pgTable("contents", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const parentCourseTable = pgTable("parent_courses", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  title: varchar({ length: 255 }).notNull(),
+  summary: varchar({ length: 500 }).notNull(),
+  description: varchar({ length: 2000 }),
+  coverImage: text(),
+  category: varchar({ length: 255 }).notNull(),
+  programTier: ProgramType(),
+  modules: jsonb().notNull(),
+  createdBy: integer().notNull().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
+export const subscriptionPlanTable = pgTable("subscription_plans", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar({ length: 255 }).notNull(),
+  tier: ProgramType().notNull(),
+  stripePriceId: varchar({ length: 255 }).notNull(),
+  displayPrice: varchar({ length: 100 }).notNull(),
+  billingInterval: varchar({ length: 50 }).notNull(),
+  monthlyPrice: varchar({ length: 100 }),
+  yearlyPrice: varchar({ length: 100 }),
+  discountType: varchar({ length: 20 }),
+  discountValue: varchar({ length: 50 }),
+  discountAppliesTo: varchar({ length: 20 }),
+  isActive: boolean().notNull().default(true),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
+export const subscriptionRequestTable = pgTable("subscription_requests", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer().notNull().references(() => userTable.id),
+  athleteId: integer().notNull().references(() => athleteTable.id),
+  planId: integer().notNull().references(() => subscriptionPlanTable.id),
+  stripeSessionId: varchar({ length: 255 }),
+  paymentStatus: varchar({ length: 100 }),
+  status: subscriptionStatus().notNull().default("pending_payment"),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
 export const videoUploadTable = pgTable("video_uploads", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   athleteId: integer().notNull().references(() => athleteTable.id),
@@ -305,6 +361,9 @@ export const serviceTypeTable = pgTable("service_types", {
   durationMinutes: integer().notNull(),
   capacity: integer(),
   fixedStartTime: varchar({ length: 10 }),
+  attendeeVisibility: boolean().notNull().default(true),
+  defaultLocation: varchar({ length: 500 }),
+  defaultMeetingLink: varchar({ length: 500 }),
   programTier: ProgramType(),
   isActive: boolean().notNull().default(true),
   createdBy: integer().notNull().references(() => userTable.id),

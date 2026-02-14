@@ -1,7 +1,7 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { SwipeableTabLayout, TabConfig } from "@/components/navigation";
 import { useRole } from "@/context/RoleContext";
-import { Slot, usePathname, useRouter, useSegments } from "expo-router";
+import { Redirect, Slot, usePathname, useRouter, useSegments } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { InteractionManager, Platform } from "react-native";
 import { useAppSelector } from "@/store/hooks";
@@ -34,7 +34,7 @@ const TAB_COMPONENTS: Record<string, React.ComponentType> = {
 export default function TabLayout() {
   const { colors } = useAppTheme();
   const { role } = useRole();
-  const { isAuthenticated, onboardingCompleted } = useAppSelector((state) => state.user);
+  const { isAuthenticated, onboardingCompleted, hydrated } = useAppSelector((state) => state.user);
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
@@ -107,6 +107,14 @@ export default function TabLayout() {
       return <Component key={tab.key} />;
     });
   }, [visibleTabs]); // visibleTabs only changes when role changes
+
+  if (!hydrated) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   if (isOnboarding) {
     return <Slot />;

@@ -388,7 +388,11 @@ export async function createProgramTemplate(input: {
 
 export async function createExercise(input: {
   name: string;
+  category?: string | null;
   cues?: string | null;
+  howTo?: string | null;
+  progression?: string | null;
+  regression?: string | null;
   sets?: number | null;
   reps?: number | null;
   duration?: number | null;
@@ -400,7 +404,11 @@ export async function createExercise(input: {
     .insert(exerciseTable)
     .values({
       name: input.name,
+      category: input.category ?? null,
       cues: input.cues ?? null,
+      howTo: input.howTo ?? null,
+      progression: input.progression ?? null,
+      regression: input.regression ?? null,
       sets: input.sets ?? null,
       reps: input.reps ?? null,
       duration: input.duration ?? null,
@@ -411,6 +419,65 @@ export async function createExercise(input: {
     .returning();
 
   return result[0];
+}
+
+export async function listExercises() {
+  return db
+    .select()
+    .from(exerciseTable)
+    .orderBy(desc(exerciseTable.createdAt));
+}
+
+export async function updateExercise(
+  exerciseId: number,
+  input: {
+    name?: string;
+    category?: string | null;
+    cues?: string | null;
+    howTo?: string | null;
+    progression?: string | null;
+    regression?: string | null;
+    sets?: number | null;
+    reps?: number | null;
+    duration?: number | null;
+    restSeconds?: number | null;
+    notes?: string | null;
+    videoUrl?: string | null;
+  }
+) {
+  const updatePayload: Record<string, any> = {
+    updatedAt: new Date(),
+  };
+
+  if (input.name !== undefined) updatePayload.name = input.name;
+  if (input.category !== undefined) updatePayload.category = input.category;
+  if (input.cues !== undefined) updatePayload.cues = input.cues;
+  if (input.howTo !== undefined) updatePayload.howTo = input.howTo;
+  if (input.progression !== undefined) updatePayload.progression = input.progression;
+  if (input.regression !== undefined) updatePayload.regression = input.regression;
+  if (input.sets !== undefined) updatePayload.sets = input.sets;
+  if (input.reps !== undefined) updatePayload.reps = input.reps;
+  if (input.duration !== undefined) updatePayload.duration = input.duration;
+  if (input.restSeconds !== undefined) updatePayload.restSeconds = input.restSeconds;
+  if (input.notes !== undefined) updatePayload.notes = input.notes;
+  if (input.videoUrl !== undefined) updatePayload.videoUrl = input.videoUrl;
+
+  const updated = await db
+    .update(exerciseTable)
+    .set(updatePayload)
+    .where(eq(exerciseTable.id, exerciseId))
+    .returning();
+
+  return updated[0] ?? null;
+}
+
+export async function deleteExercise(exerciseId: number) {
+  const deleted = await db
+    .delete(exerciseTable)
+    .where(eq(exerciseTable.id, exerciseId))
+    .returning();
+
+  return deleted[0] ?? null;
 }
 
 export async function createSession(input: {
@@ -475,14 +542,46 @@ export async function listBookingsAdmin() {
   return rows;
 }
 
-export async function listMessageThreadsAdmin(_: number) {
+export async function listAvailabilityAdmin() {
+  return db
+    .select({
+      id: availabilityBlockTable.id,
+      startsAt: availabilityBlockTable.startsAt,
+      endsAt: availabilityBlockTable.endsAt,
+      createdAt: availabilityBlockTable.createdAt,
+      serviceName: serviceTypeTable.name,
+    })
+    .from(availabilityBlockTable)
+    .leftJoin(serviceTypeTable, eq(availabilityBlockTable.serviceTypeId, serviceTypeTable.id))
+    .orderBy(desc(availabilityBlockTable.startsAt))
+    .limit(20);
+}
+
+export async function listVideoUploadsAdmin() {
+  return db
+    .select({
+      id: videoUploadTable.id,
+      athleteName: athleteTable.name,
+      videoUrl: videoUploadTable.videoUrl,
+      notes: videoUploadTable.notes,
+      feedback: videoUploadTable.feedback,
+      reviewedAt: videoUploadTable.reviewedAt,
+      createdAt: videoUploadTable.createdAt,
+    })
+    .from(videoUploadTable)
+    .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))
+    .orderBy(desc(videoUploadTable.createdAt));
+}
+
+export async function listMessageThreadsAdmin(coachId: number) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
+  if (!adminIds.includes(coachId)) return [];
   const adminSet = new Set(adminIds);
   const messages = await db
     .select()
     .from(messageTable)
-    .where(or(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, adminIds)));
+    .where(or(eq(messageTable.senderId, coachId), eq(messageTable.receiverId, coachId)));
 
   const threads = new Map<number, { lastMessage: typeof messages[number]; unread: number }>();
   for (const msg of messages) {
@@ -491,7 +590,7 @@ export async function listMessageThreadsAdmin(_: number) {
     }
     const otherId = adminSet.has(msg.senderId) ? msg.receiverId : msg.senderId;
     const current = threads.get(otherId);
-    const isUnread = adminSet.has(msg.receiverId) && !msg.read;
+    const isUnread = msg.receiverId === coachId && !msg.read;
     if (!current || new Date(msg.createdAt) > new Date(current.lastMessage.createdAt)) {
       threads.set(otherId, { lastMessage: msg, unread: (current?.unread ?? 0) + (isUnread ? 1 : 0) });
     } else if (isUnread) {
@@ -532,6 +631,19 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number) {
     )
     .orderBy(messageTable.createdAt);
   return attachDirectMessageReactions(messages);
+}
+
+export async function markThreadReadAdmin(coachId: number, userId: number) {
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return 0;
+  if (!adminIds.includes(coachId)) return 0;
+
+  const result = await db
+    .update(messageTable)
+    .set({ read: true })
+    .where(and(eq(messageTable.receiverId, coachId), eq(messageTable.senderId, userId), eq(messageTable.read, false)));
+
+  return result.rowCount ?? 0;
 }
 
 export async function sendMessageAdmin(input: {

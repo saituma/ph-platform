@@ -109,7 +109,7 @@ export default function VerifyScreen() {
                 );
                 const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean } | null }>(
                   "/onboarding",
-                  { token }
+                  { token, suppressStatusCodes: [401] }
                 );
                 const completed = Boolean(onboarding.athlete?.onboardingCompleted);
                 dispatch(setOnboardingCompleted(completed));

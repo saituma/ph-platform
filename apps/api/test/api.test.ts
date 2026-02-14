@@ -78,6 +78,18 @@ jest.mock("../src/services/admin.service", () => ({
   createExercise: jest.fn(async () => ({ id: 1 })),
   createSession: jest.fn(async () => ({ id: 1 })),
   addExerciseToSession: jest.fn(async () => ({ id: 1 })),
+  listBookingsAdmin: jest.fn(async () => []),
+  listMessageThreadsAdmin: jest.fn(async () => []),
+  listThreadMessagesAdmin: jest.fn(async () => []),
+  markThreadReadAdmin: jest.fn(async () => 0),
+  sendMessageAdmin: jest.fn(async () => ({ id: 1 })),
+  getAdminProfile: jest.fn(async () => ({ user: { id: 1 }, settings: {} })),
+  updateAdminProfile: jest.fn(async () => ({ user: { id: 1 }, settings: {} })),
+  updateAdminPreferences: jest.fn(async () => ({ user: { id: 1 }, settings: {} })),
+  getDashboardMetrics: jest.fn(async () => ({})),
+  getOnboardingConfig: jest.fn(async () => ({ id: 1 })),
+  updateOnboardingConfig: jest.fn(async () => ({ id: 1 })),
+  listVideoUploadsAdmin: jest.fn(async () => []),
 }));
 
 describe("API routes", () => {
@@ -233,7 +245,9 @@ describe("API routes", () => {
   });
 
   it("POST /api/videos/presign", async () => {
-    const res = await request(app).post("/api/videos/presign").send({ key: "videos/test.mp4", contentType: "video/mp4" });
+    const res = await request(app)
+      .post("/api/videos/presign")
+      .send({ key: "videos/test.mp4", contentType: "video/mp4", sizeBytes: 1024 });
     expect(res.status).toBe(200);
   });
 
@@ -259,6 +273,11 @@ describe("API routes", () => {
 
   it("GET /api/admin/users/1/onboarding", async () => {
     const res = await request(app).get("/api/admin/users/1/onboarding");
+    expect(res.status).toBe(200);
+  });
+
+  it("GET /api/admin/videos", async () => {
+    const res = await request(app).get("/api/admin/videos");
     expect(res.status).toBe(200);
   });
 

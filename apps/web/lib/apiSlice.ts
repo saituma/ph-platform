@@ -5,7 +5,7 @@ export const apiSlice = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: "/api/backend",
   }),
-  tagTypes: ["Users", "Bookings", "Threads", "Content", "Services", "Dashboard", "OnboardingConfig"],
+  tagTypes: ["Users", "Bookings", "Threads", "Content", "Services", "Dashboard", "OnboardingConfig", "ParentCourses", "Availability"],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<any, void>({
       query: () => "/admin/profile",
@@ -58,8 +58,16 @@ export const apiSlice = createApi({
       query: () => "/admin/bookings",
       providesTags: ["Bookings"],
     }),
+    getAdminAvailability: builder.query<{ items: any[] }, void>({
+      query: () => "/admin/availability",
+      providesTags: ["Availability"],
+    }),
+    getVideoUploads: builder.query<{ items: any[] }, void>({
+      query: () => "/admin/videos",
+      providesTags: ["Content"],
+    }),
     getServices: builder.query<{ items: any[] }, void>({
-      query: () => "/bookings/services",
+      query: () => "/bookings/services?includeInactive=true",
       providesTags: ["Services"],
     }),
     getThreads: builder.query<{ threads: any[] }, void>({
@@ -69,6 +77,59 @@ export const apiSlice = createApi({
     getMessages: builder.query<{ messages: any[] }, number>({
       query: (userId) => `/admin/messages/${userId}`,
       providesTags: (result, error, userId) => [{ type: "Threads", id: userId } as any],
+    }),
+    getParentContent: builder.query<{ items: any[] }, void>({
+      query: () => "/content/parent-platform",
+      providesTags: ["Content"],
+    }),
+    getParentCourses: builder.query<{ items: any[] }, void>({
+      query: () => "/content/parent-courses",
+      providesTags: ["ParentCourses"],
+    }),
+    createMediaUploadUrl: builder.mutation<
+      { uploadUrl: string; publicUrl: string; key: string },
+      { folder: string; fileName: string; contentType: string; sizeBytes: number }
+    >({
+      query: (body) => ({
+        url: "/media/presign",
+        method: "POST",
+        body,
+      }),
+    }),
+    getParentCourse: builder.query<{ item: any }, number>({
+      query: (courseId) => `/content/parent-courses/${courseId}`,
+      providesTags: (result, error, courseId) => [{ type: "ParentCourses", id: courseId } as any],
+    }),
+    createParentCourse: builder.mutation<{ item: any }, any>({
+      query: (body) => ({
+        url: "/content/parent-courses",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ParentCourses"],
+    }),
+    updateParentCourse: builder.mutation<{ item: any }, { id: number; data: any }>({
+      query: ({ id, data }) => ({
+        url: `/content/parent-courses/${id}`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: ["ParentCourses"],
+    }),
+    updateContent: builder.mutation<{ item: any }, { id: number; data: any }>({
+      query: ({ id, data }) => ({
+        url: `/content/${id}`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: ["Content"],
+    }),
+    markThreadRead: builder.mutation<{ updated: number }, { userId: number }>({
+      query: ({ userId }) => ({
+        url: `/admin/messages/${userId}/read`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Threads"],
     }),
     sendMessage: builder.mutation<{ message: any }, { userId: number; content: string }>({
       query: ({ userId, content }) => ({
@@ -96,16 +157,33 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Services", "Bookings"],
     }),
+    updateService: builder.mutation<any, { id: number; data: any }>({
+      query: ({ id, data }) => ({
+        url: `/bookings/services/${id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["Services", "Bookings"],
+    }),
     createAvailability: builder.mutation<any, any>({
       query: (body) => ({
         url: "/bookings/availability",
         method: "POST",
         body,
       }),
+      invalidatesTags: ["Availability"],
     }),
     createContent: builder.mutation<any, any>({
       query: (body) => ({
         url: "/content",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Content"],
+    }),
+    reviewVideoUpload: builder.mutation<{ item: any }, { uploadId: number; feedback: string }>({
+      query: (body) => ({
+        url: "/videos/review",
         method: "POST",
         body,
       }),
@@ -195,14 +273,26 @@ export const {
   useBlockUserMutation,
   useDeleteUserMutation,
   useGetBookingsQuery,
+  useGetAdminAvailabilityQuery,
+  useGetVideoUploadsQuery,
   useGetServicesQuery,
   useGetThreadsQuery,
   useGetMessagesQuery,
+  useGetParentContentQuery,
+  useGetParentCoursesQuery,
+  useGetParentCourseQuery,
+  useCreateMediaUploadUrlMutation,
+  useCreateParentCourseMutation,
+  useUpdateParentCourseMutation,
+  useUpdateContentMutation,
+  useMarkThreadReadMutation,
   useSendMessageMutation,
   useToggleMessageReactionMutation,
   useCreateServiceMutation,
+  useUpdateServiceMutation,
   useCreateAvailabilityMutation,
   useCreateContentMutation,
+  useReviewVideoUploadMutation,
   useGetUserOnboardingQuery,
   useUpdateProgramTierMutation,
   useAssignProgramMutation,

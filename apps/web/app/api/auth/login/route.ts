@@ -36,6 +36,14 @@ export async function POST(req: Request) {
     path: "/",
     maxAge: expiresIn ?? 3600,
   });
+  // Non-httpOnly token for Socket.IO auth (client-side access).
+  response.cookies.set("accessTokenClient", accessToken, {
+    httpOnly: false,
+    secure,
+    sameSite: "lax",
+    path: "/",
+    maxAge: expiresIn ?? 3600,
+  });
 
   if (refreshToken) {
     response.cookies.set("refreshToken", refreshToken, {

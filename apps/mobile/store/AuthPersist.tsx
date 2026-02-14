@@ -1,7 +1,8 @@
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "expo-router";
 import { useAppDispatch, useAppSelector } from "./hooks";
-import { setCredentials, logout, setOnboardingCompleted, setAthleteUserId } from "./slices/userSlice";
+import { setCredentials, logout, setOnboardingCompleted, setAthleteUserId, setHydrated } from "./slices/userSlice";
 import { apiRequest } from "@/lib/api";
 
 const STORAGE_KEYS = {
@@ -15,8 +16,17 @@ const STORAGE_KEYS = {
 export function AuthPersist() {
   const dispatch = useAppDispatch();
   const { isAuthenticated, token, profile } = useAppSelector((state) => state.user);
-  const [hydrated, setHydrated] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
+  const isAuthRoute =
+    pathname.startsWith("/(auth)") ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/verify" ||
+    pathname === "/forgot" ||
+    pathname === "/reset-password";
 
   useEffect(() => {
     let mounted = true;
@@ -44,18 +54,27 @@ export function AuthPersist() {
         try {
           const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
             "/onboarding",
-            { token: storedToken }
+            { token: storedToken, suppressStatusCodes: [401] }
           );
           dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
           dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
         } catch {
+          // Invalid/expired token - reset and send to login.
           dispatch(setOnboardingCompleted(null));
           dispatch(setAthleteUserId(null));
+          dispatch(logout());
+          if (!isAuthRoute) {
+            router.replace("/(auth)/login");
+          }
         }
       } else {
         dispatch(logout());
+        if (!isAuthRoute) {
+          router.replace("/(auth)/login");
+        }
       }
-      setHydrated(true);
+      setHydratedState(true);
+      dispatch(setHydrated(true));
     })();
     return () => {
       mounted = false;
@@ -82,9 +101,12 @@ export function AuthPersist() {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
         lastSavedToken.current = null;
+        if (!isAuthRoute) {
+          router.replace("/(auth)/login");
+        }
       }
     })();
-  }, [hydrated, isAuthenticated, token, profile]);
+  }, [hydrated, isAuthenticated, token, profile, pathname, router, isAuthRoute]);
 
   return null;
 }

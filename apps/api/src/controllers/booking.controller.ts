@@ -8,17 +8,25 @@ import {
   listAvailabilityBlocks,
   listBookingsForUser,
   listServiceTypes,
+  updateServiceType,
 } from "../services/booking.service";
 import { getGuardianAndAthlete } from "../services/user.service";
 import { ProgramType } from "../db/schema";
 
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(["group_call", "one_on_one", "role_model"]),
+  type: z.enum(["call", "group_call", "individual_call", "lift_lab_1on1", "role_model", "one_on_one"]),
   durationMinutes: z.number().int().min(1),
   capacity: z.number().int().min(1).optional(),
   fixedStartTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  attendeeVisibility: z.boolean().optional(),
+  defaultLocation: z.string().optional(),
+  defaultMeetingLink: z.string().optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
+});
+
+const serviceTypeUpdateSchema = serviceTypeSchema.partial().extend({
+  isActive: z.boolean().optional(),
 });
 
 const availabilitySchema = z.object({
@@ -41,8 +49,11 @@ const availabilityQuerySchema = z.object({
   to: z.string().datetime(),
 });
 
-export async function listServices(_req: Request, res: Response) {
-  const items = await listServiceTypes();
+export async function listServices(req: Request, res: Response) {
+  const includeInactive =
+    req.query.includeInactive === "true" &&
+    ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "");
+  const items = await listServiceTypes({ includeInactive });
   return res.status(200).json({ items });
 }
 
@@ -54,10 +65,26 @@ export async function createService(req: Request, res: Response) {
     durationMinutes: input.durationMinutes,
     capacity: input.capacity,
     fixedStartTime: input.fixedStartTime,
+    attendeeVisibility: input.attendeeVisibility,
+    defaultLocation: input.defaultLocation,
+    defaultMeetingLink: input.defaultMeetingLink,
     programTier: input.programTier,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });
+}
+
+export async function updateService(req: Request, res: Response) {
+  const serviceId = Number(req.params.id);
+  if (!serviceId) {
+    return res.status(400).json({ error: "Invalid service id" });
+  }
+  const input = serviceTypeUpdateSchema.parse(req.body);
+  if (Object.keys(input).length === 0) {
+    return res.status(400).json({ error: "No updates provided" });
+  }
+  const item = await updateServiceType(serviceId, input);
+  return res.status(200).json({ item });
 }
 
 export async function createAvailability(req: Request, res: Response) {

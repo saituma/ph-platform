@@ -1,31 +1,25 @@
-FROM node:20-alpine AS base
+FROM node:20-slim AS build
+
 WORKDIR /app
 
-RUN corepack enable
+COPY package.json package.json
+COPY tsconfig.json tsconfig.json
+COPY drizzle.config.ts drizzle.config.ts
+COPY src src
+COPY drizzle drizzle
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/api/package.json apps/api/tsconfig.json apps/api/drizzle.config.ts ./apps/api/
-COPY apps/api/drizzle ./apps/api/drizzle
+RUN npm install
+RUN npm run build
 
-RUN pnpm install --filter api...
-
-COPY apps/api/src ./apps/api/src
-
-RUN pnpm --filter api build
-
-FROM node:20-alpine
+FROM node:20-slim AS runner
 WORKDIR /app
-RUN corepack enable
-
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=base /app/apps/api/package.json ./apps/api/package.json
-COPY --from=base /app/apps/api/dist ./apps/api/dist
-COPY --from=base /app/apps/api/drizzle.config.ts ./apps/api/drizzle.config.ts
-COPY --from=base /app/apps/api/drizzle ./apps/api/drizzle
-
 ENV NODE_ENV=production
-WORKDIR /app/apps/api
 
-CMD ["node", "dist/index.js"]
+COPY package.json package.json
+COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build /app/dist /app/dist
+COPY --from=build /app/drizzle /app/drizzle
+COPY --from=build /app/drizzle.config.ts /app/drizzle.config.ts
+
+EXPOSE 3001
+CMD ["npm", "start"]

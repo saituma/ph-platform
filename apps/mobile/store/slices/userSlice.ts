@@ -12,6 +12,7 @@ interface UserState {
   token: string | null;
   profile: UserProfile;
   isLoading: boolean;
+  hydrated: boolean;
   onboardingCompleted: boolean | null;
   athleteUserId: number | null;
 }
@@ -26,6 +27,7 @@ const initialState: UserState = {
     avatar: null,
   },
   isLoading: false,
+  hydrated: false,
   onboardingCompleted: null,
   athleteUserId: null,
 };
@@ -54,6 +56,9 @@ const userSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
+    setHydrated: (state, action: PayloadAction<boolean>) => {
+      state.hydrated = action.payload;
+    },
     logout: (state) => {
       state.isAuthenticated = false;
       state.token = null;
@@ -70,6 +75,7 @@ export const {
   setOnboardingCompleted,
   setAthleteUserId,
   setLoading,
+  setHydrated,
   logout,
 } =
   userSlice.actions;

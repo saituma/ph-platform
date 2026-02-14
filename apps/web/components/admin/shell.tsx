@@ -4,6 +4,7 @@ import { AdminSidebar, AdminSidebarContent } from "./sidebar";
 import { AdminTopbar } from "./topbar";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
+import { DialogTitle } from "../ui/dialog";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -32,6 +33,7 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
                 </Button>
               </SheetTrigger>
               <SheetContent className="w-72 border-r border-border bg-card p-0">
+                <DialogTitle className="sr-only">Navigation</DialogTitle>
                 <div className="h-full px-6 py-8">
                   <AdminSidebarContent currentPath={pathname} />
                 </div>
@@ -70,9 +72,6 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
           />
           <main className="mx-auto w-full max-w-[1400px] space-y-8 px-6 py-8 lg:px-10">
             {children}
-            <div className="pt-4 text-center text-xs text-muted-foreground">
-              Made with care for Lift Lab. Powered by Client Reach AI.
-            </div>
           </main>
         </div>
       </div>

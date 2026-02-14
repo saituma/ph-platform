@@ -42,6 +42,7 @@ export function ConversationPanel({
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingRef = useRef<{ active: boolean; timer?: NodeJS.Timeout | null }>({
     active: false,
     timer: null,
@@ -82,6 +83,11 @@ export function ConversationPanel({
     }
   }, [draft, onTypingChange]);
 
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages.length, name]);
+
   if (!name) {
     return (
       <EmptyState
@@ -112,7 +118,7 @@ export function ConversationPanel({
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto pr-1">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto pr-1">
         <div className="space-y-3">
         {messages.map((message) => {
           const isCoach = message.author === "Coach";

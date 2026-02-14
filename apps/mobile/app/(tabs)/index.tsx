@@ -32,7 +32,10 @@ export default function HomeScreen() {
   const loadAthleteName = React.useCallback(async () => {
     if (!token) return;
     try {
-      const data = await apiRequest<{ athlete: { name?: string } | null }>("/onboarding", { token });
+      const data = await apiRequest<{ athlete: { name?: string } | null }>("/onboarding", {
+        token,
+        suppressStatusCodes: [401],
+      });
       setAthleteName(data.athlete?.name ?? null);
     } catch (error: any) {
       setAthleteName(null);

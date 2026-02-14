@@ -9,7 +9,8 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { InboxList } from "../../components/admin/messaging/inbox-list";
-import { ConversationPanel } from "../../components/admin/messaging/conversation-panel";
+import { GroupInboxPanel } from "../../components/admin/messaging/group-inbox-panel";
+import { MessagingConversationCard } from "../../components/admin/messaging/messaging-conversation-card";
 import { MessageDialogs, type MessagingDialog } from "../../components/admin/messaging/message-dialogs";
 import {
   useCreateChatGroupMutation,
@@ -17,6 +18,7 @@ import {
   useGetChatGroupMessagesQuery,
   useGetChatGroupsQuery,
   useGetMessagesQuery,
+  useMarkThreadReadMutation,
   useGetThreadsQuery,
   useGetUsersQuery,
   useSendChatGroupMessageMutation,
@@ -68,8 +70,10 @@ export default function MessagingPage() {
   const [sendGroupMessage, { isLoading: isSendingGroup }] = useSendChatGroupMessageMutation();
   const [toggleMessageReaction] = useToggleMessageReactionMutation();
   const [toggleGroupMessageReaction] = useToggleChatGroupMessageReactionMutation();
+  const [markThreadRead] = useMarkThreadReadMutation();
   const [newGroupName, setNewGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+  const lastNotifiedRef = useRef<number | null>(null);
 
   const threads = useMemo<ThreadItem[]>(() => {
     const source = threadsData?.threads ?? [];
@@ -78,9 +82,7 @@ export default function MessagingPage() {
     source.forEach((thread: any) => {
       userThreads.set(thread.userId, thread);
     });
-    const combined = users
-      .filter((user: any) => user.role !== "admin")
-      .map((user: any) => {
+    const combined = users.map((user: any) => {
         const thread = userThreads.get(user.id);
         const timestamp = thread?.time ? new Date(thread.time).getTime() : 0;
         return {
@@ -116,6 +118,14 @@ export default function MessagingPage() {
   const selectedThreadName = selectedThread?.name ?? null;
 
   useEffect(() => {
+    if (!selectedUserId) return;
+    markThreadRead({ userId: selectedUserId })
+      .unwrap()
+      .then(() => refetchThreads())
+      .catch(() => undefined);
+  }, [markThreadRead, refetchThreads, selectedUserId]);
+
+  useEffect(() => {
     if (inboxMode === "direct" && !selectedUserId && threads.length) {
       setSelectedUserId(threads[0].userId);
     }
@@ -143,6 +153,9 @@ export default function MessagingPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => undefined);
+    }
     const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
     const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
     const localDevHost =
@@ -155,8 +168,20 @@ export default function MessagingPage() {
       : apiEnvUrl
       ? apiEnvUrl.replace(/\/api\/?$/, "")
       : fallbackLocalUrl;
+    const accessToken =
+      typeof document !== "undefined"
+        ? document.cookie
+            .split(";")
+            .map((part) => part.trim())
+            .find((part) => part.startsWith("accessTokenClient="))
+            ?.split("=")[1] ?? ""
+        : "";
     const socket: Socket = io(socketUrl, {
-      transports: ["websocket"],
+      auth: accessToken ? { token: accessToken } : undefined,
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      timeout: 10000,
     });
     socketRef.current = socket;
     const handleIncoming = () => {
@@ -169,8 +194,45 @@ export default function MessagingPage() {
         refetchGroupMessages();
       }
     };
-    socket.on("message:new", handleIncoming);
-    socket.on("group:message", handleIncoming);
+    socket.on("message:new", (payload: any) => {
+      handleIncoming();
+      if (!payload?.id) return;
+      if (lastNotifiedRef.current === payload.id) return;
+      lastNotifiedRef.current = payload.id;
+      const senderId = Number(payload.senderId);
+      const receiverId = Number(payload.receiverId);
+      const isActiveThread = selectedUserId && (senderId === selectedUserId || receiverId === selectedUserId);
+
+      if (isActiveThread) {
+        markThreadRead({ userId: selectedUserId! })
+          .unwrap()
+          .then(() => {
+            refetchThreads();
+            refetchMessages();
+          })
+          .catch(() => undefined);
+        setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
+        return;
+      }
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("New message", { body: payload.content ?? "You received a new message" });
+      }
+    });
+    socket.on("group:message", (payload: any) => {
+      handleIncoming();
+      if (!payload?.id) return;
+      if (lastNotifiedRef.current === payload.id) return;
+      lastNotifiedRef.current = payload.id;
+      const isActiveGroup = selectedGroupId && Number(payload.groupId) === selectedGroupId;
+      if (isActiveGroup) {
+        setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
+        return;
+      }
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("New group message", { body: payload.content ?? "You received a group message" });
+      }
+    });
     socket.on("message:reaction", handleIncoming);
     socket.on("group:reaction", handleIncoming);
     socket.on("presence:update", (payload: number[]) => {
@@ -284,80 +346,32 @@ export default function MessagingPage() {
               </Button>
             </div>
             {inboxMode === "group" ? (
-              <div className="space-y-4 h-[calc(100%-3.5rem)] overflow-y-auto pr-1">
-                <div className="rounded-2xl border border-border bg-secondary/30 p-4">
-                  <p className="text-sm font-semibold text-foreground">Create group chat</p>
-                  <p className="text-xs text-muted-foreground">Add guardians/athletes to a shared conversation.</p>
-                  <div className="mt-3 grid gap-3">
-                    <input
-                      className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                      placeholder="Group name"
-                      value={newGroupName}
-                      onChange={(event) => setNewGroupName(event.target.value)}
-                    />
-                    <div className="grid gap-2">
-                      {(usersData?.users ?? [])
-                        .filter((user: any) => user.role !== "admin")
-                        .map((user: any) => (
-                          <label key={user.id} className="flex items-center gap-2 text-xs text-foreground">
-                            <input
-                              type="checkbox"
-                              checked={selectedMemberIds.includes(user.id)}
-                              onChange={() => {
-                                setSelectedMemberIds((prev) =>
-                                  prev.includes(user.id)
-                                    ? prev.filter((id) => id !== user.id)
-                                    : [...prev, user.id]
-                                );
-                              }}
-                            />
-                            {user.name || user.email}
-                          </label>
-                        ))}
-                    </div>
-                    <Button
-                      onClick={async () => {
-                        if (!newGroupName.trim()) return;
-                        const response = await createGroup({
-                          name: newGroupName.trim(),
-                          memberIds: selectedMemberIds,
-                        }).unwrap();
-                        setNewGroupName("");
-                        setSelectedMemberIds([]);
-                        refetchGroups();
-                        setSelectedGroupId(response.group.id);
-                      }}
-                      disabled={isCreatingGroup}
-                    >
-                      {isCreatingGroup ? "Creating..." : "Create Group"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {filteredGroups.map((group) => (
-                    <button
-                      key={group.id}
-                      type="button"
-                      onClick={() => setSelectedGroupId(group.id)}
-                      className={`flex w-full items-center justify-between rounded-2xl border border-border p-4 text-left text-sm transition ${
-                        selectedGroupId === group.id
-                          ? "bg-background"
-                          : "bg-secondary/40 hover:border-primary/40"
-                      }`}
-                    >
-                      <div>
-                        <p className="font-semibold text-foreground">{group.name}</p>
-                        <p className="text-xs text-muted-foreground">Group chat</p>
-                      </div>
-                    </button>
-                  ))}
-                  {!filteredGroups.length ? (
-                    <div className="rounded-2xl border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
-                      No groups yet.
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+              <GroupInboxPanel
+                groups={filteredGroups}
+                selectedGroupId={selectedGroupId}
+                users={usersData?.users ?? []}
+                selectedMemberIds={selectedMemberIds}
+                newGroupName={newGroupName}
+                isCreatingGroup={isCreatingGroup}
+                onSelectGroup={setSelectedGroupId}
+                onNewGroupNameChange={setNewGroupName}
+                onToggleMember={(memberId) => {
+                  setSelectedMemberIds((prev) =>
+                    prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
+                  );
+                }}
+                onCreateGroup={async () => {
+                  if (!newGroupName.trim()) return;
+                  const response = await createGroup({
+                    name: newGroupName.trim(),
+                    memberIds: selectedMemberIds,
+                  }).unwrap();
+                  setNewGroupName("");
+                  setSelectedMemberIds([]);
+                  refetchGroups();
+                  setSelectedGroupId(response.group.id);
+                }}
+              />
             ) : (
               <div className="h-[calc(100%-3.5rem)] overflow-y-auto pr-1">
                 <InboxList
@@ -374,88 +388,57 @@ export default function MessagingPage() {
           </CardContent>
         </Card>
 
-        <Card className="h-full">
-          <CardHeader>
-            <SectionHeader
-              title={
-                inboxMode === "group"
-                  ? groups.find((group) => group.id === selectedGroupId)?.name ?? "Group Conversation"
-                  : selectedThreadName ?? "Conversation"
-              }
-              description={
-                inboxMode === "group"
-                  ? selectedGroupId
-                    ? "Group chat"
-                    : "Select a group"
-                  : selectedThread
-                  ? "Active"
-                  : "Select a thread"
-              }
-            />
-          </CardHeader>
-          <CardContent>
-            <ConversationPanel
-              name={
-                inboxMode === "group"
-                  ? groups.find((group) => group.id === selectedGroupId)?.name ?? null
-                  : selectedThreadName
-              }
-              messages={inboxMode === "group" ? groupMessages : messages}
-              profile={null}
-              typingLabel={
-                inboxMode === "group"
-                  ? typingMap[`group:${selectedGroupId}`]?.isTyping
-                    ? `${typingMap[`group:${selectedGroupId}`]?.name} is typing...`
-                    : null
-                  : typingMap[`user:${selectedUserId}`]?.isTyping
-                  ? `${typingMap[`user:${selectedUserId}`]?.name} is typing...`
-                  : null
-              }
-              onTypingChange={(isTyping) => {
-                const socket = socketRef.current;
-                if (!socket) return;
-                if (inboxMode === "group" && selectedGroupId) {
-                  socket.emit(isTyping ? "typing:start" : "typing:stop", { groupId: selectedGroupId });
-                }
-                if (inboxMode === "direct" && selectedUserId) {
-                  socket.emit(isTyping ? "typing:start" : "typing:stop", { toUserId: selectedUserId });
-                }
-              }}
-              onSend={async (text) => {
-                if (inboxMode === "group") {
-                  if (!selectedGroupId) return;
-                  if (isSendingGroup) return;
-                  await sendGroupMessage({ groupId: selectedGroupId, content: text }).unwrap();
-                  refetchGroupMessages();
-                } else {
-                  if (!selectedUserId) return;
-                  if (isSending) return;
-                  await sendMessage({ userId: selectedUserId, content: text }).unwrap();
-                  refetchMessages();
-                }
-              }}
-              onReact={async (messageId, emoji) => {
-                if (inboxMode === "group") {
-                  if (!selectedGroupId) return;
-                  const parsed = Number(messageId.replace("group-", ""));
-                  if (!Number.isFinite(parsed)) return;
-                  await toggleGroupMessageReaction({
-                    groupId: selectedGroupId,
-                    messageId: parsed,
-                    emoji,
-                  }).unwrap();
-                } else {
-                  const parsed = Number(messageId);
-                  if (!Number.isFinite(parsed)) return;
-                  await toggleMessageReaction({
-                    messageId: parsed,
-                    emoji,
-                  }).unwrap();
-                }
-              }}
-            />
-          </CardContent>
-        </Card>
+        <MessagingConversationCard
+          inboxMode={inboxMode}
+          groups={groups}
+          selectedGroupId={selectedGroupId}
+          selectedUserId={selectedUserId}
+          selectedThreadName={selectedThreadName}
+          selectedThreadExists={Boolean(selectedThread)}
+          typingMap={typingMap}
+          messages={messages}
+          groupMessages={groupMessages}
+          onTypingChange={(isTyping) => {
+            const socket = socketRef.current;
+            if (!socket) return;
+            if (inboxMode === "group" && selectedGroupId) {
+              socket.emit(isTyping ? "typing:start" : "typing:stop", { groupId: selectedGroupId });
+            }
+            if (inboxMode === "direct" && selectedUserId) {
+              socket.emit(isTyping ? "typing:start" : "typing:stop", { toUserId: selectedUserId });
+            }
+          }}
+          onSend={async (text) => {
+            if (inboxMode === "group") {
+              if (!selectedGroupId || isSendingGroup) return;
+              await sendGroupMessage({ groupId: selectedGroupId, content: text }).unwrap();
+              refetchGroupMessages();
+              return;
+            }
+            if (!selectedUserId || isSending) return;
+            await sendMessage({ userId: selectedUserId, content: text }).unwrap();
+            refetchMessages();
+          }}
+          onReact={async (messageId, emoji) => {
+            if (inboxMode === "group") {
+              if (!selectedGroupId) return;
+              const parsed = Number(messageId.replace("group-", ""));
+              if (!Number.isFinite(parsed)) return;
+              await toggleGroupMessageReaction({
+                groupId: selectedGroupId,
+                messageId: parsed,
+                emoji,
+              }).unwrap();
+              return;
+            }
+            const parsed = Number(messageId);
+            if (!Number.isFinite(parsed)) return;
+            await toggleMessageReaction({
+              messageId: parsed,
+              emoji,
+            }).unwrap();
+          }}
+        />
       </div>
 
       <MessageDialogs active={activeDialog} onClose={() => setActiveDialog(null)} />

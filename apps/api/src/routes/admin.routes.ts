@@ -10,15 +10,21 @@ import {
   createSessionItem,
   blockUser,
   deleteUser,
+  deleteExerciseItem,
   getAdminProfileDetails,
   getOnboardingConfigDetails,
   getOnboarding,
+  listExerciseLibrary,
   listBookings,
+  listAvailability,
+  listVideosAdmin,
   getDashboard,
   listMessageThreads,
   listThreadMessages,
+  markThreadRead,
   sendAdminMessage,
   listAllUsers,
+  updateExerciseItem,
   updateAdminPreferencesDetails,
   updateAdminProfileDetails,
   updateProgramTier,
@@ -27,7 +33,7 @@ import {
 
 const router = Router();
 
-router.use(requireAuth, requireRole(["coach", "admin", "superAdmin"]));
+router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]));
 
 router.get("/admin/users", listAllUsers);
 router.post("/admin/users/:userId/block", blockUser);
@@ -39,14 +45,20 @@ router.put("/admin/preferences", updateAdminPreferencesDetails);
 router.get("/admin/onboarding-config", getOnboardingConfigDetails);
 router.put("/admin/onboarding-config", updateOnboardingConfigDetails);
 router.get("/admin/bookings", listBookings);
+router.get("/admin/availability", listAvailability);
+router.get("/admin/videos", listVideosAdmin);
 router.get("/admin/messages/threads", listMessageThreads);
 router.get("/admin/messages/:userId", listThreadMessages);
 router.post("/admin/messages/:userId", sendAdminMessage);
+router.post("/admin/messages/:userId/read", markThreadRead);
 router.get("/admin/users/:userId/onboarding", getOnboarding);
 router.post("/admin/users/program-tier", updateProgramTier);
 router.post("/admin/enrollments", assignProgram);
 router.post("/admin/programs", createProgram);
+router.get("/admin/exercises", listExerciseLibrary);
 router.post("/admin/exercises", createExerciseItem);
+router.patch("/admin/exercises/:exerciseId", updateExerciseItem);
+router.delete("/admin/exercises/:exerciseId", deleteExerciseItem);
 router.post("/admin/sessions", createSessionItem);
 router.post("/admin/session-exercises", addExercise);
 

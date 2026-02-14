@@ -10,7 +10,6 @@ import { UsersFilters } from "../../components/admin/users/users-filters";
 import { UsersTable } from "../../components/admin/users/users-table";
 import { UsersCards } from "../../components/admin/users/users-cards";
 import { OnboardingQueue } from "../../components/admin/users/onboarding-queue";
-import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { useBlockUserMutation, useDeleteUserMutation, useGetUsersQuery } from "../../lib/apiSlice";
 
@@ -63,7 +62,6 @@ export default function UsersPage() {
     <AdminShell
       title="Users"
       subtitle="Manage athletes, parents, and onboarding."
-      actions={<Button onClick={() => setActiveDialog("new-user")}>New User</Button>}
     >
       {actionError ? (
         <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">

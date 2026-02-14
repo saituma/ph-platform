@@ -1,31 +1,131 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
-import { EmptyState } from "../../components/admin/empty-state";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
 import { Select } from "../../components/ui/select";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Textarea } from "../../components/ui/textarea";
-import { SettingsDialogs, type SettingsDialog } from "../../components/admin/settings/settings-dialogs";
-import { OnboardingDialog } from "../../components/admin/settings/onboarding-dialog";
+import {
+  useGetAdminProfileQuery,
+  useUpdateAdminPreferencesMutation,
+  useUpdateAdminProfileMutation,
+  useChangePasswordMutation,
+} from "../../lib/apiSlice";
 
 export default function SettingsPage() {
-  const hasSettings = true;
-  const isLoading = false;
-  const [activeDialog, setActiveDialog] = useState<SettingsDialog>(null);
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const { data, isLoading } = useGetAdminProfileQuery();
+  const [updateProfile, { isLoading: isSavingProfile }] = useUpdateAdminProfileMutation();
+  const [updatePreferences, { isLoading: isSavingPreferences }] = useUpdateAdminPreferencesMutation();
+  const [changePassword, { isLoading: isSavingPassword }] = useChangePasswordMutation();
+  const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [preferencesMessage, setPreferencesMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const [profile, setProfile] = useState({
+    name: "",
+    email: "",
+    title: "",
+    bio: "",
+  });
+
+  const [preferences, setPreferences] = useState({
+    timezone: "America/Chicago",
+    notificationSummary: "Weekly",
+  });
+  const [security, setSecurity] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    next: false,
+    confirm: false,
+  });
+
+  useEffect(() => {
+    if (!data?.user || !data?.settings) return;
+    setProfile({
+      name: data.user.name ?? "",
+      email: data.user.email ?? "",
+      title: data.settings.title ?? "",
+      bio: data.settings.bio ?? "",
+    });
+    setPreferences({
+      timezone: data.settings.timezone ?? "America/Chicago",
+      notificationSummary: data.settings.notificationSummary ?? "Weekly",
+    });
+  }, [data]);
+
+  const handleSaveProfile = async () => {
+    setProfileMessage(null);
+    try {
+      await updateProfile({
+        name: profile.name.trim(),
+        email: profile.email.trim(),
+        title: profile.title?.trim() || null,
+        bio: profile.bio?.trim() || null,
+      }).unwrap();
+      setProfileMessage({ type: "success", text: "Profile updated." });
+      setTimeout(() => setProfileMessage(null), 2000);
+    } catch (error: any) {
+      const message = error?.data?.error || "Failed to update profile.";
+      setProfileMessage({ type: "error", text: message });
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    setPreferencesMessage(null);
+    try {
+      await updatePreferences({
+        timezone: preferences.timezone,
+        notificationSummary: preferences.notificationSummary,
+      }).unwrap();
+      setPreferencesMessage({ type: "success", text: "Preferences saved." });
+      setTimeout(() => setPreferencesMessage(null), 2000);
+    } catch (error: any) {
+      const message = error?.data?.error || "Failed to save preferences.";
+      setPreferencesMessage({ type: "error", text: message });
+    }
+  };
+
+  const handleUpdatePassword = () => {
+    setPasswordMessage(null);
+    if (!security.currentPassword || !security.newPassword || !security.confirmPassword) {
+      setPasswordMessage({ type: "error", text: "Please fill in all password fields." });
+      return;
+    }
+    if (security.newPassword !== security.confirmPassword) {
+      setPasswordMessage({ type: "error", text: "New password and confirmation do not match." });
+      return;
+    }
+    changePassword({
+      oldPassword: security.currentPassword,
+      newPassword: security.newPassword,
+    })
+      .unwrap()
+      .then(() => {
+        setPasswordMessage({ type: "success", text: "Password updated successfully." });
+        setTimeout(() => setPasswordMessage(null), 2000);
+        setSecurity({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      })
+      .catch((error: any) => {
+        const message = error?.data?.error || "Failed to update password.";
+        setPasswordMessage({ type: "error", text: message });
+      });
+  };
+
   return (
-    <>
-      <AdminShell title="Settings" subtitle="Global configuration and access rules.">
+    <AdminShell title="Settings" subtitle="Profile settings stored in your account.">
       {isLoading ? (
         <div className="grid gap-6 lg:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, index) => (
+          {Array.from({ length: 2 }).map((_, index) => (
             <Card key={`settings-skeleton-${index}`}>
               <CardHeader>
                 <Skeleton className="h-4 w-32" />
@@ -38,287 +138,197 @@ export default function SettingsPage() {
             </Card>
           ))}
         </div>
-      ) : hasSettings ? (
+      ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <SectionHeader
-                title="Feature Toggles"
-                description="Control feature access by tier."
-              />
+              <SectionHeader title="Profile" description="Basic public profile details." />
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Label>Video Upload</Label>
-                <Select>
-                  <option>Premium only</option>
-                  <option>Plus & Premium</option>
-                  <option>All tiers</option>
+              {profileMessage ? (
+                <div
+                  className={
+                    profileMessage.type === "success"
+                      ? "rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200"
+                      : "rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"
+                  }
+                >
+                  {profileMessage.text}
+                </div>
+              ) : null}
+              <Input
+                placeholder="Name"
+                disabled={isLoading}
+                value={profile.name}
+                onChange={(event) => setProfile({ ...profile, name: event.target.value })}
+              />
+              <Input
+                placeholder="Email"
+                disabled={isLoading}
+                value={profile.email}
+                onChange={(event) => setProfile({ ...profile, email: event.target.value })}
+              />
+              <Input
+                placeholder="Title"
+                disabled={isLoading}
+                value={profile.title}
+                onChange={(event) => setProfile({ ...profile, title: event.target.value })}
+              />
+              <Textarea
+                placeholder="Bio"
+                disabled={isLoading}
+                value={profile.bio}
+                onChange={(event) => setProfile({ ...profile, bio: event.target.value })}
+              />
+              <Button onClick={handleSaveProfile} disabled={isSavingProfile || isLoading}>
+                {isSavingProfile ? "Saving..." : "Save Profile"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <SectionHeader title="Preferences" description="Notification and timezone settings." />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {preferencesMessage ? (
+                <div
+                  className={
+                    preferencesMessage.type === "success"
+                      ? "rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200"
+                      : "rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"
+                  }
+                >
+                  {preferencesMessage.text}
+                </div>
+              ) : null}
+              <div>
+                <p className="mb-2 text-sm font-medium text-foreground">Timezone</p>
+                <Select
+                  value={preferences.timezone}
+                  disabled={isLoading}
+                  onChange={(event) =>
+                    setPreferences({ ...preferences, timezone: event.target.value })
+                  }
+                >
+                  <option value="America/New_York">America/New_York</option>
+                  <option value="America/Chicago">America/Chicago</option>
+                  <option value="America/Denver">America/Denver</option>
+                  <option value="America/Los_Angeles">America/Los_Angeles</option>
+                  <option value="America/Phoenix">America/Phoenix</option>
+                  <option value="America/Toronto">America/Toronto</option>
+                  <option value="America/Vancouver">America/Vancouver</option>
+                  <option value="Europe/London">Europe/London</option>
+                  <option value="Europe/Paris">Europe/Paris</option>
+                  <option value="Europe/Berlin">Europe/Berlin</option>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Priority Messaging</Label>
-                <Select>
-                  <option>Premium only</option>
-                  <option>Plus & Premium</option>
-                  <option>All tiers</option>
+              <div>
+                <p className="mb-2 text-sm font-medium text-foreground">Notification summary</p>
+                <Select
+                  value={preferences.notificationSummary}
+                  disabled={isLoading}
+                  onChange={(event) =>
+                    setPreferences({ ...preferences, notificationSummary: event.target.value })
+                  }
+                >
+                  <option value="Real-time">Real-time</option>
+                  <option value="Daily">Daily</option>
+                  <option value="Weekly">Weekly</option>
+                  <option value="Off">Off</option>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Parent Platform Access</Label>
-                <Select>
-                  <option>Plus & Premium</option>
-                  <option>Premium only</option>
-                  <option>All tiers</option>
-                </Select>
-              </div>
-              <Button onClick={() => setActiveDialog("ui-controls")}>Save Toggles</Button>
+              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || isLoading}>
+                {isSavingPreferences ? "Saving..." : "Save Preferences"}
+              </Button>
             </CardContent>
           </Card>
 
           <Card className="lg:col-span-2">
             <CardHeader>
-              <SectionHeader
-                title="Onboarding Form Builder"
-                description="Simple form builder for mobile onboarding."
-              />
+              <SectionHeader title="Security" description="Update your account password." />
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
-                <div>
-                  <p className="font-semibold text-foreground">Current Fields</p>
-                  <p className="text-xs text-muted-foreground">
-                    Athlete Name, Age, Training Days, Injuries, Goals, Parent Email
-                  </p>
+            <CardContent className="space-y-3">
+              {passwordMessage ? (
+                <div
+                  className={
+                    passwordMessage.type === "success"
+                      ? "rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200"
+                      : "rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"
+                  }
+                >
+                  {passwordMessage.text}
                 </div>
-                <Button onClick={() => setOnboardingOpen(true)}>Edit Form</Button>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                Enter your current password to set a new one.
+              </p>
+              <div className="relative">
+                <Input
+                  type={showPasswords.current ? "text" : "password"}
+                  placeholder="Old password"
+                  value={security.currentPassword}
+                  onChange={(event) =>
+                    setSecurity({ ...security, currentPassword: event.target.value })
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPasswords((prev) => ({ ...prev, current: !prev.current }))
+                  }
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Notifications"
-                description="Email and push templates."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Label>Booking Confirmation</Label>
-                <Textarea placeholder="Email template..." />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="relative">
+                  <Input
+                    type={showPasswords.next ? "text" : "password"}
+                    placeholder="New password"
+                    value={security.newPassword}
+                    onChange={(event) =>
+                      setSecurity({ ...security, newPassword: event.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPasswords((prev) => ({ ...prev, next: !prev.next }))
+                    }
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPasswords.next ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Input
+                    type={showPasswords.confirm ? "text" : "password"}
+                    placeholder="Confirm new password"
+                    value={security.confirmPassword}
+                    onChange={(event) =>
+                      setSecurity({ ...security, confirmPassword: event.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPasswords((prev) => ({ ...prev, confirm: !prev.confirm }))
+                    }
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Message Notification</Label>
-                <Textarea placeholder="Push template..." />
-              </div>
-              <Button onClick={() => setActiveDialog("ui-controls")}>Save Notifications</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Branding"
-                description="Logo and app identity."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input type="file" />
-              <Input placeholder="App name" />
-              <Input placeholder="Primary color (hex)" />
-              <Button onClick={() => setActiveDialog("ui-controls")}>Save Branding</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Legal & Compliance"
-                description="Versioned policies and acceptance logs."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Select>
-                <option>Terms v1</option>
-                <option>Terms v2</option>
-              </Select>
-              <Select>
-                <option>Privacy v1</option>
-                <option>Privacy v2</option>
-              </Select>
-              <Button onClick={() => setActiveDialog("legal")}>Save Versions</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Booking Rules"
-                description="Capacity, cancellation, fixed windows."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input placeholder="Group call capacity" />
-              <Input placeholder="Cancellation window (hrs)" />
-              <Select>
-                <option>Fixed window 13:00</option>
-                <option>Fixed window 14:00</option>
-              </Select>
-              <Button onClick={() => setActiveDialog("ui-controls")}>Save Rules</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Roles & Permissions"
-                description="Admin access control (future)."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input placeholder="Invite admin email" />
-              <Select>
-                <option>Role</option>
-                <option>Owner</option>
-                <option>Coach</option>
-                <option>Assistant</option>
-              </Select>
-              <Button onClick={() => setActiveDialog("ui-controls")}>Send Invite</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Legal Links"
-                description="Used during onboarding."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Label>Terms & Conditions</Label>
-                <Input placeholder="https://terms" />
-              </div>
-              <div className="space-y-2">
-                <Label>Privacy Policy</Label>
-                <Input placeholder="https://privacy" />
-              </div>
-              <Button onClick={() => setActiveDialog("legal")}>Save Legal</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Program Access"
-                description="Control tier-specific content."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Label>Parent Platform Access</Label>
-                <Select>
-                  <option>PHP Plus and Premium</option>
-                  <option>All tiers</option>
-                  <option>Premium only</option>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Premium Application Notes</Label>
-                <Textarea placeholder="Notes for applicants..." />
-              </div>
-              <Button onClick={() => setActiveDialog("access")}>Save Rules</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Physio Referrals"
-                description="Manage discounts and links."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Label>Referral Link</Label>
-                <Input placeholder="https://referral" />
-              </div>
-              <div className="space-y-2">
-                <Label>Discount Tier</Label>
-                <Select>
-                  <option>PHP Plus</option>
-                  <option>PHP Premium</option>
-                </Select>
-              </div>
-              <Input placeholder="Discount (%)" />
-              <Button onClick={() => setActiveDialog("referrals")}>Save Referrals</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="Support Details"
-                description="Help center and support channels."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input placeholder="Support email" />
-              <Input placeholder="Help center URL" />
-              <Button onClick={() => setActiveDialog("support")}>Save Support</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title="UI Controls"
-                description="Manage visible tabs and home content."
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Label>Home Tab Visibility</Label>
-                <Select>
-                  <option>Enabled</option>
-                  <option>Disabled</option>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Parent Platform Tab</Label>
-                <Select>
-                  <option>Enabled</option>
-                  <option>Move to More</option>
-                  <option>Disabled</option>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Messages</Label>
-                <Select>
-                  <option>Enabled</option>
-                  <option>Premium only</option>
-                </Select>
-              </div>
-              <Button onClick={() => setActiveDialog("ui-controls")}>Save UI</Button>
+              <Button onClick={handleUpdatePassword} disabled={isSavingPassword}>
+                {isSavingPassword ? "Updating..." : "Update Password"}
+              </Button>
             </CardContent>
           </Card>
         </div>
-      ) : (
-        <EmptyState
-          title="Settings not configured"
-          description="Set up legal links, access rules, and support details."
-          actionLabel="Start Setup"
-        />
       )}
-      </AdminShell>
-
-    <SettingsDialogs active={activeDialog} onClose={() => setActiveDialog(null)} />
-    <OnboardingDialog
-      open={onboardingOpen}
-      onClose={() => setOnboardingOpen(false)}
-      onSave={() => setActiveDialog("ui-controls")}
-    />
-    </>
+    </AdminShell>
   );
 }

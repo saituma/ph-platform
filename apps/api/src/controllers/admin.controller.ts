@@ -10,9 +10,13 @@ import {
   getAdminProfile,
   getDashboardMetrics,
   getUserOnboarding,
+  listExercises,
   listBookingsAdmin,
   listMessageThreadsAdmin,
   listThreadMessagesAdmin,
+  listVideoUploadsAdmin,
+  listAvailabilityAdmin,
+  markThreadReadAdmin,
   sendMessageAdmin,
   listUsers,
   setUserBlocked,
@@ -22,6 +26,8 @@ import {
   updateAthleteProgramTier,
   getOnboardingConfig,
   updateOnboardingConfig,
+  updateExercise,
+  deleteExercise,
 } from "../services/admin.service";
 import { ProgramType, sessionType } from "../db/schema";
 
@@ -44,7 +50,11 @@ const programSchema = z.object({
 
 const exerciseSchema = z.object({
   name: z.string().min(1),
+  category: z.string().optional(),
   cues: z.string().optional(),
+  howTo: z.string().optional(),
+  progression: z.string().optional(),
+  regression: z.string().optional(),
   sets: z.number().int().optional(),
   reps: z.number().int().optional(),
   duration: z.number().int().optional(),
@@ -52,6 +62,25 @@ const exerciseSchema = z.object({
   notes: z.string().optional(),
   videoUrl: z.string().url().optional(),
 });
+
+const exerciseUpdateSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    category: z.string().optional().nullable(),
+    cues: z.string().optional(),
+    howTo: z.string().optional().nullable(),
+    progression: z.string().optional().nullable(),
+    regression: z.string().optional().nullable(),
+    sets: z.number().int().optional().nullable(),
+    reps: z.number().int().optional().nullable(),
+    duration: z.number().int().optional().nullable(),
+    restSeconds: z.number().int().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    videoUrl: z.string().url().optional().nullable(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "No fields to update",
+  });
 
 const sessionSchema = z.object({
   programId: z.number().int().min(1),
@@ -226,6 +255,34 @@ export async function createExerciseItem(req: Request, res: Response) {
   return res.status(201).json({ exercise });
 }
 
+export async function listExerciseLibrary(_req: Request, res: Response) {
+  const exercises = await listExercises();
+  return res.status(200).json({ exercises });
+}
+
+export async function updateExerciseItem(req: Request, res: Response) {
+  const exerciseId = z.coerce.number().int().min(1).parse(req.params.exerciseId);
+  const parsed = exerciseUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+
+  const exercise = await updateExercise(exerciseId, parsed.data);
+  if (!exercise) {
+    return res.status(404).json({ error: "Exercise not found" });
+  }
+  return res.status(200).json({ exercise });
+}
+
+export async function deleteExerciseItem(req: Request, res: Response) {
+  const exerciseId = z.coerce.number().int().min(1).parse(req.params.exerciseId);
+  const exercise = await deleteExercise(exerciseId);
+  if (!exercise) {
+    return res.status(404).json({ error: "Exercise not found" });
+  }
+  return res.status(200).json({ exercise });
+}
+
 export async function createSessionItem(req: Request, res: Response) {
   const input = sessionSchema.parse(req.body);
   const session = await createSession({
@@ -255,6 +312,16 @@ export async function listBookings(req: Request, res: Response) {
   return res.status(200).json({ bookings });
 }
 
+export async function listAvailability(_req: Request, res: Response) {
+  const items = await listAvailabilityAdmin();
+  return res.status(200).json({ items });
+}
+
+export async function listVideosAdmin(_req: Request, res: Response) {
+  const items = await listVideoUploadsAdmin();
+  return res.status(200).json({ items });
+}
+
 export async function listMessageThreads(req: Request, res: Response) {
   const threads = await listMessageThreadsAdmin(req.user!.id);
   return res.status(200).json({ threads });
@@ -264,6 +331,12 @@ export async function listThreadMessages(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
   const messages = await listThreadMessagesAdmin(req.user!.id, userId);
   return res.status(200).json({ messages });
+}
+
+export async function markThreadRead(req: Request, res: Response) {
+  const userId = z.coerce.number().int().min(1).parse(req.params.userId);
+  const updated = await markThreadReadAdmin(req.user!.id, userId);
+  return res.status(200).json({ updated });
 }
 
 export async function sendAdminMessage(req: Request, res: Response) {

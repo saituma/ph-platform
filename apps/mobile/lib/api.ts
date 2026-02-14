@@ -3,6 +3,8 @@ type ApiRequestOptions = {
   body?: unknown;
   token?: string | null;
   headers?: Record<string, string>;
+  suppressLog?: boolean;
+  suppressStatusCodes?: number[];
 };
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
@@ -18,7 +20,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       method: options.method ?? "GET",
       headers: {
         "Content-Type": "application/json",
-        ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+        ...(options.token ? { Authorization: `Bearer ${options.token.trim()}` } : {}),
         ...(options.headers ?? {}),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -49,7 +51,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
         // ignore detail formatting errors
       }
     }
-    console.warn("API error", { url, status: res.status, message });
+    const shouldSuppress =
+      options.suppressLog ||
+      (options.suppressStatusCodes ?? []).includes(res.status);
+    if (!shouldSuppress) {
+      console.warn("API error", { url, status: res.status, message });
+    }
     throw new Error(`${res.status} ${message}`);
   }
   if (payload === null) {

@@ -1,13 +1,68 @@
+import { useState } from "react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select } from "../../ui/select";
 import { Skeleton } from "../../ui/skeleton";
+import { useCreateAvailabilityMutation } from "../../../lib/apiSlice";
 type AvailabilityPanelProps = {
   isLoading?: boolean;
-  onOpenSlots: () => void;
+  services?: { id: number; name: string }[];
+  onOpenSlots?: () => void;
 };
 
-export function AvailabilityPanel({ isLoading = false, onOpenSlots }: AvailabilityPanelProps) {
+export function AvailabilityPanel({
+  isLoading = false,
+  services = [],
+  onOpenSlots,
+}: AvailabilityPanelProps) {
+  const [serviceId, setServiceId] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startHour, setStartHour] = useState("");
+  const [startMinute, setStartMinute] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endHour, setEndHour] = useState("");
+  const [endMinute, setEndMinute] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [createAvailability, { isLoading: isCreating }] = useCreateAvailabilityMutation();
+
+  const handleOpenSlots = async () => {
+    setError(null);
+    setSuccess(null);
+    if (!serviceId || !startDate || !startHour || !startMinute || !endDate || !endHour || !endMinute) {
+      setError("Select a service and time range.");
+      return;
+    }
+    try {
+      const pad = (value: string) => value.padStart(2, "0");
+      const start = new Date(`${startDate}T${pad(startHour)}:${pad(startMinute)}`);
+      const end = new Date(`${endDate}T${pad(endHour)}:${pad(endMinute)}`);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        setError("Invalid date or time. Check hour/minute values.");
+        return;
+      }
+      if (end <= start) {
+        setError("End time must be after start time.");
+        return;
+      }
+      await createAvailability({
+        serviceTypeId: Number(serviceId),
+        startsAt: start.toISOString(),
+        endsAt: end.toISOString(),
+      }).unwrap();
+      setStartDate("");
+      setStartHour("");
+      setStartMinute("");
+      setEndDate("");
+      setEndHour("");
+      setEndMinute("");
+      setServiceId("");
+      setSuccess("Availability opened successfully.");
+    } catch (err: any) {
+      setError(err.message ?? "Failed to open slots");
+    }
+  };
+
   return (
     <div className="space-y-3">
       {isLoading ? (
@@ -23,21 +78,50 @@ export function AvailabilityPanel({ isLoading = false, onOpenSlots }: Availabili
         </>
       ) : (
         <>
-          <Input placeholder="Add date range" />
-          <Select>
-            <option>Service type</option>
-            <option>Role Model Meeting</option>
-            <option>Lift Lab 1:1</option>
-            <option>Group Call</option>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              type="date"
+              placeholder="Start date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+            />
+            <div className="flex gap-2">
+              <Input type="number" min={0} max={23} placeholder="Hour" value={startHour} onChange={(event) => setStartHour(event.target.value)} />
+              <Input type="number" min={0} max={59} placeholder="Min" value={startMinute} onChange={(event) => setStartMinute(event.target.value)} />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              type="date"
+              placeholder="End date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+            <div className="flex gap-2">
+              <Input type="number" min={0} max={23} placeholder="Hour" value={endHour} onChange={(event) => setEndHour(event.target.value)} />
+              <Input type="number" min={0} max={59} placeholder="Min" value={endMinute} onChange={(event) => setEndMinute(event.target.value)} />
+            </div>
+          </div>
+          <Select value={serviceId} onChange={(event) => setServiceId(event.target.value)}>
+            <option value="">Service type</option>
+            {services.map((service) => (
+              <option key={service.id} value={String(service.id)}>
+                {service.name}
+              </option>
+            ))}
           </Select>
-          <Select>
-            <option>Fixed call window</option>
-            <option>13:00 - 13:30</option>
-            <option>14:00 - 14:30</option>
-          </Select>
-          <Button className="w-full" onClick={onOpenSlots}>
-            Open Slots
-          </Button>
+          {error ? <p className="text-sm text-red-500">{error}</p> : null}
+          {success ? <p className="text-sm text-green-600">{success}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            <Button className="flex-1 min-w-[140px]" onClick={handleOpenSlots} disabled={isCreating}>
+              Open Slots
+            </Button>
+            {onOpenSlots ? (
+              <Button variant="outline" className="flex-1 min-w-[140px]" onClick={onOpenSlots}>
+                Advanced
+              </Button>
+            ) : null}
+          </div>
           <div className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
             <p className="font-semibold text-foreground">Premium Fixed Window</p>
             <p className="text-xs text-muted-foreground">

@@ -10,4 +10,5 @@ module.exports = {
   },
   preset: "ts-jest",
   testMatch: ["**/test/**/*.test.ts"],
+  testPathIgnorePatterns: process.env.API_INTEGRATION === "1" ? [] : ["<rootDir>/test/api.test.ts"],
 };

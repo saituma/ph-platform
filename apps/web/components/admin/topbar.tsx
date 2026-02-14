@@ -37,6 +37,7 @@ export function AdminTopbar({
   const [openNotify, setOpenNotify] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
   const [profileAction, setProfileAction] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const router = useRouter();
   const { data } = useGetAdminProfileQuery();
   const displayName = data?.user?.name || "Admin";
@@ -70,6 +71,15 @@ export function AdminTopbar({
             <input
               placeholder="Search athletes, messages, bookings"
               className="w-full bg-transparent text-sm outline-none"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  const query = search.trim();
+                  if (!query) return;
+                  router.push(`/search?q=${encodeURIComponent(query)}`);
+                }
+              }}
             />
           </div>
         </div>
@@ -125,7 +135,7 @@ export function AdminTopbar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Profile</DialogTitle>
-            <DialogDescription>Account and preferences.</DialogDescription>
+            <DialogDescription>Account actions.</DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-3">
             <Button
@@ -136,27 +146,7 @@ export function AdminTopbar({
                 router.push("/profile");
               }}
             >
-              View Profile
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                setOpenProfile(false);
-                router.push("/settings");
-              }}
-            >
-              Configure Settings
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                setOpenProfile(false);
-                router.push("/preferences");
-              }}
-            >
-              Preferences
+              Profile
             </Button>
             <Button
               variant="outline"

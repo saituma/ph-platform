@@ -51,6 +51,8 @@ out/
 # Coverage
 coverage/
 **/coverage/
+playwright-report/
+test-results/
 
 # Typescript
 *.tsbuildinfo

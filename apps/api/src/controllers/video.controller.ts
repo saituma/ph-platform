@@ -2,12 +2,14 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import { getPresignedUploadUrl } from "../services/s3.service";
+import { env } from "../config/env";
 import { createVideoUpload, listVideoUploadsByAthlete, reviewVideoUpload } from "../services/video.service";
 import { getGuardianAndAthlete } from "../services/user.service";
 
 const presignSchema = z.object({
   key: z.string().min(1),
   contentType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
 });
 
 const createSchema = z.object({
@@ -22,6 +24,10 @@ const reviewSchema = z.object({
 
 export async function createUploadUrl(req: Request, res: Response) {
   const input = presignSchema.parse(req.body);
+  const maxBytes = Math.max(1, env.videoMaxMb) * 1024 * 1024;
+  if (input.sizeBytes > maxBytes) {
+    return res.status(413).json({ error: `File exceeds ${env.videoMaxMb}MB limit.` });
+  }
   const url = await getPresignedUploadUrl({ key: input.key, contentType: input.contentType });
   return res.status(200).json({ url });
 }

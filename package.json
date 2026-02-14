@@ -4,13 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "turbo run test",
+    "test:unit": "turbo run test --filter=./apps/api --filter=./apps/web --filter=./apps/mobile",
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e": "playwright test",
+    "test:all": "pnpm run test:unit && pnpm run test:e2e",
+    "check:max-lines": "node tools/check-max-lines.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.26.0",
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "turbo": "^2.8.1"
   }
 }
