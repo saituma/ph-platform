@@ -15,6 +15,13 @@ interface UserState {
   hydrated: boolean;
   onboardingCompleted: boolean | null;
   athleteUserId: number | null;
+  programTier: string | null;
+  latestSubscriptionRequest: {
+    status?: string | null;
+    paymentStatus?: string | null;
+    planTier?: string | null;
+    createdAt?: string | null;
+  } | null;
 }
 
 const initialState: UserState = {
@@ -30,6 +37,8 @@ const initialState: UserState = {
   hydrated: false,
   onboardingCompleted: null,
   athleteUserId: null,
+  programTier: null,
+  latestSubscriptionRequest: null,
 };
 
 const userSlice = createSlice({
@@ -53,6 +62,15 @@ const userSlice = createSlice({
     setAthleteUserId: (state, action: PayloadAction<number | null>) => {
       state.athleteUserId = action.payload;
     },
+    setProgramTier: (state, action: PayloadAction<string | null>) => {
+      state.programTier = action.payload;
+    },
+    setLatestSubscriptionRequest: (
+      state,
+      action: PayloadAction<UserState["latestSubscriptionRequest"]>
+    ) => {
+      state.latestSubscriptionRequest = action.payload;
+    },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
@@ -65,6 +83,8 @@ const userSlice = createSlice({
       state.profile = initialState.profile;
       state.onboardingCompleted = null;
       state.athleteUserId = null;
+      state.programTier = null;
+      state.latestSubscriptionRequest = null;
     },
   },
 });
@@ -74,6 +94,8 @@ export const {
   updateProfile,
   setOnboardingCompleted,
   setAthleteUserId,
+  setProgramTier,
+  setLatestSubscriptionRequest,
   setLoading,
   setHydrated,
   logout,

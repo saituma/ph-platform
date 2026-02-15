@@ -11,11 +11,37 @@ export function ProgramSessionPanel({
   sessions: SessionItem[];
   onVideoPress?: (url: string) => void;
 }) {
-  const [activeWeek, setActiveWeek] = useState(1);
+  const weekOptions = useMemo(() => {
+    const unique = Array.from(
+      new Set(
+        sessions
+          .map((session) => session.weekNumber)
+          .filter((week): week is number => typeof week === "number")
+      )
+    );
+    return unique.length > 0 ? unique.sort((a, b) => a - b) : [1];
+  }, [sessions]);
+  const [activeWeek, setActiveWeek] = useState<number>(weekOptions[0] ?? 1);
   const [activeSessionIndex, setActiveSessionIndex] = useState(0);
-  const weekOptions = [1, 2, 3, 4];
 
-  const activeSession = useMemo(() => sessions[activeSessionIndex] ?? sessions[0], [sessions, activeSessionIndex]);
+  React.useEffect(() => {
+    if (!weekOptions.includes(activeWeek)) {
+      setActiveWeek(weekOptions[0] ?? 1);
+      setActiveSessionIndex(0);
+    }
+  }, [activeWeek, weekOptions]);
+
+  const sessionsForWeek = useMemo(() => {
+    if (!sessions.some((session) => typeof session.weekNumber === "number")) {
+      return sessions;
+    }
+    return sessions.filter((session) => (session.weekNumber ?? 1) === activeWeek);
+  }, [activeWeek, sessions]);
+
+  const activeSession = useMemo(
+    () => sessionsForWeek[activeSessionIndex] ?? sessionsForWeek[0],
+    [sessionsForWeek, activeSessionIndex]
+  );
 
   return (
     <View className="gap-5">
@@ -27,7 +53,10 @@ export function ProgramSessionPanel({
             return (
               <TouchableOpacity
                 key={week}
-                onPress={() => setActiveWeek(week)}
+                onPress={() => {
+                  setActiveWeek(week);
+                  setActiveSessionIndex(0);
+                }}
                 className={`px-4 py-2 rounded-full border ${isActive ? "bg-accent border-accent" : "bg-input border-app"}`}
               >
                 <Text className={`${isActive ? "text-white" : "text-app"} text-xs font-outfit`}>Week {week}</Text>
@@ -40,7 +69,7 @@ export function ProgramSessionPanel({
       <View className="gap-3">
         <Text className="text-sm font-clash text-app">Session Selector</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-          {sessions.map((session, index) => {
+          {sessionsForWeek.map((session, index) => {
             const isActive = index === activeSessionIndex;
             return (
               <TouchableOpacity

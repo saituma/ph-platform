@@ -29,6 +29,9 @@ type ThreadChatBodyProps = {
   onOpenComposerMenu: () => void;
   onLongPressMessage: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
+  composerDisabled?: boolean;
+  disabledMessage?: string;
+  onDisabledPress?: () => void;
 };
 
 export function ThreadChatBody({
@@ -44,6 +47,9 @@ export function ThreadChatBody({
   onOpenComposerMenu,
   onLongPressMessage,
   onReactionPress,
+  composerDisabled = false,
+  disabledMessage,
+  onDisabledPress,
 }: ThreadChatBodyProps) {
   const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
   const typing = typingStatus[typingKey];
@@ -138,9 +144,16 @@ export function ThreadChatBody({
       ) : null}
 
       <View className="px-6 pt-3 border-t border-app/10 bg-app pb-4">
+        {composerDisabled && disabledMessage ? (
+          <View className="mb-3 rounded-2xl border border-amber-200 bg-amber-100 px-4 py-3">
+            <Text className="text-xs font-outfit text-amber-900">
+              {disabledMessage}
+            </Text>
+          </View>
+        ) : null}
         <View className="flex-row items-center rounded-3xl border px-4 py-3 bg-input border-app/10">
           <Pressable
-            onPress={onOpenComposerMenu}
+            onPress={composerDisabled ? onDisabledPress : onOpenComposerMenu}
             className="h-9 w-9 rounded-2xl items-center justify-center bg-secondary/10 border border-app/10"
           >
             <Feather name="plus" size={16} className="text-secondary" />
@@ -152,11 +165,12 @@ export function ThreadChatBody({
             value={draft}
             onChangeText={onDraftChange}
             multiline
+            editable={!composerDisabled}
           />
           <Pressable
-            onPress={onSend}
+            onPress={composerDisabled ? onDisabledPress : onSend}
             className="h-9 w-9 rounded-2xl items-center justify-center bg-accent"
-            style={{ opacity: draft.trim() ? 1 : 0.6 }}
+            style={{ opacity: composerDisabled ? 0.5 : draft.trim() ? 1 : 0.6 }}
           >
             <Feather name="send" size={16} className="text-white" />
           </Pressable>

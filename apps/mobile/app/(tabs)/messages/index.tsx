@@ -6,6 +6,9 @@ import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
+import { Alert } from "react-native";
+import { useAppSelector } from "@/store/hooks";
+import { normalizeProgramTier } from "@/lib/planAccess";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function MessagesScreen() {
@@ -33,6 +36,15 @@ export default function MessagesScreen() {
     appendToDraft,
     loadMessages,
   } = useMessagesController();
+  const { programTier } = useAppSelector((state) => state.user);
+  const canMessage = Boolean(normalizeProgramTier(programTier));
+  const handleLockedPress = () => {
+    Alert.alert(
+      "Messaging locked",
+      "Complete onboarding and select a plan to message your coach.",
+      [{ text: "OK" }]
+    );
+  };
 
   if (currentThread) {
     return (
@@ -57,6 +69,13 @@ export default function MessagesScreen() {
             setReactionTarget(message);
           }}
           onReactionPress={handleToggleReaction}
+          composerDisabled={!canMessage}
+          disabledMessage={
+            !canMessage
+              ? "Messaging unlocks once your plan is active."
+              : undefined
+          }
+          onDisabledPress={handleLockedPress}
         />
 
         <ReactionPickerModal

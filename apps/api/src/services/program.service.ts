@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -17,12 +17,21 @@ export async function getProgramCards(userId: number) {
   const enrollments = athleteId
     ? await db.select().from(enrollmentTable).where(eq(enrollmentTable.athleteId, athleteId))
     : [];
+  const programs = await db.select().from(programTable).orderBy(desc(programTable.updatedAt));
+
+  const programByType = new Map<string, number>();
+  for (const program of programs) {
+    if (program.type && !programByType.has(program.type)) {
+      programByType.set(program.type, program.id);
+    }
+  }
 
   return ["PHP", "PHP_Plus", "PHP_Premium"].map((type) => {
     const enrollment = enrollments.find((e) => e.programType === type);
     return {
       type,
       status: enrollment?.status ?? "not_enrolled",
+      programId: programByType.get(type) ?? null,
     };
   });
 }
@@ -59,4 +68,8 @@ export async function getProgramSessions(programId: number) {
 
     return { ...session, exercises: items };
   });
+}
+
+export async function getExerciseLibrary() {
+  return db.select().from(exerciseTable).orderBy(desc(exerciseTable.updatedAt));
 }

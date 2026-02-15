@@ -2,10 +2,11 @@ jest.mock("../../src/services/program.service", () => ({
   getProgramCards: jest.fn(),
   getProgramById: jest.fn(),
   getProgramSessions: jest.fn(),
+  getExerciseLibrary: jest.fn(),
 }));
 
-import { listPrograms, getProgram, getProgramSessionsById } from "../../src/controllers/program.controller";
-import { getProgramCards, getProgramById, getProgramSessions } from "../../src/services/program.service";
+import { listPrograms, getProgram, getProgramSessionsById, listProgramExercises } from "../../src/controllers/program.controller";
+import { getExerciseLibrary, getProgramCards, getProgramById, getProgramSessions } from "../../src/services/program.service";
 
 function createRes() {
   const res: any = {};
@@ -52,5 +53,17 @@ describe("program controller", () => {
     expect(getProgramSessions).toHaveBeenCalledWith(1);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ sessions: [{ id: 1 }] });
+  });
+
+  it("lists exercise library for mobile", async () => {
+    (getExerciseLibrary as jest.Mock).mockResolvedValue([{ id: 10, name: "Sprint" }]);
+    const req = {} as any;
+    const res = createRes();
+
+    await listProgramExercises(req, res);
+
+    expect(getExerciseLibrary).toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ exercises: [{ id: 10, name: "Sprint" }] });
   });
 });

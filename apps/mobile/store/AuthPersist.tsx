@@ -2,7 +2,15 @@ import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "expo-router";
 import { useAppDispatch, useAppSelector } from "./hooks";
-import { setCredentials, logout, setOnboardingCompleted, setAthleteUserId, setHydrated } from "./slices/userSlice";
+import {
+  setCredentials,
+  logout,
+  setOnboardingCompleted,
+  setAthleteUserId,
+  setHydrated,
+  setProgramTier,
+  setLatestSubscriptionRequest,
+} from "./slices/userSlice";
 import { apiRequest } from "@/lib/api";
 
 const STORAGE_KEYS = {
@@ -58,10 +66,31 @@ export function AuthPersist() {
           );
           dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
           dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+          try {
+            const status = await apiRequest<{
+              currentProgramTier?: string | null;
+              latestRequest?: {
+                status?: string | null;
+                paymentStatus?: string | null;
+                planTier?: string | null;
+                createdAt?: string | null;
+              } | null;
+            }>("/billing/status", {
+              token: storedToken,
+              suppressStatusCodes: [401, 403, 404],
+            });
+            dispatch(setProgramTier(status?.currentProgramTier ?? null));
+            dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
+          } catch {
+            dispatch(setProgramTier(null));
+            dispatch(setLatestSubscriptionRequest(null));
+          }
         } catch {
           // Invalid/expired token - reset and send to login.
           dispatch(setOnboardingCompleted(null));
           dispatch(setAthleteUserId(null));
+          dispatch(setProgramTier(null));
+          dispatch(setLatestSubscriptionRequest(null));
           dispatch(logout());
           if (!isAuthRoute) {
             router.replace("/(auth)/login");

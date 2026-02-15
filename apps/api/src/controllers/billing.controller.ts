@@ -15,10 +15,11 @@ import {
   getLatestSubscriptionRequest,
   listSubscriptionPlans,
   listSubscriptionRequests,
-  updateSubscriptionPlan,
   updateSubscriptionRequestStatus,
+  updateSubscriptionPlan,
   updateRequestFromStripeSession,
 } from "../services/billing.service";
+import { updateAthleteProgramTier } from "../services/admin.service";
 
 const checkoutSchema = z.object({
   planId: z.number().int().min(1),
@@ -47,6 +48,10 @@ const planUpdateSchema = planCreateSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 
+const downgradeSchema = z.object({
+  tier: z.enum(ProgramType.enumValues),
+});
+
 export async function listPlans(_req: Request, res: Response) {
   const plans = await listSubscriptionPlans({ includeInactive: false });
   return res.status(200).json({ plans });
@@ -65,6 +70,47 @@ export async function getBillingStatus(req: Request, res: Response) {
     athlete,
     currentProgramTier: athlete.currentProgramTier ?? null,
     latestRequest,
+  });
+}
+
+export async function downgradePlan(req: Request, res: Response) {
+  const parsed = downgradeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+  }
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const { athlete } = await getGuardianAndAthlete(req.user!.id);
+  if (!athlete || !athlete.currentProgramTier) {
+    return res.status(400).json({ error: "No active plan to downgrade" });
+  }
+
+  const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
+    PHP: 1,
+    PHP_Plus: 2,
+    PHP_Premium: 3,
+  };
+  const currentTier = athlete.currentProgramTier;
+  const targetTier = parsed.data.tier;
+  const currentRank = tierOrder[currentTier];
+  const targetRank = tierOrder[targetTier];
+
+  if (targetRank >= currentRank) {
+    return res.status(400).json({ error: "Only downgrades are allowed." });
+  }
+
+  const updated = await updateAthleteProgramTier(athlete.id, targetTier);
+  const latestRequest = await getLatestSubscriptionRequest({
+    userId: req.user!.id,
+    athleteId: athlete.id,
+  });
+  if (latestRequest && ["pending_payment", "pending_approval"].includes(latestRequest.status)) {
+    await updateSubscriptionRequestStatus(latestRequest.requestId, "rejected");
+  }
+
+  return res.status(200).json({
+    currentProgramTier: updated?.currentProgramTier ?? targetTier,
   });
 }
 

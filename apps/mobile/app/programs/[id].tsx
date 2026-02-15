@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { Linking, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Modal, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -14,8 +14,12 @@ import {
   PhysioReferralPanel,
   VideoUploadPanel,
 } from "@/components/programs/ProgramPanels";
-import { PROGRAM_TABS, TRAINING_TABS, getSessionsForTab, ProgramId } from "@/constants/program-details";
+import { PROGRAM_TABS, TRAINING_TABS, getSessionTypesForTab, ProgramId, SessionItem } from "@/constants/program-details";
 import { PROGRAM_TIERS } from "@/constants/Programs";
+import { useAppSelector } from "@/store/hooks";
+import { canAccessTier, normalizeProgramTier, programIdToTier } from "@/lib/planAccess";
+import { apiRequest } from "@/lib/api";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -27,35 +31,226 @@ export default function ProgramDetailScreen() {
   const { id } = useLocalSearchParams<{ id: ProgramId }>();
   const programId = id && ["php", "plus", "premium"].includes(id) ? (id as ProgramId) : "php";
   const router = useRouter();
+  const { programTier, token } = useAppSelector((state) => state.user);
   const tabs = PROGRAM_TABS[programId];
   const [activeTab, setActiveTab] = useState(tabs[0]);
+  const [allSessions, setAllSessions] = useState<SessionItem[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
 
-  const sessions = useMemo(() => getSessionsForTab(programId, activeTab), [programId, activeTab]);
+  useEffect(() => {
+    setActiveTab(tabs[0]);
+  }, [tabs]);
+
+  const sessions = useMemo(() => {
+    const allowedTypes = new Set(getSessionTypesForTab(activeTab));
+    if (allowedTypes.size === 0) {
+      return [];
+    }
+    return allSessions.filter((session) => allowedTypes.has(String(session.type ?? "")));
+  }, [activeTab, allSessions]);
+
+  useEffect(() => {
+    const loadSessions = async () => {
+      if (!token) {
+        setAllSessions([]);
+        return;
+      }
+      setIsLoadingSessions(true);
+      setSessionError(null);
+      try {
+        const mapExercise = (entry: any) => ({
+          id: String(entry?.id ?? entry?.exerciseId ?? "exercise-unknown"),
+          name: String(entry?.name ?? "Exercise"),
+          sets: typeof entry?.sets === "number" ? entry.sets : undefined,
+          reps: typeof entry?.reps === "number" ? entry.reps : undefined,
+          time:
+            typeof entry?.duration === "number" && entry.duration > 0
+              ? `${entry.duration}s`
+              : undefined,
+          rest:
+            typeof entry?.restSeconds === "number" && entry.restSeconds > 0
+              ? `${entry.restSeconds}s`
+              : undefined,
+          notes: entry?.notes || undefined,
+          videoUrl: entry?.videoUrl || undefined,
+          progressions: entry?.progression || undefined,
+          regressions: entry?.regression || undefined,
+        });
+
+        const programsData = await apiRequest<{ programs: Array<{ type: string; programId?: number | null }> }>(
+          "/programs",
+          { token }
+        );
+        const libraryData = await apiRequest<{ exercises: any[] }>("/programs/exercises", { token });
+        const requiredType = programIdToTier(programId);
+        const selected = (programsData.programs ?? []).find((item) => item.type === requiredType);
+        if (!selected?.programId) {
+          const fallbackLibraryExercises = (libraryData.exercises ?? []).map(mapExercise);
+          setAllSessions(
+            fallbackLibraryExercises.length
+              ? [
+                  {
+                    id: `${requiredType}-library`,
+                    name: "Exercise Library",
+                    weekNumber: 1,
+                    type: "program",
+                    exercises: fallbackLibraryExercises,
+                  },
+                ]
+              : []
+          );
+          return;
+        }
+        const sessionData = await apiRequest<{ sessions: any[] }>(`/programs/${selected.programId}/sessions`, {
+          token,
+        });
+
+        const mappedSessions: SessionItem[] = (sessionData.sessions ?? []).map((session) => {
+          const sessionExercises = Array.isArray(session.exercises) ? session.exercises : [];
+          return {
+            id: String(session.id),
+            name: `Week ${session.weekNumber} Session ${session.sessionNumber}`,
+            weekNumber: session.weekNumber,
+            type: String(session.type ?? ""),
+            exercises: sessionExercises.map((entry: any) => {
+              const exercise = entry.exercise ?? {};
+              return {
+                id: String(entry.exerciseId ?? exercise.id ?? entry.id),
+                name: String(exercise.name ?? "Exercise"),
+                sets: typeof exercise.sets === "number" ? exercise.sets : undefined,
+                reps: typeof exercise.reps === "number" ? exercise.reps : undefined,
+                time:
+                  typeof exercise.duration === "number" && exercise.duration > 0
+                    ? `${exercise.duration}s`
+                    : undefined,
+                rest:
+                  typeof exercise.restSeconds === "number" && exercise.restSeconds > 0
+                    ? `${exercise.restSeconds}s`
+                    : undefined,
+                notes: entry.coachingNotes || exercise.notes || undefined,
+                videoUrl: exercise.videoUrl || undefined,
+                progressions: entry.progressionNotes || exercise.progression || undefined,
+                regressions: entry.regressionNotes || exercise.regression || undefined,
+              };
+            }),
+          } as SessionItem;
+        });
+
+        const libraryExercises = (libraryData.exercises ?? []).map(mapExercise);
+        const librarySession: SessionItem[] = libraryExercises.length
+          ? [
+              {
+                id: `${requiredType}-library`,
+                name: "Exercise Library",
+                weekNumber: 1,
+                type: "program",
+                exercises: libraryExercises,
+              },
+            ]
+          : [];
+
+        setAllSessions([...mappedSessions, ...librarySession]);
+      } catch (error: any) {
+        setSessionError(error?.message || "Failed to load configured sessions.");
+        setAllSessions([]);
+      } finally {
+        setIsLoadingSessions(false);
+      }
+    };
+
+    void loadSessions();
+  }, [programId, token]);
 
   const handleVideoPress = (url: string) => {
-    Linking.openURL(url).catch(() => undefined);
+    setActiveVideoUrl(url);
+  };
+
+  const renderTrainingContent = () => {
+    if (isLoadingSessions) {
+      return (
+        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+          <Text className="text-sm font-outfit text-secondary">Loading configured exercises...</Text>
+        </View>
+      );
+    }
+    if (sessionError) {
+      return (
+        <View className="rounded-3xl border border-red-500/30 bg-red-500/10 px-6 py-5">
+          <Text className="text-sm font-outfit text-red-600">{sessionError}</Text>
+        </View>
+      );
+    }
+    if (sessions.length === 0) {
+      return (
+        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+          <Text className="text-sm font-outfit text-secondary">
+            No exercises configured for this section yet. Ask your coach/admin to add sessions in Web Admin.
+          </Text>
+        </View>
+      );
+    }
+    return <ProgramSessionPanel sessions={sessions} onVideoPress={handleVideoPress} />;
   };
 
   const renderTab = () => {
+    const hasAccess = canAccessTier(programTier, programIdToTier(programId));
+    const normalizedTier = normalizeProgramTier(programTier);
+    if (!hasAccess) {
+      const title = normalizedTier
+        ? "Apply to unlock this program"
+        : "Complete onboarding to unlock programs";
+      const body = normalizedTier
+        ? "This program is available on a higher plan tier. Apply to upgrade your coaching."
+        : "Once your plan is active, your full program will appear here.";
+      return (
+        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
+          <View className="flex-row items-center gap-2">
+            <Feather name="lock" size={16} color="#94A3B8" />
+            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+              Pending Access
+            </Text>
+          </View>
+          <Text className="text-lg font-clash text-app">
+            {title}
+          </Text>
+          <Text className="text-sm font-outfit text-secondary">
+            {body}
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/plans")}
+            className="mt-2 rounded-full bg-accent px-4 py-3"
+          >
+            <Text className="text-white text-sm font-outfit text-center">
+              {normalizedTier ? "View Plans" : "Choose a Plan"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     if (activeTab === "Program") {
       const tier = PROGRAM_TIERS.find((item) => item.id === programId);
       return (
-        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
-          <Text className="text-lg font-clash text-app">Program Features</Text>
-          {tier?.features?.map((feature, index) => (
-            <View key={`${tier.id}-feature-${index}`} className="flex-row items-center gap-3">
-              <View className="h-6 w-6 rounded-full bg-success-soft items-center justify-center">
-                <Feather name="check" size={12} color="#16A34A" />
+        <View className="gap-4">
+          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
+            <Text className="text-lg font-clash text-app">Program Features</Text>
+            {tier?.features?.map((feature, index) => (
+              <View key={`${tier.id}-feature-${index}`} className="flex-row items-center gap-3">
+                <View className="h-6 w-6 rounded-full bg-success-soft items-center justify-center">
+                  <Feather name="check" size={12} color="#16A34A" />
+                </View>
+                <Text className="text-sm font-outfit text-app flex-1">{feature}</Text>
               </View>
-              <Text className="text-sm font-outfit text-app flex-1">{feature}</Text>
-            </View>
-          ))}
+            ))}
+          </View>
+          {renderTrainingContent()}
         </View>
       );
     }
 
     if (TRAINING_TABS.has(activeTab)) {
-      return <ProgramSessionPanel sessions={sessions} onVideoPress={handleVideoPress} />;
+      return renderTrainingContent();
     }
 
     if (activeTab === "Book In" || activeTab === "Bookings") {
@@ -111,6 +306,27 @@ export default function ProgramDetailScreen() {
           {renderTab()}
         </View>
       </ThemedScrollView>
+      <Modal
+        visible={Boolean(activeVideoUrl)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActiveVideoUrl(null)}
+      >
+        <View className="flex-1 bg-black/80 justify-end">
+          <View className="bg-app rounded-t-3xl p-4 pb-8">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-base font-clash text-app">Exercise Video</Text>
+              <TouchableOpacity
+                onPress={() => setActiveVideoUrl(null)}
+                className="h-9 w-9 rounded-full bg-secondary items-center justify-center"
+              >
+                <Feather name="x" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+            {activeVideoUrl ? <VideoPlayer uri={activeVideoUrl} /> : null}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

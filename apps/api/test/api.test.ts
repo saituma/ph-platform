@@ -31,6 +31,7 @@ jest.mock("../src/services/program.service", () => ({
   getProgramCards: jest.fn(async () => [{ type: "PHP", status: "active" }]),
   getProgramById: jest.fn(async () => ({ id: 1, name: "Program" })),
   getProgramSessions: jest.fn(async () => []),
+  getExerciseLibrary: jest.fn(async () => []),
 }));
 
 jest.mock("../src/services/content.service", () => ({
@@ -175,6 +176,11 @@ describe("API routes", () => {
 
   it("GET /api/programs/1/sessions", async () => {
     const res = await request(app).get("/api/programs/1/sessions");
+    expect(res.status).toBe(200);
+  });
+
+  it("GET /api/programs/exercises", async () => {
+    const res = await request(app).get("/api/programs/exercises");
     expect(res.status).toBe(200);
   });
 
