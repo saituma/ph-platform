@@ -41,31 +41,44 @@ function toNumber(value?: string | number) {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function asStringOrNumber(value: unknown, fallback: string | number = ""): string | number {
+  if (typeof value === "string" || typeof value === "number") {
+    return value;
+  }
+  return fallback;
+}
+
 function normalizeExercise(item: Record<string, unknown>): Exercise {
   const rawVideo = item.videoUrl ?? item.video ?? item.videoURL ?? "";
+  const rawVideoString = asString(rawVideo, "");
+  const videoField = asString(item.video, "");
   const videoStatus =
     item.videoStatus ??
-    (typeof item.video === "string" && (item.video === "Uploaded" || item.video === "Pending")
-      ? item.video
-      : rawVideo
+    ((videoField === "Uploaded" || videoField === "Pending")
+      ? videoField
+      : rawVideoString
       ? "Uploaded"
       : "Pending");
 
   return {
-    id: item.id ?? item._id ?? item.exerciseId ?? item.name,
-    name: item.name ?? item.title ?? "Untitled Exercise",
-    category: item.category ?? item.type ?? "",
-    sets: item.sets ?? item.setsCount ?? "",
-    reps: item.reps ?? item.repsCount ?? "",
-    time: item.time ?? item.duration ?? item.durationSeconds ?? "",
-    rest: item.rest ?? item.restSeconds ?? "",
-    videoUrl: typeof rawVideo === "string" ? rawVideo : "",
-    videoStatus,
-    notes: item.notes ?? item.coachingNotes ?? "",
-    cues: item.cues ?? "",
-    howTo: item.howTo ?? "",
-    progression: item.progression ?? item.progressions ?? "",
-    regression: item.regression ?? item.regressions ?? "",
+    id: asStringOrNumber(item.id ?? item._id ?? item.exerciseId ?? item.name, "unknown"),
+    name: asString(item.name ?? item.title, "Untitled Exercise"),
+    category: asString(item.category ?? item.type, ""),
+    sets: asStringOrNumber(item.sets ?? item.setsCount, ""),
+    reps: asStringOrNumber(item.reps ?? item.repsCount, ""),
+    time: asStringOrNumber(item.time ?? item.duration ?? item.durationSeconds, ""),
+    rest: asStringOrNumber(item.rest ?? item.restSeconds, ""),
+    videoUrl: rawVideoString,
+    videoStatus: asString(videoStatus, "Pending"),
+    notes: asString(item.notes ?? item.coachingNotes, ""),
+    cues: asString(item.cues, ""),
+    howTo: asString(item.howTo, ""),
+    progression: asString(item.progression ?? item.progressions, ""),
+    regression: asString(item.regression ?? item.regressions, ""),
   };
 }
 
