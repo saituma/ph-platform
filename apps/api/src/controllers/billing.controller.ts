@@ -1,10 +1,13 @@
 import type { Request, Response } from "express";
 import Stripe from "stripe";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 import { ProgramType } from "../db/schema";
 import { env } from "../config/env";
-import { getGuardianAndAthlete } from "../services/user.service";
+import { guardianTable } from "../db/schema";
+import { db } from "../db";
+import { getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
 import {
   approveSubscriptionRequest,
   confirmCheckoutSession,
@@ -58,12 +61,18 @@ export async function listPlans(_req: Request, res: Response) {
 }
 
 export async function getBillingStatus(req: Request, res: Response) {
-  const { athlete } = await getGuardianAndAthlete(req.user!.id);
+  const athlete = await getAthleteForUser(req.user!.id);
   if (!athlete) {
     return res.status(200).json({ athlete: null, currentProgramTier: null, latestRequest: null });
   }
+  const guardianRows = await db
+    .select({ userId: guardianTable.userId })
+    .from(guardianTable)
+    .where(eq(guardianTable.id, athlete.guardianId))
+    .limit(1);
+  const requestUserId = guardianRows[0]?.userId ?? req.user!.id;
   const latestRequest = await getLatestSubscriptionRequest({
-    userId: req.user!.id,
+    userId: requestUserId,
     athleteId: athlete.id,
   });
   return res.status(200).json({

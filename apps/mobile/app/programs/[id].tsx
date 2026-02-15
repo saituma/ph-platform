@@ -17,7 +17,7 @@ import {
 import { PROGRAM_TABS, TRAINING_TABS, getSessionTypesForTab, ProgramId, SessionItem } from "@/constants/program-details";
 import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppSelector } from "@/store/hooks";
-import { canAccessTier, normalizeProgramTier, programIdToTier } from "@/lib/planAccess";
+import { canAccessTier, normalizeProgramTier, programIdToTier, tierRank } from "@/lib/planAccess";
 import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 
@@ -268,6 +268,32 @@ export default function ProgramDetailScreen() {
     }
 
     if (activeTab === "Parent Education" || activeTab === "Education") {
+      if (tierRank(programTier) < tierRank("PHP_Plus")) {
+        return (
+          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
+            <View className="flex-row items-center gap-2">
+              <Feather name="lock" size={16} color="#94A3B8" />
+              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                Locked
+              </Text>
+            </View>
+            <Text className="text-lg font-clash text-app">
+              Parent Program is locked on PHP
+            </Text>
+            <Text className="text-sm font-outfit text-secondary">
+              Upgrade to PHP Plus or PHP Premium to access parent education.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/plans")}
+              className="mt-2 rounded-full bg-accent px-4 py-3"
+            >
+              <Text className="text-white text-sm font-outfit text-center">
+                View Plans
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
       return <ParentEducationPanel onOpen={() => router.push("/(tabs)/parent-platform")} />;
     }
 

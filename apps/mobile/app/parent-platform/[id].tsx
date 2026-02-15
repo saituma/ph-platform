@@ -2,7 +2,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { apiRequest } from "@/lib/api";
 import { getParentContentCache } from "@/lib/parentContentCache";
-import { canAccessTier } from "@/lib/planAccess";
+import { canAccessTier, tierRank } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -108,6 +108,7 @@ export default function ParentCourseDetail() {
 
   const isLocked =
     item && !canAccessTier(programTier, item.programTier ?? null) && !item.isPreview;
+  const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
@@ -132,6 +133,27 @@ export default function ParentCourseDetail() {
                 <View className="h-3 w-2/3 rounded-full bg-secondary/20 mt-3" />
               </View>
             ))}
+          </View>
+        ) : !hasParentProgramAccess ? (
+          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
+            <View className="flex-row items-center gap-2 mb-2">
+              <Feather name="lock" size={16} color={colors.textSecondary} />
+              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
+                Locked
+              </Text>
+            </View>
+            <Text className="text-base font-clash text-app mb-2">
+              Parent Program is locked on PHP
+            </Text>
+            <Text className="text-sm font-outfit text-secondary leading-relaxed">
+              Upgrade to PHP Plus or PHP Premium to access this content.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/plans")}
+              className="mt-4 rounded-full bg-accent px-4 py-3"
+            >
+              <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
+            </TouchableOpacity>
           </View>
         ) : item ? (
           <View className="space-y-6">

@@ -11,7 +11,7 @@ import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setLatestSubscriptionRequest, setProgramTier } from "../store/slices/userSlice";
-import * as WebBrowser from "expo-web-browser";
+import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
 
 export default function PlansScreen() {
   const router = useRouter();
@@ -70,9 +70,32 @@ export default function PlansScreen() {
     }
   }, [token]);
 
+  const refreshBillingStatus = useCallback(async () => {
+    if (!token) return;
+    try {
+      const status = await apiRequest<{
+        currentProgramTier?: string | null;
+        latestRequest?: {
+          status?: string | null;
+          paymentStatus?: string | null;
+          planTier?: string | null;
+          createdAt?: string | null;
+        } | null;
+      }>("/billing/status", {
+        token,
+        suppressStatusCodes: [401, 403, 404],
+      });
+      dispatch(setProgramTier(status?.currentProgramTier ?? null));
+      dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
+    } catch {
+      // no-op
+    }
+  }, [dispatch, token]);
+
   useEffect(() => {
     void loadPlans();
-  }, [loadPlans]);
+    void refreshBillingStatus();
+  }, [loadPlans, refreshBillingStatus]);
 
   const handleCheckout = useCallback(
     async (planId: number, interval?: "monthly" | "yearly") => {
@@ -84,34 +107,47 @@ export default function PlansScreen() {
           return;
         }
         const data = await apiRequest<{
-          checkoutUrl?: string;
-          sessionId?: string;
-        }>("/billing/checkout", {
+          customerId: string;
+          ephemeralKey: string;
+          paymentIntentId: string;
+          paymentIntentClientSecret: string;
+          request?: any;
+        }>("/billing/payment-sheet", {
           method: "POST",
           body: { planId, interval },
           token,
         });
 
-        if (!data.checkoutUrl || !data.sessionId) {
-          throw new Error("Checkout session unavailable.");
+        const init = await initPaymentSheet({
+          merchantDisplayName: "PH Platform",
+          customerId: data.customerId,
+          customerEphemeralKeySecret: data.ephemeralKey,
+          paymentIntentClientSecret: data.paymentIntentClientSecret,
+          allowsDelayedPaymentMethods: true,
+        });
+        if (init.error) {
+          throw new Error(init.error.message);
         }
 
-        await WebBrowser.openBrowserAsync(data.checkoutUrl, {
-          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
-        });
+        const result = await presentPaymentSheet();
+        if (result.error) {
+          throw new Error(result.error.message);
+        }
 
-        const confirm = await apiRequest<{ paymentStatus?: string }>(
-          "/billing/confirm",
+        const confirm = await apiRequest<{ paymentStatus?: string; request?: any }>(
+          "/billing/payment-sheet/confirm",
           {
             method: "POST",
-            body: { sessionId: data.sessionId },
+            body: { paymentIntentId: data.paymentIntentId },
             token,
           }
         );
 
+        dispatch(setLatestSubscriptionRequest(confirm.request ?? data.request ?? null));
+
         Alert.alert(
           "Payment status",
-          confirm.paymentStatus === "paid"
+          confirm.paymentStatus === "succeeded" || confirm.paymentStatus === "processing"
             ? "Payment received. Awaiting admin approval."
             : "Payment pending. We will update your plan once confirmed."
         );
@@ -124,7 +160,7 @@ export default function PlansScreen() {
         setActionError(message);
       }
     },
-    [token, router]
+    [token, router, dispatch]
   );
 
   const handleDowngrade = useCallback(
@@ -168,7 +204,9 @@ export default function PlansScreen() {
       </View>
 
       <ThemedScrollView
-        onRefresh={loadPlans}
+        onRefresh={async () => {
+          await Promise.all([loadPlans(), refreshBillingStatus()]);
+        }}
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
@@ -183,7 +221,7 @@ export default function PlansScreen() {
             </Text>
           </View>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Select the best coaching tier for your athlete's development and
+            Select the best coaching tier for your athlete&apos;s development and
             goals.
           </Text>
           {normalizeProgramTier(programTier) ? (

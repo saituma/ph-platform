@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "expo-router";
+import { AppState } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
 import {
   setCredentials,
@@ -12,6 +13,7 @@ import {
   setLatestSubscriptionRequest,
 } from "./slices/userSlice";
 import { apiRequest } from "@/lib/api";
+import { getNotifications } from "@/lib/notifications";
 
 const STORAGE_KEYS = {
   token: "authToken",
@@ -36,6 +38,7 @@ export function AuthPersist() {
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
   const lastSavedRefreshToken = useRef<string | null>(null);
+  const lastBillingSnapshot = useRef<{ tier: string | null; requestStatus: string | null } | null>(null);
   const isAuthRoute =
     pathname.startsWith("/(auth)") ||
     pathname === "/login" ||
@@ -119,6 +122,78 @@ export function AuthPersist() {
       mounted = false;
     };
   }, [dispatch, isAuthRoute, router]);
+
+  useEffect(() => {
+    if (!hydrated || !isAuthenticated || !token) return;
+    let active = true;
+    let initialized = false;
+
+    const syncBillingStatus = async (allowNotify: boolean) => {
+      try {
+        const status = await apiRequest<{
+          currentProgramTier?: string | null;
+          latestRequest?: {
+            status?: string | null;
+            paymentStatus?: string | null;
+            planTier?: string | null;
+            createdAt?: string | null;
+          } | null;
+        }>("/billing/status", {
+          token,
+          suppressStatusCodes: [401, 403, 404],
+        });
+        if (!active) return;
+
+        const nextTier = status?.currentProgramTier ?? null;
+        const nextRequestStatus = status?.latestRequest?.status ?? null;
+        const previous = lastBillingSnapshot.current;
+        const becameApproved =
+          previous &&
+          previous.requestStatus !== "approved" &&
+          nextRequestStatus === "approved";
+        const tierChanged = previous && previous.tier !== nextTier;
+
+        dispatch(setProgramTier(nextTier));
+        dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
+        lastBillingSnapshot.current = { tier: nextTier, requestStatus: nextRequestStatus };
+
+        if (allowNotify && (becameApproved || tierChanged)) {
+          const Notifications = await getNotifications();
+          if (Notifications && typeof Notifications.scheduleNotificationAsync === "function") {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: "Plan approved",
+                body: `Your ${String(nextTier ?? "program").replace("_", " ")} access is now active.`,
+                sound: "default",
+                data: { screen: "plans" },
+              },
+              trigger: null,
+            });
+          }
+        }
+      } catch {
+        if (!active) return;
+      }
+    };
+
+    void syncBillingStatus(false);
+    initialized = true;
+    const interval = setInterval(() => {
+      void syncBillingStatus(initialized);
+    }, 30000);
+
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void syncBillingStatus(initialized);
+      }
+    });
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+      appStateSub.remove();
+    };
+  }, [dispatch, hydrated, isAuthenticated, token]);
 
   useEffect(() => {
     if (!hydrated) return;

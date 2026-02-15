@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
 import { setParentContentCache } from "@/lib/parentContentCache";
-import { canAccessTier } from "@/lib/planAccess";
+import { canAccessTier, tierRank } from "@/lib/planAccess";
 
 const CATEGORIES = [
   { id: "growth", title: "Growth and maturation", icon: "book-open", color: "bg-emerald-500" },
@@ -83,6 +83,7 @@ export default function ParentPlatformScreen() {
       items: items.filter((item) => item.category === category.title),
     }));
   }, [items]);
+  const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
 
 
 
@@ -106,11 +107,32 @@ export default function ParentPlatformScreen() {
             Parent Education Platform
           </Text>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Understand your athlete's training with our educational module for parents.
+            Understand your athlete&apos;s training with our educational module for parents.
           </Text>
         </View>
 
-        {isLoading ? (
+        {!hasParentProgramAccess ? (
+          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
+            <View className="flex-row items-center gap-2 mb-2">
+              <Feather name="lock" size={16} className="text-secondary" />
+              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
+                Locked
+              </Text>
+            </View>
+            <Text className="text-xl font-clash text-app mb-2">
+              Upgrade to unlock Parent Program
+            </Text>
+            <Text className="text-sm font-outfit text-secondary leading-relaxed">
+              Parent education is available on PHP Plus and PHP Premium plans.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/plans")}
+              className="mt-4 rounded-full bg-accent px-4 py-3"
+            >
+              <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
+            </TouchableOpacity>
+          </View>
+        ) : isLoading ? (
           <View className="gap-3">
             {[1, 2, 3].map((item) => (
               <View key={item} className="rounded-3xl border border-app/10 bg-input px-4 py-3">
