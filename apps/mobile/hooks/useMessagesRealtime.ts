@@ -33,6 +33,7 @@ export function useMessagesRealtime({
 }: UseMessagesRealtimeParams) {
   const socketRef = useRef<Socket | null>(null);
   const typingRef = useRef<{ active: boolean; timer?: NodeJS.Timeout | null }>({ active: false, timer: null });
+  const currentThreadId = currentThread?.id ?? null;
 
   useEffect(() => {
     if (!token) return;
@@ -88,8 +89,17 @@ export function useMessagesRealtime({
           loadMessages();
           return prev;
         }
+        const isIncoming = senderId !== effectiveUserId;
+        const isActiveThread = currentThreadId === threadIdFromMessage;
         return prev.map((t) =>
-          t.id === threadIdFromMessage ? { ...t, preview: message.text, time: message.time } : t
+          t.id === threadIdFromMessage
+            ? {
+                ...t,
+                preview: message.text,
+                time: message.time,
+                unread: isIncoming && !isActiveThread ? (t.unread ?? 0) + 1 : t.unread ?? 0,
+              }
+            : t
         );
       });
 
@@ -138,7 +148,19 @@ export function useMessagesRealtime({
       });
 
       setThreads((prev) =>
-        prev.map((t) => (t.id === `group:${groupId}` ? { ...t, preview: message.text, time: message.time } : t))
+        prev.map((t) =>
+          t.id === `group:${groupId}`
+            ? {
+                ...t,
+                preview: message.text,
+                time: message.time,
+                unread:
+                  payload.senderId !== effectiveUserId && currentThreadId !== `group:${groupId}`
+                    ? (t.unread ?? 0) + 1
+                    : t.unread ?? 0,
+              }
+            : t
+        )
       );
 
       if (payload.senderId !== effectiveUserId) {
@@ -192,7 +214,7 @@ export function useMessagesRealtime({
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [athleteUserId, groupMembers, loadMessages, profileId, role, setMessages, setThreads, setTypingStatus, token]);
+  }, [athleteUserId, currentThreadId, groupMembers, loadMessages, profileId, role, setMessages, setThreads, setTypingStatus, token]);
 
   useEffect(() => {
     const socket = socketRef.current;

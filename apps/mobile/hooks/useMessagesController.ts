@@ -60,6 +60,7 @@ export function useMessagesController() {
     if (!token) return;
     setIsLoading(true);
     try {
+      const effectiveUserId = role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
       const actingHeaders = role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
       const [data, groupsData] = await Promise.all([
         apiRequest<{ messages: any[]; coach?: { id: number; name: string; role?: string } }>("/messages", {
@@ -99,7 +100,7 @@ export function useMessagesController() {
           : "",
         pinned: false,
         premium: false,
-        unread: data.messages?.filter((msg: any) => !msg.read && msg.senderId === coach.id).length ?? 0,
+        unread: data.messages?.filter((msg: any) => !msg.read && Number(msg.senderId) !== effectiveUserId).length ?? 0,
         lastSeen: "Active",
         responseTime: "Coach replies fast",
       };
@@ -107,7 +108,7 @@ export function useMessagesController() {
       const mappedMessages = (data.messages ?? []).map((msg: any) => ({
         id: String(msg.id),
         threadId: String(coach.id),
-        from: msg.senderId === Number(profile.id) ? "user" : "coach",
+        from: Number(msg.senderId) === effectiveUserId ? "user" : "coach",
         text: msg.content,
         time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
         status: msg.read ? "read" : "sent",

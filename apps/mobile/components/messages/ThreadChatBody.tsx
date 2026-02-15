@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MessageBubble } from "./MessageBubble";
 import { MessageThread, TypingStatus } from "@/types/messages";
@@ -56,6 +57,7 @@ export function ThreadChatBody({
   const isGroup = thread.id.startsWith("group:");
   const listRef = React.useRef<FlatList<ChatMessage> | null>(null);
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
     if (!messages.length) return;
@@ -67,8 +69,8 @@ export function ThreadChatBody({
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "padding"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 96 : insets.bottom + 72}
     >
       <FlatList
         ref={(node) => {
@@ -78,10 +80,11 @@ export function ThreadChatBody({
         data={messages}
         keyExtractor={(message) => String(message.id)}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 16,
-          paddingBottom: 16,
+          paddingBottom: 24,
           rowGap: 16,
         }}
         showsVerticalScrollIndicator={false}
@@ -143,7 +146,7 @@ export function ThreadChatBody({
         </View>
       ) : null}
 
-      <View className="px-6 pt-3 border-t border-app/10 bg-app pb-4">
+      <View className="px-6 pt-3 border-t border-app/10 bg-app" style={{ paddingBottom: Math.max(12, insets.bottom) }}>
         {composerDisabled && disabledMessage ? (
           <View className="mb-3 rounded-2xl border border-amber-200 bg-amber-100 px-4 py-3">
             <Text className="text-xs font-outfit text-amber-900">
@@ -165,6 +168,7 @@ export function ThreadChatBody({
             value={draft}
             onChangeText={onDraftChange}
             multiline
+            textAlignVertical="top"
             editable={!composerDisabled}
           />
           <Pressable
