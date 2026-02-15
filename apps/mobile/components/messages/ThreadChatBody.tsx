@@ -4,6 +4,7 @@ import React from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -26,13 +27,21 @@ type ThreadChatBodyProps = {
   typingStatus: TypingStatus;
   textSecondaryColor: string;
   onDraftChange: (value: string) => void;
-  onSend: () => void;
+  onSend: () => void | Promise<void>;
   onOpenComposerMenu: () => void;
   onLongPressMessage: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
   composerDisabled?: boolean;
   disabledMessage?: string;
   onDisabledPress?: () => void;
+  pendingAttachment?: {
+    uri: string;
+    fileName: string;
+    sizeBytes: number;
+    isImage: boolean;
+  } | null;
+  onRemovePendingAttachment?: () => void;
+  isUploadingAttachment?: boolean;
 };
 
 export function ThreadChatBody({
@@ -51,6 +60,9 @@ export function ThreadChatBody({
   composerDisabled = false,
   disabledMessage,
   onDisabledPress,
+  pendingAttachment = null,
+  onRemovePendingAttachment,
+  isUploadingAttachment = false,
 }: ThreadChatBodyProps) {
   const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
   const typing = typingStatus[typingKey];
@@ -154,9 +166,37 @@ export function ThreadChatBody({
             </Text>
           </View>
         ) : null}
+        {pendingAttachment ? (
+          <View className="mb-3 rounded-2xl border border-app/10 bg-input px-3 py-3">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                Attachment Preview
+              </Text>
+              <Pressable onPress={onRemovePendingAttachment} disabled={isUploadingAttachment}>
+                <Text className="text-xs font-outfit text-secondary">Remove</Text>
+              </Pressable>
+            </View>
+            {pendingAttachment.isImage ? (
+              <Image
+                source={{ uri: pendingAttachment.uri }}
+                style={{ width: 110, height: 90, borderRadius: 10, marginTop: 8 }}
+                resizeMode="cover"
+              />
+            ) : null}
+            <Text className="text-sm font-outfit text-app mt-2">
+              {pendingAttachment.fileName}
+            </Text>
+            <Text className="text-xs font-outfit text-secondary mt-1">
+              {Math.max(1, Math.round(pendingAttachment.sizeBytes / 1024))} KB
+            </Text>
+            {isUploadingAttachment ? (
+              <Text className="text-xs font-outfit text-secondary mt-1">Uploading...</Text>
+            ) : null}
+          </View>
+        ) : null}
         <View className="flex-row items-center rounded-3xl border px-4 py-3 bg-input border-app/10">
           <Pressable
-            onPress={composerDisabled ? onDisabledPress : onOpenComposerMenu}
+            onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onOpenComposerMenu}
             className="h-9 w-9 rounded-2xl items-center justify-center bg-secondary/10 border border-app/10"
           >
             <Feather name="plus" size={16} className="text-secondary" />
@@ -169,12 +209,14 @@ export function ThreadChatBody({
             onChangeText={onDraftChange}
             multiline
             textAlignVertical="top"
-            editable={!composerDisabled}
+            editable={!composerDisabled && !isUploadingAttachment}
           />
           <Pressable
-            onPress={composerDisabled ? onDisabledPress : onSend}
+            onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onSend}
             className="h-9 w-9 rounded-2xl items-center justify-center bg-accent"
-            style={{ opacity: composerDisabled ? 0.5 : draft.trim() ? 1 : 0.6 }}
+            style={{
+              opacity: composerDisabled || isUploadingAttachment ? 0.5 : draft.trim() || pendingAttachment ? 1 : 0.6,
+            }}
           >
             <Feather name="send" size={16} className="text-white" />
           </Pressable>

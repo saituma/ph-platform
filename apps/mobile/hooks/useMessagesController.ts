@@ -10,14 +10,16 @@ import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackHandler, Platform } from "react-native";
 
+type PendingAttachment = {
+  uri: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  isImage: boolean;
+};
+
 export function useMessagesController() {
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
-  const quickReplyOptions = [
-    "Great work. Keep this pace for the next session.",
-    "Received. I will review and get back to you shortly.",
-    "Can you share an update after your next workout?",
-    "Nice progress. Let's keep this consistent this week.",
-  ];
 
   const router = useRouter();
   const { thread: threadId } = useLocalSearchParams<{ thread?: string }>();
@@ -36,6 +38,7 @@ export function useMessagesController() {
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
@@ -201,6 +204,7 @@ export function useMessagesController() {
   const clearThread = useCallback(() => {
     router.setParams({ thread: undefined });
     setSelectedThread(null);
+    setPendingAttachment(null);
   }, [router]);
 
   const openThread = useCallback(
@@ -296,10 +300,6 @@ export function useMessagesController() {
       subscription?.remove();
     };
   }, [markDirectThreadReadById, openThread, sendReplyToThread, threads]);
-
-  const appendToDraft = useCallback((text: string) => {
-    setDraft((prev) => (prev.trim() ? `${prev}\n${text}` : text));
-  }, []);
 
   const uploadAttachment = useCallback(
     async (input: {
@@ -448,14 +448,28 @@ export function useMessagesController() {
     [athleteUserId, role, token]
   );
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = draft.trim();
-    if (!trimmed) return;
-    sendMessagePayload({ text: trimmed, contentType: "text" }).catch((error) =>
-      console.warn("Failed to send message", error)
-    );
-    setDraft("");
-  }, [draft, sendMessagePayload]);
+    if (!trimmed && !pendingAttachment) return;
+    try {
+      let upload: { mediaUrl: string; contentType: "text" | "image" | "video" } | null = null;
+      if (pendingAttachment) {
+        setIsUploadingAttachment(true);
+        upload = await uploadAttachment(pendingAttachment);
+      }
+      await sendMessagePayload({
+        text: trimmed || (pendingAttachment ? pendingAttachment.fileName : ""),
+        contentType: upload?.contentType ?? "text",
+        mediaUrl: upload?.mediaUrl,
+      });
+      setDraft("");
+      setPendingAttachment(null);
+    } catch (error) {
+      console.warn("Failed to send message", error);
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  }, [draft, pendingAttachment, sendMessagePayload, uploadAttachment]);
 
   const handleAttachImage = useCallback(async () => {
     if (!currentThread || !token || isUploadingAttachment) return;
@@ -470,32 +484,24 @@ export function useMessagesController() {
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
       if (!asset.uri) return;
-      setIsUploadingAttachment(true);
       const mimeType = asset.mimeType || "image/jpeg";
-      const upload = await uploadAttachment({
+      setPendingAttachment({
         uri: asset.uri,
         fileName: asset.fileName || `photo-${Date.now()}.jpg`,
         mimeType,
         sizeBytes: asset.fileSize ?? 512000,
         isImage: true,
       });
-      await sendMessagePayload({
-        text: "",
-        contentType: upload.contentType,
-        mediaUrl: upload.mediaUrl,
-      });
     } catch (error) {
       console.warn("Failed to attach image", error);
     } finally {
-      setIsUploadingAttachment(false);
       setComposerMenuOpen(false);
     }
-  }, [currentThread, isUploadingAttachment, sendMessagePayload, token, uploadAttachment]);
+  }, [currentThread, isUploadingAttachment, token]);
 
   const handleAttachFile = useCallback(async () => {
     if (!currentThread || !token || isUploadingAttachment) return;
     try {
-      // eslint-disable-next-line import/no-unresolved
       const DocumentPicker = await import("expo-document-picker");
       const result = await DocumentPicker.getDocumentAsync({
         copyToCacheDirectory: true,
@@ -504,27 +510,20 @@ export function useMessagesController() {
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
       if (!asset.uri) return;
-      setIsUploadingAttachment(true);
       const mimeType = asset.mimeType || "application/octet-stream";
-      const upload = await uploadAttachment({
+      setPendingAttachment({
         uri: asset.uri,
         fileName: asset.name || `file-${Date.now()}`,
         mimeType,
         sizeBytes: asset.size ?? 512000,
         isImage: mimeType.startsWith("image/"),
       });
-      await sendMessagePayload({
-        text: asset.name || "Attachment",
-        contentType: upload.contentType,
-        mediaUrl: upload.mediaUrl,
-      });
     } catch (error) {
       console.warn("Failed to attach file", error);
     } finally {
-      setIsUploadingAttachment(false);
       setComposerMenuOpen(false);
     }
-  }, [currentThread, isUploadingAttachment, sendMessagePayload, token, uploadAttachment]);
+  }, [currentThread, isUploadingAttachment, token]);
 
   useMessagesRealtime({
     token,
@@ -563,6 +562,10 @@ export function useMessagesController() {
   }, [currentThread, loadGroupMessages]);
 
   useEffect(() => {
+    setPendingAttachment(null);
+  }, [currentThread?.id]);
+
+  useEffect(() => {
     if (Platform.OS !== "android" || !currentThread) return;
     const handler = () => {
       clearThread();
@@ -574,7 +577,6 @@ export function useMessagesController() {
 
   return {
     reactionOptions,
-    quickReplyOptions,
     currentThread,
     sortedThreads,
     localMessages,
@@ -585,17 +587,18 @@ export function useMessagesController() {
     reactionTarget,
     composerMenuOpen,
     isUploadingAttachment,
+    pendingAttachment,
     openingThreadId,
     setDraft,
     setReactionTarget,
     setComposerMenuOpen,
+    setPendingAttachment,
     openThread,
     clearThread,
     handleSend,
     handleAttachFile,
     handleAttachImage,
     handleToggleReaction,
-    appendToDraft,
     loadMessages,
   };
 }

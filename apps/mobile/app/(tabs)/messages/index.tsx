@@ -15,7 +15,6 @@ export default function MessagesScreen() {
   const { colors } = useAppTheme();
   const {
     reactionOptions,
-    quickReplyOptions,
     currentThread,
     sortedThreads,
     localMessages,
@@ -25,17 +24,19 @@ export default function MessagesScreen() {
     draft,
     reactionTarget,
     composerMenuOpen,
+    isUploadingAttachment,
+    pendingAttachment,
     openingThreadId,
     setDraft,
     setReactionTarget,
     setComposerMenuOpen,
+    setPendingAttachment,
     openThread,
     clearThread,
     handleSend,
     handleAttachFile,
     handleAttachImage,
     handleToggleReaction,
-    appendToDraft,
     loadMessages,
   } = useMessagesController();
   const { programTier } = useAppSelector((state) => state.user);
@@ -72,6 +73,9 @@ export default function MessagesScreen() {
           }}
           onReactionPress={handleToggleReaction}
           composerDisabled={!canMessage}
+          pendingAttachment={pendingAttachment}
+          onRemovePendingAttachment={() => setPendingAttachment(null)}
+          isUploadingAttachment={isUploadingAttachment}
           disabledMessage={
             !canMessage
               ? "Messaging unlocks once your plan is active."
@@ -89,14 +93,9 @@ export default function MessagesScreen() {
 
         <ComposerActionsModal
           open={composerMenuOpen}
-          quickReplies={quickReplyOptions}
           onClose={() => setComposerMenuOpen(false)}
           onAttachFile={handleAttachFile}
           onAttachImage={handleAttachImage}
-          onQuickReply={(reply) => {
-            appendToDraft(reply);
-            setComposerMenuOpen(false);
-          }}
         />
       </SafeAreaView>
     );

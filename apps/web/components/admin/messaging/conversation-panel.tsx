@@ -47,7 +47,6 @@ export function ConversationPanel({
 }: ConversationPanelProps) {
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null);
-  const [showQuickReplies, setShowQuickReplies] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -55,17 +54,6 @@ export function ConversationPanel({
     active: false,
     timer: null,
   });
-  const quickReplies = [
-    "Great work. Keep this pace for the next session.",
-    "Received. I will review and get back to you shortly.",
-    "Can you share a short update after your next workout?",
-    "Nice progress. Let us lock this in for the week.",
-  ];
-
-  const appendToDraft = (text: string) => {
-    setDraft((prev) => (prev.trim() ? `${prev}\n${text}` : text));
-  };
-
   useEffect(() => {
     if (!onTypingChange) return;
     if (draft.trim().length > 0) {
@@ -270,32 +258,6 @@ export function ConversationPanel({
             <Button size="icon" variant="ghost">
               <Smile className="h-4 w-4" />
             </Button>
-            <div className="relative">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowQuickReplies((prev) => !prev)}
-              >
-              Quick Reply
-              </Button>
-              {showQuickReplies ? (
-                <div className="absolute bottom-12 left-0 z-20 w-72 rounded-xl border border-border bg-background p-2 shadow-lg">
-                  {quickReplies.map((reply) => (
-                    <button
-                      key={reply}
-                      type="button"
-                      className="block w-full rounded-lg px-3 py-2 text-left text-xs text-foreground hover:bg-secondary/50"
-                      onClick={() => {
-                        appendToDraft(reply);
-                        setShowQuickReplies(false);
-                      }}
-                    >
-                      {reply}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline">Save Draft</Button>
