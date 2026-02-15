@@ -538,10 +538,59 @@ export default function ExerciseLibraryPage() {
         regressionNotes: assignRegressionNotes.trim() || selected.regression || undefined,
       });
 
-      setAssignMessage("Exercise assigned successfully. It will now appear in mobile program tabs.");
+      setAssignMessage("Exercise assigned successfully.");
       await loadConfiguredAssignments();
     } catch (err) {
       setAssignMessage(err instanceof Error ? err.message : "Failed to assign exercise.");
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+  const handleCreateWeekSession = async () => {
+    const weekNumber = Number(assignWeek);
+    const sessionNumber = Number(assignSessionNumber);
+    if (!weekNumber || !sessionNumber) {
+      setAssignMessage("Enter valid Week and Session # to create a session.");
+      return;
+    }
+
+    setAssignSaving(true);
+    setAssignMessage(null);
+    try {
+      const cards = await fetchProgramCards();
+      let programId = Number(cards.find((card) => card.type === assignProgramType)?.programId ?? 0);
+      if (!programId) {
+        programId = await createProgram(assignProgramType);
+      }
+      if (!programId) {
+        throw new Error("Unable to resolve program template.");
+      }
+
+      const sessions = await fetchSessions(programId);
+      const existingSession = sessions.find(
+        (session) =>
+          Number(session.weekNumber) === weekNumber &&
+          Number(session.sessionNumber) === sessionNumber &&
+          String(session.type) === assignSessionType
+      );
+
+      if (existingSession) {
+        setAssignMessage("That week/session already exists for this section.");
+        return;
+      }
+
+      await createSession({
+        programId,
+        weekNumber,
+        sessionNumber,
+        type: assignSessionType,
+      });
+
+      setAssignMessage("Week session created successfully.");
+      await loadConfiguredAssignments();
+    } catch (err) {
+      setAssignMessage(err instanceof Error ? err.message : "Failed to create week session.");
     } finally {
       setAssignSaving(false);
     }
@@ -645,6 +694,10 @@ export default function ExerciseLibraryPage() {
                 title="Assign To Program Section"
                 description="Configure Warmups, Cool Downs, Mobility, Recovery, In/Off Session Programs, and more."
               />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Exercise
+                </label>
               <Select
                 value={assignExerciseId}
                 onChange={(event) => setAssignExerciseId(event.target.value)}
@@ -656,6 +709,11 @@ export default function ExerciseLibraryPage() {
                   </option>
                 ))}
               </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Program Tier
+                </label>
               <Select
                 value={assignProgramType}
                 onChange={(event) => setAssignProgramType(event.target.value as (typeof PROGRAM_TYPES)[number])}
@@ -666,6 +724,11 @@ export default function ExerciseLibraryPage() {
                   </option>
                 ))}
               </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Section Type
+                </label>
               <Select
                 value={assignSessionType}
                 onChange={(event) => setAssignSessionType(event.target.value)}
@@ -676,7 +739,10 @@ export default function ExerciseLibraryPage() {
                   </option>
                 ))}
               </Select>
+              </div>
               <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Week</label>
                 <Input
                   type="number"
                   min={1}
@@ -684,6 +750,9 @@ export default function ExerciseLibraryPage() {
                   value={assignWeek}
                   onChange={(event) => setAssignWeek(event.target.value)}
                 />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session #</label>
                 <Input
                   type="number"
                   min={1}
@@ -691,6 +760,9 @@ export default function ExerciseLibraryPage() {
                   value={assignSessionNumber}
                   onChange={(event) => setAssignSessionNumber(event.target.value)}
                 />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order</label>
                 <Input
                   type="number"
                   min={1}
@@ -698,35 +770,56 @@ export default function ExerciseLibraryPage() {
                   value={assignOrder}
                   onChange={(event) => setAssignOrder(event.target.value)}
                 />
+                </div>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Coaching Notes
+                </label>
               <Textarea
                 className="min-h-[84px]"
                 placeholder="Coaching Notes for this session exercise"
                 value={assignCoachingNotes}
                 onChange={(event) => setAssignCoachingNotes(event.target.value)}
               />
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Progression Notes
+                  </label>
                 <Textarea
                   className="min-h-[84px]"
                   placeholder="Progression Notes"
                   value={assignProgressionNotes}
                   onChange={(event) => setAssignProgressionNotes(event.target.value)}
                 />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Regression Notes
+                  </label>
                 <Textarea
                   className="min-h-[84px]"
                   placeholder="Regression Notes"
                   value={assignRegressionNotes}
                   onChange={(event) => setAssignRegressionNotes(event.target.value)}
                 />
+                </div>
               </div>
               {assignMessage ? (
                 <div className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
                   {assignMessage}
                 </div>
               ) : null}
-              <Button onClick={handleAssign} disabled={assignSaving}>
-                {assignSaving ? "Assigning..." : "Assign Exercise"}
-              </Button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button variant="outline" onClick={handleCreateWeekSession} disabled={assignSaving}>
+                  {assignSaving ? "Saving..." : "Create Week Session"}
+                </Button>
+                <Button onClick={handleAssign} disabled={assignSaving}>
+                  {assignSaving ? "Assigning..." : "Assign Exercise"}
+                </Button>
+              </div>
 
               <div className="rounded-2xl border border-border bg-background p-3">
                 <div className="mb-2 flex items-center justify-between">

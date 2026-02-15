@@ -11,16 +11,18 @@ export function ProgramSessionPanel({
   sessions: SessionItem[];
   onVideoPress?: (url: string) => void;
 }) {
+  const safeSessions = useMemo(() => (Array.isArray(sessions) ? sessions : []), [sessions]);
+
   const weekOptions = useMemo(() => {
     const unique = Array.from(
       new Set(
-        sessions
+        safeSessions
           .map((session) => session.weekNumber)
           .filter((week): week is number => typeof week === "number")
       )
     );
     return unique.length > 0 ? unique.sort((a, b) => a - b) : [1];
-  }, [sessions]);
+  }, [safeSessions]);
   const [activeWeek, setActiveWeek] = useState<number>(weekOptions[0] ?? 1);
   const [activeSessionIndex, setActiveSessionIndex] = useState(0);
 
@@ -32,11 +34,11 @@ export function ProgramSessionPanel({
   }, [activeWeek, weekOptions]);
 
   const sessionsForWeek = useMemo(() => {
-    if (!sessions.some((session) => typeof session.weekNumber === "number")) {
-      return sessions;
+    if (!safeSessions.some((session) => typeof session.weekNumber === "number")) {
+      return safeSessions;
     }
-    return sessions.filter((session) => (session.weekNumber ?? 1) === activeWeek);
-  }, [activeWeek, sessions]);
+    return safeSessions.filter((session) => (session.weekNumber ?? 1) === activeWeek);
+  }, [activeWeek, safeSessions]);
 
   const activeSession = useMemo(
     () => sessionsForWeek[activeSessionIndex] ?? sessionsForWeek[0],
@@ -73,11 +75,13 @@ export function ProgramSessionPanel({
             const isActive = index === activeSessionIndex;
             return (
               <TouchableOpacity
-                key={session.id}
+                key={String(session.id ?? `${session.name}-${index}`)}
                 onPress={() => setActiveSessionIndex(index)}
                 className={`px-4 py-2 rounded-full border ${isActive ? "bg-accent border-accent" : "bg-input border-app"}`}
               >
-                <Text className={`${isActive ? "text-white" : "text-app"} text-xs font-outfit`}>{session.name}</Text>
+                <Text className={`${isActive ? "text-white" : "text-app"} text-xs font-outfit`}>
+                  {String(session.name ?? `Session ${index + 1}`)}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -86,6 +90,9 @@ export function ProgramSessionPanel({
 
       <View className="gap-4">
         <Text className="text-sm font-clash text-app">Exercises</Text>
+        {!activeSession?.exercises?.length ? (
+          <Text className="text-sm font-outfit text-secondary">No exercises configured.</Text>
+        ) : null}
         {activeSession?.exercises?.map((exercise) => (
           <ExerciseCard key={exercise.id} exercise={exercise} onVideoPress={onVideoPress} />
         ))}
