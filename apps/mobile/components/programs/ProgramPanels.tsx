@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Alert, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { ResizeMode, Video } from "expo-av";
 
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -128,6 +129,36 @@ export function VideoUploadPanel() {
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [videoItems, setVideoItems] = useState<
+    Array<{ id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }>
+  >([]);
+  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<{
+    uri: string;
+    fileName: string;
+    contentType: string;
+    sizeBytes: number;
+  } | null>(null);
+
+  const loadVideos = async () => {
+    if (!token) return;
+    try {
+      setLoadingVideos(true);
+      const data = await apiRequest<{ items: Array<{ id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }> }>(
+        "/videos",
+        { token, suppressLog: true }
+      );
+      setVideoItems(data.items ?? []);
+    } catch {
+      // keep upload flow resilient if history fetch fails
+    } finally {
+      setLoadingVideos(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadVideos();
+  }, [token]);
 
   const handlePickVideo = async () => {
     if (!token) return;
@@ -144,42 +175,68 @@ export function VideoUploadPanel() {
     const maxSizeBytes = 200 * 1024 * 1024;
 
     try {
-      setUploading(true);
       const blob = await (await fetch(uri)).blob();
       const sizeBytes = blob.size;
       if (!sizeBytes || sizeBytes > maxSizeBytes) {
         throw new Error("Video exceeds 200MB limit.");
       }
-
-      const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
-        method: "POST",
-        token,
-        body: {
-          folder: "video-uploads",
-          fileName,
-          contentType,
-          sizeBytes,
-        },
-      });
-      const uploadRes = await fetch(presign.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: blob,
-      });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-
-      await apiRequest("/videos", {
-        method: "POST",
-        token,
-        body: { videoUrl: presign.publicUrl, notes: notes.trim() || undefined },
-      });
-      setStatus("Video submitted for coach review.");
-      setNotes("");
+      setSelectedVideo({ uri, fileName, contentType, sizeBytes });
+      setStatus("Preview your video and confirm before sending.");
     } catch (error: any) {
       setStatus(error?.message ?? "Upload failed.");
-    } finally {
-      setUploading(false);
     }
+  };
+
+  const handleSubmitVideo = async () => {
+    if (!token || !selectedVideo) return;
+    Alert.alert(
+      "Confirm Send",
+      "Send this video and notes to your coach for review?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Send",
+          onPress: async () => {
+            try {
+              setUploading(true);
+              setStatus(null);
+              const blob = await (await fetch(selectedVideo.uri)).blob();
+
+              const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
+                method: "POST",
+                token,
+                body: {
+                  folder: "video-uploads",
+                  fileName: selectedVideo.fileName,
+                  contentType: selectedVideo.contentType,
+                  sizeBytes: selectedVideo.sizeBytes,
+                },
+              });
+              const uploadRes = await fetch(presign.uploadUrl, {
+                method: "PUT",
+                headers: { "Content-Type": selectedVideo.contentType },
+                body: blob,
+              });
+              if (!uploadRes.ok) throw new Error("Upload failed");
+
+              await apiRequest("/videos", {
+                method: "POST",
+                token,
+                body: { videoUrl: presign.publicUrl, notes: notes.trim() || undefined },
+              });
+              setStatus("Video submitted for coach review.");
+              setNotes("");
+              setSelectedVideo(null);
+              await loadVideos();
+            } catch (error: any) {
+              setStatus(error?.message ?? "Upload failed.");
+            } finally {
+              setUploading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -197,17 +254,69 @@ export function VideoUploadPanel() {
         className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-sm font-outfit text-app"
         style={{ minHeight: 80 }}
       />
+      {selectedVideo ? (
+        <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 p-3">
+          <Text className="text-xs font-outfit text-secondary mb-2">Preview before send</Text>
+          <Video
+            source={{ uri: selectedVideo.uri }}
+            useNativeControls
+            resizeMode={ResizeMode.COVER}
+            style={{ width: "100%", height: 180, borderRadius: 12 }}
+          />
+          <Text className="text-xs font-outfit text-secondary mt-2" numberOfLines={1}>
+            {selectedVideo.fileName}
+          </Text>
+        </View>
+      ) : null}
       {status ? (
         <Text className="text-xs font-outfit text-secondary mt-3">{status}</Text>
       ) : null}
-      <TouchableOpacity
-        onPress={handlePickVideo}
-        disabled={uploading}
-        className="mt-4 rounded-full bg-accent px-4 py-3 flex-row items-center justify-center gap-2"
-      >
-        <Feather name="upload" size={16} color="white" />
-        <Text className="text-white text-sm font-outfit">{uploading ? "Uploading..." : "Upload Video"}</Text>
-      </TouchableOpacity>
+      <View className="mt-4 flex-row gap-3">
+        <TouchableOpacity
+          onPress={handlePickVideo}
+          disabled={uploading}
+          className="flex-1 rounded-full border border-app px-4 py-3 flex-row items-center justify-center gap-2"
+        >
+          <Feather name="video" size={16} color="#0F172A" />
+          <Text className="text-app text-sm font-outfit">Choose Video</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleSubmitVideo}
+          disabled={uploading || !selectedVideo}
+          className={`flex-1 rounded-full px-4 py-3 flex-row items-center justify-center gap-2 ${uploading || !selectedVideo ? "bg-accent/40" : "bg-accent"}`}
+        >
+          <Feather name="send" size={16} color="white" />
+          <Text className="text-white text-sm font-outfit">{uploading ? "Uploading..." : "Send to Coach"}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View className="mt-6 rounded-2xl border border-app/10 bg-white/5 p-4">
+        <Text className="text-sm font-clash text-app mb-3">Your Uploaded Videos</Text>
+        {loadingVideos ? (
+          <Text className="text-xs font-outfit text-secondary">Loading uploads...</Text>
+        ) : videoItems.length === 0 ? (
+          <Text className="text-xs font-outfit text-secondary">No videos uploaded yet.</Text>
+        ) : (
+          <View className="gap-4">
+            {videoItems.map((item) => (
+              <View key={item.id} className="rounded-2xl border border-app/10 bg-input p-3">
+                <Video
+                  source={{ uri: item.videoUrl }}
+                  useNativeControls
+                  resizeMode={ResizeMode.COVER}
+                  style={{ width: "100%", height: 170, borderRadius: 10 }}
+                />
+                {item.notes ? (
+                  <Text className="text-xs font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
+                ) : null}
+                {item.feedback ? (
+                  <Text className="text-xs font-outfit text-secondary mt-1">Coach feedback: {item.feedback}</Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
