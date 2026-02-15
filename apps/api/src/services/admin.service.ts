@@ -522,6 +522,15 @@ export async function addExerciseToSession(input: {
   return result[0];
 }
 
+export async function deleteSessionExercise(sessionExerciseId: number) {
+  const result = await db
+    .delete(sessionExerciseTable)
+    .where(eq(sessionExerciseTable.id, sessionExerciseId))
+    .returning();
+
+  return result[0] ?? null;
+}
+
 export async function listBookingsAdmin() {
   const rows = await db
     .select({

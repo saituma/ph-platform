@@ -34,6 +34,18 @@ const SESSION_TYPES = [
   { value: "education", label: "Education" },
   { value: "nutrition", label: "Nutrition & Food Diaries" },
 ] as const;
+const SESSION_TYPE_LABEL = Object.fromEntries(SESSION_TYPES.map((item) => [item.value, item.label])) as Record<string, string>;
+
+type ProgramCardItem = { type: string; programId?: number | null };
+type ConfiguredAssignment = {
+  assignmentId: number;
+  programType: string;
+  sessionType: string;
+  weekNumber: number;
+  sessionNumber: number;
+  order: number;
+  exerciseName: string;
+};
 
 function toNumber(value?: string | number) {
   if (value === undefined || value === null || value === "") return undefined;
@@ -144,7 +156,7 @@ function buildProgramName(type: (typeof PROGRAM_TYPES)[number]) {
   return "PHP Premium";
 }
 
-async function fetchProgramCards(): Promise<Array<{ type: string; programId?: number | null }>> {
+async function fetchProgramCards(): Promise<ProgramCardItem[]> {
   const res = await fetch(PROGRAMS_API_BASE, { credentials: "include" });
   if (!res.ok) {
     throw new Error("Failed to load programs.");
@@ -218,6 +230,16 @@ async function addSessionExercise(input: {
   }
 }
 
+async function removeSessionExercise(sessionExerciseId: number) {
+  const res = await fetch(`${ADMIN_API_BASE}/session-exercises/${sessionExerciseId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to remove assigned exercise.");
+  }
+}
+
 export default function ExerciseLibraryPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -240,6 +262,8 @@ export default function ExerciseLibraryPage() {
   const [assignRegressionNotes, setAssignRegressionNotes] = useState("");
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignMessage, setAssignMessage] = useState<string | null>(null);
+  const [configuredAssignments, setConfiguredAssignments] = useState<ConfiguredAssignment[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -275,6 +299,56 @@ export default function ExerciseLibraryPage() {
     setAssignProgressionNotes(String(selected?.progression || ""));
     setAssignRegressionNotes(String(selected?.regression || ""));
   }, [assignExerciseId, exercises]);
+
+  const loadConfiguredAssignments = async () => {
+    setLoadingAssignments(true);
+    try {
+      const cards = await fetchProgramCards();
+      const rows = await Promise.all(
+        cards
+          .filter((card) => Number(card.programId))
+          .map(async (card) => {
+            const sessions = await fetchSessions(Number(card.programId));
+            const items: ConfiguredAssignment[] = [];
+            sessions.forEach((session) => {
+              const sessionExercises = Array.isArray(session.exercises) ? session.exercises : [];
+              sessionExercises.forEach((entry: Record<string, unknown>) => {
+                const exercise = (entry.exercise as Record<string, unknown> | undefined) ?? {};
+                items.push({
+                  assignmentId: Number(entry.id),
+                  programType: card.type,
+                  sessionType: String(session.type ?? "program"),
+                  weekNumber: Number(session.weekNumber ?? 1),
+                  sessionNumber: Number(session.sessionNumber ?? 1),
+                  order: Number(entry.order ?? 1),
+                  exerciseName: String(exercise.name ?? `Exercise #${entry.exerciseId ?? "Unknown"}`),
+                });
+              });
+            });
+            return items;
+          })
+      );
+      const merged = rows
+        .flat()
+        .filter((item) => Number.isFinite(item.assignmentId))
+        .sort((a, b) => {
+          if (a.programType !== b.programType) return a.programType.localeCompare(b.programType);
+          if (a.weekNumber !== b.weekNumber) return a.weekNumber - b.weekNumber;
+          if (a.sessionNumber !== b.sessionNumber) return a.sessionNumber - b.sessionNumber;
+          if (a.sessionType !== b.sessionType) return a.sessionType.localeCompare(b.sessionType);
+          return a.order - b.order;
+        });
+      setConfiguredAssignments(merged);
+    } catch {
+      // keep assignment form usable even if listing fails
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadConfiguredAssignments();
+  }, []);
 
   const categories = useMemo(() => {
     const unique = new Set<string>();
@@ -465,8 +539,25 @@ export default function ExerciseLibraryPage() {
       });
 
       setAssignMessage("Exercise assigned successfully. It will now appear in mobile program tabs.");
+      await loadConfiguredAssignments();
     } catch (err) {
       setAssignMessage(err instanceof Error ? err.message : "Failed to assign exercise.");
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+  const handleRemoveAssignment = async (assignmentId: number) => {
+    const confirmed = window.confirm("Remove this exercise from the program section?");
+    if (!confirmed) return;
+    setAssignSaving(true);
+    setAssignMessage(null);
+    try {
+      await removeSessionExercise(assignmentId);
+      setAssignMessage("Assignment removed.");
+      await loadConfiguredAssignments();
+    } catch (err) {
+      setAssignMessage(err instanceof Error ? err.message : "Failed to remove assignment.");
     } finally {
       setAssignSaving(false);
     }
@@ -636,6 +727,45 @@ export default function ExerciseLibraryPage() {
               <Button onClick={handleAssign} disabled={assignSaving}>
                 {assignSaving ? "Assigning..." : "Assign Exercise"}
               </Button>
+
+              <div className="rounded-2xl border border-border bg-background p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-foreground">Configured Program Sections</p>
+                  <Button variant="outline" onClick={() => void loadConfiguredAssignments()} disabled={loadingAssignments}>
+                    {loadingAssignments ? "Refreshing..." : "Refresh"}
+                  </Button>
+                </div>
+                {loadingAssignments ? (
+                  <p className="text-xs text-muted-foreground">Loading assigned items...</p>
+                ) : configuredAssignments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No assignments yet.</p>
+                ) : (
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {configuredAssignments.map((item) => (
+                      <div
+                        key={`${item.assignmentId}-${item.order}`}
+                        className="rounded-xl border border-border bg-secondary/30 px-3 py-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">{item.exerciseName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.programType} • {SESSION_TYPE_LABEL[item.sessionType] ?? item.sessionType} • Week {item.weekNumber} • Session {item.sessionNumber} • Order {item.order}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => void handleRemoveAssignment(item.assignmentId)}
+                            disabled={assignSaving}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

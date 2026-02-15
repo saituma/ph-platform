@@ -7,6 +7,7 @@ import {
   createExercise,
   createProgramTemplate,
   createSession,
+  deleteSessionExercise,
   getAdminProfile,
   getDashboardMetrics,
   getUserOnboarding,
@@ -305,6 +306,15 @@ export async function addExercise(req: Request, res: Response) {
     regressionNotes: input.regressionNotes,
   });
   return res.status(201).json({ item });
+}
+
+export async function deleteSessionExerciseItem(req: Request, res: Response) {
+  const sessionExerciseId = z.coerce.number().int().min(1).parse(req.params.sessionExerciseId);
+  const item = await deleteSessionExercise(sessionExerciseId);
+  if (!item) {
+    return res.status(404).json({ error: "Session exercise not found" });
+  }
+  return res.status(200).json({ item });
 }
 
 export async function listBookings(req: Request, res: Response) {

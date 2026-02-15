@@ -79,6 +79,7 @@ jest.mock("../src/services/admin.service", () => ({
   createExercise: jest.fn(async () => ({ id: 1 })),
   createSession: jest.fn(async () => ({ id: 1 })),
   addExerciseToSession: jest.fn(async () => ({ id: 1 })),
+  deleteSessionExercise: jest.fn(async () => ({ id: 1 })),
   listBookingsAdmin: jest.fn(async () => []),
   listMessageThreadsAdmin: jest.fn(async () => []),
   listThreadMessagesAdmin: jest.fn(async () => []),
@@ -315,5 +316,10 @@ describe("API routes", () => {
   it("POST /api/admin/session-exercises", async () => {
     const res = await request(app).post("/api/admin/session-exercises").send({ sessionId: 1, exerciseId: 1, order: 1 });
     expect(res.status).toBe(201);
+  });
+
+  it("DELETE /api/admin/session-exercises/:sessionExerciseId", async () => {
+    const res = await request(app).delete("/api/admin/session-exercises/1");
+    expect(res.status).toBe(200);
   });
 });
