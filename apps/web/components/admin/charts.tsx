@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type PointerEvent } from "react";
 
 import { cn } from "../../lib/utils";
 
@@ -32,6 +32,17 @@ function toPolyline(points: ChartPoint[]) {
   return points.map((point) => `${point.x},${point.y}`).join(" ");
 }
 
+function getNearestIndexFromPointer(
+  event: PointerEvent<SVGSVGElement>,
+  count: number,
+) {
+  if (count <= 1) return 0;
+  const bounds = event.currentTarget.getBoundingClientRect();
+  const x = clamp(event.clientX - bounds.left, 0, bounds.width);
+  const ratio = bounds.width ? x / bounds.width : 0;
+  return Math.round(ratio * (count - 1));
+}
+
 type SparklineProps = {
   values: number[];
   className?: string;
@@ -52,6 +63,8 @@ export function Sparkline({ values, className }: SparklineProps) {
         className="h-full w-full"
         preserveAspectRatio="none"
         onMouseLeave={() => setActiveIndex(null)}
+        onPointerMove={(event) => setActiveIndex(getNearestIndexFromPointer(event, points.length))}
+        onPointerDown={(event) => setActiveIndex(getNearestIndexFromPointer(event, points.length))}
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -207,6 +220,9 @@ export function DonutChart({ segments, className, centerLabel }: DonutChartProps
             opacity={activeSegmentLabel === null || activeSegmentLabel === segment.label ? 1 : 0.48}
             onMouseEnter={() => setActiveSegmentLabel(segment.label)}
             onFocus={() => setActiveSegmentLabel(segment.label)}
+            onClick={() =>
+              setActiveSegmentLabel((current) => (current === segment.label ? null : segment.label))
+            }
             tabIndex={0}
             role="button"
             aria-label={`${segment.label}: ${segment.value} (${segment.percentage}%)`}
@@ -239,7 +255,9 @@ type StackedBarProps = {
 };
 
 export function StackedBars({ stacks, className }: StackedBarProps) {
-  const [activeSegment, setActiveSegment] = useState<string | null>(null);
+  const [pinnedSegment, setPinnedSegment] = useState<string | null>(null);
+  const [hoveredSegment, setHoveredSegment] = useState<string | null>(null);
+  const activeSegment = hoveredSegment ?? pinnedSegment;
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -265,10 +283,15 @@ export function StackedBars({ stacks, className }: StackedBarProps) {
                     activeSegment === `${stack.label}-${index}` ? "scale-y-110" : "hover:brightness-110",
                   )}
                   style={{ width: `${(segment.value / total) * 100}%`, backgroundColor: segment.color }}
-                  onMouseEnter={() => setActiveSegment(`${stack.label}-${index}`)}
-                  onFocus={() => setActiveSegment(`${stack.label}-${index}`)}
-                  onMouseLeave={() => setActiveSegment(null)}
-                  onBlur={() => setActiveSegment(null)}
+                  onMouseEnter={() => setHoveredSegment(`${stack.label}-${index}`)}
+                  onFocus={() => setHoveredSegment(`${stack.label}-${index}`)}
+                  onMouseLeave={() => setHoveredSegment(null)}
+                  onBlur={() => setHoveredSegment(null)}
+                  onClick={() =>
+                    setPinnedSegment((current) =>
+                      current === `${stack.label}-${index}` ? null : `${stack.label}-${index}`,
+                    )
+                  }
                   aria-label={`${stack.label} segment ${index + 1}: ${segment.value}`}
                 />
               ))}
@@ -293,19 +316,51 @@ type LineChartProps = {
 
 export function LineChart({ values, className, labels }: LineChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const gradientId = useId();
   const points = useMemo(() => buildChartPoints(values), [values]);
   const polylinePoints = useMemo(() => toPolyline(points), [points]);
   const activePoint = activeIndex !== null ? points[activeIndex] : null;
   const areaPath = `M 0 100 L ${polylinePoints} L 100 100 Z`;
 
+  useEffect(() => {
+    if (!isPlaying || points.length < 2) return;
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => {
+        if (current === null || current >= points.length - 1) return 0;
+        return current + 1;
+      });
+    }, 700);
+
+    return () => window.clearInterval(timer);
+  }, [isPlaying, points.length]);
+
+  const handleScrub = (event: PointerEvent<SVGSVGElement>) => {
+    if (isPlaying) return;
+    setActiveIndex(getNearestIndexFromPointer(event, points.length));
+  };
+
   return (
     <div className={cn("relative space-y-3", className)}>
+      <button
+        type="button"
+        className="absolute right-0 top-0 z-10 rounded-md border border-border bg-background/90 px-2 py-1 text-[11px] font-medium text-foreground transition hover:border-primary/45 hover:text-primary"
+        onClick={() => {
+          setIsPlaying((current) => !current);
+          if (points.length && activeIndex === null) setActiveIndex(0);
+        }}
+      >
+        {isPlaying ? "Pause" : "Play"}
+      </button>
       <svg
         viewBox="0 0 100 100"
-        className="h-52 w-full"
+        className="h-52 w-full pt-6"
         preserveAspectRatio="none"
-        onMouseLeave={() => setActiveIndex(null)}
+        onMouseLeave={() => {
+          if (!isPlaying) setActiveIndex(null);
+        }}
+        onPointerMove={handleScrub}
+        onPointerDown={handleScrub}
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

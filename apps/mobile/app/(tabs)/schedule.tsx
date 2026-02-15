@@ -25,13 +25,6 @@ type ScheduleEvent = {
 };
 
 const FILTERS = ["All", "Training", "Calls", "Recovery"] as const;
-const BOOKING_TYPES = [
-  { label: "Call", value: "call" },
-  { label: "Group call", value: "group_call" },
-  { label: "Individual call", value: "individual_call" },
-  { label: "Lift Lab 1:1", value: "lift_lab_1on1" },
-  { label: "Role model (Premium)", value: "role_model" },
-] as const;
 
 const DEFAULT_SLOTS = ["09:00", "10:00", "13:00", "16:30", "18:00", "19:30"];
 
@@ -87,11 +80,10 @@ export default function ScheduleScreen() {
   const [availabilitySlots, setAvailabilitySlots] = useState<string[]>([]);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
-  const [bookingType, setBookingType] = useState<(typeof BOOKING_TYPES)[number]["value"]>("call");
+  const [bookingType, setBookingType] = useState("call");
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [bookingSlot, setBookingSlot] = useState<string | null>(null);
   const [bookingLocation, setBookingLocation] = useState("");
-  const [bookingLink, setBookingLink] = useState("");
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
@@ -207,7 +199,6 @@ export default function ScheduleScreen() {
       setSelectedServiceId(next.id);
       setBookingType(next.type as any);
       setBookingLocation(next.defaultLocation ?? "");
-      setBookingLink(next.defaultMeetingLink ?? "");
     }
   }, [visibleServices, selectedServiceId]);
 
@@ -669,11 +660,6 @@ export default function ScheduleScreen() {
                       Location: {bookingLocation}
                     </Text>
                   ) : null}
-                  {bookingLink ? (
-                    <Text className="text-xs font-outfit text-secondary mt-1">
-                      Link: {bookingLink}
-                    </Text>
-                  ) : null}
                 </View>
                 <Pressable
                   onPress={() => setBookingOpen(false)}
@@ -726,7 +712,6 @@ export default function ScheduleScreen() {
                               setSelectedServiceId(item.id);
                               const match = visibleServices.find((service) => service.id === item.id);
                               setBookingLocation(match?.defaultLocation ?? "");
-                              setBookingLink(match?.defaultMeetingLink ?? "");
                             }
                             setBookingSlot(null);
                           }}
@@ -810,18 +795,6 @@ export default function ScheduleScreen() {
                             className="text-sm font-outfit text-app mt-1"
                           />
                         </View>
-                        <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
-                          <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
-                            Video Call Link
-                          </Text>
-                          <TextInput
-                            value={bookingLink}
-                            onChangeText={setBookingLink}
-                            placeholder="Add link"
-                            placeholderTextColor={colors.mutedForeground}
-                            className="text-sm font-outfit text-app mt-1"
-                          />
-                        </View>
                       </View>
                     </View>
 
@@ -842,7 +815,6 @@ export default function ScheduleScreen() {
                               startsAt: startsAt.toISOString(),
                               endsAt: endsAt.toISOString(),
                               location: bookingLocation || undefined,
-                              meetingLink: bookingLink || undefined,
                             },
                           });
                           const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
