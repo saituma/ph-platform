@@ -6,6 +6,7 @@ import { MessageThread, TypingStatus } from "@/types/messages";
 import { useMessagesRealtime } from "@/hooks/useMessagesRealtime";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getNotifications } from "@/lib/notifications";
+import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackHandler, Platform } from "react-native";
 
@@ -34,6 +35,7 @@ export function useMessagesController() {
   const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(null);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
@@ -110,6 +112,8 @@ export function useMessagesController() {
         threadId: String(coach.id),
         from: Number(msg.senderId) === effectiveUserId ? "user" : "coach",
         text: msg.content,
+        contentType: msg.contentType ?? "text",
+        mediaUrl: msg.mediaUrl ?? undefined,
         time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
         status: msg.read ? "read" : "sent",
         reactions: msg.reactions ?? [],
@@ -142,8 +146,14 @@ export function useMessagesController() {
         const mappedMessages = (data.messages ?? []).map((msg: any) => ({
           id: `group-${msg.id}`,
           threadId: `group:${groupId}`,
-          from: msg.senderId === Number(profile.id) ? "user" : "coach",
+          from:
+            msg.senderId ===
+            (role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id))
+              ? "user"
+              : "coach",
           text: msg.content,
+          contentType: msg.contentType ?? "text",
+          mediaUrl: msg.mediaUrl ?? undefined,
           time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
           status: "sent",
           authorName: memberMap[msg.senderId],
@@ -160,7 +170,7 @@ export function useMessagesController() {
         setIsThreadLoading(false);
       }
     },
-    [profile.id, token]
+    [athleteUserId, profile.id, role, token]
   );
 
   const sendReplyToThread = useCallback(
@@ -291,6 +301,121 @@ export function useMessagesController() {
     setDraft((prev) => (prev.trim() ? `${prev}\n${text}` : text));
   }, []);
 
+  const uploadAttachment = useCallback(
+    async (input: {
+      uri: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      isImage: boolean;
+    }) => {
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+      const folder = input.isImage ? "messages/images" : "messages/files";
+      const presign = await apiRequest<{ uploadUrl: string; publicUrl: string; key: string }>("/media/presign", {
+        method: "POST",
+        token,
+        body: {
+          folder,
+          fileName: input.fileName,
+          contentType: input.mimeType,
+          sizeBytes: input.sizeBytes,
+        },
+      });
+
+      const fileResponse = await fetch(input.uri);
+      const blob = await fileResponse.blob();
+      const uploadResponse = await fetch(presign.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": input.mimeType,
+        },
+        body: blob,
+      });
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload attachment");
+      }
+
+      const contentType: "text" | "image" | "video" = input.mimeType.startsWith("image/")
+        ? "image"
+        : input.mimeType.startsWith("video/")
+        ? "video"
+        : "text";
+      return { mediaUrl: presign.publicUrl, contentType };
+    },
+    [token]
+  );
+
+  const sendMessagePayload = useCallback(
+    async (payload: { text?: string; mediaUrl?: string; contentType?: "text" | "image" | "video" }) => {
+      const trimmed = payload.text?.trim() ?? "";
+      if ((!trimmed && !payload.mediaUrl) || !currentThread || !token) return;
+
+      if (currentThread.id.startsWith("group:")) {
+        const groupId = Number(currentThread.id.replace("group:", ""));
+        const clientId = `client-${Date.now()}`;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: clientId,
+            threadId: `group:${groupId}`,
+            from: "user",
+            text: trimmed || "Attachment",
+            contentType: payload.contentType ?? "text",
+            mediaUrl: payload.mediaUrl,
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            status: "sent",
+            authorName: profile.name ?? undefined,
+            clientId,
+          },
+        ]);
+
+        await apiRequest(`/chat/groups/${groupId}/messages`, {
+          method: "POST",
+          token,
+          body: {
+            content: trimmed || "Attachment",
+            contentType: payload.contentType ?? "text",
+            mediaUrl: payload.mediaUrl,
+          },
+        });
+        await loadGroupMessages(groupId);
+        return;
+      }
+
+      const toUserId = Number(currentThread.id);
+      const clientId = `client-${Date.now()}`;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: clientId,
+          threadId: String(toUserId),
+          from: "user",
+          text: trimmed || "Attachment",
+          contentType: payload.contentType ?? "text",
+          mediaUrl: payload.mediaUrl,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          status: "sent",
+          clientId,
+        },
+      ]);
+
+      await apiRequest("/messages", {
+        method: "POST",
+        token,
+        headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
+        body: {
+          content: trimmed || "Attachment",
+          contentType: payload.contentType ?? "text",
+          mediaUrl: payload.mediaUrl,
+        },
+      });
+      await loadMessages();
+    },
+    [athleteUserId, currentThread, loadGroupMessages, loadMessages, profile.name, role, token]
+  );
+
   const handleToggleReaction = useCallback(
     async (message: ChatMessage, emoji: string) => {
       if (!token) return;
@@ -325,93 +450,83 @@ export function useMessagesController() {
 
   const handleSend = useCallback(() => {
     const trimmed = draft.trim();
-    if (!trimmed || !currentThread || !token) return;
-    const socket = socketRef.current;
+    if (!trimmed) return;
+    sendMessagePayload({ text: trimmed, contentType: "text" }).catch((error) =>
+      console.warn("Failed to send message", error)
+    );
+    setDraft("");
+  }, [draft, sendMessagePayload]);
 
-    if (socket) {
-      if (currentThread.id.startsWith("group:")) {
-        const groupId = Number(currentThread.id.replace("group:", ""));
-        socket.emit("typing:stop", { groupId });
-      } else {
-        socket.emit("typing:stop", { toUserId: Number(currentThread.id) });
-      }
-    }
-
-    if (currentThread.id.startsWith("group:")) {
-      const groupId = Number(currentThread.id.replace("group:", ""));
-      const clientId = `client-${Date.now()}`;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: clientId,
-          threadId: `group:${groupId}`,
-          from: "user",
-          text: trimmed,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          status: "sent",
-          authorName: profile.name,
-          clientId,
-        },
-      ]);
-
-      if (socket) {
-        socket.emit("group:send", {
-          groupId,
-          content: trimmed,
-          actingUserId: role === "Athlete" ? athleteUserId : undefined,
-          clientId,
-        });
-        setDraft("");
-      } else {
-        apiRequest(`/chat/groups/${groupId}/messages`, { method: "POST", token, body: { content: trimmed } })
-          .then(() => {
-            setDraft("");
-            loadGroupMessages(groupId);
-          })
-          .catch((error) => console.warn("Failed to send group message", error));
-      }
-      return;
-    }
-
-    const toUserId = Number(currentThread.id);
-    const clientId = `client-${Date.now()}`;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: clientId,
-        threadId: String(toUserId),
-        from: "user",
-        text: trimmed,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        status: "sent",
-        clientId,
-      },
-    ]);
-
-    if (socket) {
-      socket.emit("message:send", {
-        toUserId,
-        content: trimmed,
-        actingUserId: role === "Athlete" ? athleteUserId : undefined,
-        clientId,
+  const handleAttachImage = useCallback(async () => {
+    if (!currentThread || !token || isUploadingAttachment) return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.9,
+        allowsEditing: false,
       });
-      setDraft("");
-    } else {
-      apiRequest("/messages", {
-        method: "POST",
-        token,
-        headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
-        body: { content: trimmed, contentType: "text" },
-      })
-        .then(() => {
-          setDraft("");
-          loadMessages();
-        })
-        .catch((error) => console.warn("Failed to send message", error));
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+      setIsUploadingAttachment(true);
+      const mimeType = asset.mimeType || "image/jpeg";
+      const upload = await uploadAttachment({
+        uri: asset.uri,
+        fileName: asset.fileName || `photo-${Date.now()}.jpg`,
+        mimeType,
+        sizeBytes: asset.fileSize ?? 512000,
+        isImage: true,
+      });
+      await sendMessagePayload({
+        text: "",
+        contentType: upload.contentType,
+        mediaUrl: upload.mediaUrl,
+      });
+    } catch (error) {
+      console.warn("Failed to attach image", error);
+    } finally {
+      setIsUploadingAttachment(false);
+      setComposerMenuOpen(false);
     }
-  }, [athleteUserId, currentThread, draft, loadGroupMessages, loadMessages, profile.name, role, socketRef, token]);
+  }, [currentThread, isUploadingAttachment, sendMessagePayload, token, uploadAttachment]);
 
-  const socketRef = useMessagesRealtime({
+  const handleAttachFile = useCallback(async () => {
+    if (!currentThread || !token || isUploadingAttachment) return;
+    try {
+      // eslint-disable-next-line import/no-unresolved
+      const DocumentPicker = await import("expo-document-picker");
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+      setIsUploadingAttachment(true);
+      const mimeType = asset.mimeType || "application/octet-stream";
+      const upload = await uploadAttachment({
+        uri: asset.uri,
+        fileName: asset.name || `file-${Date.now()}`,
+        mimeType,
+        sizeBytes: asset.size ?? 512000,
+        isImage: mimeType.startsWith("image/"),
+      });
+      await sendMessagePayload({
+        text: asset.name || "Attachment",
+        contentType: upload.contentType,
+        mediaUrl: upload.mediaUrl,
+      });
+    } catch (error) {
+      console.warn("Failed to attach file", error);
+    } finally {
+      setIsUploadingAttachment(false);
+      setComposerMenuOpen(false);
+    }
+  }, [currentThread, isUploadingAttachment, sendMessagePayload, token, uploadAttachment]);
+
+  useMessagesRealtime({
     token,
     role,
     athleteUserId,
@@ -469,6 +584,7 @@ export function useMessagesController() {
     draft,
     reactionTarget,
     composerMenuOpen,
+    isUploadingAttachment,
     openingThreadId,
     setDraft,
     setReactionTarget,
@@ -476,6 +592,8 @@ export function useMessagesController() {
     openThread,
     clearThread,
     handleSend,
+    handleAttachFile,
+    handleAttachImage,
     handleToggleReaction,
     appendToDraft,
     loadMessages,

@@ -10,6 +10,7 @@ interface UserProfile {
 interface UserState {
   isAuthenticated: boolean;
   token: string | null;
+  refreshToken: string | null;
   profile: UserProfile;
   isLoading: boolean;
   hydrated: boolean;
@@ -27,6 +28,7 @@ interface UserState {
 const initialState: UserState = {
   isAuthenticated: false,
   token: null,
+  refreshToken: null,
   profile: {
     id: null,
     name: null,
@@ -47,10 +49,11 @@ const userSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ token: string; profile: UserProfile }>,
+      action: PayloadAction<{ token: string; profile: UserProfile; refreshToken?: string | null }>,
     ) => {
       state.isAuthenticated = true;
       state.token = action.payload.token;
+      state.refreshToken = action.payload.refreshToken ?? state.refreshToken;
       state.profile = action.payload.profile;
     },
     updateProfile: (state, action: PayloadAction<Partial<UserProfile>>) => {
@@ -80,6 +83,7 @@ const userSlice = createSlice({
     logout: (state) => {
       state.isAuthenticated = false;
       state.token = null;
+      state.refreshToken = null;
       state.profile = initialState.profile;
       state.onboardingCompleted = null;
       state.athleteUserId = null;

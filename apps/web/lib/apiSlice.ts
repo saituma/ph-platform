@@ -131,11 +131,19 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Threads"],
     }),
-    sendMessage: builder.mutation<{ message: any }, { userId: number; content: string }>({
-      query: ({ userId, content }) => ({
+    sendMessage: builder.mutation<
+      { message: any },
+      {
+        userId: number;
+        content?: string;
+        contentType?: "text" | "image" | "video";
+        mediaUrl?: string;
+      }
+    >({
+      query: ({ userId, content, contentType, mediaUrl }) => ({
         url: `/admin/messages/${userId}`,
         method: "POST",
-        body: { content },
+        body: { content, contentType, mediaUrl },
       }),
       invalidatesTags: ["Threads"],
     }),
@@ -243,11 +251,19 @@ export const apiSlice = createApi({
     getChatGroupMessages: builder.query<{ messages: any[] }, number>({
       query: (groupId) => `/chat/groups/${groupId}/messages`,
     }),
-    sendChatGroupMessage: builder.mutation<{ message: any }, { groupId: number; content: string }>({
-      query: ({ groupId, content }) => ({
+    sendChatGroupMessage: builder.mutation<
+      { message: any },
+      {
+        groupId: number;
+        content?: string;
+        contentType?: "text" | "image" | "video";
+        mediaUrl?: string;
+      }
+    >({
+      query: ({ groupId, content, contentType, mediaUrl }) => ({
         url: `/chat/groups/${groupId}/messages`,
         method: "POST",
-        body: { content },
+        body: { content, contentType, mediaUrl },
       }),
     }),
     toggleChatGroupMessageReaction: builder.mutation<

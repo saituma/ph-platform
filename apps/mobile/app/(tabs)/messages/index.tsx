@@ -32,6 +32,8 @@ export default function MessagesScreen() {
     openThread,
     clearThread,
     handleSend,
+    handleAttachFile,
+    handleAttachImage,
     handleToggleReaction,
     appendToDraft,
     loadMessages,
@@ -89,14 +91,8 @@ export default function MessagesScreen() {
           open={composerMenuOpen}
           quickReplies={quickReplyOptions}
           onClose={() => setComposerMenuOpen(false)}
-          onAttachFile={() => {
-            appendToDraft(`File attached: document-${Date.now()}.pdf`);
-            setComposerMenuOpen(false);
-          }}
-          onAttachImage={() => {
-            appendToDraft(`Image attached: image-${Date.now()}.jpg`);
-            setComposerMenuOpen(false);
-          }}
+          onAttachFile={handleAttachFile}
+          onAttachImage={handleAttachImage}
           onQuickReply={(reply) => {
             appendToDraft(reply);
             setComposerMenuOpen(false);

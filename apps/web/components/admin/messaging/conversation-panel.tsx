@@ -10,8 +10,15 @@ type Message = {
   author: string;
   time: string;
   text: string;
+  mediaUrl?: string | null;
+  contentType?: "text" | "image" | "video";
   reactions?: { emoji: string; count: number; reactedByMe?: boolean }[];
   status?: "sent" | "delivered" | "read";
+};
+
+export type ComposerAttachment = {
+  file: File;
+  kind: "image" | "file";
 };
 
 type ConversationPanelProps = {
@@ -24,7 +31,7 @@ type ConversationPanelProps = {
     tags: string[];
   } | null;
   onReact?: (messageId: string, emoji: string) => void;
-  onSend?: (text: string) => void;
+  onSend?: (payload: { text: string; attachment?: ComposerAttachment | null }) => void;
   onTypingChange?: (isTyping: boolean) => void;
   typingLabel?: string | null;
 };
@@ -39,6 +46,7 @@ export function ConversationPanel({
   typingLabel,
 }: ConversationPanelProps) {
   const [draft, setDraft] = useState("");
+  const [attachment, setAttachment] = useState<ComposerAttachment | null>(null);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -56,11 +64,6 @@ export function ConversationPanel({
 
   const appendToDraft = (text: string) => {
     setDraft((prev) => (prev.trim() ? `${prev}\n${text}` : text));
-  };
-
-  const formatFileMessage = (file: File, label: "File" | "Image") => {
-    const sizeKb = Math.max(1, Math.round(file.size / 1024));
-    return `${label} attached: ${file.name} (${sizeKb} KB)`;
   };
 
   useEffect(() => {
@@ -135,6 +138,25 @@ export function ConversationPanel({
                 <p className="text-xs text-muted-foreground">
                   {message.author} • {message.time}
                 </p>
+                {message.mediaUrl && message.contentType === "image" ? (
+                  <a href={message.mediaUrl} target="_blank" rel="noreferrer" className="mt-2 block">
+                    <img
+                      src={message.mediaUrl}
+                      alt={message.text || "Image attachment"}
+                      className="max-h-72 w-full rounded-xl object-cover"
+                    />
+                  </a>
+                ) : null}
+                {message.mediaUrl && message.contentType !== "image" ? (
+                  <a
+                    href={message.mediaUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex rounded-xl border border-border bg-background px-3 py-2 text-xs text-primary underline"
+                  >
+                    Open attachment
+                  </a>
+                ) : null}
                 <p className="mt-2 text-foreground">{message.text}</p>
                 {message.reactions?.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -195,7 +217,7 @@ export function ConversationPanel({
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-            appendToDraft(formatFileMessage(file, "File"));
+            setAttachment({ file, kind: "file" });
             event.target.value = "";
           }}
         />
@@ -207,7 +229,7 @@ export function ConversationPanel({
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-            appendToDraft(formatFileMessage(file, "Image"));
+            setAttachment({ file, kind: "image" });
             event.target.value = "";
           }}
         />
@@ -217,6 +239,16 @@ export function ConversationPanel({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
+        {attachment ? (
+          <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 px-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              {attachment.file.name} ({Math.max(1, Math.round(attachment.file.size / 1024))} KB)
+            </p>
+            <Button size="sm" variant="ghost" onClick={() => setAttachment(null)}>
+              Remove
+            </Button>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Button
@@ -270,9 +302,11 @@ export function ConversationPanel({
             <Button
               className="gap-2"
               onClick={() => {
-                if (!draft.trim()) return;
-                onSend?.(draft.trim());
+                const text = draft.trim();
+                if (!text && !attachment) return;
+                onSend?.({ text, attachment });
                 setDraft("");
+                setAttachment(null);
               }}
             >
               Send

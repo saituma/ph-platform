@@ -351,8 +351,23 @@ export async function markThreadRead(req: Request, res: Response) {
 
 export async function sendAdminMessage(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
-  const body = z.object({ content: z.string().min(1) }).parse(req.body);
-  const message = await sendMessageAdmin({ coachId: req.user!.id, userId, content: body.content });
+  const body = z
+    .object({
+      content: z.string().trim().optional().default(""),
+      contentType: z.enum(["text", "image", "video"]).default("text"),
+      mediaUrl: z.string().url().optional(),
+    })
+    .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
+      message: "Message content or mediaUrl is required",
+    })
+    .parse(req.body);
+  const message = await sendMessageAdmin({
+    coachId: req.user!.id,
+    userId,
+    content: body.content,
+    contentType: body.contentType,
+    mediaUrl: body.mediaUrl,
+  });
   return res.status(201).json({ message });
 }
 

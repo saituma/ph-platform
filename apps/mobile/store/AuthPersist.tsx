@@ -15,6 +15,7 @@ import { apiRequest } from "@/lib/api";
 
 const STORAGE_KEYS = {
   token: "authToken",
+  refreshToken: "authRefreshToken",
   id: "profileId",
   name: "profileName",
   email: "profileEmail",
@@ -29,11 +30,12 @@ const isUnauthorizedError = (error: unknown) => {
 
 export function AuthPersist() {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, token, profile } = useAppSelector((state) => state.user);
+  const { isAuthenticated, token, refreshToken, profile } = useAppSelector((state) => state.user);
   const router = useRouter();
   const pathname = usePathname();
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
+  const lastSavedRefreshToken = useRef<string | null>(null);
   const isAuthRoute =
     pathname.startsWith("/(auth)") ||
     pathname === "/login" ||
@@ -47,6 +49,7 @@ export function AuthPersist() {
     (async () => {
       try {
         const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.token);
+        const storedRefreshToken = await SecureStore.getItemAsync(STORAGE_KEYS.refreshToken);
         const storedId = await SecureStore.getItemAsync(STORAGE_KEYS.id);
         const storedName = await SecureStore.getItemAsync(STORAGE_KEYS.name);
         const storedEmail = await SecureStore.getItemAsync(STORAGE_KEYS.email);
@@ -57,6 +60,7 @@ export function AuthPersist() {
           dispatch(
             setCredentials({
               token: storedToken,
+              refreshToken: storedRefreshToken,
               profile: {
                 id: storedId ?? null,
                 name: storedName ?? null,
@@ -66,6 +70,7 @@ export function AuthPersist() {
             })
           );
           lastSavedToken.current = storedToken;
+          lastSavedRefreshToken.current = storedRefreshToken;
           try {
             const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
               "/onboarding",
@@ -119,28 +124,36 @@ export function AuthPersist() {
     if (!hydrated) return;
     (async () => {
       if (isAuthenticated && token) {
-        if (lastSavedToken.current === token) {
+        if (lastSavedToken.current === token && lastSavedRefreshToken.current === (refreshToken ?? null)) {
           return;
         }
         await SecureStore.setItemAsync(STORAGE_KEYS.token, token);
+        if (refreshToken) {
+          await SecureStore.setItemAsync(STORAGE_KEYS.refreshToken, refreshToken);
+        } else {
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
+        }
         await SecureStore.setItemAsync(STORAGE_KEYS.id, profile.id ?? "");
         await SecureStore.setItemAsync(STORAGE_KEYS.name, profile.name ?? "");
         await SecureStore.setItemAsync(STORAGE_KEYS.email, profile.email ?? "");
         await SecureStore.setItemAsync(STORAGE_KEYS.avatar, profile.avatar ?? "");
         lastSavedToken.current = token;
+        lastSavedRefreshToken.current = refreshToken ?? null;
       } else {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
+        await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.id);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
         lastSavedToken.current = null;
+        lastSavedRefreshToken.current = null;
         if (!isAuthRoute) {
           router.replace("/(auth)/login");
         }
       }
     })();
-  }, [hydrated, isAuthenticated, token, profile, pathname, router, isAuthRoute]);
+  }, [hydrated, isAuthenticated, token, refreshToken, profile, pathname, router, isAuthRoute]);
 
   return null;
 }

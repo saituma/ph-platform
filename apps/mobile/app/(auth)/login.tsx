@@ -53,6 +53,7 @@ export default function LoginScreen() {
       const login = await apiRequest<{
         accessToken?: string;
         idToken?: string;
+        refreshToken?: string | null;
       }>("/auth/login", {
         method: "POST",
         body: { email: data.email, password: data.password },
@@ -70,6 +71,7 @@ export default function LoginScreen() {
       dispatch(
         setCredentials({
           token,
+          refreshToken: login.refreshToken ?? null,
           profile: {
             id: String(me.user.id),
             name: me.user.name,
@@ -78,7 +80,7 @@ export default function LoginScreen() {
           },
         })
       );
-      const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean } | null }>(
+      const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
         "/onboarding",
         { token, suppressStatusCodes: [401] }
       );

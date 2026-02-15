@@ -659,12 +659,15 @@ export async function sendMessageAdmin(input: {
   coachId: number;
   userId: number;
   content: string;
+  contentType?: "text" | "image" | "video";
+  mediaUrl?: string;
 }) {
   return sendMessage({
     senderId: input.coachId,
     receiverId: input.userId,
     content: input.content,
-    contentType: "text",
+    contentType: input.contentType ?? "text",
+    mediaUrl: input.mediaUrl,
   });
 }
 

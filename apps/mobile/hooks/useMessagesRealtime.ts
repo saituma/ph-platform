@@ -66,6 +66,8 @@ export function useMessagesRealtime({
         threadId: threadIdFromMessage,
         from: senderId === effectiveUserId ? "user" : "coach",
         text: payload.content,
+        contentType: payload.contentType ?? "text",
+        mediaUrl: payload.mediaUrl ?? undefined,
         time: payload.createdAt
           ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
@@ -129,6 +131,8 @@ export function useMessagesRealtime({
         threadId: `group:${groupId}`,
         from: payload.senderId === effectiveUserId ? "user" : "coach",
         text: payload.content,
+        contentType: payload.contentType ?? "text",
+        mediaUrl: payload.mediaUrl ?? undefined,
         time: payload.createdAt
           ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
