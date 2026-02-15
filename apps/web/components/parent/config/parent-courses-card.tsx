@@ -134,7 +134,7 @@ export function ParentCoursesCard() {
         const issues = err.data.issues as any[];
         const errors = issues.map((issue) => {
           const path = issue.path.join(".");
-          const field = path.replace(/modules\.(\d+)\./, (match, p1) => `Module ${parseInt(p1) + 1} `);
+          const field = path.replace(/modules\.(\d+)\./, (match: string, p1: string) => `Module ${parseInt(p1) + 1} `);
           return `${field}: ${issue.message}`;
         });
         msg = `Validation Error: ${errors.join(" | ")}`;
