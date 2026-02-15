@@ -38,6 +38,7 @@ export default function ProgramDetailScreen() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
     setActiveTab(tabs[0]);
@@ -51,117 +52,122 @@ export default function ProgramDetailScreen() {
     return allSessions.filter((session) => allowedTypes.has(String(session.type ?? "")));
   }, [activeTab, allSessions]);
 
-  useEffect(() => {
-    const loadSessions = async () => {
-      if (!token) {
-        setAllSessions([]);
+  const loadSessions = async () => {
+    if (!token) {
+      setAllSessions([]);
+      return;
+    }
+    setIsLoadingSessions(true);
+    setSessionError(null);
+    try {
+      const mapExercise = (entry: any) => ({
+        id: String(entry?.id ?? entry?.exerciseId ?? "exercise-unknown"),
+        name: String(entry?.name ?? "Exercise"),
+        sets: typeof entry?.sets === "number" ? entry.sets : undefined,
+        reps: typeof entry?.reps === "number" ? entry.reps : undefined,
+        time:
+          typeof entry?.duration === "number" && entry.duration > 0
+            ? `${entry.duration}s`
+            : undefined,
+        rest:
+          typeof entry?.restSeconds === "number" && entry.restSeconds > 0
+            ? `${entry.restSeconds}s`
+            : undefined,
+        notes: entry?.notes || undefined,
+        videoUrl: entry?.videoUrl || undefined,
+        progressions: entry?.progression || undefined,
+        regressions: entry?.regression || undefined,
+      });
+
+      const programsData = await apiRequest<{ programs: Array<{ type: string; programId?: number | null }> }>(
+        "/programs",
+        { token }
+      );
+      const libraryData = await apiRequest<{ exercises: any[] }>("/programs/exercises", { token });
+      const requiredType = programIdToTier(programId);
+      const selected = (programsData.programs ?? []).find((item) => item.type === requiredType);
+      if (!selected?.programId) {
+        const fallbackLibraryExercises = (libraryData.exercises ?? []).map(mapExercise);
+        setAllSessions(
+          fallbackLibraryExercises.length
+            ? [
+                {
+                  id: `${requiredType}-library`,
+                  name: "Exercise Library",
+                  weekNumber: 1,
+                  type: "program",
+                  exercises: fallbackLibraryExercises,
+                },
+              ]
+            : []
+        );
         return;
       }
-      setIsLoadingSessions(true);
-      setSessionError(null);
-      try {
-        const mapExercise = (entry: any) => ({
-          id: String(entry?.id ?? entry?.exerciseId ?? "exercise-unknown"),
-          name: String(entry?.name ?? "Exercise"),
-          sets: typeof entry?.sets === "number" ? entry.sets : undefined,
-          reps: typeof entry?.reps === "number" ? entry.reps : undefined,
-          time:
-            typeof entry?.duration === "number" && entry.duration > 0
-              ? `${entry.duration}s`
-              : undefined,
-          rest:
-            typeof entry?.restSeconds === "number" && entry.restSeconds > 0
-              ? `${entry.restSeconds}s`
-              : undefined,
-          notes: entry?.notes || undefined,
-          videoUrl: entry?.videoUrl || undefined,
-          progressions: entry?.progression || undefined,
-          regressions: entry?.regression || undefined,
-        });
+      const sessionData = await apiRequest<{ sessions: any[] }>(`/programs/${selected.programId}/sessions`, {
+        token,
+      });
 
-        const programsData = await apiRequest<{ programs: Array<{ type: string; programId?: number | null }> }>(
-          "/programs",
-          { token }
-        );
-        const libraryData = await apiRequest<{ exercises: any[] }>("/programs/exercises", { token });
-        const requiredType = programIdToTier(programId);
-        const selected = (programsData.programs ?? []).find((item) => item.type === requiredType);
-        if (!selected?.programId) {
-          const fallbackLibraryExercises = (libraryData.exercises ?? []).map(mapExercise);
-          setAllSessions(
-            fallbackLibraryExercises.length
-              ? [
-                  {
-                    id: `${requiredType}-library`,
-                    name: "Exercise Library",
-                    weekNumber: 1,
-                    type: "program",
-                    exercises: fallbackLibraryExercises,
-                  },
-                ]
-              : []
-          );
-          return;
-        }
-        const sessionData = await apiRequest<{ sessions: any[] }>(`/programs/${selected.programId}/sessions`, {
-          token,
-        });
+      const mappedSessions: SessionItem[] = (sessionData.sessions ?? []).map((session) => {
+        const sessionExercises = Array.isArray(session.exercises) ? session.exercises : [];
+        return {
+          id: String(session.id),
+          name: `Week ${session.weekNumber} Session ${session.sessionNumber}`,
+          weekNumber: session.weekNumber,
+          type: String(session.type ?? ""),
+          exercises: sessionExercises.map((entry: any) => {
+            const exercise = entry.exercise ?? {};
+            return {
+              id: String(entry.exerciseId ?? exercise.id ?? entry.id),
+              name: String(exercise.name ?? "Exercise"),
+              sets: typeof exercise.sets === "number" ? exercise.sets : undefined,
+              reps: typeof exercise.reps === "number" ? exercise.reps : undefined,
+              time:
+                typeof exercise.duration === "number" && exercise.duration > 0
+                  ? `${exercise.duration}s`
+                  : undefined,
+              rest:
+                typeof exercise.restSeconds === "number" && exercise.restSeconds > 0
+                  ? `${exercise.restSeconds}s`
+                  : undefined,
+              notes: entry.coachingNotes || exercise.notes || undefined,
+              videoUrl: exercise.videoUrl || undefined,
+              progressions: entry.progressionNotes || exercise.progression || undefined,
+              regressions: entry.regressionNotes || exercise.regression || undefined,
+            };
+          }),
+        } as SessionItem;
+      });
 
-        const mappedSessions: SessionItem[] = (sessionData.sessions ?? []).map((session) => {
-          const sessionExercises = Array.isArray(session.exercises) ? session.exercises : [];
-          return {
-            id: String(session.id),
-            name: `Week ${session.weekNumber} Session ${session.sessionNumber}`,
-            weekNumber: session.weekNumber,
-            type: String(session.type ?? ""),
-            exercises: sessionExercises.map((entry: any) => {
-              const exercise = entry.exercise ?? {};
-              return {
-                id: String(entry.exerciseId ?? exercise.id ?? entry.id),
-                name: String(exercise.name ?? "Exercise"),
-                sets: typeof exercise.sets === "number" ? exercise.sets : undefined,
-                reps: typeof exercise.reps === "number" ? exercise.reps : undefined,
-                time:
-                  typeof exercise.duration === "number" && exercise.duration > 0
-                    ? `${exercise.duration}s`
-                    : undefined,
-                rest:
-                  typeof exercise.restSeconds === "number" && exercise.restSeconds > 0
-                    ? `${exercise.restSeconds}s`
-                    : undefined,
-                notes: entry.coachingNotes || exercise.notes || undefined,
-                videoUrl: exercise.videoUrl || undefined,
-                progressions: entry.progressionNotes || exercise.progression || undefined,
-                regressions: entry.regressionNotes || exercise.regression || undefined,
-              };
-            }),
-          } as SessionItem;
-        });
+      const libraryExercises = (libraryData.exercises ?? []).map(mapExercise);
+      const librarySession: SessionItem[] = libraryExercises.length
+        ? [
+            {
+              id: `${requiredType}-library`,
+              name: "Exercise Library",
+              weekNumber: 1,
+              type: "program",
+              exercises: libraryExercises,
+            },
+          ]
+        : [];
 
-        const libraryExercises = (libraryData.exercises ?? []).map(mapExercise);
-        const librarySession: SessionItem[] = libraryExercises.length
-          ? [
-              {
-                id: `${requiredType}-library`,
-                name: "Exercise Library",
-                weekNumber: 1,
-                type: "program",
-                exercises: libraryExercises,
-              },
-            ]
-          : [];
+      setAllSessions([...mappedSessions, ...librarySession]);
+    } catch (error: any) {
+      setSessionError(error?.message || "Failed to load configured sessions.");
+      setAllSessions([]);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
 
-        setAllSessions([...mappedSessions, ...librarySession]);
-      } catch (error: any) {
-        setSessionError(error?.message || "Failed to load configured sessions.");
-        setAllSessions([]);
-      } finally {
-        setIsLoadingSessions(false);
-      }
-    };
-
+  useEffect(() => {
     void loadSessions();
   }, [programId, token]);
+
+  const handlePageRefresh = async () => {
+    await loadSessions();
+    setRefreshToken((prev) => prev + 1);
+  };
 
   const handleVideoPress = (url: string) => {
     setActiveVideoUrl(url);
@@ -270,7 +276,7 @@ export default function ProgramDetailScreen() {
     }
 
     if (activeTab === "Video Upload") {
-      return <VideoUploadPanel />;
+      return <VideoUploadPanel refreshToken={refreshToken} />;
     }
 
     return (
@@ -282,7 +288,7 @@ export default function ProgramDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ThemedScrollView onRefresh={handlePageRefresh} contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="px-6 pt-6">
           <View className="flex-row items-center justify-between mb-6">
             <TouchableOpacity

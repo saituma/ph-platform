@@ -6,6 +6,9 @@ import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Select } from "../../components/ui/select";
+import { Textarea } from "../../components/ui/textarea";
 import { ExerciseDialogs, type ExerciseDialog } from "../../components/admin/exercise-library/exercise-dialogs";
 import { ExerciseFilters } from "../../components/admin/exercise-library/exercise-filters";
 import { ExerciseTable } from "../../components/admin/exercise-library/exercise-table";
@@ -20,14 +23,14 @@ const PROGRAMS_API_BASE = "/api/backend/programs";
 const statusChips = ["Uploaded", "Pending"];
 const PROGRAM_TYPES = ["PHP", "PHP_Plus", "PHP_Premium"] as const;
 const SESSION_TYPES = [
-  { value: "program", label: "Program" },
-  { value: "warmup", label: "Warm Up" },
-  { value: "cooldown", label: "Cool Down" },
+  { value: "program", label: "Session Program" },
+  { value: "warmup", label: "Warmups" },
+  { value: "cooldown", label: "Cool Downs" },
   { value: "stretching", label: "Stretching & Foam Rolling" },
   { value: "mobility", label: "Mobility" },
   { value: "recovery", label: "Recovery" },
-  { value: "offseason", label: "Off-Season Program" },
-  { value: "inseason", label: "In-Season Program" },
+  { value: "offseason", label: "Off Session Program" },
+  { value: "inseason", label: "In Session Program" },
   { value: "education", label: "Education" },
   { value: "nutrition", label: "Nutrition & Food Diaries" },
 ] as const;
@@ -219,6 +222,9 @@ export default function ExerciseLibraryPage() {
   const [assignWeek, setAssignWeek] = useState("1");
   const [assignSessionNumber, setAssignSessionNumber] = useState("1");
   const [assignOrder, setAssignOrder] = useState("1");
+  const [assignCoachingNotes, setAssignCoachingNotes] = useState("");
+  const [assignProgressionNotes, setAssignProgressionNotes] = useState("");
+  const [assignRegressionNotes, setAssignRegressionNotes] = useState("");
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignMessage, setAssignMessage] = useState<string | null>(null);
 
@@ -243,6 +249,19 @@ export default function ExerciseLibraryPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!assignExerciseId) {
+      setAssignCoachingNotes("");
+      setAssignProgressionNotes("");
+      setAssignRegressionNotes("");
+      return;
+    }
+    const selected = exercises.find((item) => String(item.id) === assignExerciseId);
+    setAssignCoachingNotes(String(selected?.notes || selected?.cues || ""));
+    setAssignProgressionNotes(String(selected?.progression || ""));
+    setAssignRegressionNotes(String(selected?.regression || ""));
+  }, [assignExerciseId, exercises]);
 
   const categories = useMemo(() => {
     const unique = new Set<string>();
@@ -427,9 +446,9 @@ export default function ExerciseLibraryPage() {
         sessionId,
         exerciseId,
         order,
-        coachingNotes: selected.notes || selected.cues || undefined,
-        progressionNotes: selected.progression || undefined,
-        regressionNotes: selected.regression || undefined,
+        coachingNotes: assignCoachingNotes.trim() || selected.notes || selected.cues || undefined,
+        progressionNotes: assignProgressionNotes.trim() || selected.progression || undefined,
+        regressionNotes: assignRegressionNotes.trim() || selected.regression || undefined,
       });
 
       setAssignMessage("Exercise assigned successfully. It will now appear in mobile program tabs.");
@@ -520,10 +539,9 @@ export default function ExerciseLibraryPage() {
             <div className="rounded-2xl border border-border bg-secondary/30 p-4 space-y-3">
               <SectionHeader
                 title="Assign To Program Section"
-                description="Add exercises to Warm Up, Cool Down, and other mobile program tabs."
+                description="Configure Warmups, Cool Downs, Mobility, Recovery, In/Off Session Programs, and more."
               />
-              <select
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              <Select
                 value={assignExerciseId}
                 onChange={(event) => setAssignExerciseId(event.target.value)}
               >
@@ -533,9 +551,8 @@ export default function ExerciseLibraryPage() {
                     {exercise.name}
                   </option>
                 ))}
-              </select>
-              <select
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              </Select>
+              <Select
                 value={assignProgramType}
                 onChange={(event) => setAssignProgramType(event.target.value as (typeof PROGRAM_TYPES)[number])}
               >
@@ -544,9 +561,8 @@ export default function ExerciseLibraryPage() {
                     {type}
                   </option>
                 ))}
-              </select>
-              <select
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              </Select>
+              <Select
                 value={assignSessionType}
                 onChange={(event) => setAssignSessionType(event.target.value)}
               >
@@ -555,31 +571,48 @@ export default function ExerciseLibraryPage() {
                     {sessionType.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               <div className="grid grid-cols-3 gap-2">
-                <input
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                <Input
                   type="number"
                   min={1}
                   placeholder="Week"
                   value={assignWeek}
                   onChange={(event) => setAssignWeek(event.target.value)}
                 />
-                <input
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                <Input
                   type="number"
                   min={1}
                   placeholder="Session #"
                   value={assignSessionNumber}
                   onChange={(event) => setAssignSessionNumber(event.target.value)}
                 />
-                <input
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                <Input
                   type="number"
                   min={1}
                   placeholder="Order"
                   value={assignOrder}
                   onChange={(event) => setAssignOrder(event.target.value)}
+                />
+              </div>
+              <Textarea
+                className="min-h-[84px]"
+                placeholder="Coaching Notes for this session exercise"
+                value={assignCoachingNotes}
+                onChange={(event) => setAssignCoachingNotes(event.target.value)}
+              />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Textarea
+                  className="min-h-[84px]"
+                  placeholder="Progression Notes"
+                  value={assignProgressionNotes}
+                  onChange={(event) => setAssignProgressionNotes(event.target.value)}
+                />
+                <Textarea
+                  className="min-h-[84px]"
+                  placeholder="Regression Notes"
+                  value={assignRegressionNotes}
+                  onChange={(event) => setAssignRegressionNotes(event.target.value)}
                 />
               </div>
               {assignMessage ? (

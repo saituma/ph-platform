@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { ResizeMode, Video } from "expo-av";
@@ -124,7 +124,7 @@ export function FoodDiaryPanel() {
   );
 }
 
-export function VideoUploadPanel() {
+export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }) {
   const { token } = useAppSelector((state) => state.user);
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -158,7 +158,16 @@ export function VideoUploadPanel() {
 
   useEffect(() => {
     void loadVideos();
-  }, [token]);
+  }, [token, refreshToken]);
+
+  const awaitingVideos = videoItems.filter((item) => !item.feedback);
+  const reviewedVideos = videoItems.filter((item) => Boolean(item.feedback));
+  const formatDate = (value?: string | null) => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString();
+  };
 
   const handlePickVideo = async () => {
     if (!token) return;
@@ -240,10 +249,15 @@ export function VideoUploadPanel() {
   };
 
   return (
-    <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-      <Text className="text-lg font-clash text-app mb-2">Video Upload</Text>
-      <Text className="text-sm font-outfit text-secondary">
-        Share training clips for coach feedback and review.
+    <View className="rounded-3xl border border-app/15 bg-input px-5 py-5">
+      <View className="flex-row items-center justify-between">
+        <Text className="text-xl font-clash text-app">Video Upload</Text>
+        <View className="rounded-full border border-app/20 bg-white/10 px-3 py-1">
+          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1px]">Coach Review</Text>
+        </View>
+      </View>
+      <Text className="text-base font-outfit text-secondary mt-2">
+        Share training clips and receive detailed coach feedback.
       </Text>
       <TextInput
         value={notes}
@@ -251,71 +265,149 @@ export function VideoUploadPanel() {
         placeholder="Optional notes for your coach"
         placeholderTextColor="#9CA3AF"
         multiline
-        className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-sm font-outfit text-app"
-        style={{ minHeight: 80 }}
+        className="mt-4 rounded-2xl border border-app/15 bg-white/10 px-4 py-3 text-base font-outfit text-app"
+        style={{ minHeight: 88 }}
       />
       {selectedVideo ? (
-        <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 p-3">
-          <Text className="text-xs font-outfit text-secondary mb-2">Preview before send</Text>
+        <View className="mt-4 rounded-2xl border border-accent/30 bg-accent/10 p-3">
+          <Text className="text-sm font-outfit text-app mb-2">Preview before send</Text>
           <Video
             source={{ uri: selectedVideo.uri }}
             useNativeControls
             resizeMode={ResizeMode.COVER}
             style={{ width: "100%", height: 180, borderRadius: 12 }}
           />
-          <Text className="text-xs font-outfit text-secondary mt-2" numberOfLines={1}>
+          <Text className="text-sm font-outfit text-secondary mt-2" numberOfLines={1}>
             {selectedVideo.fileName}
           </Text>
         </View>
       ) : null}
       {status ? (
-        <Text className="text-xs font-outfit text-secondary mt-3">{status}</Text>
+        <View className={`mt-3 rounded-xl border px-3 py-2 ${status.toLowerCase().includes("submitted") ? "border-emerald-400/40 bg-emerald-400/10" : "border-app/20 bg-white/10"}`}>
+          <Text className="text-base font-outfit text-secondary">{status}</Text>
+        </View>
       ) : null}
       <View className="mt-4 flex-row gap-3">
         <TouchableOpacity
           onPress={handlePickVideo}
           disabled={uploading}
-          className="flex-1 rounded-full border border-app px-4 py-3 flex-row items-center justify-center gap-2"
+          className="flex-1 rounded-2xl border border-app/20 bg-white/10 px-4 py-3 flex-row items-center justify-center gap-2"
         >
           <Feather name="video" size={16} color="#0F172A" />
-          <Text className="text-app text-sm font-outfit">Choose Video</Text>
+          <Text className="text-app text-base font-outfit">Choose Video</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleSubmitVideo}
           disabled={uploading || !selectedVideo}
-          className={`flex-1 rounded-full px-4 py-3 flex-row items-center justify-center gap-2 ${uploading || !selectedVideo ? "bg-accent/40" : "bg-accent"}`}
+          className={`flex-1 rounded-2xl px-4 py-3 flex-row items-center justify-center gap-2 ${uploading || !selectedVideo ? "bg-accent/40" : "bg-accent"}`}
         >
           <Feather name="send" size={16} color="white" />
-          <Text className="text-white text-sm font-outfit">{uploading ? "Uploading..." : "Send to Coach"}</Text>
+          <Text className="text-white text-base font-outfit">{uploading ? "Uploading..." : "Send to Coach"}</Text>
         </TouchableOpacity>
       </View>
 
-      <View className="mt-6 rounded-2xl border border-app/10 bg-white/5 p-4">
-        <Text className="text-sm font-clash text-app mb-3">Your Uploaded Videos</Text>
-        {loadingVideos ? (
-          <Text className="text-xs font-outfit text-secondary">Loading uploads...</Text>
-        ) : videoItems.length === 0 ? (
-          <Text className="text-xs font-outfit text-secondary">No videos uploaded yet.</Text>
-        ) : (
-          <View className="gap-4">
-            {videoItems.map((item) => (
-              <View key={item.id} className="rounded-2xl border border-app/10 bg-input p-3">
-                <Video
-                  source={{ uri: item.videoUrl }}
-                  useNativeControls
-                  resizeMode={ResizeMode.COVER}
-                  style={{ width: "100%", height: 170, borderRadius: 10 }}
-                />
-                {item.notes ? (
-                  <Text className="text-xs font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
-                ) : null}
-                {item.feedback ? (
-                  <Text className="text-xs font-outfit text-secondary mt-1">Coach feedback: {item.feedback}</Text>
-                ) : null}
+      <View className="mt-6 rounded-2xl border border-app/15 bg-white/5 p-4">
+        <View className="mb-1 flex-row items-center justify-between">
+          <Text className="text-lg font-clash text-app">Your Uploaded Videos</Text>
+          <TouchableOpacity
+            onPress={() => void loadVideos()}
+            disabled={loadingVideos}
+            className="rounded-full border border-app/20 bg-white/10 px-3 py-1.5"
+          >
+            <Text className="text-xs font-outfit text-app">{loadingVideos ? "Refreshing..." : "Refresh"}</Text>
+          </TouchableOpacity>
+        </View>
+        <Text className="text-base font-outfit text-secondary mb-3">
+          Pull down inside this section to refresh. Shows videos uploaded from this account only.
+        </Text>
+        <ScrollView
+          style={{ maxHeight: 520 }}
+          nestedScrollEnabled
+          alwaysBounceVertical
+          contentContainerStyle={{ paddingBottom: 8 }}
+          refreshControl={<RefreshControl refreshing={loadingVideos} onRefresh={() => void loadVideos()} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {loadingVideos && videoItems.length === 0 ? (
+            <Text className="text-base font-outfit text-secondary">Loading uploads...</Text>
+          ) : videoItems.length === 0 ? (
+            <Text className="text-base font-outfit text-secondary">No videos uploaded yet.</Text>
+          ) : (
+            <View className="gap-5">
+              <View className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3">
+                <View className="mb-3 flex-row items-center justify-between">
+                  <Text className="text-lg font-clash text-app">Awaiting Review</Text>
+                  <View className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1">
+                    <Text className="text-xs font-outfit text-app">{awaitingVideos.length}</Text>
+                  </View>
+                </View>
+                {awaitingVideos.length === 0 ? (
+                  <Text className="text-base font-outfit text-secondary">No pending videos.</Text>
+                ) : (
+                  <View className="gap-4">
+                    {awaitingVideos.map((item) => (
+                      <View key={`awaiting-${item.id}`} className="rounded-2xl border border-app/15 bg-input p-3">
+                        <Video
+                          source={{ uri: item.videoUrl }}
+                          useNativeControls
+                          resizeMode={ResizeMode.COVER}
+                          style={{ width: "100%", height: 170, borderRadius: 10 }}
+                        />
+                        <View className="mt-2 flex-row items-center justify-between">
+                          <Text className="text-xs font-outfit text-secondary">Upload #{item.id}</Text>
+                          {formatDate(item.createdAt) ? (
+                            <Text className="text-xs font-outfit text-secondary">{formatDate(item.createdAt)}</Text>
+                          ) : null}
+                        </View>
+                        {item.notes ? (
+                          <Text className="text-base font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
-            ))}
-          </View>
-        )}
+
+              <View className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+                <View className="mb-3 flex-row items-center justify-between">
+                  <Text className="text-lg font-clash text-app">Reviewed With Coach Feedback</Text>
+                  <View className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1">
+                    <Text className="text-xs font-outfit text-app">{reviewedVideos.length}</Text>
+                  </View>
+                </View>
+                {reviewedVideos.length === 0 ? (
+                  <Text className="text-base font-outfit text-secondary">No reviewed videos yet.</Text>
+                ) : (
+                  <View className="gap-4">
+                    {reviewedVideos.map((item) => (
+                      <View key={`reviewed-${item.id}`} className="rounded-2xl border border-app/15 bg-input p-3">
+                        <Video
+                          source={{ uri: item.videoUrl }}
+                          useNativeControls
+                          resizeMode={ResizeMode.COVER}
+                          style={{ width: "100%", height: 170, borderRadius: 10 }}
+                        />
+                        <View className="mt-2 flex-row items-center justify-between">
+                          <Text className="text-xs font-outfit text-secondary">Upload #{item.id}</Text>
+                          {formatDate(item.createdAt) ? (
+                            <Text className="text-xs font-outfit text-secondary">{formatDate(item.createdAt)}</Text>
+                          ) : null}
+                        </View>
+                        {item.notes ? (
+                          <Text className="text-base font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
+                        ) : null}
+                        <View className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                          <Text className="text-sm font-clash text-app">Coach feedback</Text>
+                          <Text className="text-base font-outfit text-secondary mt-1">{item.feedback}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+        </ScrollView>
       </View>
     </View>
   );

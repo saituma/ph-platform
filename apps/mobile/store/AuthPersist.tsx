@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "expo-router";
 import { useAppDispatch, useAppSelector } from "./hooks";
 import {
@@ -21,6 +21,12 @@ const STORAGE_KEYS = {
   avatar: "profileAvatar",
 };
 
+const isUnauthorizedError = (error: unknown) => {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return message.startsWith("401 ") || message.startsWith("403 ");
+};
+
 export function AuthPersist() {
   const dispatch = useAppDispatch();
   const { isAuthenticated, token, profile } = useAppSelector((state) => state.user);
@@ -39,33 +45,40 @@ export function AuthPersist() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.token);
-      const storedId = await SecureStore.getItemAsync(STORAGE_KEYS.id);
-      const storedName = await SecureStore.getItemAsync(STORAGE_KEYS.name);
-      const storedEmail = await SecureStore.getItemAsync(STORAGE_KEYS.email);
-      const storedAvatar = await SecureStore.getItemAsync(STORAGE_KEYS.avatar);
+      try {
+        const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.token);
+        const storedId = await SecureStore.getItemAsync(STORAGE_KEYS.id);
+        const storedName = await SecureStore.getItemAsync(STORAGE_KEYS.name);
+        const storedEmail = await SecureStore.getItemAsync(STORAGE_KEYS.email);
+        const storedAvatar = await SecureStore.getItemAsync(STORAGE_KEYS.avatar);
 
-      if (!mounted) return;
-      if (storedToken) {
-        dispatch(
-          setCredentials({
-            token: storedToken,
-            profile: {
-              id: storedId ?? null,
-              name: storedName ?? null,
-              email: storedEmail ?? null,
-              avatar: storedAvatar ?? null,
-            },
-          })
-        );
-        lastSavedToken.current = storedToken;
-        try {
-          const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
-            "/onboarding",
-            { token: storedToken, suppressStatusCodes: [401] }
+        if (!mounted) return;
+        if (storedToken) {
+          dispatch(
+            setCredentials({
+              token: storedToken,
+              profile: {
+                id: storedId ?? null,
+                name: storedName ?? null,
+                email: storedEmail ?? null,
+                avatar: storedAvatar ?? null,
+              },
+            })
           );
-          dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
-          dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+          lastSavedToken.current = storedToken;
+          try {
+            const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
+              "/onboarding",
+              { token: storedToken, suppressStatusCodes: [401, 403] }
+            );
+            dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
+            dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+          } catch (error) {
+            if (isUnauthorizedError(error)) {
+              dispatch(setOnboardingCompleted(null));
+              dispatch(setAthleteUserId(null));
+            }
+          }
           try {
             const status = await apiRequest<{
               currentProgramTier?: string | null;
@@ -85,30 +98,22 @@ export function AuthPersist() {
             dispatch(setProgramTier(null));
             dispatch(setLatestSubscriptionRequest(null));
           }
-        } catch {
-          // Invalid/expired token - reset and send to login.
-          dispatch(setOnboardingCompleted(null));
-          dispatch(setAthleteUserId(null));
-          dispatch(setProgramTier(null));
-          dispatch(setLatestSubscriptionRequest(null));
+        } else {
           dispatch(logout());
           if (!isAuthRoute) {
             router.replace("/(auth)/login");
           }
         }
-      } else {
-        dispatch(logout());
-        if (!isAuthRoute) {
-          router.replace("/(auth)/login");
-        }
+      } finally {
+        if (!mounted) return;
+        setHydratedState(true);
+        dispatch(setHydrated(true));
       }
-      setHydratedState(true);
-      dispatch(setHydrated(true));
     })();
     return () => {
       mounted = false;
     };
-  }, [dispatch]);
+  }, [dispatch, isAuthRoute, router]);
 
   useEffect(() => {
     if (!hydrated) return;
