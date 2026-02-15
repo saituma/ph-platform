@@ -1,0 +1,13 @@
+enable_compute_stack = false
+enable_media_stack = true
+enable_cloudfront = false
+enable_auth_stack = false
+enable_ecr = false
+
+enable_ec2_instance = true
+ec2_key_name = "REPLACE_ME"
+
+# Keep ECS off
+
+desired_count = 0
+web_desired_count = 0

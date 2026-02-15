@@ -8,6 +8,9 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
+import { apiRequest } from "../../lib/api";
+import { useAppDispatch } from "../../store/hooks";
+import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -18,8 +21,11 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
   const { isDark, toggleColorScheme, colors } = useAppTheme();
+  const dispatch = useAppDispatch();
 
   const {
     control,
@@ -34,9 +40,59 @@ export default function LoginScreen() {
     mode: "onChange",
   });
 
-  const onSubmit = (data: LoginFormData) => {
-    console.log("Login submitted:", data);
-    router.replace("/(tabs)");
+  const onSubmit = async (data: LoginFormData) => {
+    setFormError(null);
+    setIsSubmitting(true);
+    try {
+      const login = await apiRequest<{
+        accessToken?: string;
+        idToken?: string;
+      }>("/auth/login", {
+        method: "POST",
+        body: { email: data.email, password: data.password },
+      });
+
+      const token = login.idToken ?? login.accessToken;
+      if (!token) {
+        throw new Error("Login failed");
+      }
+
+      const me = await apiRequest<{ user: { id: number; name: string; email: string } }>("/auth/me", {
+        token,
+      });
+
+      dispatch(
+        setCredentials({
+          token,
+          profile: {
+            id: String(me.user.id),
+            name: me.user.name,
+            email: me.user.email,
+            avatar: null,
+          },
+        })
+      );
+      const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean } | null }>(
+        "/onboarding",
+        { token, suppressStatusCodes: [401] }
+      );
+      const completed = Boolean(onboarding.athlete?.onboardingCompleted);
+      dispatch(setOnboardingCompleted(completed));
+      dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+      router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
+    } catch (err: any) {
+      const message = err?.message ?? "Login failed";
+      if (message.toLowerCase().includes("not confirmed")) {
+        router.replace({
+          pathname: "/(auth)/verify",
+          params: { email: data.email, password: data.password },
+        });
+        return;
+      }
+      setFormError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -156,12 +212,18 @@ export default function LoginScreen() {
 
         <Pressable
           onPress={handleSubmit(onSubmit)}
-          className="bg-accent h-14 rounded-xl items-center justify-center mb-8"
+          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
+          disabled={isSubmitting}
         >
           <Text className="text-white font-bold text-lg font-outfit">
-            Sign In
+            {isSubmitting ? "Signing In..." : "Sign In"}
           </Text>
         </Pressable>
+        {formError ? (
+          <Text className="text-danger text-xs font-outfit mb-4">
+            {formError}
+          </Text>
+        ) : null}
         <View className="flex-row justify-center items-center">
           <Text className="text-secondary text-base font-outfit">
             Don't have an account?{" "}

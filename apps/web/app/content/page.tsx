@@ -9,11 +9,13 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { ContentDialogs, type ContentDialog } from "../../components/admin/content/content-dialogs";
 import { ContentTabs } from "../../components/admin/content/content-tabs";
+import { useCreateContentMutation } from "../../lib/apiSlice";
 
 export default function ContentPage() {
-  const hasContent = true;
-  const isLoading = false;
+  const hasContent = false;
+  const [createContent, { isLoading }] = useCreateContentMutation();
   const [activeDialog, setActiveDialog] = useState<ContentDialog>(null);
+  const [error, setError] = useState<string | null>(null);
   return (
     <AdminShell title="Content" subtitle="Manage every page in the mobile app.">
       <Card>
@@ -35,8 +37,47 @@ export default function ContentPage() {
             </div>
           ) : hasContent ? (
             <ContentTabs
-              onSaveHome={() => setActiveDialog("home")}
-              onPublishParent={() => setActiveDialog("parent")}
+              onSaveHome={async (data) => {
+                setError(null);
+                const payload = {
+                  title: "Home",
+                  content: data.headline,
+                  type: "article",
+                  body: JSON.stringify({
+                    description: data.description,
+                    welcome: data.welcome,
+                    introVideoUrl: data.introVideoUrl,
+                    testimonials: data.testimonials,
+                    heroImageUrl: data.heroImageUrl,
+                  }),
+                  surface: "home",
+                  programTier: data.tier === "all" ? undefined : data.tier,
+                };
+                try {
+                  await createContent(payload).unwrap();
+                  setActiveDialog("home");
+                } catch (err) {
+                  setError("Failed to save home content");
+                }
+              }}
+              onPublishParent={async (data) => {
+                setError(null);
+                const payload = {
+                  title: data.title,
+                  content: data.body.slice(0, 140),
+                  type: "article",
+                  body: data.body,
+                  surface: "parent_platform",
+                  category: data.category,
+                  programTier: data.tier === "all" ? undefined : data.tier,
+                };
+                try {
+                  await createContent(payload).unwrap();
+                  setActiveDialog("parent");
+                } catch (err) {
+                  setError("Failed to publish parent article");
+                }
+              }}
               onSavePrograms={() => setActiveDialog("programs")}
               onSaveLegal={() => setActiveDialog("legal")}
             />
@@ -50,6 +91,11 @@ export default function ContentPage() {
         </CardContent>
       </Card>
 
+      {error ? (
+        <div className="mt-4 rounded-2xl border border-border bg-secondary/40 p-3 text-sm text-red-500">
+          {error}
+        </div>
+      ) : null}
       <ContentDialogs active={activeDialog} onClose={() => setActiveDialog(null)} />
     </AdminShell>
   );

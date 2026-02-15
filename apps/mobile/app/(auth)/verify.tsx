@@ -1,15 +1,22 @@
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
+import { apiRequest } from "../../lib/api";
+import { useAppDispatch } from "../../store/hooks";
+import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
 
 export default function VerifyScreen() {
   const [otp, setOtp] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
   const { colors } = useAppTheme();
+  const dispatch = useAppDispatch();
+  const { email, password } = useLocalSearchParams<{ email?: string; password?: string }>();
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -59,21 +66,99 @@ export default function VerifyScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.push("/(tabs)/onboarding")}
-          className="bg-accent h-14 rounded-xl items-center justify-center mb-8"
+          onPress={async () => {
+            setFormError(null);
+            if (!email) {
+              setFormError("Missing email address");
+              return;
+            }
+            setIsSubmitting(true);
+            try {
+              await apiRequest("/auth/confirm", {
+                method: "POST",
+                body: { email, code: otp },
+              });
+              if (password) {
+                const login = await apiRequest<{
+                  accessToken?: string;
+                  idToken?: string;
+                }>("/auth/login", {
+                  method: "POST",
+                  body: { email, password },
+                });
+
+                const token = login.idToken ?? login.accessToken;
+                if (!token) {
+                  throw new Error("Login failed");
+                }
+
+                const me = await apiRequest<{ user: { id: number; name: string; email: string } }>("/auth/me", {
+                  token,
+                });
+
+                dispatch(
+                  setCredentials({
+                    token,
+                    profile: {
+                      id: String(me.user.id),
+                      name: me.user.name,
+                      email: me.user.email,
+                      avatar: null,
+                    },
+                  })
+                );
+                const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean } | null }>(
+                  "/onboarding",
+                  { token, suppressStatusCodes: [401] }
+                );
+                const completed = Boolean(onboarding.athlete?.onboardingCompleted);
+                dispatch(setOnboardingCompleted(completed));
+                dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+                router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
+                return;
+              }
+              router.replace("/(auth)/login");
+            } catch (err: any) {
+              setFormError(err?.message ?? "Verification failed");
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
+          disabled={isSubmitting}
         >
           <Text className="text-white font-bold text-lg font-outfit">
-            Verify Account
+            {isSubmitting ? "Verifying..." : "Verify Account"}
           </Text>
         </Pressable>
+        {formError ? (
+          <Text className="text-danger text-xs font-outfit mb-4">
+            {formError}
+          </Text>
+        ) : null}
 
         <View className="flex-row justify-center items-center">
           <Text className="text-secondary text-base font-outfit">
             Didn't receive code?{" "}
           </Text>
           <Pressable
-            onPress={() => {
-              /* resend logic */
+            onPress={async () => {
+              setFormError(null);
+              if (!email) {
+                setFormError("Missing email address");
+                return;
+              }
+              setIsSubmitting(true);
+              try {
+                await apiRequest("/auth/resend", {
+                  method: "POST",
+                  body: { email },
+                });
+              } catch (err: any) {
+                setFormError(err?.message ?? "Failed to resend");
+              } finally {
+                setIsSubmitting(false);
+              }
             }}
           >
             <Text className="text-accent font-bold text-base font-outfit">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
@@ -16,8 +16,8 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ThemeToggle } from "./theme-toggle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
-import { Select } from "../ui/select";
 import { Badge } from "../ui/badge";
+import { useGetAdminProfileQuery } from "../../lib/apiSlice";
 
 type TopbarProps = {
   title: string;
@@ -34,11 +34,21 @@ export function AdminTopbar({
   isSidebarCollapsed = false,
   onToggleSidebar,
 }: TopbarProps) {
-  const [openQuick, setOpenQuick] = useState(false);
   const [openNotify, setOpenNotify] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
   const [profileAction, setProfileAction] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const router = useRouter();
+  const { data } = useGetAdminProfileQuery();
+  const displayName = data?.user?.name || "Admin";
+  const profilePicture = data?.user?.profilePicture || null;
+  const initials = useMemo(() => {
+    const parts = displayName.split(" ").filter(Boolean);
+    if (!parts.length) return "AD";
+    const first = parts[0]?.[0] ?? "";
+    const second = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
+    return `${first}${second}`.toUpperCase() || "AD";
+  }, [displayName]);
   return (
     <header className="hidden flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-6 lg:flex lg:px-10">
       <div className="flex items-center gap-3">
@@ -61,51 +71,41 @@ export function AdminTopbar({
             <input
               placeholder="Search athletes, messages, bookings"
               className="w-full bg-transparent text-sm outline-none"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  const query = search.trim();
+                  if (!query) return;
+                  router.push(`/search?q=${encodeURIComponent(query)}`);
+                }
+              }}
             />
           </div>
         </div>
-        <Select className="hidden w-44 md:block">
-          <option>Date range</option>
-          <option>This week</option>
-          <option>This month</option>
-          <option>This quarter</option>
-        </Select>
-        <Button variant="outline" className="hidden md:inline-flex" onClick={() => setOpenQuick(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Quick Action
-        </Button>
+        <div className="hidden md:block" />
         <Button variant="ghost" size="icon" onClick={() => setOpenNotify(true)}>
           <Bell className="h-4 w-4" />
         </Button>
         <ThemeToggle />
-        {actions ?? <Button>New Message</Button>}
+        {actions ?? null}
         <Button
           variant="ghost"
           className="flex items-center gap-2"
           onClick={() => setOpenProfile(true)}
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-secondary text-xs font-semibold text-foreground">
-            LL
+          <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary text-xs font-semibold text-foreground">
+            {profilePicture ? (
+              <img src={profilePicture} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-success" />
           </div>
-          <span className="hidden text-sm md:inline">Coach</span>
+          <span className="hidden text-sm md:inline">{displayName}</span>
           <ChevronDown className="h-3 w-3" />
         </Button>
       </div>
-      <Dialog open={openQuick} onOpenChange={setOpenQuick}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Quick Action</DialogTitle>
-            <DialogDescription>Choose a workflow to jump into.</DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 space-y-2">
-            {["Create program", "Open slots", "Send message", "Add content"].map((item) => (
-              <Button key={item} variant="outline" className="w-full justify-start">
-                {item}
-              </Button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={openNotify} onOpenChange={setOpenNotify}>
         <DialogContent>
           <DialogHeader>
@@ -135,7 +135,7 @@ export function AdminTopbar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Profile</DialogTitle>
-            <DialogDescription>Account and preferences.</DialogDescription>
+            <DialogDescription>Account actions.</DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-3">
             <Button
@@ -146,22 +146,16 @@ export function AdminTopbar({
                 router.push("/profile");
               }}
             >
-              View Profile
+              Profile
             </Button>
             <Button
               variant="outline"
               className="w-full justify-start"
-              onClick={() => {
-                setOpenProfile(false);
-                router.push("/preferences");
+              onClick={async () => {
+                setProfileAction("Logging out...");
+                await fetch("/api/auth/logout", { method: "POST" });
+                router.replace("/login");
               }}
-            >
-              Preferences
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => setProfileAction("Logging out...")}
             >
               Logout
             </Button>

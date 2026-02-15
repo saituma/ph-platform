@@ -8,12 +8,18 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
+import { apiRequest } from "../../lib/api";
 
 const registerSchema = z
   .object({
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.email("Please enter a valid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Password must include an uppercase letter")
+      .regex(/[a-z]/, "Password must include a lowercase letter")
+      .regex(/[0-9]/, "Password must include a number"),
     confirmPassword: z.string().min(8, "Confirm password is required"),
     isChecked: z.boolean().refine((val) => val === true, {
       message: "Please agree to the Terms & Conditions",
@@ -29,6 +35,8 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const router = useRouter();
   const { isDark, toggleColorScheme, colors } = useAppTheme();
@@ -49,9 +57,29 @@ export default function RegisterScreen() {
     mode: "onChange",
   });
 
-  const onSubmit = (data: RegisterFormData) => {
-    console.log("Form submitted:", data);
-    router.push("/(auth)/verify");
+  const onSubmit = async (data: RegisterFormData) => {
+    setFormError(null);
+    setIsSubmitting(true);
+    try {
+      await apiRequest("/auth/register", {
+        method: "POST",
+        body: { name: data.name, email: data.email, password: data.password },
+      });
+      router.push({
+        pathname: "/(auth)/verify",
+        params: { email: data.email, password: data.password },
+      });
+    } catch (err: any) {
+      console.error("Register failed", err);
+      const message = err?.message ?? "Registration failed";
+      if (message.includes("already exists")) {
+        router.replace("/(auth)/login");
+        return;
+      }
+      setFormError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -282,12 +310,18 @@ export default function RegisterScreen() {
 
         <Pressable
           onPress={handleSubmit(onSubmit)}
-          className="bg-accent h-14 rounded-xl items-center justify-center shadow-sm active:opacity-90 mb-8"
+          className={`bg-accent h-14 rounded-xl items-center justify-center shadow-sm active:opacity-90 mb-8 ${isSubmitting ? "opacity-70" : ""}`}
+          disabled={isSubmitting}
         >
           <Text className="text-white font-bold text-lg font-outfit">
-            Sign Up
+            {isSubmitting ? "Creating..." : "Sign Up"}
           </Text>
         </Pressable>
+        {formError ? (
+          <Text className="text-danger text-xs font-outfit mb-4">
+            {formError}
+          </Text>
+        ) : null}
 
         <View className="flex-row justify-center items-center">
           <Text className="text-secondary text-base font-outfit">

@@ -29,7 +29,7 @@ export default function AppThemeProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { colorScheme, toggleColorScheme } = useColorScheme();
+  const { colorScheme, setColorScheme } = useColorScheme();
 
   // NativeWind 4 handle system scheme, but for our usage we imply dark if 'dark'.
   // If 'system', we might rely on system preference?
@@ -44,7 +44,10 @@ export default function AppThemeProvider({
       value={{
         colorScheme: colorScheme ?? "light",
         colors,
-        toggleColorScheme,
+        toggleColorScheme: () => {
+          const next = colorScheme === "dark" ? "light" : "dark";
+          setColorScheme(next);
+        },
         isDark,
       }}
     >

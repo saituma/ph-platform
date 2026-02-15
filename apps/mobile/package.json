@@ -8,20 +8,27 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest --config ./jest.config.js",
+    "test:watch": "jest --config ./jest.config.js --watch"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@react-native-community/checkbox": "^0.5.20",
     "@reduxjs/toolkit": "^2.11.2",
+    "@stripe/stripe-react-native": "^0.37.3",
     "expo": "~54.0.33",
+    "expo-av": "~16.0.7",
     "expo-constants": "~18.0.13",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
+    "expo-image-picker": "~17.0.8",
     "expo-linking": "~8.0.11",
+    "expo-notifications": "~0.32.15",
     "expo-router": "~6.0.23",
+    "expo-secure-store": "~14.0.0",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-symbols": "~1.0.8",
@@ -39,8 +46,10 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-web": "~0.21.0",
+    "react-native-webview": "^13.16.0",
     "react-native-worklets": "0.5.1",
     "react-redux": "^9.2.0",
+    "socket.io-client": "^4.8.1",
     "zod": "^4.3.6"
   },
   "peerDependencies": {
@@ -49,11 +58,16 @@
     "@react-navigation/native": "*"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.0.0",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",
     "autoprefixer": "^10.4.24",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "jest": "^29.7.0",
+    "jest-expo": "~54.0.4",
     "postcss": "^8.5.6",
+    "react-test-renderer": "19.1.0",
     "tailwindcss": "^3.3.2",
     "typescript": "~5.9.2"
   },

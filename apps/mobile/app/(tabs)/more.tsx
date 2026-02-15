@@ -10,10 +10,14 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { logout } from "../../store/slices/userSlice";
 
 export default function MoreScreen() {
   const { role } = useRole();
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { profile, isAuthenticated } = useAppSelector((state) => state.user);
   const { isLoading } = useRefreshContext();
   const handleRefresh = async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -55,10 +59,10 @@ export default function MoreScreen() {
               </View>
               <View>
                 <Text className="text-xl font-bold font-clash text-app leading-tight">
-                  John Doe
+                  {profile.name || "Profile"}
                 </Text>
                 <Text className="text-secondary font-outfit text-sm mt-0.5">
-                  john.doe@example.com
+                  {profile.email || (isAuthenticated ? "Email unavailable" : "Not signed in")}
                 </Text>
               </View>
             </View>
@@ -187,7 +191,10 @@ export default function MoreScreen() {
               icon="log-out"
               color="bg-red-50 dark:bg-red-950/30"
               iconColor="text-red-600 dark:text-red-400"
-              onPress={() => {}}
+              onPress={() => {
+                dispatch(logout());
+                router.replace("/(auth)/login");
+              }}
               fullWidth={true}
             />
           </View>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Sora, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const sora = Sora({
   variable: "--font-sans",
@@ -44,7 +45,7 @@ export default function RootLayout({
       <body
         className={`${sora.variable} ${spaceGrotesk.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -7,9 +7,10 @@ import { useRefreshContext } from "@/context/RefreshContext";
 import { useRole } from "@/context/RoleContext";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSelector } from "@/store/hooks";
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
@@ -17,12 +18,18 @@ export default function ProfileSettingsScreen() {
   const { isDark, colors } = useAppTheme();
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const { isLoading } = useRefreshContext();
+  const { profile } = useAppSelector((state) => state.user);
 
-  const [name, setName] = useState("John Doe");
-  const [email] = useState("john.doe@example.com");
-  const [height, setHeight] = useState("180 cm");
-  const [weight, setWeight] = useState("75 kg");
-  const [position, setPosition] = useState("Forward");
+  const [name, setName] = useState(profile.name ?? "");
+  const [email, setEmail] = useState(profile.email ?? "");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [position, setPosition] = useState("");
+
+  useEffect(() => {
+    setName(profile.name ?? "");
+    setEmail(profile.email ?? "");
+  }, [profile.name, profile.email]);
 
   const handleSetPin = (pin: string) => {
     setGuardianPin(pin);
@@ -176,21 +183,19 @@ export default function ProfileSettingsScreen() {
                   </TouchableOpacity>
                 )}
 
-                <TouchableOpacity
-                  onPress={() => {}}
-                  className="flex-row items-center justify-between py-4 border-t border-app"
-                >
-                  <Text className="text-base font-medium font-outfit text-app">
-                    Managed Athletes
-                  </Text>
-                  <View className="flex-row items-center">
-                    <Text className="text-accent font-medium mr-2">
-                      2 Active
+                  <TouchableOpacity
+                    onPress={() => {}}
+                    className="flex-row items-center justify-between py-4 border-t border-app"
+                  >
+                    <Text className="text-base font-medium font-outfit text-app">
+                      Managed Athletes
                     </Text>
-                    <Feather
-                      name="chevron-right"
-                      size={20}
-                      className="text-muted"
+                    <View className="flex-row items-center">
+                      <Text className="text-accent font-medium mr-2">0 Active</Text>
+                      <Feather
+                        name="chevron-right"
+                        size={20}
+                        className="text-muted"
                     />
                   </View>
                 </TouchableOpacity>

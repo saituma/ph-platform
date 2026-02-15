@@ -1,6 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { Modal, Text, TouchableOpacity, View } from "react-native";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -16,6 +18,10 @@ interface PinModalProps {
   title?: string;
   subtitle?: string;
   error?: string;
+  onForgot?: () => void;
+  fullScreen?: boolean;
+  showThemeToggle?: boolean;
+  showClose?: boolean;
 }
 
 export function PinModal({
@@ -25,7 +31,13 @@ export function PinModal({
   title = "Enter PIN",
   subtitle = "Please enter your 4-digit PIN",
   error,
+  onForgot,
+  fullScreen = false,
+  showThemeToggle = false,
+  showClose = true,
 }: PinModalProps) {
+  const { isDark, toggleColorScheme, colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const [pin, setPin] = useState("");
   const shakeOffset = useSharedValue(0);
 
@@ -74,18 +86,52 @@ export function PinModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <View className="flex-1 bg-black/50 justify-center items-center px-6">
+      <View
+        className={`flex-1 justify-center items-center px-6 ${
+          fullScreen ? "bg-app" : "bg-black/50"
+        }`}
+      >
+        {showThemeToggle && fullScreen ? (
+          <TouchableOpacity
+            onPress={toggleColorScheme}
+            className="absolute right-6 w-11 h-11 items-center justify-center bg-secondary rounded-full z-50"
+            style={{ top: insets.top + 12 }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather
+              name={isDark ? "sun" : "moon"}
+              size={20}
+              color={colors.themeToggleIcon}
+            />
+          </TouchableOpacity>
+        ) : null}
         <Animated.View
           style={animatedStyle}
-          className="bg-input w-full max-w-sm rounded-[32px] p-6 shadow-xl"
+          className={`w-full max-w-sm p-6 shadow-xl ${
+            fullScreen ? "bg-app" : "bg-input rounded-[32px]"
+          }`}
         >
-          <View className="flex-row justify-end mb-2">
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-8 h-8 items-center justify-center bg-secondary rounded-full"
-            >
-              <Feather name="x" size={16} className="text-secondary" />
-            </TouchableOpacity>
+          <View className="flex-row justify-end mb-2 gap-2">
+            {showThemeToggle && !fullScreen ? (
+              <TouchableOpacity
+                onPress={toggleColorScheme}
+                className="w-10 h-10 items-center justify-center bg-secondary rounded-full"
+              >
+                <Feather
+                  name={isDark ? "sun" : "moon"}
+                  size={20}
+                  color={colors.themeToggleIcon}
+                />
+              </TouchableOpacity>
+            ) : null}
+            {showClose ? (
+              <TouchableOpacity
+                onPress={onClose}
+                className="w-8 h-8 items-center justify-center bg-secondary rounded-full"
+              >
+                <Feather name="x" size={16} className="text-secondary" />
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <View className="items-center mb-6">
@@ -151,6 +197,16 @@ export function PinModal({
             </View>
           </View>
         </Animated.View>
+        {onForgot ? (
+          <TouchableOpacity
+            onPress={onForgot}
+            className="mt-4"
+          >
+            <Text className="text-accent font-outfit font-semibold text-sm text-center">
+              Forgot PIN?
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </Modal>
   );
