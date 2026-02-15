@@ -58,6 +58,7 @@ export async function listServices(req: Request, res: Response) {
 }
 
 export async function createService(req: Request, res: Response) {
+  console.log("Creating service:", JSON.stringify(req.body, null, 2));
   const input = serviceTypeSchema.parse(req.body);
   const item = await createServiceType({
     name: input.name,
@@ -79,6 +80,7 @@ export async function updateService(req: Request, res: Response) {
   if (!serviceId) {
     return res.status(400).json({ error: "Invalid service id" });
   }
+  console.log("Updating service:", serviceId, JSON.stringify(req.body, null, 2));
   const input = serviceTypeUpdateSchema.parse(req.body);
   if (Object.keys(input).length === 0) {
     return res.status(400).json({ error: "No updates provided" });
