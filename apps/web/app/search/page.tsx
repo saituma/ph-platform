@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -18,7 +18,7 @@ function normalize(value: string) {
   return value.toLowerCase();
 }
 
-export default function SearchPage() {
+function SearchContent() {
   const router = useRouter();
   const params = useSearchParams();
   const query = params.get("q")?.trim() ?? "";
@@ -167,5 +167,13 @@ export default function SearchPage() {
         ) : null}
       </div>
     </AdminShell>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div>Loading search...</div>}>
+      <SearchContent />
+    </Suspense>
   );
 }

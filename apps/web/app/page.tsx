@@ -143,9 +143,9 @@ export default function Home() {
       ]
     : [];
 
-  const tierTotal = tierSummary?.total ?? tierDistributionData.reduce((sum, item) => sum + item.value, 0);
+  const tierTotal = tierSummary?.total ?? tierDistributionData.reduce((sum, item: any) => sum + item.value, 0);
   const tierRatios = tierTotal
-    ? tierDistributionData.map((item) => item.value / tierTotal)
+    ? tierDistributionData.map((item: any) => item.value / tierTotal)
     : [0.5, 0.3, 0.2];
 
   const activityMixData = useMemo(() => {
@@ -154,7 +154,7 @@ export default function Home() {
     const totalUploads = weeklyTotals.uploads;
     const colors = ["hsl(142 71% 45%)", "hsl(142 45% 45%)", "hsl(142 20% 40%)"];
     const toSegments = (total: number) =>
-      tierRatios.map((ratio, index) => ({
+      tierRatios.map((ratio: any, index: number) => ({
         value: Math.round(total * ratio),
         color: colors[index],
       }));
@@ -190,7 +190,7 @@ export default function Home() {
         </section>
       ) : hasKpis ? (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {dashboardKpis.map((kpi) => (
+          {dashboardKpis.map((kpi: any) => (
             <Card key={kpi.label} className="hover:border-primary/40">
               <CardHeader>
                 <CardDescription>{kpi.label}</CardDescription>
@@ -266,7 +266,7 @@ export default function Home() {
 
       <section className="grid gap-6 lg:grid-cols-3">
         {trendCardsData.length ? (
-          trendCardsData.map((card) => (
+          trendCardsData.map((card: any) => (
             <Card key={card.title} className="hover:border-primary/40">
               <CardHeader>
                 <CardDescription>{card.title}</CardDescription>
@@ -332,7 +332,7 @@ export default function Home() {
           </CardHeader>
           <CardContent className="space-y-3">
             {topAthletesData.length ? (
-              topAthletesData.map((athlete) => (
+              topAthletesData.map((athlete: any) => (
                 <div
                   key={athlete.name}
                   className="flex items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm"
@@ -368,7 +368,7 @@ export default function Home() {
               <>
                 <DonutChart segments={tierDistributionData} centerLabel={String(tierTotal)} />
                 <div className="space-y-3 text-sm">
-                  {tierDistributionData.map((tier) => (
+                  {tierDistributionData.map((tier: any) => (
                     <div key={tier.label} className="flex items-center gap-3">
                       <span
                         className="h-3 w-3 rounded-full"
@@ -477,7 +477,7 @@ export default function Home() {
                 </div>
               ))
             ) : hasBookings ? (
-              todayBookings.map((booking) => (
+              todayBookings.map((booking: any) => (
                 <div
                   key={booking.name}
                   className="flex items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm transition hover:border-primary/40"
@@ -518,7 +518,7 @@ export default function Home() {
           </CardHeader>
           <CardContent className="space-y-3">
             {programOpsData.length ? (
-              programOpsData.map((item) => (
+              programOpsData.map((item: any) => (
                 <div key={item.title} className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
                   <p className="font-semibold text-foreground">{item.title}</p>
                   <p className="text-xs text-muted-foreground">{item.detail}</p>
@@ -538,7 +538,7 @@ export default function Home() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {highlightsData.length ? (
-          highlightsData.map((item) => (
+          highlightsData.map((item: any) => (
             <Card key={item.label} className="hover:border-primary/40">
               <CardHeader>
                 <CardDescription>{item.label}</CardDescription>

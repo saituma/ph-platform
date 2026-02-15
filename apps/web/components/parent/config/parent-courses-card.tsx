@@ -169,7 +169,7 @@ export function ParentCoursesCard() {
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{course.modules.length} modules</Badge>
                   {course.modules.filter((module) => module.preview).length ? (
-                    <Badge variant="secondary">Preview enabled</Badge>
+                    <Badge variant="accent">Preview enabled</Badge>
                   ) : null}
                 </div>
               </div>
