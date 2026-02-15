@@ -1,10 +1,11 @@
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
+import { apiRequest } from "../../lib/api";
 
 export default function ResetPasswordScreen() {
   const [code, setCode] = useState("");
@@ -12,13 +13,15 @@ export default function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const router = useRouter();
   const { colors } = useAppTheme();
+  const { email } = useLocalSearchParams<{ email?: string }>();
 
   return (
     <SafeAreaView className="flex-1 bg-app">
-      {/* Back Button */}
       <View className="px-4 pt-4">
         <Pressable onPress={() => router.back()} className="p-2 self-start">
           <Feather
@@ -106,13 +109,41 @@ export default function ResetPasswordScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.replace("/(auth)/login")}
-          className="bg-accent h-14 rounded-xl items-center justify-center mb-8"
+          onPress={async () => {
+            setFormError(null);
+            if (!email) {
+              setFormError("Missing email address");
+              return;
+            }
+            if (!password || password !== confirmPassword) {
+              setFormError("Passwords do not match");
+              return;
+            }
+            setIsSubmitting(true);
+            try {
+              await apiRequest("/auth/forgot/confirm", {
+                method: "POST",
+                body: { email, code, password },
+              });
+              router.replace("/(auth)/login");
+            } catch (err: any) {
+              setFormError(err?.message ?? "Password reset failed");
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
+          disabled={isSubmitting}
         >
           <Text className="text-white font-bold text-lg font-outfit">
-            Reset Password
+            {isSubmitting ? "Resetting..." : "Reset Password"}
           </Text>
         </Pressable>
+        {formError ? (
+          <Text className="text-danger text-xs font-outfit mb-4">
+            {formError}
+          </Text>
+        ) : null}
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );

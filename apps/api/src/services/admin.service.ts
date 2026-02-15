@@ -1,0 +1,978 @@
+import { and, desc, eq, gte, inArray, lte, or, sql, ne } from "drizzle-orm";
+
+import { db } from "../db";
+import {
+  adminSettingsTable,
+  athleteTable,
+  onboardingConfigTable,
+  availabilityBlockTable,
+  bookingTable,
+  contentTable,
+  enrollmentTable,
+  exerciseTable,
+  guardianTable,
+  messageTable,
+  physioRefferalsTable,
+  programTable,
+  serviceTypeTable,
+  sessionExerciseTable,
+  sessionTable,
+  userTable,
+  ProgramType,
+  videoUploadTable,
+} from "../db/schema";
+import { ensureAthleteUserRecord } from "./onboarding.service";
+import { getAdminCoachIds, sendMessage } from "./message.service";
+import { attachDirectMessageReactions } from "./reaction.service";
+
+const defaultOnboardingConfig = {
+  version: 1,
+  fields: [
+    { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
+    { id: "age", label: "Age", type: "number", required: true, visible: true },
+    {
+      id: "team",
+      label: "Team",
+      type: "dropdown",
+      required: true,
+      visible: true,
+      options: ["Team A", "Team B"],
+    },
+    {
+      id: "level",
+      label: "Level",
+      type: "dropdown",
+      required: true,
+      visible: true,
+      options: ["U12", "U14", "U16", "U18"],
+      optionsByTeam: {
+        "Team A": ["U12", "U14"],
+        "Team B": ["U16", "U18"],
+      },
+    },
+    { id: "trainingPerWeek", label: "Training Days / Week", type: "number", required: true, visible: true },
+    { id: "injuries", label: "Injuries / History", type: "text", required: true, visible: true },
+    { id: "growthNotes", label: "Growth Notes", type: "text", required: false, visible: true },
+    { id: "performanceGoals", label: "Performance Goals", type: "text", required: true, visible: true },
+    { id: "equipmentAccess", label: "Equipment Access", type: "text", required: true, visible: true },
+    { id: "parentEmail", label: "Guardian Email", type: "text", required: true, visible: true },
+    { id: "parentPhone", label: "Guardian Phone", type: "text", required: false, visible: true },
+    {
+      id: "relationToAthlete",
+      label: "Relation to Athlete",
+      type: "dropdown",
+      required: true,
+      visible: true,
+      options: ["Parent", "Guardian", "Coach"],
+    },
+    {
+      id: "desiredProgramType",
+      label: "Program Tier Selection",
+      type: "dropdown",
+      required: true,
+      visible: true,
+      options: ["PHP", "PHP_Plus", "PHP_Premium"],
+    },
+  ],
+  requiredDocuments: [
+    { id: "consent", label: "Guardian Consent Form", required: true },
+  ],
+  welcomeMessage: "Welcome to PH Performance. Let's get your athlete set up.",
+  coachMessage: "Need help? Your coach is ready to support you.",
+  defaultProgramTier: "PHP" as (typeof ProgramType.enumValues)[number],
+  approvalWorkflow: "manual",
+  notes: "",
+};
+
+async function ensureOnboardingConfigTable() {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "onboarding_configs" (
+      "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+      "version" integer DEFAULT 1 NOT NULL,
+      "fields" jsonb NOT NULL,
+      "requiredDocuments" jsonb NOT NULL,
+      "welcomeMessage" varchar(500),
+      "coachMessage" varchar(500),
+      "defaultProgramTier" program_type NOT NULL DEFAULT 'PHP',
+      "approvalWorkflow" varchar(50) NOT NULL DEFAULT 'manual',
+      "notes" varchar(1000),
+      "createdBy" integer REFERENCES "users"("id"),
+      "updatedBy" integer REFERENCES "users"("id"),
+      "createdAt" timestamp DEFAULT now() NOT NULL,
+      "updatedAt" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+  await db.execute(sql`
+    ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "extraResponses" jsonb
+  `);
+}
+
+async function getOrCreateAdminSettings(userId: number) {
+  const existing = await db
+    .select()
+    .from(adminSettingsTable)
+    .where(eq(adminSettingsTable.userId, userId))
+    .limit(1);
+
+  if (existing[0]) return existing[0];
+
+  const created = await db
+    .insert(adminSettingsTable)
+    .values({ userId })
+    .returning();
+
+  return created[0];
+}
+
+export async function getAdminProfile(userId: number) {
+  const users = await db.select().from(userTable).where(eq(userTable.id, userId)).limit(1);
+  const user = users[0];
+  if (!user) return null;
+  const settings = await getOrCreateAdminSettings(userId);
+  return { user, settings };
+}
+
+export async function updateAdminProfile(
+  userId: number,
+  input: {
+    name: string;
+    email: string;
+    profilePicture?: string | null;
+    title?: string | null;
+    bio?: string | null;
+  }
+) {
+  await db
+    .update(userTable)
+    .set({
+      name: input.name,
+      email: input.email,
+      profilePicture: input.profilePicture ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, userId));
+
+  const existing = await getOrCreateAdminSettings(userId);
+
+  await db
+    .update(adminSettingsTable)
+    .set({
+      title: input.title ?? existing.title ?? null,
+      bio: input.bio ?? existing.bio ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(adminSettingsTable.id, existing.id));
+
+  return getAdminProfile(userId);
+}
+
+export async function updateAdminPreferences(
+  userId: number,
+  input: {
+    timezone: string;
+    notificationSummary: string;
+    workStartHour: number;
+    workStartMinute: number;
+    workEndHour: number;
+    workEndMinute: number;
+  }
+) {
+  const existing = await getOrCreateAdminSettings(userId);
+
+  await db
+    .update(adminSettingsTable)
+    .set({
+      timezone: input.timezone,
+      notificationSummary: input.notificationSummary,
+      workStartHour: input.workStartHour,
+      workStartMinute: input.workStartMinute,
+      workEndHour: input.workEndHour,
+      workEndMinute: input.workEndMinute,
+      updatedAt: new Date(),
+    })
+    .where(eq(adminSettingsTable.id, existing.id));
+
+  return getAdminProfile(userId);
+}
+
+export async function getOnboardingConfig() {
+  try {
+    const configs = await db.select().from(onboardingConfigTable).limit(1);
+    if (configs[0]) return configs[0];
+  } catch (error: any) {
+    await ensureOnboardingConfigTable();
+  }
+
+  const created = await db
+    .insert(onboardingConfigTable)
+    .values({
+      version: defaultOnboardingConfig.version,
+      fields: defaultOnboardingConfig.fields,
+      requiredDocuments: defaultOnboardingConfig.requiredDocuments,
+      welcomeMessage: defaultOnboardingConfig.welcomeMessage,
+      coachMessage: defaultOnboardingConfig.coachMessage,
+      defaultProgramTier: defaultOnboardingConfig.defaultProgramTier,
+      approvalWorkflow: defaultOnboardingConfig.approvalWorkflow,
+      notes: defaultOnboardingConfig.notes,
+    } as any)
+    .returning();
+
+  return created[0];
+}
+
+export async function updateOnboardingConfig(
+  userId: number,
+  input: {
+    version: number;
+    fields: any;
+    requiredDocuments: any;
+    welcomeMessage?: string | null;
+    coachMessage?: string | null;
+    defaultProgramTier: (typeof ProgramType.enumValues)[number];
+    approvalWorkflow: string;
+    notes?: string | null;
+  }
+) {
+  await ensureOnboardingConfigTable();
+  const existing = await db.select().from(onboardingConfigTable).limit(1);
+  if (existing[0]) {
+    const updated = await db
+      .update(onboardingConfigTable)
+      .set({
+        version: input.version,
+        fields: input.fields,
+        requiredDocuments: input.requiredDocuments,
+        welcomeMessage: input.welcomeMessage ?? null,
+        coachMessage: input.coachMessage ?? null,
+        defaultProgramTier: input.defaultProgramTier,
+        approvalWorkflow: input.approvalWorkflow,
+        notes: input.notes ?? null,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(onboardingConfigTable.id, existing[0].id))
+      .returning();
+    return updated[0];
+  }
+
+  const created = await db
+    .insert(onboardingConfigTable)
+    .values({
+      version: input.version,
+      fields: input.fields,
+      requiredDocuments: input.requiredDocuments,
+      welcomeMessage: input.welcomeMessage ?? null,
+      coachMessage: input.coachMessage ?? null,
+      defaultProgramTier: input.defaultProgramTier,
+      approvalWorkflow: input.approvalWorkflow,
+      notes: input.notes ?? null,
+      createdBy: userId,
+      updatedBy: userId,
+    })
+    .returning();
+
+  return created[0];
+}
+
+export async function listUsers() {
+  const staleAthletes = await db
+    .select({ athlete: athleteTable, role: userTable.role })
+    .from(athleteTable)
+    .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
+    // Avoid enum comparison issues by comparing text
+    .where(sql`${userTable.role}::text <> 'athlete'`);
+  for (const row of staleAthletes) {
+    if (row.athlete) {
+      await ensureAthleteUserRecord(row.athlete);
+    }
+  }
+
+  return db
+    .select({
+      id: userTable.id,
+      cognitoSub: userTable.cognitoSub,
+      name: userTable.name,
+      email: userTable.email,
+      role: userTable.role,
+      profilePicture: userTable.profilePicture,
+      isBlocked: userTable.isBlocked,
+      createdAt: userTable.createdAt,
+      updatedAt: userTable.updatedAt,
+      athleteId: athleteTable.id,
+      athleteName: athleteTable.name,
+      programTier: athleteTable.currentProgramTier,
+      onboardingCompleted: athleteTable.onboardingCompleted,
+    })
+    .from(userTable)
+    .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
+    .where(eq(userTable.isDeleted, false));
+}
+
+export async function setUserBlocked(userId: number, blocked: boolean) {
+  const result = await db
+    .update(userTable)
+    .set({ isBlocked: blocked, updatedAt: new Date() })
+    .where(eq(userTable.id, userId))
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function softDeleteUser(userId: number) {
+  const result = await db
+    .update(userTable)
+    .set({ isDeleted: true, updatedAt: new Date() })
+    .where(eq(userTable.id, userId))
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function getUserOnboarding(userId: number) {
+  const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
+  const guardian = guardians[0] ?? null;
+  if (!guardian) {
+    return { guardian: null, athlete: null };
+  }
+  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1);
+  return { guardian, athlete: athletes[0] ?? null };
+}
+
+export async function updateAthleteProgramTier(athleteId: number, tier: (typeof ProgramType.enumValues)[number]) {
+  const result = await db
+    .update(athleteTable)
+    .set({ currentProgramTier: tier })
+    .where(eq(athleteTable.id, athleteId))
+    .returning();
+
+  return result[0] ?? null;
+}
+
+export async function assignEnrollment(input: {
+  athleteId: number;
+  programType: (typeof ProgramType.enumValues)[number];
+  programTemplateId?: number | null;
+  assignedByCoach: number;
+}) {
+  const result = await db
+    .insert(enrollmentTable)
+    .values({
+      athleteId: input.athleteId,
+      programType: input.programType,
+      status: "active",
+      programTemplateId: input.programTemplateId ?? null,
+      assignedByCoach: input.assignedByCoach,
+    })
+    .returning();
+
+  return result[0];
+}
+
+export async function createProgramTemplate(input: {
+  name: string;
+  type: (typeof ProgramType.enumValues)[number];
+  description?: string | null;
+  createdBy: number;
+}) {
+  const result = await db
+    .insert(programTable)
+    .values({
+      name: input.name,
+      type: input.type,
+      description: input.description ?? null,
+      isTemplate: true,
+      createdBy: input.createdBy,
+    })
+    .returning();
+
+  return result[0];
+}
+
+export async function createExercise(input: {
+  name: string;
+  category?: string | null;
+  cues?: string | null;
+  howTo?: string | null;
+  progression?: string | null;
+  regression?: string | null;
+  sets?: number | null;
+  reps?: number | null;
+  duration?: number | null;
+  restSeconds?: number | null;
+  notes?: string | null;
+  videoUrl?: string | null;
+}) {
+  const result = await db
+    .insert(exerciseTable)
+    .values({
+      name: input.name,
+      category: input.category ?? null,
+      cues: input.cues ?? null,
+      howTo: input.howTo ?? null,
+      progression: input.progression ?? null,
+      regression: input.regression ?? null,
+      sets: input.sets ?? null,
+      reps: input.reps ?? null,
+      duration: input.duration ?? null,
+      restSeconds: input.restSeconds ?? null,
+      notes: input.notes ?? null,
+      videoUrl: input.videoUrl ?? null,
+    })
+    .returning();
+
+  return result[0];
+}
+
+export async function listExercises() {
+  return db
+    .select()
+    .from(exerciseTable)
+    .orderBy(desc(exerciseTable.createdAt));
+}
+
+export async function updateExercise(
+  exerciseId: number,
+  input: {
+    name?: string;
+    category?: string | null;
+    cues?: string | null;
+    howTo?: string | null;
+    progression?: string | null;
+    regression?: string | null;
+    sets?: number | null;
+    reps?: number | null;
+    duration?: number | null;
+    restSeconds?: number | null;
+    notes?: string | null;
+    videoUrl?: string | null;
+  }
+) {
+  const updatePayload: Record<string, any> = {
+    updatedAt: new Date(),
+  };
+
+  if (input.name !== undefined) updatePayload.name = input.name;
+  if (input.category !== undefined) updatePayload.category = input.category;
+  if (input.cues !== undefined) updatePayload.cues = input.cues;
+  if (input.howTo !== undefined) updatePayload.howTo = input.howTo;
+  if (input.progression !== undefined) updatePayload.progression = input.progression;
+  if (input.regression !== undefined) updatePayload.regression = input.regression;
+  if (input.sets !== undefined) updatePayload.sets = input.sets;
+  if (input.reps !== undefined) updatePayload.reps = input.reps;
+  if (input.duration !== undefined) updatePayload.duration = input.duration;
+  if (input.restSeconds !== undefined) updatePayload.restSeconds = input.restSeconds;
+  if (input.notes !== undefined) updatePayload.notes = input.notes;
+  if (input.videoUrl !== undefined) updatePayload.videoUrl = input.videoUrl;
+
+  const updated = await db
+    .update(exerciseTable)
+    .set(updatePayload)
+    .where(eq(exerciseTable.id, exerciseId))
+    .returning();
+
+  return updated[0] ?? null;
+}
+
+export async function deleteExercise(exerciseId: number) {
+  const deleted = await db
+    .delete(exerciseTable)
+    .where(eq(exerciseTable.id, exerciseId))
+    .returning();
+
+  return deleted[0] ?? null;
+}
+
+export async function createSession(input: {
+  programId: number;
+  weekNumber: number;
+  sessionNumber: number;
+  type: string;
+}) {
+  const result = await db
+    .insert(sessionTable)
+    .values({
+      programId: input.programId,
+      weekNumber: input.weekNumber,
+      sessionNumber: input.sessionNumber,
+      type: input.type as any,
+    })
+    .returning();
+
+  return result[0];
+}
+
+export async function addExerciseToSession(input: {
+  sessionId: number;
+  exerciseId: number;
+  order: number;
+  coachingNotes?: string | null;
+  progressionNotes?: string | null;
+  regressionNotes?: string | null;
+}) {
+  const result = await db
+    .insert(sessionExerciseTable)
+    .values({
+      sessionId: input.sessionId,
+      exerciseId: input.exerciseId,
+      order: input.order,
+      coachingNotes: input.coachingNotes ?? null,
+      progressionNotes: input.progressionNotes ?? null,
+      regressionNotes: input.regressionNotes ?? null,
+    })
+    .returning();
+
+  return result[0];
+}
+
+export async function listBookingsAdmin() {
+  const rows = await db
+    .select({
+      id: bookingTable.id,
+      startsAt: bookingTable.startsAt,
+      endTime: bookingTable.endTime,
+      type: bookingTable.type,
+      status: bookingTable.status,
+      location: bookingTable.location,
+      meetingLink: bookingTable.meetingLink,
+      serviceName: serviceTypeTable.name,
+      athleteName: athleteTable.name,
+    })
+    .from(bookingTable)
+    .leftJoin(serviceTypeTable, eq(bookingTable.serviceTypeId, serviceTypeTable.id))
+    .leftJoin(athleteTable, eq(bookingTable.athleteId, athleteTable.id));
+
+  return rows;
+}
+
+export async function listAvailabilityAdmin() {
+  return db
+    .select({
+      id: availabilityBlockTable.id,
+      startsAt: availabilityBlockTable.startsAt,
+      endsAt: availabilityBlockTable.endsAt,
+      createdAt: availabilityBlockTable.createdAt,
+      serviceName: serviceTypeTable.name,
+    })
+    .from(availabilityBlockTable)
+    .leftJoin(serviceTypeTable, eq(availabilityBlockTable.serviceTypeId, serviceTypeTable.id))
+    .orderBy(desc(availabilityBlockTable.startsAt))
+    .limit(20);
+}
+
+export async function listVideoUploadsAdmin() {
+  return db
+    .select({
+      id: videoUploadTable.id,
+      athleteName: athleteTable.name,
+      videoUrl: videoUploadTable.videoUrl,
+      notes: videoUploadTable.notes,
+      feedback: videoUploadTable.feedback,
+      reviewedAt: videoUploadTable.reviewedAt,
+      createdAt: videoUploadTable.createdAt,
+    })
+    .from(videoUploadTable)
+    .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))
+    .orderBy(desc(videoUploadTable.createdAt));
+}
+
+export async function listMessageThreadsAdmin(coachId: number) {
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return [];
+  if (!adminIds.includes(coachId)) return [];
+  const adminSet = new Set(adminIds);
+  const messages = await db
+    .select()
+    .from(messageTable)
+    .where(or(eq(messageTable.senderId, coachId), eq(messageTable.receiverId, coachId)));
+
+  const threads = new Map<number, { lastMessage: typeof messages[number]; unread: number }>();
+  for (const msg of messages) {
+    if (adminSet.has(msg.senderId) && adminSet.has(msg.receiverId)) {
+      continue;
+    }
+    const otherId = adminSet.has(msg.senderId) ? msg.receiverId : msg.senderId;
+    const current = threads.get(otherId);
+    const isUnread = msg.receiverId === coachId && !msg.read;
+    if (!current || new Date(msg.createdAt) > new Date(current.lastMessage.createdAt)) {
+      threads.set(otherId, { lastMessage: msg, unread: (current?.unread ?? 0) + (isUnread ? 1 : 0) });
+    } else if (isUnread) {
+      current.unread += 1;
+    }
+  }
+
+  const userIds = Array.from(threads.keys());
+  const users = userIds.length
+    ? await db.select().from(userTable).where(inArray(userTable.id, userIds))
+    : [];
+
+  return userIds.map((id) => {
+    const info = threads.get(id)!;
+    const user = users.find((u) => u.id === id);
+    return {
+      userId: id,
+      name: user?.name ?? user?.email ?? "Unknown",
+      preview: info.lastMessage.content,
+      time: info.lastMessage.createdAt,
+      unread: info.unread,
+    };
+  });
+}
+
+export async function listThreadMessagesAdmin(coachId: number, userId: number) {
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return [];
+  if (!adminIds.includes(coachId)) return [];
+  const messages = await db
+    .select()
+    .from(messageTable)
+    .where(
+      or(
+        and(inArray(messageTable.senderId, adminIds), eq(messageTable.receiverId, userId)),
+        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, adminIds))
+      )
+    )
+    .orderBy(messageTable.createdAt);
+  return attachDirectMessageReactions(messages);
+}
+
+export async function markThreadReadAdmin(coachId: number, userId: number) {
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return 0;
+  if (!adminIds.includes(coachId)) return 0;
+
+  const result = await db
+    .update(messageTable)
+    .set({ read: true })
+    .where(and(eq(messageTable.receiverId, coachId), eq(messageTable.senderId, userId), eq(messageTable.read, false)));
+
+  return result.rowCount ?? 0;
+}
+
+export async function sendMessageAdmin(input: {
+  coachId: number;
+  userId: number;
+  content: string;
+}) {
+  return sendMessage({
+    senderId: input.coachId,
+    receiverId: input.userId,
+    content: input.content,
+    contentType: "text",
+  });
+}
+
+export async function getDashboardMetrics(coachId: number) {
+  const now = new Date();
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
+  const endToday = new Date(now);
+  endToday.setHours(23, 59, 59, 999);
+
+  const startWeek = new Date(now);
+  startWeek.setDate(startWeek.getDate() - 6);
+  startWeek.setHours(0, 0, 0, 0);
+
+  const startMonth = new Date(now);
+  startMonth.setDate(startMonth.getDate() - 29);
+  startMonth.setHours(0, 0, 0, 0);
+
+  const [athleteCountRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(athleteTable);
+  const totalAthletes = Number(athleteCountRow?.count ?? 0);
+
+  const [premiumCountRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(athleteTable)
+    .where(eq(athleteTable.currentProgramTier, "PHP_Premium"));
+  const premiumClients = Number(premiumCountRow?.count ?? 0);
+
+  const [unreadCountRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(messageTable)
+    .where(and(eq(messageTable.receiverId, coachId), eq(messageTable.read, false)));
+  const unreadMessages = Number(unreadCountRow?.count ?? 0);
+
+  const [bookingsTodayRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(bookingTable)
+    .where(and(gte(bookingTable.startsAt, startToday), lte(bookingTable.startsAt, endToday)));
+  const bookingsToday = Number(bookingsTodayRow?.count ?? 0);
+
+  const bookingsTodayList = await db
+    .select({
+      id: bookingTable.id,
+      startsAt: bookingTable.startsAt,
+      type: bookingTable.type,
+      serviceName: serviceTypeTable.name,
+      athleteName: athleteTable.name,
+    })
+    .from(bookingTable)
+    .leftJoin(serviceTypeTable, eq(bookingTable.serviceTypeId, serviceTypeTable.id))
+    .leftJoin(athleteTable, eq(bookingTable.athleteId, athleteTable.id))
+    .where(and(gte(bookingTable.startsAt, startToday), lte(bookingTable.startsAt, endToday)))
+    .orderBy(bookingTable.startsAt);
+
+  const unreadMessagesList = await db
+    .select({
+      id: messageTable.id,
+      createdAt: messageTable.createdAt,
+      senderName: userTable.name,
+      content: messageTable.content,
+    })
+    .from(messageTable)
+    .leftJoin(userTable, eq(messageTable.senderId, userTable.id))
+    .where(and(eq(messageTable.receiverId, coachId), eq(messageTable.read, false)))
+    .orderBy(desc(messageTable.createdAt))
+    .limit(2);
+
+  const pendingOnboardings = await db
+    .select({
+      id: athleteTable.id,
+      name: athleteTable.name,
+      createdAt: athleteTable.createdAt,
+    })
+    .from(athleteTable)
+    .where(eq(athleteTable.onboardingCompleted, false))
+    .orderBy(desc(athleteTable.createdAt))
+    .limit(2);
+
+  const pendingVideos = await db
+    .select({
+      id: videoUploadTable.id,
+      athleteName: athleteTable.name,
+      createdAt: videoUploadTable.createdAt,
+      notes: videoUploadTable.notes,
+    })
+    .from(videoUploadTable)
+    .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))
+    .where(sql`${videoUploadTable.reviewedAt} is null`)
+    .orderBy(desc(videoUploadTable.createdAt))
+    .limit(2);
+
+  const priorityQueue = [
+    ...pendingVideos.map((item) => ({
+      title: "Video Review",
+      detail: `${item.athleteName ?? "Athlete"} • ${item.notes ?? "Feedback pending"}`,
+      status: "Priority Feedback",
+    })),
+    ...pendingOnboardings.map((item) => ({
+      title: "Onboarding Review",
+      detail: `${item.name ?? "Athlete"} • Application submitted`,
+      status: "Assign Program",
+    })),
+    ...unreadMessagesList.map((item) => ({
+      title: "Priority Message",
+      detail: `${item.senderName ?? "Athlete"} • ${item.content.slice(0, 32)}`,
+      status: "Reply Needed",
+    })),
+  ].slice(0, 6);
+
+  const topByBookings = await db
+    .select({
+      athleteId: bookingTable.athleteId,
+      count: sql<number>`count(*)`,
+    })
+    .from(bookingTable)
+    .where(gte(bookingTable.startsAt, startMonth))
+    .groupBy(bookingTable.athleteId)
+    .orderBy(desc(sql`count(*)`))
+    .limit(4);
+
+  const topAthleteIds = topByBookings.map((row) => row.athleteId);
+  const topAthletesRaw = topAthleteIds.length
+    ? await db.select().from(athleteTable).where(inArray(athleteTable.id, topAthleteIds))
+    : await db.select().from(athleteTable).orderBy(desc(athleteTable.createdAt)).limit(4);
+
+  const topAthletes = topAthleteIds.length
+    ? topByBookings.map((row) => {
+        const athlete = topAthletesRaw.find((item) => item.id === row.athleteId);
+        return {
+          name: athlete?.name ?? "Athlete",
+          tier: athlete?.currentProgramTier ?? "PHP",
+          score: `${row.count} sessions last 30d`,
+        };
+      })
+    : topAthletesRaw.map((athlete) => ({
+        name: athlete.name,
+        tier: athlete.currentProgramTier ?? "PHP",
+        score: "New athlete",
+      }));
+
+  const tierRows = await db
+    .select({
+      tier: athleteTable.currentProgramTier,
+      count: sql<number>`count(*)`,
+    })
+    .from(athleteTable)
+    .groupBy(athleteTable.currentProgramTier);
+
+  const tierCounts = { PHP: 0, PHP_Plus: 0, PHP_Premium: 0 };
+  for (const row of tierRows) {
+    const key = row.tier ?? "PHP";
+    tierCounts[key as keyof typeof tierCounts] += Number(row.count ?? 0);
+  }
+
+  const messagesWeek = await db
+    .select({
+      createdAt: messageTable.createdAt,
+      senderId: messageTable.senderId,
+    })
+    .from(messageTable)
+    .where(gte(messageTable.createdAt, startWeek));
+
+  const bookingsWeek = await db
+    .select({ startsAt: bookingTable.startsAt })
+    .from(bookingTable)
+    .where(gte(bookingTable.startsAt, startWeek));
+
+  const uploadsWeek = await db
+    .select({ createdAt: videoUploadTable.createdAt })
+    .from(videoUploadTable)
+    .where(gte(videoUploadTable.createdAt, startWeek));
+
+  const availabilityWeek = await db
+    .select({ createdAt: availabilityBlockTable.createdAt })
+    .from(availabilityBlockTable)
+    .where(gte(availabilityBlockTable.createdAt, startWeek));
+
+  const contentWeek = await db
+    .select({ createdAt: contentTable.createdAt })
+    .from(contentTable)
+    .where(gte(contentTable.createdAt, startWeek));
+
+  const referralsWeek = await db
+    .select({ createdAt: physioRefferalsTable.createdAt })
+    .from(physioRefferalsTable)
+    .where(gte(physioRefferalsTable.createdAt, startWeek));
+
+  const onboardingsWeek = await db
+    .select({ completedAt: athleteTable.onboardingCompletedAt })
+    .from(athleteTable)
+    .where(gte(athleteTable.onboardingCompletedAt, startWeek));
+
+  const dayKeys = Array.from({ length: 7 }).map((_, idx) => {
+    const day = new Date(startWeek);
+    day.setDate(startWeek.getDate() + idx);
+    return day.toISOString().slice(0, 10);
+  });
+
+  const bucket = (value?: Date | null) => (value ? value.toISOString().slice(0, 10) : null);
+  const sumByDay = (values: (Date | null | undefined)[]) => {
+    const counts = dayKeys.reduce<Record<string, number>>((acc, key) => {
+      acc[key] = 0;
+      return acc;
+    }, {});
+    for (const value of values) {
+      const key = bucket(value);
+      if (key && key in counts) counts[key] += 1;
+    }
+    return dayKeys.map((key) => counts[key]);
+  };
+
+  const messageCounts = sumByDay(messagesWeek.map((item) => item.createdAt));
+  const bookingCounts = sumByDay(bookingsWeek.map((item) => item.startsAt));
+  const uploadCounts = sumByDay(uploadsWeek.map((item) => item.createdAt));
+  const availabilityCounts = sumByDay(availabilityWeek.map((item) => item.createdAt));
+
+  const weeklyTotals = {
+    messages: messageCounts.reduce((sum, value) => sum + value, 0),
+    bookings: bookingCounts.reduce((sum, value) => sum + value, 0),
+    uploads: uploadCounts.reduce((sum, value) => sum + value, 0),
+  };
+
+  const messageCoachCount = messagesWeek.filter((msg) => msg.senderId === coachId).length;
+  const messagingResponseRate = weeklyTotals.messages
+    ? Math.min(100, Math.round((messageCoachCount / weeklyTotals.messages) * 100))
+    : 0;
+  const trainingLoad = totalAthletes
+    ? Math.min(100, Math.round((weeklyTotals.bookings / totalAthletes) * 100))
+    : 0;
+  const availabilityTotal = availabilityCounts.reduce((sum, value) => sum + value, 0);
+  const bookingsUtilization = availabilityTotal
+    ? Math.min(100, Math.round((weeklyTotals.bookings / availabilityTotal) * 100))
+    : 0;
+
+  const weeklyProgress = dayKeys.map((_, index) => {
+    return messageCounts[index] + bookingCounts[index] + uploadCounts[index];
+  });
+
+  const labels = dayKeys.map((key) => {
+    const date = new Date(key);
+    return date.toLocaleDateString("en-US", { weekday: "short" });
+  });
+
+  const programOps = [
+    {
+      title: "Program Templates",
+      detail: `${(await db.select({ count: sql<number>`count(*)` }).from(programTable))[0]?.count ?? 0} total templates`,
+    },
+    {
+      title: "Premium Plan Drafts",
+      detail: `${premiumClients} premium athletes assigned`,
+    },
+    {
+      title: "Exercise Library",
+      detail: `${(await db.select({ count: sql<number>`count(*)` }).from(exerciseTable))[0]?.count ?? 0} exercises in library`,
+    },
+  ];
+
+  const highlights = [
+    {
+      label: "New Onboardings",
+      value: onboardingsWeek.length,
+      detail: `${pendingOnboardings.length} pending review`,
+    },
+    {
+      label: "Videos Uploaded",
+      value: uploadsWeek.length,
+      detail: `${pendingVideos.length} pending feedback`,
+    },
+    {
+      label: "Content Updates",
+      value: contentWeek.length,
+      detail: `${contentWeek.length} published this week`,
+    },
+    {
+      label: "Physio Referrals",
+      value: referralsWeek.length,
+      detail: `${referralsWeek.length} issued this week`,
+    },
+  ];
+
+  return {
+    kpis: {
+      totalAthletes,
+      premiumClients,
+      unreadMessages,
+      bookingsToday,
+    },
+    bookingsToday: bookingsTodayList,
+    priorityQueue,
+    topAthletes,
+    tierDistribution: {
+      program: tierCounts.PHP,
+      plus: tierCounts.PHP_Plus,
+      premium: tierCounts.PHP_Premium,
+      total: tierCounts.PHP + tierCounts.PHP_Plus + tierCounts.PHP_Premium,
+    },
+    weeklyVolume: {
+      totals: weeklyTotals,
+      bars: weeklyProgress,
+      labels,
+    },
+    weeklyProgress: {
+      series: weeklyProgress,
+      labels,
+    },
+    trends: {
+      trainingLoad,
+      messagingResponseRate,
+      bookingsUtilization,
+      trainingSeries: bookingCounts,
+      messagingSeries: messageCounts,
+      bookingSeries: bookingCounts,
+    },
+    highlights,
+    programOps,
+    priorityMessageCount: unreadMessages,
+  };
+}

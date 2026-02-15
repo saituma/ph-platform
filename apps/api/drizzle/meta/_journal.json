@@ -1,0 +1,104 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1770794563498,
+      "tag": "0000_yellow_sphinx",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770945000000,
+      "tag": "0001_admin_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770955000000,
+      "tag": "0002_user_block_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770965000000,
+      "tag": "0003_local_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1770985000000,
+      "tag": "0004_onboarding_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770995000000,
+      "tag": "0005_chat_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771005000000,
+      "tag": "0006_add_athlete_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771015000000,
+      "tag": "0007_split_guardian_athlete_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771025000000,
+      "tag": "0008_parent_courses",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771035000000,
+      "tag": "0009_parent_courses_cover_image_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771045000000,
+      "tag": "0010_subscription_plans_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1771083317132,
+      "tag": "0011_outstanding_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1771092600000,
+      "tag": "0012_subscription_plan_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1771109000000,
+      "tag": "0013_add_exercise_category",
+      "breakpoints": true
+    }
+  ]
+}

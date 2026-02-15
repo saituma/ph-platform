@@ -191,8 +191,8 @@ export function LineChart({ values, className, labels }: LineChartProps) {
       </svg>
       {labels ? (
         <div className="flex justify-between text-xs text-muted-foreground">
-          {labels.map((label) => (
-            <span key={label}>{label}</span>
+          {labels.map((label, index) => (
+            <span key={`${label}-${index}`}>{label}</span>
           ))}
         </div>
       ) : null}

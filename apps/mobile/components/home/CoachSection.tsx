@@ -15,14 +15,14 @@ export function CoachSection() {
               Head Coach
             </Text>
             <Text className="text-2xl font-bold font-clash text-app leading-tight">
-              Meet Coach Oliver
+              Meet Coach Mike Green
             </Text>
           </View>
         </View>
 
         <Text className="text-secondary font-outfit text-sm leading-relaxed mb-6">
           With over 12 years of experience in elite youth football development,
-          Coach Oliver founded{" "}
+          Coach Mike Green founded{" "}
           <Text className="text-app font-bold">Lift Lab / PHP</Text> to bridge
           the gap between raw talent and professional performance. His
           philosophy combines rigorous physical conditioning with mental

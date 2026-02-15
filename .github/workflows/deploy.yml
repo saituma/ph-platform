@@ -1,0 +1,98 @@
+name: Deploy API
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - env: staging
+            branch: staging
+          - env: prod
+            branch: main
+    if: github.ref == format('refs/heads/{0}', matrix.branch)
+    environment: ${{ matrix.env }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test API
+        run: pnpm --filter api test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          ECR_REPO: ${{ secrets.ECR_REPO }}
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          docker build -t $ECR_REPO:$IMAGE_TAG -f apps/api/Dockerfile .
+          docker tag $ECR_REPO:$IMAGE_TAG $ECR_REPO:latest
+          docker push $ECR_REPO:$IMAGE_TAG
+          docker push $ECR_REPO:latest
+
+      - name: Run migrations
+        env:
+          CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          TASK_DEF: ${{ secrets.ECS_MIGRATE_TASK_DEF }}
+          SUBNETS: ${{ secrets.ECS_SUBNETS }}
+          SECURITY_GROUP: ${{ secrets.ECS_SECURITY_GROUP }}
+        run: |
+          aws ecs run-task \
+            --cluster $CLUSTER \
+            --task-definition $TASK_DEF \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUP],assignPublicIp=DISABLED}"
+
+      - name: Deploy service
+        env:
+          CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          SERVICE: ${{ secrets.ECS_SERVICE }}
+        run: |
+          aws ecs update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment
+
+      - name: Build and push web image
+        env:
+          ECR_WEB_REPO: ${{ secrets.ECR_WEB_REPO }}
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          docker build -t $ECR_WEB_REPO:$IMAGE_TAG -f apps/web/Dockerfile .
+          docker tag $ECR_WEB_REPO:$IMAGE_TAG $ECR_WEB_REPO:latest
+          docker push $ECR_WEB_REPO:$IMAGE_TAG
+          docker push $ECR_WEB_REPO:latest
+
+      - name: Deploy web service
+        env:
+          CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          WEB_SERVICE: ${{ secrets.ECS_WEB_SERVICE }}
+        run: |
+          aws ecs update-service --cluster $CLUSTER --service $WEB_SERVICE --force-new-deployment

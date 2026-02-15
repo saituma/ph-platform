@@ -105,7 +105,7 @@ export function GuardianDashboard() {
                 <Feather name="user" size={16} className="text-secondary" />
               </View>
               <Text className="text-sm text-app font-medium font-outfit">
-                John Doe attending with Coach Oliver
+                John Doe attending with Coach Mike Green
               </Text>
             </View>
           </View>

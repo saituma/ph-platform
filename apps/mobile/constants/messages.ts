@@ -18,6 +18,9 @@ export type ChatMessage = {
   text: string;
   time: string;
   status?: "sent" | "delivered" | "read";
+  authorName?: string;
+  clientId?: string;
+  reactions?: { emoji: string; count: number; userIds: number[] }[];
 };
 
 export const THREADS: Thread[] = [

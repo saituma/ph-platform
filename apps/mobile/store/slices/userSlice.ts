@@ -12,6 +12,9 @@ interface UserState {
   token: string | null;
   profile: UserProfile;
   isLoading: boolean;
+  hydrated: boolean;
+  onboardingCompleted: boolean | null;
+  athleteUserId: number | null;
 }
 
 const initialState: UserState = {
@@ -24,6 +27,9 @@ const initialState: UserState = {
     avatar: null,
   },
   isLoading: false,
+  hydrated: false,
+  onboardingCompleted: null,
+  athleteUserId: null,
 };
 
 const userSlice = createSlice({
@@ -41,18 +47,37 @@ const userSlice = createSlice({
     updateProfile: (state, action: PayloadAction<Partial<UserProfile>>) => {
       state.profile = { ...state.profile, ...action.payload };
     },
+    setOnboardingCompleted: (state, action: PayloadAction<boolean | null>) => {
+      state.onboardingCompleted = action.payload;
+    },
+    setAthleteUserId: (state, action: PayloadAction<number | null>) => {
+      state.athleteUserId = action.payload;
+    },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
+    },
+    setHydrated: (state, action: PayloadAction<boolean>) => {
+      state.hydrated = action.payload;
     },
     logout: (state) => {
       state.isAuthenticated = false;
       state.token = null;
       state.profile = initialState.profile;
+      state.onboardingCompleted = null;
+      state.athleteUserId = null;
     },
   },
 });
 
-export const { setCredentials, updateProfile, setLoading, logout } =
+export const {
+  setCredentials,
+  updateProfile,
+  setOnboardingCompleted,
+  setAthleteUserId,
+  setLoading,
+  setHydrated,
+  logout,
+} =
   userSlice.actions;
 
 export default userSlice.reducer;

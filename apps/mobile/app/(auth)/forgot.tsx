@@ -5,9 +5,12 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
+import { apiRequest } from "../../lib/api";
 
 export default function ForgotScreen() {
   const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
   const { colors } = useAppTheme();
 
@@ -60,13 +63,36 @@ export default function ForgotScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.push("/(auth)/reset-password")}
-          className="bg-accent h-14 rounded-xl items-center justify-center mb-8"
+          onPress={async () => {
+            setFormError(null);
+            setIsSubmitting(true);
+            try {
+              await apiRequest("/auth/forgot", {
+                method: "POST",
+                body: { email },
+              });
+              router.push({
+                pathname: "/(auth)/reset-password",
+                params: { email },
+              });
+            } catch (err: any) {
+              setFormError(err?.message ?? "Failed to send code");
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
+          disabled={isSubmitting}
         >
           <Text className="text-white font-bold text-lg font-outfit">
-            Send OTP
+            {isSubmitting ? "Sending..." : "Send OTP"}
           </Text>
         </Pressable>
+        {formError ? (
+          <Text className="text-danger text-xs font-outfit mb-4">
+            {formError}
+          </Text>
+        ) : null}
 
         <View className="flex-row justify-center items-center">
           <Text className="text-secondary text-base font-outfit">

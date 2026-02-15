@@ -5,14 +5,22 @@ import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRole } from "@/context/RoleContext";
-import React, { useMemo } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { apiRequest } from "@/lib/api";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { logout } from "@/store/slices/userSlice";
+import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const { role } = useRole();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const dispatch = useAppDispatch();
+  const { profile, token } = useAppSelector((state) => state.user);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [athleteName, setAthleteName] = useState<string | null>(null);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -20,6 +28,32 @@ export default function HomeScreen() {
     if (hour < 18) return "Good Afternoon";
     return "Good Evening";
   }, []);
+
+  const loadAthleteName = React.useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await apiRequest<{ athlete: { name?: string } | null }>("/onboarding", {
+        token,
+        suppressStatusCodes: [401],
+      });
+      setAthleteName(data.athlete?.name ?? null);
+    } catch (error: any) {
+      setAthleteName(null);
+      if (typeof error?.message === "string" && error.message.includes("401")) {
+        dispatch(logout());
+      }
+    }
+  }, [dispatch, token]);
+
+  useEffect(() => {
+    loadAthleteName();
+  }, [loadAthleteName]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadAthleteName();
+    }, [loadAthleteName])
+  );
 
   return (
     <ScrollView
@@ -30,6 +64,16 @@ export default function HomeScreen() {
         paddingHorizontal: 24,
       }}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => {
+            setIsRefreshing(true);
+            setTimeout(() => setIsRefreshing(false), 700);
+          }}
+          tintColor={colors.textSecondary}
+        />
+      }
     >
       {/* Hero */}
       <View className="mb-10">
@@ -70,7 +114,9 @@ export default function HomeScreen() {
               <Text className="font-clash text-4xl text-app leading-[1.05]">
                 {greeting},{"\n"}
                 <Text className="text-accent">
-                  {role === "Guardian" ? "Parent" : "Athlete"}
+                  {role === "Guardian"
+                    ? profile?.name || "Parent"
+                    : athleteName || "Athlete"}
                 </Text>
               </Text>
               <Text className="text-secondary font-outfit text-sm mt-3 max-w-[240px]">

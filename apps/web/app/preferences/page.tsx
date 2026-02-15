@@ -151,9 +151,6 @@ export default function PreferencesPage() {
           </CardContent>
         </Card>
       </div>
-      <div className="mt-8 text-center text-xs text-muted-foreground">
-        Made with care for Lift Lab. Powered by Client Reach AI.
-      </div>
     </AdminShell>
   );
 }

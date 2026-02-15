@@ -4,6 +4,7 @@ import { AdminSidebar, AdminSidebarContent } from "./sidebar";
 import { AdminTopbar } from "./topbar";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
+import { DialogTitle } from "../ui/dialog";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -31,11 +32,19 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent>
-                <AdminSidebarContent currentPath={pathname} />
+              <SheetContent className="w-72 border-r border-border bg-card p-0">
+                <DialogTitle className="sr-only">Navigation</DialogTitle>
+                <div className="h-full px-6 py-8">
+                  <AdminSidebarContent currentPath={pathname} />
+                </div>
               </SheetContent>
             </Sheet>
-            <div className="text-sm font-semibold text-foreground">PHP Admin</div>
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-[10px] font-bold text-primary-foreground">
+                PH
+              </div>
+              <span className="text-sm font-bold tracking-tight text-foreground uppercase">Performance</span>
+            </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
               <div className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-secondary text-xs font-semibold text-foreground">
@@ -63,9 +72,6 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
           />
           <main className="mx-auto w-full max-w-[1400px] space-y-8 px-6 py-8 lg:px-10">
             {children}
-            <div className="pt-4 text-center text-xs text-muted-foreground">
-              Made with care for Lift Lab. Powered by Client Reach AI.
-            </div>
           </main>
         </div>
       </div>

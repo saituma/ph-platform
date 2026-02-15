@@ -5,53 +5,53 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#4F46E5'; // Vibrant indigo
-const tintColorDark = '#818CF8'; // Lighter indigo for dark mode
+const tintColorLight = '#22c55e'; // Vibrant emerald green
+const tintColorDark = '#22c55e'; // Consistent emerald green
 
 export const Colors = {
   light: {
-    text: '#1E293B', // Softened from 0F172A
-    textSecondary: '#64748B',
-    background: '#FAFAFA', // Robi's Tip: Avoid pure #FFFFFF
-    backgroundSecondary: '#F1F5F9',
-    inputBackground: '#FFFFFF', // Inputs stand out on FAFAFA
-    border: '#E2E8F0',
+    text: '#052e16', // Dark forest green/black
+    textSecondary: '#4b5563',
+    background: '#ffffff', 
+    backgroundSecondary: '#f0fdf4', // Very light green tint
+    inputBackground: '#ffffff',
+    border: '#e5e7eb',
     tint: tintColorLight,
-    accent: '#4F46E5',
-    accentLight: '#EEF2FF',
-    success: '#0F9D78',
-    successSoft: '#E7F6F0',
-    warning: '#D97706',
-    warningSoft: '#FEF3C7',
-    danger: '#DC2626',
-    dangerSoft: '#FEE2E2',
-    icon: '#64748B',
-    tabIconDefault: '#94A3B8',
+    accent: '#22c55e',
+    accentLight: '#f0fdf4',
+    success: '#10b981',
+    successSoft: '#ecfdf5',
+    warning: '#f59e0b',
+    warningSoft: '#fffbeb',
+    danger: '#ef4444',
+    dangerSoft: '#fef2f2',
+    icon: '#6b7280',
+    tabIconDefault: '#9ca3af',
     tabIconSelected: tintColorLight,
-    themeToggleIcon: '#4F46E5',
-    placeholder: '#94A3B8',
+    themeToggleIcon: '#22c55e',
+    placeholder: '#9ca3af',
   },
   dark: {
-    text: '#F8FAFC', // Soft off-white
-    textSecondary: '#94A3B8',
-    background: '#0B1120', // Deep rich slate, almost black
-    backgroundSecondary: '#1E293B',
-    inputBackground: '#1E293B',
-    border: '#334155',
+    text: '#f8fafc',
+    textSecondary: '#94a3b8',
+    background: '#0a0a0b', // Deep black as requested
+    backgroundSecondary: '#111827',
+    inputBackground: '#111827',
+    border: '#1f2937',
     tint: tintColorDark,
-    accent: '#818CF8',
-    accentLight: '#312E81',
-    success: '#34D399',
-    successSoft: '#064E3B',
-    warning: '#FBBF24',
-    warningSoft: '#3F2A06',
-    danger: '#F87171',
-    dangerSoft: '#3F1212',
-    icon: '#94A3B8',
-    tabIconDefault: '#64748B',
+    accent: '#22c55e',
+    accentLight: '#064e3b',
+    success: '#10b981',
+    successSoft: '#064e3b',
+    warning: '#f59e0b',
+    warningSoft: '#451a03',
+    danger: '#ef4444',
+    dangerSoft: '#450a0a',
+    icon: '#94a3b8',
+    tabIconDefault: '#4b5563',
     tabIconSelected: tintColorDark,
-    themeToggleIcon: '#FCD34D',
-    placeholder: '#64748B',
+    themeToggleIcon: '#fde047',
+    placeholder: '#4b5563',
   },
 };
 

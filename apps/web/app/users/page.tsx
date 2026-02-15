@@ -10,46 +10,39 @@ import { UsersFilters } from "../../components/admin/users/users-filters";
 import { UsersTable } from "../../components/admin/users/users-table";
 import { UsersCards } from "../../components/admin/users/users-cards";
 import { OnboardingQueue } from "../../components/admin/users/onboarding-queue";
-import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
-
-const users = [
-  {
-    name: "Ava Patterson",
-    tier: "Premium",
-    status: "Active",
-    lastActive: "Today",
-    onboarding: "Complete",
-  },
-  {
-    name: "Jordan Miles",
-    tier: "Plus",
-    status: "Active",
-    lastActive: "Yesterday",
-    onboarding: "Complete",
-  },
-  {
-    name: "Liam Rivers",
-    tier: "Plus",
-    status: "Pending",
-    lastActive: "2 days ago",
-    onboarding: "Awaiting review",
-  },
-  {
-    name: "Maya Chen",
-    tier: "Program",
-    status: "Active",
-    lastActive: "3 days ago",
-    onboarding: "Complete",
-  },
-];
+import { useBlockUserMutation, useDeleteUserMutation, useGetUsersQuery } from "../../lib/apiSlice";
 
 export default function UsersPage() {
+  const { data: usersData, isLoading } = useGetUsersQuery();
+  const [blockUser] = useBlockUserMutation();
+  const [deleteUser] = useDeleteUserMutation();
+
+  const users = useMemo(() => {
+    const source = usersData?.users ?? [];
+    return source.map((user: any) => ({
+      id: user.id,
+      name: user.name ?? user.email,
+      email: user.email,
+      isBlocked: Boolean(user.isBlocked),
+      tier:
+        user.role === "admin" || user.role === "superAdmin"
+          ? "Admin"
+          : user.programTier === "PHP_Premium"
+            ? "Premium"
+            : user.programTier === "PHP_Plus"
+              ? "Plus"
+              : "Program",
+      status: user.isBlocked ? "Blocked" : "Active",
+      lastActive: "Recently",
+      onboarding: user.onboardingCompleted === false ? "Awaiting review" : "Complete",
+    }));
+  }, [usersData]);
   const hasUsers = users.length > 0;
-  const isLoading = false;
   const [activeDialog, setActiveDialog] = useState<UsersDialog>(null);
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [activeChip, setActiveChip] = useState<string>("All");
+  const [actionError, setActionError] = useState<string | null>(null);
   const chips = ["All", "Premium", "Plus", "Program", "Pending"];
 
   const filteredUsers = useMemo(() => {
@@ -58,19 +51,23 @@ export default function UsersPage() {
       return users.filter((user) => user.onboarding !== "Complete");
     }
     return users.filter((user) => user.tier === activeChip);
-  }, [activeChip]);
+  }, [activeChip, users]);
 
   const onboardingQueue = useMemo(
     () => users.filter((user) => user.onboarding !== "Complete"),
-    []
+    [users]
   );
 
   return (
     <AdminShell
       title="Users"
       subtitle="Manage athletes, parents, and onboarding."
-      actions={<Button onClick={() => setActiveDialog("new-user")}>New User</Button>}
     >
+      {actionError ? (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+          {actionError}
+        </div>
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <CardHeader>
@@ -84,8 +81,56 @@ export default function UsersPage() {
               </div>
             ) : hasUsers ? (
               <>
-                <UsersTable users={filteredUsers} onSelect={setSelectedUser} />
-                <UsersCards users={filteredUsers} onSelect={setSelectedUser} />
+                <UsersTable
+                  users={filteredUsers}
+                  onSelect={(userId) => {
+                    setSelectedUserId(userId);
+                    setActiveDialog("review-onboarding");
+                  }}
+                  onToggleBlock={async (userId, blocked) => {
+                    setActionError(null);
+                    try {
+                      await blockUser({ userId, blocked }).unwrap();
+                    } catch (err: any) {
+                      setActionError(err?.data?.error || "Failed to update user status.");
+                    }
+                  }}
+                  onDelete={async (userId) => {
+                    const confirmed = window.confirm("Delete this user? This will remove them from the admin list.");
+                    if (!confirmed) return;
+                    setActionError(null);
+                    try {
+                      await deleteUser({ userId }).unwrap();
+                    } catch (err: any) {
+                      setActionError(err?.data?.error || "Failed to delete user.");
+                    }
+                  }}
+                />
+                <UsersCards
+                  users={filteredUsers}
+                  onSelect={(userId) => {
+                    setSelectedUserId(userId);
+                    setActiveDialog("review-onboarding");
+                  }}
+                  onToggleBlock={async (userId, blocked) => {
+                    setActionError(null);
+                    try {
+                      await blockUser({ userId, blocked }).unwrap();
+                    } catch (err: any) {
+                      setActionError(err?.data?.error || "Failed to update user status.");
+                    }
+                  }}
+                  onDelete={async (userId) => {
+                    const confirmed = window.confirm("Delete this user? This will remove them from the admin list.");
+                    if (!confirmed) return;
+                    setActionError(null);
+                    try {
+                      await deleteUser({ userId }).unwrap();
+                    } catch (err: any) {
+                      setActionError(err?.data?.error || "Failed to delete user.");
+                    }
+                  }}
+                />
               </>
             ) : (
               <EmptyState
@@ -112,12 +157,12 @@ export default function UsersPage() {
             ) : (
               <OnboardingQueue
                 items={onboardingQueue}
-                onReview={(name) => {
-                  setSelectedUser(name);
+                onReview={(userId) => {
+                  setSelectedUserId(userId);
                   setActiveDialog("review-onboarding");
                 }}
-                onAssign={(name) => {
-                  setSelectedUser(name);
+                onAssign={(userId) => {
+                  setSelectedUserId(userId);
                   setActiveDialog("assign-program");
                 }}
               />
@@ -129,7 +174,7 @@ export default function UsersPage() {
       <UsersDialogs
         active={activeDialog}
         onClose={() => setActiveDialog(null)}
-        selectedName={selectedUser}
+        selectedUserId={selectedUserId}
       />
     </AdminShell>
   );

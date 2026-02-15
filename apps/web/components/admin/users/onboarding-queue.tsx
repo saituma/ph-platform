@@ -1,14 +1,15 @@
 import { Button } from "../../ui/button";
 
 type QueueItem = {
+  id: number;
   name: string;
   onboarding: string;
 };
 
 type OnboardingQueueProps = {
   items: QueueItem[];
-  onReview: (name: string) => void;
-  onAssign: (name: string) => void;
+  onReview: (userId: number) => void;
+  onAssign: (userId: number) => void;
 };
 
 export function OnboardingQueue({ items, onReview, onAssign }: OnboardingQueueProps) {
@@ -24,16 +25,16 @@ export function OnboardingQueue({ items, onReview, onAssign }: OnboardingQueuePr
     <div className="space-y-4">
       {items.map((user) => (
         <div
-          key={user.name}
+          key={user.id}
           className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm"
         >
           <p className="font-semibold text-foreground">{user.name}</p>
           <p className="text-xs text-muted-foreground">{user.onboarding}</p>
           <div className="mt-3 flex gap-2">
-            <Button size="sm" onClick={() => onReview(user.name)}>
+            <Button size="sm" onClick={() => onReview(user.id)}>
               Review
             </Button>
-            <Button size="sm" variant="outline" onClick={() => onAssign(user.name)}>
+            <Button size="sm" variant="outline" onClick={() => onAssign(user.id)}>
               Assign Program
             </Button>
           </div>

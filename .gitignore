@@ -36,6 +36,9 @@ yarn-error.log*
 .turbo/
 .cache/
 
+# API temp
+apps/api/tmp/
+
 # Next.js / Web
 .next/
 out/
@@ -48,6 +51,8 @@ out/
 # Coverage
 coverage/
 **/coverage/
+playwright-report/
+test-results/
 
 # Typescript
 *.tsbuildinfo
@@ -58,3 +63,17 @@ coverage/
 *.swo
 *.sublime-workspace
 *.sublime-project
+
+# Secrets / Keys
+cloudfront_private_key.pem
+cloudfront_public_key.pem
+*.pem
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
+infra/terraform/envs/*.tfvars
+infra/terraform/terraform.tfstate.d/
+!infra/terraform/envs/*.tfvars.example
