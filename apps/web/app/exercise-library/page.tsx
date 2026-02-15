@@ -14,8 +14,23 @@ import type { Exercise } from "../../components/admin/exercise-library/types";
 
 const EXERCISE_API_BASE =
   process.env.NEXT_PUBLIC_EXERCISE_LIBRARY_URL ?? "/api/backend/admin/exercises";
+const ADMIN_API_BASE = "/api/backend/admin";
+const PROGRAMS_API_BASE = "/api/backend/programs";
 
 const statusChips = ["Uploaded", "Pending"];
+const PROGRAM_TYPES = ["PHP", "PHP_Plus", "PHP_Premium"] as const;
+const SESSION_TYPES = [
+  { value: "program", label: "Program" },
+  { value: "warmup", label: "Warm Up" },
+  { value: "cooldown", label: "Cool Down" },
+  { value: "stretching", label: "Stretching & Foam Rolling" },
+  { value: "mobility", label: "Mobility" },
+  { value: "recovery", label: "Recovery" },
+  { value: "offseason", label: "Off-Season Program" },
+  { value: "inseason", label: "In-Season Program" },
+  { value: "education", label: "Education" },
+  { value: "nutrition", label: "Nutrition & Food Diaries" },
+] as const;
 
 function toNumber(value?: string | number) {
   if (value === undefined || value === null || value === "") return undefined;
@@ -23,7 +38,7 @@ function toNumber(value?: string | number) {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
-function normalizeExercise(item: any): Exercise {
+function normalizeExercise(item: Record<string, unknown>): Exercise {
   const rawVideo = item.videoUrl ?? item.video ?? item.videoURL ?? "";
   const videoStatus =
     item.videoStatus ??
@@ -56,11 +71,15 @@ async function fetchExercises(): Promise<Exercise[]> {
   if (!res.ok) {
     throw new Error("Failed to load exercise library.");
   }
-  const data = await res.json();
+  const data = (await res.json()) as Record<string, unknown>;
   const items = Array.isArray(data)
     ? data
-    : data.exercises ?? data.items ?? data.data ?? data.results ?? [];
-  return items.map(normalizeExercise);
+    : (data.exercises as unknown[]) ??
+      (data.items as unknown[]) ??
+      (data.data as unknown[]) ??
+      (data.results as unknown[]) ??
+      [];
+  return items.map((item) => normalizeExercise(item as Record<string, unknown>));
 }
 
 async function createExercise(payload: Exercise): Promise<Exercise> {
@@ -103,6 +122,86 @@ async function deleteExercise(id: number | string): Promise<void> {
   }
 }
 
+function buildProgramName(type: (typeof PROGRAM_TYPES)[number]) {
+  if (type === "PHP") return "PHP Program";
+  if (type === "PHP_Plus") return "PHP Plus";
+  return "PHP Premium";
+}
+
+async function fetchProgramCards(): Promise<Array<{ type: string; programId?: number | null }>> {
+  const res = await fetch(PROGRAMS_API_BASE, { credentials: "include" });
+  if (!res.ok) {
+    throw new Error("Failed to load programs.");
+  }
+  const data = await res.json();
+  return data.programs ?? [];
+}
+
+async function createProgram(type: (typeof PROGRAM_TYPES)[number]) {
+  const res = await fetch(`${ADMIN_API_BASE}/programs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      name: buildProgramName(type),
+      type,
+      description: `${buildProgramName(type)} template`,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to create program template.");
+  }
+  const data = await res.json();
+  return Number(data?.program?.id);
+}
+
+async function fetchSessions(programId: number): Promise<Array<Record<string, unknown>>> {
+  const res = await fetch(`${PROGRAMS_API_BASE}/${programId}/sessions`, { credentials: "include" });
+  if (!res.ok) {
+    throw new Error("Failed to load sessions.");
+  }
+  const data = (await res.json()) as { sessions?: Array<Record<string, unknown>> };
+  return data.sessions ?? [];
+}
+
+async function createSession(input: {
+  programId: number;
+  weekNumber: number;
+  sessionNumber: number;
+  type: string;
+}) {
+  const res = await fetch(`${ADMIN_API_BASE}/sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to create session.");
+  }
+  const data = await res.json();
+  return Number(data?.session?.id);
+}
+
+async function addSessionExercise(input: {
+  sessionId: number;
+  exerciseId: number;
+  order: number;
+  coachingNotes?: string;
+  progressionNotes?: string;
+  regressionNotes?: string;
+}) {
+  const res = await fetch(`${ADMIN_API_BASE}/session-exercises`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to assign exercise to session.");
+  }
+}
+
 export default function ExerciseLibraryPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,6 +213,14 @@ export default function ExerciseLibraryPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All categories");
   const [status, setStatus] = useState("All status");
+  const [assignExerciseId, setAssignExerciseId] = useState<string>("");
+  const [assignProgramType, setAssignProgramType] = useState<(typeof PROGRAM_TYPES)[number]>("PHP");
+  const [assignSessionType, setAssignSessionType] = useState<string>("warmup");
+  const [assignWeek, setAssignWeek] = useState("1");
+  const [assignSessionNumber, setAssignSessionNumber] = useState("1");
+  const [assignOrder, setAssignOrder] = useState("1");
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignMessage, setAssignMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -268,6 +375,71 @@ export default function ExerciseLibraryPage() {
     }
   };
 
+  const handleAssign = async () => {
+    const exerciseId = Number(assignExerciseId);
+    const weekNumber = Number(assignWeek);
+    const sessionNumber = Number(assignSessionNumber);
+    const order = Number(assignOrder);
+    if (!exerciseId || !weekNumber || !sessionNumber || !order) {
+      setAssignMessage("Choose exercise and enter valid week/session/order numbers.");
+      return;
+    }
+    const selected = exercises.find((item) => Number(item.id) === exerciseId);
+    if (!selected) {
+      setAssignMessage("Selected exercise was not found.");
+      return;
+    }
+
+    setAssignSaving(true);
+    setAssignMessage(null);
+    try {
+      const cards = await fetchProgramCards();
+      let programId = Number(cards.find((card) => card.type === assignProgramType)?.programId ?? 0);
+      if (!programId) {
+        programId = await createProgram(assignProgramType);
+      }
+      if (!programId) {
+        throw new Error("Unable to resolve program template.");
+      }
+
+      const sessions = await fetchSessions(programId);
+      let sessionId = Number(
+        sessions.find(
+          (session) =>
+            Number(session.weekNumber) === weekNumber &&
+            Number(session.sessionNumber) === sessionNumber &&
+            String(session.type) === assignSessionType
+        )?.id ?? 0
+      );
+      if (!sessionId) {
+        sessionId = await createSession({
+          programId,
+          weekNumber,
+          sessionNumber,
+          type: assignSessionType,
+        });
+      }
+      if (!sessionId) {
+        throw new Error("Unable to create/find session.");
+      }
+
+      await addSessionExercise({
+        sessionId,
+        exerciseId,
+        order,
+        coachingNotes: selected.notes || selected.cues || undefined,
+        progressionNotes: selected.progression || undefined,
+        regressionNotes: selected.regression || undefined,
+      });
+
+      setAssignMessage("Exercise assigned successfully. It will now appear in mobile program tabs.");
+    } catch (err) {
+      setAssignMessage(err instanceof Error ? err.message : "Failed to assign exercise.");
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
   return (
     <AdminShell
       title="Exercise Library"
@@ -344,6 +516,80 @@ export default function ExerciseLibraryPage() {
               <p className="text-xs text-muted-foreground">
                 Add clear cues, sets, reps, and a short video clip.
               </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-secondary/30 p-4 space-y-3">
+              <SectionHeader
+                title="Assign To Program Section"
+                description="Add exercises to Warm Up, Cool Down, and other mobile program tabs."
+              />
+              <select
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                value={assignExerciseId}
+                onChange={(event) => setAssignExerciseId(event.target.value)}
+              >
+                <option value="">Select exercise</option>
+                {exercises.map((exercise) => (
+                  <option key={String(exercise.id)} value={String(exercise.id)}>
+                    {exercise.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                value={assignProgramType}
+                onChange={(event) => setAssignProgramType(event.target.value as (typeof PROGRAM_TYPES)[number])}
+              >
+                {PROGRAM_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                value={assignSessionType}
+                onChange={(event) => setAssignSessionType(event.target.value)}
+              >
+                {SESSION_TYPES.map((sessionType) => (
+                  <option key={sessionType.value} value={sessionType.value}>
+                    {sessionType.label}
+                  </option>
+                ))}
+              </select>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  type="number"
+                  min={1}
+                  placeholder="Week"
+                  value={assignWeek}
+                  onChange={(event) => setAssignWeek(event.target.value)}
+                />
+                <input
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  type="number"
+                  min={1}
+                  placeholder="Session #"
+                  value={assignSessionNumber}
+                  onChange={(event) => setAssignSessionNumber(event.target.value)}
+                />
+                <input
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  type="number"
+                  min={1}
+                  placeholder="Order"
+                  value={assignOrder}
+                  onChange={(event) => setAssignOrder(event.target.value)}
+                />
+              </div>
+              {assignMessage ? (
+                <div className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+                  {assignMessage}
+                </div>
+              ) : null}
+              <Button onClick={handleAssign} disabled={assignSaving}>
+                {assignSaving ? "Assigning..." : "Assign Exercise"}
+              </Button>
             </div>
           </CardContent>
         </Card>
