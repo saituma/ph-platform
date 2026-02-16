@@ -11,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { AdminShell } from "../components/admin/shell";
 import { EmptyState } from "../components/admin/empty-state";
@@ -25,19 +24,7 @@ import {
 } from "../components/admin/charts";
 import { ActionDialogs, type DashboardDialog } from "../components/admin/dashboard/action-dialogs";
 import { CalendarPanel } from "../components/admin/dashboard/calendar-panel";
-import { PriorityQueue } from "../components/admin/dashboard/priority-queue";
-import { QuickActions } from "../components/admin/dashboard/quick-actions";
 import { useGetDashboardQuery } from "../lib/apiSlice";
-
-const quickActions = [
-  "Create program template",
-  "Add exercise video",
-  "Publish Parent Platform article",
-  "Open booking slots",
-];
-
-const lineSeries = [20, 28, 35, 50, 48, 60, 66, 72, 80, 76, 84, 90];
-const lineLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "", "", "", "", ""];
 
 export default function Home() {
   const { data: dashboardData, isLoading } = useGetDashboardQuery();
@@ -73,24 +60,6 @@ export default function Home() {
   const hasBookings = todayBookings.length > 0;
   const [activeDialog, setActiveDialog] = useState<DashboardDialog>(null);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [expandedQueue, setExpandedQueue] = useState(false);
-  const queueItems = useMemo(() => {
-    const source = dashboardData?.priorityQueue ?? [];
-    if (!expandedQueue) return source;
-    return [
-      ...source,
-      {
-        title: "Booking Request",
-        detail: "Parent call • availability confirmation",
-        status: "Confirm",
-      },
-      {
-        title: "Program Update",
-        detail: "Week 4 adjustments • PHP Program",
-        status: "Review",
-      },
-    ];
-  }, [dashboardData, expandedQueue]);
 
   const trendCardsData = useMemo(() => {
     if (!dashboardData?.trends) return [];
@@ -208,61 +177,6 @@ export default function Home() {
           description="Once athletes start training, stats will appear here."
         />
       )}
-
-      <section className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <Card>
-          <CardHeader>
-            <SectionHeader
-              title="Priority Queue"
-              description="Items requiring immediate action."
-              actionLabel={expandedQueue ? "Collapse" : "View all"}
-              onAction={() => setExpandedQueue((prev) => !prev)}
-            />
-          </CardHeader>
-          <CardContent>
-            <PriorityQueue items={queueItems} isLoading={isLoading} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <SectionHeader
-              title="Quick Actions"
-              description="Jump to key workflows."
-            />
-          </CardHeader>
-          <CardContent>
-            <QuickActions
-              items={quickActions}
-              isLoading={isLoading}
-              onSelect={(action) => {
-                if (action.includes("program")) setActiveDialog("program");
-                if (action.includes("exercise")) setActiveDialog("exercise");
-                if (action.includes("article")) setActiveDialog("article");
-                if (action.includes("booking")) setActiveDialog("slots");
-              }}
-            />
-          </CardContent>
-          <Separator />
-          <CardContent className="space-y-2">
-            {isLoading ? (
-              <>
-                <Skeleton className="h-3 w-32" />
-                <Skeleton className="h-4 w-48" />
-              </>
-            ) : (
-              <>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Premium coverage
-                </p>
-                <p className="text-sm text-foreground">
-                  {dashboardData?.priorityMessageCount ?? 0} priority threads need response.
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </section>
 
       <section className="grid gap-6 lg:grid-cols-3">
         {trendCardsData.length ? (

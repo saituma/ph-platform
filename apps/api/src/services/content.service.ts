@@ -89,10 +89,10 @@ type ParentCourseModule = {
   id: string;
   title: string;
   type: "article" | "video" | "pdf" | "faq";
-  content?: string;
-  mediaUrl?: string;
+  content?: string | null;
+  mediaUrl?: string | null;
   order: number;
-  preview?: boolean;
+  preview?: boolean | null;
 };
 
 const ADMIN_ROLES = new Set(["admin", "superAdmin", "coach"]);

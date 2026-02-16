@@ -9,7 +9,6 @@ import { UsersDialogs, type UsersDialog } from "../../components/admin/users/use
 import { UsersFilters } from "../../components/admin/users/users-filters";
 import { UsersTable } from "../../components/admin/users/users-table";
 import { UsersCards } from "../../components/admin/users/users-cards";
-import { OnboardingQueue } from "../../components/admin/users/onboarding-queue";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { useBlockUserMutation, useDeleteUserMutation, useGetUsersQuery } from "../../lib/apiSlice";
 
@@ -53,11 +52,6 @@ export default function UsersPage() {
     return users.filter((user) => user.tier === activeChip);
   }, [activeChip, users]);
 
-  const onboardingQueue = useMemo(
-    () => users.filter((user) => user.onboarding !== "Complete"),
-    [users]
-  );
-
   return (
     <AdminShell
       title="Users"
@@ -68,7 +62,7 @@ export default function UsersPage() {
           {actionError}
         </div>
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-6">
         <Card>
           <CardHeader>
             <SectionHeader title="All Users" actionLabel="Export" />
@@ -137,34 +131,6 @@ export default function UsersPage() {
                 title="No users yet"
                 description="New athletes will appear once they onboard."
                 actionLabel="Invite Athlete"
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <SectionHeader
-              title="Onboarding Queue"
-              description="Awaiting approvals and assignments."
-            />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isLoading ? (
-              <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
-                Loading queue...
-              </div>
-            ) : (
-              <OnboardingQueue
-                items={onboardingQueue}
-                onReview={(userId) => {
-                  setSelectedUserId(userId);
-                  setActiveDialog("review-onboarding");
-                }}
-                onAssign={(userId) => {
-                  setSelectedUserId(userId);
-                  setActiveDialog("assign-program");
-                }}
               />
             )}
           </CardContent>

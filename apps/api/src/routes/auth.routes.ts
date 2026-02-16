@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   confirmRegistration,
   login,
+  refreshToken,
   register,
   resendConfirmation,
   startPasswordReset,
@@ -18,6 +19,7 @@ router.post("/auth/register", register);
 router.post("/auth/confirm", confirmRegistration);
 router.post("/auth/resend", resendConfirmation);
 router.post("/auth/login", login);
+router.post("/auth/refresh", refreshToken);
 router.post("/auth/forgot", startPasswordReset);
 router.post("/auth/forgot/confirm", confirmPasswordReset);
 router.get("/auth/me", requireAuth, getMe);

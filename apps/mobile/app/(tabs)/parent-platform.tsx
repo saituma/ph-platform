@@ -1,12 +1,13 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
 import { setParentContentCache } from "@/lib/parentContentCache";
+import { canAccessTier, tierRank } from "@/lib/planAccess";
 
 const CATEGORIES = [
   { id: "growth", title: "Growth and maturation", icon: "book-open", color: "bg-emerald-500" },
@@ -40,7 +41,7 @@ type ParentCourseItem = {
 };
 
 export default function ParentPlatformScreen() {
-  const { token } = useAppSelector((state) => state.user);
+  const { token, programTier } = useAppSelector((state) => state.user);
   const router = useRouter();
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,6 +83,8 @@ export default function ParentPlatformScreen() {
       items: items.filter((item) => item.category === category.title),
     }));
   }, [items]);
+  const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
+
 
 
   return (
@@ -104,11 +107,32 @@ export default function ParentPlatformScreen() {
             Parent Education Platform
           </Text>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Understand your athlete's training with our educational module for parents.
+            Understand your athlete&apos;s training with our educational module for parents.
           </Text>
         </View>
 
-        {isLoading ? (
+        {!hasParentProgramAccess ? (
+          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
+            <View className="flex-row items-center gap-2 mb-2">
+              <Feather name="lock" size={16} className="text-secondary" />
+              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
+                Locked
+              </Text>
+            </View>
+            <Text className="text-xl font-clash text-app mb-2">
+              Upgrade to unlock Parent Program
+            </Text>
+            <Text className="text-sm font-outfit text-secondary leading-relaxed">
+              Parent education is available on PHP Plus and PHP Premium plans.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/plans")}
+              className="mt-4 rounded-full bg-accent px-4 py-3"
+            >
+              <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
+            </TouchableOpacity>
+          </View>
+        ) : isLoading ? (
           <View className="gap-3">
             {[1, 2, 3].map((item) => (
               <View key={item} className="rounded-3xl border border-app/10 bg-input px-4 py-3">
@@ -134,37 +158,62 @@ export default function ParentPlatformScreen() {
 
                 <View className="gap-3">
                   {cat.items.length ? (
-                    cat.items.map((item) => (
-                      <TouchableOpacity
-                        key={item.id}
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          console.log("Parent content card pressed", { id: item.id, title: item.title });
-                          setParentContentCache({
-                            id: Number(item.id),
-                            title: item.title,
-                            summary: item.summary,
-                            description: item.description ?? null,
-                            coverImage: item.coverImage ?? null,
-                            category: item.category ?? null,
-                            programTier: item.programTier ?? null,
-                            modules: item.modules ?? [],
-                            isPreview: item.isPreview ?? false,
-                          });
-                          console.log("Navigating to detail page", { id: item.id });
-                          router.push(`/parent-platform/${item.id}`);
-                        }}
-                        className="bg-input border border-app rounded-[24px] p-5 shadow-sm"
-                      >
-                        <Text className="font-outfit font-bold text-app text-base">{item.title}</Text>
-                        <Text className="text-xs font-outfit text-secondary mt-1 uppercase">
-                          {item.modules?.length ?? 0} modules{item.isPreview ? " • Preview" : ""}
-                        </Text>
-                        <Text className="text-sm font-outfit text-secondary mt-3" numberOfLines={3}>
-                          {item.summary}
-                        </Text>
-                      </TouchableOpacity>
-                    ))
+                    cat.items.map((item) => {
+                      const canAccess = canAccessTier(programTier, item.programTier ?? null);
+                      const isPreview = Boolean(item.isPreview);
+                      const isLocked = !canAccess && !isPreview;
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            if (isLocked) {
+                              Alert.alert(
+                                "Upgrade required",
+                                "Parent education is included with PHP Plus and Premium plans.",
+                                [
+                                  { text: "View Plans", onPress: () => router.push("/plans") },
+                                  { text: "Not now", style: "cancel" },
+                                ]
+                              );
+                              return;
+                            }
+                            setParentContentCache({
+                              id: Number(item.id),
+                              title: item.title,
+                              summary: item.summary,
+                              description: item.description ?? null,
+                              coverImage: item.coverImage ?? null,
+                              category: item.category ?? null,
+                              programTier: item.programTier ?? null,
+                              modules: item.modules ?? [],
+                              isPreview: item.isPreview ?? false,
+                            });
+                            router.push(`/parent-platform/${item.id}`);
+                          }}
+                          className={`bg-input border border-app rounded-[24px] p-5 shadow-sm ${
+                            isLocked ? "opacity-60" : ""
+                          }`}
+                        >
+                          <View className="flex-row items-center justify-between">
+                            <Text className="font-outfit font-bold text-app text-base">{item.title}</Text>
+                            {isLocked ? (
+                              <View className="px-2 py-1 rounded-full bg-secondary/10 border border-app/10">
+                                <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                                  Locked
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          <Text className="text-xs font-outfit text-secondary mt-1 uppercase">
+                            {item.modules?.length ?? 0} modules{item.isPreview ? " • Preview" : ""}
+                          </Text>
+                          <Text className="text-sm font-outfit text-secondary mt-3" numberOfLines={3}>
+                            {item.summary}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
                   ) : null}
                 </View>
               </View>

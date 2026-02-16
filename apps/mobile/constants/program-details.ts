@@ -14,6 +14,8 @@ export type ExerciseItem = {
 export type SessionItem = {
   id: string;
   name: string;
+  weekNumber?: number;
+  type?: string;
   exercises: ExerciseItem[];
 };
 
@@ -60,70 +62,25 @@ export const TRAINING_TABS = new Set([
   "Mobility",
   "Recovery",
 ]);
+const TAB_SESSION_TYPES: Record<string, string[]> = {
+  Program: ["program"],
+  "Warm Ups": ["warmup"],
+  Warmups: ["warmup"],
+  "Warm Up": ["warmup"],
+  Cooldown: ["cooldown"],
+  "Cool Down": ["cooldown"],
+  "Cool Downs": ["cooldown"],
+  "Stretching & Foam Rolling": ["stretching"],
+  Mobility: ["mobility"],
+  Recovery: ["recovery"],
+  "Off Season Program": ["offseason"],
+  "Off-Season Program": ["offseason"],
+  "In-Season Program": ["inseason"],
+  Education: ["education"],
+  "Parent Education": ["education"],
+  "Nutrition & Food Diaries": ["nutrition"],
+};
 
-const defaultExercises: ExerciseItem[] = [
-  {
-    id: "accel",
-    name: "Acceleration Mechanics",
-    sets: 3,
-    reps: 6,
-    rest: "60s",
-    notes: "Drive knee, stay tall, focus on explosive first step.",
-    videoUrl: "https://youtu.be/2qN_98tEG_k?si=lgfTWXRrKlZ2HhhS",
-    progressions: "Add resistance band or sled.",
-    regressions: "Reduce distance to 10m.",
-  },
-  {
-    id: "strength",
-    name: "Bodyweight Strength Circuit",
-    sets: 2,
-    reps: 10,
-    rest: "45s",
-    notes: "Control tempo and full range of motion.",
-  },
-  {
-    id: "core",
-    name: "Core Stability",
-    sets: 3,
-    time: "30s",
-    rest: "30s",
-    notes: "Maintain neutral spine and breathe steadily.",
-  },
-];
-
-const defaultSessions: SessionItem[] = [
-  {
-    id: "session-a",
-    name: "Session A",
-    exercises: defaultExercises,
-  },
-  {
-    id: "session-b",
-    name: "Session B",
-    exercises: [
-      {
-        id: "warmup",
-        name: "Dynamic Warmup",
-        time: "8 min",
-        rest: "",
-        notes: "Leg swings, high knees, and hip openers.",
-      },
-      {
-        id: "speed",
-        name: "Speed Endurance",
-        sets: 4,
-        reps: 4,
-        rest: "90s",
-        notes: "Maintain form through the last rep.",
-        progressions: "Add 1 extra rep.",
-      },
-    ],
-  },
-];
-
-export function getSessionsForTab(_programId: ProgramId, tab: string) {
-  return defaultSessions.map((session) => ({
-    ...session,
-    name: `${tab} ${session.name}`,
-  }));
+export function getSessionTypesForTab(tab: string): string[] {
+  return TAB_SESSION_TYPES[tab] ?? [];
 }

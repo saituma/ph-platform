@@ -82,6 +82,7 @@ export default function VerifyScreen() {
                 const login = await apiRequest<{
                   accessToken?: string;
                   idToken?: string;
+                  refreshToken?: string | null;
                 }>("/auth/login", {
                   method: "POST",
                   body: { email, password },
@@ -99,6 +100,7 @@ export default function VerifyScreen() {
                 dispatch(
                   setCredentials({
                     token,
+                    refreshToken: login.refreshToken ?? null,
                     profile: {
                       id: String(me.user.id),
                       name: me.user.name,
@@ -107,7 +109,7 @@ export default function VerifyScreen() {
                     },
                   })
                 );
-                const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean } | null }>(
+                const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
                   "/onboarding",
                   { token, suppressStatusCodes: [401] }
                 );

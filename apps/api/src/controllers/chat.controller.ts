@@ -21,9 +21,15 @@ const addMembersSchema = z.object({
   memberIds: z.array(z.number().int().min(1)).min(1),
 });
 
-const sendGroupMessageSchema = z.object({
-  content: z.string().min(1),
-});
+const sendGroupMessageSchema = z
+  .object({
+    content: z.string().trim().optional().default(""),
+    contentType: z.enum(["text", "image", "video"]).default("text"),
+    mediaUrl: z.string().url().optional(),
+  })
+  .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
+    message: "Message content or mediaUrl is required",
+  });
 
 const reactionSchema = z.object({
   emoji: z.string().min(1).max(16),
@@ -78,6 +84,8 @@ export async function sendGroupChatMessage(req: Request, res: Response) {
     groupId,
     senderId: req.user!.id,
     content: input.content,
+    contentType: input.contentType,
+    mediaUrl: input.mediaUrl,
   });
   return res.status(201).json({ message });
 }

@@ -10,8 +10,15 @@ type Message = {
   author: string;
   time: string;
   text: string;
+  mediaUrl?: string | null;
+  contentType?: "text" | "image" | "video";
   reactions?: { emoji: string; count: number; reactedByMe?: boolean }[];
   status?: "sent" | "delivered" | "read";
+};
+
+export type ComposerAttachment = {
+  file: File;
+  kind: "image" | "file";
 };
 
 type ConversationPanelProps = {
@@ -24,7 +31,7 @@ type ConversationPanelProps = {
     tags: string[];
   } | null;
   onReact?: (messageId: string, emoji: string) => void;
-  onSend?: (text: string) => void;
+  onSend?: (payload: { text: string; attachment?: ComposerAttachment | null }) => void;
   onTypingChange?: (isTyping: boolean) => void;
   typingLabel?: string | null;
 };
@@ -39,7 +46,7 @@ export function ConversationPanel({
   typingLabel,
 }: ConversationPanelProps) {
   const [draft, setDraft] = useState("");
-  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [attachment, setAttachment] = useState<ComposerAttachment | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -47,22 +54,6 @@ export function ConversationPanel({
     active: false,
     timer: null,
   });
-  const quickReplies = [
-    "Great work. Keep this pace for the next session.",
-    "Received. I will review and get back to you shortly.",
-    "Can you share a short update after your next workout?",
-    "Nice progress. Let us lock this in for the week.",
-  ];
-
-  const appendToDraft = (text: string) => {
-    setDraft((prev) => (prev.trim() ? `${prev}\n${text}` : text));
-  };
-
-  const formatFileMessage = (file: File, label: "File" | "Image") => {
-    const sizeKb = Math.max(1, Math.round(file.size / 1024));
-    return `${label} attached: ${file.name} (${sizeKb} KB)`;
-  };
-
   useEffect(() => {
     if (!onTypingChange) return;
     if (draft.trim().length > 0) {
@@ -135,6 +126,25 @@ export function ConversationPanel({
                 <p className="text-xs text-muted-foreground">
                   {message.author} • {message.time}
                 </p>
+                {message.mediaUrl && message.contentType === "image" ? (
+                  <a href={message.mediaUrl} target="_blank" rel="noreferrer" className="mt-2 block">
+                    <img
+                      src={message.mediaUrl}
+                      alt={message.text || "Image attachment"}
+                      className="max-h-72 w-full rounded-xl object-cover"
+                    />
+                  </a>
+                ) : null}
+                {message.mediaUrl && message.contentType !== "image" ? (
+                  <a
+                    href={message.mediaUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex rounded-xl border border-border bg-background px-3 py-2 text-xs text-primary underline"
+                  >
+                    Open attachment
+                  </a>
+                ) : null}
                 <p className="mt-2 text-foreground">{message.text}</p>
                 {message.reactions?.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -195,7 +205,7 @@ export function ConversationPanel({
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-            appendToDraft(formatFileMessage(file, "File"));
+            setAttachment({ file, kind: "file" });
             event.target.value = "";
           }}
         />
@@ -207,7 +217,7 @@ export function ConversationPanel({
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-            appendToDraft(formatFileMessage(file, "Image"));
+            setAttachment({ file, kind: "image" });
             event.target.value = "";
           }}
         />
@@ -217,6 +227,16 @@ export function ConversationPanel({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
+        {attachment ? (
+          <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 px-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              {attachment.file.name} ({Math.max(1, Math.round(attachment.file.size / 1024))} KB)
+            </p>
+            <Button size="sm" variant="ghost" onClick={() => setAttachment(null)}>
+              Remove
+            </Button>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Button
@@ -238,41 +258,17 @@ export function ConversationPanel({
             <Button size="icon" variant="ghost">
               <Smile className="h-4 w-4" />
             </Button>
-            <div className="relative">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowQuickReplies((prev) => !prev)}
-              >
-              Quick Reply
-              </Button>
-              {showQuickReplies ? (
-                <div className="absolute bottom-12 left-0 z-20 w-72 rounded-xl border border-border bg-background p-2 shadow-lg">
-                  {quickReplies.map((reply) => (
-                    <button
-                      key={reply}
-                      type="button"
-                      className="block w-full rounded-lg px-3 py-2 text-left text-xs text-foreground hover:bg-secondary/50"
-                      onClick={() => {
-                        appendToDraft(reply);
-                        setShowQuickReplies(false);
-                      }}
-                    >
-                      {reply}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline">Save Draft</Button>
             <Button
               className="gap-2"
               onClick={() => {
-                if (!draft.trim()) return;
-                onSend?.(draft.trim());
+                const text = draft.trim();
+                if (!text && !attachment) return;
+                onSend?.({ text, attachment });
                 setDraft("");
+                setAttachment(null);
               }}
             >
               Send

@@ -52,7 +52,7 @@ export function BookingsDialogs({
 }: BookingsDialogsProps) {
   const [serviceName, setServiceName] = useState("");
   const [serviceType, setServiceType] = useState("group_call");
-  const [durationMinutes, setDurationMinutes] = useState("30");
+  const [durationMinutes, setDurationMinutes] = useState("");
   const [capacity, setCapacity] = useState("");
   const [fixedStartTime, setFixedStartTime] = useState("");
   const [fixedStartHour, setFixedStartHour] = useState("");
@@ -87,7 +87,7 @@ export function BookingsDialogs({
     if (active === "new-service") {
       setServiceName("");
       setServiceType("group_call");
-      setDurationMinutes("30");
+      setDurationMinutes("");
       setCapacity("");
       setFixedStartTime("");
       setFixedStartHour("");
@@ -134,16 +134,43 @@ export function BookingsDialogs({
         <div className="mt-6 space-y-4">
           {active === "new-service" || active === "edit-service" ? (
             <>
-              <Input placeholder="Service name" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
-              <Select value={serviceType} onChange={(e) => setServiceType(e.target.value)}>
+              <Input
+                placeholder="Service name"
+                value={serviceName}
+                onChange={(e) => {
+                  setServiceName(e.target.value);
+                  setError(null);
+                }}
+              />
+              <Select
+                value={serviceType}
+                onChange={(e) => {
+                  setServiceType(e.target.value);
+                  setError(null);
+                }}
+              >
                 <option value="call">Call</option>
                 <option value="group_call">Group Call</option>
                 <option value="individual_call">Individual Call</option>
                 <option value="lift_lab_1on1">Lift Lab 1:1</option>
                 <option value="role_model">Role Model (Premium)</option>
               </Select>
-              <Input placeholder="Duration (mins)" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} />
-              <Input placeholder="Capacity (optional)" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+              <Input
+                placeholder="Duration (mins)"
+                value={durationMinutes}
+                onChange={(e) => {
+                  setDurationMinutes(e.target.value);
+                  setError(null);
+                }}
+              />
+              <Input
+                placeholder="Capacity (optional)"
+                value={capacity}
+                onChange={(e) => {
+                  setCapacity(e.target.value);
+                  setError(null);
+                }}
+              />
               <div className="grid gap-2">
                 <div className="text-xs text-muted-foreground">Fixed start time</div>
                 <div className="flex gap-2">
@@ -252,7 +279,18 @@ export function BookingsDialogs({
                       onRefresh?.();
                       onClose();
                     } catch (err: any) {
-                      setError(err.message ?? "Failed to save service");
+                      console.error("Service save error:", err);
+                      let msg = "Failed to save service.";
+                      if (err?.data?.error === "Invalid request" && err?.data?.issues) {
+                        const issues = err.data.issues as any[];
+                        const errors = issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
+                        msg = `Validation Error: ${errors.join(" | ")}`;
+                      } else if (err?.data?.error) {
+                        msg = err.data.error;
+                      } else if (err?.message) {
+                        msg = err.message;
+                      }
+                      setError(msg);
                     }
                   }}
                   disabled={isCreatingService || isUpdatingService}

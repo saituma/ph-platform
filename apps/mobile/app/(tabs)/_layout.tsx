@@ -1,8 +1,8 @@
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { SwipeableTabLayout, TabConfig } from "@/components/navigation";
 import { useRole } from "@/context/RoleContext";
+import { apiRequest } from "@/lib/api";
 import { Redirect, Slot, usePathname, useRouter, useSegments } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Platform } from "react-native";
 import { useAppSelector } from "@/store/hooks";
 
@@ -32,13 +32,15 @@ const TAB_COMPONENTS: Record<string, React.ComponentType> = {
 };
 
 export default function TabLayout() {
-  const { colors } = useAppTheme();
   const { role } = useRole();
-  const { isAuthenticated, onboardingCompleted, hydrated } = useAppSelector((state) => state.user);
+  const { isAuthenticated, onboardingCompleted, hydrated, token, profile, athleteUserId } = useAppSelector(
+    (state) => state.user
+  );
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
   const pendingNavToken = useRef(0);
+  const [messagesUnread, setMessagesUnread] = useState(0);
 
   const isOnboarding =
     segments.some((segment) => segment === "onboarding") ||
@@ -51,12 +53,52 @@ export default function TabLayout() {
     }
   }, [isAuthenticated, onboardingCompleted, isOnboarding, router]);
 
-  const visibleTabs = useMemo(() => {
-    if (role === "Athlete") {
-      return TAB_ROUTES.filter((tab) => tab.key !== "parent-platform");
+  useEffect(() => {
+    if (!token || !isAuthenticated) {
+      setMessagesUnread(0);
+      return;
     }
-    return TAB_ROUTES;
-  }, [role]);
+
+    let active = true;
+    const effectiveUserId =
+      role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
+    const headers =
+      role === "Athlete" && athleteUserId
+        ? { "X-Acting-User-Id": String(athleteUserId) }
+        : undefined;
+
+    const syncUnread = async () => {
+      try {
+        const data = await apiRequest<{ messages: any[] }>("/messages", { token, headers });
+        if (!active) return;
+        const unread =
+          data.messages?.filter(
+            (message) => !message.read && Number(message.senderId) !== effectiveUserId
+          ).length ?? 0;
+        setMessagesUnread(unread);
+      } catch {
+        if (!active) return;
+        setMessagesUnread(0);
+      }
+    };
+
+    syncUnread();
+    const timer = setInterval(syncUnread, 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [athleteUserId, isAuthenticated, profile.id, role, token, pathname]);
+
+  const visibleTabs = useMemo(() => {
+    const tabsWithBadges = TAB_ROUTES.map((tab) =>
+      tab.key === "messages" ? { ...tab, badgeCount: messagesUnread } : tab
+    );
+    if (role === "Athlete") {
+      return tabsWithBadges.filter((tab) => tab.key !== "parent-platform");
+    }
+    return tabsWithBadges;
+  }, [messagesUnread, role]);
 
   const initialIndex = useMemo(() => {
     // Normalize path by removing leading slash and (tabs) group

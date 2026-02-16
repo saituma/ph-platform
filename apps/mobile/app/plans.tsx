@@ -3,17 +3,20 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { PROGRAM_TIERS } from "@/constants/Programs";
 import { apiRequest } from "@/lib/api";
 import { buildPlanPricing } from "@/lib/billing";
+import { normalizeProgramTier, tierRank } from "@/lib/planAccess";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppSelector } from "../store/hooks";
-import * as WebBrowser from "expo-web-browser";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { setLatestSubscriptionRequest, setProgramTier } from "../store/slices/userSlice";
+import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
 
 export default function PlansScreen() {
   const router = useRouter();
-  const token = useAppSelector((state) => state.user.token);
+  const dispatch = useAppDispatch();
+  const { token, programTier, latestSubscriptionRequest } = useAppSelector((state) => state.user);
   const [plans, setPlans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -32,6 +35,28 @@ export default function PlansScreen() {
     );
   }, []);
 
+  const mergedPlans = useMemo(() => {
+    const map = new Map<string, any>();
+    plans.forEach((plan) => {
+      if (plan?.tier) {
+        map.set(String(plan.tier), plan);
+      }
+    });
+    if (!map.has("PHP")) {
+      map.set("PHP", {
+        id: "placeholder-php",
+        tier: "PHP",
+        name: "PHP Program",
+        displayPrice: "Included",
+        billingInterval: "included",
+        monthlyPrice: "",
+        yearlyPrice: "",
+        isPlaceholder: true,
+      });
+    }
+    return Array.from(map.values());
+  }, [plans]);
+
   const loadPlans = useCallback(async () => {
     setIsLoading(true);
     setActionError(null);
@@ -45,9 +70,32 @@ export default function PlansScreen() {
     }
   }, [token]);
 
+  const refreshBillingStatus = useCallback(async () => {
+    if (!token) return;
+    try {
+      const status = await apiRequest<{
+        currentProgramTier?: string | null;
+        latestRequest?: {
+          status?: string | null;
+          paymentStatus?: string | null;
+          planTier?: string | null;
+          createdAt?: string | null;
+        } | null;
+      }>("/billing/status", {
+        token,
+        suppressStatusCodes: [401, 403, 404],
+      });
+      dispatch(setProgramTier(status?.currentProgramTier ?? null));
+      dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
+    } catch {
+      // no-op
+    }
+  }, [dispatch, token]);
+
   useEffect(() => {
     void loadPlans();
-  }, [loadPlans]);
+    void refreshBillingStatus();
+  }, [loadPlans, refreshBillingStatus]);
 
   const handleCheckout = useCallback(
     async (planId: number, interval?: "monthly" | "yearly") => {
@@ -59,34 +107,47 @@ export default function PlansScreen() {
           return;
         }
         const data = await apiRequest<{
-          checkoutUrl?: string;
-          sessionId?: string;
-        }>("/billing/checkout", {
+          customerId: string;
+          ephemeralKey: string;
+          paymentIntentId: string;
+          paymentIntentClientSecret: string;
+          request?: any;
+        }>("/billing/payment-sheet", {
           method: "POST",
           body: { planId, interval },
           token,
         });
 
-        if (!data.checkoutUrl || !data.sessionId) {
-          throw new Error("Checkout session unavailable.");
+        const init = await initPaymentSheet({
+          merchantDisplayName: "PH Platform",
+          customerId: data.customerId,
+          customerEphemeralKeySecret: data.ephemeralKey,
+          paymentIntentClientSecret: data.paymentIntentClientSecret,
+          allowsDelayedPaymentMethods: true,
+        });
+        if (init.error) {
+          throw new Error(init.error.message);
         }
 
-        await WebBrowser.openBrowserAsync(data.checkoutUrl, {
-          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
-        });
+        const result = await presentPaymentSheet();
+        if (result.error) {
+          throw new Error(result.error.message);
+        }
 
-        const confirm = await apiRequest<{ paymentStatus?: string }>(
-          "/billing/confirm",
+        const confirm = await apiRequest<{ paymentStatus?: string; request?: any }>(
+          "/billing/payment-sheet/confirm",
           {
             method: "POST",
-            body: { sessionId: data.sessionId },
+            body: { paymentIntentId: data.paymentIntentId },
             token,
           }
         );
 
+        dispatch(setLatestSubscriptionRequest(confirm.request ?? data.request ?? null));
+
         Alert.alert(
           "Payment status",
-          confirm.paymentStatus === "paid"
+          confirm.paymentStatus === "succeeded" || confirm.paymentStatus === "processing"
             ? "Payment received. Awaiting admin approval."
             : "Payment pending. We will update your plan once confirmed."
         );
@@ -99,7 +160,32 @@ export default function PlansScreen() {
         setActionError(message);
       }
     },
-    [token, router]
+    [token, router, dispatch]
+  );
+
+  const handleDowngrade = useCallback(
+    async (tier: string) => {
+      setActionError(null);
+      try {
+        if (!token) {
+          Alert.alert("Login required", "Please log in to change your plan.");
+          router.replace("/(auth)/login");
+          return;
+        }
+        await apiRequest("/billing/downgrade", {
+          method: "POST",
+          token,
+          body: { tier },
+        });
+        dispatch(setProgramTier(tier));
+        dispatch(setLatestSubscriptionRequest(null));
+        Alert.alert("Plan updated", "Your plan has been downgraded.");
+      } catch (error: any) {
+        const message = error?.message || "Failed to change plan.";
+        setActionError(message);
+      }
+    },
+    [token, router, dispatch]
   );
 
   return (
@@ -118,7 +204,9 @@ export default function PlansScreen() {
       </View>
 
       <ThemedScrollView
-        onRefresh={loadPlans}
+        onRefresh={async () => {
+          await Promise.all([loadPlans(), refreshBillingStatus()]);
+        }}
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
@@ -133,9 +221,36 @@ export default function PlansScreen() {
             </Text>
           </View>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Select the best coaching tier for your athlete's development and
+            Select the best coaching tier for your athlete&apos;s development and
             goals.
           </Text>
+          {normalizeProgramTier(programTier) ? (
+            <View className="mt-4 rounded-2xl border border-app/10 bg-secondary/10 px-4 py-3">
+              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
+                Current Plan
+              </Text>
+              <Text className="text-base font-clash text-app mt-1">
+                {tierMap.get(normalizeProgramTier(programTier) ?? "PHP")?.name ?? "PHP Program"}
+              </Text>
+              {latestSubscriptionRequest?.status &&
+              ["pending_payment", "pending_approval"].includes(
+                String(latestSubscriptionRequest.status)
+              ) ? (
+                <Text className="text-xs font-outfit text-secondary mt-1">
+                  Upgrade request pending approval.
+                </Text>
+              ) : null}
+            </View>
+          ) : (
+            <View className="mt-4 rounded-2xl border border-amber-200 bg-amber-100 px-4 py-3">
+              <Text className="text-xs font-outfit text-amber-900 uppercase tracking-[1.4px]">
+                No active plan
+              </Text>
+              <Text className="text-sm font-outfit text-amber-900 mt-1">
+                Choose a plan to unlock full access.
+              </Text>
+            </View>
+          )}
         </View>
 
         {actionError ? (
@@ -152,24 +267,99 @@ export default function PlansScreen() {
               Loading plans...
             </Text>
           </View>
-        ) : plans.length === 0 ? (
+        ) : mergedPlans.length === 0 ? (
           <View className="rounded-3xl border border-dashed border-app bg-input p-6">
             <Text className="text-sm text-secondary font-outfit text-center">
               No plans available yet.
             </Text>
           </View>
         ) : (
-          plans.map((plan, index) => {
+          mergedPlans.map((plan, index) => {
             const baseTier = tierMap.get(plan.tier);
             const pricing = buildPlanPricing(plan);
+            const normalizedTier = normalizeProgramTier(programTier);
+            const isCurrentPlan = normalizedTier === plan.tier;
+            const isPendingRequest =
+              !isCurrentPlan &&
+              latestSubscriptionRequest?.planTier === plan.tier &&
+              ["pending_payment", "pending_approval"].includes(
+                String(latestSubscriptionRequest?.status ?? "")
+              );
+            const currentRank = tierRank(normalizedTier);
+            const targetRank = tierRank(plan.tier);
+            const isDowngrade = currentRank >= 0 && targetRank >= 0 && targetRank < currentRank;
             const tier: ProgramTier = {
               ...(baseTier ?? PROGRAM_TIERS[0]),
               name: plan.name,
               priceBadge: pricing.badge,
               priceLines: pricing.lines,
               discountNote: pricing.discountNote,
+              highlight: isCurrentPlan ? "Current Plan" : isPendingRequest ? "Pending Approval" : baseTier?.highlight,
             };
             const handleSelect = () => {
+              if (plan.isPlaceholder) {
+                if (isDowngrade) {
+                  Alert.alert(
+                    "Downgrade to PHP Program",
+                    "Your plan will change immediately. No payment required.",
+                    [
+                      { text: "Confirm", onPress: () => handleDowngrade("PHP") },
+                      { text: "Cancel", style: "cancel" },
+                    ]
+                  );
+                  return;
+                }
+                Alert.alert(
+                  "PHP Program",
+                  "This plan is included after onboarding. No payment required.",
+                  [
+                    { text: "Go to Programs", onPress: () => router.push("/(tabs)/programs") },
+                    { text: "OK", style: "cancel" },
+                  ]
+                );
+                return;
+              }
+              if (isCurrentPlan) {
+                Alert.alert("Current plan", "You're already on this plan.");
+                return;
+              }
+              if (isPendingRequest) {
+                Alert.alert("Pending approval", "Your request is awaiting coach approval.");
+                return;
+              }
+              if (isDowngrade) {
+                Alert.alert(
+                  "Downgrade plan",
+                  "Your plan will change immediately. No payment required.",
+                  [
+                    { text: "Confirm", onPress: () => handleDowngrade(plan.tier) },
+                    { text: "Cancel", style: "cancel" },
+                  ]
+                );
+                return;
+              }
+              if (normalizedTier) {
+                Alert.alert(
+                  "Change plan",
+                  "Changing plans will start a new payment and require coach approval.",
+                  [
+                    { text: "Continue", onPress: () => {
+                      if (plan.billingInterval?.includes("monthly") && plan.billingInterval?.includes("yearly")) {
+                        Alert.alert("Choose billing", "Select a billing interval", [
+                          { text: "Monthly", onPress: () => handleCheckout(plan.id, "monthly") },
+                          { text: "Yearly", onPress: () => handleCheckout(plan.id, "yearly") },
+                          { text: "Cancel", style: "cancel" },
+                        ]);
+                        return;
+                      }
+                      const interval = plan.billingInterval?.includes("yearly") ? "yearly" : "monthly";
+                      handleCheckout(plan.id, interval);
+                    }},
+                    { text: "Cancel", style: "cancel" },
+                  ]
+                );
+                return;
+              }
               if (plan.billingInterval?.includes("monthly") && plan.billingInterval?.includes("yearly")) {
                 Alert.alert("Choose billing", "Select a billing interval", [
                   { text: "Monthly", onPress: () => handleCheckout(plan.id, "monthly") },

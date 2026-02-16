@@ -8,6 +8,7 @@ import {
   createExerciseItem,
   createProgram,
   createSessionItem,
+  deleteSessionExerciseItem,
   blockUser,
   deleteUser,
   deleteExerciseItem,
@@ -61,5 +62,6 @@ router.patch("/admin/exercises/:exerciseId", updateExerciseItem);
 router.delete("/admin/exercises/:exerciseId", deleteExerciseItem);
 router.post("/admin/sessions", createSessionItem);
 router.post("/admin/session-exercises", addExercise);
+router.delete("/admin/session-exercises/:sessionExerciseId", deleteSessionExerciseItem);
 
 export default router;

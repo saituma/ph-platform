@@ -16,13 +16,22 @@ import { ProgramType } from "../db/schema";
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
   type: z.enum(["call", "group_call", "individual_call", "lift_lab_1on1", "role_model", "one_on_one"]),
-  durationMinutes: z.number().int().min(1),
-  capacity: z.number().int().min(1).optional(),
-  fixedStartTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  durationMinutes: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)),
+  capacity: z
+    .preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1))
+    .optional(),
+  fixedStartTime: z
+    .string()
+    .transform((val) => val?.trim() || "")
+    .refine((val) => val === "" || /^\d{2}:\d{2}$/.test(val), {
+      message: "Invalid time format (HH:MM)",
+    })
+    .optional()
+    .nullable(),
   attendeeVisibility: z.boolean().optional(),
-  defaultLocation: z.string().optional(),
-  defaultMeetingLink: z.string().optional(),
-  programTier: z.enum(ProgramType.enumValues).optional(),
+  defaultLocation: z.string().optional().nullable(),
+  defaultMeetingLink: z.string().optional().nullable(),
+  programTier: z.enum(ProgramType.enumValues).optional().nullable(),
 });
 
 const serviceTypeUpdateSchema = serviceTypeSchema.partial().extend({
@@ -58,6 +67,7 @@ export async function listServices(req: Request, res: Response) {
 }
 
 export async function createService(req: Request, res: Response) {
+  console.log("Creating service:", JSON.stringify(req.body, null, 2));
   const input = serviceTypeSchema.parse(req.body);
   const item = await createServiceType({
     name: input.name,
@@ -79,6 +89,7 @@ export async function updateService(req: Request, res: Response) {
   if (!serviceId) {
     return res.status(400).json({ error: "Invalid service id" });
   }
+  console.log("Updating service:", serviceId, JSON.stringify(req.body, null, 2));
   const input = serviceTypeUpdateSchema.parse(req.body);
   if (Object.keys(input).length === 0) {
     return res.status(400).json({ error: "No updates provided" });

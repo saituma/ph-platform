@@ -7,6 +7,7 @@ import {
   createExercise,
   createProgramTemplate,
   createSession,
+  deleteSessionExercise,
   getAdminProfile,
   getDashboardMetrics,
   getUserOnboarding,
@@ -307,6 +308,15 @@ export async function addExercise(req: Request, res: Response) {
   return res.status(201).json({ item });
 }
 
+export async function deleteSessionExerciseItem(req: Request, res: Response) {
+  const sessionExerciseId = z.coerce.number().int().min(1).parse(req.params.sessionExerciseId);
+  const item = await deleteSessionExercise(sessionExerciseId);
+  if (!item) {
+    return res.status(404).json({ error: "Session exercise not found" });
+  }
+  return res.status(200).json({ item });
+}
+
 export async function listBookings(req: Request, res: Response) {
   const bookings = await listBookingsAdmin();
   return res.status(200).json({ bookings });
@@ -341,8 +351,23 @@ export async function markThreadRead(req: Request, res: Response) {
 
 export async function sendAdminMessage(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
-  const body = z.object({ content: z.string().min(1) }).parse(req.body);
-  const message = await sendMessageAdmin({ coachId: req.user!.id, userId, content: body.content });
+  const body = z
+    .object({
+      content: z.string().trim().optional().default(""),
+      contentType: z.enum(["text", "image", "video"]).default("text"),
+      mediaUrl: z.string().url().optional(),
+    })
+    .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
+      message: "Message content or mediaUrl is required",
+    })
+    .parse(req.body);
+  const message = await sendMessageAdmin({
+    coachId: req.user!.id,
+    userId,
+    content: body.content,
+    contentType: body.contentType,
+    mediaUrl: body.mediaUrl,
+  });
   return res.status(201).json({ message });
 }
 

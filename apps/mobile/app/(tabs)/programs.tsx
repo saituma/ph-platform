@@ -1,8 +1,8 @@
 import { ProgramCard, ProgramTier } from "@/components/ProgramCard";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { apiRequest } from "@/lib/api";
 import { buildPlanPricing, PlanPricing } from "@/lib/billing";
 import { useAppSelector } from "@/store/hooks";
+import { normalizeProgramTier, programIdToTier } from "@/lib/planAccess";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Text, View } from "react-native";
@@ -11,7 +11,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProgramsScreen() {
   const router = useRouter();
-  const { onboardingCompleted, token, isAuthenticated } = useAppSelector((state) => state.user);
+  const { onboardingCompleted, token, isAuthenticated, programTier, latestSubscriptionRequest } = useAppSelector(
+    (state) => state.user
+  );
   const [currentTier, setCurrentTier] = useState<string | null>(null);
   const [plansByTier, setPlansByTier] = useState<Record<string, number>>({});
   const [pricingByTier, setPricingByTier] = useState<Record<string, PlanPricing>>({});
@@ -63,18 +65,20 @@ export default function ProgramsScreen() {
     []
   );
 
-  const handleViewProgram = () => {
-    router.push("/(tabs)/parent-platform");
+  const handleViewProgram = (tierId: string) => {
+    router.push(`/programs/${tierId}`);
   };
 
   useEffect(() => {
     let mounted = true;
-    if (!isAuthenticated || !token) return;
+    if (!isAuthenticated || !token) {
+      setCurrentTier(null);
+      return;
+    }
     (async () => {
       try {
         setLoading(true);
         const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
-        const headers = { Authorization: `Bearer ${token}` };
 
         let plansResponse: { plans: any[] } | null = null;
         const plansRes = await fetch(`${baseUrl}/public/plans`);
@@ -82,20 +86,8 @@ export default function ProgramsScreen() {
           plansResponse = await plansRes.json();
         }
 
-        let nextTier: string | null = null;
-        const statusRes = await fetch(`${baseUrl}/billing/status`, { headers });
-        if (statusRes.ok) {
-          const status = await statusRes.json();
-          nextTier = status?.currentProgramTier ?? null;
-        } else {
-          const onboardingRes = await fetch(`${baseUrl}/onboarding`, { headers });
-          if (onboardingRes.ok) {
-            const onboarding = await onboardingRes.json();
-            nextTier = onboarding?.athlete?.currentProgramTier ?? null;
-          }
-        }
         if (!mounted) return;
-        setCurrentTier(nextTier);
+        setCurrentTier(programTier ?? null);
         const map: Record<string, number> = {};
         const pricingMap: Record<string, PlanPricing> = {};
         (plansResponse?.plans ?? []).forEach((plan) => {
@@ -115,7 +107,7 @@ export default function ProgramsScreen() {
     return () => {
       mounted = false;
     };
-  }, [token]);
+  }, [token, programTier]);
 
   const handleApply = async (tierId: string) => {
     if (!onboardingCompleted) {
@@ -222,33 +214,55 @@ export default function ProgramsScreen() {
         </View>
 
         {tiers.map((tier) => {
-          const tierMap: Record<string, string> = {
-            php: "PHP",
-            plus: "PHP_Plus",
-            premium: "PHP_Premium",
-          };
-          const isTierEnrolled = currentTier === tierMap[tier.id];
-          const pricing = pricingByTier[tierMap[tier.id]];
+          const requiredTier = programIdToTier(tier.id as "php" | "plus" | "premium");
+          const normalizedTier = normalizeProgramTier(currentTier);
+          const isTierEnrolled = normalizedTier === requiredTier;
+          const isPendingRequest =
+            !isTierEnrolled &&
+            latestSubscriptionRequest?.planTier === requiredTier &&
+            ["pending_payment", "pending_approval"].includes(
+              String(latestSubscriptionRequest?.status ?? "")
+            );
+          const pricing = pricingByTier[requiredTier];
+          const primaryLabel = isTierEnrolled
+            ? "View Program"
+            : tier.id === "premium"
+              ? "Apply"
+              : "Onboard";
           return (
-          <ProgramCard
-            key={tier.id}
-            tier={{
-              ...tier,
-              priceBadge: pricing?.badge,
-              priceLines: pricing?.lines,
-              discountNote: pricing?.discountNote,
-            }}
-            primaryLabel={isTierEnrolled ? "View Program" : tier.id === "premium" ? "Apply" : "Onboard"}
-            secondaryLabel="View Details"
+            <ProgramCard
+              key={tier.id}
+              tier={{
+                ...tier,
+                priceBadge: pricing?.badge,
+                priceLines: pricing?.lines,
+                discountNote: pricing?.discountNote,
+                highlight: isPendingRequest ? "Pending Approval" : tier.highlight,
+              }}
+              primaryLabel={primaryLabel}
+              secondaryLabel="View Details"
             helperNote={
-              tier.id === "premium"
-                ? "1:1 spots are limited. Apply to join the waitlist."
-                : undefined
+              isPendingRequest
+                ? "Your request is pending coach approval."
+                : tier.id === "premium"
+                  ? "1:1 spots are limited. Apply to join the waitlist."
+                  : undefined
             }
-            onPrimaryPress={isTierEnrolled ? handleViewProgram : () => handleApply(tier.id)}
-            onSecondaryPress={handleViewProgram}
-          />
-        )})}
+            onPrimaryPress={() => {
+              if (isTierEnrolled) {
+                handleViewProgram(tier.id);
+                return;
+              }
+              if (isPendingRequest) {
+                Alert.alert("Pending approval", "Your request is awaiting coach approval.");
+                return;
+              }
+              handleApply(tier.id);
+            }}
+              onSecondaryPress={() => handleViewProgram(tier.id)}
+            />
+          );
+        })}
       </ThemedScrollView>
     </SafeAreaView>
   );
