@@ -9,6 +9,7 @@ import {
   createCheckout,
   createPaymentSheet,
   createPlanAdmin,
+  downgradePlan,
   getBillingStatus,
   listPlans,
   listPlansAdmin,
@@ -26,6 +27,7 @@ router.post("/billing/checkout", requireAuth, createCheckout);
 router.post("/billing/payment-sheet", requireAuth, createPaymentSheet);
 router.post("/billing/payment-sheet/confirm", requireAuth, confirmPaymentSheet);
 router.post("/billing/confirm", requireAuth, confirmCheckout);
+router.post("/billing/downgrade", requireAuth, downgradePlan);
 
 router.get(
   "/admin/subscription-plans",

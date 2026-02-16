@@ -11,9 +11,11 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { InboxList } from "../../components/admin/messaging/inbox-list";
 import { GroupInboxPanel } from "../../components/admin/messaging/group-inbox-panel";
 import { MessagingConversationCard } from "../../components/admin/messaging/messaging-conversation-card";
+import type { ComposerAttachment } from "../../components/admin/messaging/conversation-panel";
 import { MessageDialogs, type MessagingDialog } from "../../components/admin/messaging/message-dialogs";
 import {
   useCreateChatGroupMutation,
+  useCreateMediaUploadUrlMutation,
   useGetChatGroupMembersQuery,
   useGetChatGroupMessagesQuery,
   useGetChatGroupsQuery,
@@ -48,6 +50,8 @@ type MessageItem = {
   author: string;
   time: string;
   text: string;
+  mediaUrl?: string | null;
+  contentType?: "text" | "image" | "video";
   reactions?: { emoji: string; count: number; reactedByMe?: boolean }[];
   status?: "sent" | "delivered" | "read";
 };
@@ -66,6 +70,7 @@ export default function MessagingPage() {
   const { data: usersData } = useGetUsersQuery();
   const { data: groupsData, refetch: refetchGroups } = useGetChatGroupsQuery();
   const [createGroup, { isLoading: isCreatingGroup }] = useCreateChatGroupMutation();
+  const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
   const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
   const [sendGroupMessage, { isLoading: isSendingGroup }] = useSendChatGroupMessageMutation();
   const [toggleMessageReaction] = useToggleMessageReactionMutation();
@@ -262,6 +267,8 @@ export default function MessagingPage() {
       author: msg.senderId === selectedUserId ? (selectedThreadName ?? selectedThread.name) : "Coach",
       time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
       text: msg.content,
+      mediaUrl: msg.mediaUrl ?? null,
+      contentType: msg.contentType ?? "text",
       reactions: (msg.reactions ?? []).map((reaction: any) => ({
         emoji: reaction.emoji,
         count: reaction.count,
@@ -281,6 +288,8 @@ export default function MessagingPage() {
       author: lookup.get(msg.senderId) ?? `User ${msg.senderId}`,
       time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
       text: msg.content,
+      mediaUrl: msg.mediaUrl ?? null,
+      contentType: msg.contentType ?? "text",
       reactions: (msg.reactions ?? []).map((reaction: any) => ({
         emoji: reaction.emoji,
         count: reaction.count,
@@ -317,6 +326,41 @@ export default function MessagingPage() {
     }
     return result;
   }, [groups, searchTerm]);
+
+  const uploadAttachment = async (attachment: ComposerAttachment) => {
+    const file = attachment.file;
+    const inferredType = file.type || (attachment.kind === "image" ? "image/jpeg" : "application/octet-stream");
+    const folder = attachment.kind === "image" ? "messages/images" : "messages/files";
+    const presign = await createMediaUploadUrl({
+      folder,
+      fileName: file.name,
+      contentType: inferredType,
+      sizeBytes: file.size,
+    }).unwrap();
+
+    const uploadResponse = await fetch(presign.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": inferredType,
+      },
+      body: file,
+    });
+    if (!uploadResponse.ok) {
+      throw new Error("Failed to upload attachment");
+    }
+
+    const mappedContentType: "text" | "image" | "video" = inferredType.startsWith("image/")
+      ? "image"
+      : inferredType.startsWith("video/")
+      ? "video"
+      : "text";
+
+    return {
+      mediaUrl: presign.publicUrl,
+      contentType: mappedContentType,
+      fallbackContent: file.name,
+    };
+  };
 
   return (
     <AdminShell
@@ -408,15 +452,33 @@ export default function MessagingPage() {
               socket.emit(isTyping ? "typing:start" : "typing:stop", { toUserId: selectedUserId });
             }
           }}
-          onSend={async (text) => {
+          onSend={async ({ text, attachment }) => {
+            const trimmed = text.trim();
+            let mediaPayload: { mediaUrl: string; contentType: "text" | "image" | "video"; fallbackContent: string } | null =
+              null;
+            if (attachment) {
+              mediaPayload = await uploadAttachment(attachment);
+            }
+            const content = trimmed || mediaPayload?.fallbackContent || "";
+
             if (inboxMode === "group") {
               if (!selectedGroupId || isSendingGroup) return;
-              await sendGroupMessage({ groupId: selectedGroupId, content: text }).unwrap();
+              await sendGroupMessage({
+                groupId: selectedGroupId,
+                content,
+                contentType: mediaPayload?.contentType ?? "text",
+                mediaUrl: mediaPayload?.mediaUrl,
+              }).unwrap();
               refetchGroupMessages();
               return;
             }
             if (!selectedUserId || isSending) return;
-            await sendMessage({ userId: selectedUserId, content: text }).unwrap();
+            await sendMessage({
+              userId: selectedUserId,
+              content,
+              contentType: mediaPayload?.contentType ?? "text",
+              mediaUrl: mediaPayload?.mediaUrl,
+            }).unwrap();
             refetchMessages();
           }}
           onReact={async (messageId, emoji) => {

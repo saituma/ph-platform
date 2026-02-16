@@ -1,12 +1,14 @@
 import { Card, CardContent, CardHeader } from "../../ui/card";
 import { SectionHeader } from "../section-header";
-import { ConversationPanel } from "./conversation-panel";
+import { ComposerAttachment, ConversationPanel } from "./conversation-panel";
 
 type MessageItem = {
   id: string;
   author: string;
   time: string;
   text: string;
+  mediaUrl?: string | null;
+  contentType?: "text" | "image" | "video";
   reactions?: { emoji: string; count: number; reactedByMe?: boolean }[];
   status?: "sent" | "delivered" | "read";
 };
@@ -22,7 +24,7 @@ type MessagingConversationCardProps = {
   messages: MessageItem[];
   groupMessages: MessageItem[];
   onTypingChange: (isTyping: boolean) => void;
-  onSend: (text: string) => Promise<void>;
+  onSend: (payload: { text: string; attachment?: ComposerAttachment | null }) => Promise<void>;
   onReact: (messageId: string, emoji: string) => Promise<void>;
 };
 

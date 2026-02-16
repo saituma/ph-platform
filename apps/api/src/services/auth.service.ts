@@ -129,6 +129,22 @@ export async function loginUser(input: { email: string; password: string }): Pro
   }
 }
 
+export async function refreshUserSession(input: { refreshToken: string }): Promise<InitiateAuthCommandOutput> {
+  try {
+    const command = new InitiateAuthCommand({
+      ClientId: env.cognitoClientId,
+      AuthFlow: "REFRESH_TOKEN_AUTH",
+      AuthParameters: {
+        REFRESH_TOKEN: input.refreshToken,
+      },
+    });
+
+    return await cognitoClient.send(command);
+  } catch (error) {
+    rethrowCognitoError(error);
+  }
+}
+
 export async function startForgotPassword(input: { email: string }): Promise<ForgotPasswordCommandOutput> {
   try {
     const command = new ForgotPasswordCommand({

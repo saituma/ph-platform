@@ -10,16 +10,25 @@ interface UserProfile {
 interface UserState {
   isAuthenticated: boolean;
   token: string | null;
+  refreshToken: string | null;
   profile: UserProfile;
   isLoading: boolean;
   hydrated: boolean;
   onboardingCompleted: boolean | null;
   athleteUserId: number | null;
+  programTier: string | null;
+  latestSubscriptionRequest: {
+    status?: string | null;
+    paymentStatus?: string | null;
+    planTier?: string | null;
+    createdAt?: string | null;
+  } | null;
 }
 
 const initialState: UserState = {
   isAuthenticated: false,
   token: null,
+  refreshToken: null,
   profile: {
     id: null,
     name: null,
@@ -30,6 +39,8 @@ const initialState: UserState = {
   hydrated: false,
   onboardingCompleted: null,
   athleteUserId: null,
+  programTier: null,
+  latestSubscriptionRequest: null,
 };
 
 const userSlice = createSlice({
@@ -38,10 +49,11 @@ const userSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ token: string; profile: UserProfile }>,
+      action: PayloadAction<{ token: string; profile: UserProfile; refreshToken?: string | null }>,
     ) => {
       state.isAuthenticated = true;
       state.token = action.payload.token;
+      state.refreshToken = action.payload.refreshToken ?? state.refreshToken;
       state.profile = action.payload.profile;
     },
     updateProfile: (state, action: PayloadAction<Partial<UserProfile>>) => {
@@ -53,6 +65,15 @@ const userSlice = createSlice({
     setAthleteUserId: (state, action: PayloadAction<number | null>) => {
       state.athleteUserId = action.payload;
     },
+    setProgramTier: (state, action: PayloadAction<string | null>) => {
+      state.programTier = action.payload;
+    },
+    setLatestSubscriptionRequest: (
+      state,
+      action: PayloadAction<UserState["latestSubscriptionRequest"]>
+    ) => {
+      state.latestSubscriptionRequest = action.payload;
+    },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
@@ -62,9 +83,12 @@ const userSlice = createSlice({
     logout: (state) => {
       state.isAuthenticated = false;
       state.token = null;
+      state.refreshToken = null;
       state.profile = initialState.profile;
       state.onboardingCompleted = null;
       state.athleteUserId = null;
+      state.programTier = null;
+      state.latestSubscriptionRequest = null;
     },
   },
 });
@@ -74,6 +98,8 @@ export const {
   updateProfile,
   setOnboardingCompleted,
   setAthleteUserId,
+  setProgramTier,
+  setLatestSubscriptionRequest,
   setLoading,
   setHydrated,
   logout,

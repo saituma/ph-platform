@@ -5,6 +5,13 @@ const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const token = req.cookies.get("accessToken")?.value;
+
+  if (pathname === "/login" && token) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
 
   if (
     pathname.startsWith("/_next") ||
@@ -15,7 +22,6 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = req.cookies.get("accessToken")?.value;
   if (!token) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";

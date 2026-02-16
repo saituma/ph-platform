@@ -5,6 +5,7 @@ import { env } from "../config/env";
 import { db } from "../db";
 import {
   athleteTable,
+  notificationTable,
   ProgramType,
   subscriptionPlanTable,
   subscriptionRequestTable,
@@ -443,6 +444,7 @@ export async function approveSubscriptionRequest(requestId: number) {
     const rows = await tx
       .select({
         requestId: subscriptionRequestTable.id,
+        userId: subscriptionRequestTable.userId,
         athleteId: subscriptionRequestTable.athleteId,
         planTier: subscriptionPlanTable.tier,
       })
@@ -466,6 +468,14 @@ export async function approveSubscriptionRequest(requestId: number) {
       .set({ status: "approved", updatedAt: new Date() })
       .where(eq(subscriptionRequestTable.id, requestId))
       .returning();
+
+    await tx.insert(notificationTable).values({
+      userId: request.userId,
+      type: "plan_approved",
+      content: `Your ${request.planTier.replace("_", " ")} plan has been approved.`,
+      link: "/plans",
+      read: false,
+    });
 
     return updated[0] ?? null;
   });

@@ -128,7 +128,22 @@ export function ParentCoursesCard() {
       resetForm();
       refetch();
     } catch (err: any) {
-      setError(err?.message ?? "Failed to save course.");
+      console.error("Course save error:", err);
+      let msg = "Failed to save course.";
+      if (err?.data?.error === "Invalid request" && err?.data?.issues) {
+        const issues = err.data.issues as any[];
+        const errors = issues.map((issue) => {
+          const path = issue.path.join(".");
+          const field = path.replace(/modules\.(\d+)\./, (match: string, p1: string) => `Module ${parseInt(p1) + 1} `);
+          return `${field}: ${issue.message}`;
+        });
+        msg = `Validation Error: ${errors.join(" | ")}`;
+      } else if (err?.data?.error) {
+        msg = err.data.error;
+      } else if (err?.message) {
+        msg = err.message;
+      }
+      setError(msg);
     }
   };
 
@@ -196,11 +211,24 @@ export function ParentCoursesCard() {
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Course Title</Label>
-                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Course title" />
+                  <Input
+                    value={title}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Course title"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+                  <Select
+                    value={category}
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      setError(null);
+                    }}
+                  >
                     {PARENT_COURSE_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
@@ -229,23 +257,47 @@ export function ParentCoursesCard() {
                   <Label>Cover Image URL</Label>
                   <Input
                     value={coverImage}
-                    onChange={(e) => setCoverImage(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCoverImage(val);
+                      if (val.startsWith("data:")) {
+                        setError("Cover Image: Use an upload or a hosted URL instead of pasting base64 data.");
+                      } else {
+                        setError(null);
+                      }
+                    }}
                     placeholder="https://..."
+                    className={coverImage.startsWith("data:") ? "border-destructive text-destructive" : ""}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Upload an image or paste a hosted URL.
-                  </p>
+                  {coverImage.startsWith("data:") ? (
+                    <p className="text-xs font-medium text-destructive">
+                      Base64 detected! Please delete this and upload an image instead.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Upload an image or paste a hosted URL.
+                    </p>
+                  )}
                   <ParentCourseMediaUpload
                     label="Upload Cover Image"
                     folder="parent-courses/covers"
                     accept="image/*"
                     maxSizeMb={8}
-                    onUploaded={(url) => setCoverImage(url)}
+                    onUploaded={(url) => {
+                      setCoverImage(url);
+                      setError(null);
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Program Tier</Label>
-                  <Select value={tier} onChange={(e) => setTier(e.target.value)}>
+                  <Select
+                    value={tier}
+                    onChange={(e) => {
+                      setTier(e.target.value);
+                      setError(null);
+                    }}
+                  >
                     {PARENT_TIER_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -260,6 +312,7 @@ export function ParentCoursesCard() {
                 onModulesChange={setModules}
                 newModuleType={newModuleType}
                 onNewModuleTypeChange={setNewModuleType}
+                onError={setError}
               />
 
               {error ? <p className="text-sm text-destructive">{error}</p> : null}

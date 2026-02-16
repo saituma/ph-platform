@@ -95,8 +95,16 @@ export function initSocket(server: HttpServer) {
 
     socket.on(
       "message:send",
-      async (payload: { toUserId: number; content: string; actingUserId?: number; clientId?: string }) => {
-      if (!payload?.toUserId || !payload?.content?.trim()) return;
+      async (payload: {
+        toUserId: number;
+        content?: string;
+        contentType?: "text" | "image" | "video";
+        mediaUrl?: string;
+        actingUserId?: number;
+        clientId?: string;
+      }) => {
+      const content = payload?.content?.trim() ?? "";
+      if (!payload?.toUserId || (!content && !payload.mediaUrl)) return;
       let senderId = (socket.data.actingUserId as number | null) ?? userId;
       if (payload.actingUserId && payload.actingUserId !== senderId) {
         const { athlete } = await getGuardianAndAthlete(userId);
@@ -107,7 +115,9 @@ export function initSocket(server: HttpServer) {
       const message = await createDirectMessage({
         senderId,
         receiverId: payload.toUserId,
-        content: payload.content,
+        content: content || "Attachment",
+        contentType: payload.contentType ?? "text",
+        mediaUrl: payload.mediaUrl,
       });
       const enriched = { ...message, clientId: payload.clientId };
       io.to(`user:${senderId}`).emit("message:new", enriched);
@@ -117,8 +127,16 @@ export function initSocket(server: HttpServer) {
 
     socket.on(
       "group:send",
-      async (payload: { groupId: number; content: string; actingUserId?: number; clientId?: string }) => {
-      if (!payload?.groupId || !payload?.content?.trim()) return;
+      async (payload: {
+        groupId: number;
+        content?: string;
+        contentType?: "text" | "image" | "video";
+        mediaUrl?: string;
+        actingUserId?: number;
+        clientId?: string;
+      }) => {
+      const content = payload?.content?.trim() ?? "";
+      if (!payload?.groupId || (!content && !payload.mediaUrl)) return;
       const allowed = await isGroupMember(payload.groupId, userId);
       if (!allowed) return;
       let senderId = (socket.data.actingUserId as number | null) ?? userId;
@@ -131,7 +149,9 @@ export function initSocket(server: HttpServer) {
       const message = await createGroupMessage({
         groupId: payload.groupId,
         senderId,
-        content: payload.content,
+        content: content || "Attachment",
+        contentType: payload.contentType ?? "text",
+        mediaUrl: payload.mediaUrl,
       });
       const enriched = { ...message, clientId: payload.clientId };
       io.to(`group:${payload.groupId}`).emit("group:message", enriched);

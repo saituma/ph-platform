@@ -16,6 +16,8 @@ export type ChatMessage = {
   threadId: string;
   from: "coach" | "user";
   text: string;
+  contentType?: "text" | "image" | "video";
+  mediaUrl?: string;
   time: string;
   status?: "sent" | "delivered" | "read";
   authorName?: string;

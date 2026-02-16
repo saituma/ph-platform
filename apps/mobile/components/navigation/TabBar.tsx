@@ -15,6 +15,7 @@ export interface TabConfig {
   key: string;
   label: string;
   icon: keyof typeof Feather.glyphMap;
+  badgeCount?: number;
 }
 
 interface TabBarProps {
@@ -206,6 +207,33 @@ const TabItem = React.memo(
               color={colors.tabIconDefault}
             />
           </Animated.View>
+          {tab.badgeCount && tab.badgeCount > 0 ? (
+            <View
+              style={{
+                position: "absolute",
+                top: -4,
+                right: -8,
+                minWidth: 16,
+                height: 16,
+                borderRadius: 999,
+                backgroundColor: colors.danger,
+                paddingHorizontal: 4,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Animated.Text
+                style={{
+                  color: "#FFFFFF",
+                  fontSize: 9,
+                  fontFamily: "Outfit-SemiBold",
+                }}
+                numberOfLines={1}
+              >
+                {tab.badgeCount > 99 ? "99+" : String(tab.badgeCount)}
+              </Animated.Text>
+            </View>
+          ) : null}
         </Animated.View>
 
         <Animated.Text
@@ -237,6 +265,7 @@ const TabItem = React.memo(
     );
   },
 );
+TabItem.displayName = "TabItem";
 
 export function TabBar({
   tabs,

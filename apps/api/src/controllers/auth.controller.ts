@@ -8,6 +8,7 @@ import {
   confirmLocal,
   loginUser,
   loginLocal,
+  refreshUserSession,
   resendConfirmation as resendConfirmationCode,
   resendLocal,
   signUpUser,
@@ -34,6 +35,10 @@ const resendSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+});
+
+const refreshSchema = z.object({
+  refreshToken: z.string().min(1),
 });
 
 const forgotSchema = z.object({
@@ -95,6 +100,20 @@ export async function login(req: Request, res: Response) {
     accessToken: response.AuthenticationResult?.AccessToken,
     idToken: response.AuthenticationResult?.IdToken,
     refreshToken: response.AuthenticationResult?.RefreshToken,
+    expiresIn: response.AuthenticationResult?.ExpiresIn,
+    tokenType: response.AuthenticationResult?.TokenType,
+  });
+}
+
+export async function refreshToken(req: Request, res: Response) {
+  const input = refreshSchema.parse(req.body);
+  if (env.authMode === "local") {
+    return res.status(400).json({ error: "Refresh token is not available in local auth mode." });
+  }
+  const response = await refreshUserSession(input);
+  return res.status(200).json({
+    accessToken: response.AuthenticationResult?.AccessToken,
+    idToken: response.AuthenticationResult?.IdToken,
     expiresIn: response.AuthenticationResult?.ExpiresIn,
     tokenType: response.AuthenticationResult?.TokenType,
   });

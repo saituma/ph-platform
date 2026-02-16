@@ -6,14 +6,22 @@ import { chatGroupMemberTable, chatGroupMessageTable, chatGroupTable, messageTab
 import { getSocketServer } from "../socket-hub";
 import { attachGroupMessageReactions } from "./reaction.service";
 
-export async function createDirectMessage(input: { senderId: number; receiverId: number; content: string }) {
+export async function createDirectMessage(input: {
+  senderId: number;
+  receiverId: number;
+  content: string;
+  contentType?: "text" | "image" | "video";
+  mediaUrl?: string | null;
+}) {
+  const safeContent = input.content.trim() || "Attachment";
   const result = await db
     .insert(messageTable)
     .values({
       senderId: input.senderId,
       receiverId: input.receiverId,
-      content: input.content,
-      contentType: "text",
+      content: safeContent,
+      contentType: input.contentType ?? "text",
+      mediaUrl: input.mediaUrl ?? null,
     })
     .returning();
 
@@ -134,15 +142,23 @@ export async function listGroupMessages(groupId: number) {
   return attachGroupMessageReactions(messages);
 }
 
-export async function createGroupMessage(input: { groupId: number; senderId: number; content: string }) {
+export async function createGroupMessage(input: {
+  groupId: number;
+  senderId: number;
+  content: string;
+  contentType?: "text" | "image" | "video";
+  mediaUrl?: string | null;
+}) {
   await ensureChatTables();
+  const safeContent = input.content.trim() || "Attachment";
   const result = await db
     .insert(chatGroupMessageTable)
     .values({
       groupId: input.groupId,
       senderId: input.senderId,
-      content: input.content,
-      contentType: "text",
+      content: safeContent,
+      contentType: input.contentType ?? "text",
+      mediaUrl: input.mediaUrl ?? null,
     })
     .returning();
   const message = result[0];

@@ -37,27 +37,39 @@ const parentCourseModuleSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   type: z.enum(["article", "video", "pdf", "faq"]),
-  content: z.string().optional(),
+  content: z.string().optional().nullable(),
   mediaUrl: z
     .string()
-    .url()
-    .refine((value) => !value.startsWith("data:"), "Use a URL instead of base64 data.")
-    .optional(),
+    .transform((val) => val?.trim() || "")
+    .refine((val) => val === "" || z.string().url().safeParse(val).success, {
+      message: "Invalid URL format",
+    })
+    .refine((val) => !val.startsWith("data:"), {
+      message: "Use a URL instead of base64 data.",
+    })
+    .optional()
+    .nullable(),
   order: z.number().int().min(0),
-  preview: z.boolean().optional(),
+  preview: z.boolean().optional().nullable(),
 });
 
 const parentCourseCreateSchema = z.object({
   title: z.string().min(1),
   summary: z.string().min(1),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   coverImage: z
     .string()
-    .url()
-    .refine((value) => !value.startsWith("data:"), "Use a URL instead of base64 data.")
-    .optional(),
+    .transform((val) => val?.trim() || "")
+    .refine((val) => val === "" || z.string().url().safeParse(val).success, {
+      message: "Invalid URL format",
+    })
+    .refine((val) => !val.startsWith("data:"), {
+      message: "Use a URL instead of base64 data.",
+    })
+    .optional()
+    .nullable(),
   category: z.string().min(1),
-  programTier: z.enum(ProgramType.enumValues).optional(),
+  programTier: z.enum(ProgramType.enumValues).optional().nullable(),
   modules: z.array(parentCourseModuleSchema).min(1),
 });
 
@@ -147,6 +159,8 @@ export async function createParentCourseHandler(req: Request, res: Response) {
 }
 
 export async function updateParentCourseHandler(req: Request, res: Response) {
+  console.log("Updating parent course:", req.params.courseId);
+  console.log("Request body:", JSON.stringify(req.body, null, 2));
   const courseId = z.coerce.number().int().min(1).parse(req.params.courseId);
   const input = parentCourseUpdateSchema.parse(req.body);
   const item = await updateParentCourse({

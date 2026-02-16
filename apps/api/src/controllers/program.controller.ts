@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import { getProgramCards, getProgramById, getProgramSessions } from "../services/program.service";
+import { getExerciseLibrary, getProgramCards, getProgramById, getProgramSessions } from "../services/program.service";
 
 const programIdSchema = z.coerce.number().int().min(1);
 
@@ -23,4 +23,9 @@ export async function getProgramSessionsById(req: Request, res: Response) {
   const programId = programIdSchema.parse(req.params.programId);
   const sessions = await getProgramSessions(programId);
   return res.status(200).json({ sessions });
+}
+
+export async function listProgramExercises(_req: Request, res: Response) {
+  const exercises = await getExerciseLibrary();
+  return res.status(200).json({ exercises });
 }

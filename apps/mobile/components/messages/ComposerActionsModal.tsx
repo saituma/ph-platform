@@ -3,20 +3,16 @@ import { Modal, Pressable, Text, View } from "react-native";
 
 type ComposerActionsModalProps = {
   open: boolean;
-  quickReplies: string[];
   onClose: () => void;
   onAttachFile: () => void;
   onAttachImage: () => void;
-  onQuickReply: (reply: string) => void;
 };
 
 export function ComposerActionsModal({
   open,
-  quickReplies,
   onClose,
   onAttachFile,
   onAttachImage,
-  onQuickReply,
 }: ComposerActionsModalProps) {
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
@@ -31,15 +27,6 @@ export function ComposerActionsModal({
               <Pressable className="rounded-2xl border border-app/10 bg-input px-4 py-3" onPress={onAttachImage}>
                 <Text className="text-sm font-outfit text-app">Attach image</Text>
               </Pressable>
-              {quickReplies.map((reply) => (
-                <Pressable
-                  key={reply}
-                  className="rounded-2xl border border-app/10 bg-input px-4 py-3"
-                  onPress={() => onQuickReply(reply)}
-                >
-                  <Text className="text-sm font-outfit text-app">{reply}</Text>
-                </Pressable>
-              ))}
             </View>
           </View>
         </View>

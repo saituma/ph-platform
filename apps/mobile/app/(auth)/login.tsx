@@ -10,7 +10,13 @@ import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
 import { useAppDispatch } from "../../store/hooks";
-import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
+import {
+  setCredentials,
+  setOnboardingCompleted,
+  setAthleteUserId,
+  setProgramTier,
+  setLatestSubscriptionRequest,
+} from "../../store/slices/userSlice";
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -47,6 +53,7 @@ export default function LoginScreen() {
       const login = await apiRequest<{
         accessToken?: string;
         idToken?: string;
+        refreshToken?: string | null;
       }>("/auth/login", {
         method: "POST",
         body: { email: data.email, password: data.password },
@@ -64,6 +71,7 @@ export default function LoginScreen() {
       dispatch(
         setCredentials({
           token,
+          refreshToken: login.refreshToken ?? null,
           profile: {
             id: String(me.user.id),
             name: me.user.name,
@@ -72,13 +80,32 @@ export default function LoginScreen() {
           },
         })
       );
-      const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean } | null }>(
+      const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
         "/onboarding",
         { token, suppressStatusCodes: [401] }
       );
       const completed = Boolean(onboarding.athlete?.onboardingCompleted);
       dispatch(setOnboardingCompleted(completed));
       dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+      try {
+        const status = await apiRequest<{
+          currentProgramTier?: string | null;
+          latestRequest?: {
+            status?: string | null;
+            paymentStatus?: string | null;
+            planTier?: string | null;
+            createdAt?: string | null;
+          } | null;
+        }>("/billing/status", {
+          token,
+          suppressStatusCodes: [401, 403, 404],
+        });
+        dispatch(setProgramTier(status?.currentProgramTier ?? null));
+        dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
+      } catch {
+        dispatch(setProgramTier(null));
+        dispatch(setLatestSubscriptionRequest(null));
+      }
       router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
     } catch (err: any) {
       const message = err?.message ?? "Login failed";

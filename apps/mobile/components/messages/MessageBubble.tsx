@@ -2,7 +2,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
 import { ChatMessage } from "@/constants/messages";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image, Linking, Pressable, Text, View } from "react-native";
 
 type MessageBubbleProps = {
   message: ChatMessage;
@@ -49,6 +49,25 @@ export function MessageBubble({
       >
         {!isUser && isGroup && message.authorName ? (
           <Text className="text-[10px] font-outfit text-secondary mb-1">{message.authorName}</Text>
+        ) : null}
+        {message.mediaUrl && message.contentType === "image" ? (
+          <Pressable onPress={() => Linking.openURL(message.mediaUrl!)} className="mb-2">
+            <Image
+              source={{ uri: message.mediaUrl }}
+              style={{ width: 220, height: 160, borderRadius: 12 }}
+              resizeMode="cover"
+            />
+          </Pressable>
+        ) : null}
+        {message.mediaUrl && message.contentType !== "image" ? (
+          <Pressable
+            onPress={() => Linking.openURL(message.mediaUrl!)}
+            className="mb-2 rounded-xl border border-app/10 px-3 py-2 bg-secondary/10"
+          >
+            <Text className={`text-xs font-outfit ${isUser ? "text-white" : "text-app"}`}>
+              Open attachment
+            </Text>
+          </Pressable>
         ) : null}
         <Text className={`text-sm font-outfit ${isUser ? "text-white" : "text-app"}`}>
           {message.text}

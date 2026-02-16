@@ -4,9 +4,11 @@ import { Feather } from "@/components/ui/theme-icons";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
+import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 type ScheduleEvent = {
   id: string;
@@ -23,13 +25,6 @@ type ScheduleEvent = {
 };
 
 const FILTERS = ["All", "Training", "Calls", "Recovery"] as const;
-const BOOKING_TYPES = [
-  { label: "Call", value: "call" },
-  { label: "Group call", value: "group_call" },
-  { label: "Individual call", value: "individual_call" },
-  { label: "Lift Lab 1:1", value: "lift_lab_1on1" },
-  { label: "Role model (Premium)", value: "role_model" },
-] as const;
 
 const DEFAULT_SLOTS = ["09:00", "10:00", "13:00", "16:30", "18:00", "19:30"];
 
@@ -69,7 +64,8 @@ const EVENT_TITLE_BY_TYPE: Record<string, string> = {
 export default function ScheduleScreen() {
   const { role } = useRole();
   const { colors } = useAppTheme();
-  const token = useAppSelector((state) => state.user.token);
+  const router = useRouter();
+  const { token, programTier } = useAppSelector((state) => state.user);
   const [selectedFilter, setSelectedFilter] = useState<
     (typeof FILTERS)[number]
   >("All");
@@ -84,11 +80,10 @@ export default function ScheduleScreen() {
   const [availabilitySlots, setAvailabilitySlots] = useState<string[]>([]);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
-  const [bookingType, setBookingType] = useState<(typeof BOOKING_TYPES)[number]["value"]>("call");
+  const [bookingType, setBookingType] = useState("call");
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [bookingSlot, setBookingSlot] = useState<string | null>(null);
   const [bookingLocation, setBookingLocation] = useState("");
-  const [bookingLink, setBookingLink] = useState("");
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
@@ -142,22 +137,27 @@ export default function ScheduleScreen() {
   }, [events, selectedDayId, selectedFilter]);
 
   const activeDay = DAYS.find((day) => day.id === selectedDayId) ?? DAYS[2];
+  const normalizedTier = normalizeProgramTier(programTier);
   const activeServices = useMemo(
     () => services.filter((service) => service.isActive !== false),
     [services],
   );
+  const visibleServices = useMemo(
+    () => activeServices.filter((service) => canAccessTier(programTier, service.programTier ?? null)),
+    [activeServices, programTier],
+  );
   const selectedService = useMemo(
-    () => activeServices.find((service) => service.id === selectedServiceId) ?? null,
-    [activeServices, selectedServiceId],
+    () => visibleServices.find((service) => service.id === selectedServiceId) ?? null,
+    [visibleServices, selectedServiceId],
   );
   const derivedBookingTypes = useMemo(() => {
-    if (activeServices.length === 0) return BOOKING_TYPES;
-    return activeServices.map((service) => ({
+    if (visibleServices.length === 0) return [];
+    return visibleServices.map((service) => ({
       label: service.name,
       value: service.type,
       id: service.id,
     }));
-  }, [activeServices]);
+  }, [visibleServices]);
   const fixedSlot =
     selectedService?.fixedStartTime || (bookingType === "role_model" ? "13:00" : null);
   const availableSlots = fixedSlot
@@ -175,12 +175,6 @@ export default function ScheduleScreen() {
       .then((data) => {
         if (!active) return;
         setServices(data.items ?? []);
-        if (!selectedServiceId && data.items?.length) {
-          setSelectedServiceId(data.items[0].id);
-          setBookingType(data.items[0].type as any);
-          setBookingLocation(data.items[0].defaultLocation ?? "");
-          setBookingLink(data.items[0].defaultMeetingLink ?? "");
-        }
       })
       .catch((err) => {
         if (!active) return;
@@ -194,6 +188,19 @@ export default function ScheduleScreen() {
       active = false;
     };
   }, [bookingOpen, token, selectedServiceId]);
+
+  useEffect(() => {
+    if (!visibleServices.length) {
+      setSelectedServiceId(null);
+      return;
+    }
+    if (!selectedServiceId || !visibleServices.some((service) => service.id === selectedServiceId)) {
+      const next = visibleServices[0];
+      setSelectedServiceId(next.id);
+      setBookingType(next.type as any);
+      setBookingLocation(next.defaultLocation ?? "");
+    }
+  }, [visibleServices, selectedServiceId]);
 
   useEffect(() => {
     if (!bookingOpen || !token || !selectedServiceId) return;
@@ -289,6 +296,17 @@ export default function ScheduleScreen() {
             <Pressable
               className="h-11 w-11 rounded-2xl bg-secondary/10 items-center justify-center border border-app/10"
               onPress={() => {
+                if (!normalizedTier) {
+                  Alert.alert(
+                    "Choose a plan",
+                    "Complete onboarding and select a plan to book sessions.",
+                    [
+                      { text: "View Plans", onPress: () => router.push("/plans") },
+                      { text: "Not now", style: "cancel" },
+                    ]
+                  );
+                  return;
+                }
                 setBookingOpen(true);
                 setBookingConfirmed(false);
                 setBookingSlot(null);
@@ -513,6 +531,17 @@ export default function ScheduleScreen() {
         <View className="px-6 pb-10">
           <Pressable
             onPress={() => {
+              if (!normalizedTier) {
+                  Alert.alert(
+                    "Choose a plan",
+                    "Complete onboarding and select a plan to book sessions.",
+                    [
+                    { text: "View Plans", onPress: () => router.push("/plans") },
+                    { text: "Not now", style: "cancel" },
+                    ]
+                  );
+                return;
+              }
               setBookingOpen(true);
               setBookingConfirmed(false);
               setBookingSlot(null);
@@ -631,11 +660,6 @@ export default function ScheduleScreen() {
                       Location: {bookingLocation}
                     </Text>
                   ) : null}
-                  {bookingLink ? (
-                    <Text className="text-xs font-outfit text-secondary mt-1">
-                      Link: {bookingLink}
-                    </Text>
-                  ) : null}
                 </View>
                 <Pressable
                   onPress={() => setBookingOpen(false)}
@@ -663,153 +687,157 @@ export default function ScheduleScreen() {
                   </Text>
                 ) : null}
 
-                <View className="mt-4 flex-row flex-wrap gap-2">
-                  {derivedBookingTypes.map((item) => {
-                    const active = bookingType === item.value;
-                    return (
-                      <Pressable
-                        key={item.id ?? item.value}
-                        onPress={() => {
-                          setBookingType(item.value as any);
-                          if (item.id) {
-                            setSelectedServiceId(item.id);
-                            const match = activeServices.find((service) => service.id === item.id);
-                            setBookingLocation(match?.defaultLocation ?? "");
-                            setBookingLink(match?.defaultMeetingLink ?? "");
-                          }
-                          setBookingSlot(null);
-                        }}
-                        className={`px-4 py-2 rounded-full border ${
-                          active ? "bg-accent" : "bg-secondary/10"
-                        }`}
-                        style={{ borderColor: colors.border }}
-                      >
-                        <Text
-                          className={`text-xs font-outfit uppercase tracking-[1.4px] ${
-                            active ? "text-white" : "text-secondary"
-                          }`}
-                        >
-                          {item.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Available Times
-                  </Text>
-                  {availabilityLoading ? (
-                    <Text className="text-xs font-outfit text-secondary mt-3">
-                      Loading availability...
+                {derivedBookingTypes.length === 0 ? (
+                  <View className="mt-4 rounded-2xl border border-dashed border-app/20 p-4">
+                    <Text className="text-sm font-outfit text-secondary">
+                      No booking options are available for your current plan.
                     </Text>
-                  ) : null}
-                  {availabilityError ? (
-                    <Text className="text-xs font-outfit text-red-400 mt-3">
-                      {availabilityError}
-                    </Text>
-                  ) : null}
-                  <View className="flex-row flex-wrap gap-2 mt-3">
-                    {availableSlots.map((slot) => {
-                      const active = bookingSlot === slot;
+                    <Pressable
+                      onPress={() => router.push("/plans")}
+                      className="mt-3 rounded-full bg-accent px-4 py-2"
+                    >
+                      <Text className="text-white text-xs font-outfit text-center">View Plans</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View className="mt-4 flex-row flex-wrap gap-2">
+                    {derivedBookingTypes.map((item) => {
+                      const active = bookingType === item.value;
                       return (
                         <Pressable
-                          key={slot}
-                          onPress={() => setBookingSlot(slot)}
-                          className={`px-3 py-2 rounded-full border ${
-                            active ? "bg-accent" : "bg-input"
+                          key={item.id ?? item.value}
+                          onPress={() => {
+                            setBookingType(item.value as any);
+                            if (item.id) {
+                              setSelectedServiceId(item.id);
+                              const match = visibleServices.find((service) => service.id === item.id);
+                              setBookingLocation(match?.defaultLocation ?? "");
+                            }
+                            setBookingSlot(null);
+                          }}
+                          className={`px-4 py-2 rounded-full border ${
+                            active ? "bg-accent" : "bg-secondary/10"
                           }`}
+                          style={{ borderColor: colors.border }}
                         >
                           <Text
-                            className={`text-xs font-outfit ${
-                              active ? "text-white" : "text-app"
+                            className={`text-xs font-outfit uppercase tracking-[1.4px] ${
+                              active ? "text-white" : "text-secondary"
                             }`}
                           >
-                            {slot}
+                            {item.label}
                           </Text>
                         </Pressable>
                       );
                     })}
                   </View>
-                  {bookingType === "role_model" ? (
-                    <Text className="text-xs font-outfit text-secondary mt-3">
-                      Premium calls are fixed at 13:00.
-                    </Text>
-                  ) : null}
-                </View>
+                )}
 
-                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Booking Details (optional)
-                  </Text>
-                  <View className="mt-3 gap-2">
-                    <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
-                      <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Location
+                {selectedService ? (
+                  <>
+                    <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                      <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                        Available Times
                       </Text>
-                      <TextInput
-                        value={bookingLocation}
-                        onChangeText={setBookingLocation}
-                        placeholder="Add location"
-                        placeholderTextColor={colors.mutedForeground}
-                        className="text-sm font-outfit text-app mt-1"
-                      />
+                      {availabilityLoading ? (
+                        <Text className="text-xs font-outfit text-secondary mt-3">
+                          Loading availability...
+                        </Text>
+                      ) : null}
+                      {availabilityError ? (
+                        <Text className="text-xs font-outfit text-red-400 mt-3">
+                          {availabilityError}
+                        </Text>
+                      ) : null}
+                      <View className="flex-row flex-wrap gap-2 mt-3">
+                        {availableSlots.map((slot) => {
+                          const active = bookingSlot === slot;
+                          return (
+                            <Pressable
+                              key={slot}
+                              onPress={() => setBookingSlot(slot)}
+                              className={`px-3 py-2 rounded-full border ${
+                                active ? "bg-accent" : "bg-input"
+                              }`}
+                            >
+                              <Text
+                                className={`text-xs font-outfit ${
+                                  active ? "text-white" : "text-app"
+                                }`}
+                              >
+                                {slot}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      {bookingType === "role_model" ? (
+                        <Text className="text-xs font-outfit text-secondary mt-3">
+                          Premium calls are fixed at 13:00.
+                        </Text>
+                      ) : null}
                     </View>
-                    <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
-                      <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Video Call Link
-                      </Text>
-                      <TextInput
-                        value={bookingLink}
-                        onChangeText={setBookingLink}
-                        placeholder="Add link"
-                        placeholderTextColor={colors.mutedForeground}
-                        className="text-sm font-outfit text-app mt-1"
-                      />
-                    </View>
-                  </View>
-                </View>
 
-                <Pressable
-                  onPress={async () => {
-                    if (!bookingSlot || !selectedService) return;
-                    setBookingError(null);
-                    try {
-                      const [hour, minute] = bookingSlot.split(":").map((part) => Number(part));
-                      const startsAt = new Date();
-                      startsAt.setHours(hour, minute, 0, 0);
-                      const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
-                      await apiRequest("/bookings", {
-                        method: "POST",
-                        token,
-                        body: {
-                          serviceTypeId: selectedService.id,
-                          startsAt: startsAt.toISOString(),
-                          endsAt: endsAt.toISOString(),
-                          location: bookingLocation || undefined,
-                          meetingLink: bookingLink || undefined,
-                        },
-                      });
-                      const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
-                      setEvents(mapBookingsToEvents(refreshed.items ?? []));
-                      setBookingConfirmed(true);
-                    } catch (err: any) {
-                      setBookingError(err.message ?? "Failed to confirm booking");
-                    }
-                  }}
-                  className={`mt-4 px-4 py-3 rounded-full ${
-                    bookingSlot && selectedService ? "bg-accent" : "bg-secondary/20"
-                  }`}
-                >
-                  <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                    Confirm Booking
-                  </Text>
-                </Pressable>
-                {bookingError ? (
-                  <Text className="text-xs font-outfit text-red-400 mt-3">
-                    {bookingError}
-                  </Text>
+                    <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                      <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                        Booking Details (optional)
+                      </Text>
+                      <View className="mt-3 gap-2">
+                        <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
+                          <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                            Location
+                          </Text>
+                          <TextInput
+                            value={bookingLocation}
+                            onChangeText={setBookingLocation}
+                            placeholder="Add location"
+                            placeholderTextColor={colors.mutedForeground}
+                            className="text-sm font-outfit text-app mt-1"
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    <Pressable
+                      onPress={async () => {
+                        if (!bookingSlot || !selectedService) return;
+                        setBookingError(null);
+                        try {
+                          const [hour, minute] = bookingSlot.split(":").map((part) => Number(part));
+                          const startsAt = new Date();
+                          startsAt.setHours(hour, minute, 0, 0);
+                          const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
+                          await apiRequest("/bookings", {
+                            method: "POST",
+                            token,
+                            body: {
+                              serviceTypeId: selectedService.id,
+                              startsAt: startsAt.toISOString(),
+                              endsAt: endsAt.toISOString(),
+                              location: bookingLocation || undefined,
+                            },
+                          });
+                          const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
+                          setEvents(mapBookingsToEvents(refreshed.items ?? []));
+                          setBookingConfirmed(true);
+                        } catch (err: any) {
+                          setBookingError(err.message ?? "Failed to confirm booking");
+                        }
+                      }}
+                      className={`mt-4 px-4 py-3 rounded-full ${
+                        bookingSlot && selectedService ? "bg-accent" : "bg-secondary/20"
+                      }`}
+                    >
+                      <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
+                        Confirm Booking
+                      </Text>
+                    </Pressable>
+                    {bookingError ? (
+                      <Text className="text-xs font-outfit text-red-400 mt-3">
+                        {bookingError}
+                      </Text>
+                    ) : null}
+                  </>
                 ) : null}
               </>
             )}

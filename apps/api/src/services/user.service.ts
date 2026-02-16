@@ -71,3 +71,12 @@ export async function getGuardianAndAthlete(userId: number) {
   const athletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1);
   return { guardian, athlete: athletes[0] ?? null };
 }
+
+export async function getAthleteForUser(userId: number) {
+  const directAthlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
+  if (directAthlete[0]) {
+    return directAthlete[0];
+  }
+  const { athlete } = await getGuardianAndAthlete(userId);
+  return athlete;
+}

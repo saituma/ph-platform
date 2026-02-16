@@ -86,12 +86,13 @@ export async function sendMessage(input: {
   contentType: "text" | "image" | "video";
   mediaUrl?: string | null;
 }) {
+  const safeContent = input.content.trim() || "Attachment";
   const result = await db
     .insert(messageTable)
     .values({
       senderId: input.senderId,
       receiverId: input.receiverId,
-      content: input.content,
+      content: safeContent,
       contentType: input.contentType,
       mediaUrl: input.mediaUrl ?? null,
     })

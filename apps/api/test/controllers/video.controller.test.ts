@@ -9,13 +9,13 @@ jest.mock("../../src/services/video.service", () => ({
 }));
 
 jest.mock("../../src/services/user.service", () => ({
-  getGuardianAndAthlete: jest.fn(),
+  getAthleteForUser: jest.fn(),
 }));
 
 import { createUploadUrl, createVideo, listVideos, reviewVideo } from "../../src/controllers/video.controller";
 import { getPresignedUploadUrl } from "../../src/services/s3.service";
 import { createVideoUpload, listVideoUploadsByAthlete, reviewVideoUpload } from "../../src/services/video.service";
-import { getGuardianAndAthlete } from "../../src/services/user.service";
+import { getAthleteForUser } from "../../src/services/user.service";
 
 function createRes() {
   const res: any = {};
@@ -31,7 +31,7 @@ describe("video controller", () => {
 
   it("creates presigned upload url", async () => {
     (getPresignedUploadUrl as jest.Mock).mockResolvedValue("https://s3.test/upload");
-    const req = { body: { key: "videos/1.mp4", contentType: "video/mp4" } } as any;
+    const req = { body: { key: "videos/1.mp4", contentType: "video/mp4", sizeBytes: 1024 } } as any;
     const res = createRes();
 
     await createUploadUrl(req, res);
@@ -41,7 +41,7 @@ describe("video controller", () => {
   });
 
   it("returns 400 when athlete missing", async () => {
-    (getGuardianAndAthlete as jest.Mock).mockResolvedValue({ athlete: null });
+    (getAthleteForUser as jest.Mock).mockResolvedValue(null);
     const req = { user: { id: 1 }, body: { videoUrl: "https://example.com/video.mp4" } } as any;
     const res = createRes();
 
@@ -53,7 +53,7 @@ describe("video controller", () => {
   });
 
   it("lists videos for athlete", async () => {
-    (getGuardianAndAthlete as jest.Mock).mockResolvedValue({ athlete: { id: 8 } });
+    (getAthleteForUser as jest.Mock).mockResolvedValue({ id: 8 });
     (listVideoUploadsByAthlete as jest.Mock).mockResolvedValue([{ id: 1 }]);
     const req = { user: { id: 1 } } as any;
     const res = createRes();

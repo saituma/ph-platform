@@ -6,8 +6,7 @@ import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { logout } from "@/store/slices/userSlice";
+import { useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -17,7 +16,6 @@ export default function HomeScreen() {
   const { role } = useRole();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const dispatch = useAppDispatch();
   const { profile, token } = useAppSelector((state) => state.user);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [athleteName, setAthleteName] = useState<string | null>(null);
@@ -39,11 +37,8 @@ export default function HomeScreen() {
       setAthleteName(data.athlete?.name ?? null);
     } catch (error: any) {
       setAthleteName(null);
-      if (typeof error?.message === "string" && error.message.includes("401")) {
-        dispatch(logout());
-      }
     }
-  }, [dispatch, token]);
+  }, [token]);
 
   useEffect(() => {
     loadAthleteName();

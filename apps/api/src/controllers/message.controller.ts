@@ -5,11 +5,15 @@ import { listThread, markThreadRead, sendMessage, getCoachUser, getLastAdminCont
 import { toggleDirectMessageReaction } from "../services/reaction.service";
 import { resolveActingUserId } from "../lib/acting-user";
 
-const sendSchema = z.object({
-  content: z.string().min(1),
-  contentType: z.enum(["text", "image", "video"]).default("text"),
-  mediaUrl: z.string().url().optional(),
-});
+const sendSchema = z
+  .object({
+    content: z.string().trim().optional().default(""),
+    contentType: z.enum(["text", "image", "video"]).default("text"),
+    mediaUrl: z.string().url().optional(),
+  })
+  .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
+    message: "Message content or mediaUrl is required",
+  });
 
 const reactionSchema = z.object({
   emoji: z.string().min(1).max(16),

@@ -14,6 +14,7 @@ type ParentCourseModulesEditorProps = {
   onModulesChange: (modules: ParentCourseModule[]) => void;
   newModuleType: ModuleType;
   onNewModuleTypeChange: (value: ModuleType) => void;
+  onError?: (msg: string | null) => void;
 };
 
 export function ParentCourseModulesEditor({
@@ -21,6 +22,7 @@ export function ParentCourseModulesEditor({
   onModulesChange,
   newModuleType,
   onNewModuleTypeChange,
+  onError,
 }: ParentCourseModulesEditorProps) {
   const addModule = () => {
     const next = normalizeModules([
@@ -148,16 +150,30 @@ export function ParentCourseModulesEditor({
                   <Label>Media URL</Label>
                   <Input
                     value={module.mediaUrl ?? ""}
-                    onChange={(e) => updateModule(module.id, { mediaUrl: e.target.value })}
-                    placeholder="Video or PDF URL"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val.startsWith("data:")) {
+                        onError?.("Module " + (index + 1) + ": Use an upload or a hosted URL instead of pasting base64 data.");
+                      } else {
+                        onError?.(null);
+                      }
+                      updateModule(module.id, { mediaUrl: val });
+                    }}
+                    placeholder="Video, PDF, or Image URL"
+                    className={module.mediaUrl?.startsWith("data:") ? "border-destructive text-destructive" : ""}
                   />
+                  {module.mediaUrl?.startsWith("data:") ? (
+                    <p className="font-medium text-destructive">
+                      Base64 detected! Please delete this and upload a file instead.
+                    </p>
+                  ) : null}
                   <p className="text-xs text-muted-foreground">
-                    Supports YouTube links or direct MP4/PDF URLs.
+                    Supports YouTube links, images, or direct MP4/PDF URLs.
                   </p>
                   <ParentCourseMediaUpload
                     label="Upload Media"
                     folder="parent-courses/media"
-                    accept="video/*,application/pdf"
+                    accept="video/*,application/pdf,image/*"
                     maxSizeMb={200}
                     onUploaded={(url) => updateModule(module.id, { mediaUrl: url })}
                   />

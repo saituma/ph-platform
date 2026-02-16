@@ -46,4 +46,80 @@ describe("mobile apiRequest", () => {
       "Cannot reach API at http://localhost:3001/api/messages. Network request failed",
     );
   });
+
+  it("parses express HTML route-miss errors into concise messages", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: async () =>
+        "<!DOCTYPE html><html><body><pre>Cannot POST /api/billing/downgrade</pre></body></html>",
+    });
+
+    await expect(apiRequest("/billing/downgrade", { method: "POST" })).rejects.toThrow(
+      "404 POST /api/billing/downgrade not found",
+    );
+  });
+
+  it("retries once without /api prefix when route returns 404", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => "<pre>Cannot POST /api/billing/downgrade</pre>",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ currentProgramTier: "PHP" }),
+      });
+
+    await expect(
+      apiRequest<{ currentProgramTier: string }>("/billing/downgrade", {
+        method: "POST",
+        body: { tier: "PHP" },
+      }),
+    ).resolves.toEqual({ currentProgramTier: "PHP" });
+
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:3001/api/billing/downgrade",
+      expect.any(Object),
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:3001/billing/downgrade",
+      expect.any(Object),
+    );
+  });
+
+  it("uses fallback response even when fallback is non-2xx", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => "<pre>Cannot POST /api/billing/downgrade</pre>",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: "Unauthorized" }),
+      });
+
+    await expect(
+      apiRequest("/billing/downgrade", {
+        method: "POST",
+      }),
+    ).rejects.toThrow("401 Unauthorized");
+
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:3001/api/billing/downgrade",
+      expect.any(Object),
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:3001/billing/downgrade",
+      expect.any(Object),
+    );
+  });
 });

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Text, TouchableOpacity, View } from "react-native";
-import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
+import { Video, ResizeMode, AVPlaybackStatus, AVPlaybackStatusSuccess } from "expo-av";
 import { Feather } from "@expo/vector-icons";
 
 const YOUTUBE_HOSTS = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"];
@@ -77,20 +77,59 @@ export function VideoPlayer({ uri, title }: { uri: string; title?: string }) {
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
 
-  const isPlaying = Boolean(status && "isLoaded" in status && status.isLoaded && status.isPlaying);
+  const loadedStatus = useMemo(() => {
+    if (!status || !("isLoaded" in status) || !status.isLoaded) {
+      return null;
+    }
+    return status as AVPlaybackStatusSuccess;
+  }, [status]);
+
+  const isPlaying = Boolean(loadedStatus?.isPlaying);
+  const durationMillis = loadedStatus?.durationMillis ?? 0;
+  const positionMillis = loadedStatus?.positionMillis ?? 0;
+  const progress = durationMillis > 0 ? Math.min(1, Math.max(0, positionMillis / durationMillis)) : 0;
+
+  const formatTime = (millis: number) => {
+    const totalSeconds = Math.floor(Math.max(0, millis) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  };
 
   const togglePlayback = useCallback(async () => {
-    const current = status;
-    if (!current || !("isLoaded" in current) || !current.isLoaded) {
+    if (!loadedStatus) {
       return;
     }
-    if (current.isPlaying) {
+    if (loadedStatus.isPlaying) {
       await videoRef.current?.pauseAsync();
     } else {
       await videoRef.current?.playAsync();
     }
-  }, [status]);
+  }, [loadedStatus]);
+
+  const seekBy = useCallback(async (deltaMillis: number) => {
+    if (!loadedStatus) {
+      return;
+    }
+    const target = Math.max(0, Math.min(durationMillis, positionMillis + deltaMillis));
+    await videoRef.current?.setPositionAsync(target);
+  }, [durationMillis, loadedStatus, positionMillis]);
+
+  const toggleMute = useCallback(async () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    await videoRef.current?.setIsMutedAsync(next);
+  }, [isMuted]);
+
+  const openFullscreen = useCallback(async () => {
+    try {
+      await videoRef.current?.presentFullscreenPlayer();
+    } catch {
+      Linking.openURL(uri).catch(() => undefined);
+    }
+  }, [uri]);
 
   return (
     <View className="overflow-hidden rounded-2xl border border-app/10 bg-black">
@@ -128,8 +167,38 @@ export function VideoPlayer({ uri, title }: { uri: string; title?: string }) {
           </TouchableOpacity>
         )}
       </View>
+      <View className="absolute bottom-0 left-0 right-0 bg-black/70 px-3 py-2">
+        <View className="mb-2 h-1.5 w-full rounded-full bg-white/20">
+          <View
+            className="h-1.5 rounded-full bg-white"
+            style={{ width: `${Math.round(progress * 100)}%` }}
+          />
+        </View>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-3">
+            <TouchableOpacity onPress={() => seekBy(-10000)} accessibilityLabel="Rewind 10 seconds">
+              <Feather name="rotate-ccw" size={16} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={togglePlayback} accessibilityLabel={isPlaying ? "Pause video" : "Play video"}>
+              <Feather name={isPlaying ? "pause-circle" : "play-circle"} size={18} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => seekBy(10000)} accessibilityLabel="Forward 10 seconds">
+              <Feather name="rotate-cw" size={16} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={toggleMute} accessibilityLabel={isMuted ? "Unmute video" : "Mute video"}>
+              <Feather name={isMuted ? "volume-x" : "volume-2"} size={16} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={openFullscreen} accessibilityLabel="Open fullscreen">
+              <Feather name="maximize" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <Text className="text-[11px] font-outfit text-white">
+            {formatTime(positionMillis)} / {formatTime(durationMillis)}
+          </Text>
+        </View>
+      </View>
       {title ? (
-        <View className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1">
+        <View className="absolute top-3 left-3 rounded-full bg-black/70 px-3 py-1">
           <Text className="text-xs font-outfit text-white">{title}</Text>
         </View>
       ) : null}
