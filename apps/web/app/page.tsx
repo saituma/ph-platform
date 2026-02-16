@@ -15,13 +15,9 @@ import { Skeleton } from "../components/ui/skeleton";
 import { AdminShell } from "../components/admin/shell";
 import { EmptyState } from "../components/admin/empty-state";
 import { SectionHeader } from "../components/admin/section-header";
-import {
-  DonutChart,
-  LineChart,
-  MiniBars,
-  Sparkline,
-  StackedBars,
-} from "../components/admin/charts";
+import { MiniBars } from "../components/admin/charts";
+import { RechartSparkline } from "../components/admin/recharts";
+import { GreenDoughnutChart, GreenLineChart, GreenStackedBars } from "../components/admin/chartjs";
 import { ActionDialogs, type DashboardDialog } from "../components/admin/dashboard/action-dialogs";
 import { CalendarPanel } from "../components/admin/dashboard/calendar-panel";
 import { useGetDashboardQuery } from "../lib/apiSlice";
@@ -188,10 +184,10 @@ export default function Home() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Last 7 days</span>
-                  <Badge variant="accent">{card.change}</Badge>
+                  <span>{card.change}</span>
+                  <Badge variant="accent">Live</Badge>
                 </div>
-                <Sparkline values={card.series} className="text-primary" />
+                <RechartSparkline values={card.series} />
               </CardContent>
             </Card>
           ))
@@ -246,9 +242,9 @@ export default function Home() {
           </CardHeader>
           <CardContent className="space-y-3">
             {topAthletesData.length ? (
-              topAthletesData.map((athlete: any) => (
+              topAthletesData.map((athlete: any, index: number) => (
                 <div
-                  key={athlete.name}
+                  key={`${athlete.name ?? "athlete"}-${index}`}
                   className="flex items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm"
                 >
                   <div>
@@ -280,7 +276,12 @@ export default function Home() {
           <CardContent className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
             {tierDistributionData.length ? (
               <>
-                <DonutChart segments={tierDistributionData} centerLabel={String(tierTotal)} />
+                <div className="h-[220px] w-[220px]">
+                  <GreenDoughnutChart
+                    labels={tierDistributionData.map((tier: any) => tier.label)}
+                    values={tierDistributionData.map((tier: any) => tier.value)}
+                  />
+                </div>
                 <div className="space-y-3 text-sm">
                   {tierDistributionData.map((tier: any) => (
                     <div key={tier.label} className="flex items-center gap-3">
@@ -313,7 +314,16 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             {activityMixData.length ? (
-              <StackedBars stacks={activityMixData} />
+              <div className="h-[220px]">
+                <GreenStackedBars
+                  labels={activityMixData.map((item: any) => item.label)}
+                  datasets={[
+                    { label: "Program", data: activityMixData.map((item: any) => item.segments[2]?.value ?? 0) },
+                    { label: "Plus", data: activityMixData.map((item: any) => item.segments[1]?.value ?? 0) },
+                    { label: "Premium", data: activityMixData.map((item: any) => item.segments[0]?.value ?? 0) },
+                  ]}
+                />
+              </div>
             ) : (
               <EmptyState title="No activity mix yet" description="Activity ratios will appear after engagement." />
             )}
@@ -331,7 +341,9 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             {weeklyProgressData.length ? (
-              <LineChart values={weeklyProgressData} labels={weeklyLabels} />
+              <div className="h-[240px]">
+                <GreenLineChart labels={weeklyLabels} values={weeklyProgressData} />
+              </div>
             ) : (
               <EmptyState title="No weekly progress yet" description="Engagement trends will show once activity starts." />
             )}
@@ -391,9 +403,9 @@ export default function Home() {
                 </div>
               ))
             ) : hasBookings ? (
-              todayBookings.map((booking: any) => (
+              todayBookings.map((booking: any, index: number) => (
                 <div
-                  key={booking.name}
+                  key={`${booking.name ?? "booking"}-${index}`}
                   className="flex items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm transition hover:border-primary/40"
                 >
                   <div>

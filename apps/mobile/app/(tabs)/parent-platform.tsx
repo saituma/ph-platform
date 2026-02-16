@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
+import { useRole } from "@/context/RoleContext";
 import { setParentContentCache } from "@/lib/parentContentCache";
 import { canAccessTier, tierRank } from "@/lib/planAccess";
 
@@ -41,6 +42,7 @@ type ParentCourseItem = {
 };
 
 export default function ParentPlatformScreen() {
+  const { role } = useRole();
   const { token, programTier } = useAppSelector((state) => state.user);
   const router = useRouter();
   const [items, setItems] = useState<ParentCourseItem[]>([]);
@@ -86,6 +88,41 @@ export default function ParentPlatformScreen() {
   const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
 
 
+
+  if (role !== "Guardian") {
+    return (
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <ThemedScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: 40,
+          }}
+        >
+          <View className="mb-8">
+            <Text className="text-4xl font-clash text-app mb-2">Parent Platform</Text>
+            <Text className="text-base font-outfit text-secondary leading-relaxed">
+              This area is for parents and guardians managing the athlete account.
+            </Text>
+          </View>
+          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
+            <View className="flex-row items-center gap-2 mb-2">
+              <Feather name="lock" size={16} className="text-secondary" />
+              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
+                Guardian Access Only
+              </Text>
+            </View>
+            <Text className="text-lg font-clash text-app mb-2">
+              Ask your parent or guardian
+            </Text>
+            <Text className="text-sm font-outfit text-secondary leading-relaxed">
+              Parent education, nutrition, and onboarding tools live here.
+            </Text>
+          </View>
+        </ThemedScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
@@ -237,3 +274,25 @@ export default function ParentPlatformScreen() {
     </SafeAreaView>
   );
 }
+  if (role !== "Guardian") {
+    return (
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <View className="flex-1 px-6 pt-8">
+          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
+            <View className="flex-row items-center gap-2 mb-2">
+              <Feather name="lock" size={16} className="text-secondary" />
+              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
+                Guardians Only
+              </Text>
+            </View>
+            <Text className="text-xl font-clash text-app mb-2">
+              Parent Platform is for guardians
+            </Text>
+            <Text className="text-sm font-outfit text-secondary leading-relaxed">
+              Switch to the Guardian role to access parent education content.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }

@@ -12,6 +12,8 @@ import videoRoutes from "./video.routes";
 import adminRoutes from "./admin.routes";
 import mediaRoutes from "./media.routes";
 import billingRoutes from "./billing.routes";
+import foodDiaryRoutes from "./food-diary.routes";
+import physioReferralRoutes from "./physio-referral.routes";
 
 const router = Router();
 
@@ -27,5 +29,7 @@ router.use(videoRoutes);
 router.use(mediaRoutes);
 router.use(adminRoutes);
 router.use(billingRoutes);
+router.use(foodDiaryRoutes);
+router.use(physioReferralRoutes);
 
 export default router;

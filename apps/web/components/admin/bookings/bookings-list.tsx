@@ -50,10 +50,10 @@ export function BookingsList({ bookings, isLoading = false, onSelect }: Bookings
 
   return (
     <div className="space-y-3">
-      {bookings.map((booking) => (
+      {bookings.map((booking, index) => (
         <button
           type="button"
-          key={booking.name}
+          key={`${booking.name}-${booking.time}-${index}`}
           onClick={() => onSelect(booking)}
           className="flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-left text-sm transition hover:border-primary/40"
         >

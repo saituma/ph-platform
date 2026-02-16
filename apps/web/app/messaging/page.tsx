@@ -28,6 +28,7 @@ import {
   useToggleChatGroupMessageReactionMutation,
   useToggleMessageReactionMutation,
 } from "../../lib/apiSlice";
+import { toast } from "../../lib/toast";
 
 type ThreadItem = {
   userId: number;
@@ -36,6 +37,7 @@ type ThreadItem = {
   preview: string;
   time: string;
   priority: boolean;
+  premium: boolean;
   unread?: number;
   pinned?: boolean;
   lastTimestamp?: number;
@@ -99,6 +101,7 @@ export default function MessagingPage() {
             ? new Date(thread.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : "",
           priority: (thread?.unread ?? 0) > 0,
+          premium: Boolean(thread?.premium) || user.programTier === "PHP_Premium",
           unread: thread?.unread ?? 0,
           lastTimestamp: timestamp,
           role: user.role,
@@ -109,6 +112,9 @@ export default function MessagingPage() {
       });
 
     return combined.sort((a, b) => {
+      if (a.premium !== b.premium) {
+        return a.premium ? -1 : 1;
+      }
       if ((b.unread ?? 0) !== (a.unread ?? 0)) {
         return (b.unread ?? 0) - (a.unread ?? 0);
       }
@@ -305,7 +311,7 @@ export default function MessagingPage() {
     if (activeFilter === "Guardian") result = result.filter((thread) => thread.role === "guardian");
     if (activeFilter === "Athlete") result = result.filter((thread) => thread.role === "athlete");
     if (activeFilter === "Unread") result = result.filter((thread) => (thread.unread ?? 0) > 0);
-    if (activeFilter === "Premium") result = result.filter((thread) => thread.priority);
+    if (activeFilter === "Premium") result = result.filter((thread) => thread.premium);
     result = result.map((thread) => ({
       ...thread,
       displayName: thread.name,
@@ -317,6 +323,16 @@ export default function MessagingPage() {
     }
     return result;
   }, [activeFilter, threads, searchTerm]);
+
+  const filterCounts = useMemo(() => {
+    return {
+      All: threads.length,
+      Guardian: threads.filter((thread) => thread.role === "guardian").length,
+      Athlete: threads.filter((thread) => thread.role === "athlete").length,
+      Unread: threads.filter((thread) => (thread.unread ?? 0) > 0).length,
+      Premium: threads.filter((thread) => thread.premium).length,
+    };
+  }, [threads]);
 
   const filteredGroups = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -406,14 +422,19 @@ export default function MessagingPage() {
                 }}
                 onCreateGroup={async () => {
                   if (!newGroupName.trim()) return;
-                  const response = await createGroup({
-                    name: newGroupName.trim(),
-                    memberIds: selectedMemberIds,
-                  }).unwrap();
-                  setNewGroupName("");
-                  setSelectedMemberIds([]);
-                  refetchGroups();
-                  setSelectedGroupId(response.group.id);
+                  try {
+                    const response = await createGroup({
+                      name: newGroupName.trim(),
+                      memberIds: selectedMemberIds,
+                    }).unwrap();
+                    setNewGroupName("");
+                    setSelectedMemberIds([]);
+                    refetchGroups();
+                    setSelectedGroupId(response.group.id);
+                    toast.success("Group created", "Your new chat group is ready.");
+                  } catch (err: any) {
+                    toast.error("Group creation failed", err?.data?.error || "Please try again.");
+                  }
                 }}
               />
             ) : (
@@ -426,6 +447,7 @@ export default function MessagingPage() {
                   searchValue={searchTerm}
                   onSearch={setSearchTerm}
                   activeFilter={activeFilter}
+                  counts={filterCounts}
                 />
               </div>
             )}
@@ -439,6 +461,7 @@ export default function MessagingPage() {
           selectedUserId={selectedUserId}
           selectedThreadName={selectedThreadName}
           selectedThreadExists={Boolean(selectedThread)}
+          selectedThreadPremium={selectedThread?.premium ?? false}
           typingMap={typingMap}
           messages={messages}
           groupMessages={groupMessages}
@@ -457,48 +480,71 @@ export default function MessagingPage() {
             let mediaPayload: { mediaUrl: string; contentType: "text" | "image" | "video"; fallbackContent: string } | null =
               null;
             if (attachment) {
-              mediaPayload = await uploadAttachment(attachment);
+              try {
+                mediaPayload = await uploadAttachment(attachment);
+              } catch (err: any) {
+                toast.error("Upload failed", err?.message || "Please try again.");
+                return;
+              }
             }
             const content = trimmed || mediaPayload?.fallbackContent || "";
 
             if (inboxMode === "group") {
               if (!selectedGroupId || isSendingGroup) return;
-              await sendGroupMessage({
-                groupId: selectedGroupId,
+              try {
+                await sendGroupMessage({
+                  groupId: selectedGroupId,
+                  content,
+                  contentType: mediaPayload?.contentType ?? "text",
+                  mediaUrl: mediaPayload?.mediaUrl,
+                }).unwrap();
+                refetchGroupMessages();
+                toast.success("Message sent", "Group updated.");
+              } catch (err: any) {
+                toast.error("Send failed", err?.data?.error || "Please try again.");
+              }
+              return;
+            }
+            if (!selectedUserId || isSending) return;
+            try {
+              await sendMessage({
+                userId: selectedUserId,
                 content,
                 contentType: mediaPayload?.contentType ?? "text",
                 mediaUrl: mediaPayload?.mediaUrl,
               }).unwrap();
-              refetchGroupMessages();
-              return;
+              refetchMessages();
+              toast.success("Message sent", "The athlete will be notified.");
+            } catch (err: any) {
+              toast.error("Send failed", err?.data?.error || "Please try again.");
             }
-            if (!selectedUserId || isSending) return;
-            await sendMessage({
-              userId: selectedUserId,
-              content,
-              contentType: mediaPayload?.contentType ?? "text",
-              mediaUrl: mediaPayload?.mediaUrl,
-            }).unwrap();
-            refetchMessages();
           }}
           onReact={async (messageId, emoji) => {
             if (inboxMode === "group") {
               if (!selectedGroupId) return;
               const parsed = Number(messageId.replace("group-", ""));
               if (!Number.isFinite(parsed)) return;
-              await toggleGroupMessageReaction({
-                groupId: selectedGroupId,
-                messageId: parsed,
-                emoji,
-              }).unwrap();
+              try {
+                await toggleGroupMessageReaction({
+                  groupId: selectedGroupId,
+                  messageId: parsed,
+                  emoji,
+                }).unwrap();
+              } catch (err: any) {
+                toast.error("Reaction failed", err?.data?.error || "Please try again.");
+              }
               return;
             }
             const parsed = Number(messageId);
             if (!Number.isFinite(parsed)) return;
-            await toggleMessageReaction({
-              messageId: parsed,
-              emoji,
-            }).unwrap();
+            try {
+              await toggleMessageReaction({
+                messageId: parsed,
+                emoji,
+              }).unwrap();
+            } catch (err: any) {
+              toast.error("Reaction failed", err?.data?.error || "Please try again.");
+            }
           }}
         />
       </div>

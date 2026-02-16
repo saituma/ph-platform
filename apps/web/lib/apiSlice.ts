@@ -5,7 +5,19 @@ export const apiSlice = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: "/api/backend",
   }),
-  tagTypes: ["Users", "Bookings", "Threads", "Content", "Services", "Dashboard", "OnboardingConfig", "ParentCourses", "Availability"],
+  tagTypes: [
+    "Users",
+    "Bookings",
+    "Threads",
+    "Content",
+    "Services",
+    "Dashboard",
+    "OnboardingConfig",
+    "ParentCourses",
+    "Availability",
+    "FoodDiary",
+    "PhysioReferrals",
+  ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<any, void>({
       query: () => "/admin/profile",
@@ -85,6 +97,43 @@ export const apiSlice = createApi({
     getParentCourses: builder.query<{ items: any[] }, void>({
       query: () => "/content/parent-courses",
       providesTags: ["ParentCourses"],
+    }),
+    getFoodDiary: builder.query<{ items: any[] }, { athleteId?: number; guardianId?: number } | void>({
+      query: (params) => {
+        if (!params) return "/admin/food-diary";
+        const query = new URLSearchParams();
+        if (params.athleteId) query.set("athleteId", String(params.athleteId));
+        if (params.guardianId) query.set("guardianId", String(params.guardianId));
+        return `/admin/food-diary?${query.toString()}`;
+      },
+      providesTags: ["FoodDiary"],
+    }),
+    getPhysioReferrals: builder.query<{ items: any[] }, void>({
+      query: () => "/admin/physio-referrals",
+      providesTags: ["PhysioReferrals"],
+    }),
+    createPhysioReferral: builder.mutation<{ item: any }, any>({
+      query: (body) => ({
+        url: "/admin/physio-referrals",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["PhysioReferrals"],
+    }),
+    updatePhysioReferral: builder.mutation<{ item: any }, { id: number; data: any }>({
+      query: ({ id, data }) => ({
+        url: `/admin/physio-referrals/${id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["PhysioReferrals"],
+    }),
+    deletePhysioReferral: builder.mutation<{ item: any }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/admin/physio-referrals/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["PhysioReferrals"],
     }),
     createMediaUploadUrl: builder.mutation<
       { uploadUrl: string; publicUrl: string; key: string },
@@ -296,6 +345,11 @@ export const {
   useGetMessagesQuery,
   useGetParentContentQuery,
   useGetParentCoursesQuery,
+  useGetFoodDiaryQuery,
+  useGetPhysioReferralsQuery,
+  useCreatePhysioReferralMutation,
+  useUpdatePhysioReferralMutation,
+  useDeletePhysioReferralMutation,
   useGetParentCourseQuery,
   useCreateMediaUploadUrlMutation,
   useCreateParentCourseMutation,

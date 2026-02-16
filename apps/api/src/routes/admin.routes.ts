@@ -31,6 +31,7 @@ import {
   updateProgramTier,
   updateOnboardingConfigDetails,
 } from "../controllers/admin.controller";
+import { listFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
 const router = Router();
 
@@ -63,5 +64,6 @@ router.delete("/admin/exercises/:exerciseId", deleteExerciseItem);
 router.post("/admin/sessions", createSessionItem);
 router.post("/admin/session-exercises", addExercise);
 router.delete("/admin/session-exercises/:sessionExerciseId", deleteSessionExerciseItem);
+router.get("/admin/food-diary", listFoodDiaryAdmin);
 
 export default router;

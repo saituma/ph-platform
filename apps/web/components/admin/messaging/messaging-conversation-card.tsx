@@ -20,6 +20,7 @@ type MessagingConversationCardProps = {
   selectedUserId: number | null;
   selectedThreadName: string | null;
   selectedThreadExists: boolean;
+  selectedThreadPremium?: boolean;
   typingMap: Record<string, { name: string; isTyping: boolean }>;
   messages: MessageItem[];
   groupMessages: MessageItem[];
@@ -35,6 +36,7 @@ export function MessagingConversationCard({
   selectedUserId,
   selectedThreadName,
   selectedThreadExists,
+  selectedThreadPremium,
   typingMap,
   messages,
   groupMessages,
@@ -43,6 +45,12 @@ export function MessagingConversationCard({
   onReact,
 }: MessagingConversationCardProps) {
   const selectedGroupName = groups.find((group) => group.id === selectedGroupId)?.name;
+  const responseBadge =
+    inboxMode === "direct" && selectedThreadExists
+      ? selectedThreadPremium
+        ? "Priority response"
+        : "Standard response"
+      : null;
 
   return (
     <Card className="h-full">
@@ -61,6 +69,11 @@ export function MessagingConversationCard({
               : "Select a thread"
           }
         />
+        {responseBadge ? (
+          <div className="mt-2 inline-flex items-center rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+            {responseBadge}
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent>
         <ConversationPanel

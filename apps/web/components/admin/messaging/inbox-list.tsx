@@ -11,6 +11,7 @@ type Thread = {
   preview: string;
   time: string;
   priority: boolean;
+  premium: boolean;
   unread?: number;
   pinned?: boolean;
   role?: string;
@@ -27,6 +28,7 @@ type InboxListProps = {
   searchValue: string;
   onSearch: (value: string) => void;
   activeFilter: string;
+  counts?: Record<string, number>;
 };
 
 export function InboxList({
@@ -37,11 +39,12 @@ export function InboxList({
   searchValue,
   onSearch,
   activeFilter,
+  counts,
 }: InboxListProps) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {["All", "Guardian", "Athlete", "Unread"].map((chip) => (
+        {["All", "Guardian", "Athlete", "Unread", "Premium"].map((chip) => (
           <Button
             key={chip}
             variant="outline"
@@ -49,7 +52,7 @@ export function InboxList({
             className="whitespace-nowrap"
             onClick={() => onFilterSelect(chip)}
           >
-            {chip}
+            {counts?.[chip] ? `${chip} (${counts[chip]})` : chip}
           </Button>
         ))}
       </div>
@@ -75,14 +78,16 @@ export function InboxList({
               className={`flex w-full items-center justify-between rounded-2xl border border-border p-4 text-left text-sm transition ${
                 selected === thread.userId
                   ? "bg-background"
-                  : "bg-secondary/40 hover:border-primary/40"
+                  : thread.premium
+                    ? "bg-primary/10 hover:border-primary/60"
+                    : "bg-secondary/40 hover:border-primary/40"
               }`}
             >
               <div className="flex items-center gap-3">
                 <div
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-full border border-border text-xs font-semibold",
-                    thread.priority ? "bg-primary/10 text-primary" : "bg-secondary"
+                    thread.unread ? "bg-primary/10 text-primary" : "bg-secondary"
                   )}
                 >
                   {name
@@ -118,7 +123,7 @@ export function InboxList({
                 </div>
               </div>
               <div className="text-right text-xs text-muted-foreground">
-                {thread.priority ? <Badge variant="primary">Premium</Badge> : null}
+                {thread.premium ? <Badge variant="primary">Premium</Badge> : null}
                 <p className="mt-2">{thread.time}</p>
                 {thread.unread ? (
                   <div className="mt-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] text-white">

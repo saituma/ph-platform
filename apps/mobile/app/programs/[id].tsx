@@ -17,6 +17,7 @@ import {
 import { PROGRAM_TABS, TRAINING_TABS, getSessionTypesForTab, ProgramId, SessionItem } from "@/constants/program-details";
 import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppSelector } from "@/store/hooks";
+import { useRole } from "@/context/RoleContext";
 import { canAccessTier, normalizeProgramTier, programIdToTier, tierRank } from "@/lib/planAccess";
 import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
@@ -32,7 +33,21 @@ export default function ProgramDetailScreen() {
   const programId = id && ["php", "plus", "premium"].includes(id) ? (id as ProgramId) : "php";
   const router = useRouter();
   const { programTier, token } = useAppSelector((state) => state.user);
-  const tabs = PROGRAM_TABS[programId];
+  const { role } = useRole();
+  const tabs = useMemo(() => {
+    const base = PROGRAM_TABS[programId];
+    if (role === "Athlete") {
+      return base.filter(
+        (tab) =>
+          tab !== "Parent Education" &&
+          tab !== "Nutrition & Food Diaries"
+      );
+    }
+    if (role === "Guardian") {
+      return base.filter((tab) => tab !== "Video Upload");
+    }
+    return base;
+  }, [programId, role]);
   const [activeTab, setActiveTab] = useState(tabs[0]);
   const [allSessions, setAllSessions] = useState<SessionItem[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
@@ -267,7 +282,14 @@ export default function ProgramDetailScreen() {
       return <PhysioReferralPanel discount={programId === "plus" ? "10%" : undefined} />;
     }
 
-    if (activeTab === "Parent Education" || activeTab === "Education") {
+    if (activeTab === "Parent Education") {
+      if (role !== "Guardian") {
+        return (
+          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+            <Text className="text-sm font-outfit text-secondary">Parent education is only available for guardians.</Text>
+          </View>
+        );
+      }
       if (tierRank(programTier) < tierRank("PHP_Plus")) {
         return (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
@@ -297,11 +319,29 @@ export default function ProgramDetailScreen() {
       return <ParentEducationPanel onOpen={() => router.push("/(tabs)/parent-platform")} />;
     }
 
+    if (activeTab === "Education") {
+      return <ParentEducationPanel onOpen={() => router.push("/(tabs)/parent-platform")} />;
+    }
+
     if (activeTab === "Nutrition & Food Diaries") {
+      if (role !== "Guardian") {
+        return (
+          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+            <Text className="text-sm font-outfit text-secondary">Food diaries are managed by guardians.</Text>
+          </View>
+        );
+      }
       return <FoodDiaryPanel />;
     }
 
     if (activeTab === "Video Upload") {
+      if (role !== "Athlete") {
+        return (
+          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+            <Text className="text-sm font-outfit text-secondary">Video uploads are available for athletes.</Text>
+          </View>
+        );
+      }
       return <VideoUploadPanel refreshToken={refreshToken} />;
     }
 

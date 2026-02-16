@@ -6,11 +6,13 @@ import {
   BadgeCheck,
   BookOpen,
   CalendarDays,
+  ClipboardCheck,
   ClipboardList,
   Home,
   MessageCircle,
   PlaySquare,
   Settings,
+  Stethoscope,
   UserRound,
 } from "lucide-react";
 
@@ -56,6 +58,8 @@ export function AdminSidebarContent({
     },
     { label: "Schedule", href: "/bookings", icon: CalendarDays },
     { label: "Video Feedback", href: "/video-review", icon: PlaySquare },
+    { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
+    { label: "Physio Referrals", href: "/physio-referrals", icon: Stethoscope },
     { label: "Exercise Library", href: "/exercise-library", icon: BadgeCheck },
     { label: "Age Content Control", href: "/age-content", icon: ClipboardList },
     { label: "Settings", href: "/settings", icon: Settings },

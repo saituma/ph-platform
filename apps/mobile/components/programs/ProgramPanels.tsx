@@ -1,13 +1,47 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Image, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Linking, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { ResizeMode, Video } from "expo-av";
 
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 
 export function PhysioReferralPanel({ discount }: { discount?: string }) {
+  const { token } = useAppSelector((state) => state.user);
+  const [loading, setLoading] = useState(false);
+  const [referral, setReferral] = useState<{ referalLink?: string | null; discountPercent?: number | null } | null>(
+    null,
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  const loadReferral = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiRequest<{ item?: any }>("/physio-referral", { token, suppressLog: true });
+      setReferral(data.item ?? null);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to load referral.");
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadReferral();
+  }, [loadReferral]);
+
+  const resolvedDiscount = referral?.discountPercent
+    ? `${referral.discountPercent}%`
+    : discount;
+  const referralLink = referral?.referalLink ?? null;
+  const statusCopy = referralLink
+    ? "Your referral is ready. Tap to book your physio session."
+    : "A referral link will appear here once your coach activates it.";
+
   return (
     <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
       <Text className="text-lg font-clash text-app mb-2">Physio Referral</Text>
@@ -16,11 +50,26 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
       </Text>
       <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
         <Text className="text-xs font-outfit text-secondary">
-          {discount ? `Discount: ${discount}` : "Standard referral (no discount)."}
+          {resolvedDiscount ? `Discount: ${resolvedDiscount}` : "Standard referral (no discount)."}
         </Text>
       </View>
-      <TouchableOpacity className="mt-4 rounded-full bg-accent px-4 py-3">
-        <Text className="text-white text-sm font-outfit">Open Referral Link</Text>
+      <Text className="text-xs font-outfit text-secondary mt-3">{statusCopy}</Text>
+      {loading ? (
+        <Text className="text-xs font-outfit text-secondary mt-3">Loading referral...</Text>
+      ) : error ? (
+        <Text className="text-xs font-outfit text-red-400 mt-3">{error}</Text>
+      ) : null}
+      <TouchableOpacity
+        onPress={() => {
+          if (!referralLink) return;
+          Linking.openURL(referralLink).catch(() => null);
+        }}
+        disabled={!referralLink}
+        className={`mt-4 rounded-full px-4 py-3 ${referralLink ? "bg-accent" : "bg-secondary/20"}`}
+      >
+        <Text className={`text-sm font-outfit text-center ${referralLink ? "text-white" : "text-secondary"}`}>
+          {referralLink ? "Open Referral Link" : "Referral link not set"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -55,9 +104,46 @@ export function BookingsPanel({ onOpen }: { onOpen: () => void }) {
 }
 
 export function FoodDiaryPanel() {
+  const { token } = useAppSelector((state) => state.user);
   const [entry, setEntry] = useState("");
+  const [meals, setMeals] = useState({
+    breakfast: "",
+    lunch: "",
+    dinner: "",
+    snacks: "",
+  });
   const [photo, setPhoto] = useState<string | null>(null);
-  const [entries, setEntries] = useState<{ id: string; text: string; photo?: string }[]>([]);
+  const [entryDate, setEntryDate] = useState<Date>(new Date());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [entries, setEntries] = useState<
+    {
+      id: number;
+      date?: string | null;
+      notes?: string | null;
+      photoUrl?: string | null;
+      meals?: Record<string, string> | null;
+    }[]
+  >([]);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const loadEntries = useCallback(async () => {
+    if (!token) return;
+    try {
+      setLoadingEntries(true);
+      const data = await apiRequest<{ items: any[] }>("/food-diary", { token, suppressLog: true });
+      setEntries(data.items ?? []);
+    } catch (error: any) {
+      setStatus(error?.message ?? "Failed to load food diary.");
+    } finally {
+      setLoadingEntries(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadEntries();
+  }, [loadEntries]);
 
   const handlePickPhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -69,14 +155,75 @@ export function FoodDiaryPanel() {
     }
   };
 
-  const handleSave = () => {
-    if (!entry.trim()) return;
-    setEntries((prev) => [
-      { id: `${Date.now()}`, text: entry.trim(), photo: photo ?? undefined },
-      ...prev,
-    ]);
-    setEntry("");
-    setPhoto(null);
+  const uploadPhoto = async (uri: string) => {
+    if (!token) return null;
+    const fileName = uri.split("/").pop() ?? `food-${Date.now()}.jpg`;
+    const contentType = "image/jpeg";
+    const blob = await (await fetch(uri)).blob();
+    const sizeBytes = blob.size;
+    const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
+      method: "POST",
+      token,
+      body: {
+        folder: "food-diary",
+        fileName,
+        contentType,
+        sizeBytes,
+      },
+    });
+    await fetch(presign.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: blob,
+    });
+    return presign.publicUrl;
+  };
+
+  const handleSave = async () => {
+    if (!token || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))) return;
+    setSaving(true);
+    setStatus(null);
+    try {
+      const photoUrl = photo ? await uploadPhoto(photo) : null;
+      const today = entryDate.toISOString().slice(0, 10);
+      await apiRequest("/food-diary", {
+        method: "POST",
+        token,
+        body: {
+          date: today,
+          notes: entry.trim(),
+          meals: Object.fromEntries(
+            Object.entries(meals).filter(([, value]) => value.trim())
+          ),
+          photoUrl,
+        },
+      });
+      setEntry("");
+      setMeals({ breakfast: "", lunch: "", dinner: "", snacks: "" });
+      setPhoto(null);
+      await loadEntries();
+    } catch (error: any) {
+      setStatus(error?.message ?? "Failed to save entry.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "Today";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "Today";
+    return d.toLocaleDateString();
+  };
+
+  const formatMeals = (mealData?: Record<string, string> | null) => {
+    if (!mealData) return [];
+    return Object.entries(mealData)
+      .filter(([, value]) => value && value.trim())
+      .map(([key, value]) => ({
+        label: key.replace(/^\w/, (c) => c.toUpperCase()),
+        value,
+      }));
   };
 
   return (
@@ -86,6 +233,28 @@ export function FoodDiaryPanel() {
         <Text className="text-sm font-outfit text-secondary">
           Log meals and snacks to support training and recovery.
         </Text>
+        <TouchableOpacity
+          onPress={() => setDatePickerOpen(true)}
+          className="mt-4 flex-row items-center justify-between rounded-2xl border border-app/10 bg-white/5 px-4 py-3"
+        >
+          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+            Entry Date
+          </Text>
+          <Text className="text-sm font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
+        </TouchableOpacity>
+        {datePickerOpen ? (
+          <DateTimePicker
+            value={entryDate}
+            mode="date"
+            display="default"
+            onChange={(_, selected) => {
+              setDatePickerOpen(false);
+              if (selected) {
+                setEntryDate(selected);
+              }
+            }}
+          />
+        ) : null}
         <TextInput
           value={entry}
           onChangeText={setEntry}
@@ -95,6 +264,22 @@ export function FoodDiaryPanel() {
           className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-sm font-outfit text-app"
           style={{ minHeight: 90 }}
         />
+        <View className="mt-4 gap-3">
+          {(["breakfast", "lunch", "dinner", "snacks"] as const).map((meal) => (
+            <View key={meal} className="rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
+              <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                {meal}
+              </Text>
+              <TextInput
+                value={meals[meal]}
+                onChangeText={(value) => setMeals((prev) => ({ ...prev, [meal]: value }))}
+                placeholder={`Add ${meal}`}
+                placeholderTextColor="#9CA3AF"
+                className="mt-2 text-sm font-outfit text-app"
+              />
+            </View>
+          ))}
+        </View>
         {photo ? (
           <Image source={{ uri: photo }} className="mt-4 h-28 w-full rounded-2xl" resizeMode="cover" />
         ) : null}
@@ -102,24 +287,67 @@ export function FoodDiaryPanel() {
           <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
             <Text className="text-app text-xs font-outfit text-center">Add Photo</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleSave} className="flex-1 rounded-full bg-accent px-4 py-3">
-            <Text className="text-white text-xs font-outfit text-center">Save Entry</Text>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))}
+            className={`flex-1 rounded-full px-4 py-3 ${
+              saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
+                ? "bg-secondary/20"
+                : "bg-accent"
+            }`}
+          >
+            <Text
+              className={`text-xs font-outfit text-center ${
+                saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
+                  ? "text-secondary"
+                  : "text-white"
+              }`}
+            >
+              {saving ? "Saving..." : "Save Entry"}
+            </Text>
           </TouchableOpacity>
         </View>
+        {status ? <Text className="text-xs font-outfit text-red-400 mt-3">{status}</Text> : null}
       </View>
 
-      {entries.length ? (
+      <View className="flex-row items-center justify-between">
+        <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
+        <TouchableOpacity onPress={loadEntries}>
+          <Text className="text-xs font-outfit text-accent">Refresh</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loadingEntries ? (
+        <Text className="text-xs font-outfit text-secondary">Loading entries...</Text>
+      ) : entries.length ? (
         <View className="gap-3">
           {entries.map((item) => (
             <View key={item.id} className="rounded-3xl border border-app/10 bg-input px-5 py-4">
-              <Text className="text-sm font-outfit text-app">{item.text}</Text>
-              {item.photo ? (
-                <Image source={{ uri: item.photo }} className="mt-3 h-24 w-full rounded-2xl" resizeMode="cover" />
+              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
+                {formatDate(item.date)}
+              </Text>
+              {formatMeals(item.meals).length ? (
+                <View className="mt-2 gap-2">
+                  {formatMeals(item.meals).map((meal) => (
+                    <View key={meal.label}>
+                      <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                        {meal.label}
+                      </Text>
+                      <Text className="text-sm font-outfit text-app mt-1">{meal.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {item.notes ? <Text className="text-sm font-outfit text-app mt-2">{item.notes}</Text> : null}
+              {item.photoUrl ? (
+                <Image source={{ uri: item.photoUrl }} className="mt-3 h-24 w-full rounded-2xl" resizeMode="cover" />
               ) : null}
             </View>
           ))}
         </View>
-      ) : null}
+      ) : (
+        <Text className="text-xs font-outfit text-secondary">No entries yet.</Text>
+      )}
     </View>
   );
 }

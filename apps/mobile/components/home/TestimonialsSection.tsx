@@ -11,7 +11,7 @@ import {
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
-const TESTIMONIALS = [
+const DEFAULT_TESTIMONIALS = [
   {
     id: "1",
     name: "Marcus J.",
@@ -40,16 +40,29 @@ const TESTIMONIALS = [
 
 const AUTO_SCROLL_INTERVAL = 5000;
 
-export function TestimonialsSection() {
+type TestimonialItem = {
+  id: string;
+  name: string;
+  role?: string | null;
+  quote: string;
+  rating?: number | null;
+};
+
+type TestimonialsSectionProps = {
+  items?: TestimonialItem[] | null;
+};
+
+export function TestimonialsSection({ items }: TestimonialsSectionProps) {
   const { width } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const testimonials = items && items.length ? items : DEFAULT_TESTIMONIALS;
 
   useEffect(() => {
     const interval = setInterval(() => {
       let nextIndex = activeIndex + 1;
-      if (nextIndex >= TESTIMONIALS.length) {
+      if (nextIndex >= testimonials.length) {
         nextIndex = 0;
       }
 
@@ -61,7 +74,7 @@ export function TestimonialsSection() {
     }, AUTO_SCROLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [activeIndex]);
+  }, [activeIndex, testimonials.length]);
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
@@ -75,9 +88,10 @@ export function TestimonialsSection() {
     item,
     index,
   }: {
-    item: (typeof TESTIMONIALS)[0];
+    item: TestimonialItem;
     index: number;
   }) => {
+    const rating = item.rating ?? 5;
     return (
       <View style={{ width: width }} className="items-center px-6">
         <View
@@ -96,8 +110,8 @@ export function TestimonialsSection() {
                 key={i}
                 name="star"
                 size={16}
-                color={i < item.rating ? colors.warning : colors.border}
-                fill={i < item.rating ? colors.warning : "transparent"}
+                color={i < rating ? colors.warning : colors.border}
+                fill={i < rating ? colors.warning : "transparent"}
               />
             ))}
           </View>
@@ -114,7 +128,7 @@ export function TestimonialsSection() {
                 {item.name}
               </Text>
               <Text className="text-secondary font-outfit text-xs font-medium uppercase tracking-[2px] mt-0.5">
-                {item.role}
+                {item.role || "Athlete"}
               </Text>
             </View>
             <View className="w-12 h-12 rounded-full bg-secondary/10 items-center justify-center">
@@ -143,7 +157,7 @@ export function TestimonialsSection() {
         </View>
 
         <View className="flex-row gap-2 mb-1">
-          {TESTIMONIALS.map((_, i) => (
+          {testimonials.map((_, i) => (
             <DotIndicator
               key={i}
               isActive={activeIndex === i}
@@ -156,7 +170,7 @@ export function TestimonialsSection() {
 
       <FlatList
         ref={flatListRef}
-        data={TESTIMONIALS}
+        data={testimonials}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         horizontal

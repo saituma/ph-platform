@@ -23,7 +23,7 @@ export function useMessagesController() {
 
   const router = useRouter();
   const { thread: threadId } = useLocalSearchParams<{ thread?: string }>();
-  const { token, profile, athleteUserId } = useAppSelector((state) => state.user);
+  const { token, profile, athleteUserId, programTier } = useAppSelector((state) => state.user);
   const { role } = useRole();
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
@@ -95,6 +95,7 @@ export function useMessagesController() {
       }
 
       const coach = data.coach;
+      const isPremium = programTier === "PHP_Premium";
       const thread = {
         id: String(coach.id),
         name: coach.name,
@@ -104,10 +105,10 @@ export function useMessagesController() {
           ? new Date(data.messages[data.messages.length - 1].createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
         pinned: false,
-        premium: false,
+        premium: isPremium,
         unread: data.messages?.filter((msg: any) => !msg.read && Number(msg.senderId) !== effectiveUserId).length ?? 0,
         lastSeen: "Active",
-        responseTime: "Coach replies fast",
+        responseTime: isPremium ? "Priority response" : "Coach replies fast",
       };
 
       const mappedMessages = (data.messages ?? []).map((msg: any) => ({

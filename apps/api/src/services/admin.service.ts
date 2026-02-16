@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, or, sql, ne } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, or, sql, ne, alias } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -612,15 +612,37 @@ export async function listMessageThreadsAdmin(coachId: number) {
     ? await db.select().from(userTable).where(inArray(userTable.id, userIds))
     : [];
 
+  const guardianAthlete = alias(athleteTable, "guardian_athlete");
+  const tierRows = userIds.length
+    ? await db
+        .select({
+          userId: userTable.id,
+          programTier: sql`${athleteTable.currentProgramTier}::text`?.as("programTier"),
+          guardianTier: sql`${guardianAthlete.currentProgramTier}::text`?.as("guardianTier"),
+        })
+        .from(userTable)
+        .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
+        .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
+        .leftJoin(guardianAthlete, eq(guardianAthlete.guardianId, guardianTable.id))
+        .where(inArray(userTable.id, userIds))
+    : [];
+  const tierMap = new Map<number, string | null>();
+  for (const row of tierRows) {
+    tierMap.set(row.userId, (row.programTier ?? row.guardianTier ?? null) as string | null);
+  }
+
   return userIds.map((id) => {
     const info = threads.get(id)!;
     const user = users.find((u) => u.id === id);
+    const programTier = tierMap.get(id) ?? null;
     return {
       userId: id,
       name: user?.name ?? user?.email ?? "Unknown",
       preview: info.lastMessage.content,
       time: info.lastMessage.createdAt,
       unread: info.unread,
+      programTier,
+      premium: programTier === "PHP_Premium",
     };
   });
 }
