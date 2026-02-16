@@ -19,7 +19,7 @@ function interopIcon(IconSet: any, name: string) {
         color: true,
       },
     });
-  } catch (e) {
+  } catch {
     // Swallow nativewind interop errors to avoid noisy console warnings.
   }
 }

@@ -5,7 +5,7 @@ import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -13,6 +13,8 @@ import { useRouter } from "expo-router";
 type ScheduleEvent = {
   id: string;
   dayId: string;
+  dateKey: string;
+  startsAt: string;
   title: string;
   timeStart: string;
   timeEnd: string;
@@ -42,15 +44,8 @@ type ServiceType = {
   isActive?: boolean | null;
 };
 
-const DAYS = [
-  { id: "mon", day: "Mon", date: 12, month: "Feb" },
-  { id: "tue", day: "Tue", date: 13, month: "Feb" },
-  { id: "wed", day: "Wed", date: 14, month: "Feb" },
-  { id: "thu", day: "Thu", date: 15, month: "Feb" },
-  { id: "fri", day: "Fri", date: 16, month: "Feb" },
-  { id: "sat", day: "Sat", date: 17, month: "Feb" },
-  { id: "sun", day: "Sun", date: 18, month: "Feb" },
-];
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const EVENT_TITLE_BY_TYPE: Record<string, string> = {
   call: "Call",
@@ -69,15 +64,25 @@ export default function ScheduleScreen() {
   const [selectedFilter, setSelectedFilter] = useState<
     (typeof FILTERS)[number]
   >("All");
-  const [selectedDayId, setSelectedDayId] = useState(DAYS[2].id);
+  const today = new Date();
+  const todayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][today.getDay()] ?? "mon";
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
+    today.getDate()
+  ).padStart(2, "0")}`;
+  const [selectedDayId, setSelectedDayId] = useState(todayId);
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(
     null,
   );
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1),
+  );
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [services, setServices] = useState<ServiceType[]>([]);
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [availabilitySlots, setAvailabilitySlots] = useState<string[]>([]);
+  const [availabilitySlots, setAvailabilitySlots] = useState<{ label: string; startsAt: string }[]>([]);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [bookingType, setBookingType] = useState("call");
@@ -89,16 +94,22 @@ export default function ScheduleScreen() {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const hasUserSelectedService = useRef(false);
 
-  const mapBookingsToEvents = (items: any[]) => {
+  const mapBookingsToEvents = useCallback((items: any[]) => {
     return (items ?? []).map((item) => {
       const startsAt = new Date(item.startsAt);
       const endTime = item.endTime ? new Date(item.endTime) : new Date(startsAt.getTime() + 30 * 60000);
       const dayIndex = startsAt.getDay();
       const dayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dayIndex] ?? "mon";
+      const dateKey = `${startsAt.getFullYear()}-${String(startsAt.getMonth() + 1).padStart(2, "0")}-${String(
+        startsAt.getDate()
+      ).padStart(2, "0")}`;
       return {
         id: String(item.id),
         dayId,
+        dateKey,
+        startsAt: startsAt.toISOString(),
         title: EVENT_TITLE_BY_TYPE[item.type] ?? "Session",
         timeStart: startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
         timeEnd: endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
@@ -110,7 +121,7 @@ export default function ScheduleScreen() {
         notes: item.notes ?? "",
       } as ScheduleEvent;
     });
-  };
+  }, [role]);
 
   const weekStats = useMemo(() => {
     const training = events.filter((event) => event.type === "training").length;
@@ -136,7 +147,68 @@ export default function ScheduleScreen() {
     return eventsForDay.filter((event) => event.type === "recovery");
   }, [events, selectedDayId, selectedFilter]);
 
-  const activeDay = DAYS.find((day) => day.id === selectedDayId) ?? DAYS[2];
+  const weekDays = useMemo(() => {
+    const now = new Date();
+    const dayIndex = (now.getDay() + 6) % 7; // Monday = 0
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - dayIndex);
+    return Array.from({ length: 7 }).map((_, idx) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + idx);
+      const id = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][date.getDay()] ?? "mon";
+      return {
+        id,
+        day: DAY_LABELS[date.getDay()],
+        date: date.getDate(),
+        month: MONTH_LABELS[date.getMonth()],
+        dateKey: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+          date.getDate()
+        ).padStart(2, "0")}`,
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!weekDays.some((day) => day.id === selectedDayId)) {
+      setSelectedDayId(weekDays[0]?.id ?? todayId);
+    }
+  }, [selectedDayId, todayId, weekDays]);
+
+  const daysWithEvents = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach((event) => {
+      if (event.dayId) set.add(event.dayId);
+    });
+    return set;
+  }, [events]);
+
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, ScheduleEvent[]>();
+    events.forEach((event) => {
+      if (!map.has(event.dateKey)) map.set(event.dateKey, []);
+      map.get(event.dateKey)!.push(event);
+    });
+    return map;
+  }, [events]);
+
+  const calendarGrid = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startOffset = (firstDay.getDay() + 6) % 7; // Monday = 0
+    const cells: ({ date: Date; key: string } | null)[] = [];
+    for (let i = 0; i < startOffset; i += 1) cells.push(null);
+    for (let day = 1; day <= lastDay.getDate(); day += 1) {
+      const date = new Date(year, month, day);
+      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      cells.push({ date, key });
+    }
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  }, [calendarMonth]);
+
+  const activeDay = weekDays.find((day) => day.id === selectedDayId) ?? weekDays[0];
   const normalizedTier = normalizeProgramTier(programTier);
   const activeServices = useMemo(
     () => services.filter((service) => service.isActive !== false),
@@ -154,17 +226,54 @@ export default function ScheduleScreen() {
     if (visibleServices.length === 0) return [];
     return visibleServices.map((service) => ({
       label: service.name,
-      value: service.type,
       id: service.id,
+      type: service.type,
     }));
   }, [visibleServices]);
+  const formatSlotLabel = useCallback((value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  }, []);
+
+  const buildSlotDate = useCallback((time: string) => {
+    const [hour, minute] = time.split(":").map((part) => Number(part));
+    const now = new Date();
+    const startsAt = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        hour,
+        minute,
+        0,
+        0,
+      ),
+    );
+    if (startsAt.getTime() <= now.getTime()) {
+      startsAt.setUTCDate(startsAt.getUTCDate() + 1);
+    }
+    return startsAt.toISOString();
+  }, []);
+
   const fixedSlot =
     selectedService?.fixedStartTime || (bookingType === "role_model" ? "13:00" : null);
   const availableSlots = fixedSlot
-    ? [fixedSlot]
+    ? [{ label: fixedSlot, startsAt: buildSlotDate(fixedSlot) }]
     : availabilitySlots.length
       ? availabilitySlots
-      : DEFAULT_SLOTS;
+      : DEFAULT_SLOTS.map((slot) => ({ label: slot, startsAt: buildSlotDate(slot) }));
+
+  useEffect(() => {
+    if (!bookingOpen) return;
+    if (fixedSlot) {
+      setBookingSlot(buildSlotDate(fixedSlot));
+      return;
+    }
+    if (bookingSlot && !availableSlots.some((slot) => slot.startsAt === bookingSlot)) {
+      setBookingSlot(null);
+    }
+  }, [bookingOpen, fixedSlot, bookingSlot, availableSlots, buildSlotDate]);
 
   useEffect(() => {
     if (!bookingOpen || !token) return;
@@ -190,17 +299,22 @@ export default function ScheduleScreen() {
   }, [bookingOpen, token, selectedServiceId]);
 
   useEffect(() => {
+    if (!bookingOpen) {
+      hasUserSelectedService.current = false;
+      return;
+    }
     if (!visibleServices.length) {
       setSelectedServiceId(null);
       return;
     }
+    if (hasUserSelectedService.current && selectedServiceId) return;
     if (!selectedServiceId || !visibleServices.some((service) => service.id === selectedServiceId)) {
       const next = visibleServices[0];
       setSelectedServiceId(next.id);
       setBookingType(next.type as any);
       setBookingLocation(next.defaultLocation ?? "");
     }
-  }, [visibleServices, selectedServiceId]);
+  }, [bookingOpen, visibleServices, selectedServiceId]);
 
   useEffect(() => {
     if (!bookingOpen || !token || !selectedServiceId) return;
@@ -217,13 +331,14 @@ export default function ScheduleScreen() {
       .then((data) => {
         if (!active) return;
         const slots =
-          data.items?.map((item) =>
-            new Date(item.startsAt).toLocaleTimeString([], {
+          data.items?.map((item) => ({
+            label: new Date(item.startsAt).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
               hour12: false,
             }),
-          ) ?? [];
+            startsAt: item.startsAt,
+          })) ?? [];
         setAvailabilitySlots(slots);
       })
       .catch((err) => {
@@ -261,7 +376,7 @@ export default function ScheduleScreen() {
     return () => {
       active = false;
     };
-  }, [token, role]);
+  }, [token, role, mapBookingsToEvents]);
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -384,13 +499,28 @@ export default function ScheduleScreen() {
         <View className="px-6 pb-4">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-lg font-clash text-app">Week View</Text>
-            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.6px]">
-              February
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.6px]">
+                {activeDay.month}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                  setSelectedCalendarDate(todayKey);
+                  setCalendarOpen(true);
+                }}
+                className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10"
+              >
+                <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.4px]">
+                  Full Calendar
+                </Text>
+              </Pressable>
+            </View>
           </View>
           <View className="flex-row justify-between">
-            {DAYS.map((day) => {
+            {weekDays.map((day) => {
               const active = day.id === selectedDayId;
+              const hasEvents = daysWithEvents.has(day.id);
               return (
                 <Pressable
                   key={day.id}
@@ -414,6 +544,13 @@ export default function ScheduleScreen() {
                   >
                     {day.date}
                   </Text>
+                  {hasEvents ? (
+                    <View
+                      className={`mt-1 h-1.5 w-1.5 rounded-full ${
+                        active ? "bg-white" : "bg-accent"
+                      }`}
+                    />
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -620,6 +757,135 @@ export default function ScheduleScreen() {
       </Modal>
 
       <Modal
+        visible={calendarOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCalendarOpen(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/40 justify-end"
+          onPress={() => setCalendarOpen(false)}
+        >
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            className="rounded-t-[28px] p-6"
+            style={{ backgroundColor: colors.background }}
+          >
+            <View className="flex-row items-center justify-between">
+              <Text className="text-lg font-clash text-app">Full Calendar</Text>
+              <Pressable onPress={() => setCalendarOpen(false)}>
+                <Feather name="x" size={20} className="text-secondary" />
+              </Pressable>
+            </View>
+
+            <View className="mt-4 flex-row items-center justify-between">
+              <Pressable
+                onPress={() => {
+                  setCalendarMonth(
+                    new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1),
+                  );
+                }}
+                className="h-9 w-9 items-center justify-center rounded-full bg-secondary/10 border border-app/10"
+              >
+                <Feather name="chevron-left" size={18} className="text-secondary" />
+              </Pressable>
+              <Text className="text-base font-outfit text-app">
+                {MONTH_LABELS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setCalendarMonth(
+                    new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1),
+                  );
+                }}
+                className="h-9 w-9 items-center justify-center rounded-full bg-secondary/10 border border-app/10"
+              >
+                <Feather name="chevron-right" size={18} className="text-secondary" />
+              </Pressable>
+            </View>
+
+            <View className="mt-4 flex-row justify-between px-1">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
+                <Text
+                  key={label}
+                  className="text-[10px] font-outfit text-secondary uppercase tracking-[1.4px] w-9 text-center"
+                >
+                  {label}
+                </Text>
+              ))}
+            </View>
+
+            <View className="mt-2 flex-row flex-wrap">
+              {calendarGrid.map((cell, index) => {
+                if (!cell) {
+                  return (
+                    <View
+                      key={`empty-${index}`}
+                      className="h-12"
+                      style={{ width: `${100 / 7}%` }}
+                    />
+                  );
+                }
+                const isToday =
+                  cell.date.getDate() === today.getDate() &&
+                  cell.date.getMonth() === today.getMonth() &&
+                  cell.date.getFullYear() === today.getFullYear();
+                const hasEvents = eventsByDate.has(cell.key);
+                const isSelected = selectedCalendarDate === cell.key;
+                return (
+                  <Pressable
+                    key={cell.key}
+                    onPress={() => setSelectedCalendarDate(cell.key)}
+                    className={`h-12 items-center justify-center rounded-2xl ${
+                      isSelected ? "bg-accent/20" : ""
+                    }`}
+                    style={{ width: `${100 / 7}%` }}
+                  >
+                    <Text
+                      className={`text-sm font-outfit ${
+                        isToday ? "text-accent" : "text-app"
+                      }`}
+                    >
+                      {cell.date.getDate()}
+                    </Text>
+                    {hasEvents ? (
+                      <View className="mt-1 h-1.5 w-1.5 rounded-full bg-accent" />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {selectedCalendarDate ? (
+              <View className="mt-4 rounded-2xl border border-app/10 bg-secondary/10 p-4">
+                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                  Bookings
+                </Text>
+                {(eventsByDate.get(selectedCalendarDate) ?? []).length === 0 ? (
+                  <Text className="text-sm font-outfit text-secondary mt-2">
+                    No bookings for this date.
+                  </Text>
+                ) : (
+                  <View className="mt-2 gap-2">
+                    {(eventsByDate.get(selectedCalendarDate) ?? []).map((event) => (
+                      <View key={event.id} className="rounded-xl border border-app/10 bg-input px-3 py-2">
+                        <Text className="text-sm font-outfit text-app">
+                          {event.title}
+                        </Text>
+                        <Text className="text-xs font-outfit text-secondary mt-1">
+                          {event.timeStart} - {event.timeEnd}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
         visible={bookingOpen}
         transparent
         animationType="slide"
@@ -646,7 +912,7 @@ export default function ScheduleScreen() {
             {bookingConfirmed ? (
               <>
                 <Text className="text-sm font-outfit text-secondary mt-2">
-                  Your booking is locked in for {bookingSlot ?? "13:00"}.
+                  Your booking is locked in for {bookingSlot ? formatSlotLabel(bookingSlot) : "13:00"}.
                 </Text>
                 <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
                   <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
@@ -702,12 +968,13 @@ export default function ScheduleScreen() {
                 ) : (
                   <View className="mt-4 flex-row flex-wrap gap-2">
                     {derivedBookingTypes.map((item) => {
-                      const active = bookingType === item.value;
+                      const active = selectedServiceId === item.id;
                       return (
                         <Pressable
-                          key={item.id ?? item.value}
+                          key={item.id}
                           onPress={() => {
-                            setBookingType(item.value as any);
+                            hasUserSelectedService.current = true;
+                            setBookingType(item.type as any);
                             if (item.id) {
                               setSelectedServiceId(item.id);
                               const match = visibleServices.find((service) => service.id === item.id);
@@ -751,11 +1018,11 @@ export default function ScheduleScreen() {
                       ) : null}
                       <View className="flex-row flex-wrap gap-2 mt-3">
                         {availableSlots.map((slot) => {
-                          const active = bookingSlot === slot;
+                          const active = bookingSlot === slot.startsAt;
                           return (
                             <Pressable
-                              key={slot}
-                              onPress={() => setBookingSlot(slot)}
+                              key={slot.startsAt}
+                              onPress={() => setBookingSlot(slot.startsAt)}
                               className={`px-3 py-2 rounded-full border ${
                                 active ? "bg-accent" : "bg-input"
                               }`}
@@ -765,7 +1032,7 @@ export default function ScheduleScreen() {
                                   active ? "text-white" : "text-app"
                                 }`}
                               >
-                                {slot}
+                                {slot.label}
                               </Text>
                             </Pressable>
                           );
@@ -800,12 +1067,13 @@ export default function ScheduleScreen() {
 
                     <Pressable
                       onPress={async () => {
-                        if (!bookingSlot || !selectedService) return;
+                        if (!bookingSlot || !selectedService) {
+                          setBookingError("Please select a time slot.");
+                          return;
+                        }
                         setBookingError(null);
                         try {
-                          const [hour, minute] = bookingSlot.split(":").map((part) => Number(part));
-                          const startsAt = new Date();
-                          startsAt.setHours(hour, minute, 0, 0);
+                          const startsAt = new Date(bookingSlot);
                           const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
                           await apiRequest("/bookings", {
                             method: "POST",
@@ -824,11 +1092,16 @@ export default function ScheduleScreen() {
                           setBookingError(err.message ?? "Failed to confirm booking");
                         }
                       }}
+                      disabled={!bookingSlot || !selectedService}
                       className={`mt-4 px-4 py-3 rounded-full ${
                         bookingSlot && selectedService ? "bg-accent" : "bg-secondary/20"
                       }`}
                     >
-                      <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
+                      <Text
+                        className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
+                          bookingSlot && selectedService ? "text-white" : "text-secondary"
+                        }`}
+                      >
                         Confirm Booking
                       </Text>
                     </Pressable>

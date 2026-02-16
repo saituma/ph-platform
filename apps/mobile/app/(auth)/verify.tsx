@@ -141,7 +141,7 @@ export default function VerifyScreen() {
 
         <View className="flex-row justify-center items-center">
           <Text className="text-secondary text-base font-outfit">
-            Didn't receive code?{" "}
+            {"Didn't"} receive code?{" "}
           </Text>
           <Pressable
             onPress={async () => {

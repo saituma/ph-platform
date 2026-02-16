@@ -18,7 +18,7 @@ export function ThemeToggle() {
       damping: 15,
       stiffness: 150,
     });
-  }, [isDark]);
+  }, [isDark, transition]);
 
   const sunStyle = useAnimatedStyle(() => {
     return {

@@ -103,7 +103,9 @@ export function TestimonialsSection() {
           </View>
 
           <Text className="text-app font-outfit text-lg italic leading-relaxed mb-8 opacity-90">
-            "{item.quote}"
+            {"\u201C"}
+            {item.quote}
+            {"\u201D"}
           </Text>
 
           <View className="flex-row justify-between items-center border-t border-app/5 pt-6">
@@ -141,23 +143,14 @@ export function TestimonialsSection() {
         </View>
 
         <View className="flex-row gap-2 mb-1">
-          {TESTIMONIALS.map((_, i) => {
-            const dotStyle = useAnimatedStyle(() => {
-              return {
-                width: withSpring(activeIndex === i ? 24 : 8),
-                opacity: withSpring(activeIndex === i ? 1 : 0.3),
-                backgroundColor:
-                  activeIndex === i ? colors.accent : colors.textSecondary,
-              };
-            });
-            return (
-              <Animated.View
-                key={i}
-                className="h-2 rounded-full"
-                style={dotStyle}
-              />
-            );
-          })}
+          {TESTIMONIALS.map((_, i) => (
+            <DotIndicator
+              key={i}
+              isActive={activeIndex === i}
+              activeColor={colors.accent}
+              inactiveColor={colors.textSecondary}
+            />
+          ))}
         </View>
       </View>
 
@@ -176,4 +169,24 @@ export function TestimonialsSection() {
       />
     </View>
   );
+}
+
+function DotIndicator({
+  isActive,
+  activeColor,
+  inactiveColor,
+}: {
+  isActive: boolean;
+  activeColor: string;
+  inactiveColor: string;
+}) {
+  const dotStyle = useAnimatedStyle(() => {
+    return {
+      width: withSpring(isActive ? 24 : 8),
+      opacity: withSpring(isActive ? 1 : 0.3),
+      backgroundColor: isActive ? activeColor : inactiveColor,
+    };
+  }, [isActive, activeColor, inactiveColor]);
+
+  return <Animated.View className="h-2 rounded-full" style={dotStyle} />;
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -52,7 +52,7 @@ export default function ProgramDetailScreen() {
     return allSessions.filter((session) => allowedTypes.has(String(session.type ?? "")));
   }, [activeTab, allSessions]);
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     if (!token) {
       setAllSessions([]);
       return;
@@ -79,7 +79,7 @@ export default function ProgramDetailScreen() {
         regressions: entry?.regression || undefined,
       });
 
-      const programsData = await apiRequest<{ programs: Array<{ type: string; programId?: number | null }> }>(
+      const programsData = await apiRequest<{ programs: { type: string; programId?: number | null }[] }>(
         "/programs",
         { token }
       );
@@ -158,11 +158,11 @@ export default function ProgramDetailScreen() {
     } finally {
       setIsLoadingSessions(false);
     }
-  };
+  }, [programId, token]);
 
   useEffect(() => {
     void loadSessions();
-  }, [programId, token]);
+  }, [loadSessions]);
 
   const handlePageRefresh = async () => {
     await loadSessions();

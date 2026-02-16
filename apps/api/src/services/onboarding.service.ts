@@ -12,12 +12,13 @@ import {
 } from "../db/schema";
 import { sql } from "drizzle-orm";
 import { getUserById } from "./user.service";
+import { calculateAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
 
 const defaultPublicConfig = {
   version: 1,
   fields: [
     { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
-    { id: "age", label: "Age", type: "number", required: true, visible: true },
+    { id: "birthDate", label: "Birth Date", type: "date", required: true, visible: true },
     {
       id: "team",
       label: "Team",
@@ -93,6 +94,9 @@ async function ensureOnboardingConfigTable() {
   await db.execute(sql`
     ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "extraResponses" jsonb
   `);
+  await db.execute(sql`
+    ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "birthDate" date
+  `);
 }
 
 export async function getOnboardingByUser(userId: number) {
@@ -100,7 +104,8 @@ export async function getOnboardingByUser(userId: number) {
   if (!user) return null;
   if (user.role === "athlete") {
     const athletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
-    return athletes[0] ?? null;
+    const athlete = athletes[0] ?? null;
+    return decorateAthlete(athlete);
   }
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0];
@@ -108,7 +113,8 @@ export async function getOnboardingByUser(userId: number) {
   const athletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1);
   const athlete = athletes[0] ?? null;
   if (!athlete) return null;
-  return ensureAthleteUserRecord(athlete);
+  const ensured = await ensureAthleteUserRecord(athlete);
+  return decorateAthlete(ensured);
 }
 
 export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$inferSelect) {
@@ -162,7 +168,8 @@ export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$infe
 export async function submitOnboarding(input: {
   userId: number;
   athleteName: string;
-  age: number;
+  birthDate?: string | null;
+  age?: number | null;
   team: string;
   trainingPerWeek: number;
   injuries?: unknown;
@@ -179,6 +186,13 @@ export async function submitOnboarding(input: {
   extraResponses?: Record<string, unknown>;
 }) {
   const now = new Date();
+  const parsedBirthDate = input.birthDate ? parseISODate(input.birthDate) : null;
+  const derivedAge = parsedBirthDate ? calculateAge(parsedBirthDate, now) : null;
+  const resolvedAge = derivedAge ?? input.age ?? null;
+  if (!resolvedAge || resolvedAge < 5) {
+    throw new Error("Birth date must result in an age of 5 or older.");
+  }
+  const birthDateValue = input.birthDate ?? null;
 
   let guardianId: number;
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
@@ -197,7 +211,8 @@ export async function submitOnboarding(input: {
       .update(athleteTable)
       .set({
         name: input.athleteName,
-        age: input.age,
+        age: resolvedAge,
+        birthDate: birthDateValue,
         team: input.team,
         trainingPerWeek: input.trainingPerWeek,
         injuries: input.injuries ?? null,
@@ -226,7 +241,8 @@ export async function submitOnboarding(input: {
       userId: input.userId,
       guardianId,
       name: input.athleteName,
-      age: input.age,
+      age: resolvedAge,
+      birthDate: birthDateValue,
       team: input.team,
       trainingPerWeek: input.trainingPerWeek,
       injuries: input.injuries ?? null,
@@ -278,10 +294,38 @@ export async function submitOnboarding(input: {
   return { athleteId, athleteUserId: updatedAthlete.userId, status };
 }
 
+function decorateAthlete(athlete: typeof athleteTable.$inferSelect | null) {
+  if (!athlete) return null;
+  const birthDate = normalizeDate(athlete.birthDate as any);
+  if (!birthDate) {
+    return { ...athlete, isBirthday: false };
+  }
+  const now = new Date();
+  return {
+    ...athlete,
+    age: calculateAge(birthDate, now),
+    isBirthday: isBirthday(birthDate, now),
+  };
+}
+
+function normalizeConfigFields(fields: any[] | null | undefined) {
+  if (!Array.isArray(fields)) return [];
+  const hasBirthDate = fields.some((field) => field?.id === "birthDate");
+  return fields.map((field) => {
+    if (field?.id === "age" && !hasBirthDate) {
+      return { ...field, id: "birthDate", label: field.label || "Birth Date", type: "date" };
+    }
+    return field;
+  });
+}
+
 export async function getPublicOnboardingConfig() {
   try {
     const configs = await db.select().from(onboardingConfigTable).limit(1);
-    if (configs[0]) return configs[0];
+    if (configs[0]) {
+      const config = configs[0];
+      return { ...config, fields: normalizeConfigFields(config.fields as any) };
+    }
   } catch {
     await ensureOnboardingConfigTable();
   }
@@ -290,7 +334,7 @@ export async function getPublicOnboardingConfig() {
     .insert(onboardingConfigTable)
     .values({
       version: defaultPublicConfig.version,
-      fields: defaultPublicConfig.fields,
+      fields: normalizeConfigFields(defaultPublicConfig.fields as any),
       requiredDocuments: defaultPublicConfig.requiredDocuments,
       welcomeMessage: defaultPublicConfig.welcomeMessage,
       coachMessage: defaultPublicConfig.coachMessage,

@@ -9,7 +9,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { isDark, colors } = useAppTheme();
+  const { isDark } = useAppTheme();
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [smsEnabled, setSmsEnabled] = useState(true);

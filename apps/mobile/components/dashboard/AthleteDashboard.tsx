@@ -48,6 +48,19 @@ export function AthleteDashboard() {
   return (
     <View className="gap-8">
       <View>
+        {athlete?.isBirthday ? (
+          <View className="mb-4 rounded-3xl border border-accent/30 bg-accent/10 p-4">
+            <Text className="text-accent font-outfit text-sm uppercase tracking-[1.4px] mb-1">
+              Celebration
+            </Text>
+            <Text className="text-app font-clash text-2xl">
+              Happy Birthday{athlete?.name ? `, ${athlete.name}` : ""}!
+            </Text>
+            <Text className="text-sm font-outfit text-secondary mt-1">
+              New age, new training content unlocked today.
+            </Text>
+          </View>
+        ) : null}
         <View className="p-8 rounded-[40px] shadow-2xl relative overflow-hidden border border-white/20 min-h-[220px] bg-input">
           <View className="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
           <View className="absolute -left-20 -bottom-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
@@ -209,41 +222,6 @@ function StatusTile({ label, value, icon, color, suffix = "%" }: any) {
           {label}
         </Text>
       </View>
-    </View>
-  );
-}
-
-function PremiumBadge({
-  icon,
-  label,
-  rarity,
-}: {
-  icon: any;
-  label: string;
-  rarity: string;
-}) {
-  const rarityColors: any = {
-    Common: "bg-emerald-200",
-    Rare: "bg-emerald-400",
-    Epic: "bg-emerald-600",
-    Legendary: "bg-emerald-800",
-  };
-
-  return (
-    <View className="items-center">
-      <View className="relative">
-        <View
-          className={`${rarityColors[rarity]} w-20 h-20 rounded-[28px] items-center justify-center shadow-xl shadow-app/10 mb-3 border-4 border-white`}
-        >
-          <Feather name={icon} size={32} color="white" />
-        </View>
-        <View className="absolute -top-1 -right-1 bg-white px-2 py-0.5 rounded-full shadow-sm border border-app/10">
-          <Text className="text-[8px] font-bold text-app uppercase">
-            {rarity}
-          </Text>
-        </View>
-      </View>
-      <Text className="text-app font-bold font-outfit text-xs">{label}</Text>
     </View>
   );
 }

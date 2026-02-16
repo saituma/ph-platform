@@ -40,7 +40,7 @@ export default function ForgotScreen() {
             Forgot Password?
           </Text>
           <Text className="text-base font-outfit text-secondary leading-6">
-            Enter your email address and we'll send you an OTP to reset your
+            Enter your email address and {"we'll"} send you an OTP to reset your
             password.
           </Text>
         </View>

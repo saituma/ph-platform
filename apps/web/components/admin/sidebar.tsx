@@ -57,6 +57,7 @@ export function AdminSidebarContent({
     { label: "Schedule", href: "/bookings", icon: CalendarDays },
     { label: "Video Feedback", href: "/video-review", icon: PlaySquare },
     { label: "Exercise Library", href: "/exercise-library", icon: BadgeCheck },
+    { label: "Age Content Control", href: "/age-content", icon: ClipboardList },
     { label: "Settings", href: "/settings", icon: Settings },
   ];
   return (

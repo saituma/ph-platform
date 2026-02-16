@@ -1,6 +1,6 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
@@ -47,7 +47,7 @@ export default function ParentPlatformScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchCourses = async (options?: { refreshing?: boolean }) => {
+  const fetchCourses = useCallback(async (options?: { refreshing?: boolean }) => {
     if (!token) {
       setIsLoading(false);
       return;
@@ -66,7 +66,7 @@ export default function ParentPlatformScreen() {
         setIsLoading(false);
       }
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     let mounted = true;
@@ -75,7 +75,7 @@ export default function ParentPlatformScreen() {
     return () => {
       mounted = false;
     };
-  }, [token]);
+  }, [fetchCourses]);
 
   const grouped = useMemo(() => {
     return CATEGORIES.map((category) => ({

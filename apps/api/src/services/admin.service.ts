@@ -29,7 +29,7 @@ const defaultOnboardingConfig = {
   version: 1,
   fields: [
     { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
-    { id: "age", label: "Age", type: "number", required: true, visible: true },
+    { id: "birthDate", label: "Birth Date", type: "date", required: true, visible: true },
     {
       id: "team",
       label: "Team",

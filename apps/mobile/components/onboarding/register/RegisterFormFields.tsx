@@ -1,8 +1,9 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import React, { useState } from "react";
 import { Controller, Control, FieldErrors, UseFormSetValue } from "react-hook-form";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import { AthleteRegisterFormData, ConfigField } from "@/hooks/onboarding/useRegisterController";
 
@@ -60,6 +61,21 @@ export function RegisterFormFields({
   onOpenTerms,
   onOpenPrivacy,
 }: RegisterFormFieldsProps) {
+  const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
+
+  const formatBirthDate = (date: Date) => {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseBirthDate = (value?: string) => {
+    if (!value) return null;
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
   return (
     <View className="gap-4 mb-8">
       {isVisible("athleteName") ? (
@@ -86,27 +102,58 @@ export function RegisterFormFields({
         </View>
       ) : null}
 
-      {isVisible("age") ? (
+      {isVisible("birthDate") ? (
         <View>
-          <View className={`flex-row items-center bg-input border ${errors.age ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}>
-            <Feather name="calendar" size={20} color={errors.age ? colors.danger : colors.textSecondary} />
-            <Controller
-              control={control}
-              name="age"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  className="flex-1 ml-3 text-app text-base font-outfit"
-                  placeholder={labelFor("age", "Age")}
-                  placeholderTextColor={colors.placeholder}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                  keyboardType="numeric"
-                />
-              )}
-            />
-          </View>
-          <ErrorText text={errors.age?.message} />
+          <Controller
+            control={control}
+            name="birthDate"
+            render={({ field: { onChange, value } }) => {
+              const selectedDate = parseBirthDate(value ?? undefined);
+              const displayValue = selectedDate ? selectedDate.toLocaleDateString() : "";
+              return (
+                <>
+                  <Pressable
+                    onPress={() => setShowBirthDatePicker(true)}
+                    className={`flex-row items-center bg-input border ${errors.birthDate ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
+                  >
+                    <Feather name="calendar" size={20} color={errors.birthDate ? colors.danger : colors.textSecondary} />
+                    <Text
+                      className={`flex-1 ml-3 text-base font-outfit ${displayValue ? "text-app" : "text-secondary"}`}
+                    >
+                      {displayValue || labelFor("birthDate", "Birth date")}
+                    </Text>
+                  </Pressable>
+                  {showBirthDatePicker ? (
+                    <View className="mt-2">
+                      <DateTimePicker
+                        value={selectedDate ?? new Date()}
+                        mode="date"
+                        display={Platform.OS === "ios" ? "spinner" : "default"}
+                        maximumDate={new Date()}
+                        onChange={(event, date) => {
+                          if (Platform.OS !== "ios") {
+                            setShowBirthDatePicker(false);
+                          }
+                          if (event.type === "dismissed") return;
+                          if (!date) return;
+                          onChange(formatBirthDate(date));
+                        }}
+                      />
+                      {Platform.OS === "ios" ? (
+                        <Pressable
+                          onPress={() => setShowBirthDatePicker(false)}
+                          className="mt-2 self-end rounded-full border border-app px-4 py-2"
+                        >
+                          <Text className="text-app font-outfit text-xs">Done</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </>
+              );
+            }}
+          />
+          <ErrorText text={errors.birthDate?.message} />
         </View>
       ) : null}
 

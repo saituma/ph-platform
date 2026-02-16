@@ -19,7 +19,8 @@ const registerSchema = z
       .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "Password must include an uppercase letter")
       .regex(/[a-z]/, "Password must include a lowercase letter")
-      .regex(/[0-9]/, "Password must include a number"),
+      .regex(/[0-9]/, "Password must include a number")
+      .regex(/[^A-Za-z0-9]/, "Password must include a special character"),
     confirmPassword: z.string().min(8, "Confirm password is required"),
     isChecked: z.boolean().refine((val) => val === true, {
       message: "Please agree to the Terms & Conditions",
@@ -44,6 +45,7 @@ export default function RegisterScreen() {
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -56,6 +58,15 @@ export default function RegisterScreen() {
     },
     mode: "onChange",
   });
+
+  const passwordValue = watch("password") ?? "";
+  const passwordRules = {
+    minLength: passwordValue.length >= 8,
+    uppercase: /[A-Z]/.test(passwordValue),
+    lowercase: /[a-z]/.test(passwordValue),
+    number: /[0-9]/.test(passwordValue),
+    special: /[^A-Za-z0-9]/.test(passwordValue),
+  };
 
   const onSubmit = async (data: RegisterFormData) => {
     setFormError(null);
@@ -219,6 +230,40 @@ export default function RegisterScreen() {
                 {errors.password.message}
               </Text>
             )}
+            {passwordValue.length > 0 ? (
+              <View className="mt-2 ml-2 gap-1">
+                <Text
+                  className="text-xs font-outfit"
+                  style={{ color: passwordRules.minLength ? colors.success : colors.textSecondary }}
+                >
+                  At least 8 characters
+                </Text>
+                <Text
+                  className="text-xs font-outfit"
+                  style={{ color: passwordRules.uppercase ? colors.success : colors.textSecondary }}
+                >
+                  1 uppercase letter (A-Z)
+                </Text>
+                <Text
+                  className="text-xs font-outfit"
+                  style={{ color: passwordRules.lowercase ? colors.success : colors.textSecondary }}
+                >
+                  1 lowercase letter (a-z)
+                </Text>
+                <Text
+                  className="text-xs font-outfit"
+                  style={{ color: passwordRules.number ? colors.success : colors.textSecondary }}
+                >
+                  1 number (0-9)
+                </Text>
+                <Text
+                  className="text-xs font-outfit"
+                  style={{ color: passwordRules.special ? colors.success : colors.textSecondary }}
+                >
+                  1 special character
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <View>

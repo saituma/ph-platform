@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import {
   createContent,
-  getHomeContent,
+  getHomeContentForUser,
   getParentPlatformContent,
   updateContent,
   getContentById,
@@ -22,6 +22,11 @@ const contentCreateSchema = z.object({
   programTier: z.enum(ProgramType.enumValues).optional(),
   surface: z.enum(["home", "parent_platform"]),
   category: z.string().optional(),
+  minAge: z.number().int().min(0).optional(),
+  maxAge: z.number().int().min(0).optional(),
+}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+  message: "Minimum age must be less than or equal to maximum age.",
+  path: ["minAge"],
 });
 
 const contentUpdateSchema = z.object({
@@ -31,6 +36,11 @@ const contentUpdateSchema = z.object({
   body: z.string().optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
   category: z.string().optional(),
+  minAge: z.number().int().min(0).optional(),
+  maxAge: z.number().int().min(0).optional(),
+}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+  message: "Minimum age must be less than or equal to maximum age.",
+  path: ["minAge"],
 });
 
 const parentCourseModuleSchema = z.object({
@@ -70,13 +80,18 @@ const parentCourseCreateSchema = z.object({
     .nullable(),
   category: z.string().min(1),
   programTier: z.enum(ProgramType.enumValues).optional().nullable(),
+  minAge: z.number().int().min(0).optional(),
+  maxAge: z.number().int().min(0).optional(),
   modules: z.array(parentCourseModuleSchema).min(1),
+}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+  message: "Minimum age must be less than or equal to maximum age.",
+  path: ["minAge"],
 });
 
 const parentCourseUpdateSchema = parentCourseCreateSchema;
 
-export async function listHomeContent(_req: Request, res: Response) {
-  const items = await getHomeContent();
+export async function listHomeContent(req: Request, res: Response) {
+  const items = await getHomeContentForUser(req.user!.id);
   return res.status(200).json({ items });
 }
 
@@ -104,6 +119,8 @@ export async function createContentItem(req: Request, res: Response) {
     programTier: input.programTier,
     surface: input.surface,
     category: input.category,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });
@@ -120,6 +137,8 @@ export async function updateContentItem(req: Request, res: Response) {
     body: input.body,
     programTier: input.programTier,
     category: input.category,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
   });
   if (!item) {
     return res.status(404).json({ error: "Content not found" });
@@ -152,6 +171,8 @@ export async function createParentCourseHandler(req: Request, res: Response) {
     coverImage: input.coverImage,
     category: input.category,
     programTier: input.programTier,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
     modules: input.modules,
     createdBy: req.user!.id,
   });
@@ -171,6 +192,8 @@ export async function updateParentCourseHandler(req: Request, res: Response) {
     coverImage: input.coverImage,
     category: input.category,
     programTier: input.programTier,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
     modules: input.modules,
   });
   if (!item) {

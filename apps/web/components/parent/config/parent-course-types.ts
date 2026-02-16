@@ -36,6 +36,8 @@ export type ParentCourse = {
   coverImage?: string | null;
   category: string;
   programTier?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   modules: ParentCourseModule[];
 };
 

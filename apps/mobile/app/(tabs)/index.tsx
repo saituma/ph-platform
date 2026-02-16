@@ -35,7 +35,7 @@ export default function HomeScreen() {
         suppressStatusCodes: [401],
       });
       setAthleteName(data.athlete?.name ?? null);
-    } catch (error: any) {
+    } catch {
       setAthleteName(null);
     }
   }, [token]);

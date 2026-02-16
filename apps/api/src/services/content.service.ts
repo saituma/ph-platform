@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, contentTable, parentCourseTable, ProgramType } from "../db/schema";
+import { calculateAge, normalizeDate } from "../lib/age";
 
 const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
   PHP: 1,
@@ -13,13 +14,42 @@ export async function getHomeContent() {
   return db.select().from(contentTable).where(eq(contentTable.surface, "home"));
 }
 
+function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
+  if (!row) return null;
+  const birthDate = normalizeDate(row.birthDate as any);
+  if (birthDate) {
+    return calculateAge(birthDate);
+  }
+  return row.age ?? null;
+}
+
+async function resolveAthleteAge(userId: number) {
+  const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
+  return resolveAgeFromAthlete(athlete[0]);
+}
+
+function matchesAgeRange(item: { minAge?: number | null; maxAge?: number | null }, age: number | null) {
+  if (age === null) return true;
+  if (item.minAge !== null && item.minAge !== undefined && age < item.minAge) return false;
+  if (item.maxAge !== null && item.maxAge !== undefined && age > item.maxAge) return false;
+  return true;
+}
+
+export async function getHomeContentForUser(userId: number) {
+  const age = await resolveAthleteAge(userId);
+  const items = await db.select().from(contentTable).where(eq(contentTable.surface, "home"));
+  return items.filter((item) => matchesAgeRange(item, age));
+}
+
 export async function getParentPlatformContent(userId: number) {
   const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
   const tier = athlete[0]?.currentProgramTier ?? "PHP";
+  const age = resolveAgeFromAthlete(athlete[0]);
   const allowed = tierOrder[tier];
 
   const items = await db.select().from(contentTable).where(eq(contentTable.surface, "parent_platform"));
   return items.filter((item) => {
+    if (!matchesAgeRange(item, age)) return false;
     if (!item.programTier) {
       return true;
     }
@@ -40,6 +70,8 @@ export async function createContent(input: {
   programTier?: (typeof ProgramType.enumValues)[number] | null;
   surface: "home" | "parent_platform";
   category?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   createdBy: number;
 }) {
   const result = await db
@@ -52,6 +84,8 @@ export async function createContent(input: {
       programTier: input.programTier ?? null,
       surface: input.surface,
       category: input.category ?? null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
       createdBy: input.createdBy,
     })
     .returning();
@@ -67,6 +101,8 @@ export async function updateContent(input: {
   body?: string | null;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
   category?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
 }) {
   const result = await db
     .update(contentTable)
@@ -77,6 +113,8 @@ export async function updateContent(input: {
       body: input.body ?? null,
       programTier: input.programTier ?? null,
       category: input.category ?? null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
       updatedAt: new Date(),
     })
     .where(eq(contentTable.id, input.id))
@@ -143,7 +181,9 @@ export async function listParentCourses(userId: number, role?: string) {
   const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
   const tier = athlete[0]?.currentProgramTier ?? "PHP";
   const allowed = tierOrder[tier];
-  return applyTierAccess(items, allowed) as any;
+  const age = resolveAgeFromAthlete(athlete[0]);
+  const filtered = items.filter((item) => matchesAgeRange(item, age));
+  return applyTierAccess(filtered, allowed) as any;
 }
 
 export async function getParentCourseById(userId: number, courseId: number, role?: string) {
@@ -158,6 +198,8 @@ export async function createParentCourse(input: {
   coverImage?: string | null;
   category: string;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   modules: ParentCourseModule[];
   createdBy: number;
 }) {
@@ -170,6 +212,8 @@ export async function createParentCourse(input: {
       coverImage: input.coverImage ?? null,
       category: input.category,
       programTier: input.programTier ?? null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
       modules: input.modules as any,
       createdBy: input.createdBy,
     })
@@ -186,6 +230,8 @@ export async function updateParentCourse(input: {
   coverImage?: string | null;
   category: string;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   modules: ParentCourseModule[];
 }) {
   const result = await db
@@ -197,6 +243,8 @@ export async function updateParentCourse(input: {
       coverImage: input.coverImage ?? null,
       category: input.category,
       programTier: input.programTier ?? null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
       modules: input.modules as any,
       updatedAt: new Date(),
     })

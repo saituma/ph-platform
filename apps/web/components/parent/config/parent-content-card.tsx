@@ -39,9 +39,18 @@ export function ParentContentCard() {
   const [summary, setSummary] = useState("");
   const [body, setBody] = useState("");
   const [tier, setTier] = useState("");
+  const [minAge, setMinAge] = useState("");
+  const [maxAge, setMaxAge] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+
+  const formatAgeRange = (item: { minAge?: number | null; maxAge?: number | null }) => {
+    if (item.minAge == null && item.maxAge == null) return "All ages";
+    if (item.minAge != null && item.maxAge != null) return `Ages ${item.minAge}-${item.maxAge}`;
+    if (item.minAge != null) return `Ages ${item.minAge}+`;
+    return `Up to ${item.maxAge}`;
+  };
 
   const grouped = useMemo(() => {
     const items = data?.items ?? [];
@@ -56,6 +65,8 @@ export function ParentContentCard() {
     setSummary("");
     setBody("");
     setTier("");
+    setMinAge("");
+    setMaxAge("");
     setType("article");
     setCategory(CATEGORIES[0]);
     setEditingItem(null);
@@ -67,6 +78,16 @@ export function ParentContentCard() {
       setError("Title and summary are required.");
       return;
     }
+    const minAgeValue = minAge.trim() ? Number(minAge) : null;
+    const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
+    if ((minAgeValue !== null && Number.isNaN(minAgeValue)) || (maxAgeValue !== null && Number.isNaN(maxAgeValue))) {
+      setError("Age limits must be valid numbers.");
+      return;
+    }
+    if (minAgeValue !== null && maxAgeValue !== null && minAgeValue > maxAgeValue) {
+      setError("Minimum age cannot be greater than maximum age.");
+      return;
+    }
     try {
       await createContent({
         title: title.trim(),
@@ -74,6 +95,8 @@ export function ParentContentCard() {
         type,
         body: body.trim() || undefined,
         programTier: tier || undefined,
+        minAge: minAgeValue ?? undefined,
+        maxAge: maxAgeValue ?? undefined,
         surface: "parent_platform",
         category,
       }).unwrap();
@@ -94,6 +117,8 @@ export function ParentContentCard() {
     setBody(item.body ?? "");
     setType((item.type as any) ?? "article");
     setTier(item.programTier ?? "");
+    setMinAge(item.minAge != null ? String(item.minAge) : "");
+    setMaxAge(item.maxAge != null ? String(item.maxAge) : "");
     setCategory(item.category ?? CATEGORIES[0]);
     setError(null);
     setModalOpen(true);
@@ -112,6 +137,16 @@ export function ParentContentCard() {
       setError("Title and summary are required.");
       return;
     }
+    const minAgeValue = minAge.trim() ? Number(minAge) : null;
+    const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
+    if ((minAgeValue !== null && Number.isNaN(minAgeValue)) || (maxAgeValue !== null && Number.isNaN(maxAgeValue))) {
+      setError("Age limits must be valid numbers.");
+      return;
+    }
+    if (minAgeValue !== null && maxAgeValue !== null && minAgeValue > maxAgeValue) {
+      setError("Minimum age cannot be greater than maximum age.");
+      return;
+    }
     try {
       await updateContent({
         id: editingItem.id,
@@ -122,6 +157,8 @@ export function ParentContentCard() {
           body: body.trim() || undefined,
           programTier: tier || undefined,
           category,
+          minAge: minAgeValue ?? undefined,
+          maxAge: maxAgeValue ?? undefined,
         },
       }).unwrap();
       resetForm();
@@ -170,7 +207,9 @@ export function ParentContentCard() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                            <p className="text-xs text-muted-foreground">{item.type?.toUpperCase()} • {item.programTier ?? "All tiers"}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.type?.toUpperCase()} • {item.programTier ?? "All tiers"} • {formatAgeRange(item)}
+                            </p>
                           </div>
                           <Button size="sm" variant="outline" onClick={() => handleEdit(item)}>
                             Edit
@@ -235,6 +274,16 @@ export function ParentContentCard() {
                       </option>
                     ))}
                   </Select>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Minimum Age</Label>
+                  <Input type="number" value={minAge} onChange={(e) => setMinAge(e.target.value)} placeholder="e.g. 10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Maximum Age</Label>
+                  <Input type="number" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} placeholder="e.g. 14" />
                 </div>
               </div>
               <div className="space-y-2">

@@ -119,7 +119,7 @@ const adminPreferencesSchema = z.object({
 const onboardingFieldSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  type: z.enum(["text", "number", "dropdown"]),
+  type: z.enum(["text", "number", "dropdown", "date"]),
   required: z.boolean(),
   visible: z.boolean(),
   options: z.array(z.string().min(1)).optional(),

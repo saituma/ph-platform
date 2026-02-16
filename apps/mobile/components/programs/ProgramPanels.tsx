@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Image, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -130,7 +130,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [videoItems, setVideoItems] = useState<
-    Array<{ id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }>
+    { id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }[]
   >([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<{
@@ -140,11 +140,11 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     sizeBytes: number;
   } | null>(null);
 
-  const loadVideos = async () => {
+  const loadVideos = useCallback(async () => {
     if (!token) return;
     try {
       setLoadingVideos(true);
-      const data = await apiRequest<{ items: Array<{ id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }> }>(
+      const data = await apiRequest<{ items: { id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }[] }>(
         "/videos",
         { token, suppressLog: true }
       );
@@ -154,11 +154,11 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     } finally {
       setLoadingVideos(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     void loadVideos();
-  }, [token, refreshToken]);
+  }, [loadVideos, refreshToken]);
 
   const awaitingVideos = videoItems.filter((item) => !item.feedback);
   const reviewedVideos = videoItems.filter((item) => Boolean(item.feedback));

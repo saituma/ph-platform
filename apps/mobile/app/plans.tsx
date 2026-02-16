@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/api";
 import { buildPlanPricing } from "@/lib/billing";
 import { normalizeProgramTier, tierRank } from "@/lib/planAccess";
 import { Feather } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
@@ -34,6 +35,14 @@ export default function PlansScreen() {
       })
     );
   }, []);
+  const resolvedTier = useMemo(() => {
+    const normalized = normalizeProgramTier(programTier);
+    if (normalized) return normalized;
+    if (latestSubscriptionRequest?.status === "approved" && latestSubscriptionRequest?.planTier) {
+      return String(latestSubscriptionRequest.planTier);
+    }
+    return null;
+  }, [latestSubscriptionRequest?.planTier, latestSubscriptionRequest?.status, programTier]);
 
   const mergedPlans = useMemo(() => {
     const map = new Map<string, any>();
@@ -68,7 +77,7 @@ export default function PlansScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, []);
 
   const refreshBillingStatus = useCallback(async () => {
     if (!token) return;
@@ -96,6 +105,12 @@ export default function PlansScreen() {
     void loadPlans();
     void refreshBillingStatus();
   }, [loadPlans, refreshBillingStatus]);
+  useFocusEffect(
+    useCallback(() => {
+      void refreshBillingStatus();
+      return () => {};
+    }, [refreshBillingStatus])
+  );
 
   const handleCheckout = useCallback(
     async (planId: number, interval?: "monthly" | "yearly") => {
@@ -192,7 +207,7 @@ export default function PlansScreen() {
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <View className="px-6 py-4 flex-row items-center justify-between border-b border-app">
         <TouchableOpacity
-          onPress={() => router.navigate("/(tabs)/more")}
+          onPress={() => router.back()}
           className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
         >
           <Feather name="arrow-left" size={20} className="text-app" />
@@ -224,13 +239,13 @@ export default function PlansScreen() {
             Select the best coaching tier for your athlete&apos;s development and
             goals.
           </Text>
-          {normalizeProgramTier(programTier) ? (
+          {resolvedTier ? (
             <View className="mt-4 rounded-2xl border border-app/10 bg-secondary/10 px-4 py-3">
               <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
                 Current Plan
               </Text>
               <Text className="text-base font-clash text-app mt-1">
-                {tierMap.get(normalizeProgramTier(programTier) ?? "PHP")?.name ?? "PHP Program"}
+                {tierMap.get(resolvedTier ?? "PHP")?.name ?? "PHP Program"}
               </Text>
               {latestSubscriptionRequest?.status &&
               ["pending_payment", "pending_approval"].includes(
@@ -277,7 +292,7 @@ export default function PlansScreen() {
           mergedPlans.map((plan, index) => {
             const baseTier = tierMap.get(plan.tier);
             const pricing = buildPlanPricing(plan);
-            const normalizedTier = normalizeProgramTier(programTier);
+            const normalizedTier = resolvedTier;
             const isCurrentPlan = normalizedTier === plan.tier;
             const isPendingRequest =
               !isCurrentPlan &&

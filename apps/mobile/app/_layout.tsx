@@ -37,7 +37,7 @@ if (__DEV__) {
 }
 
 if (Platform.OS === "web") {
-  require("./fonts.css");
+  void import("./fonts.css");
 }
 
 getNotifications().then((Notifications) => {
@@ -85,7 +85,6 @@ function GlobalRefreshLayout({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const fontsLoaded = useLoadFonts();
-  const theme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
   const [appIsReady, setAppIsReady] = useState(false);
 
   useEffect(() => {

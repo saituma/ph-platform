@@ -9,7 +9,7 @@ import { Dimensions, View } from "react-native";
 import { useForm, useWatch } from "react-hook-form";
 import * as z from "zod";
 
-export type FieldType = "text" | "number" | "dropdown";
+export type FieldType = "text" | "number" | "dropdown" | "date";
 
 export type ConfigField = {
   id: string;
@@ -31,7 +31,7 @@ type OnboardingConfig = {
 const athleteRegisterSchema = z
   .object({
     name: z.string().min(2, "Name is required"),
-    age: z.string().min(1, "Age is required"),
+    birthDate: z.string().min(1, "Birth date is required"),
     team: z.string().min(1, "Team is required"),
     trainingDaysPerWeek: z.string().min(1, "Training days is required"),
     injuries: z.string().min(1, "Injuries is required"),
@@ -78,7 +78,7 @@ export function useRegisterController() {
     resolver: zodResolver(athleteRegisterSchema),
     defaultValues: {
       name: "",
-      age: "",
+      birthDate: "",
       team: "",
       trainingDaysPerWeek: "",
       injuries: "",
@@ -93,21 +93,35 @@ export function useRegisterController() {
     mode: "onChange",
   });
 
-  const visibleFields = useMemo(() => (config?.fields ?? []).filter((field) => field.visible !== false), [config?.fields]);
+  const normalizedFields = useMemo(() => {
+    const fields = Array.isArray(config?.fields) ? config!.fields! : [];
+    const hasBirthDate = fields.some((field) => field.id === "birthDate");
+    return fields.map((field) => {
+      if (field.id === "age" && !hasBirthDate) {
+        return { ...field, id: "birthDate", label: field.label || "Birth Date", type: "date" };
+      }
+      return field;
+    });
+  }, [config?.fields]);
+
+  const visibleFields = useMemo(
+    () => normalizedFields.filter((field) => field.visible !== false),
+    [normalizedFields]
+  );
 
   const fieldMap = useMemo(() => {
-    return (config?.fields ?? []).reduce<Record<string, ConfigField>>((acc, field) => {
+    return (normalizedFields ?? []).reduce<Record<string, ConfigField>>((acc, field) => {
       acc[field.id] = field;
       return acc;
     }, {});
-  }, [config?.fields]);
+  }, [normalizedFields]);
 
   const isVisible = useCallback(
     (id: string) => {
-      if (!config?.fields) return true;
+      if (!normalizedFields.length) return true;
       return visibleFields.some((field) => field.id === id);
     },
-    [config?.fields, visibleFields]
+    [normalizedFields, visibleFields]
   );
 
   const labelFor = useCallback(
@@ -145,7 +159,7 @@ export function useRegisterController() {
   const customFields = useMemo(() => {
     const known = new Set([
       "athleteName",
-      "age",
+      "birthDate",
       "team",
       "level",
       "trainingPerWeek",
@@ -212,10 +226,15 @@ export function useRegisterController() {
         return;
       }
 
-      const requiredFields = (config?.fields ?? []).filter((field) => field.visible !== false && field.required);
+      const requiredFields = (normalizedFields ?? []).filter((field) => field.visible !== false && field.required);
       for (const field of requiredFields) {
         if (field.id === "parentEmail") continue;
-        const key = field.id === "trainingPerWeek" ? "trainingDaysPerWeek" : field.id === "athleteName" ? "name" : field.id;
+        const key =
+          field.id === "trainingPerWeek"
+            ? "trainingDaysPerWeek"
+            : field.id === "athleteName"
+              ? "name"
+              : field.id;
         const value = (data as Record<string, unknown>)[key];
         if (value === undefined || value === null || value === "") {
           setFormError(`${field.label} is required.`);
@@ -223,10 +242,15 @@ export function useRegisterController() {
         }
       }
 
-      const ageValue = Number.parseInt(data.age, 10);
       const trainingValue = Math.round(Number(data.trainingDaysPerWeek));
-      if (Number.isNaN(ageValue) || ageValue < 5) {
-        setFormError("Age must be a whole number (5 or older).");
+      const birthDate = new Date(`${data.birthDate}T00:00:00Z`);
+      if (Number.isNaN(birthDate.getTime())) {
+        setFormError("Birth date must be valid.");
+        return;
+      }
+      const ageValue = calculateAge(birthDate);
+      if (ageValue < 5) {
+        setFormError("Birth date must result in an age of 5 or older.");
         return;
       }
       if (Number.isNaN(trainingValue) || trainingValue < 0) {
@@ -236,10 +260,10 @@ export function useRegisterController() {
 
       setIsSubmitting(true);
       try {
-        const normalizedFields = (config?.fields ?? []).filter((field) => field.visible !== false);
+        const normalizedVisibleFields = normalizedFields.filter((field) => field.visible !== false);
         const extraResponses: Record<string, string> = {};
-        normalizedFields.forEach((field) => {
-          const skip = new Set(["athleteName", "age", "team", "trainingPerWeek", "trainingDaysPerWeek", "injuries", "growthNotes", "performanceGoals", "equipmentAccess", "parentEmail", "parentPhone", "relationToAthlete", "desiredProgramType"]);
+        normalizedVisibleFields.forEach((field) => {
+          const skip = new Set(["athleteName", "birthDate", "team", "trainingPerWeek", "trainingDaysPerWeek", "injuries", "growthNotes", "performanceGoals", "equipmentAccess", "parentEmail", "parentPhone", "relationToAthlete", "desiredProgramType"]);
           if (skip.has(field.id)) return;
           extraResponses[field.id] = String((data as Record<string, unknown>)[field.id] ?? "");
         });
@@ -253,7 +277,7 @@ export function useRegisterController() {
           token,
           body: {
             athleteName: data.name,
-            age: ageValue,
+            birthDate: data.birthDate,
             team: data.team,
             trainingPerWeek: trainingValue,
             injuries: data.injuries,
@@ -337,4 +361,18 @@ export function useRegisterController() {
     onSubmit,
     dropdownState,
   };
+}
+
+function calculateAge(birthDate: Date, asOf = new Date()) {
+  const birthYear = birthDate.getUTCFullYear();
+  const birthMonth = birthDate.getUTCMonth();
+  const birthDay = birthDate.getUTCDate();
+  const currentYear = asOf.getUTCFullYear();
+  const currentMonth = asOf.getUTCMonth();
+  const currentDay = asOf.getUTCDate();
+  let age = currentYear - birthYear;
+  if (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {
+    age -= 1;
+  }
+  return age;
 }

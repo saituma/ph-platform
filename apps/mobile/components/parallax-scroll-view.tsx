@@ -44,14 +44,15 @@ export default function ParallaxScrollView({
       return;
     }
 
-    try {
-      const R = require("react-native-reanimated");
-      setReanimatedModule(R);
-    } catch (e) {
-      console.warn(
-        "react-native-reanimated not available — using fallback ScrollView.",
-      );
-    }
+    import("react-native-reanimated")
+      .then((module) => {
+        setReanimatedModule(module);
+      })
+      .catch(() => {
+        console.warn(
+          "react-native-reanimated not available — using fallback ScrollView.",
+        );
+      });
   }, []);
 
   if (!ReanimatedModule) {

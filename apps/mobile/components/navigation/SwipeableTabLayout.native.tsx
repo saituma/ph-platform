@@ -1,13 +1,7 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Platform, StyleSheet, View } from "react-native";
-import type {
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import PagerView, {
   PagerViewOnPageScrollEvent,
   PagerViewOnPageSelectedEvent,
   PageScrollStateChangedNativeEvent,
@@ -29,13 +23,9 @@ export function SwipeableTabLayout({
   onIndexChange,
 }: SwipeableTabLayoutProps) {
   const { colors } = useAppTheme();
-  const pagerRef = useRef<{
-    setPage: (index: number) => void;
-    setPageWithoutAnimation: (index: number) => void;
-  }>(null);
+  const pagerRef = useRef<PagerView>(null);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
-  const [PagerView, setPagerView] = useState<any>(null);
 
   const scrollOffset = useSharedValue(initialIndex);
 
@@ -48,23 +38,6 @@ export function SwipeableTabLayout({
   const isUserSwipingRef = useRef(false);
 
   const staticInitialPage = useRef(initialIndex);
-
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    let mounted = true;
-    import("react-native-pager-view")
-      .then((mod) => {
-        if (!mounted) return;
-        setPagerView(() => (mod as any).default ?? mod);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setPagerView(null);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (initialIndex === lastInitialIndex.current) {
@@ -143,14 +116,6 @@ export function SwipeableTabLayout({
     pagerRef.current?.setPage(index);
     setActiveIndex(index);
     lastSelectedIndex.current = index;
-
-    if (Platform.OS === "web") {
-      if (lastNotifiedIndex.current !== index) {
-        lastNotifiedIndex.current = index;
-        onIndexChange?.(index, "press");
-      }
-      lastChangeSourceRef.current = "sync";
-    }
   };
 
   const childrenArray = React.Children.toArray(children);
@@ -165,22 +130,6 @@ export function SwipeableTabLayout({
       );
     });
   }, [childrenArray, tabs]);
-
-  if (Platform.OS === "web" || !PagerView) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.pager, { backgroundColor: colors.background }]}>
-          {pagerChildren[activeIndex]}
-        </View>
-        <TabBar
-          tabs={tabs}
-          activeIndex={activeIndex}
-          onTabPress={handleTabPress}
-          scrollOffset={scrollOffset}
-        />
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

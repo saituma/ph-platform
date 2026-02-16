@@ -66,7 +66,7 @@ export default function ParentCourseDetail() {
         ]);
         if (mounted) setItem(data.item ?? null);
       } catch {
-        if (mounted && !item) setItem(null);
+        if (mounted) setItem(null);
       } finally {
         if (mounted) setIsLoading(false);
       }

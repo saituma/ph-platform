@@ -253,7 +253,7 @@ export default function LoginScreen() {
         ) : null}
         <View className="flex-row justify-center items-center">
           <Text className="text-secondary text-base font-outfit">
-            Don't have an account?{" "}
+            {"Don't"} have an account?{" "}
           </Text>
           <Pressable onPress={() => router.push("/(auth)/register")}>
             <Text className="text-accent font-bold text-base font-outfit">

@@ -32,7 +32,7 @@ export function RoleSwitcher() {
       damping: 15,
       stiffness: 150,
     });
-  }, [role]);
+  }, [role, activeIndex]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);

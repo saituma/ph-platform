@@ -17,7 +17,6 @@ export default function ProgramsScreen() {
   const [currentTier, setCurrentTier] = useState<string | null>(null);
   const [plansByTier, setPlansByTier] = useState<Record<string, number>>({});
   const [pricingByTier, setPricingByTier] = useState<Record<string, PlanPricing>>({});
-  const [loading, setLoading] = useState(false);
 
   const tiers = useMemo<ProgramTier[]>(
     () => [
@@ -77,7 +76,6 @@ export default function ProgramsScreen() {
     }
     (async () => {
       try {
-        setLoading(true);
         const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
 
         let plansResponse: { plans: any[] } | null = null;
@@ -101,13 +99,13 @@ export default function ProgramsScreen() {
       } catch {
         // Ignore - UI will still render.
       } finally {
-        if (mounted) setLoading(false);
+        // no-op
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [token, programTier]);
+  }, [token, programTier, isAuthenticated]);
 
   const handleApply = async (tierId: string) => {
     if (!onboardingCompleted) {
@@ -130,7 +128,6 @@ export default function ProgramsScreen() {
       return;
     }
     try {
-      setLoading(true);
       const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
       const selectedPricing = pricingByTier[tierMap[tierId]];
       const selectedPlanId = planId;
@@ -190,7 +187,7 @@ export default function ProgramsScreen() {
       }
       Alert.alert("Checkout failed", message);
     } finally {
-      setLoading(false);
+      // no-op
     }
   };
 
@@ -209,7 +206,7 @@ export default function ProgramsScreen() {
         <View className="mb-8">
           <Text className="text-4xl font-clash text-app mb-2">Programs</Text>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Choose the level of coaching that fits your athlete's goals.
+            Choose the level of coaching that fits your athlete{"'"}s goals.
           </Text>
         </View>
 

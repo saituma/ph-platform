@@ -64,7 +64,7 @@ export function GuardianDashboard() {
             <View className="h-6 w-1.5 rounded-full bg-accent" />
             <View>
               <Text className="text-xl font-bold font-clash text-app leading-tight">
-                Today's Schedule
+                {"Today's"} Schedule
               </Text>
               <Text className="text-xs font-outfit text-secondary">
                 Coordination & Bookings

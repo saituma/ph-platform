@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { store } from "@/store";
-import { setCredentials } from "@/store/slices/userSlice";
+import { logout, setCredentials } from "@/store/slices/userSlice";
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -13,6 +13,7 @@ type ApiRequestOptions = {
   skipAuthRefresh?: boolean;
 };
 
+const AUTH_TOKEN_KEY = "authToken";
 const AUTH_REFRESH_KEY = "authRefreshToken";
 let refreshInFlight: Promise<string | null> | null = null;
 
@@ -102,6 +103,16 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const fallbackBaseUrl = buildFallbackBaseUrl(normalizedBaseUrl);
   const fallbackUrl = fallbackBaseUrl ? `${fallbackBaseUrl}${normalizedPath}` : null;
 
+  let resolvedToken =
+    options.token !== undefined ? options.token : store.getState().user.token;
+  if (!resolvedToken) {
+    try {
+      resolvedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+    } catch {
+      // ignore secure store failures, request will go unauthenticated
+    }
+  }
+
   const fetchRequest = async (requestUrl: string, authToken?: string | null) =>
     fetch(requestUrl, {
       method: options.method ?? "GET",
@@ -139,11 +150,11 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     return { res, requestUrl, text };
   };
 
-  let { res, requestUrl, text } = await performRequest(options.token);
+  let { res, requestUrl, text } = await performRequest(resolvedToken);
 
   const shouldTryRefresh =
     res.status === 401 &&
-    Boolean(options.token) &&
+    Boolean(resolvedToken) &&
     !options.skipAuthRefresh &&
     normalizedPath !== "/auth/refresh";
   if (shouldTryRefresh) {
@@ -155,6 +166,15 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   const payload = parseJsonSafe(text);
   if (!res.ok) {
+    if (res.status === 401 && !options.skipAuthRefresh && normalizedPath !== "/auth/login") {
+      try {
+        await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+        await SecureStore.deleteItemAsync(AUTH_REFRESH_KEY);
+      } catch {
+        // ignore secure store failures
+      }
+      store.dispatch(logout());
+    }
     let message = extractErrorMessage(text, payload);
     const details =
       payload?.details?.fieldErrors || payload?.details?.formErrors || payload?.details;
@@ -170,6 +190,13 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       options.suppressLog ||
       (options.suppressStatusCodes ?? []).includes(res.status);
     if (!shouldSuppress) {
+      if (__DEV__) {
+        const tokenHint =
+          resolvedToken && typeof resolvedToken === "string"
+            ? `len:${resolvedToken.length} ${resolvedToken.slice(0, 8)}…`
+            : "none";
+        console.warn("API auth debug", { url: requestUrl, status: res.status, token: tokenHint });
+      }
       console.warn("API error", { url: requestUrl, status: res.status, message });
     }
     throw new Error(`${res.status} ${message}`);
