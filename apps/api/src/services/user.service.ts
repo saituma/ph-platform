@@ -84,8 +84,31 @@ export async function getGuardianAndAthlete(userId: number) {
   if (!guardian) {
     return { guardian: null, athlete: null };
   }
-  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1);
-  return { guardian, athlete: athletes[0] ?? null };
+  let athlete = null as (typeof athleteTable.$inferSelect | null);
+  if (guardian.activeAthleteId) {
+    const active = await db
+      .select()
+      .from(athleteTable)
+      .where(eq(athleteTable.id, guardian.activeAthleteId))
+      .limit(1);
+    athlete = active[0] ?? null;
+  }
+  if (!athlete) {
+    const athletes = await db
+      .select()
+      .from(athleteTable)
+      .where(eq(athleteTable.guardianId, guardian.id))
+      .orderBy(athleteTable.createdAt)
+      .limit(1);
+    athlete = athletes[0] ?? null;
+    if (athlete && !guardian.activeAthleteId) {
+      await db
+        .update(guardianTable)
+        .set({ activeAthleteId: athlete.id, updatedAt: new Date() })
+        .where(eq(guardianTable.id, guardian.id));
+    }
+  }
+  return { guardian, athlete };
 }
 
 export async function getAthleteForUser(userId: number) {
@@ -95,4 +118,32 @@ export async function getAthleteForUser(userId: number) {
   }
   const { athlete } = await getGuardianAndAthlete(userId);
   return athlete;
+}
+
+export async function listGuardianAthletes(userId: number) {
+  const { guardian } = await getGuardianAndAthlete(userId);
+  if (!guardian) return { guardian: null, athletes: [] as (typeof athleteTable.$inferSelect)[] };
+  const athletes = await db
+    .select()
+    .from(athleteTable)
+    .where(eq(athleteTable.guardianId, guardian.id))
+    .orderBy(athleteTable.createdAt);
+  return { guardian, athletes };
+}
+
+export async function setActiveAthleteForGuardian(input: { userId: number; athleteId: number }) {
+  const { guardian } = await getGuardianAndAthlete(input.userId);
+  if (!guardian) return null;
+  const athlete = await db
+    .select()
+    .from(athleteTable)
+    .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+    .limit(1);
+  if (!athlete[0]) return null;
+  const [updated] = await db
+    .update(guardianTable)
+    .set({ activeAthleteId: input.athleteId, updatedAt: new Date() })
+    .where(eq(guardianTable.id, guardian.id))
+    .returning();
+  return updated ?? null;
 }

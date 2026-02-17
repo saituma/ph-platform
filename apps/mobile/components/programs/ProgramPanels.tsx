@@ -127,7 +127,7 @@ export function FoodDiaryPanel() {
   >([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ tone: "error" | "success" | "info"; message: string } | null>(null);
 
   const loadEntries = useCallback(async () => {
     if (!token) return;
@@ -136,7 +136,7 @@ export function FoodDiaryPanel() {
       const data = await apiRequest<{ items: any[] }>("/food-diary", { token, suppressLog: true });
       setEntries(data.items ?? []);
     } catch (error: any) {
-      setStatus(error?.message ?? "Failed to load food diary.");
+      setStatus({ tone: "error", message: error?.message ?? "Failed to load food diary." });
     } finally {
       setLoadingEntries(false);
     }
@@ -147,11 +147,12 @@ export function FoodDiaryPanel() {
   }, [loadEntries]);
 
   const handlePickPhoto = async () => {
-      const mediaTypes =
-        (ImagePicker as any).MediaType?.Images
-          ? [(ImagePicker as any).MediaType.Images]
-          : (ImagePicker as any).MediaTypeOptions?.Images;
-      const result = await ImagePicker.launchImageLibraryAsync({
+    setStatus(null);
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Images
+        ? [(ImagePicker as any).MediaType.Images]
+        : (ImagePicker as any).MediaTypeOptions?.Images;
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes,
       quality: 0.7,
     });
@@ -185,30 +186,39 @@ export function FoodDiaryPanel() {
   };
 
   const handleSave = async () => {
-    if (!token || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))) return;
+    const hasContent = entry.trim().length > 0 || Object.values(meals).some((value) => value.trim());
+    if (!token) return;
+    if (!hasContent) {
+      setStatus({ tone: "info", message: "Add a note or at least one meal before saving." });
+      return;
+    }
     setSaving(true);
     setStatus(null);
     try {
       const photoUrl = photo ? await uploadPhoto(photo) : null;
       const today = entryDate.toISOString().slice(0, 10);
+      const payload: Record<string, unknown> = {
+        date: today,
+        notes: entry.trim(),
+        meals: Object.fromEntries(
+          Object.entries(meals).filter(([, value]) => value.trim())
+        ),
+      };
+      if (photoUrl) {
+        payload.photoUrl = photoUrl;
+      }
       await apiRequest("/food-diary", {
         method: "POST",
         token,
-        body: {
-          date: today,
-          notes: entry.trim(),
-          meals: Object.fromEntries(
-            Object.entries(meals).filter(([, value]) => value.trim())
-          ),
-          photoUrl,
-        },
+        body: payload,
       });
       setEntry("");
       setMeals({ breakfast: "", lunch: "", dinner: "", snacks: "" });
       setPhoto(null);
       await loadEntries();
+      setStatus({ tone: "success", message: "Entry saved." });
     } catch (error: any) {
-      setStatus(error?.message ?? "Failed to save entry.");
+      setStatus({ tone: "error", message: error?.message ?? "Failed to save entry." });
     } finally {
       setSaving(false);
     }
@@ -234,18 +244,18 @@ export function FoodDiaryPanel() {
   return (
     <View className="gap-4">
       <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-        <Text className="text-2xl font-clash text-app mb-2">Food Diary</Text>
-        <Text className="text-2xl font-outfit text-secondary">
+        <Text className="text-xl font-clash text-app mb-2">Food Diary</Text>
+        <Text className="text-xl font-outfit text-secondary">
           Log meals and snacks to support training and recovery.
         </Text>
         <TouchableOpacity
           onPress={() => setDatePickerOpen(true)}
           className="mt-4 flex-row items-center justify-between rounded-2xl border border-app/10 bg-white/5 px-4 py-3"
         >
-          <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
+          <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
             Entry Date
           </Text>
-          <Text className="text-2xl font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
+          <Text className="text-xl font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
         </TouchableOpacity>
         {datePickerOpen ? (
           <DateTimePicker
@@ -260,27 +270,35 @@ export function FoodDiaryPanel() {
             }}
           />
         ) : null}
+        <View className="mt-4 flex-row items-center justify-between">
+          <Text className="text-xl font-outfit text-secondary">Notes (optional)</Text>
+          <Text className="text-xl font-outfit text-secondary">{entry.trim().length}/500</Text>
+        </View>
         <TextInput
           value={entry}
           onChangeText={setEntry}
           placeholder="Breakfast, lunch, snacks..."
           placeholderTextColor="#9CA3AF"
           multiline
-          className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-2xl font-outfit text-app"
+          maxLength={500}
+          className="mt-2 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-xl font-outfit text-app"
           style={{ minHeight: 90 }}
         />
         <View className="mt-4 gap-3">
           {(["breakfast", "lunch", "dinner", "snacks"] as const).map((meal) => (
             <View key={meal} className="rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
-              <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
-                {meal}
-              </Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+                  {meal}
+                </Text>
+                <Text className="text-xl font-outfit text-secondary">Optional</Text>
+              </View>
               <TextInput
                 value={meals[meal]}
                 onChangeText={(value) => setMeals((prev) => ({ ...prev, [meal]: value }))}
                 placeholder={`Add ${meal}`}
                 placeholderTextColor="#9CA3AF"
-                className="mt-2 text-2xl font-outfit text-app"
+                className="mt-2 text-xl font-outfit text-app"
               />
             </View>
           ))}
@@ -290,8 +308,18 @@ export function FoodDiaryPanel() {
         ) : null}
         <View className="mt-4 flex-row gap-3">
           <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
-            <Text className="text-app text-2xl font-outfit text-center">Add Photo</Text>
+            <Text className="text-app text-xl font-outfit text-center">
+              {photo ? "Change Photo" : "Add Photo"}
+            </Text>
           </TouchableOpacity>
+          {photo ? (
+            <TouchableOpacity
+              onPress={() => setPhoto(null)}
+              className="rounded-full border border-app/30 px-4 py-3"
+            >
+              <Text className="text-app text-xl font-outfit text-center">Remove</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             onPress={handleSave}
             disabled={saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))}
@@ -302,7 +330,7 @@ export function FoodDiaryPanel() {
             }`}
           >
             <Text
-              className={`text-2xl font-outfit text-center ${
+              className={`text-xl font-outfit text-center ${
                 saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
                   ? "text-secondary"
                   : "text-white"
@@ -312,38 +340,60 @@ export function FoodDiaryPanel() {
             </Text>
           </TouchableOpacity>
         </View>
-        {status ? <Text className="text-2xl font-outfit text-red-400 mt-3">{status}</Text> : null}
+        {status ? (
+          <View
+            className={`mt-3 rounded-2xl border px-4 py-3 ${
+              status.tone === "error"
+                ? "border-red-400/40 bg-red-500/10"
+                : status.tone === "success"
+                  ? "border-emerald-400/40 bg-emerald-500/10"
+                  : "border-app/20 bg-white/5"
+            }`}
+          >
+            <Text
+              className={`text-xl font-outfit ${
+                status.tone === "error"
+                  ? "text-red-200"
+                  : status.tone === "success"
+                    ? "text-emerald-200"
+                    : "text-secondary"
+              }`}
+            >
+              {status.message}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View className="flex-row items-center justify-between">
-        <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
+        <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
         <TouchableOpacity onPress={loadEntries}>
-          <Text className="text-2xl font-outfit text-accent">Refresh</Text>
+          <Text className="text-xl font-outfit text-accent">Refresh</Text>
         </TouchableOpacity>
       </View>
 
       {loadingEntries ? (
-        <Text className="text-2xl font-outfit text-secondary">Loading entries...</Text>
+        <Text className="text-xl font-outfit text-secondary">Loading entries...</Text>
       ) : entries.length ? (
         <View className="gap-3">
           {entries.map((item) => (
             <View key={item.id} className="rounded-3xl border border-app/10 bg-input px-5 py-4">
-              <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.4px]">
+              <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.4px]">
                 {formatDate(item.date)}
               </Text>
               {formatMeals(item.meals).length ? (
                 <View className="mt-2 gap-2">
                   {formatMeals(item.meals).map((meal) => (
                     <View key={meal.label}>
-                      <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
+                      <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
                         {meal.label}
                       </Text>
-                      <Text className="text-2xl font-outfit text-app mt-1">{meal.value}</Text>
+                      <Text className="text-xl font-outfit text-app mt-1">{meal.value}</Text>
                     </View>
                   ))}
                 </View>
               ) : null}
-              {item.notes ? <Text className="text-2xl font-outfit text-app mt-2">{item.notes}</Text> : null}
+              {item.notes ? <Text className="text-xl font-outfit text-app mt-2">{item.notes}</Text> : null}
               {item.photoUrl ? (
                 <Image source={{ uri: item.photoUrl }} className="mt-3 h-24 w-full rounded-2xl" resizeMode="cover" />
               ) : null}
@@ -351,7 +401,7 @@ export function FoodDiaryPanel() {
           ))}
         </View>
       ) : (
-        <Text className="text-2xl font-outfit text-secondary">No entries yet.</Text>
+        <Text className="text-xl font-outfit text-secondary">No entries yet.</Text>
       )}
     </View>
   );

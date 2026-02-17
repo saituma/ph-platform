@@ -13,7 +13,7 @@ import {
 import { sql } from "drizzle-orm";
 import { getUserById } from "./user.service";
 import { calculateAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
-import { getGuardianAndAthlete } from "./user.service";
+import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
 
 const defaultPublicConfig = {
   version: 1,
@@ -185,6 +185,8 @@ export async function submitOnboarding(input: {
   privacyVersion: string;
   appVersion: string;
   extraResponses?: Record<string, unknown>;
+  createNew?: boolean;
+  athleteId?: number | null;
 }) {
   const now = new Date();
   const parsedBirthDate = input.birthDate ? parseISODate(input.birthDate) : null;
@@ -198,9 +200,25 @@ export async function submitOnboarding(input: {
   let guardianId: number;
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
   const guardian = guardians[0] ?? null;
-  const existingAthlete = guardian
-    ? (await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1))[0]
+  const shouldCreateNew = Boolean(input.createNew);
+  const existingAthlete = guardian && !shouldCreateNew
+    ? (
+        input.athleteId
+          ? await db
+              .select()
+              .from(athleteTable)
+              .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+              .limit(1)
+          : await db
+              .select()
+              .from(athleteTable)
+              .where(eq(athleteTable.guardianId, guardian.id))
+              .orderBy(athleteTable.createdAt)
+              .limit(1)
+      )[0]
     : null;
+
+  let athleteRow: typeof athleteTable.$inferSelect | null = null;
 
   if (existingAthlete) {
     guardianId = existingAthlete.guardianId;
@@ -208,7 +226,7 @@ export async function submitOnboarding(input: {
       .update(guardianTable)
       .set({ email: input.parentEmail, phoneNumber: input.parentPhone ?? null, relationToAthlete: input.relationToAthlete ?? null })
       .where(eq(guardianTable.id, guardianId));
-    await db
+    const updated = await db
       .update(athleteTable)
       .set({
         name: input.athleteName,
@@ -224,45 +242,64 @@ export async function submitOnboarding(input: {
         onboardingCompleted: true,
         onboardingCompletedAt: now,
       })
-      .where(eq(athleteTable.id, existingAthlete.id));
+      .where(eq(athleteTable.id, existingAthlete.id))
+      .returning();
+    athleteRow = updated[0] ?? existingAthlete;
   } else {
-    const guardianResult = await db
-      .insert(guardianTable)
+    if (guardian) {
+      guardianId = guardian.id;
+      await db
+        .update(guardianTable)
+        .set({ email: input.parentEmail, phoneNumber: input.parentPhone ?? null, relationToAthlete: input.relationToAthlete ?? null })
+        .where(eq(guardianTable.id, guardianId));
+    } else {
+      const guardianResult = (await db
+        .insert(guardianTable)
+        .values({
+          userId: input.userId,
+          email: input.parentEmail,
+          phoneNumber: input.parentPhone ?? null,
+          relationToAthlete: input.relationToAthlete ?? null,
+        })
+        .returning()) as (typeof guardianTable.$inferSelect)[];
+      const guardianRow = guardianResult[0];
+      if (!guardianRow) {
+        throw new Error("Guardian record not created.");
+      }
+      guardianId = guardianRow.id;
+    }
+
+    const inserted = (await db
+      .insert(athleteTable)
       .values({
         userId: input.userId,
-        email: input.parentEmail,
-        phoneNumber: input.parentPhone ?? null,
-        relationToAthlete: input.relationToAthlete ?? null,
+        guardianId,
+        name: input.athleteName,
+        age: resolvedAge,
+        birthDate: birthDateValue,
+        team: input.team,
+        trainingPerWeek: input.trainingPerWeek,
+        injuries: input.injuries ?? null,
+        growthNotes: input.growthNotes ?? null,
+        performanceGoals: input.performanceGoals ?? null,
+        equipmentAccess: input.equipmentAccess ?? null,
+        extraResponses: input.extraResponses ?? null,
+        onboardingCompleted: true,
+        onboardingCompletedAt: now,
+        currentProgramTier: input.desiredProgramType === "PHP" ? "PHP" : null,
       })
-      .returning();
-
-    guardianId = guardianResult[0].id;
-
-    await db.insert(athleteTable).values({
-      userId: input.userId,
-      guardianId,
-      name: input.athleteName,
-      age: resolvedAge,
-      birthDate: birthDateValue,
-      team: input.team,
-      trainingPerWeek: input.trainingPerWeek,
-      injuries: input.injuries ?? null,
-      growthNotes: input.growthNotes ?? null,
-      performanceGoals: input.performanceGoals ?? null,
-      equipmentAccess: input.equipmentAccess ?? null,
-      extraResponses: input.extraResponses ?? null,
-      onboardingCompleted: true,
-      onboardingCompletedAt: now,
-      currentProgramTier: input.desiredProgramType === "PHP" ? "PHP" : null,
-    });
+      .returning()) as (typeof athleteTable.$inferSelect)[];
+    athleteRow = inserted[0] ?? null;
   }
 
-  const athlete = await db
-    .select()
-    .from(athleteTable)
-    .where(eq(athleteTable.guardianId, guardianId))
-    .limit(1);
-  const athleteRow = athlete[0];
+  if (!athleteRow) {
+    throw new Error("Athlete record not found.");
+  }
+  await db
+    .update(guardianTable)
+    .set({ activeAthleteId: athleteRow.id, updatedAt: new Date() })
+    .where(eq(guardianTable.id, guardianId));
+
   const updatedAthlete = await ensureAthleteUserRecord(athleteRow);
   const athleteId = updatedAthlete.id;
 
@@ -310,6 +347,19 @@ export async function updateAthleteProfilePicture(input: {
     .where(eq(athleteTable.id, athlete.id))
     .returning();
   return updated ?? null;
+}
+
+export async function listGuardianAthletesWithUsers(userId: number) {
+  const { guardian, athletes } = await listGuardianAthletes(userId);
+  if (!guardian) {
+    return { guardian: null, athletes: [] as (typeof athleteTable.$inferSelect)[] };
+  }
+  const ensured = await Promise.all(athletes.map((athlete) => ensureAthleteUserRecord(athlete)));
+  return { guardian, athletes: ensured };
+}
+
+export async function setActiveGuardianAthlete(input: { userId: number; athleteId: number }) {
+  return setActiveAthleteForGuardian(input);
 }
 
 function decorateAthlete(athlete: typeof athleteTable.$inferSelect | null) {

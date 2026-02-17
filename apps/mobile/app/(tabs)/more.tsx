@@ -7,12 +7,18 @@ import { useRefreshContext } from "@/context/RefreshContext";
 import { useRole } from "@/context/RoleContext";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Image, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Image, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { logout } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 export default function MoreScreen() {
   const { role } = useRole();
@@ -20,6 +26,24 @@ export default function MoreScreen() {
   const dispatch = useAppDispatch();
   const { profile, isAuthenticated } = useAppSelector((state) => state.user);
   const { isLoading } = useRefreshContext();
+  const transition = useSharedValue(1);
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  useEffect(() => {
+    transition.value = 0;
+    transition.value = withTiming(1, {
+      duration: 140,
+      easing: Easing.out(Easing.cubic),
+    });
+    setIsSwitching(true);
+    const timer = setTimeout(() => setIsSwitching(false), 220);
+    return () => clearTimeout(timer);
+  }, [role, transition]);
+
+  const transitionStyle = useAnimatedStyle(() => ({
+    opacity: transition.value,
+    transform: [{ translateY: (1 - transition.value) * 10 }],
+  }));
   const handleRefresh = async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Refreshed More Screen");
@@ -83,7 +107,15 @@ export default function MoreScreen() {
           )}
         </View>
 
-        <View className="px-6 gap-6">
+        <Animated.View className="px-6 gap-6" style={transitionStyle}>
+          {isSwitching ? (
+            <View className="mb-2 flex-row items-center gap-3 rounded-2xl border border-app/20 bg-white/5 px-4 py-3">
+              <ActivityIndicator size="small" color="#9CA3AF" />
+              <Text className="text-sm font-outfit text-secondary">
+                Switching to {role === "Guardian" ? "Guardian" : "Athlete"}…
+              </Text>
+            </View>
+          ) : null}
           {isLoading ? (
             <View className="gap-6">
               {[1, 2, 3].map((i) => (
@@ -210,7 +242,7 @@ export default function MoreScreen() {
           <Text className="text-center text-gray-300 font-outfit text-xs mt-2 mb-6">
             Version 1.0.0 (Build 124)
           </Text>
-        </View>
+        </Animated.View>
       </ThemedScrollView>
     </SafeAreaView>
   );
@@ -230,15 +262,15 @@ function MenuItem({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`flex-row items-center p-4 bg-input active:bg-secondary ${!isLast ? "border-b border-app" : ""}`}
+      className={`flex-row items-center px-6 py-5 bg-input active:bg-secondary ${!isLast ? "border-b border-app" : ""}`}
     >
-      <View className="w-10 h-10 items-center justify-center bg-secondary rounded-full mr-3">
-        <Feather name={icon} size={18} className="text-secondary" />
+      <View className="w-12 h-12 items-center justify-center bg-secondary rounded-full mr-4">
+        <Feather name={icon} size={22} className="text-secondary" />
       </View>
-      <Text className="flex-1 font-outfit text-app text-[0.9375rem] font-medium">
+      <Text className="flex-1 font-outfit text-app text-[1.1875rem] font-medium">
         {label}
       </Text>
-      <Feather name="chevron-right" size={16} className="text-secondary" />
+      <Feather name="chevron-right" size={20} className="text-secondary" />
     </TouchableOpacity>
   );
 }

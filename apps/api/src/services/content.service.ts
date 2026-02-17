@@ -51,7 +51,7 @@ export async function getLegalContentForUser() {
 
 export async function getParentPlatformContent(userId: number) {
   const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
-  const tier = athlete[0]?.currentProgramTier ?? "PHP";
+  const tier = (athlete[0]?.currentProgramTier ?? "PHP") as (typeof ProgramType.enumValues)[number];
   const age = resolveAgeFromAthlete(athlete[0]);
   const allowed = tierOrder[tier];
 
@@ -187,7 +187,7 @@ export async function listParentCourses(userId: number, role?: string) {
     return items.map((item) => ({ ...item, modules: normalizeModules(item.modules as any), isPreview: false }));
   }
   const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
-  const tier = athlete[0]?.currentProgramTier ?? "PHP";
+  const tier = (athlete[0]?.currentProgramTier ?? "PHP") as (typeof ProgramType.enumValues)[number];
   const allowed = tierOrder[tier];
   const age = resolveAgeFromAthlete(athlete[0]);
   const filtered = items.filter((item) => matchesAgeRange(item, age));

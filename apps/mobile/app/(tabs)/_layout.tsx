@@ -14,12 +14,11 @@ import ProgramsScreen from "./programs";
 import ScheduleScreen from "./schedule";
 
 const TAB_ROUTES: TabConfig[] = [
-  { key: "index", label: "Home", icon: "home" },
   { key: "programs", label: "Programs", icon: "activity" },
   { key: "messages", label: "Messages", icon: "message-square" },
+  { key: "index", label: "Home", icon: "home" },
   { key: "parent-platform", label: "Parent", icon: "book" },
   { key: "schedule", label: "Schedule", icon: "calendar" },
-  { key: "more", label: "More", icon: "menu" },
 ];
 
 const TAB_COMPONENTS: Record<string, React.ComponentType> = {
@@ -28,7 +27,6 @@ const TAB_COMPONENTS: Record<string, React.ComponentType> = {
   messages: React.memo(MessagesScreen),
   "parent-platform": React.memo(ParentPlatformScreen),
   schedule: React.memo(ScheduleScreen),
-  more: React.memo(MoreScreen),
 };
 
 export default function TabLayout() {
@@ -82,23 +80,22 @@ export default function TabLayout() {
       }
     };
 
-    syncUnread();
+    const task = InteractionManager.runAfterInteractions(() => {
+      syncUnread();
+    });
     const timer = setInterval(syncUnread, 30000);
     return () => {
       active = false;
       clearInterval(timer);
+      task?.cancel?.();
     };
   }, [athleteUserId, isAuthenticated, profile.id, role, token, pathname]);
 
   const visibleTabs = useMemo(() => {
-    const tabsWithBadges = TAB_ROUTES.map((tab) =>
+    return TAB_ROUTES.map((tab) =>
       tab.key === "messages" ? { ...tab, badgeCount: messagesUnread } : tab
     );
-    if (role === "Athlete") {
-      return tabsWithBadges.filter((tab) => tab.key !== "parent-platform");
-    }
-    return tabsWithBadges;
-  }, [messagesUnread, role]);
+  }, [messagesUnread]);
 
   const initialIndex = useMemo(() => {
     // Normalize path by removing leading slash and (tabs) group

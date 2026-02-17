@@ -1,7 +1,7 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, TouchableOpacity, View } from "react-native";
+import { Alert, InteractionManager, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -72,13 +72,20 @@ export default function ParentPlatformScreen() {
   }, [token]);
 
   useEffect(() => {
+    if (role !== "Guardian") {
+      setIsLoading(false);
+      return;
+    }
     let mounted = true;
-    if (!mounted) return;
-    fetchCourses();
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (!mounted) return;
+      fetchCourses();
+    });
     return () => {
       mounted = false;
+      task?.cancel?.();
     };
-  }, [fetchCourses]);
+  }, [fetchCourses, role]);
 
   const grouped = useMemo(() => {
     return CATEGORIES.map((category) => ({

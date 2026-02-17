@@ -447,9 +447,11 @@ export async function approveSubscriptionRequest(requestId: number) {
         userId: subscriptionRequestTable.userId,
         athleteId: subscriptionRequestTable.athleteId,
         planTier: subscriptionPlanTable.tier,
+        guardianId: athleteTable.guardianId,
       })
       .from(subscriptionRequestTable)
       .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
+      .leftJoin(athleteTable, eq(subscriptionRequestTable.athleteId, athleteTable.id))
       .where(eq(subscriptionRequestTable.id, requestId))
       .limit(1);
 
@@ -458,10 +460,17 @@ export async function approveSubscriptionRequest(requestId: number) {
       return null;
     }
 
-    await tx
-      .update(athleteTable)
-      .set({ currentProgramTier: request.planTier, updatedAt: new Date() })
-      .where(eq(athleteTable.id, request.athleteId));
+    if (request.guardianId) {
+      await tx
+        .update(athleteTable)
+        .set({ currentProgramTier: request.planTier, updatedAt: new Date() })
+        .where(eq(athleteTable.guardianId, request.guardianId));
+    } else {
+      await tx
+        .update(athleteTable)
+        .set({ currentProgramTier: request.planTier, updatedAt: new Date() })
+        .where(eq(athleteTable.id, request.athleteId));
+    }
 
     const updated = await tx
       .update(subscriptionRequestTable)

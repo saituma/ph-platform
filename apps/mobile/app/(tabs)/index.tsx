@@ -4,13 +4,69 @@ import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setAthleteUserId } from "@/store/slices/userSlice";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
-import { Image, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  InteractionManager,
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
+import Animated, {
+  Easing,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import MoreScreen from "./more";
+
+function MenuGlyph({ color }: { color: string }) {
+  return (
+    <View
+      style={{
+        width: 20,
+        height: 16,
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          height: 2,
+          borderRadius: 999,
+          backgroundColor: color,
+          marginBottom: 4,
+        }}
+      />
+      <View
+        style={{
+          height: 2,
+          borderRadius: 999,
+          backgroundColor: color,
+          marginBottom: 4,
+        }}
+      />
+      <View
+        style={{
+          height: 2,
+          borderRadius: 999,
+          backgroundColor: color,
+        }}
+      />
+    </View>
+  );
+}
 
 type HomeTestimonial = {
   id: string;
@@ -34,12 +90,27 @@ export default function HomeScreen() {
   const { colors } = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const dispatch = useAppDispatch();
   const { profile, token } = useAppSelector((state) => state.user);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [athleteName, setAthleteName] = useState<string | null>(null);
   const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
   const [homeContentError, setHomeContentError] = useState<string | null>(null);
+  const [isMoreVisible, setIsMoreVisible] = useState(false);
+  const [athletes, setAthletes] = useState<
+    { id: number; name?: string | null; userId?: number | null; profilePicture?: string | null }[]
+  >([]);
+  const [activeAthleteId, setActiveAthleteId] = useState<number | null>(null);
+  const [isAthleteSwitcherVisible, setIsAthleteSwitcherVisible] = useState(false);
+  const shouldShowSwitchAthlete = role !== "Guardian" && athletes.length > 1;
+  const lastLoadAtRef = useRef(0);
+  const drawerProgress = useSharedValue(0);
+  const drawerWidth = useMemo(() => {
+    const rawWidth = width * 0.8;
+    return Math.round(rawWidth / 4) * 4;
+  }, [width]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -62,6 +133,25 @@ export default function HomeScreen() {
       setAthleteAvatar(null);
     }
   }, [token]);
+
+  const loadAthleteList = React.useCallback(async () => {
+    if (!token || role !== "Athlete") {
+      setAthletes([]);
+      setActiveAthleteId(null);
+      return;
+    }
+    try {
+      const data = await apiRequest<{
+        guardian?: { activeAthleteId?: number | null } | null;
+        athletes?: { id: number; name?: string | null; userId?: number | null; profilePicture?: string | null }[];
+      }>("/onboarding/athletes", { token, suppressStatusCodes: [401] });
+      setAthletes(data.athletes ?? []);
+      setActiveAthleteId(data.guardian?.activeAthleteId ?? null);
+    } catch {
+      setAthletes([]);
+      setActiveAthleteId(null);
+    }
+  }, [role, token]);
 
   const loadHomeContent = React.useCallback(async () => {
     if (!token) return;
@@ -94,40 +184,121 @@ export default function HomeScreen() {
     }
   }, [token]);
 
+  const scheduleLoad = React.useCallback(() => {
+    const now = Date.now();
+    if (now - lastLoadAtRef.current < 500) return;
+    lastLoadAtRef.current = now;
+    const task = InteractionManager.runAfterInteractions(() => {
+      loadAthleteName();
+      loadHomeContent();
+      loadAthleteList();
+    });
+    return () => task?.cancel?.();
+  }, [loadAthleteList, loadAthleteName, loadHomeContent]);
+
   useEffect(() => {
-    loadAthleteName();
-    loadHomeContent();
-  }, [loadAthleteName, loadHomeContent]);
+    return scheduleLoad();
+  }, [scheduleLoad]);
 
   useFocusEffect(
     React.useCallback(() => {
-      loadAthleteName();
-      loadHomeContent();
-    }, [loadAthleteName, loadHomeContent])
+      return scheduleLoad();
+    }, [scheduleLoad])
   );
 
-  return (
-    <ScrollView
-      className="flex-1 bg-app"
-      contentContainerStyle={{
-        paddingTop: insets.top + 20,
-        paddingBottom: insets.bottom + 40,
-        paddingHorizontal: 24,
-      }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={() => {
-            setIsRefreshing(true);
-            Promise.all([loadAthleteName(), loadHomeContent()]).finally(() => {
-              setTimeout(() => setIsRefreshing(false), 400);
-            });
-          }}
-          tintColor={colors.textSecondary}
-        />
+  const handleSelectAthlete = async (athleteId: number, userId?: number | null) => {
+    if (!token) return;
+    try {
+      await apiRequest("/onboarding/select-athlete", {
+        method: "POST",
+        token,
+        body: { athleteId },
+      });
+      setActiveAthleteId(athleteId);
+      if (userId) {
+        dispatch(setAthleteUserId(userId));
       }
-    >
+      const selected = athletes.find((athlete) => athlete.id === athleteId);
+      setAthleteName(selected?.name ?? athleteName);
+      setAthleteAvatar(selected?.profilePicture ?? athleteAvatar);
+      setIsAthleteSwitcherVisible(false);
+    } catch (error) {
+      console.warn("Failed to switch athlete", error);
+    }
+  };
+
+  const openMore = React.useCallback(() => {
+    setIsMoreVisible(true);
+    drawerProgress.value = withTiming(1, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [drawerProgress]);
+
+  const closeMore = React.useCallback(() => {
+    drawerProgress.value = withTiming(
+      0,
+      {
+        duration: 200,
+        easing: Easing.out(Easing.cubic),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(setIsMoreVisible)(false);
+        }
+      },
+    );
+  }, [drawerProgress]);
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(drawerProgress.value, [0, 1], [0, 0.45]),
+  }));
+
+  const drawerStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: (1 - drawerProgress.value) * -drawerWidth,
+      },
+    ],
+  }));
+
+  return (
+    <>
+      <ScrollView
+        className="flex-1 bg-app"
+        contentContainerStyle={{
+          paddingTop: insets.top + 20,
+          paddingBottom: insets.bottom + 40,
+          paddingHorizontal: 24,
+        }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              setIsRefreshing(true);
+              Promise.all([loadAthleteName(), loadHomeContent()]).finally(() => {
+                setTimeout(() => setIsRefreshing(false), 400);
+              });
+            }}
+            tintColor={colors.textSecondary}
+          />
+        }
+      >
+      <View className="mb-4 flex-row items-center">
+        <Pressable
+          onPress={openMore}
+          className="h-12 w-12 rounded-2xl bg-input border border-app items-center justify-center"
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.9 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+        >
+          <MenuGlyph color={colors.textSecondary} />
+        </Pressable>
+      </View>
       {/* Hero */}
       <View className="mb-10">
         <View className="relative bg-input border border-app rounded-[32px] p-6 overflow-hidden">
@@ -223,6 +394,26 @@ export default function HomeScreen() {
               <Text className="text-2xl font-clash text-app mt-1">7d</Text>
             </View>
           </View>
+
+          {role === "Guardian" || shouldShowSwitchAthlete ? (
+            <View className="mt-4 flex-row gap-3">
+              {role === "Guardian" ? (
+                <TouchableOpacity
+                  onPress={() => router.push("/(tabs)/onboarding/register?mode=add")}
+                  className="flex-1 rounded-2xl bg-accent py-3 items-center"
+                >
+                  <Text className="text-sm font-outfit text-white">Add Athlete</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setIsAthleteSwitcherVisible(true)}
+                  className="flex-1 rounded-2xl bg-accent py-3 items-center"
+                >
+                  <Text className="text-sm font-outfit text-white">Switch Athlete</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -249,6 +440,7 @@ export default function HomeScreen() {
         <View className="flex-row flex-wrap gap-3">
           <TouchableOpacity
             activeOpacity={0.9}
+            onPress={() => router.navigate("/(tabs)/programs")}
             className="w-[48%] bg-input border border-app rounded-3xl p-4 h-28 justify-between"
           >
             <View className="h-10 w-10 bg-secondary rounded-2xl items-center justify-center">
@@ -282,6 +474,7 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             activeOpacity={0.9}
+            onPress={() => router.navigate("/(tabs)/schedule")}
             className="w-[48%] bg-input border border-app rounded-3xl p-4 h-28 justify-between"
           >
             <View className="h-10 w-10 bg-secondary rounded-2xl items-center justify-center">
@@ -297,6 +490,7 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             activeOpacity={0.9}
+            onPress={() => router.navigate("/(tabs)/messages")}
             className="w-full bg-input border border-app rounded-3xl p-4 h-20 flex-row items-center justify-between"
           >
             <View className="flex-row items-center gap-3">
@@ -332,6 +526,112 @@ export default function HomeScreen() {
           <TestimonialsSection items={homeContent?.testimonials ?? null} />
         </View>
       </View>
-    </ScrollView>
+
+      <Modal
+        visible={isAthleteSwitcherVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsAthleteSwitcherVisible(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/50 items-center justify-center px-6"
+          onPress={() => setIsAthleteSwitcherVisible(false)}
+        >
+          <Pressable className="w-full rounded-3xl bg-app p-6 border border-app" onPress={() => undefined}>
+            <Text className="text-lg font-clash text-app mb-2">Choose Athlete</Text>
+            <Text className="text-sm font-outfit text-secondary mb-4">
+              Select which athlete profile to manage.
+            </Text>
+            <View className="gap-3">
+              {athletes.length ? (
+                athletes.map((athlete) => (
+                  <TouchableOpacity
+                    key={athlete.id}
+                    onPress={() => handleSelectAthlete(athlete.id, athlete.userId ?? null)}
+                    className="flex-row items-center justify-between rounded-2xl border border-app px-4 py-3"
+                  >
+                    <View className="flex-row items-center gap-3">
+                      {athlete.profilePicture ? (
+                        <View className="w-10 h-10 rounded-full overflow-hidden border border-app">
+                          <Image source={{ uri: athlete.profilePicture }} style={{ width: 40, height: 40 }} />
+                        </View>
+                      ) : (
+                        <View className="w-10 h-10 rounded-full bg-secondary items-center justify-center border border-app">
+                          <Feather name="user" size={18} className="text-app" />
+                        </View>
+                      )}
+                      <Text className="text-sm font-outfit text-app">
+                        {athlete.name ?? "Athlete"}
+                      </Text>
+                    </View>
+                    {activeAthleteId === athlete.id ? (
+                      <View className="h-2 w-2 rounded-full bg-success" />
+                    ) : null}
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text className="text-sm font-outfit text-secondary">
+                  No athletes found yet.
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              onPress={() => setIsAthleteSwitcherVisible(false)}
+              className="mt-6 rounded-2xl bg-accent py-3 items-center"
+            >
+              <Text className="text-sm font-outfit text-white">Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      </ScrollView>
+      <Modal
+        visible={isMoreVisible}
+        transparent
+        animationType="none"
+        onRequestClose={closeMore}
+      >
+        <View style={{ flex: 1 }}>
+          <Pressable style={{ flex: 1 }} onPress={closeMore}>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                {
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: "#0B1118",
+                },
+                overlayStyle,
+              ]}
+            />
+          </Pressable>
+          <Animated.View
+            style={[
+              {
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: 0,
+                width: drawerWidth,
+                backgroundColor: colors.background,
+                borderRightWidth: 1,
+                borderColor: colors.border,
+                shadowColor: "#0F172A",
+                shadowOpacity: 0.18,
+                shadowRadius: 18,
+                shadowOffset: { width: 6, height: 0 },
+                elevation: 12,
+              },
+              drawerStyle,
+            ]}
+          >
+            <MoreScreen />
+          </Animated.View>
+        </View>
+      </Modal>
+    </>
   );
 }

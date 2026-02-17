@@ -134,6 +134,20 @@
       "when": 1771124000000,
       "tag": "0018_add_athlete_profile_picture",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1771125000000,
+      "tag": "0019_expand_profile_picture_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1771309000000,
+      "tag": "0020_add_guardian_active_athlete",
+      "breakpoints": true
     }
   ]
 }

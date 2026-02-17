@@ -35,6 +35,42 @@ interface TabItemProps {
   colors: any;
 }
 
+function MenuGlyph({ color }: { color: string }) {
+  return (
+    <View
+      style={{
+        width: 20,
+        height: 16,
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          height: 2,
+          borderRadius: 999,
+          backgroundColor: color,
+          marginBottom: 4,
+        }}
+      />
+      <View
+        style={{
+          height: 2,
+          borderRadius: 999,
+          backgroundColor: color,
+          marginBottom: 4,
+        }}
+      />
+      <View
+        style={{
+          height: 2,
+          borderRadius: 999,
+          backgroundColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
 const TabItem = React.memo(
   ({
     tab,
@@ -44,6 +80,7 @@ const TabItem = React.memo(
     scrollOffset,
     colors,
   }: TabItemProps) => {
+    const isHome = tab.key === "index";
     const activeBgStyle = useAnimatedStyle(() => {
       if (!scrollOffset) {
         return {
@@ -67,7 +104,12 @@ const TabItem = React.memo(
 
       const distance = Math.abs(scrollOffset.value - index);
 
-      const scale = interpolate(distance, [0, 1], [1.1, 1], Extrapolate.CLAMP);
+      const scale = interpolate(
+        distance,
+        [0, 1],
+        [isHome ? 1.32 : 1.1, 1],
+        Extrapolate.CLAMP,
+      );
 
       const opacity = interpolate(
         distance,
@@ -80,7 +122,7 @@ const TabItem = React.memo(
         transform: [{ scale }],
         opacity,
       };
-    }, [scrollOffset, index, activeIndex]);
+    }, [scrollOffset, index, activeIndex, isHome]);
 
     const textAnimatedStyle = useAnimatedStyle(() => {
       if (!scrollOffset) {
@@ -97,7 +139,12 @@ const TabItem = React.memo(
         [0, 1],
         [colors.tint, colors.textSecondary],
       );
-      const opacity = interpolate(distance, [0, 1], [1, 0.7], Extrapolate.CLAMP);
+      const opacity = interpolate(
+        distance,
+        [0, 1],
+        [1, 0.7],
+        Extrapolate.CLAMP,
+      );
 
       return { color, opacity };
     }, [scrollOffset, index, activeIndex, colors]);
@@ -159,12 +206,12 @@ const TabItem = React.memo(
         style={({ pressed }) => ({
           flexGrow: 1,
           flexBasis: 0,
-          height: 52,
+          height: isHome ? 72 : 52,
           marginHorizontal: 0,
-          borderRadius: 16,
+          borderRadius: isHome ? 20 : 16,
           alignItems: "center",
           justifyContent: "center",
-          paddingTop: 6,
+          paddingTop: isHome ? 2 : 6,
           opacity: pressed ? 0.9 : 1,
           transform: [{ scale: pressed ? 0.98 : 1 }],
         })}
@@ -191,22 +238,35 @@ const TabItem = React.memo(
             iconAnimatedStyle,
             {
               position: "relative",
-              width: 24,
-              height: 24,
+              width: isHome ? 42 : 26,
+              height: isHome ? 42 : 26,
               alignItems: "center",
               justifyContent: "center",
+              marginTop: isHome ? -8 : 0,
             },
           ]}
         >
           <Animated.View style={[activeTintStyle, { position: "absolute" }]}>
-            <Feather name={tab.icon} size={24} color={colors.tint} />
+            {tab.key === "more" ? (
+              <MenuGlyph color={colors.tint} />
+            ) : (
+              <Feather
+                name={tab.icon}
+                size={isHome ? 42 : 26}
+                color={colors.tint}
+              />
+            )}
           </Animated.View>
           <Animated.View style={[inactiveTintStyle, { position: "absolute" }]}>
-            <Feather
-              name={tab.icon}
-              size={24}
-              color={colors.tabIconDefault}
-            />
+            {tab.key === "more" ? (
+              <MenuGlyph color={colors.tabIconDefault} />
+            ) : (
+              <Feather
+                name={tab.icon}
+                size={isHome ? 42 : 26}
+                color={colors.tabIconDefault}
+              />
+            )}
           </Animated.View>
           {tab.badgeCount && tab.badgeCount > 0 ? (
             <View
@@ -237,31 +297,21 @@ const TabItem = React.memo(
           ) : null}
         </Animated.View>
 
-        <AnimatedText
-          style={[
-            {
-              fontFamily: "Outfit-Medium",
-              fontSize: 13,
-              marginTop: 2,
-            },
-            iconAnimatedStyle,
-            textAnimatedStyle,
-          ]}
-        >
-          {tab.label}
-        </AnimatedText>
+        {null}
 
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            {
-              height: 4,
-              marginTop: 4,
-              borderRadius: 999,
-            },
-            indicatorStyle,
-          ]}
-        />
+        {isHome ? null : (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              {
+                height: 4,
+                marginTop: 4,
+                borderRadius: 999,
+              },
+              indicatorStyle,
+            ]}
+          />
+        )}
       </Pressable>
     );
   },
@@ -276,39 +326,94 @@ export function TabBar({
 }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const barHeight = Platform.OS === "ios" ? 56 : 60;
+  const [barWidth, setBarWidth] = React.useState(0);
+  const homeIndex = React.useMemo(
+    () => tabs.findIndex((tab) => tab.key === "index"),
+    [tabs],
+  );
+  const notchDiameter = 77;
+  const notchRadius = notchDiameter / 2;
+  const horizontalPadding = 8;
+  const notchXOffset = 0;
+  const innerWidth =
+    barWidth && tabs.length ? Math.max(barWidth - horizontalPadding * 2, 0) : 0;
+  const tabWidth = innerWidth && tabs.length ? innerWidth / tabs.length : 0;
+  const notchLeft =
+    innerWidth && homeIndex >= 0
+      ? horizontalPadding +
+        tabWidth * homeIndex +
+        tabWidth / 2 -
+        notchRadius +
+        notchXOffset
+      : 0;
+  const notchTop = barHeight / 2 - notchRadius;
 
   return (
     <View
       style={{
-        backgroundColor: colors.background,
+        backgroundColor: "transparent",
         paddingHorizontal: 12,
         paddingTop: 8,
-        paddingBottom: 8 + insets.bottom,
+        paddingBottom: 10 + insets.bottom,
         width: "100%",
         alignSelf: "stretch",
       }}
     >
       <View
+        onLayout={(event) => {
+          const nextWidth = event.nativeEvent.layout.width;
+          if (nextWidth !== barWidth) {
+            setBarWidth(nextWidth);
+          }
+        }}
         style={{
           position: "relative",
           flexDirection: "row",
-          width: "100%",
-          alignSelf: "stretch",
-          height: Platform.OS === "ios" ? 56 : 60,
-          backgroundColor: colors.background,
-          borderRadius: 24,
+          width: "86%",
+          alignSelf: "center",
+          height: barHeight,
+          marginHorizontal: 8,
+          marginBottom: 6,
+          backgroundColor: isDark
+            ? "rgba(12, 14, 18, 0.78)"
+            : "rgba(255, 255, 255, 0.92)",
+          borderRadius: 28,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor: isDark
+            ? "rgba(255, 255, 255, 0.08)"
+            : "rgba(15, 23, 42, 0.08)",
           justifyContent: "space-between",
           alignItems: "center",
           paddingHorizontal: 6,
           shadowColor: "#0F172A",
-          shadowOpacity: isDark ? 0 : 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: isDark ? 0 : 6,
+          shadowOpacity: isDark ? 0.22 : 0.12,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 10 },
+          elevation: isDark ? 8 : 10,
         }}
       >
+        {barWidth && homeIndex >= 0 ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: notchTop,
+              left: notchLeft,
+              width: notchDiameter,
+              height: notchDiameter,
+              borderRadius: 999,
+              backgroundColor: colors.background,
+              borderWidth: 1,
+              borderColor: colors.border,
+              shadowColor: "#0F172A",
+              shadowOpacity: isDark ? 0 : 0.12,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 8 },
+              elevation: isDark ? 0 : 8,
+            }}
+          />
+        ) : null}
         {tabs.map((tab, index) => (
           <TabItem
             key={tab.key}

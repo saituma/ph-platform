@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { normalizeProgramTier, programIdToTier } from "@/lib/planAccess";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { Alert, View } from "react-native";
 import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -110,6 +111,13 @@ export default function ProgramsScreen() {
       mounted = false;
     };
   }, [token, programTier, isAuthenticated]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!token) return;
+      refreshBillingStatus();
+    }, [token])
+  );
 
   const handleApply = async (tierId: string) => {
     if (!onboardingCompleted) {

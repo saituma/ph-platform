@@ -29,6 +29,36 @@ export default function ProfileSettingsScreen() {
   const [isUploadingAthleteAvatar, setIsUploadingAthleteAvatar] = useState(false);
   const [pendingAthleteAvatarUri, setPendingAthleteAvatarUri] = useState<string | null>(null);
   const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
+  const [managedAthleteCount, setManagedAthleteCount] = useState(0);
+  const [isManagedAthleteModalVisible, setIsManagedAthleteModalVisible] = useState(false);
+  const [managedAthletes, setManagedAthletes] = useState<
+    {
+      id?: number;
+      name?: string | null;
+      age?: number | null;
+      team?: string | null;
+      level?: string | null;
+      trainingPerWeek?: number | null;
+      performanceGoals?: string | null;
+      equipmentAccess?: string | null;
+      injuries?: string | null;
+      extraResponses?: string | null;
+      profilePicture?: string | null;
+    }[]
+  >([]);
+  const [managedAthlete, setManagedAthlete] = useState<{
+    id?: number;
+    name?: string | null;
+    age?: number | null;
+    team?: string | null;
+    level?: string | null;
+    trainingPerWeek?: number | null;
+    performanceGoals?: string | null;
+    equipmentAccess?: string | null;
+    injuries?: string | null;
+    extraResponses?: string | null;
+    profilePicture?: string | null;
+  } | null>(null);
 
   const [name, setName] = useState(profile.name ?? "");
   const [email, setEmail] = useState(profile.email ?? "");
@@ -44,14 +74,41 @@ export default function ProfileSettingsScreen() {
   useEffect(() => {
     let active = true;
     const loadAthlete = async () => {
-      if (!token || role !== "Guardian") return;
+      if (!token || role !== "Guardian") {
+        if (active) setManagedAthleteCount(0);
+        return;
+      }
       try {
-        const data = await apiRequest<{ athlete?: { profilePicture?: string | null } | null }>("/onboarding", { token });
+        const data = await apiRequest<{
+          guardian?: { activeAthleteId?: number | null } | null;
+          athletes?: {
+            id?: number;
+            name?: string | null;
+            age?: number | null;
+            team?: string | null;
+            level?: string | null;
+            trainingPerWeek?: number | null;
+            performanceGoals?: string | null;
+            equipmentAccess?: string | null;
+            injuries?: string | null;
+            extraResponses?: string | null;
+            profilePicture?: string | null;
+          }[];
+        }>("/onboarding/athletes", { token });
         if (!active) return;
-        setAthleteAvatar(data.athlete?.profilePicture ?? null);
+        const athleteList = data.athletes ?? [];
+        setManagedAthletes(athleteList);
+        const activeAthlete =
+          athleteList.find((item) => item.id === data.guardian?.activeAthleteId) ?? athleteList[0] ?? null;
+        setAthleteAvatar(activeAthlete?.profilePicture ?? null);
+        setManagedAthlete(activeAthlete ?? null);
+        setManagedAthleteCount(athleteList.length);
       } catch {
         if (!active) return;
         setAthleteAvatar(null);
+        setManagedAthlete(null);
+        setManagedAthleteCount(0);
+        setManagedAthletes([]);
       }
     };
     loadAthlete();
@@ -360,19 +417,21 @@ export default function ProfileSettingsScreen() {
                 )}
 
                   <TouchableOpacity
-                    onPress={() => {}}
+                    onPress={() => setIsManagedAthleteModalVisible(true)}
                     className="flex-row items-center justify-between py-4 border-t border-app"
                   >
                     <Text className="text-base font-medium font-outfit text-app">
                       Managed Athletes
                     </Text>
                     <View className="flex-row items-center">
-                      <Text className="text-accent font-medium mr-2">0 Active</Text>
+                      <Text className="text-accent font-medium mr-2">
+                        {managedAthleteCount} Active
+                      </Text>
                       <Feather
                         name="chevron-right"
                         size={20}
                         className="text-muted"
-                    />
+                      />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -461,6 +520,80 @@ export default function ProfileSettingsScreen() {
         title="Set Guardian PIN"
         subtitle="Create a 4-digit PIN to protect your settings."
       />
+
+      <Modal
+        visible={isManagedAthleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsManagedAthleteModalVisible(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/50 items-center justify-center px-6"
+          onPress={() => setIsManagedAthleteModalVisible(false)}
+        >
+          <Pressable className="w-full rounded-3xl bg-app p-6 border border-app" onPress={() => undefined}>
+            <Text className="text-lg font-clash text-app mb-2">Managed Athletes</Text>
+            <Text className="text-sm font-outfit text-secondary mb-4">
+              Review the athlete profiles managed by this account.
+            </Text>
+            {managedAthletes.length ? (
+              <View className="gap-3">
+                {managedAthletes.map((athlete) => (
+                  <View key={athlete.id ?? athlete.name ?? Math.random()} className="gap-3">
+                    <View className="flex-row items-center gap-3">
+                      {athlete.profilePicture ? (
+                        <View className="w-14 h-14 rounded-full overflow-hidden border-2 border-accent">
+                          <Image source={{ uri: athlete.profilePicture }} style={{ width: 56, height: 56 }} />
+                        </View>
+                      ) : (
+                        <View className="w-14 h-14 rounded-full bg-secondary items-center justify-center border-2 border-accent">
+                          <Feather name="user" size={26} className="text-secondary" />
+                        </View>
+                      )}
+                      <View className="flex-1">
+                        <Text className="text-base font-bold font-outfit text-app">
+                          {athlete.name ?? "Athlete"}
+                        </Text>
+                        <Text className="text-xs font-outfit text-secondary">
+                          {athlete.team ?? "Team not set"} • {athlete.level ?? "Level not set"}
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="gap-2">
+                      <Text className="text-sm font-outfit text-app">
+                        Age: {athlete.age ?? "—"}
+                      </Text>
+                      <Text className="text-sm font-outfit text-app">
+                        Training days: {athlete.trainingPerWeek ?? "—"}
+                      </Text>
+                      <Text className="text-sm font-outfit text-app">
+                        Goals: {athlete.performanceGoals ?? "—"}
+                      </Text>
+                      <Text className="text-sm font-outfit text-app">
+                        Equipment: {athlete.equipmentAccess ?? "—"}
+                      </Text>
+                      <Text className="text-sm font-outfit text-app">
+                        Injuries: {athlete.injuries ?? "—"}
+                      </Text>
+                    </View>
+                    <View className="h-px bg-border/60" />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text className="text-sm font-outfit text-secondary">
+                No athlete profile found for this account.
+              </Text>
+            )}
+            <TouchableOpacity
+              onPress={() => setIsManagedAthleteModalVisible(false)}
+              className="mt-6 rounded-2xl bg-accent py-3 items-center"
+            >
+              <Text className="text-sm font-outfit text-white">Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={Boolean(pendingAvatarUri)}

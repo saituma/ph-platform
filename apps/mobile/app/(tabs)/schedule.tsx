@@ -6,7 +6,7 @@ import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Modal, Pressable, View } from "react-native";
+import { Alert, InteractionManager, Modal, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Text, TextInput } from "@/components/ScaledText";
@@ -373,9 +373,13 @@ export default function ScheduleScreen() {
         setEventsLoading(false);
       }
     };
-    loadEvents();
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (!active) return;
+      loadEvents();
+    });
     return () => {
       active = false;
+      task?.cancel?.();
     };
   }, [token, role, mapBookingsToEvents]);
 

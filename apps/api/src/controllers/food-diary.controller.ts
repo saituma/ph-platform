@@ -7,21 +7,27 @@ import { normalizeDate } from "../lib/age";
 
 const mealsSchema = z.union([z.array(z.any()), z.record(z.any())]).optional();
 
-const createFoodDiarySchema = z.object({
-  date: z.string().optional(),
-  meals: mealsSchema,
-  notes: z.string().max(500).optional(),
-  quantity: z.number().int().min(0).optional(),
-  photoUrl: z
+const photoUrlSchema = z.preprocess(
+  (val) => {
+    if (val === null || val === undefined) return "";
+    return typeof val === "string" ? val.trim() : val;
+  },
+  z
     .string()
-    .transform((val) => val?.trim() || "")
     .refine((val) => val === "" || z.string().url().safeParse(val).success, {
       message: "Invalid URL format",
     })
     .refine((val) => !val.startsWith("data:"), {
       message: "Use a URL instead of base64 data.",
     })
-    .optional(),
+);
+
+const createFoodDiarySchema = z.object({
+  date: z.string().optional(),
+  meals: mealsSchema,
+  notes: z.string().max(500).optional(),
+  quantity: z.number().int().min(0).optional(),
+  photoUrl: photoUrlSchema.optional(),
 });
 
 export async function listFoodDiary(req: Request, res: Response) {
