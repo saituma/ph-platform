@@ -5,6 +5,8 @@ import {
   createContent,
   getHomeContentForUser,
   getParentPlatformContent,
+  getLegalContentForUser,
+  getLegalContent,
   updateContent,
   getContentById,
   listParentCourses,
@@ -20,7 +22,7 @@ const contentCreateSchema = z.object({
   type: z.enum(contentType.enumValues),
   body: z.string().optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
-  surface: z.enum(["home", "parent_platform"]),
+  surface: z.enum(["home", "parent_platform", "legal"]),
   category: z.string().optional(),
   minAge: z.number().int().min(0).optional(),
   maxAge: z.number().int().min(0).optional(),
@@ -97,6 +99,16 @@ export async function listHomeContent(req: Request, res: Response) {
 
 export async function listParentContent(req: Request, res: Response) {
   const items = await getParentPlatformContent(req.user!.id);
+  return res.status(200).json({ items });
+}
+
+export async function listLegalContent(req: Request, res: Response) {
+  const items = await getLegalContentForUser();
+  return res.status(200).json({ items });
+}
+
+export async function listLegalContentPublic(_req: Request, res: Response) {
+  const items = await getLegalContent();
   return res.status(200).json({ items });
 }
 

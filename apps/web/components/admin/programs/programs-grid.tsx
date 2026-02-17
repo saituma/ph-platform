@@ -5,9 +5,11 @@ import { EmptyState } from "../empty-state";
 import { Skeleton } from "../../ui/skeleton";
 
 type ProgramItem = {
+  id: number;
   name: string;
-  summary: string;
+  summary?: string | null;
   access: string;
+  type: string;
 };
 
 type ProgramsGridProps = {
@@ -58,12 +60,12 @@ export function ProgramsGrid({
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       {programs.map((program) => (
-        <Card key={program.name} className="hover:border-primary/40">
+        <Card key={program.id} className="hover:border-primary/40">
           <CardHeader>
             <CardTitle>{program.name}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{program.summary}</p>
+            <p className="text-sm text-muted-foreground">{program.summary || "No description yet."}</p>
             <Badge variant="outline">{program.access}</Badge>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => onManage(program)}>

@@ -5,9 +5,10 @@ import { useRegisterController } from "@/hooks/onboarding/useRegisterController"
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, RefreshControl, Text, View } from "react-native";
+import { Pressable, RefreshControl, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Text } from "@/components/ScaledText";
 
 export default function RegisterScreen() {
   const router = useRouter();

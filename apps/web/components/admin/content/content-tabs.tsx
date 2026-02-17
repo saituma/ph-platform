@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -10,6 +10,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Textarea } from "../../ui/textarea";
 
 type ContentTabsProps = {
+  initialHome?: {
+    headline?: string;
+    description?: string;
+    welcome?: string;
+    introVideoUrl?: string;
+    testimonials?: string;
+    heroImageUrl?: string;
+    tier?: string;
+  } | null;
+  initialLegal?: {
+    termsText?: string;
+    termsVersion?: string;
+    privacyText?: string;
+    privacyVersion?: string;
+  } | null;
   onSaveHome: (data: {
     headline: string;
     description: string;
@@ -27,10 +42,17 @@ type ContentTabsProps = {
     tier: string;
   }) => void;
   onSavePrograms: () => void;
-  onSaveLegal: () => void;
+  onSaveLegal: (data: {
+    termsText: string;
+    termsVersion: string;
+    privacyText: string;
+    privacyVersion: string;
+  }) => void;
 };
 
 export function ContentTabs({
+  initialHome,
+  initialLegal,
   onSaveHome,
   onPublishParent,
   onSavePrograms,
@@ -52,6 +74,35 @@ export function ContentTabs({
   const [parentBody, setParentBody] = useState("");
   const [parentMediaUrl, setParentMediaUrl] = useState("");
   const [parentTier, setParentTier] = useState("PHP_Plus");
+  const [termsVersion, setTermsVersion] = useState("1.0");
+  const [privacyVersion, setPrivacyVersion] = useState("1.0");
+
+  useEffect(() => {
+    if (!initialHome) return;
+    if (initialHome.headline !== undefined) setHomeHeadline(initialHome.headline ?? "");
+    if (initialHome.description !== undefined) setHomeDescription(initialHome.description ?? "");
+    if (initialHome.welcome !== undefined) setHomeWelcome(initialHome.welcome ?? "");
+    if (initialHome.introVideoUrl !== undefined) setHomeIntroVideo(initialHome.introVideoUrl ?? "");
+    if (initialHome.testimonials !== undefined) setHomeTestimonials(initialHome.testimonials ?? "");
+    if (initialHome.heroImageUrl !== undefined) setHomeHeroImage(initialHome.heroImageUrl ?? "");
+    if (initialHome.tier !== undefined) setHomeTier(initialHome.tier ?? "all");
+  }, [initialHome]);
+
+  useEffect(() => {
+    if (!initialLegal) return;
+    if (termsRef.current && initialLegal.termsText !== undefined) {
+      termsRef.current.value = initialLegal.termsText ?? "";
+    }
+    if (privacyRef.current && initialLegal.privacyText !== undefined) {
+      privacyRef.current.value = initialLegal.privacyText ?? "";
+    }
+    if (initialLegal.termsVersion !== undefined) {
+      setTermsVersion(initialLegal.termsVersion ?? "1.0");
+    }
+    if (initialLegal.privacyVersion !== undefined) {
+      setPrivacyVersion(initialLegal.privacyVersion ?? "1.0");
+    }
+  }, [initialLegal]);
 
   const insertAtCursor = (ref: React.RefObject<HTMLTextAreaElement | null>, value: string) => {
     const el = ref.current;
@@ -371,6 +422,14 @@ export function ContentTabs({
             ) : (
               <Textarea ref={termsRef} placeholder="Paste legal content..." />
             )}
+            <div className="space-y-2 pt-2">
+              <Label>Terms Version</Label>
+              <Input
+                placeholder="e.g. v1.0"
+                value={termsVersion}
+                onChange={(e) => setTermsVersion(e.target.value)}
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Privacy Policy</Label>
@@ -412,8 +471,26 @@ export function ContentTabs({
             ) : (
               <Textarea ref={privacyRef} placeholder="Paste policy content..." />
             )}
+            <div className="space-y-2 pt-2">
+              <Label>Privacy Version</Label>
+              <Input
+                placeholder="e.g. v1.0"
+                value={privacyVersion}
+                onChange={(e) => setPrivacyVersion(e.target.value)}
+              />
+            </div>
           </div>
-          <Button className="w-full lg:col-span-2" onClick={onSaveLegal}>
+          <Button
+            className="w-full lg:col-span-2"
+            onClick={() =>
+              onSaveLegal({
+                termsText: termsRef.current?.value ?? "",
+                termsVersion,
+                privacyText: privacyRef.current?.value ?? "",
+                privacyVersion,
+              })
+            }
+          >
             Save Legal
           </Button>
         </div>

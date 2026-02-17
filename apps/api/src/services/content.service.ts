@@ -14,6 +14,10 @@ export async function getHomeContent() {
   return db.select().from(contentTable).where(eq(contentTable.surface, "home"));
 }
 
+export async function getLegalContent() {
+  return db.select().from(contentTable).where(eq(contentTable.surface, "legal"));
+}
+
 function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
@@ -39,6 +43,10 @@ export async function getHomeContentForUser(userId: number) {
   const age = await resolveAthleteAge(userId);
   const items = await db.select().from(contentTable).where(eq(contentTable.surface, "home"));
   return items.filter((item) => matchesAgeRange(item, age));
+}
+
+export async function getLegalContentForUser() {
+  return db.select().from(contentTable).where(eq(contentTable.surface, "legal"));
 }
 
 export async function getParentPlatformContent(userId: number) {
@@ -68,7 +76,7 @@ export async function createContent(input: {
   type: string;
   body?: string | null;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
-  surface: "home" | "parent_platform";
+  surface: "home" | "parent_platform" | "legal";
   category?: string | null;
   minAge?: number | null;
   maxAge?: number | null;

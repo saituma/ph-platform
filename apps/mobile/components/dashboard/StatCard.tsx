@@ -1,6 +1,7 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 interface StatCardProps {
   label: string;
@@ -33,7 +34,7 @@ export function StatCard({
           }`}
         >
           <Text
-            className={`text-[10px] font-bold ${
+            className={`text-[0.625rem] font-bold ${
               good ? "text-success" : "text-danger"
             }`}
           >
@@ -45,7 +46,7 @@ export function StatCard({
       <Text className="text-2xl font-bold font-clash text-app mb-0.5">
         {value}
       </Text>
-      <Text className="text-muted text-[10px] font-outfit uppercase tracking-wider">
+      <Text className="text-muted text-[0.625rem] font-outfit uppercase tracking-wider">
         {label}
       </Text>
       <View

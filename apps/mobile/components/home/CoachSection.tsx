@@ -1,6 +1,7 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
-import { Image, Linking, Text, TouchableOpacity, View } from "react-native";
+import { Image, Linking, TouchableOpacity, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 type CoachSectionProps = {
   headline?: string | null;
@@ -70,12 +71,12 @@ export function CoachSection({
                   <Feather name="play" size={24} color="white" fill="white" />
                 </View>
               </TouchableOpacity>
-              <Text className="text-white font-bold font-outfit mt-4 tracking-wide uppercase text-[10px]">
+              <Text className="text-white font-bold font-outfit mt-4 tracking-wide uppercase text-[0.625rem]">
                 Watch Intro Video
               </Text>
             </>
           ) : (
-            <Text className="text-white font-bold font-outfit mt-4 tracking-wide uppercase text-[10px]">
+            <Text className="text-white font-bold font-outfit mt-4 tracking-wide uppercase text-[0.625rem]">
               Intro Video
             </Text>
           )}

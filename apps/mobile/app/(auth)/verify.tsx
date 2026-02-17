@@ -1,13 +1,14 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
 import { useAppDispatch } from "../../store/hooks";
 import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export default function VerifyScreen() {
   const [otp, setOtp] = useState("");
@@ -93,7 +94,9 @@ export default function VerifyScreen() {
                   throw new Error("Login failed");
                 }
 
-                const me = await apiRequest<{ user: { id: number; name: string; email: string } }>("/auth/me", {
+                const me = await apiRequest<{
+                  user: { id: number; name: string; email: string; profilePicture?: string | null };
+                }>("/auth/me", {
                   token,
                 });
 
@@ -105,7 +108,7 @@ export default function VerifyScreen() {
                       id: String(me.user.id),
                       name: me.user.name,
                       email: me.user.email,
-                      avatar: null,
+                      avatar: me.user.profilePicture ?? null,
                     },
                   })
                 );

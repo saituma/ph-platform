@@ -45,6 +45,7 @@ type ThreadItem = {
   hasAthlete?: boolean;
   athleteName?: string | null;
   typing?: boolean;
+  avatarUrl?: string | null;
 };
 
 type MessageItem = {
@@ -108,6 +109,7 @@ export default function MessagingPage() {
           hasAthlete: Boolean(user.athleteId),
           online: onlineUsers.includes(user.id),
           typing: typingMap[`user:${user.id}`]?.isTyping ?? false,
+          avatarUrl: user.profilePicture ?? null,
         } as ThreadItem;
       });
 

@@ -30,7 +30,7 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
     "Stretching & Foam Rolling",
     "Off Season Program",
     "Parent Education",
-    "Nutrition & Food Diaries",
+    "Submit Diary",
     "Physio Referrals",
   ],
   premium: [
@@ -43,6 +43,7 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
     "Off-Season Program",
     "Video Upload",
     "Education",
+    "Submit Diary",
     "Bookings",
   ],
 };
@@ -79,6 +80,7 @@ const TAB_SESSION_TYPES: Record<string, string[]> = {
   Education: ["education"],
   "Parent Education": ["education"],
   "Nutrition & Food Diaries": ["nutrition"],
+  "Submit Diary": ["nutrition"],
 };
 
 export function getSessionTypesForTab(tab: string): string[] {

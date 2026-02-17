@@ -6,9 +6,10 @@ import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Text, TextInput } from "@/components/ScaledText";
 
 type ScheduleEvent = {
   id: string;
@@ -483,12 +484,12 @@ export default function ScheduleScreen() {
             </View>
             <View className="mt-4 flex-row items-center gap-3">
               <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-                <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                   Next: 13:00 call
                 </Text>
               </View>
               <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-                <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                   Wed strength
                 </Text>
               </View>
@@ -511,7 +512,7 @@ export default function ScheduleScreen() {
                 }}
                 className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10"
               >
-                <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.4px]">
+                <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.4px]">
                   Full Calendar
                 </Text>
               </Pressable>
@@ -531,7 +532,7 @@ export default function ScheduleScreen() {
                   style={{ borderColor: colors.border }}
                 >
                   <Text
-                    className={`text-[10px] font-outfit uppercase tracking-[1.4px] ${
+                    className={`text-[0.625rem] font-outfit uppercase tracking-[1.4px] ${
                       active ? "text-white" : "text-secondary"
                     }`}
                   >
@@ -566,7 +567,7 @@ export default function ScheduleScreen() {
               </Text>
             </View>
             <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-              <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.4px]">
+              <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.4px]">
                 {dayEvents.length} events
               </Text>
             </View>
@@ -613,7 +614,7 @@ export default function ScheduleScreen() {
                         style={{ backgroundColor: colors.border }}
                       />
                     ) : null}
-                    <Text className="text-[10px] font-outfit text-secondary mt-2">
+                    <Text className="text-[0.625rem] font-outfit text-secondary mt-2">
                       {event.timeEnd}
                     </Text>
                   </View>
@@ -630,7 +631,7 @@ export default function ScheduleScreen() {
                         {event.title}
                       </Text>
                       <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-                        <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                           {event.tag}
                         </Text>
                       </View>
@@ -808,7 +809,7 @@ export default function ScheduleScreen() {
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
                 <Text
                   key={label}
-                  className="text-[10px] font-outfit text-secondary uppercase tracking-[1.4px] w-9 text-center"
+                  className="text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.4px] w-9 text-center"
                 >
                   {label}
                 </Text>
@@ -1051,7 +1052,7 @@ export default function ScheduleScreen() {
                       </Text>
                       <View className="mt-3 gap-2">
                         <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
-                          <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                          <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                             Location
                           </Text>
                           <TextInput

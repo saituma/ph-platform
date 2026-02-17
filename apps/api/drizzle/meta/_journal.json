@@ -99,6 +99,41 @@
       "when": 1771109000000,
       "tag": "0013_add_exercise_category",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1771120000000,
+      "tag": "0014_exercise_text_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1771121000000,
+      "tag": "0015_age_content_and_birthdate",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1771122000000,
+      "tag": "0016_add_legal_content_surface",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1771123000000,
+      "tag": "0017_add_user_token_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1771124000000,
+      "tag": "0018_add_athlete_profile_picture",
+      "breakpoints": true
     }
   ]
 }

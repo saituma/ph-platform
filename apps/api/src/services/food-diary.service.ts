@@ -47,18 +47,22 @@ export async function listFoodDiaryEntries(input: { guardianId?: number; athlete
 export async function createFoodDiaryEntry(input: {
   athleteId: number;
   guardianId: number;
-  date: Date;
+  date: Date | string;
   meals?: unknown | null;
   notes?: string | null;
   quantity?: number | null;
   photoUrl?: string | null;
 }) {
+  const resolvedDate =
+    typeof input.date === "string"
+      ? input.date
+      : input.date.toISOString().slice(0, 10);
   const result = await db
     .insert(foodDiaryTable)
     .values({
       athleteId: input.athleteId,
       guardianId: input.guardianId,
-      date: input.date,
+      date: resolvedDate,
       meals: input.meals ?? null,
       notes: input.notes ?? null,
       quantity: input.quantity ?? null,

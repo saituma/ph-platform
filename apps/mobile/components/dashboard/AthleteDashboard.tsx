@@ -3,7 +3,8 @@ import { useRefreshContext, usePullToRefresh } from "@/context/RefreshContext";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 export function AthleteDashboard() {
   const { isLoading, setIsLoading } = useRefreshContext();
@@ -75,7 +76,7 @@ export function AthleteDashboard() {
             <>
               <View className="flex-row items-center justify-between mb-6">
                 <View className="bg-white/20 px-4 py-1.5 rounded-full border border-white/20 backdrop-blur-sm">
-                  <Text className="text-white font-bold font-outfit text-[10px] uppercase tracking-widest">
+                  <Text className="text-white font-bold font-outfit text-[0.625rem] uppercase tracking-widest">
                     Profile Snapshot
                   </Text>
                 </View>
@@ -189,7 +190,7 @@ function MetricCard({ label, value, trend, good, icon }: any) {
           className={`px-2 py-0.5 rounded-lg ${good ? "bg-success-soft" : "bg-danger-soft"}`}
         >
           <Text
-            className={`text-[10px] font-bold ${good ? "text-success" : "text-danger"}`}
+            className={`text-[0.625rem] font-bold ${good ? "text-success" : "text-danger"}`}
           >
             {trend}
           </Text>
@@ -197,7 +198,7 @@ function MetricCard({ label, value, trend, good, icon }: any) {
       </View>
       <View>
         <Text className="text-2xl font-bold font-clash text-app">{value}</Text>
-        <Text className="text-muted text-[10px] font-outfit uppercase tracking-widest mt-1">
+        <Text className="text-muted text-[0.625rem] font-outfit uppercase tracking-widest mt-1">
           {label}
         </Text>
       </View>
@@ -218,7 +219,7 @@ function StatusTile({ label, value, icon, color, suffix = "%" }: any) {
           {value}
           {suffix}
         </Text>
-        <Text className="text-muted text-[8px] font-outfit uppercase tracking-tighter">
+        <Text className="text-muted text-[0.5rem] font-outfit uppercase tracking-tighter">
           {label}
         </Text>
       </View>

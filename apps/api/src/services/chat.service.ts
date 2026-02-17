@@ -116,6 +116,7 @@ export async function listGroupMembers(groupId: number) {
       name: userTable.name,
       email: userTable.email,
       role: userTable.role,
+      profilePicture: userTable.profilePicture,
     })
     .from(chatGroupMemberTable)
     .innerJoin(userTable, eq(chatGroupMemberTable.userId, userTable.id))

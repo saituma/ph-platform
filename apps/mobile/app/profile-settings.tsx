@@ -6,11 +6,15 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useRole } from "@/context/RoleContext";
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Pressable, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppSelector } from "@/store/hooks";
+import { apiRequest } from "@/lib/api";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { updateProfile } from "@/store/slices/userSlice";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
@@ -18,7 +22,13 @@ export default function ProfileSettingsScreen() {
   const { isDark, colors } = useAppTheme();
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const { isLoading } = useRefreshContext();
-  const { profile } = useAppSelector((state) => state.user);
+  const { profile, token } = useAppSelector((state) => state.user);
+  const dispatch = useAppDispatch();
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [pendingAvatarUri, setPendingAvatarUri] = useState<string | null>(null);
+  const [isUploadingAthleteAvatar, setIsUploadingAthleteAvatar] = useState(false);
+  const [pendingAthleteAvatarUri, setPendingAthleteAvatarUri] = useState<string | null>(null);
+  const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
 
   const [name, setName] = useState(profile.name ?? "");
   const [email, setEmail] = useState(profile.email ?? "");
@@ -30,6 +40,25 @@ export default function ProfileSettingsScreen() {
     setName(profile.name ?? "");
     setEmail(profile.email ?? "");
   }, [profile.name, profile.email]);
+
+  useEffect(() => {
+    let active = true;
+    const loadAthlete = async () => {
+      if (!token || role !== "Guardian") return;
+      try {
+        const data = await apiRequest<{ athlete?: { profilePicture?: string | null } | null }>("/onboarding", { token });
+        if (!active) return;
+        setAthleteAvatar(data.athlete?.profilePicture ?? null);
+      } catch {
+        if (!active) return;
+        setAthleteAvatar(null);
+      }
+    };
+    loadAthlete();
+    return () => {
+      active = false;
+    };
+  }, [role, token]);
 
   const handleSetPin = (pin: string) => {
     setGuardianPin(pin);
@@ -47,6 +76,103 @@ export default function ProfileSettingsScreen() {
   const handleRefresh = async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Refreshed Profile Settings");
+  };
+
+  const uploadAvatar = async (uri: string) => {
+    if (!token) throw new Error("Authentication required");
+    const fileName = uri.split("/").pop() ?? `avatar-${Date.now()}.jpg`;
+    const contentType = "image/jpeg";
+    const blob = await (await fetch(uri)).blob();
+    const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
+      method: "POST",
+      token,
+      body: {
+        folder: "profile-photos",
+        fileName,
+        contentType,
+        sizeBytes: blob.size,
+      },
+    });
+    await fetch(presign.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: blob,
+    });
+    return presign.publicUrl;
+  };
+
+  const handlePickAvatar = async () => {
+    if (!token || isUploadingAvatar) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Images
+        ? [(ImagePicker as any).MediaType.Images]
+        : (ImagePicker as any).MediaTypeOptions?.Images;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes,
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    setPendingAvatarUri(result.assets[0].uri);
+  };
+
+  const handlePickAthleteAvatar = async () => {
+    if (!token || isUploadingAthleteAvatar) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Images
+        ? [(ImagePicker as any).MediaType.Images]
+        : (ImagePicker as any).MediaTypeOptions?.Images;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes,
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    setPendingAthleteAvatarUri(result.assets[0].uri);
+  };
+
+  const handleConfirmAvatar = async () => {
+    if (!pendingAvatarUri || !token || isUploadingAvatar) return;
+    setIsUploadingAvatar(true);
+    try {
+      const publicUrl = await uploadAvatar(pendingAvatarUri);
+      const response = await apiRequest<{ user: { profilePicture?: string | null } }>("/auth/me", {
+        method: "PATCH",
+        token,
+        body: { profilePicture: publicUrl },
+      });
+      dispatch(updateProfile({ avatar: response.user.profilePicture ?? publicUrl }));
+      setPendingAvatarUri(null);
+    } catch (error) {
+      console.warn("Failed to update avatar", error);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleConfirmAthleteAvatar = async () => {
+    if (!pendingAthleteAvatarUri || !token || isUploadingAthleteAvatar) return;
+    setIsUploadingAthleteAvatar(true);
+    try {
+      const publicUrl = await uploadAvatar(pendingAthleteAvatarUri);
+      const response = await apiRequest<{ athlete?: { profilePicture?: string | null } }>("/onboarding/athlete-photo", {
+        method: "PATCH",
+        token,
+        body: { profilePicture: publicUrl },
+      });
+      setAthleteAvatar(response.athlete?.profilePicture ?? publicUrl);
+      setPendingAthleteAvatarUri(null);
+    } catch (error) {
+      console.warn("Failed to update athlete avatar", error);
+    } finally {
+      setIsUploadingAthleteAvatar(false);
+    }
   };
 
   return (
@@ -92,11 +218,24 @@ export default function ProfileSettingsScreen() {
             >
               <View className="flex-row items-center gap-4 mb-6">
                 <View className="relative">
-                  <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center border-2 border-accent">
-                    <Feather name="user" size={40} className="text-secondary" />
-                  </View>
-                  <TouchableOpacity className="absolute bottom-0 right-0 w-7 h-7 bg-accent rounded-full items-center justify-center border-2 border-white">
-                    <Feather name="camera" size={14} color="white" />
+                  {profile.avatar ? (
+                    <View className="w-20 h-20 rounded-full overflow-hidden border-2 border-accent">
+                      <Image source={{ uri: profile.avatar }} style={{ width: 80, height: 80 }} />
+                    </View>
+                  ) : (
+                    <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center border-2 border-accent">
+                      <Feather name="user" size={40} className="text-secondary" />
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    onPress={handlePickAvatar}
+                    className="absolute bottom-0 right-0 w-7 h-7 bg-accent rounded-full items-center justify-center border-2 border-white"
+                  >
+                    {isUploadingAvatar ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Feather name="camera" size={14} color="white" />
+                    )}
                   </TouchableOpacity>
                 </View>
                 <View className="flex-1">
@@ -111,6 +250,43 @@ export default function ProfileSettingsScreen() {
                   </Text>
                 </View>
               </View>
+
+              {role === "Guardian" ? (
+                <View className="flex-row items-center gap-4 mb-6">
+                  <View className="relative">
+                    {athleteAvatar ? (
+                      <View className="w-20 h-20 rounded-full overflow-hidden border-2 border-accent">
+                        <Image source={{ uri: athleteAvatar }} style={{ width: 80, height: 80 }} />
+                      </View>
+                    ) : (
+                      <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center border-2 border-accent">
+                        <Feather name="user" size={40} className="text-secondary" />
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      onPress={handlePickAthleteAvatar}
+                      className="absolute bottom-0 right-0 w-7 h-7 bg-accent rounded-full items-center justify-center border-2 border-white"
+                    >
+                      {isUploadingAthleteAvatar ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <Feather name="camera" size={14} color="white" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  <View className="flex-1">
+                    <View className="flex-row items-center gap-3 mb-1">
+                      <View className="h-4 w-1 rounded-full bg-accent" />
+                      <Text className="text-lg font-bold font-clash text-app">
+                        Athlete Photo
+                      </Text>
+                    </View>
+                    <Text className="text-secondary font-outfit text-sm">
+                      Upload a separate photo for your athlete.
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
 
               <View className="gap-4">
                 <InputField
@@ -285,6 +461,94 @@ export default function ProfileSettingsScreen() {
         title="Set Guardian PIN"
         subtitle="Create a 4-digit PIN to protect your settings."
       />
+
+      <Modal
+        visible={Boolean(pendingAvatarUri)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingAvatarUri(null)}
+      >
+        <Pressable
+          className="flex-1 bg-black/50 items-center justify-center px-6"
+          onPress={() => setPendingAvatarUri(null)}
+        >
+          <Pressable className="w-full rounded-3xl bg-app p-6 border border-app" onPress={() => undefined}>
+            <Text className="text-lg font-clash text-app mb-2">Use this photo?</Text>
+            <Text className="text-sm font-outfit text-secondary mb-4">
+              Confirm your cropped profile picture.
+            </Text>
+            {pendingAvatarUri ? (
+              <View className="items-center mb-6">
+                <View className="h-32 w-32 rounded-full overflow-hidden border-2 border-accent">
+                  <Image source={{ uri: pendingAvatarUri }} style={{ width: 128, height: 128 }} />
+                </View>
+              </View>
+            ) : null}
+            <View className="flex-row items-center gap-3">
+              <TouchableOpacity
+                onPress={() => setPendingAvatarUri(null)}
+                className="flex-1 rounded-2xl border border-app py-3 items-center"
+              >
+                <Text className="text-sm font-outfit text-secondary">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleConfirmAvatar}
+                disabled={isUploadingAvatar}
+                className="flex-1 rounded-2xl bg-accent py-3 items-center"
+                style={{ opacity: isUploadingAvatar ? 0.6 : 1 }}
+              >
+                <Text className="text-sm font-outfit text-white">
+                  {isUploadingAvatar ? "Uploading..." : "Confirm"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={Boolean(pendingAthleteAvatarUri)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingAthleteAvatarUri(null)}
+      >
+        <Pressable
+          className="flex-1 bg-black/50 items-center justify-center px-6"
+          onPress={() => setPendingAthleteAvatarUri(null)}
+        >
+          <Pressable className="w-full rounded-3xl bg-app p-6 border border-app" onPress={() => undefined}>
+            <Text className="text-lg font-clash text-app mb-2">Use this athlete photo?</Text>
+            <Text className="text-sm font-outfit text-secondary mb-4">
+              Confirm the cropped athlete profile picture.
+            </Text>
+            {pendingAthleteAvatarUri ? (
+              <View className="items-center mb-6">
+                <View className="h-32 w-32 rounded-full overflow-hidden border-2 border-accent">
+                  <Image source={{ uri: pendingAthleteAvatarUri }} style={{ width: 128, height: 128 }} />
+                </View>
+              </View>
+            ) : null}
+            <View className="flex-row items-center gap-3">
+              <TouchableOpacity
+                onPress={() => setPendingAthleteAvatarUri(null)}
+                className="flex-1 rounded-2xl border border-app py-3 items-center"
+              >
+                <Text className="text-sm font-outfit text-secondary">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleConfirmAthleteAvatar}
+                disabled={isUploadingAthleteAvatar}
+                className="flex-1 rounded-2xl bg-accent py-3 items-center"
+                style={{ opacity: isUploadingAthleteAvatar ? 0.6 : 1 }}
+              >
+                <Text className="text-sm font-outfit text-white">
+                  {isUploadingAthleteAvatar ? "Uploading..." : "Confirm"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }

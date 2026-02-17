@@ -6,6 +6,8 @@ import {
   createContentItem,
   listHomeContent,
   listParentContent,
+  listLegalContent,
+  listLegalContentPublic,
   updateContentItem,
   getContentItem,
   listParentCoursesHandler,
@@ -18,6 +20,8 @@ const router = Router();
 
 router.get("/content/home", requireAuth, listHomeContent);
 router.get("/content/parent-platform", requireAuth, listParentContent);
+router.get("/content/legal", requireAuth, listLegalContent);
+router.get("/content/legal/public", listLegalContentPublic);
 router.get("/content/parent-courses", requireAuth, listParentCoursesHandler);
 router.get("/content/parent-courses/:courseId", requireAuth, getParentCourseHandler);
 router.get("/content/:contentId", requireAuth, getContentItem);

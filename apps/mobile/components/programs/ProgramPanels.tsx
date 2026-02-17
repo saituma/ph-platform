@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Image, Linking, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Linking, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -7,6 +7,7 @@ import { ResizeMode, Video } from "expo-av";
 
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export function PhysioReferralPanel({ discount }: { discount?: string }) {
   const { token } = useAppSelector((state) => state.user);
@@ -146,8 +147,12 @@ export function FoodDiaryPanel() {
   }, [loadEntries]);
 
   const handlePickPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      const mediaTypes =
+        (ImagePicker as any).MediaType?.Images
+          ? [(ImagePicker as any).MediaType.Images]
+          : (ImagePicker as any).MediaTypeOptions?.Images;
+      const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes,
       quality: 0.7,
     });
     if (!result.canceled && result.assets?.[0]?.uri) {
@@ -229,18 +234,18 @@ export function FoodDiaryPanel() {
   return (
     <View className="gap-4">
       <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-        <Text className="text-lg font-clash text-app mb-2">Food Diary</Text>
-        <Text className="text-sm font-outfit text-secondary">
+        <Text className="text-2xl font-clash text-app mb-2">Food Diary</Text>
+        <Text className="text-2xl font-outfit text-secondary">
           Log meals and snacks to support training and recovery.
         </Text>
         <TouchableOpacity
           onPress={() => setDatePickerOpen(true)}
           className="mt-4 flex-row items-center justify-between rounded-2xl border border-app/10 bg-white/5 px-4 py-3"
         >
-          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+          <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
             Entry Date
           </Text>
-          <Text className="text-sm font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
+          <Text className="text-2xl font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
         </TouchableOpacity>
         {datePickerOpen ? (
           <DateTimePicker
@@ -261,13 +266,13 @@ export function FoodDiaryPanel() {
           placeholder="Breakfast, lunch, snacks..."
           placeholderTextColor="#9CA3AF"
           multiline
-          className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-sm font-outfit text-app"
+          className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-2xl font-outfit text-app"
           style={{ minHeight: 90 }}
         />
         <View className="mt-4 gap-3">
           {(["breakfast", "lunch", "dinner", "snacks"] as const).map((meal) => (
             <View key={meal} className="rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
-              <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+              <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
                 {meal}
               </Text>
               <TextInput
@@ -275,7 +280,7 @@ export function FoodDiaryPanel() {
                 onChangeText={(value) => setMeals((prev) => ({ ...prev, [meal]: value }))}
                 placeholder={`Add ${meal}`}
                 placeholderTextColor="#9CA3AF"
-                className="mt-2 text-sm font-outfit text-app"
+                className="mt-2 text-2xl font-outfit text-app"
               />
             </View>
           ))}
@@ -285,7 +290,7 @@ export function FoodDiaryPanel() {
         ) : null}
         <View className="mt-4 flex-row gap-3">
           <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
-            <Text className="text-app text-xs font-outfit text-center">Add Photo</Text>
+            <Text className="text-app text-2xl font-outfit text-center">Add Photo</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleSave}
@@ -297,7 +302,7 @@ export function FoodDiaryPanel() {
             }`}
           >
             <Text
-              className={`text-xs font-outfit text-center ${
+              className={`text-2xl font-outfit text-center ${
                 saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
                   ? "text-secondary"
                   : "text-white"
@@ -307,38 +312,38 @@ export function FoodDiaryPanel() {
             </Text>
           </TouchableOpacity>
         </View>
-        {status ? <Text className="text-xs font-outfit text-red-400 mt-3">{status}</Text> : null}
+        {status ? <Text className="text-2xl font-outfit text-red-400 mt-3">{status}</Text> : null}
       </View>
 
       <View className="flex-row items-center justify-between">
-        <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
+        <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
         <TouchableOpacity onPress={loadEntries}>
-          <Text className="text-xs font-outfit text-accent">Refresh</Text>
+          <Text className="text-2xl font-outfit text-accent">Refresh</Text>
         </TouchableOpacity>
       </View>
 
       {loadingEntries ? (
-        <Text className="text-xs font-outfit text-secondary">Loading entries...</Text>
+        <Text className="text-2xl font-outfit text-secondary">Loading entries...</Text>
       ) : entries.length ? (
         <View className="gap-3">
           {entries.map((item) => (
             <View key={item.id} className="rounded-3xl border border-app/10 bg-input px-5 py-4">
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
+              <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.4px]">
                 {formatDate(item.date)}
               </Text>
               {formatMeals(item.meals).length ? (
                 <View className="mt-2 gap-2">
                   {formatMeals(item.meals).map((meal) => (
                     <View key={meal.label}>
-                      <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                      <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
                         {meal.label}
                       </Text>
-                      <Text className="text-sm font-outfit text-app mt-1">{meal.value}</Text>
+                      <Text className="text-2xl font-outfit text-app mt-1">{meal.value}</Text>
                     </View>
                   ))}
                 </View>
               ) : null}
-              {item.notes ? <Text className="text-sm font-outfit text-app mt-2">{item.notes}</Text> : null}
+              {item.notes ? <Text className="text-2xl font-outfit text-app mt-2">{item.notes}</Text> : null}
               {item.photoUrl ? (
                 <Image source={{ uri: item.photoUrl }} className="mt-3 h-24 w-full rounded-2xl" resizeMode="cover" />
               ) : null}
@@ -346,7 +351,7 @@ export function FoodDiaryPanel() {
           ))}
         </View>
       ) : (
-        <Text className="text-xs font-outfit text-secondary">No entries yet.</Text>
+        <Text className="text-2xl font-outfit text-secondary">No entries yet.</Text>
       )}
     </View>
   );
@@ -400,8 +405,12 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
   const handlePickVideo = async () => {
     if (!token) return;
     setStatus(null);
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Videos
+        ? [(ImagePicker as any).MediaType.Videos]
+        : (ImagePicker as any).MediaTypeOptions?.Videos;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes,
     });
     if (result.canceled || !result.assets?.[0]?.uri) return;
 

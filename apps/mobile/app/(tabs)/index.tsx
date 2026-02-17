@@ -5,10 +5,12 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Image, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text } from "@/components/ScaledText";
 
 type HomeTestimonial = {
   id: string;
@@ -30,10 +32,12 @@ type HomeContentPayload = {
 export default function HomeScreen() {
   const { role } = useRole();
   const { colors } = useAppTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile, token } = useAppSelector((state) => state.user);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [athleteName, setAthleteName] = useState<string | null>(null);
+  const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
   const [homeContentError, setHomeContentError] = useState<string | null>(null);
 
@@ -47,13 +51,15 @@ export default function HomeScreen() {
   const loadAthleteName = React.useCallback(async () => {
     if (!token) return;
     try {
-      const data = await apiRequest<{ athlete: { name?: string } | null }>("/onboarding", {
+      const data = await apiRequest<{ athlete: { name?: string; profilePicture?: string | null } | null }>("/onboarding", {
         token,
         suppressStatusCodes: [401],
       });
       setAthleteName(data.athlete?.name ?? null);
+      setAthleteAvatar(data.athlete?.profilePicture ?? null);
     } catch {
       setAthleteName(null);
+      setAthleteAvatar(null);
     }
   }, [token]);
 
@@ -171,8 +177,22 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <View className="h-14 w-14 bg-secondary rounded-[22px] border-2 border-app shadow-lg items-center justify-center relative">
-              <Feather name="user" size={24} className="text-app" />
+            <View className="h-14 w-14 bg-secondary rounded-[22px] border-2 border-app shadow-lg items-center justify-center relative overflow-hidden">
+              {role === "Athlete" && athleteAvatar ? (
+                <Image
+                  source={{ uri: athleteAvatar }}
+                  resizeMode="cover"
+                  className="h-full w-full"
+                />
+              ) : role !== "Athlete" && profile?.avatar ? (
+                <Image
+                  source={{ uri: profile.avatar }}
+                  resizeMode="cover"
+                  className="h-full w-full"
+                />
+              ) : (
+                <Feather name="user" size={24} className="text-app" />
+              )}
               <View className="absolute bottom-0 right-0 h-4 w-4 bg-success rounded-full border-2 border-app" />
             </View>
           </View>
@@ -241,6 +261,24 @@ export default function HomeScreen() {
               <Text className="text-lg font-clash text-app">Start Now</Text>
             </View>
           </TouchableOpacity>
+
+          {role === "Guardian" ? (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => router.push("/programs/plus?tab=Submit%20Diary")}
+              className="w-[48%] bg-input border border-app rounded-3xl p-4 h-28 justify-between"
+            >
+              <View className="h-10 w-10 bg-secondary rounded-2xl items-center justify-center">
+                <Feather name="book-open" size={20} className="text-app" />
+              </View>
+              <View>
+                <Text className="text-sm font-outfit text-secondary uppercase tracking-[2px]">
+                  Diary
+                </Text>
+                <Text className="text-lg font-clash text-app">Submit</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity
             activeOpacity={0.9}

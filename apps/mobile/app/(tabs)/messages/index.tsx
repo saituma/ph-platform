@@ -6,12 +6,10 @@ import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { Alert, Text } from "react-native";
-import { useAppSelector } from "@/store/hooks";
+import { Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function MessagesScreen() {
-  const router = useRouter();
   const { colors } = useAppTheme();
   const {
     reactionOptions,

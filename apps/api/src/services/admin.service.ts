@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, or, sql, ne, alias } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, or, sql, ne } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -386,6 +386,37 @@ export async function createProgramTemplate(input: {
   return result[0];
 }
 
+export async function listProgramTemplates() {
+  return db
+    .select()
+    .from(programTable)
+    .where(eq(programTable.isTemplate, true))
+    .orderBy(desc(programTable.createdAt));
+}
+
+export async function updateProgramTemplate(input: {
+  programId: number;
+  name?: string | null;
+  type?: (typeof ProgramType.enumValues)[number] | null;
+  description?: string | null;
+}) {
+  const existing = await db.select().from(programTable).where(eq(programTable.id, input.programId)).limit(1);
+  if (!existing[0]) {
+    throw new Error("Program template not found");
+  }
+  const [updated] = await db
+    .update(programTable)
+    .set({
+      name: input.name ?? existing[0].name,
+      type: input.type ?? existing[0].type,
+      description: input.description ?? existing[0].description ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(programTable.id, input.programId))
+    .returning();
+  return updated;
+}
+
 export async function createExercise(input: {
   name: string;
   category?: string | null;
@@ -612,23 +643,37 @@ export async function listMessageThreadsAdmin(coachId: number) {
     ? await db.select().from(userTable).where(inArray(userTable.id, userIds))
     : [];
 
-  const guardianAthlete = alias(athleteTable, "guardian_athlete");
-  const tierRows = userIds.length
-    ? await db
-        .select({
-          userId: userTable.id,
-          programTier: sql`${athleteTable.currentProgramTier}::text`?.as("programTier"),
-          guardianTier: sql`${guardianAthlete.currentProgramTier}::text`?.as("guardianTier"),
-        })
-        .from(userTable)
-        .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
-        .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
-        .leftJoin(guardianAthlete, eq(guardianAthlete.guardianId, guardianTable.id))
-        .where(inArray(userTable.id, userIds))
-    : [];
   const tierMap = new Map<number, string | null>();
-  for (const row of tierRows) {
-    tierMap.set(row.userId, (row.programTier ?? row.guardianTier ?? null) as string | null);
+  if (userIds.length) {
+    const athleteRows = await db
+      .select({
+        userId: userTable.id,
+        programTier: sql`${athleteTable.currentProgramTier}::text`.as("programTier"),
+      })
+      .from(userTable)
+      .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
+      .where(inArray(userTable.id, userIds));
+
+    const guardianRows = await db
+      .select({
+        userId: userTable.id,
+        guardianTier: sql`${athleteTable.currentProgramTier}::text`.as("guardianTier"),
+      })
+      .from(userTable)
+      .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
+      .leftJoin(athleteTable, eq(athleteTable.guardianId, guardianTable.id))
+      .where(inArray(userTable.id, userIds));
+
+    for (const row of guardianRows) {
+      if (row.guardianTier) {
+        tierMap.set(row.userId, row.guardianTier as string);
+      }
+    }
+    for (const row of athleteRows) {
+      if (row.programTier) {
+        tierMap.set(row.userId, row.programTier as string);
+      }
+    }
   }
 
   return userIds.map((id) => {

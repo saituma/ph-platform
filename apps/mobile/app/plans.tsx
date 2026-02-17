@@ -8,11 +8,12 @@ import { Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Alert, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setLatestSubscriptionRequest, setProgramTier } from "../store/slices/userSlice";
 import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
+import { Text } from "@/components/ScaledText";
 
 export default function PlansScreen() {
   const router = useRouter();
@@ -94,7 +95,11 @@ export default function PlansScreen() {
         token,
         suppressStatusCodes: [401, 403, 404],
       });
-      dispatch(setProgramTier(status?.currentProgramTier ?? null));
+      const nextRequestStatus = status?.latestRequest?.status ?? null;
+      const nextTier =
+        status?.currentProgramTier ??
+        (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
+      dispatch(setProgramTier(nextTier ?? null));
       dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
     } catch {
       // no-op

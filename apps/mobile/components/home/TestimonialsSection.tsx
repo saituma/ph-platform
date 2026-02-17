@@ -1,15 +1,9 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { FlatList, NativeScrollEvent, NativeSyntheticEvent, View, useWindowDimensions } from "react-native";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text } from "@/components/ScaledText";
 
 const DEFAULT_TESTIMONIALS = [
   {

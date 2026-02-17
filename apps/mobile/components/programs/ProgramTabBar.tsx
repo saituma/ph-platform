@@ -1,5 +1,7 @@
-import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { TouchableOpacity, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 export function ProgramTabBar({
   tabs,
@@ -10,26 +12,72 @@ export function ProgramTabBar({
   activeTab: string;
   onTabChange: (tab: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const handleSelect = (tab: string) => {
+    onTabChange(tab);
+    setOpen(false);
+  };
+
   return (
-    <View className="mb-6">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, gap: 10 }}>
-        {tabs.map((tab) => {
-          const isActive = tab === activeTab;
-          return (
-            <TouchableOpacity
-              key={tab}
-              onPress={() => onTabChange(tab)}
-              className={`px-4 py-2 rounded-full border ${
-                isActive ? "bg-accent border-accent" : "bg-input border-app"
-              }`}
-            >
-              <Text className={`${isActive ? "text-white" : "text-app"} text-xs font-outfit uppercase`}>
-                {tab}
+    <View className="mb-6 px-6">
+      <View className="rounded-3xl bg-secondary/10 border border-app/10 p-3">
+        <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.6px] mb-2">
+          Section
+        </Text>
+        <TouchableOpacity
+          onPress={() => setOpen(true)}
+          className="min-h-[52px] w-full rounded-2xl bg-input px-4 flex-row items-center justify-between"
+          activeOpacity={0.85}
+        >
+          <Text className="text-4xl font-clash text-app">{activeTab}</Text>
+          <View className="h-8 w-8 rounded-full bg-secondary/40 items-center justify-center">
+            <Feather name="chevron-down" size={18} color="#94A3B8" />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {open ? (
+        <View className="mt-3 rounded-3xl bg-input border border-app/10 p-4">
+          <View className="flex-row items-center justify-between mb-3">
+            <View>
+              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.6px]">
+                Select Section
               </Text>
+              <Text className="text-4xl font-clash text-app mt-1">Program Sections</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setOpen(false)}
+              className="h-9 w-9 rounded-full bg-secondary/40 items-center justify-center"
+            >
+              <Feather name="x" size={16} color="#94A3B8" />
             </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+          </View>
+          {tabs.map((tab) => {
+            const isActive = tab === activeTab;
+            return (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => handleSelect(tab)}
+                className={`min-h-[48px] rounded-2xl px-3 flex-row items-center justify-between ${
+                  isActive ? "bg-accent/10" : "bg-transparent"
+                }`}
+              >
+                <View className="flex-row items-center">
+                  <View
+                    className={`h-2.5 w-2.5 rounded-full mr-3 ${
+                      isActive ? "bg-accent" : "bg-secondary/40"
+                    }`}
+                  />
+                  <Text className={`text-4xl font-outfit ${isActive ? "text-accent" : "text-app"}`}>
+                    {tab}
+                  </Text>
+                </View>
+                {isActive ? <Feather name="check" size={16} color="#2F8F57" /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }

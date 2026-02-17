@@ -3,9 +3,10 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export default function HelpCenterScreen() {
   const router = useRouter();

@@ -1,6 +1,7 @@
 import { LegalModal, LegalSection } from "@/components/ui/LegalModal";
 import React from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 type RegisterOverlaysProps = {
   showTerms: boolean;

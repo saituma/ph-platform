@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { store } from "@/store";
-import { logout, setCredentials } from "@/store/slices/userSlice";
+import { setCredentials } from "@/store/slices/userSlice";
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -19,10 +19,12 @@ let refreshInFlight: Promise<string | null> | null = null;
 
 const buildFallbackBaseUrl = (baseUrl: string) => {
   const trimmed = baseUrl.replace(/\/+$/, "");
-  if (!trimmed.endsWith("/api")) {
+  // If we're already on /api, do not fall back to a non-/api base.
+  if (trimmed.endsWith("/api")) {
     return null;
   }
-  return trimmed.slice(0, -4);
+  // If base URL lacks /api, try /api as a fallback.
+  return `${trimmed}/api`;
 };
 
 const extractErrorMessage = (text: string, payload: any) => {
@@ -98,10 +100,22 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+  const apiBaseUrl = normalizedBaseUrl.endsWith("/api")
+    ? normalizedBaseUrl
+    : `${normalizedBaseUrl}/api`;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const url = `${normalizedBaseUrl}${normalizedPath}`;
-  const fallbackBaseUrl = buildFallbackBaseUrl(normalizedBaseUrl);
+  const url = `${apiBaseUrl}${normalizedPath}`;
+  const fallbackBaseUrl = buildFallbackBaseUrl(apiBaseUrl);
   const fallbackUrl = fallbackBaseUrl ? `${fallbackBaseUrl}${normalizedPath}` : null;
+
+  if (__DEV__) {
+    console.warn("API base URL", {
+      baseUrl,
+      apiBaseUrl,
+      normalizedPath,
+      url,
+    });
+  }
 
   let resolvedToken =
     options.token !== undefined ? options.token : store.getState().user.token;
@@ -167,13 +181,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const payload = parseJsonSafe(text);
   if (!res.ok) {
     if (res.status === 401 && !options.skipAuthRefresh && normalizedPath !== "/auth/login") {
-      try {
-        await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-        await SecureStore.deleteItemAsync(AUTH_REFRESH_KEY);
-      } catch {
-        // ignore secure store failures
-      }
-      store.dispatch(logout());
+      // Do not force logout on 401. Keep the session so users only log out explicitly.
+      // The request will surface the 401 error to the caller for handling/retry.
     }
     let message = extractErrorMessage(text, payload);
     const details =

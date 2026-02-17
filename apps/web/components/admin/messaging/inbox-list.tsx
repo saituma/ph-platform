@@ -18,6 +18,7 @@ type Thread = {
   hasAthlete?: boolean;
   online?: boolean;
   typing?: boolean;
+  avatarUrl?: string | null;
 };
 
 type InboxListProps = {
@@ -84,18 +85,29 @@ export function InboxList({
               }`}
             >
               <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-full border border-border text-xs font-semibold",
-                    thread.unread ? "bg-primary/10 text-primary" : "bg-secondary"
-                  )}
-                >
-                  {name
-                    .split(" ")
-                    .map((chunk) => chunk[0])
-                    .slice(0, 2)
-                    .join("")}
-                </div>
+                {thread.avatarUrl ? (
+                  <div className="h-10 w-10 overflow-hidden rounded-full border border-border">
+                    <img
+                      src={thread.avatarUrl}
+                      alt={name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full border border-border text-xs font-semibold",
+                      thread.unread ? "bg-primary/10 text-primary" : "bg-secondary"
+                    )}
+                  >
+                    {name
+                      .split(" ")
+                      .map((chunk) => chunk[0])
+                      .slice(0, 2)
+                      .join("")}
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-foreground">{name}</p>

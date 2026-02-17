@@ -8,10 +8,11 @@ import { useRole } from "@/context/RoleContext";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Image, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { logout } from "../../store/slices/userSlice";
+import { Text } from "@/components/ScaledText";
 
 export default function MoreScreen() {
   const { role } = useRole();
@@ -53,10 +54,17 @@ export default function MoreScreen() {
             </View>
           ) : (
             <View className="flex-row items-center gap-5 mb-8">
-              <View className="h-16 w-16 bg-secondary rounded-full items-center justify-center border border-app shadow-sm relative">
-                <Feather name="user" size={28} className="text-secondary" />
-                <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white" />
-              </View>
+              {profile.avatar ? (
+                <View className="h-16 w-16 rounded-full overflow-hidden border border-app shadow-sm relative">
+                  <Image source={{ uri: profile.avatar }} style={{ width: 64, height: 64 }} />
+                  <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white" />
+                </View>
+              ) : (
+                <View className="h-16 w-16 bg-secondary rounded-full items-center justify-center border border-app shadow-sm relative">
+                  <Feather name="user" size={28} className="text-secondary" />
+                  <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white" />
+                </View>
+              )}
               <View>
                 <Text className="text-xl font-bold font-clash text-app leading-tight">
                   {profile.name || "Profile"}
@@ -227,7 +235,7 @@ function MenuItem({
       <View className="w-10 h-10 items-center justify-center bg-secondary rounded-full mr-3">
         <Feather name={icon} size={18} className="text-secondary" />
       </View>
-      <Text className="flex-1 font-outfit text-app text-[15px] font-medium">
+      <Text className="flex-1 font-outfit text-app text-[0.9375rem] font-medium">
         {label}
       </Text>
       <Feather name="chevron-right" size={16} className="text-secondary" />

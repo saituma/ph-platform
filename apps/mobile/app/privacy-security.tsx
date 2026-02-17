@@ -4,11 +4,12 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Modal, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { useAppLock } from "@/context/AppLockContext";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export default function PrivacySecurityScreen() {
   const router = useRouter();

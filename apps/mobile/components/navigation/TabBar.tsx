@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { AnimatedText } from "@/components/ScaledText";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Platform, Pressable, View } from "react-native";
@@ -213,8 +214,8 @@ const TabItem = React.memo(
                 position: "absolute",
                 top: -4,
                 right: -8,
-                minWidth: 16,
-                height: 16,
+                minWidth: 18,
+                height: 18,
                 borderRadius: 999,
                 backgroundColor: colors.danger,
                 paddingHorizontal: 4,
@@ -222,25 +223,25 @@ const TabItem = React.memo(
                 justifyContent: "center",
               }}
             >
-              <Animated.Text
+              <AnimatedText
                 style={{
                   color: "#FFFFFF",
-                  fontSize: 9,
+                  fontSize: 11,
                   fontFamily: "Outfit-SemiBold",
                 }}
                 numberOfLines={1}
               >
                 {tab.badgeCount > 99 ? "99+" : String(tab.badgeCount)}
-              </Animated.Text>
+              </AnimatedText>
             </View>
           ) : null}
         </Animated.View>
 
-        <Animated.Text
+        <AnimatedText
           style={[
             {
               fontFamily: "Outfit-Medium",
-              fontSize: 11,
+              fontSize: 13,
               marginTop: 2,
             },
             iconAnimatedStyle,
@@ -248,7 +249,7 @@ const TabItem = React.memo(
           ]}
         >
           {tab.label}
-        </Animated.Text>
+        </AnimatedText>
 
         <Animated.View
           pointerEvents="none"

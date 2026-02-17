@@ -24,7 +24,7 @@ export const bookingType = pgEnum("booking_type", [
   "one_on_one",
 ]);
 export const contentType = pgEnum("content_type", ["article", "video", "image", "audio", "document", "link", "pdf", "faq"]);
-export const contentSurface = pgEnum("content_surface", ["home", "parent_platform"]);
+export const contentSurface = pgEnum("content_surface", ["home", "parent_platform", "legal"]);
 export const messageType = pgEnum("message_type", ["text", "image", "video"]);
 export const subscriptionStatus = pgEnum("subscription_status", ["pending_payment", "pending_approval", "approved", "rejected"]);
 export const sessionType = pgEnum("session_type", [
@@ -55,6 +55,7 @@ export const userTable = pgTable("users", {
   verificationAttempts: integer().notNull().default(0),
   isBlocked: boolean().notNull().default(false),
   isDeleted: boolean().notNull().default(false),
+  tokenVersion: integer().notNull().default(0),
 
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
@@ -105,6 +106,7 @@ export const athleteTable = pgTable("athletes", {
   growthNotes: varchar({ length: 255 }),
   performanceGoals: varchar({ length: 255 }),
   equipmentAccess: varchar({ length: 255 }),
+  profilePicture: varchar({ length: 255 }),
   extraResponses: jsonb(),
   currentProgramTier: ProgramType(),
   onboardingCompleted: boolean().notNull().default(false),

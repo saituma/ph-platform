@@ -1,8 +1,9 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 
 import { MessageThread } from "@/types/messages";
+import { Text } from "@/components/ScaledText";
 
 type ThreadHeaderProps = {
   thread: MessageThread;
@@ -22,16 +23,23 @@ export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
 
         <View className="flex-1 mx-4">
           <View className="flex-row items-center justify-between">
-            <View>
+            <View className="flex-row items-center gap-3">
+              {thread.avatarUrl ? (
+                <View className="h-10 w-10 rounded-2xl overflow-hidden">
+                  <Image source={{ uri: thread.avatarUrl }} style={{ width: 40, height: 40 }} />
+                </View>
+              ) : null}
+              <View>
               <Text className="font-clash text-lg text-app">{thread.name}</Text>
               <Text className="text-xs font-outfit text-secondary mt-0.5">
                 {thread.role} · {thread.lastSeen ?? "Active recently"}
               </Text>
             </View>
+            </View>
             {thread.premium ? (
               <View className="flex-row items-center px-2 py-1 rounded-full bg-secondary/10 border border-app/10">
                 <Feather name="star" size={12} className="text-accent" />
-                <Text className="ml-1 text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                <Text className="ml-1 text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                   Premium
                 </Text>
               </View>

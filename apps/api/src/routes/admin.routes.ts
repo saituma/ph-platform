@@ -7,6 +7,8 @@ import {
   assignProgram,
   createExerciseItem,
   createProgram,
+  listPrograms,
+  updateProgram,
   createSessionItem,
   deleteSessionExerciseItem,
   blockUser,
@@ -57,6 +59,8 @@ router.get("/admin/users/:userId/onboarding", getOnboarding);
 router.post("/admin/users/program-tier", updateProgramTier);
 router.post("/admin/enrollments", assignProgram);
 router.post("/admin/programs", createProgram);
+router.get("/admin/programs", listPrograms);
+router.patch("/admin/programs/:programId", updateProgram);
 router.get("/admin/exercises", listExerciseLibrary);
 router.post("/admin/exercises", createExerciseItem);
 router.patch("/admin/exercises/:exerciseId", updateExerciseItem);

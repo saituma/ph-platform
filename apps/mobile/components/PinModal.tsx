@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
+import { Modal, TouchableOpacity, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text } from "@/components/ScaledText";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,

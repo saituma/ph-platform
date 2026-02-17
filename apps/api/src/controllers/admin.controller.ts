@@ -29,6 +29,8 @@ import {
   updateOnboardingConfig,
   updateExercise,
   deleteExercise,
+  listProgramTemplates,
+  updateProgramTemplate,
 } from "../services/admin.service";
 import { ProgramType, sessionType } from "../db/schema";
 
@@ -48,6 +50,16 @@ const programSchema = z.object({
   type: z.enum(ProgramType.enumValues),
   description: z.string().optional(),
 });
+
+const programUpdateSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    type: z.enum(ProgramType.enumValues).optional(),
+    description: z.string().optional().nullable(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "No fields to update",
+  });
 
 const exerciseSchema = z.object({
   name: z.string().min(1),
@@ -239,6 +251,23 @@ export async function createProgram(req: Request, res: Response) {
     createdBy: req.user!.id,
   });
   return res.status(201).json({ program });
+}
+
+export async function listPrograms(_req: Request, res: Response) {
+  const programs = await listProgramTemplates();
+  return res.status(200).json({ programs });
+}
+
+export async function updateProgram(req: Request, res: Response) {
+  const programId = z.coerce.number().int().min(1).parse(req.params.programId);
+  const input = programUpdateSchema.parse(req.body);
+  const program = await updateProgramTemplate({
+    programId,
+    name: input.name,
+    type: input.type,
+    description: input.description ?? null,
+  });
+  return res.status(200).json({ program });
 }
 
 export async function createExerciseItem(req: Request, res: Response) {

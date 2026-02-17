@@ -21,6 +21,7 @@ export type ChatMessage = {
   time: string;
   status?: "sent" | "delivered" | "read";
   authorName?: string;
+  authorAvatar?: string | null;
   clientId?: string;
   reactions?: { emoji: string; count: number; userIds: number[] }[];
 };

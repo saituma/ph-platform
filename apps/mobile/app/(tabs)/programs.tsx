@@ -1,16 +1,20 @@
 import { ProgramCard, ProgramTier } from "@/components/ProgramCard";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { buildPlanPricing, PlanPricing } from "@/lib/billing";
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { normalizeProgramTier, programIdToTier } from "@/lib/planAccess";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, View } from "react-native";
 import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "@/lib/api";
+import { setLatestSubscriptionRequest, setProgramTier } from "@/store/slices/userSlice";
+import { Text } from "@/components/ScaledText";
 
 export default function ProgramsScreen() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { onboardingCompleted, token, isAuthenticated, programTier, latestSubscriptionRequest } = useAppSelector(
     (state) => state.user
   );
@@ -30,7 +34,7 @@ export default function ProgramsScreen() {
           "Warm-up & cooldown included",
           "Coach notes & video cues",
         ],
-        color: "bg-[#0E7490]",
+        color: "bg-[#2F8F57]",
         icon: "activity",
       },
       {
@@ -43,7 +47,7 @@ export default function ProgramsScreen() {
           "Stretching & foam rolling",
           "Off-season program access",
         ],
-        color: "bg-[#1D4ED8]",
+        color: "bg-[#2B7E4F]",
         icon: "layers",
       },
       {
@@ -56,7 +60,7 @@ export default function ProgramsScreen() {
           "Video feedback & reviews",
           "Role model meeting bookings",
         ],
-        color: "bg-[#7C3AED]",
+        color: "bg-[#256B44]",
         icon: "star",
         highlight: "Limited availability",
       },
@@ -191,12 +195,37 @@ export default function ProgramsScreen() {
     }
   };
 
+  const refreshBillingStatus = async () => {
+    if (!token) return;
+    try {
+      const status = await apiRequest<{
+        currentProgramTier?: string | null;
+        latestRequest?: {
+          status?: string | null;
+          paymentStatus?: string | null;
+          planTier?: string | null;
+          createdAt?: string | null;
+        } | null;
+      }>("/billing/status", {
+        token,
+        suppressStatusCodes: [401, 403, 404],
+      });
+      const nextRequestStatus = status?.latestRequest?.status ?? null;
+      const nextTier =
+        status?.currentProgramTier ??
+        (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
+      dispatch(setProgramTier(nextTier ?? null));
+      dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
+      setCurrentTier(nextTier ?? null);
+    } catch {
+      // no-op
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView
-        onRefresh={async () => {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }}
+        onRefresh={refreshBillingStatus}
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
@@ -204,8 +233,18 @@ export default function ProgramsScreen() {
         }}
       >
         <View className="mb-8">
-          <Text className="text-4xl font-clash text-app mb-2">Programs</Text>
-          <Text className="text-base font-outfit text-secondary leading-relaxed">
+          <View className="flex-row items-center gap-3 mb-3">
+            <View className="h-10 w-1.5 rounded-full bg-[#2F8F57]" />
+            <View>
+              <Text className="text-4xl font-clash text-[#0E1510] dark:text-[#F2F6F2]">
+                Programs
+              </Text>
+              <Text className="text-xs font-outfit text-[#1D2A22] dark:text-[#D8E6D8] uppercase tracking-[2px]">
+                Plan access updates live
+              </Text>
+            </View>
+          </View>
+          <Text className="text-base font-outfit text-[#1D2A22] dark:text-[#D8E6D8] leading-relaxed">
             Choose the level of coaching that fits your athlete{"'"}s goals.
           </Text>
         </View>
@@ -214,16 +253,23 @@ export default function ProgramsScreen() {
           const requiredTier = programIdToTier(tier.id as "php" | "plus" | "premium");
           const normalizedTier = normalizeProgramTier(currentTier);
           const isTierEnrolled = normalizedTier === requiredTier;
-          const isPendingRequest =
+          const requestStatus = String(latestSubscriptionRequest?.status ?? "");
+          const isPendingApproval =
             !isTierEnrolled &&
             latestSubscriptionRequest?.planTier === requiredTier &&
-            ["pending_payment", "pending_approval"].includes(
-              String(latestSubscriptionRequest?.status ?? "")
-            );
+            requestStatus === "pending_approval";
+          const isPendingPayment =
+            !isTierEnrolled &&
+            latestSubscriptionRequest?.planTier === requiredTier &&
+            requestStatus === "pending_payment";
           const pricing = pricingByTier[requiredTier];
           const primaryLabel = isTierEnrolled
             ? "View Program"
-            : tier.id === "premium"
+            : isPendingApproval
+              ? "Waiting Approval"
+              : isPendingPayment
+                ? "Complete Payment"
+                : tier.id === "premium"
               ? "Apply"
               : "Onboard";
           return (
@@ -234,14 +280,16 @@ export default function ProgramsScreen() {
                 priceBadge: pricing?.badge,
                 priceLines: pricing?.lines,
                 discountNote: pricing?.discountNote,
-                highlight: isPendingRequest ? "Pending Approval" : tier.highlight,
+                highlight: isPendingApproval ? "Pending Approval" : tier.highlight,
               }}
               primaryLabel={primaryLabel}
               secondaryLabel="View Details"
             helperNote={
-              isPendingRequest
-                ? "Your request is pending coach approval."
-                : tier.id === "premium"
+              isPendingApproval
+                ? "Your request is awaiting coach approval."
+                : isPendingPayment
+                  ? "Finish checkout to submit for approval."
+                  : tier.id === "premium"
                   ? "1:1 spots are limited. Apply to join the waitlist."
                   : undefined
             }
@@ -250,8 +298,12 @@ export default function ProgramsScreen() {
                 handleViewProgram(tier.id);
                 return;
               }
-              if (isPendingRequest) {
+              if (isPendingApproval) {
                 Alert.alert("Pending approval", "Your request is awaiting coach approval.");
+                return;
+              }
+              if (isPendingPayment) {
+                Alert.alert("Payment required", "Complete payment to submit your request.");
                 return;
               }
               handleApply(tier.id);

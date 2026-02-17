@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
+import { Modal, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -7,6 +7,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
 import { ProgramSessionPanel } from "@/components/programs/ProgramSessionPanel";
+import { Text } from "@/components/ScaledText";
 import {
   BookingsPanel,
   FoodDiaryPanel,
@@ -29,7 +30,7 @@ const PROGRAM_TITLES: Record<ProgramId, string> = {
 };
 
 export default function ProgramDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: ProgramId }>();
+  const { id, tab } = useLocalSearchParams<{ id: ProgramId; tab?: string }>();
   const programId = id && ["php", "plus", "premium"].includes(id) ? (id as ProgramId) : "php";
   const router = useRouter();
   const { programTier, token } = useAppSelector((state) => state.user);
@@ -40,7 +41,8 @@ export default function ProgramDetailScreen() {
       return base.filter(
         (tab) =>
           tab !== "Parent Education" &&
-          tab !== "Nutrition & Food Diaries"
+          tab !== "Nutrition & Food Diaries" &&
+          tab !== "Submit Diary"
       );
     }
     if (role === "Guardian") {
@@ -56,8 +58,13 @@ export default function ProgramDetailScreen() {
   const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
-    setActiveTab(tabs[0]);
-  }, [tabs]);
+    const rawTab = typeof tab === "string" ? tab : Array.isArray(tab) ? tab[0] : undefined;
+    if (rawTab && tabs.includes(rawTab)) {
+      setActiveTab(rawTab);
+    } else {
+      setActiveTab(tabs[0]);
+    }
+  }, [tabs, tab]);
 
   const sessions = useMemo(() => {
     const allowedTypes = new Set(getSessionTypesForTab(activeTab));
@@ -192,21 +199,21 @@ export default function ProgramDetailScreen() {
     if (isLoadingSessions) {
       return (
         <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-          <Text className="text-sm font-outfit text-secondary">Loading configured exercises...</Text>
+          <Text className="text-2xl font-outfit text-secondary">Loading configured exercises...</Text>
         </View>
       );
     }
     if (sessionError) {
       return (
         <View className="rounded-3xl border border-red-500/30 bg-red-500/10 px-6 py-5">
-          <Text className="text-sm font-outfit text-red-600">{sessionError}</Text>
+          <Text className="text-2xl font-outfit text-red-600">{sessionError}</Text>
         </View>
       );
     }
     if (sessions.length === 0) {
       return (
         <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-          <Text className="text-sm font-outfit text-secondary">
+          <Text className="text-2xl font-outfit text-secondary">
             No exercises configured for this section yet. Ask your coach/admin to add sessions in Web Admin.
           </Text>
         </View>
@@ -229,21 +236,21 @@ export default function ProgramDetailScreen() {
         <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
           <View className="flex-row items-center gap-2">
             <Feather name="lock" size={16} color="#94A3B8" />
-            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+            <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
               Pending Access
             </Text>
           </View>
-          <Text className="text-lg font-clash text-app">
+          <Text className="text-2xl font-clash text-app">
             {title}
           </Text>
-          <Text className="text-sm font-outfit text-secondary">
+          <Text className="text-2xl font-outfit text-secondary">
             {body}
           </Text>
           <TouchableOpacity
             onPress={() => router.push("/plans")}
             className="mt-2 rounded-full bg-accent px-4 py-3"
           >
-            <Text className="text-white text-sm font-outfit text-center">
+            <Text className="text-white text-2xl font-outfit text-center">
               {normalizedTier ? "View Plans" : "Choose a Plan"}
             </Text>
           </TouchableOpacity>
@@ -255,13 +262,13 @@ export default function ProgramDetailScreen() {
       return (
         <View className="gap-4">
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
-            <Text className="text-lg font-clash text-app">Program Features</Text>
+            <Text className="text-2xl font-clash text-app">Program Features</Text>
             {tier?.features?.map((feature, index) => (
               <View key={`${tier.id}-feature-${index}`} className="flex-row items-center gap-3">
                 <View className="h-6 w-6 rounded-full bg-success-soft items-center justify-center">
                   <Feather name="check" size={12} color="#16A34A" />
                 </View>
-                <Text className="text-sm font-outfit text-app flex-1">{feature}</Text>
+                <Text className="text-2xl font-outfit text-app flex-1">{feature}</Text>
               </View>
             ))}
           </View>
@@ -286,7 +293,7 @@ export default function ProgramDetailScreen() {
       if (role !== "Guardian") {
         return (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-sm font-outfit text-secondary">Parent education is only available for guardians.</Text>
+            <Text className="text-2xl font-outfit text-secondary">Parent education is only available for guardians.</Text>
           </View>
         );
       }
@@ -295,21 +302,21 @@ export default function ProgramDetailScreen() {
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
             <View className="flex-row items-center gap-2">
               <Feather name="lock" size={16} color="#94A3B8" />
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+              <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
                 Locked
               </Text>
             </View>
-            <Text className="text-lg font-clash text-app">
+            <Text className="text-2xl font-clash text-app">
               Parent Program is locked on PHP
             </Text>
-            <Text className="text-sm font-outfit text-secondary">
+            <Text className="text-2xl font-outfit text-secondary">
               Upgrade to PHP Plus or PHP Premium to access parent education.
             </Text>
             <TouchableOpacity
               onPress={() => router.push("/plans")}
               className="mt-2 rounded-full bg-accent px-4 py-3"
             >
-              <Text className="text-white text-sm font-outfit text-center">
+              <Text className="text-white text-2xl font-outfit text-center">
                 View Plans
               </Text>
             </TouchableOpacity>
@@ -323,11 +330,11 @@ export default function ProgramDetailScreen() {
       return <ParentEducationPanel onOpen={() => router.push("/(tabs)/parent-platform")} />;
     }
 
-    if (activeTab === "Nutrition & Food Diaries") {
+    if (activeTab === "Nutrition & Food Diaries" || activeTab === "Submit Diary") {
       if (role !== "Guardian") {
         return (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-sm font-outfit text-secondary">Food diaries are managed by guardians.</Text>
+            <Text className="text-2xl font-outfit text-secondary">Food diaries are managed by guardians.</Text>
           </View>
         );
       }
@@ -338,7 +345,7 @@ export default function ProgramDetailScreen() {
       if (role !== "Athlete") {
         return (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-sm font-outfit text-secondary">Video uploads are available for athletes.</Text>
+            <Text className="text-2xl font-outfit text-secondary">Video uploads are available for athletes.</Text>
           </View>
         );
       }
@@ -347,7 +354,7 @@ export default function ProgramDetailScreen() {
 
     return (
       <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-        <Text className="text-sm font-outfit text-secondary">Content coming soon.</Text>
+        <Text className="text-2xl font-outfit text-secondary">Content coming soon.</Text>
       </View>
     );
   };
@@ -363,11 +370,11 @@ export default function ProgramDetailScreen() {
             >
               <Feather name="arrow-left" size={20} color="#94A3B8" />
             </TouchableOpacity>
-            <Text className="text-xl font-clash text-app font-bold">{PROGRAM_TITLES[programId]}</Text>
+          <Text className="text-2xl font-clash text-app font-bold">{PROGRAM_TITLES[programId]}</Text>
             <View className="w-10" />
           </View>
 
-          <Text className="text-sm font-outfit text-secondary mb-4">
+          <Text className="text-2xl font-outfit text-secondary mb-4">
             Select a tab to view your program sessions and resources.
           </Text>
         </View>
@@ -387,7 +394,7 @@ export default function ProgramDetailScreen() {
         <View className="flex-1 bg-black/80 justify-end">
           <View className="bg-app rounded-t-3xl p-4 pb-8">
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-base font-clash text-app">Exercise Video</Text>
+              <Text className="text-2xl font-clash text-app">Exercise Video</Text>
               <TouchableOpacity
                 onPress={() => setActiveVideoUrl(null)}
                 className="h-9 w-9 rounded-full bg-secondary items-center justify-center"

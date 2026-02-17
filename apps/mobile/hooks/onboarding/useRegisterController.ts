@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, View } from "react-native";
 import { useForm, useWatch } from "react-hook-form";
 import * as z from "zod";
+import Constants from "expo-constants";
 
 export type FieldType = "text" | "number" | "dropdown" | "date";
 
@@ -65,6 +66,7 @@ export function useRegisterController() {
   const [dropdownOpen, setDropdownOpen] = useState<"team" | "level" | null>(null);
   const [teamAnchor, setTeamAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [levelAnchor, setLevelAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [legalVersions, setLegalVersions] = useState<{ terms: string; privacy: string } | null>(null);
 
   const teamTriggerRef = useRef<View>(null);
   const levelTriggerRef = useRef<View>(null);
@@ -193,6 +195,34 @@ export function useRegisterController() {
   }, [loadConfig]);
 
   useEffect(() => {
+    let active = true;
+    const loadLegal = async () => {
+      if (!token) return;
+      try {
+        const response = await apiRequest<{ items?: any[] }>("/content/legal", { token, suppressStatusCodes: [401, 403] });
+        if (!active) return;
+        const items = response.items ?? [];
+        const findLegal = (key: "terms" | "privacy") =>
+          items.find((item: any) => String(item.category ?? "").toLowerCase() === key) ||
+          items.find((item: any) => String(item.title ?? "").toLowerCase().includes(key));
+        const terms = findLegal("terms");
+        const privacy = findLegal("privacy");
+        setLegalVersions({
+          terms: String(terms?.content ?? "1.0"),
+          privacy: String(privacy?.content ?? "1.0"),
+        });
+      } catch {
+        if (!active) return;
+        setLegalVersions(null);
+      }
+    };
+    loadLegal();
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
     const options = levelOptionsForTeam(teamValue);
     const current = getValue("level");
     if (!teamValue && current) {
@@ -288,9 +318,9 @@ export function useRegisterController() {
             parentPhone,
             relationToAthlete: relation,
             desiredProgramType: programTier,
-            termsVersion: "1.0",
-            privacyVersion: "1.0",
-            appVersion: "mobile-1.0",
+            termsVersion: legalVersions?.terms ?? "1.0",
+            privacyVersion: legalVersions?.privacy ?? "1.0",
+            appVersion: Constants.expoConfig?.version ?? "mobile-unknown",
             extraResponses,
           },
         });
@@ -309,7 +339,7 @@ export function useRegisterController() {
         setIsSubmitting(false);
       }
     },
-    [config?.defaultProgramTier, config?.fields, dispatch, profile.email, router, setRole, token]
+    [config?.defaultProgramTier, config?.fields, dispatch, legalVersions, profile.email, router, setRole, token]
   );
 
   const onSubmit = handleSubmit(submit, () => {

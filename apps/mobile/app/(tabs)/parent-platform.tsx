@@ -1,7 +1,7 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Alert, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { useRole } from "@/context/RoleContext";
 import { setParentContentCache } from "@/lib/parentContentCache";
 import { canAccessTier, tierRank } from "@/lib/planAccess";
+import { Text } from "@/components/ScaledText";
 
 const CATEGORIES = [
   { id: "growth", title: "Growth and maturation", icon: "book-open", color: "bg-emerald-500" },
@@ -86,8 +87,6 @@ export default function ParentPlatformScreen() {
     }));
   }, [items]);
   const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
-
-
 
   if (role !== "Guardian") {
     return (
@@ -236,7 +235,7 @@ export default function ParentPlatformScreen() {
                             <Text className="font-outfit font-bold text-app text-base">{item.title}</Text>
                             {isLocked ? (
                               <View className="px-2 py-1 rounded-full bg-secondary/10 border border-app/10">
-                                <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                                <Text className="text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                                   Locked
                                 </Text>
                               </View>
@@ -274,25 +273,3 @@ export default function ParentPlatformScreen() {
     </SafeAreaView>
   );
 }
-  if (role !== "Guardian") {
-    return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <View className="flex-1 px-6 pt-8">
-          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
-            <View className="flex-row items-center gap-2 mb-2">
-              <Feather name="lock" size={16} className="text-secondary" />
-              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
-                Guardians Only
-              </Text>
-            </View>
-            <Text className="text-xl font-clash text-app mb-2">
-              Parent Platform is for guardians
-            </Text>
-            <Text className="text-sm font-outfit text-secondary leading-relaxed">
-              Switch to the Guardian role to access parent education content.
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }

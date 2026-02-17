@@ -3,9 +3,10 @@ import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useState } from "react";
 import { Controller, Control, FieldErrors, UseFormSetValue } from "react-hook-form";
-import { Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 
 import { AthleteRegisterFormData, ConfigField } from "@/hooks/onboarding/useRegisterController";
+import { Text, TextInput } from "@/components/ScaledText";
 
 type ColorSet = {
   app: string;

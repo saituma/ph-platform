@@ -1,8 +1,9 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
+import { Text } from "@/components/ScaledText";
 
 interface LegalModalProps {
   visible: boolean;

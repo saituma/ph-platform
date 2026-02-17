@@ -18,6 +18,7 @@ import { getNotifications } from "@/lib/notifications";
 import "./global.css";
 import useLoadFonts from "./hooks/useLoadFonts";
 import AppThemeProvider from "./theme/AppThemeProvider";
+import { FontScaleProvider } from "@/context/FontScaleContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -165,17 +166,19 @@ export default function RootLayout() {
           <RoleProvider>
             <AppLockProvider>
               <AppThemeProvider>
-                <RefreshProvider>
-                  <GlobalRefreshLayout>
-                  <StripeProvider
-                    publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                    merchantIdentifier="merchant.ph.performance"
-                  >
-                    <AuthPersist />
-                    <AppShell colorScheme={colorScheme} />
-                  </StripeProvider>
-                </GlobalRefreshLayout>
-                </RefreshProvider>
+                <FontScaleProvider>
+                  <RefreshProvider>
+                    <GlobalRefreshLayout>
+                      <StripeProvider
+                        publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                        merchantIdentifier="merchant.ph.performance"
+                      >
+                        <AuthPersist />
+                        <AppShell colorScheme={colorScheme} />
+                      </StripeProvider>
+                    </GlobalRefreshLayout>
+                  </RefreshProvider>
+                </FontScaleProvider>
               </AppThemeProvider>
             </AppLockProvider>
           </RoleProvider>

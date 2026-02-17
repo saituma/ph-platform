@@ -3,9 +3,10 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Switch, Text, TouchableOpacity, View } from "react-native";
+import { Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text } from "@/components/ScaledText";
 
 export default function NotificationsScreen() {
   const router = useRouter();

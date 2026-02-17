@@ -144,8 +144,10 @@ export function AuthPersist() {
         });
         if (!active) return;
 
-        const nextTier = status?.currentProgramTier ?? null;
         const nextRequestStatus = status?.latestRequest?.status ?? null;
+        const nextTier =
+          status?.currentProgramTier ??
+          (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
         const previous = lastBillingSnapshot.current;
         const becameApproved =
           previous &&

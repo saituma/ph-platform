@@ -4,7 +4,8 @@ import { Skeleton } from "@/components/Skeleton";
 import { Feather } from "@/components/ui/theme-icons";
 import { useRefreshContext } from "@/context/RefreshContext";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 export function GuardianDashboard() {
   const { colors } = useAppTheme();

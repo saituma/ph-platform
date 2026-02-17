@@ -13,6 +13,7 @@ import {
 import { sql } from "drizzle-orm";
 import { getUserById } from "./user.service";
 import { calculateAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
+import { getGuardianAndAthlete } from "./user.service";
 
 const defaultPublicConfig = {
   version: 1,
@@ -292,6 +293,23 @@ export async function submitOnboarding(input: {
   }
 
   return { athleteId, athleteUserId: updatedAthlete.userId, status };
+}
+
+export async function updateAthleteProfilePicture(input: {
+  userId: number;
+  profilePicture: string | null;
+}) {
+  const { athlete } = await getGuardianAndAthlete(input.userId);
+  if (!athlete) return null;
+  const [updated] = await db
+    .update(athleteTable)
+    .set({
+      profilePicture: input.profilePicture,
+      updatedAt: new Date(),
+    })
+    .where(eq(athleteTable.id, athlete.id))
+    .returning();
+  return updated ?? null;
 }
 
 function decorateAthlete(athlete: typeof athleteTable.$inferSelect | null) {

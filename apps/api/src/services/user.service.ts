@@ -62,6 +62,22 @@ export async function updateUserRole(
   return result[0] ?? null;
 }
 
+export async function updateUserProfile(
+  userId: number,
+  input: { name?: string; profilePicture?: string | null }
+) {
+  const result = await db
+    .update(userTable)
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.profilePicture !== undefined ? { profilePicture: input.profilePicture } : {}),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(userTable.id, userId), eq(userTable.isDeleted, false)))
+    .returning();
+  return result[0] ?? null;
+}
+
 export async function getGuardianAndAthlete(userId: number) {
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0] ?? null;

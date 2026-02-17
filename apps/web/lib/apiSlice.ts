@@ -17,6 +17,7 @@ export const apiSlice = createApi({
     "Availability",
     "FoodDiary",
     "PhysioReferrals",
+    "Programs",
   ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<any, void>({
@@ -92,6 +93,14 @@ export const apiSlice = createApi({
     }),
     getParentContent: builder.query<{ items: any[] }, void>({
       query: () => "/content/parent-platform",
+      providesTags: ["Content"],
+    }),
+    getHomeContent: builder.query<{ items: any[] }, void>({
+      query: () => "/content/home",
+      providesTags: ["Content"],
+    }),
+    getLegalContent: builder.query<{ items: any[] }, void>({
+      query: () => "/content/legal",
       providesTags: ["Content"],
     }),
     getParentCourses: builder.query<{ items: any[] }, void>({
@@ -257,13 +266,33 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    assignProgram: builder.mutation<any, { athleteId: number; programType: string }>({
+    assignProgram: builder.mutation<any, { athleteId: number; programType: string; programTemplateId?: number }>({
       query: (body) => ({
         url: "/admin/enrollments",
         method: "POST",
         body,
       }),
       invalidatesTags: ["Users"],
+    }),
+    getPrograms: builder.query<{ programs: any[] }, void>({
+      query: () => "/admin/programs",
+      providesTags: ["Programs"],
+    }),
+    createProgram: builder.mutation<{ program: any }, { name: string; type: string; description?: string }>({
+      query: (body) => ({
+        url: "/admin/programs",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Programs"],
+    }),
+    updateProgram: builder.mutation<{ program: any }, { programId: number; data: { name?: string; type?: string; description?: string | null } }>({
+      query: ({ programId, data }) => ({
+        url: `/admin/programs/${programId}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["Programs"],
     }),
     getOnboardingConfig: builder.query<{ config: any }, void>({
       query: () => "/admin/onboarding-config",
@@ -344,6 +373,8 @@ export const {
   useGetThreadsQuery,
   useGetMessagesQuery,
   useGetParentContentQuery,
+  useGetHomeContentQuery,
+  useGetLegalContentQuery,
   useGetParentCoursesQuery,
   useGetFoodDiaryQuery,
   useGetPhysioReferralsQuery,
@@ -366,6 +397,9 @@ export const {
   useGetUserOnboardingQuery,
   useUpdateProgramTierMutation,
   useAssignProgramMutation,
+  useGetProgramsQuery,
+  useCreateProgramMutation,
+  useUpdateProgramMutation,
   useGetOnboardingConfigQuery,
   useUpdateOnboardingConfigMutation,
   useGetChatGroupsQuery,

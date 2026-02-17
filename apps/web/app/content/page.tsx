@@ -3,19 +3,37 @@
 import { useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
-import { EmptyState } from "../../components/admin/empty-state";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { ContentDialogs, type ContentDialog } from "../../components/admin/content/content-dialogs";
 import { ContentTabs } from "../../components/admin/content/content-tabs";
-import { useCreateContentMutation } from "../../lib/apiSlice";
+import { useCreateContentMutation, useGetHomeContentQuery, useGetLegalContentQuery, useUpdateContentMutation } from "../../lib/apiSlice";
 
 export default function ContentPage() {
-  const hasContent = false;
   const [createContent, { isLoading }] = useCreateContentMutation();
+  const [updateContent] = useUpdateContentMutation();
+  const { data: homeData } = useGetHomeContentQuery();
+  const { data: legalData } = useGetLegalContentQuery();
   const [activeDialog, setActiveDialog] = useState<ContentDialog>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const homeItem = (homeData?.items ?? [])[0] ?? null;
+  let homeBody: any = {};
+  if (homeItem?.body && typeof homeItem.body === "string") {
+    try {
+      homeBody = JSON.parse(homeItem.body);
+    } catch {
+      homeBody = {};
+    }
+  }
+
+  const legalItems = legalData?.items ?? [];
+  const findLegal = (key: "terms" | "privacy") =>
+    legalItems.find((item: any) => String(item.category ?? "").toLowerCase() === key) ||
+    legalItems.find((item: any) => String(item.title ?? "").toLowerCase().includes(key));
+  const termsItem = findLegal("terms");
+  const privacyItem = findLegal("privacy");
   return (
     <AdminShell title="Content" subtitle="Manage every page in the mobile app.">
       <Card>
@@ -35,8 +53,23 @@ export default function ContentPage() {
               </div>
               <Skeleton className="h-10 w-32" />
             </div>
-          ) : hasContent ? (
+          ) : (
             <ContentTabs
+              initialHome={{
+                headline: homeBody.headline ?? homeItem?.content ?? homeItem?.title ?? "",
+                description: homeBody.description ?? "",
+                welcome: homeBody.welcome ?? "",
+                introVideoUrl: homeBody.introVideoUrl ?? "",
+                testimonials: homeBody.testimonials ?? "",
+                heroImageUrl: homeBody.heroImageUrl ?? "",
+                tier: homeItem?.programTier ?? "all",
+              }}
+              initialLegal={{
+                termsText: termsItem?.body ?? "",
+                termsVersion: termsItem?.content ?? "1.0",
+                privacyText: privacyItem?.body ?? "",
+                privacyVersion: privacyItem?.content ?? "1.0",
+              }}
               onSaveHome={async (data) => {
                 setError(null);
                 const payload = {
@@ -54,7 +87,11 @@ export default function ContentPage() {
                   programTier: data.tier === "all" ? undefined : data.tier,
                 };
                 try {
-                  await createContent(payload).unwrap();
+                  if (homeItem?.id) {
+                    await updateContent({ id: homeItem.id, data: payload }).unwrap();
+                  } else {
+                    await createContent(payload).unwrap();
+                  }
                   setActiveDialog("home");
                 } catch (err) {
                   setError("Failed to save home content");
@@ -79,13 +116,35 @@ export default function ContentPage() {
                 }
               }}
               onSavePrograms={() => setActiveDialog("programs")}
-              onSaveLegal={() => setActiveDialog("legal")}
-            />
-          ) : (
-            <EmptyState
-              title="No content yet"
-              description="Start by adding your first page content."
-              actionLabel="Add Content"
+              onSaveLegal={async (data) => {
+                setError(null);
+                const upsert = async (key: "terms" | "privacy", text: string, version: string) => {
+                  const existing =
+                    key === "terms" ? termsItem : privacyItem;
+                  const payload = {
+                    title: key === "terms" ? "Terms & Conditions" : "Privacy Policy",
+                    content: version,
+                    type: "article",
+                    body: text,
+                    surface: "legal",
+                    category: key,
+                  };
+                  if (existing?.id) {
+                    await updateContent({ id: existing.id, data: payload }).unwrap();
+                  } else {
+                    await createContent(payload).unwrap();
+                  }
+                };
+                try {
+                  await Promise.all([
+                    upsert("terms", data.termsText, data.termsVersion || "1.0"),
+                    upsert("privacy", data.privacyText, data.privacyVersion || "1.0"),
+                  ]);
+                  setActiveDialog("legal");
+                } catch (err) {
+                  setError("Failed to save legal content");
+                }
+              }}
             />
           )}
         </CardContent>

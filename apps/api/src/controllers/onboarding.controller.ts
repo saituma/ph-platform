@@ -5,6 +5,7 @@ import {
   getOnboardingByUser,
   submitOnboarding as submitOnboardingService,
   getPublicOnboardingConfig,
+  updateAthleteProfilePicture,
 } from "../services/onboarding.service";
 import { ProgramType } from "../db/schema";
 import { calculateAge, parseISODate } from "../lib/age";
@@ -30,6 +31,10 @@ const onboardingSchema = z.object({
 }).refine((data) => Boolean(data.birthDate || data.age), {
   message: "Birth date is required.",
   path: ["birthDate"],
+});
+
+const athletePhotoSchema = z.object({
+  profilePicture: z.string().url().nullable(),
 });
 
 export async function submitOnboarding(req: Request, res: Response) {
@@ -76,4 +81,19 @@ export async function getOnboardingConfig(_req: Request, res: Response) {
 export async function getOnboardingStatus(req: Request, res: Response) {
   const athlete = await getOnboardingByUser(req.user!.id);
   return res.status(200).json({ athlete });
+}
+
+export async function updateAthletePhoto(req: Request, res: Response) {
+  const input = athletePhotoSchema.safeParse(req.body);
+  if (!input.success) {
+    return res.status(400).json({ error: "Invalid request", details: input.error.flatten().fieldErrors });
+  }
+  const updated = await updateAthleteProfilePicture({
+    userId: req.user!.id,
+    profilePicture: input.data.profilePicture,
+  });
+  if (!updated) {
+    return res.status(404).json({ error: "Athlete profile not found" });
+  }
+  return res.status(200).json({ athlete: updated });
 }
