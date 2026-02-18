@@ -5,6 +5,7 @@ import { ActivityIndicator, Image, Pressable, View } from "react-native";
 
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { Text } from "@/components/ScaledText";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 
 type InboxScreenProps = {
@@ -33,50 +34,40 @@ export function InboxScreen({
   openingThreadId,
   onRefresh,
   onOpenThread,
-  backgroundSecondary,
-  borderColor,
-  accentLight,
   textSecondaryColor,
 }: InboxScreenProps) {
+  const { colors } = useAppTheme();
+
   return (
     <ThemedScrollView onRefresh={onRefresh} contentContainerStyle={{ paddingBottom: 24 }}>
-      <View className="px-6 pt-6 pb-4">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 mr-3">
-            <View className="flex-row items-center gap-3">
-              <View className="h-9 w-1.5 rounded-full bg-accent" />
-              <View>
-                <Text className="text-3xl font-clash text-app">Messages</Text>
-                <Text className="text-secondary font-outfit text-sm mt-1">
-                  Direct coach support and updates
-                </Text>
-              </View>
-            </View>
+      <View className="px-6 pt-8 pb-6">
+        <View className="flex-row items-center justify-between mb-2">
+          <View className="flex-row items-center gap-3">
+            <View className="h-8 w-1.5 rounded-full bg-accent" />
+            <Text className="text-3xl font-clash text-app">Messages</Text>
+          </View>
+          <View className="px-3 py-1 rounded-full bg-accent/10">
+            <Text className="text-[0.6875rem] font-bold font-outfit text-accent uppercase tracking-[1.5px]">Priority Inbox</Text>
           </View>
         </View>
+        
+        <Text className="text-secondary font-outfit text-sm mb-8">
+          Direct coach support and updates
+        </Text>
 
-        <View className="mt-6">
-          <View className="flex-row items-center rounded-2xl px-4 h-12 bg-input">
-            <Feather name="search" size={18} className="text-secondary" />
-            <Text className="ml-3 text-secondary font-outfit text-sm">Search messages</Text>
-          </View>
+        <View className="flex-row items-center rounded-full px-5 h-12 bg-input/60 border border-accent/20 shadow-sm">
+          <Feather name="search" size={18} color={colors.accent} />
+          <Text className="ml-3 text-secondary font-outfit text-sm">Search conversations...</Text>
         </View>
       </View>
 
       <View className="px-6 pb-6">
-        <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-lg font-clash text-app">Inbox</Text>
-          <View className="px-3 py-1 rounded-full bg-accent-light">
-            <Text className="text-[0.6875rem] font-outfit text-accent uppercase tracking-[1.5px]">Priority</Text>
-          </View>
-        </View>
-
         <View className="gap-3">
           {isLoading
             ? [1, 2, 3, 4].map((item) => (
                 <View
                   key={`skeleton-${item}`}
-                  className="rounded-3xl p-4 bg-input"
+                  className="rounded-3xl p-4 bg-input border border-accent/10"
                 >
                   <View className="flex-row items-center">
                     <View className="h-12 w-12 rounded-2xl bg-secondary/20" />
@@ -96,12 +87,9 @@ export function InboxScreen({
                     key={thread.id}
                     className="rounded-3xl bg-input"
                     style={{
-                      padding: 24, // Balanced premium padding
-                      borderTopWidth: 1,
-                      borderBottomWidth: 1,
-                      borderLeftWidth: 1,
-                      borderRightWidth: 1,
-                      borderColor: "rgba(34,197,94,0.35)",
+                      padding: 24,
+                      borderWidth: 1,
+                      borderColor: "rgba(34,197,94,0.25)",
                     }}
                     onPress={() => onOpenThread(thread)}
                   >
@@ -112,8 +100,8 @@ export function InboxScreen({
                             <Image source={{ uri: thread.avatarUrl }} style={{ width: 56, height: 56 }} />
                           </View>
                         ) : (
-                          <View className="h-14 w-14 rounded-2xl items-center justify-center bg-accent-light">
-                            <Text className="font-clash text-app text-lg">
+                          <View className="h-14 w-14 rounded-2xl items-center justify-center bg-accent/10">
+                            <Text className="font-clash text-accent text-lg">
                               {getInitials(thread.name)}
                             </Text>
                           </View>
@@ -135,16 +123,16 @@ export function InboxScreen({
                           </View>
                           <View className="items-end">
                             {openingThreadId === thread.id ? (
-                              <ActivityIndicator size="small" color={textSecondaryColor} />
+                              <ActivityIndicator size="small" color={colors.accent} />
                             ) : (
                               <Text className="text-[0.75rem] font-outfit text-secondary">
                                 {thread.time}
                               </Text>
                             )}
                             {thread.premium ? (
-                              <View className="mt-2 flex-row items-center px-2 py-0.5 rounded-full bg-accent-light">
-                                <Feather name="star" size={12} className="text-accent" />
-                                <Text className="ml-1 text-[0.625rem] font-outfit text-accent uppercase tracking-[1.2px]">
+                              <View className="mt-2 flex-row items-center px-2 py-0.5 rounded-full bg-accent">
+                                <Feather name="star" size={10} color="#FFFFFF" />
+                                <Text className="ml-1 text-[0.625rem] font-bold font-outfit text-white uppercase tracking-[1.2px]">
                                   Premium
                                 </Text>
                               </View>
@@ -161,17 +149,17 @@ export function InboxScreen({
                     <View className="flex-row items-center justify-between mt-4">
                       <View className="flex-row items-center gap-2">
                         {thread.pinned ? (
-                          <View className="flex-row items-center px-2 py-1 rounded-full bg-accent-light">
-                            <Feather name="bookmark" size={12} className="text-accent" />
-                            <Text className="ml-1 text-[0.625rem] font-outfit text-accent uppercase tracking-[1.2px]">
+                          <View className="flex-row items-center px-2 py-1 rounded-full bg-accent/10">
+                            <Feather name="bookmark" size={12} color={colors.accent} />
+                            <Text className="ml-1 text-[0.625rem] font-bold font-outfit text-accent uppercase tracking-[1.2px]">
                               Pinned
                             </Text>
                           </View>
                         ) : null}
                         {thread.premium ? (
-                          <View className="flex-row items-center px-2 py-1 rounded-full bg-accent-light">
-                            <Feather name="zap" size={12} className="text-accent" />
-                            <Text className="ml-1 text-[0.625rem] font-outfit text-accent uppercase tracking-[1.2px]">
+                          <View className="flex-row items-center px-2 py-1 rounded-full bg-accent/10">
+                            <Feather name="zap" size={12} color={colors.accent} />
+                            <Text className="ml-1 text-[0.625rem] font-bold font-outfit text-accent uppercase tracking-[1.2px]">
                               Priority
                             </Text>
                           </View>
@@ -180,11 +168,11 @@ export function InboxScreen({
 
                       {!thread.unread ? (
                         <View className="flex-row items-center gap-1">
-                          <Feather name="check-circle" size={14} className="text-secondary" />
+                          <Feather name="check-circle" size={14} color={colors.accent} />
                           <Text className="text-[0.6875rem] font-outfit text-secondary">Up to date</Text>
                         </View>
                       ) : (
-                        <Text className="text-[0.8125rem] font-outfit text-accent">
+                        <Text className="text-[0.8125rem] font-bold font-outfit text-accent">
                           {thread.unread}
                         </Text>
                       )}
@@ -194,7 +182,7 @@ export function InboxScreen({
               })}
 
           {!threads.length && !isLoading ? (
-            <View className="rounded-3xl p-4 bg-input">
+            <View className="rounded-3xl p-4 bg-input border border-accent/10">
               <Text className="text-sm font-outfit text-secondary">No conversations yet.</Text>
             </View>
           ) : null}
@@ -202,14 +190,14 @@ export function InboxScreen({
       </View>
 
       <View className="px-6 pb-10">
-        <View className="rounded-3xl p-5 bg-input">
+        <View className="rounded-3xl p-5 bg-input border border-accent/20">
           <Text className="text-base font-clash text-app">Need something urgent?</Text>
           <Text className="text-sm font-outfit text-secondary mt-2">
             Premium members get priority response times from your coach.
           </Text>
           <View className="mt-4 flex-row items-center gap-2">
-            <View className="h-9 w-9 rounded-2xl bg-accent-light items-center justify-center">
-              <Feather name="phone" size={16} className="text-accent" />
+            <View className="h-9 w-9 rounded-2xl bg-accent/10 items-center justify-center">
+              <Feather name="phone" size={16} color={colors.accent} />
             </View>
             <Text className="text-sm font-outfit text-app">Book a 1:1 call in Schedule</Text>
           </View>

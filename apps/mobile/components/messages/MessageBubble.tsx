@@ -81,10 +81,10 @@ export function MessageBubble({
             {message.reactions.map((reaction) => (
               <Pressable
                 key={`${message.id}-${reaction.emoji}`}
-                className="rounded-full border border-app/10 px-2 py-1"
+                className="rounded-full border border-accent/20 px-2 py-1 bg-accent/5"
                 onPress={() => onReactionPress(message, reaction.emoji)}
               >
-                <Text className={`text-[0.6875rem] font-outfit ${isUser ? "text-white/80" : "text-secondary"}`}>
+                <Text className={`text-[0.6875rem] font-bold font-outfit ${isUser ? "text-white/80" : "text-accent"}`}>
                   {reaction.emoji} {reaction.count}
                 </Text>
               </Pressable>
