@@ -370,6 +370,8 @@ export async function createProgramTemplate(input: {
   name: string;
   type: (typeof ProgramType.enumValues)[number];
   description?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   createdBy: number;
 }) {
   const result = await db
@@ -378,6 +380,8 @@ export async function createProgramTemplate(input: {
       name: input.name,
       type: input.type,
       description: input.description ?? null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
       isTemplate: true,
       createdBy: input.createdBy,
     })
@@ -399,6 +403,8 @@ export async function updateProgramTemplate(input: {
   name?: string | null;
   type?: (typeof ProgramType.enumValues)[number] | null;
   description?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
 }) {
   const existing = await db.select().from(programTable).where(eq(programTable.id, input.programId)).limit(1);
   if (!existing[0]) {
@@ -410,6 +416,8 @@ export async function updateProgramTemplate(input: {
       name: input.name ?? existing[0].name,
       type: input.type ?? existing[0].type,
       description: input.description ?? existing[0].description ?? null,
+      minAge: input.minAge ?? existing[0].minAge ?? null,
+      maxAge: input.maxAge ?? existing[0].maxAge ?? null,
       updatedAt: new Date(),
     })
     .where(eq(programTable.id, input.programId))

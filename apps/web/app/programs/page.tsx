@@ -46,6 +46,8 @@ export default function ProgramsPage() {
         summary: program.description ?? "",
         access: accessLabel(program.type),
         type: program.type,
+        minAge: program.minAge ?? null,
+        maxAge: program.maxAge ?? null,
       })),
     [filteredPrograms]
   );
@@ -112,7 +114,13 @@ export default function ProgramsPage() {
         onUpdate={async (input) => {
           await updateProgram({
             programId: input.programId,
-            data: { name: input.name, type: input.type, description: input.description ?? null },
+            data: {
+              name: input.name,
+              type: input.type,
+              description: input.description ?? null,
+              minAge: input.minAge ?? null,
+              maxAge: input.maxAge ?? null,
+            },
           }).unwrap();
         }}
         onAssign={async (input) => {

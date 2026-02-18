@@ -278,7 +278,10 @@ export const apiSlice = createApi({
       query: () => "/admin/programs",
       providesTags: ["Programs"],
     }),
-    createProgram: builder.mutation<{ program: any }, { name: string; type: string; description?: string }>({
+    createProgram: builder.mutation<
+      { program: any },
+      { name: string; type: string; description?: string; minAge?: number | null; maxAge?: number | null }
+    >({
       query: (body) => ({
         url: "/admin/programs",
         method: "POST",
@@ -286,7 +289,13 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Programs"],
     }),
-    updateProgram: builder.mutation<{ program: any }, { programId: number; data: { name?: string; type?: string; description?: string | null } }>({
+    updateProgram: builder.mutation<
+      { program: any },
+      {
+        programId: number;
+        data: { name?: string; type?: string; description?: string | null; minAge?: number | null; maxAge?: number | null };
+      }
+    >({
       query: ({ programId, data }) => ({
         url: `/admin/programs/${programId}`,
         method: "PATCH",

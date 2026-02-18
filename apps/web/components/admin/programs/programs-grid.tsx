@@ -10,6 +10,8 @@ type ProgramItem = {
   summary?: string | null;
   access: string;
   type: string;
+  minAge?: number | null;
+  maxAge?: number | null;
 };
 
 type ProgramsGridProps = {
@@ -25,6 +27,13 @@ export function ProgramsGrid({
   onManage,
   onAssign,
 }: ProgramsGridProps) {
+  const formatAgeRange = (program: { minAge?: number | null; maxAge?: number | null }) => {
+    if (program.minAge == null && program.maxAge == null) return "All ages";
+    if (program.minAge != null && program.maxAge != null) return `Ages ${program.minAge}-${program.maxAge}`;
+    if (program.minAge != null) return `Ages ${program.minAge}+`;
+    return `Up to ${program.maxAge}`;
+  };
+
   if (isLoading) {
     return (
       <div className="grid gap-6 lg:grid-cols-3">
@@ -66,7 +75,10 @@ export function ProgramsGrid({
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">{program.summary || "No description yet."}</p>
-            <Badge variant="outline">{program.access}</Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{program.access}</Badge>
+              <Badge>{formatAgeRange(program)}</Badge>
+            </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => onManage(program)}>
                 Manage

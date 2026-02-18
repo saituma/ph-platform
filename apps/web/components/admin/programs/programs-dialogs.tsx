@@ -5,18 +5,38 @@ import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type ProgramsDialog = null | "create-template" | "manage" | "assign";
 
 type ProgramsDialogsProps = {
   active: ProgramsDialog;
   onClose: () => void;
-  selectedProgram?: { id: number; name: string; summary?: string | null; type: string } | null;
+  selectedProgram?: {
+    id: number;
+    name: string;
+    summary?: string | null;
+    type: string;
+    minAge?: number | null;
+    maxAge?: number | null;
+  } | null;
   programs: { id: number; name: string; type: string }[];
   users: { id: number; name: string; email: string; athleteId?: number | null }[];
-  onCreate: (input: { name: string; type: string; description?: string }) => Promise<void>;
-  onUpdate: (input: { programId: number; name: string; type: string; description?: string | null }) => Promise<void>;
+  onCreate: (input: {
+    name: string;
+    type: string;
+    description?: string;
+    minAge?: number | null;
+    maxAge?: number | null;
+  }) => Promise<void>;
+  onUpdate: (input: {
+    programId: number;
+    name: string;
+    type: string;
+    description?: string | null;
+    minAge?: number | null;
+    maxAge?: number | null;
+  }) => Promise<void>;
   onAssign: (input: { athleteId: number; programType: string; programTemplateId: number }) => Promise<void>;
   isSaving?: boolean;
 };
@@ -41,6 +61,8 @@ export function ProgramsDialogs({
   const [name, setName] = useState("");
   const [type, setType] = useState("PHP");
   const [description, setDescription] = useState("");
+  const [minAge, setMinAge] = useState("");
+  const [maxAge, setMaxAge] = useState("");
   const [athleteId, setAthleteId] = useState("");
   const [templateId, setTemplateId] = useState("");
 
@@ -54,6 +76,8 @@ export function ProgramsDialogs({
     setName("");
     setType("PHP");
     setDescription("");
+    setMinAge("");
+    setMaxAge("");
   };
 
   const resetAssign = () => {
@@ -61,14 +85,24 @@ export function ProgramsDialogs({
     setTemplateId(selectedProgram?.id ? String(selectedProgram.id) : "");
   };
 
-  const openLabel = active;
-  if (openLabel === "create-template") {
-    if (!name && !description) resetCreate();
-  } else if (openLabel === "assign") {
-    if (!templateId && selectedProgram?.id) {
-      setTemplateId(String(selectedProgram.id));
+  useEffect(() => {
+    if (active === "create-template") {
+      resetCreate();
+      return;
     }
-  }
+    if (active === "manage" && selectedProgram) {
+      setName(selectedProgram.name ?? "");
+      setType(selectedProgram.type ?? "PHP");
+      setDescription(selectedProgram.summary ?? "");
+      setMinAge(selectedProgram.minAge != null ? String(selectedProgram.minAge) : "");
+      setMaxAge(selectedProgram.maxAge != null ? String(selectedProgram.maxAge) : "");
+      return;
+    }
+    if (active === "assign") {
+      setAthleteId("");
+      setTemplateId(selectedProgram?.id ? String(selectedProgram.id) : "");
+    }
+  }, [active, selectedProgram]);
 
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
@@ -91,6 +125,20 @@ export function ProgramsDialogs({
                 <option value="PHP_Premium">PHP Premium</option>
               </Select>
               <Textarea placeholder="Template summary" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  type="number"
+                  placeholder="Minimum age"
+                  value={minAge}
+                  onChange={(e) => setMinAge(e.target.value)}
+                />
+                <Input
+                  type="number"
+                  placeholder="Maximum age"
+                  value={maxAge}
+                  onChange={(e) => setMaxAge(e.target.value)}
+                />
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>
                   Cancel
@@ -98,7 +146,15 @@ export function ProgramsDialogs({
                 <Button
                   disabled={isSaving || !name.trim()}
                   onClick={async () => {
-                    await onCreate({ name: name.trim(), type, description: description.trim() || undefined });
+                    const minAgeValue = minAge.trim() ? Number(minAge) : null;
+                    const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
+                    await onCreate({
+                      name: name.trim(),
+                      type,
+                      description: description.trim() || undefined,
+                      minAge: minAgeValue ?? null,
+                      maxAge: maxAgeValue ?? null,
+                    });
                     resetCreate();
                     onClose();
                   }}
@@ -112,19 +168,33 @@ export function ProgramsDialogs({
             <>
               <Input
                 placeholder="Program name"
-                defaultValue={selectedProgram.name}
+                value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <Textarea
                 placeholder="Summary"
-                defaultValue={selectedProgram.summary ?? ""}
+                value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              <Select defaultValue={selectedProgram.type} onChange={(e) => setType(e.target.value)}>
+              <Select value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="PHP">PHP Program</option>
                 <option value="PHP_Plus">PHP Plus</option>
                 <option value="PHP_Premium">PHP Premium</option>
               </Select>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  type="number"
+                  placeholder="Minimum age"
+                  value={minAge}
+                  onChange={(e) => setMinAge(e.target.value)}
+                />
+                <Input
+                  type="number"
+                  placeholder="Maximum age"
+                  value={maxAge}
+                  onChange={(e) => setMaxAge(e.target.value)}
+                />
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>
                   Cancel
@@ -132,11 +202,15 @@ export function ProgramsDialogs({
                 <Button
                   disabled={isSaving}
                   onClick={async () => {
+                    const minAgeValue = minAge.trim() ? Number(minAge) : null;
+                    const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
                     await onUpdate({
                       programId: selectedProgram.id,
                       name: (name || selectedProgram.name).trim(),
                       type: type || selectedProgram.type,
                       description: description.trim() || null,
+                      minAge: minAgeValue ?? null,
+                      maxAge: maxAgeValue ?? null,
                     });
                     onClose();
                   }}

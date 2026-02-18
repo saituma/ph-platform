@@ -54,6 +54,7 @@ export default function ProgramDetailScreen() {
   const [allSessions, setAllSessions] = useState<SessionItem[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [ageGateMessage, setAgeGateMessage] = useState<string | null>(null);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -81,6 +82,7 @@ export default function ProgramDetailScreen() {
     }
     setIsLoadingSessions(true);
     setSessionError(null);
+    setAgeGateMessage(null);
     try {
       const mapExercise = (entry: any) => ({
         id: String(entry?.id ?? entry?.exerciseId ?? "exercise-unknown"),
@@ -109,19 +111,9 @@ export default function ProgramDetailScreen() {
       const requiredType = programIdToTier(programId);
       const selected = (programsData.programs ?? []).find((item) => item.type === requiredType);
       if (!selected?.programId) {
-        const fallbackLibraryExercises = (libraryData.exercises ?? []).map(mapExercise);
-        setAllSessions(
-          fallbackLibraryExercises.length
-            ? [
-                {
-                  id: `${requiredType}-library`,
-                  name: "Exercise Library",
-                  weekNumber: 1,
-                  type: "program",
-                  exercises: fallbackLibraryExercises,
-                },
-              ]
-            : []
+        setAllSessions([]);
+        setAgeGateMessage(
+          "This program isn’t available for the athlete’s age yet. Check back soon or ask your coach."
         );
         return;
       }
@@ -175,8 +167,16 @@ export default function ProgramDetailScreen() {
 
       setAllSessions([...mappedSessions, ...librarySession]);
     } catch (error: any) {
-      setSessionError(error?.message || "Failed to load configured sessions.");
-      setAllSessions([]);
+      const message = error?.message || "Failed to load configured sessions.";
+      if (typeof message === "string" && message.startsWith("404")) {
+        setAgeGateMessage(
+          "This program isn’t available for the athlete’s age yet. Check back soon or ask your coach."
+        );
+        setAllSessions([]);
+      } else {
+        setSessionError(message);
+        setAllSessions([]);
+      }
     } finally {
       setIsLoadingSessions(false);
     }
@@ -207,6 +207,21 @@ export default function ProgramDetailScreen() {
       return (
         <View className="rounded-3xl border border-red-500/30 bg-red-500/10 px-6 py-5">
           <Text className="text-2xl font-outfit text-red-600">{sessionError}</Text>
+        </View>
+      );
+    }
+    if (ageGateMessage) {
+      return (
+        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+          <View className="flex-row items-center gap-2">
+            <Feather name="info" size={16} color="#94A3B8" />
+            <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
+              Not Available
+            </Text>
+          </View>
+          <Text className="text-2xl font-clash text-app mt-3">
+            {ageGateMessage}
+          </Text>
         </View>
       );
     }

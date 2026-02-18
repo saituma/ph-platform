@@ -45,17 +45,40 @@ const assignSchema = z.object({
   programTemplateId: z.number().int().min(1).optional(),
 });
 
-const programSchema = z.object({
-  name: z.string().min(1),
-  type: z.enum(ProgramType.enumValues),
-  description: z.string().optional(),
-});
+const programSchema = z
+  .object({
+    name: z.string().min(1),
+    type: z.enum(ProgramType.enumValues),
+    description: z.string().optional(),
+    minAge: z.number().int().min(1).max(99).optional().nullable(),
+    maxAge: z.number().int().min(1).max(99).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.minAge != null && data.maxAge != null && data.minAge > data.maxAge) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Minimum age cannot be greater than maximum age.",
+        path: ["minAge"],
+      });
+    }
+  });
 
 const programUpdateSchema = z
   .object({
     name: z.string().min(1).optional(),
     type: z.enum(ProgramType.enumValues).optional(),
     description: z.string().optional().nullable(),
+    minAge: z.number().int().min(1).max(99).optional().nullable(),
+    maxAge: z.number().int().min(1).max(99).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.minAge != null && data.maxAge != null && data.minAge > data.maxAge) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Minimum age cannot be greater than maximum age.",
+        path: ["minAge"],
+      });
+    }
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "No fields to update",
@@ -248,6 +271,8 @@ export async function createProgram(req: Request, res: Response) {
     name: input.name,
     type: input.type,
     description: input.description,
+    minAge: input.minAge ?? null,
+    maxAge: input.maxAge ?? null,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ program });
@@ -266,6 +291,8 @@ export async function updateProgram(req: Request, res: Response) {
     name: input.name,
     type: input.type,
     description: input.description ?? null,
+    minAge: input.minAge ?? null,
+    maxAge: input.maxAge ?? null,
   });
   return res.status(200).json({ program });
 }

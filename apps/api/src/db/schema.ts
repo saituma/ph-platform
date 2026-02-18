@@ -149,6 +149,8 @@ export const programTable = pgTable("programs", {
   name: varchar({ length: 255 }).notNull(),
   type: ProgramType(),
   description: varchar({ length: 255 }),
+  minAge: integer(),
+  maxAge: integer(),
   isTemplate: boolean().notNull().default(true),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
