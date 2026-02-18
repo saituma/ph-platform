@@ -1,112 +1,196 @@
-import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
-import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Text } from "@/components/ScaledText";
+import React from "react";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export function ProgramTabBar({
   tabs,
   activeTab,
   onTabChange,
+  searchValue,
+  onSearchChange,
 }: {
   tabs: string[];
   activeTab: string;
   onTabChange: (tab: string) => void;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<View | null>(null);
-  const [anchor, setAnchor] = useState({ x: 0, y: 0, width: 0 });
-  const handleSelect = (tab: string) => {
-    onTabChange(tab);
-    setOpen(false);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const frame = requestAnimationFrame(() => {
-      containerRef.current?.measureInWindow((x, y, width) => {
-        setAnchor({ x, y, width });
-      });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [open]);
-
-  const renderContainer = (withDropdown: boolean) => (
-    <View className="rounded-3xl bg-secondary/10 border border-app/10 p-3 overflow-hidden">
-      <TouchableOpacity
-        onPress={() => setOpen(true)}
-        className="min-h-[52px] w-full rounded-2xl bg-input px-4 flex-row items-center justify-between"
-        activeOpacity={0.85}
-      >
-        <Text className="text-4xl font-clash text-app">{activeTab}</Text>
-        <View className="h-8 w-8 rounded-full bg-secondary/40 items-center justify-center">
-          <Feather name="chevron-down" size={18} color="#94A3B8" />
-        </View>
-      </TouchableOpacity>
-      {withDropdown ? (
-        <View className="mt-4 rounded-2xl bg-input p-4">
-          <View className="flex-row items-center justify-between mb-3">
-            <View>
-              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.6px]">
-                Select Section
-              </Text>
-              <Text className="text-4xl font-clash text-app mt-1">Program Sections</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setOpen(false)}
-              className="h-9 w-9 rounded-full bg-secondary/40 items-center justify-center"
-            >
-              <Feather name="x" size={16} color="#94A3B8" />
-            </TouchableOpacity>
+  return (
+    <View style={styles.container}>
+      <View style={styles.headerRow}>
+        <Text style={styles.label}>Program Sections</Text>
+      </View>
+      {onSearchChange ? (
+        <View style={styles.searchRow}>
+          <View style={styles.searchField}>
+            <TextInput
+              value={searchValue}
+              onChangeText={onSearchChange}
+              placeholder="Search exercises or sessions"
+              placeholderTextColor="#94A3B8"
+              style={styles.searchInput}
+            />
           </View>
+          {searchValue?.length ? (
+            <TouchableOpacity
+              onPress={() => onSearchChange("")}
+              style={styles.clearButton}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.clearText}>Clear</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+      <View style={styles.card}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          scrollEnabled
+          bounces
+          alwaysBounceHorizontal
+        >
           {tabs.map((tab) => {
             const isActive = tab === activeTab;
             return (
               <TouchableOpacity
                 key={tab}
-                onPress={() => handleSelect(tab)}
-                className={`min-h-[48px] rounded-2xl px-3 flex-row items-center justify-between ${
-                  isActive ? "bg-accent/10" : "bg-transparent"
-                }`}
+                onPress={() => onTabChange(tab)}
+                style={[styles.tab, isActive ? styles.tabActive : styles.tabIdle]}
+                activeOpacity={0.85}
               >
-                <View className="flex-row items-center">
-                  <View
-                    className={`h-2.5 w-2.5 rounded-full mr-3 ${
-                      isActive ? "bg-accent" : "bg-secondary/40"
-                    }`}
-                  />
-                  <Text className={`text-4xl font-outfit ${isActive ? "text-accent" : "text-app"}`}>
+                <View style={styles.tabInner}>
+                  <Text
+                    style={[
+                      styles.tabText,
+                      isActive ? styles.tabTextActive : styles.tabTextIdle,
+                    ]}
+                  >
                     {tab}
                   </Text>
+                  <View
+                    style={[
+                      styles.activeDot,
+                      isActive ? styles.activeDotOn : styles.activeDotOff,
+                    ]}
+                  />
                 </View>
-                {isActive ? <Feather name="check" size={16} color="#2F8F57" /> : null}
               </TouchableOpacity>
             );
           })}
-        </View>
-      ) : null}
-    </View>
-  );
-
-  return (
-    <View className="mb-6 px-6">
-      <View ref={containerRef} style={{ opacity: open ? 0 : 1 }}>
-        {renderContainer(false)}
+        </ScrollView>
       </View>
-      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setOpen(false)}>
-          <Pressable
-            onPress={() => {}}
-            style={{
-              position: "absolute",
-              top: anchor.y,
-              left: anchor.x,
-              width: anchor.width,
-            }}
-          >
-            {renderContainer(true)}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 24,
+    marginBottom: 20,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  card: {
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.22)",
+    backgroundColor: "rgba(16, 24, 16, 0.04)",
+  },
+  label: {
+    fontSize: 11,
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
+    color: "#94A3B8",
+  },
+  hint: {
+    fontSize: 11,
+    letterSpacing: 0.2,
+    color: "#94A3B8",
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  searchField: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    fontSize: 14,
+    color: "#1D2A22",
+  },
+  clearButton: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.2)",
+    backgroundColor: "rgba(148, 163, 184, 0.08)",
+  },
+  clearText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  scrollContent: {
+    gap: 12,
+    paddingHorizontal: 6,
+  },
+  tab: {
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    minHeight: 40,
+    justifyContent: "center",
+  },
+  tabActive: {
+    backgroundColor: "#2F8F57",
+    borderColor: "#2F8F57",
+  },
+  tabIdle: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderColor: "rgba(148, 163, 184, 0.16)",
+  },
+  tabInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  tabTextActive: {
+    color: "#F7FBF7",
+  },
+  tabTextIdle: {
+    color: "#1D2A22",
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  activeDotOn: {
+    backgroundColor: "#F7FBF7",
+  },
+  activeDotOff: {
+    backgroundColor: "rgba(47, 143, 87, 0.2)",
+  },
+});

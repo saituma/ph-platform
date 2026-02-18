@@ -92,10 +92,16 @@ export default function TabLayout() {
   }, [athleteUserId, isAuthenticated, profile.id, role, token, pathname]);
 
   const visibleTabs = useMemo(() => {
-    return TAB_ROUTES.map((tab) =>
-      tab.key === "messages" ? { ...tab, badgeCount: messagesUnread } : tab
-    );
-  }, [messagesUnread]);
+    return TAB_ROUTES.map((tab) => {
+      if (tab.key === "messages") {
+        return { ...tab, badgeCount: messagesUnread };
+      }
+      if (tab.key === "parent-platform" && role === "Athlete") {
+        return { ...tab, label: "Athlete" };
+      }
+      return tab;
+    });
+  }, [messagesUnread, role]);
 
   const initialIndex = useMemo(() => {
     // Normalize path by removing leading slash and (tabs) group

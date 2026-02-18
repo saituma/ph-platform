@@ -14,9 +14,13 @@ import { canAccessTier } from "@/lib/planAccess";
 import { Text } from "@/components/ScaledText";
 import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "@/lib/api";
-import { setLatestSubscriptionRequest, setProgramTier } from "@/store/slices/userSlice";
+import {
+  setLatestSubscriptionRequest,
+  setProgramTier,
+} from "@/store/slices/userSlice";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
@@ -24,6 +28,7 @@ export default function MessagesScreen() {
   const dispatch = useAppDispatch();
   const { programTier, token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
+
   const {
     reactionOptions,
     currentThread,
@@ -50,10 +55,16 @@ export default function MessagesScreen() {
     handleToggleReaction,
     loadMessages,
   } = useMessagesController();
+
   const canMessage = canAccessTier(programTier ?? null, "PHP_Plus");
 
   if (isSectionHidden("messages")) {
-    return <AgeGate title="Messages locked" message="Messaging is restricted for this age." />;
+    return (
+      <AgeGate
+        title="Messages locked"
+        message="Messaging is restricted for this age."
+      />
+    );
   }
 
   useFocusEffect(
@@ -79,40 +90,91 @@ export default function MessagesScreen() {
           // no-op
         }
       })();
-    }, [dispatch, token])
+    }, [dispatch, token]),
   );
+
   const handleLockedPress = () => {
     Alert.alert(
       "Messaging locked",
       "Messaging is available on PHP Plus and PHP Premium plans.",
-      [{ text: "OK" }]
+      [{ text: "OK" }],
     );
   };
 
+  // ====================== LOCKED / UPGRADE STATE ======================
   if (!canMessage) {
     return (
-      <SafeAreaView className="flex-1 bg-app items-center justify-center px-6" edges={["top"]}>
-        <View className="w-full rounded-3xl border border-app bg-input p-6">
-          <Text className="text-xl font-clash text-app mb-2">Messaging Locked</Text>
-          <Text className="text-sm font-outfit text-secondary mb-4">
-            Messaging is available on PHP Plus and PHP Premium plans.
-          </Text>
-          <TouchableOpacity
-            onPress={() => router.push("/plans")}
-            className="rounded-2xl bg-accent py-3 items-center"
-          >
-            <Text className="text-sm font-outfit text-white">View Plans</Text>
-          </TouchableOpacity>
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <View className="flex-1 items-center justify-center px-6 pb-12">
+          <View className="items-center max-w-[340px]">
+            {/* Visual Icon with Lock Overlay */}
+            <View className="relative mb-10">
+              <View className="w-28 h-28 bg-[#2F8F57]/10 dark:bg-[#2F8F57]/20 rounded-full items-center justify-center">
+                <Ionicons
+                  name="chatbubble-ellipses"
+                  size={68}
+                  color="#2F8F57"
+                />
+              </View>
+              <View className="absolute -top-1 -right-1 bg-red-500 w-11 h-11 rounded-full items-center justify-center border-[5px] border-app">
+                <Ionicons name="lock-closed" size={24} color="white" />
+              </View>
+            </View>
+
+            <Text className="text-5xl font-clash tracking-tighter text-[#0E1510] dark:text-[#F2F6F2] text-center mb-4">
+              Messages
+            </Text>
+
+            <Text className="text-[17px] font-outfit text-center text-[#1D2A22] dark:text-[#D8E6D8] leading-relaxed max-w-[280px] mb-12">
+              Connect directly with your coach for instant feedback, video
+              reviews, and personalized guidance.
+            </Text>
+
+            {/* Benefits */}
+            <View className="w-full space-y-6 mb-12">
+              {[
+                "Direct 1-on-1 chat with your coach",
+                "Share training videos for quick feedback",
+                "Get answers to questions in real time",
+                "Stay perfectly aligned with your goals",
+              ].map((benefit, i) => (
+                <View key={i} className="flex-row gap-3">
+                  <Ionicons name="checkmark-circle" size={22} color="#2F8F57" />
+                  <Text className="font-outfit text-[15px] text-[#1D2A22] dark:text-[#D8E6D8] flex-1 leading-tight">
+                    {benefit}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => router.push("/plans")}
+              className="w-full bg-[#2F8F57] py-4 rounded-3xl active:opacity-90"
+            >
+              <Text className="text-white font-semibold text-[17px] text-center">
+                Unlock Messaging
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push("/programs")}
+              className="mt-6"
+            >
+              <Text className="text-sm font-medium text-[#2F8F57]">
+                Compare all programs →
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
   }
 
+  // ====================== THREAD VIEW ======================
   if (currentThread) {
     return (
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
         <ThreadHeader thread={currentThread} onBack={clearThread} />
-
         <ThreadChatBody
           thread={currentThread}
           messages={localMessages}
@@ -126,7 +188,9 @@ export default function MessagesScreen() {
           onOpenComposerMenu={() => setComposerMenuOpen(true)}
           onLongPressMessage={(message) => {
             const isGroup = message.threadId.startsWith("group:");
-            const parsedId = isGroup ? Number(message.id.replace("group-", "")) : Number(message.id);
+            const parsedId = isGroup
+              ? Number(message.id.replace("group-", ""))
+              : Number(message.id);
             if (!Number.isFinite(parsedId)) return;
             setReactionTarget(message);
           }}
@@ -142,14 +206,12 @@ export default function MessagesScreen() {
           }
           onDisabledPress={handleLockedPress}
         />
-
         <ReactionPickerModal
           reactionTarget={reactionTarget}
           options={reactionOptions}
           onClose={() => setReactionTarget(null)}
           onSelect={handleToggleReaction}
         />
-
         <ComposerActionsModal
           open={composerMenuOpen}
           onClose={() => setComposerMenuOpen(false)}
@@ -160,8 +222,22 @@ export default function MessagesScreen() {
     );
   }
 
+  // ====================== INBOX VIEW ======================
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      {/* Premium Header – matches ProgramsScreen style */}
+      <View className="px-6 pt-9 pb-5 border-b border-gray-100 dark:border-gray-800">
+        <View className="flex-row items-center gap-3">
+          <View className="h-10 w-1.5 rounded-full bg-[#2F8F57]" />
+          <Text className="text-4xl font-clash tracking-tighter text-[#0E1510] dark:text-[#F2F6F2]">
+            Messages
+          </Text>
+        </View>
+        <Text className="text-base font-outfit text-[#1D2A22] dark:text-[#D8E6D8] mt-1">
+          Direct coaching chat • Real-time support
+        </Text>
+      </View>
+
       <InboxScreen
         threads={sortedThreads}
         typingStatus={typingStatus}

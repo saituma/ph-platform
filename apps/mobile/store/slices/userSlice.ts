@@ -7,6 +7,15 @@ interface UserProfile {
   avatar: string | null;
 }
 
+export type ManagedAthlete = {
+  id?: number;
+  name?: string | null;
+  age?: number | null;
+  team?: string | null;
+  level?: string | null;
+  profilePicture?: string | null;
+};
+
 interface UserState {
   isAuthenticated: boolean;
   token: string | null;
@@ -16,6 +25,7 @@ interface UserState {
   hydrated: boolean;
   onboardingCompleted: boolean | null;
   athleteUserId: number | null;
+  managedAthletes: ManagedAthlete[];
   programTier: string | null;
   latestSubscriptionRequest: {
     status?: string | null;
@@ -39,6 +49,7 @@ const initialState: UserState = {
   hydrated: false,
   onboardingCompleted: null,
   athleteUserId: null,
+  managedAthletes: [],
   programTier: null,
   latestSubscriptionRequest: null,
 };
@@ -65,6 +76,9 @@ const userSlice = createSlice({
     setAthleteUserId: (state, action: PayloadAction<number | null>) => {
       state.athleteUserId = action.payload;
     },
+    setManagedAthletes: (state, action: PayloadAction<ManagedAthlete[]>) => {
+      state.managedAthletes = action.payload;
+    },
     setProgramTier: (state, action: PayloadAction<string | null>) => {
       state.programTier = action.payload;
     },
@@ -87,6 +101,7 @@ const userSlice = createSlice({
       state.profile = initialState.profile;
       state.onboardingCompleted = null;
       state.athleteUserId = null;
+      state.managedAthletes = [];
       state.programTier = null;
       state.latestSubscriptionRequest = null;
     },
@@ -98,6 +113,7 @@ export const {
   updateProfile,
   setOnboardingCompleted,
   setAthleteUserId,
+  setManagedAthletes,
   setProgramTier,
   setLatestSubscriptionRequest,
   setLoading,

@@ -13,23 +13,26 @@ const allowedUiPresets = ["playful", "standard", "performance"] as const;
 const allowedFontSizes = ["small", "default", "large", "extraLarge"] as const;
 const allowedDensities = ["compact", "default", "spacious"] as const;
 
-const ruleSchema = z
-  .object({
-    title: z.string().min(1),
-    minAge: z.number().int().min(5).optional().nullable(),
-    maxAge: z.number().int().min(5).optional().nullable(),
-    isDefault: z.boolean().optional(),
-    uiPreset: z.enum(allowedUiPresets).optional(),
-    fontSizeOption: z.enum(allowedFontSizes).optional(),
-    density: z.enum(allowedDensities).optional(),
-    hiddenSections: z.array(z.string().min(1)).optional(),
-  })
-  .refine((data) => {
-    if (data.minAge == null || data.maxAge == null) return true;
-    return data.minAge <= data.maxAge;
-  }, { message: "Minimum age cannot exceed maximum age.", path: ["minAge"] });
+const ruleBaseSchema = z.object({
+  title: z.string().min(1),
+  minAge: z.number().int().min(5).optional().nullable(),
+  maxAge: z.number().int().min(5).optional().nullable(),
+  isDefault: z.boolean().optional(),
+  uiPreset: z.enum(allowedUiPresets).optional(),
+  fontSizeOption: z.enum(allowedFontSizes).optional(),
+  density: z.enum(allowedDensities).optional(),
+  hiddenSections: z.array(z.string().min(1)).optional(),
+});
 
-const ruleUpdateSchema = ruleSchema.partial();
+const ruleSchema = ruleBaseSchema.refine((data) => {
+  if (data.minAge == null || data.maxAge == null) return true;
+  return data.minAge <= data.maxAge;
+}, { message: "Minimum age cannot exceed maximum age.", path: ["minAge"] });
+
+const ruleUpdateSchema = ruleBaseSchema.partial().refine((data) => {
+  if (data.minAge == null || data.maxAge == null) return true;
+  return data.minAge <= data.maxAge;
+}, { message: "Minimum age cannot exceed maximum age.", path: ["minAge"] });
 
 export async function listAgeExperience(req: Request, res: Response) {
   const items = await listAgeExperienceRules();
@@ -100,4 +103,3 @@ export async function getAgeExperience(req: Request, res: Response) {
   const item = await getAgeExperienceForUser(req.user!.id);
   return res.status(200).json({ item });
 }
-
