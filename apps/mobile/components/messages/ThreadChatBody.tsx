@@ -58,15 +58,25 @@ export function ThreadChatBody({
   const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
   const typing = typingStatus[typingKey];
   const isGroup = thread.id.startsWith("group:");
+  const hasInitialScrolled = React.useRef<string | null>(null);
   const listRef = React.useRef<FlatList<ChatMessage> | null>(null);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
-    if (!messages.length) return;
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: false });
-    });
+    if (!messages.length || !isFocused) return;
+    
+    const lastMessage = messages[messages.length - 1];
+    const isInitialLoad = hasInitialScrolled.current !== thread.id;
+    const userSentMessage = lastMessage?.from === "user";
+
+    // Auto-scroll to bottom on initial load of a thread OR if user sent a message
+    if (isInitialLoad || userSentMessage) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: !isInitialLoad });
+        hasInitialScrolled.current = thread.id;
+      });
+    }
   }, [messages.length, thread.id, isFocused]);
 
   return (
@@ -104,8 +114,8 @@ export function ThreadChatBody({
               </View>
             ) : null}
             <View className="items-center mb-6">
-              <View className="px-3 py-1 rounded-full bg-secondary/10">
-                <Text className="text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.2px]">
+              <View className="px-3.5 py-1.5 rounded-full bg-secondary/10">
+                <Text className="text-[0.75rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                   Today
                 </Text>
               </View>
@@ -138,9 +148,6 @@ export function ThreadChatBody({
             onReactionPress={onReactionPress}
           />
         )}
-        onContentSizeChange={() => {
-          listRef.current?.scrollToEnd({ animated: false });
-        }}
       />
 
       {typing?.isTyping ? (

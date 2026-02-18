@@ -13,56 +13,41 @@ type MessageBubbleProps = {
   onReactionPress: (message: ChatMessage, emoji: string) => void;
 };
 
-function getInitials(name: string) {
-  const parts = name.trim().split(" ");
-  if (parts.length === 1) return parts[0]?.[0] ?? "";
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
 export function MessageBubble({
   message,
-  threadName,
-  isGroup,
   onLongPress,
   onReactionPress,
 }: MessageBubbleProps) {
   const { colors } = useAppTheme();
   const isUser = message.from === "user";
 
-  const avatar = !isUser ? message.authorAvatar : null;
-
   return (
     <View className={`flex-row ${isUser ? "justify-end" : "justify-start"}`}>
-      {!isUser ? (
-        avatar ? (
-          <View className="h-9 w-9 rounded-2xl overflow-hidden mr-3">
-            <Image source={{ uri: avatar }} style={{ width: 36, height: 36 }} resizeMode="cover" />
-          </View>
-        ) : (
-          <View
-            className="h-9 w-9 rounded-2xl items-center justify-center mr-3"
-            style={{ backgroundColor: colors.accentLight }}
-          >
-            <Text className="font-clash text-app text-sm">
-              {getInitials(message.authorName || threadName)}
-            </Text>
-          </View>
-        )
-      ) : null}
-
       <Pressable
         onLongPress={() => onLongPress(message)}
         delayLongPress={260}
-        className={`max-w-[75%] rounded-3xl px-4 py-3 ${isUser ? "bg-accent" : "bg-input"}`}
+        className={`rounded-2xl ${isUser ? "bg-accent" : "bg-input"}`}
+        style={[
+          { 
+            maxWidth: "95%",
+            paddingHorizontal: 20, // Replacement for px-24
+            paddingVertical: 20,   // Replacement for py-20
+          },
+          !isUser && {
+            borderWidth: 1,
+            borderColor: "rgba(34,197,94,0.25)",
+            borderBottomLeftRadius: 4,
+          },
+          isUser && {
+            borderBottomRightRadius: 4,
+          },
+        ]}
       >
-        {!isUser && isGroup && message.authorName ? (
-          <Text className="text-[0.625rem] font-outfit text-secondary mb-1">{message.authorName}</Text>
-        ) : null}
         {message.mediaUrl && message.contentType === "image" ? (
           <Pressable onPress={() => Linking.openURL(message.mediaUrl!)} className="mb-2">
             <Image
               source={{ uri: message.mediaUrl }}
-              style={{ width: 220, height: 160, borderRadius: 12 }}
+              style={{ width: 260, height: 200, borderRadius: 12 }}
               resizeMode="cover"
             />
           </Pressable>
@@ -70,16 +55,26 @@ export function MessageBubble({
         {message.mediaUrl && message.contentType !== "image" ? (
           <Pressable
             onPress={() => Linking.openURL(message.mediaUrl!)}
-            className={`mb-2 rounded-xl px-3 py-2 ${isUser ? "bg-white/10" : "bg-secondary/10"}`}
+            className={`mb-2 rounded-xl px-5 py-3 ${isUser ? "bg-white/10" : "bg-secondary/10"}`}
           >
-            <Text className={`text-xs font-outfit ${isUser ? "text-white" : "text-app"}`}>
+            <Text className={`text-base font-outfit ${isUser ? "text-white" : "text-app"}`}>
               Open attachment
             </Text>
           </Pressable>
         ) : null}
-        <Text className={`text-sm font-outfit ${isUser ? "text-white" : "text-app"}`}>
-          {message.text}
-        </Text>
+        
+        <View className="flex-row items-end justify-between gap-4">
+          <Text className={`text-[1.0625rem] font-outfit leading-6 ${isUser ? "text-white" : "text-app"}`}>
+            {message.text}
+          </Text>
+          
+          <View className="flex-row items-center self-end mb-[-1px]">
+            <Text className={`text-[0.75rem] font-outfit ${isUser ? "text-white/70" : "text-secondary"}`}>
+              {message.time}
+            </Text>
+            {isUser ? <Feather name="check" size={12} className="text-white/70 ml-1.5" /> : null}
+          </View>
+        </View>
 
         {message.reactions?.length ? (
           <View className="flex-row flex-wrap gap-2 mt-2">
@@ -89,20 +84,13 @@ export function MessageBubble({
                 className="rounded-full border border-app/10 px-2 py-1"
                 onPress={() => onReactionPress(message, reaction.emoji)}
               >
-                <Text className={`text-[0.625rem] font-outfit ${isUser ? "text-white/80" : "text-secondary"}`}>
+                <Text className={`text-[0.6875rem] font-outfit ${isUser ? "text-white/80" : "text-secondary"}`}>
                   {reaction.emoji} {reaction.count}
                 </Text>
               </Pressable>
             ))}
           </View>
         ) : null}
-
-        <View className="flex-row items-center justify-end mt-2">
-          <Text className={`text-[0.625rem] font-outfit ${isUser ? "text-white/70" : "text-secondary"}`}>
-            {message.time}
-          </Text>
-          {isUser ? <Feather name="check" size={12} className="text-white/70 ml-2" /> : null}
-        </View>
       </Pressable>
     </View>
   );

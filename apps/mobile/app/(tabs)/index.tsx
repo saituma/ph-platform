@@ -296,7 +296,7 @@ export default function HomeScreen() {
           accessibilityRole="button"
           accessibilityLabel="Open menu"
         >
-          <MenuGlyph color={colors.textSecondary} />
+          <MenuGlyph color={colors.accent} />
         </Pressable>
       </View>
       {/* Hero */}

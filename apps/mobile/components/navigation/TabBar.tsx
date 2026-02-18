@@ -33,43 +33,13 @@ interface TabItemProps {
   onTabPress: (index: number) => void;
   scrollOffset?: SharedValue<number>;
   colors: any;
+  isDark: boolean;
 }
 
-function MenuGlyph({ color }: { color: string }) {
-  return (
-    <View
-      style={{
-        width: 20,
-        height: 16,
-        justifyContent: "center",
-      }}
-    >
-      <View
-        style={{
-          height: 2,
-          borderRadius: 999,
-          backgroundColor: color,
-          marginBottom: 4,
-        }}
-      />
-      <View
-        style={{
-          height: 2,
-          borderRadius: 999,
-          backgroundColor: color,
-          marginBottom: 4,
-        }}
-      />
-      <View
-        style={{
-          height: 2,
-          borderRadius: 999,
-          backgroundColor: color,
-        }}
-      />
-    </View>
-  );
-}
+const RING_SIZE = 42;
+const HOME_RING_SIZE = 54;
+const ICON_SIZE = 20;
+const HOME_ICON_SIZE = 24;
 
 const TabItem = React.memo(
   ({
@@ -79,76 +49,82 @@ const TabItem = React.memo(
     onTabPress,
     scrollOffset,
     colors,
+    isDark,
   }: TabItemProps) => {
     const isHome = tab.key === "index";
-    const activeBgStyle = useAnimatedStyle(() => {
+    const ringSize = isHome ? HOME_RING_SIZE : RING_SIZE;
+    const iconSize = isHome ? HOME_ICON_SIZE : ICON_SIZE;
+
+    // Animated ring border color: active = bright, inactive = subtle
+    const ringStyle = useAnimatedStyle(() => {
+      const activeBorder = "#22c55e";
+      const inactiveBorder = isDark
+        ? "rgba(255,255,255,0.18)"
+        : "rgba(0,0,0,0.15)";
+
       if (!scrollOffset) {
+        const active = index === activeIndex;
         return {
-          opacity: index === activeIndex ? 1 : 0,
+          borderColor: active ? activeBorder : inactiveBorder,
+          transform: [{ scale: active ? 1.08 : 1 }],
         };
       }
 
       const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
-      const opacity = interpolate(distance, [0, 1], [1, 0], Extrapolate.CLAMP);
-      return { opacity };
-    }, [scrollOffset, index, activeIndex]);
-
-    const iconAnimatedStyle = useAnimatedStyle(() => {
-      if (!scrollOffset) {
-        const active = index === activeIndex;
-        return {
-          transform: [{ scale: active ? 1.1 : 1 }],
-          opacity: active ? 1 : 0.6,
-        };
-      }
-
-      const distance = Math.abs(scrollOffset.value - index);
-
+      const borderColor = interpolateColor(
+        distance,
+        [0, 1],
+        [activeBorder, inactiveBorder],
+      );
       const scale = interpolate(
         distance,
         [0, 1],
-        [isHome ? 1.32 : 1.1, 1],
+        [1.08, 1],
         Extrapolate.CLAMP,
       );
 
+      return { borderColor, transform: [{ scale }] };
+    }, [scrollOffset, index, activeIndex, isDark]);
+
+    // Icon color animation
+    const activeColor = isDark ? "#ffffff" : colors.tint;
+    const inactiveColor = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)";
+
+    const iconColorStyle = useAnimatedStyle(() => {
+      if (!scrollOffset) {
+        return { opacity: index === activeIndex ? 1 : 0.55 };
+      }
+
+      const distance = Math.abs(scrollOffset.value - index);
       const opacity = interpolate(
         distance,
         [0, 0.5, 1],
-        [1, 0.8, 0.6],
+        [1, 0.7, 0.55],
         Extrapolate.CLAMP,
       );
+      return { opacity };
+    }, [scrollOffset, index, activeIndex]);
 
-      return {
-        transform: [{ scale }],
-        opacity,
-      };
-    }, [scrollOffset, index, activeIndex, isHome]);
-
-    const textAnimatedStyle = useAnimatedStyle(() => {
+    // Label animation (Home only)
+    const labelStyle = useAnimatedStyle(() => {
+      if (!isHome) return { opacity: 0 };
       if (!scrollOffset) {
-        const active = index === activeIndex;
         return {
-          color: active ? colors.tint : colors.textSecondary,
-          opacity: active ? 1 : 0.7,
+          opacity: index === activeIndex ? 1 : 0.5,
         };
       }
 
       const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
-      const color = interpolateColor(
-        distance,
-        [0, 1],
-        [colors.tint, colors.textSecondary],
-      );
       const opacity = interpolate(
         distance,
         [0, 1],
-        [1, 0.7],
+        [1, 0.5],
         Extrapolate.CLAMP,
       );
+      return { opacity };
+    }, [scrollOffset, index, activeIndex, isHome]);
 
-      return { color, opacity };
-    }, [scrollOffset, index, activeIndex, colors]);
-
+    // Determine icon color based on active state (for non-animated layer)
     const activeTintStyle = useAnimatedStyle(() => {
       if (!scrollOffset) return { opacity: index === activeIndex ? 1 : 0 };
       const distance = Math.abs(scrollOffset.value - index);
@@ -173,112 +149,56 @@ const TabItem = React.memo(
       return { opacity };
     });
 
-    const indicatorStyle = useAnimatedStyle(() => {
-      if (!scrollOffset) {
-        return {
-          width: index === activeIndex ? 20 : 8,
-          opacity: index === activeIndex ? 1 : 0.35,
-          backgroundColor:
-            index === activeIndex ? colors.tint : colors.textSecondary,
-        };
-      }
-
-      const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
-      const width = interpolate(distance, [0, 1], [20, 8], Extrapolate.CLAMP);
-      const opacity = interpolate(
-        distance,
-        [0, 1],
-        [1, 0.35],
-        Extrapolate.CLAMP,
-      );
-      const backgroundColor = interpolateColor(
-        distance,
-        [0, 1],
-        [colors.tint, colors.textSecondary],
-      );
-
-      return { width, opacity, backgroundColor };
-    }, [scrollOffset, index, activeIndex, colors]);
-
     return (
       <Pressable
         onPress={() => onTabPress(index)}
         style={({ pressed }) => ({
           flexGrow: 1,
           flexBasis: 0,
-          height: isHome ? 72 : 52,
-          marginHorizontal: 0,
-          borderRadius: isHome ? 20 : 16,
           alignItems: "center",
           justifyContent: "center",
-          paddingTop: isHome ? 2 : 6,
-          opacity: pressed ? 0.9 : 1,
-          transform: [{ scale: pressed ? 0.98 : 1 }],
+          paddingVertical: 4,
+          opacity: pressed ? 0.85 : 1,
+          transform: [{ scale: pressed ? 0.95 : 1 }],
         })}
       >
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            {
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              left: -8,
-              right: -8,
-              borderRadius: 16,
-              backgroundColor: "transparent",
-              borderWidth: 0,
-              borderColor: "transparent",
-            },
-            activeBgStyle,
-          ]}
-        />
+        {/* Circular ring container */}
         <Animated.View
           style={[
-            iconAnimatedStyle,
             {
-              position: "relative",
-              width: isHome ? 42 : 26,
-              height: isHome ? 42 : 26,
+              width: ringSize,
+              height: ringSize,
+              borderRadius: ringSize / 2,
+              borderWidth: 1.5,
               alignItems: "center",
               justifyContent: "center",
-              marginTop: isHome ? -8 : 0,
             },
+            ringStyle,
           ]}
         >
-          <Animated.View style={[activeTintStyle, { position: "absolute" }]}>
-            {tab.key === "more" ? (
-              <MenuGlyph color={colors.tint} />
-            ) : (
-              <Feather
-                name={tab.icon}
-                size={isHome ? 42 : 26}
-                color={colors.tint}
-              />
-            )}
+          <Animated.View style={[iconColorStyle, { position: "relative" }]}>
+            {/* Active icon layer */}
+            <Animated.View style={[activeTintStyle, { position: "absolute" }]}>
+              <Feather name={tab.icon} size={iconSize} color={activeColor} />
+            </Animated.View>
+            {/* Inactive icon layer */}
+            <Animated.View style={inactiveTintStyle}>
+              <Feather name={tab.icon} size={iconSize} color={inactiveColor} />
+            </Animated.View>
           </Animated.View>
-          <Animated.View style={[inactiveTintStyle, { position: "absolute" }]}>
-            {tab.key === "more" ? (
-              <MenuGlyph color={colors.tabIconDefault} />
-            ) : (
-              <Feather
-                name={tab.icon}
-                size={isHome ? 42 : 26}
-                color={colors.tabIconDefault}
-              />
-            )}
-          </Animated.View>
+
+          {/* Badge */}
           {tab.badgeCount && tab.badgeCount > 0 ? (
             <View
               style={{
                 position: "absolute",
-                top: -4,
-                right: -8,
-                minWidth: 18,
-                height: 18,
+                top: -2,
+                right: -4,
+                minWidth: 16,
+                height: 16,
                 borderRadius: 999,
                 backgroundColor: colors.danger,
-                paddingHorizontal: 4,
+                paddingHorizontal: 3,
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -286,7 +206,7 @@ const TabItem = React.memo(
               <AnimatedText
                 style={{
                   color: "#FFFFFF",
-                  fontSize: 11,
+                  fontSize: 10,
                   fontFamily: "Outfit-SemiBold",
                 }}
                 numberOfLines={1}
@@ -297,21 +217,22 @@ const TabItem = React.memo(
           ) : null}
         </Animated.View>
 
-        {null}
-
-        {isHome ? null : (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              {
-                height: 4,
-                marginTop: 4,
-                borderRadius: 999,
-              },
-              indicatorStyle,
-            ]}
-          />
-        )}
+        {/* Label — shown only for Home */}
+        {isHome ? (
+          <Animated.View style={[{ marginTop: 3 }, labelStyle]}>
+            <AnimatedText
+              style={{
+                color: isDark ? "#ffffff" : colors.text,
+                fontSize: 10,
+                fontFamily: "Outfit-Medium",
+                textAlign: "center",
+              }}
+              numberOfLines={1}
+            >
+              Home
+            </AnimatedText>
+          </Animated.View>
+        ) : null}
       </Pressable>
     );
   },
@@ -326,94 +247,43 @@ export function TabBar({
 }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const barHeight = Platform.OS === "ios" ? 56 : 60;
-  const [barWidth, setBarWidth] = React.useState(0);
-  const homeIndex = React.useMemo(
-    () => tabs.findIndex((tab) => tab.key === "index"),
-    [tabs],
-  );
-  const notchDiameter = 77;
-  const notchRadius = notchDiameter / 2;
-  const horizontalPadding = 8;
-  const notchXOffset = 0;
-  const innerWidth =
-    barWidth && tabs.length ? Math.max(barWidth - horizontalPadding * 2, 0) : 0;
-  const tabWidth = innerWidth && tabs.length ? innerWidth / tabs.length : 0;
-  const notchLeft =
-    innerWidth && homeIndex >= 0
-      ? horizontalPadding +
-        tabWidth * homeIndex +
-        tabWidth / 2 -
-        notchRadius +
-        notchXOffset
-      : 0;
-  const notchTop = barHeight / 2 - notchRadius;
+  const barHeight = Platform.OS === "ios" ? 68 : 72;
 
   return (
     <View
       style={{
         backgroundColor: "transparent",
         paddingHorizontal: 12,
-        paddingTop: 8,
-        paddingBottom: 10 + insets.bottom,
+        paddingTop: 6,
+        paddingBottom: 8 + insets.bottom,
         width: "100%",
         alignSelf: "stretch",
       }}
     >
       <View
-        onLayout={(event) => {
-          const nextWidth = event.nativeEvent.layout.width;
-          if (nextWidth !== barWidth) {
-            setBarWidth(nextWidth);
-          }
-        }}
         style={{
-          position: "relative",
           flexDirection: "row",
-          width: "86%",
+          width: "92%",
           alignSelf: "center",
           height: barHeight,
-          marginHorizontal: 8,
-          marginBottom: 6,
           backgroundColor: isDark
-            ? "rgba(12, 14, 18, 0.78)"
-            : "rgba(255, 255, 255, 0.92)",
-          borderRadius: 28,
-          borderWidth: 1,
+            ? "rgba(16, 16, 18, 0.92)"
+            : "rgba(255, 255, 255, 0.95)",
+          borderRadius: 32,
+          borderWidth: isDark ? 0.5 : 1,
           borderColor: isDark
-            ? "rgba(255, 255, 255, 0.08)"
-            : "rgba(15, 23, 42, 0.08)",
-          justifyContent: "space-between",
+            ? "rgba(255, 255, 255, 0.06)"
+            : "rgba(0, 0, 0, 0.06)",
+          justifyContent: "space-evenly",
           alignItems: "center",
-          paddingHorizontal: 6,
-          shadowColor: "#0F172A",
-          shadowOpacity: isDark ? 0.22 : 0.12,
-          shadowRadius: 18,
+          paddingHorizontal: 4,
+          shadowColor: "#000",
+          shadowOpacity: isDark ? 0.35 : 0.12,
+          shadowRadius: 20,
           shadowOffset: { width: 0, height: 10 },
-          elevation: isDark ? 8 : 10,
+          elevation: isDark ? 12 : 10,
         }}
       >
-        {barWidth && homeIndex >= 0 ? (
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              top: notchTop,
-              left: notchLeft,
-              width: notchDiameter,
-              height: notchDiameter,
-              borderRadius: 999,
-              backgroundColor: colors.background,
-              borderWidth: 1,
-              borderColor: colors.border,
-              shadowColor: "#0F172A",
-              shadowOpacity: isDark ? 0 : 0.12,
-              shadowRadius: 12,
-              shadowOffset: { width: 0, height: 8 },
-              elevation: isDark ? 0 : 8,
-            }}
-          />
-        ) : null}
         {tabs.map((tab, index) => (
           <TabItem
             key={tab.key}
@@ -423,6 +293,7 @@ export function TabBar({
             onTabPress={onTabPress}
             scrollOffset={scrollOffset}
             colors={colors}
+            isDark={isDark}
           />
         ))}
       </View>

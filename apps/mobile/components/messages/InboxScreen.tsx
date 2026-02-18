@@ -6,6 +6,7 @@ import { ActivityIndicator, Image, Pressable, View } from "react-native";
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { Text } from "@/components/ScaledText";
 
+
 type InboxScreenProps = {
   threads: MessageThread[];
   typingStatus: TypingStatus;
@@ -87,24 +88,32 @@ export function InboxScreen({
                   </View>
                 </View>
               ))
-            : threads.map((thread) => {
+            : threads.map((thread, threadIndex) => {
                 const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
                 const typing = typingStatus[typingKey];
                 return (
                   <Pressable
                     key={thread.id}
-                    className="rounded-3xl p-4 bg-input"
+                    className="rounded-3xl bg-input"
+                    style={{
+                      padding: 24, // Balanced premium padding
+                      borderTopWidth: 1,
+                      borderBottomWidth: 1,
+                      borderLeftWidth: 1,
+                      borderRightWidth: 1,
+                      borderColor: "rgba(34,197,94,0.35)",
+                    }}
                     onPress={() => onOpenThread(thread)}
                   >
                     <View className="flex-row items-start gap-4">
                       <View className="relative">
                         {thread.avatarUrl ? (
-                          <View className="h-12 w-12 rounded-2xl overflow-hidden">
-                            <Image source={{ uri: thread.avatarUrl }} style={{ width: 48, height: 48 }} />
+                          <View className="h-14 w-14 rounded-2xl overflow-hidden">
+                            <Image source={{ uri: thread.avatarUrl }} style={{ width: 56, height: 56 }} />
                           </View>
                         ) : (
-                          <View className="h-12 w-12 rounded-2xl items-center justify-center bg-accent-light">
-                            <Text className="font-clash text-app text-base">
+                          <View className="h-14 w-14 rounded-2xl items-center justify-center bg-accent-light">
+                            <Text className="font-clash text-app text-lg">
                               {getInitials(thread.name)}
                             </Text>
                           </View>
@@ -117,10 +126,10 @@ export function InboxScreen({
                       <View className="flex-1">
                         <View className="flex-row items-center justify-between">
                           <View className="flex-1 pr-3">
-                            <Text className="font-clash text-app text-base" numberOfLines={1}>
+                            <Text className="font-clash text-app text-lg" numberOfLines={1}>
                               {thread.name}
                             </Text>
-                            <Text className="text-[0.75rem] font-outfit text-secondary mt-0.5" numberOfLines={1}>
+                            <Text className="text-sm font-outfit text-secondary mt-0.5" numberOfLines={1}>
                               {thread.role}
                             </Text>
                           </View>
@@ -128,7 +137,7 @@ export function InboxScreen({
                             {openingThreadId === thread.id ? (
                               <ActivityIndicator size="small" color={textSecondaryColor} />
                             ) : (
-                              <Text className="text-[0.6875rem] font-outfit text-secondary">
+                              <Text className="text-[0.75rem] font-outfit text-secondary">
                                 {thread.time}
                               </Text>
                             )}

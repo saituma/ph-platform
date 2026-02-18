@@ -5,6 +5,20 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      colors: {
+        app: "var(--color-text)",
+        secondary: "var(--color-text-secondary)",
+        muted: "var(--color-text-muted)",
+        accent: "var(--color-accent)",
+        "accent-light": "var(--color-accent-light)",
+        input: "var(--color-bg-input)",
+        background: "var(--color-bg)",
+        "background-secondary": "var(--color-bg-secondary)",
+        border: "var(--color-border)",
+        success: "var(--color-success)",
+        warning: "var(--color-warning)",
+        danger: "var(--color-danger)",
+      },
       fontSize: {
         xs: ["0.8125rem", "1.125rem"],
         sm: ["0.9375rem", "1.3125rem"],

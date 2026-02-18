@@ -5,7 +5,8 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useRole } from "@/context/RoleContext";
-import { Feather } from "@expo/vector-icons";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Feather } from "@/components/ui/theme-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Image, TouchableOpacity, View } from "react-native";
@@ -22,6 +23,7 @@ import Animated, {
 
 export default function MoreScreen() {
   const { role } = useRole();
+  const { colors } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { profile, isAuthenticated } = useAppSelector((state) => state.user);
@@ -85,7 +87,7 @@ export default function MoreScreen() {
                 </View>
               ) : (
                 <View className="h-16 w-16 bg-secondary rounded-full items-center justify-center border border-app shadow-sm relative">
-                  <Feather name="user" size={28} className="text-secondary" />
+                  <Feather name="user" size={28} color={colors.accent} />
                   <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white" />
                 </View>
               )}
@@ -148,6 +150,7 @@ export default function MoreScreen() {
                     label="Profile Information"
                     isLast={false}
                     onPress={() => router.navigate("/profile-settings")}
+                    accentColor={colors.accent}
                   />
                   {role === "Guardian" && (
                     <MenuItem
@@ -155,6 +158,7 @@ export default function MoreScreen() {
                       label="Subscription Plan"
                       isLast={false}
                       onPress={() => router.navigate("/plans")}
+                      accentColor={colors.accent}
                     />
                   )}
                   <MenuItem
@@ -162,12 +166,14 @@ export default function MoreScreen() {
                     label="Notifications"
                     isLast={false}
                     onPress={() => router.navigate("/notifications")}
+                    accentColor={colors.accent}
                   />
                   <MenuItem
                     icon="lock"
                     label="Privacy & Security"
                     isLast={true}
                     onPress={() => router.navigate("/privacy-security")}
+                    accentColor={colors.accent}
                   />
                 </View>
               </View>
@@ -185,18 +191,21 @@ export default function MoreScreen() {
                     label="Help Center"
                     isLast={false}
                     onPress={() => router.navigate("/help-center")}
+                    accentColor={colors.accent}
                   />
                   <MenuItem
                     icon="message-square"
                     label="Send Feedback"
                     isLast={false}
                     onPress={() => router.navigate("/feedback")}
+                    accentColor={colors.accent}
                   />
                   <MenuItem
                     icon="info"
                     label="About App"
                     isLast={true}
                     onPress={() => router.navigate("/about")}
+                    accentColor={colors.accent}
                   />
                 </View>
               </View>
@@ -214,12 +223,14 @@ export default function MoreScreen() {
                     label="Terms of Service"
                     isLast={false}
                     onPress={() => router.navigate("/terms")}
+                    accentColor={colors.accent}
                   />
                   <MenuItem
                     icon="shield"
                     label="Privacy Policy"
                     isLast={true}
                     onPress={() => router.navigate("/privacy-policy")}
+                    accentColor={colors.accent}
                   />
                 </View>
               </View>
@@ -253,24 +264,26 @@ function MenuItem({
   label,
   isLast,
   onPress,
+  accentColor,
 }: {
   icon: any;
   label: string;
   isLast: boolean;
   onPress?: () => void;
+  accentColor: string;
 }) {
   return (
     <TouchableOpacity
       onPress={onPress}
       className={`flex-row items-center px-6 py-5 bg-input active:bg-secondary ${!isLast ? "border-b border-app" : ""}`}
     >
-      <View className="w-12 h-12 items-center justify-center bg-secondary rounded-full mr-4">
-        <Feather name={icon} size={22} className="text-secondary" />
+      <View className="w-12 h-12 items-center justify-center bg-accent/10 rounded-full mr-4">
+        <Feather name={icon} size={22} color={accentColor} />
       </View>
       <Text className="flex-1 font-outfit text-app text-[1.1875rem] font-medium">
         {label}
       </Text>
-      <Feather name="chevron-right" size={20} className="text-secondary" />
+      <Feather name="chevron-right" size={20} color={`${accentColor}99`} />
     </TouchableOpacity>
   );
 }
