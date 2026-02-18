@@ -8,16 +8,14 @@ import { Label } from "../../ui/label";
 import { Select } from "../../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Textarea } from "../../ui/textarea";
+import { ParentCourseMediaUpload } from "../../parent/config/parent-course-media-upload";
 
 type ContentTabsProps = {
   initialHome?: {
-    headline?: string;
-    description?: string;
-    welcome?: string;
     introVideoUrl?: string;
-    testimonials?: string;
-    heroImageUrl?: string;
-    tier?: string;
+    adminStory?: string;
+    professionalPhoto?: string;
+    testimonials?: any[] | string;
   } | null;
   initialLegal?: {
     termsText?: string;
@@ -25,67 +23,69 @@ type ContentTabsProps = {
     privacyText?: string;
     privacyVersion?: string;
   } | null;
-  onSaveHome: (data: {
-    headline: string;
-    description: string;
-    welcome: string;
-    introVideoUrl: string;
-    testimonials: string;
-    heroImageUrl: string;
-    tier: string;
-  }) => void;
-  onPublishParent: (data: {
-    title: string;
-    category: string;
-    body: string;
-    mediaUrl: string;
-    tier: string;
-  }) => void;
-  onSavePrograms: () => void;
+  onSaveProfile: (data: { adminStory: string; professionalPhoto: string }) => void;
+  onSaveTestimonials: (data: { testimonials: any[] }) => void;
+  onSaveIntroVideo: (data: { introVideoUrl: string }) => void;
   onSaveLegal: (data: {
     termsText: string;
     termsVersion: string;
     privacyText: string;
     privacyVersion: string;
   }) => void;
+  onPublishAnnouncement: (data: { title: string; body: string }) => void;
 };
 
 export function ContentTabs({
   initialHome,
   initialLegal,
-  onSaveHome,
-  onPublishParent,
-  onSavePrograms,
+  onSaveProfile,
+  onSaveTestimonials,
+  onSaveIntroVideo,
   onSaveLegal,
+  onPublishAnnouncement,
 }: ContentTabsProps) {
   const termsRef = useRef<HTMLTextAreaElement | null>(null);
   const privacyRef = useRef<HTMLTextAreaElement | null>(null);
   const [showTermsPreview, setShowTermsPreview] = useState(false);
   const [showPrivacyPreview, setShowPrivacyPreview] = useState(false);
-  const [homeHeadline, setHomeHeadline] = useState("");
-  const [homeDescription, setHomeDescription] = useState("");
-  const [homeWelcome, setHomeWelcome] = useState("");
   const [homeIntroVideo, setHomeIntroVideo] = useState("");
-  const [homeTestimonials, setHomeTestimonials] = useState("");
-  const [homeHeroImage, setHomeHeroImage] = useState("");
-  const [homeTier, setHomeTier] = useState("all");
-  const [parentTitle, setParentTitle] = useState("");
-  const [parentCategory, setParentCategory] = useState("Youth Strength Training 101");
-  const [parentBody, setParentBody] = useState("");
-  const [parentMediaUrl, setParentMediaUrl] = useState("");
-  const [parentTier, setParentTier] = useState("PHP_Plus");
+  const [homeAdminStory, setHomeAdminStory] = useState("");
+  const [homeProfessionalPhoto, setHomeProfessionalPhoto] = useState("");
+  const [hasTouchedProfessionalPhoto, setHasTouchedProfessionalPhoto] = useState(false);
+  const initialProfessionalPhotoRef = useRef("");
+  const [homeTestimonials, setHomeTestimonials] = useState<any[]>([]);
+  const [testimonialName, setTestimonialName] = useState("");
+  const [testimonialQuote, setTestimonialQuote] = useState("");
+  const [testimonialPhoto, setTestimonialPhoto] = useState("");
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementBody, setAnnouncementBody] = useState("");
   const [termsVersion, setTermsVersion] = useState("1.0");
   const [privacyVersion, setPrivacyVersion] = useState("1.0");
 
   useEffect(() => {
     if (!initialHome) return;
-    if (initialHome.headline !== undefined) setHomeHeadline(initialHome.headline ?? "");
-    if (initialHome.description !== undefined) setHomeDescription(initialHome.description ?? "");
-    if (initialHome.welcome !== undefined) setHomeWelcome(initialHome.welcome ?? "");
     if (initialHome.introVideoUrl !== undefined) setHomeIntroVideo(initialHome.introVideoUrl ?? "");
-    if (initialHome.testimonials !== undefined) setHomeTestimonials(initialHome.testimonials ?? "");
-    if (initialHome.heroImageUrl !== undefined) setHomeHeroImage(initialHome.heroImageUrl ?? "");
-    if (initialHome.tier !== undefined) setHomeTier(initialHome.tier ?? "all");
+    if (initialHome.adminStory !== undefined) setHomeAdminStory(initialHome.adminStory ?? "");
+    if (initialHome.professionalPhoto !== undefined) {
+      setHomeProfessionalPhoto(initialHome.professionalPhoto ?? "");
+      initialProfessionalPhotoRef.current = initialHome.professionalPhoto ?? "";
+      setHasTouchedProfessionalPhoto(false);
+    }
+    if (initialHome.testimonials !== undefined) {
+      const value = initialHome.testimonials;
+      if (Array.isArray(value)) {
+        setHomeTestimonials(value);
+      } else if (typeof value === "string" && value.trim().length) {
+        try {
+          const parsed = JSON.parse(value);
+          setHomeTestimonials(Array.isArray(parsed) ? parsed : []);
+        } catch {
+          setHomeTestimonials([]);
+        }
+      } else {
+        setHomeTestimonials([]);
+      }
+    }
   }, [initialHome]);
 
   useEffect(() => {
@@ -193,194 +193,217 @@ export function ContentTabs({
   ] as const;
 
   return (
-    <Tabs defaultValue="home">
+    <Tabs defaultValue="profile">
       <TabsList>
-        <TabsTrigger value="home">Home</TabsTrigger>
-        <TabsTrigger value="parent">Parent Platform</TabsTrigger>
-        <TabsTrigger value="programs">Programs</TabsTrigger>
-        <TabsTrigger value="physio">Physio</TabsTrigger>
+        <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
+        <TabsTrigger value="intro">Intro Video</TabsTrigger>
         <TabsTrigger value="legal">Legal</TabsTrigger>
+        <TabsTrigger value="announcements">Announcements</TabsTrigger>
       </TabsList>
-      <div className="flex gap-2 overflow-auto pb-1 md:hidden">
-        {["Drafts", "Published", "Tier Filters", "Media"].map((chip) => (
-          <Button
-            key={chip}
-            variant="outline"
-            size="sm"
-            className="whitespace-nowrap"
-          >
-            {chip}
-          </Button>
-        ))}
-      </div>
-      <TabsContent value="home">
+      <TabsContent value="profile">
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Platform Headline</Label>
-              <Input placeholder="e.g. Parent Education Platform" value={homeHeadline} onChange={(e) => setHomeHeadline(e.target.value)} />
+              <Label>Admin Story</Label>
+              <Textarea placeholder="Share the admin story..." value={homeAdminStory} onChange={(e) => setHomeAdminStory(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Platform Description</Label>
-              <Textarea placeholder="e.g. Understand your athlete's training with our educational module for parents." value={homeDescription} onChange={(e) => setHomeDescription(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Coach Welcome Message</Label>
-              <Textarea placeholder="e.g. Welcome back, [Name]! Learn what your child is learning in the gym this week." value={homeWelcome} onChange={(e) => setHomeWelcome(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Intro Video URL</Label>
-              <Input placeholder="https://video" value={homeIntroVideo} onChange={(e) => setHomeIntroVideo(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Testimonials</Label>
-              <Textarea placeholder="Add testimonials..." value={homeTestimonials} onChange={(e) => setHomeTestimonials(e.target.value)} />
+              <Label>Professional Photos</Label>
+              <ParentCourseMediaUpload
+                label={homeProfessionalPhoto ? "Replace Photo" : "Upload Photo"}
+                folder="home/professional-photo"
+                accept="image/*"
+                maxSizeMb={10}
+                onUploaded={(url) => {
+                  setHomeProfessionalPhoto(url);
+                  setHasTouchedProfessionalPhoto(true);
+                }}
+              />
+              {homeProfessionalPhoto ? (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                    <span className="break-all text-muted-foreground">{homeProfessionalPhoto}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setHomeProfessionalPhoto("");
+                        setHasTouchedProfessionalPhoto(true);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Upload professional photos to appear on the home dashboard.
+                </p>
+              )}
             </div>
           </div>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Hero Image</Label>
-              <Input placeholder="https://image" value={homeHeroImage} onChange={(e) => setHomeHeroImage(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Display Tier</Label>
-              <Select value={homeTier} onChange={(e) => setHomeTier(e.target.value)}>
-                <option value="all">All tiers</option>
-                <option value="PHP">PHP Program</option>
-                <option value="PHP_Plus">PHP Plus</option>
-                <option value="PHP_Premium">PHP Premium</option>
-              </Select>
-            </div>
             <Button
               className="w-full"
-              onClick={() =>
-                onSaveHome({
-                  headline: homeHeadline,
-                  description: homeDescription,
-                  welcome: homeWelcome,
-                  introVideoUrl: homeIntroVideo,
-                  testimonials: homeTestimonials,
-                  heroImageUrl: homeHeroImage,
-                  tier: homeTier,
-                })
-              }
+              onClick={() => {
+                onSaveProfile({
+                  adminStory: homeAdminStory,
+                  professionalPhoto: hasTouchedProfessionalPhoto
+                    ? homeProfessionalPhoto
+                    : initialProfessionalPhotoRef.current,
+                });
+              }}
             >
               Save Updates
             </Button>
           </div>
         </div>
       </TabsContent>
-      <TabsContent value="parent">
+      <TabsContent value="testimonials">
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Article Title</Label>
-              <Input placeholder="New article title" value={parentTitle} onChange={(e) => setParentTitle(e.target.value)} />
+              <Label>Name</Label>
+              <Input
+                placeholder="e.g. Jordan Smith"
+                value={testimonialName}
+                onChange={(e) => setTestimonialName(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={parentCategory} onChange={(e) => setParentCategory(e.target.value)}>
-                <option>Youth Strength Training 101</option>
-                <option>Benefits of Strength Training</option>
-                <option>Why We Warm Up</option>
-                <option>Recovery for Young Athletes</option>
-                <option>Nutrition for Young Athletes</option>
-                <option>Training Safety Rules</option>
-                <option>Signs of Overtraining and Fatigue</option>
-                <option>Myths About Kids & Strength Training</option>
-              </Select>
+              <Label>Testimony</Label>
+              <Textarea
+                placeholder="Share the testimonial..."
+                value={testimonialQuote}
+                onChange={(e) => setTestimonialQuote(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <Label>Body</Label>
-              <Textarea placeholder="Write the article..." value={parentBody} onChange={(e) => setParentBody(e.target.value)} />
+              <Label>Photo</Label>
+              <ParentCourseMediaUpload
+                label={testimonialPhoto ? "Replace Photo" : "Upload Photo"}
+                folder="home/testimonials"
+                accept="image/*"
+                maxSizeMb={10}
+                onUploaded={(url) => setTestimonialPhoto(url)}
+              />
+              {testimonialPhoto ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                  <span className="break-all text-muted-foreground">{testimonialPhoto}</span>
+                  <Button size="sm" variant="outline" onClick={() => setTestimonialPhoto("")}>
+                    Remove
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Media</Label>
-              <Input placeholder="https://media" value={parentMediaUrl} onChange={(e) => setParentMediaUrl(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Access Tier</Label>
-              <Select value={parentTier} onChange={(e) => setParentTier(e.target.value)}>
-                <option value="PHP_Plus">PHP Plus & Premium</option>
-                <option value="all">All tiers</option>
-                <option value="PHP_Premium">Premium only</option>
-              </Select>
-            </div>
             <Button
               className="w-full"
-              onClick={() =>
-                onPublishParent({
-                  title: parentTitle,
-                  category: parentCategory,
-                  body: parentBody,
-                  mediaUrl: parentMediaUrl,
-                  tier: parentTier,
-                })
-              }
+              onClick={() => {
+                if (!testimonialName.trim() || !testimonialQuote.trim()) {
+                  return;
+                }
+                const entry = {
+                  id: `t_${Date.now()}`,
+                  name: testimonialName.trim(),
+                  quote: testimonialQuote.trim(),
+                  photoUrl: testimonialPhoto.trim() || undefined,
+                };
+                setTestimonialName("");
+                setTestimonialQuote("");
+                setTestimonialPhoto("");
+                setHomeTestimonials((prev) => [...prev, entry]);
+              }}
             >
-              Publish Article
+              Add Testimonial
             </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => {
+                const cleaned = homeTestimonials.filter(
+                  (item: any) => item?.name?.trim?.() && item?.quote?.trim?.()
+                );
+                onSaveTestimonials({ testimonials: cleaned });
+              }}
+            >
+              Save Testimonials
+            </Button>
+            {homeTestimonials.length ? (
+              <div className="space-y-3">
+                {homeTestimonials.map((item: any, index: number) => (
+                  <div
+                    key={item?.id ?? `testimonial-${index}`}
+                    className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {item?.name ?? "Unnamed"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {item?.quote ?? ""}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setHomeTestimonials((prev) =>
+                            prev.filter((_: any, i: number) => i !== index)
+                          )
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    {item?.photoUrl ? (
+                      <div className="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary/40">
+                        <img
+                          src={item.photoUrl}
+                          alt={`Testimonial ${item?.name ?? ""}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       </TabsContent>
-      <TabsContent value="physio">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Referral Provider Name</Label>
-              <Input placeholder="e.g. Elite Physio" />
-            </div>
-            <div className="space-y-2">
-              <Label>Referral Link</Label>
-              <Input placeholder="https://physio-provider.com" />
-            </div>
-          </div>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Plus/Premium Discount (%)</Label>
-              <Input type="number" placeholder="10" />
-            </div>
-            <div className="space-y-2">
-              <Label>Discount Code</Label>
-              <Input placeholder="LIFTLAB10" />
-            </div>
-            <Button className="w-full">Save Physio Settings</Button>
-          </div>
-        </div>
-      </TabsContent>
-      <TabsContent value="programs">
+      <TabsContent value="intro">
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Program Card Title</Label>
-              <Input placeholder="PHP Plus" />
-            </div>
-            <div className="space-y-2">
-              <Label>Summary</Label>
-              <Textarea placeholder="Short summary..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Included Features</Label>
-              <Textarea placeholder="Bullets or sentences" />
+              <Label>Intro Video</Label>
+              <ParentCourseMediaUpload
+                label={homeIntroVideo ? "Replace Video" : "Upload Video"}
+                folder="home/intro-video"
+                accept="video/*"
+                maxSizeMb={200}
+                onUploaded={(url) => setHomeIntroVideo(url)}
+              />
+              {homeIntroVideo ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                  <span className="break-all text-muted-foreground">{homeIntroVideo}</span>
+                  <Button size="sm" variant="outline" onClick={() => setHomeIntroVideo("")}>
+                    Remove
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Upload an intro video for the mobile home screen.
+                </p>
+              )}
             </div>
           </div>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>CTA Label</Label>
-              <Input placeholder="Apply now" />
-            </div>
-            <div className="space-y-2">
-              <Label>CTA Behavior</Label>
-              <Select>
-                <option>View program</option>
-                <option>Apply</option>
-                <option>Start onboarding</option>
-              </Select>
-            </div>
-            <Button className="w-full" onClick={onSavePrograms}>
-              Save Program Card
+            <Button className="w-full" onClick={() => onSaveIntroVideo({ introVideoUrl: homeIntroVideo })}>
+              Save Intro Video
             </Button>
           </div>
         </div>
@@ -493,6 +516,41 @@ export function ContentTabs({
           >
             Save Legal
           </Button>
+        </div>
+      </TabsContent>
+      <TabsContent value="announcements">
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Announcement Title</Label>
+              <Input
+                placeholder="e.g. Spring Training Schedule Update"
+                value={announcementTitle}
+                onChange={(e) => setAnnouncementTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Announcement Body</Label>
+              <Textarea
+                placeholder="Write the announcement..."
+                value={announcementBody}
+                onChange={(e) => setAnnouncementBody(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <Button
+              className="w-full"
+              onClick={() =>
+                onPublishAnnouncement({
+                  title: announcementTitle,
+                  body: announcementBody,
+                })
+              }
+            >
+              Publish Announcement
+            </Button>
+          </div>
         </div>
       </TabsContent>
     </Tabs>

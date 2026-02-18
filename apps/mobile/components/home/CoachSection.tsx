@@ -1,4 +1,3 @@
-import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
 import { Image, Linking, TouchableOpacity, View } from "react-native";
 import { Text } from "@/components/ScaledText";
@@ -27,24 +26,23 @@ export function CoachSection({
                 style={{ width: "100%", height: "100%" }}
                 resizeMode="cover"
               />
-            ) : (
-              <Feather name="user" size={40} className="text-muted" />
-            )}
+            ) : null}
           </View>
           <View className="flex-1">
             <Text className="text-xs font-bold font-outfit text-accent uppercase tracking-[2px] mb-1">
               Head Coach
             </Text>
             <Text className="text-2xl font-bold font-clash text-app leading-tight">
-              {headline || "Meet Coach Mike Green"}
+              {headline ?? ""}
             </Text>
           </View>
         </View>
 
-        <Text className="text-secondary font-outfit text-sm leading-relaxed mb-6">
-          {description ||
-            "With over 12 years of experience in elite youth football development, Coach Mike Green founded Lift Lab / PHP to bridge the gap between raw talent and professional performance. His philosophy combines rigorous physical conditioning with mental resilience training."}
-        </Text>
+        {description ? (
+          <Text className="text-secondary font-outfit text-sm leading-relaxed mb-6">
+            {description}
+          </Text>
+        ) : null}
 
         {introVideoUrl ? (
           <TouchableOpacity

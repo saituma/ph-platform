@@ -27,6 +27,11 @@ export default function ContentPage() {
       homeBody = {};
     }
   }
+  const baseHomeTitle =
+    homeItem?.title?.trim() ||
+    homeItem?.content?.trim() ||
+    homeBody.headline?.trim?.() ||
+    "Home";
 
   const legalItems = legalData?.items ?? [];
   const findLegal = (key: "terms" | "privacy") =>
@@ -56,13 +61,19 @@ export default function ContentPage() {
           ) : (
             <ContentTabs
               initialHome={{
-                headline: homeBody.headline ?? homeItem?.content ?? homeItem?.title ?? "",
-                description: homeBody.description ?? "",
-                welcome: homeBody.welcome ?? "",
                 introVideoUrl: homeBody.introVideoUrl ?? "",
-                testimonials: homeBody.testimonials ?? "",
-                heroImageUrl: homeBody.heroImageUrl ?? "",
-                tier: homeItem?.programTier ?? "all",
+                testimonials: homeBody.testimonials ?? [],
+                adminStory: homeBody.adminStory ?? "",
+                professionalPhoto:
+                  homeBody.professionalPhoto ??
+                  (Array.isArray(homeBody.professionalPhotos)
+                    ? homeBody.professionalPhotos[0] ?? ""
+                    : typeof homeBody.professionalPhotos === "string"
+                      ? homeBody.professionalPhotos
+                          .split(/\r?\n|,/)
+                          .map((item: string) => item.trim())
+                          .filter(Boolean)[0] ?? ""
+                      : ""),
               }}
               initialLegal={{
                 termsText: termsItem?.body ?? "",
@@ -70,21 +81,19 @@ export default function ContentPage() {
                 privacyText: privacyItem?.body ?? "",
                 privacyVersion: privacyItem?.content ?? "1.0",
               }}
-              onSaveHome={async (data) => {
+              onSaveProfile={async (data) => {
                 setError(null);
                 const payload = {
                   title: "Home",
-                  content: data.headline,
+                  content: baseHomeTitle,
                   type: "article",
                   body: JSON.stringify({
-                    description: data.description,
-                    welcome: data.welcome,
-                    introVideoUrl: data.introVideoUrl,
-                    testimonials: data.testimonials,
-                    heroImageUrl: data.heroImageUrl,
+                    ...homeBody,
+                    adminStory: data.adminStory,
+                    professionalPhoto: data.professionalPhoto,
                   }),
                   surface: "home",
-                  programTier: data.tier === "all" ? undefined : data.tier,
+                  programTier: homeItem?.programTier ?? undefined,
                 };
                 try {
                   if (homeItem?.id) {
@@ -94,28 +103,57 @@ export default function ContentPage() {
                   }
                   setActiveDialog("home");
                 } catch (err) {
-                  setError("Failed to save home content");
+                  setError("Failed to save profile content");
                 }
               }}
-              onPublishParent={async (data) => {
+              onSaveTestimonials={async (data) => {
                 setError(null);
                 const payload = {
-                  title: data.title,
-                  content: data.body.slice(0, 140),
+                  title: "Home",
+                  content: baseHomeTitle,
                   type: "article",
-                  body: data.body,
-                  surface: "parent_platform",
-                  category: data.category,
-                  programTier: data.tier === "all" ? undefined : data.tier,
+                  body: JSON.stringify({
+                    ...homeBody,
+                    testimonials: data.testimonials,
+                  }),
+                  surface: "home",
+                  programTier: homeItem?.programTier ?? undefined,
                 };
                 try {
-                  await createContent(payload).unwrap();
-                  setActiveDialog("parent");
+                  if (homeItem?.id) {
+                    await updateContent({ id: homeItem.id, data: payload }).unwrap();
+                  } else {
+                    await createContent(payload).unwrap();
+                  }
+                  setActiveDialog("home");
                 } catch (err) {
-                  setError("Failed to publish parent article");
+                  setError("Failed to save testimonials");
                 }
               }}
-              onSavePrograms={() => setActiveDialog("programs")}
+              onSaveIntroVideo={async (data) => {
+                setError(null);
+                const payload = {
+                  title: "Home",
+                  content: baseHomeTitle,
+                  type: "article",
+                  body: JSON.stringify({
+                    ...homeBody,
+                    introVideoUrl: data.introVideoUrl,
+                  }),
+                  surface: "home",
+                  programTier: homeItem?.programTier ?? undefined,
+                };
+                try {
+                  if (homeItem?.id) {
+                    await updateContent({ id: homeItem.id, data: payload }).unwrap();
+                  } else {
+                    await createContent(payload).unwrap();
+                  }
+                  setActiveDialog("home");
+                } catch (err) {
+                  setError("Failed to save intro video");
+                }
+              }}
               onSaveLegal={async (data) => {
                 setError(null);
                 const upsert = async (key: "terms" | "privacy", text: string, version: string) => {
@@ -143,6 +181,22 @@ export default function ContentPage() {
                   setActiveDialog("legal");
                 } catch (err) {
                   setError("Failed to save legal content");
+                }
+              }}
+              onPublishAnnouncement={async (data) => {
+                setError(null);
+                const payload = {
+                  title: data.title,
+                  content: data.body.slice(0, 140),
+                  type: "article",
+                  body: data.body,
+                  surface: "announcements",
+                };
+                try {
+                  await createContent(payload).unwrap();
+                  setActiveDialog("home");
+                } catch (err) {
+                  setError("Failed to publish announcement");
                 }
               }}
             />

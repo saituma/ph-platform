@@ -49,6 +49,7 @@ export function AdminSidebarContent({
   const navItems = [
     { label: "Overview", href: "/", icon: Home },
     { label: "Parent Portal", href: "/parent", icon: UserRound },
+    { label: "Content", href: "/content", icon: BookOpen },
     { label: "Users & Tiers", href: "/users", icon: UserRound },
     {
       label: "Messaging",

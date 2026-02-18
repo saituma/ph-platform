@@ -1,3 +1,4 @@
+import { AdminStorySection } from "@/components/home/AdminStorySection";
 import { CoachSection } from "@/components/home/CoachSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
@@ -85,6 +86,8 @@ type HomeContentPayload = {
   introVideoUrl?: string | null;
   heroImageUrl?: string | null;
   testimonials?: HomeTestimonial[] | null;
+  adminStory?: string | null;
+  professionalPhoto?: string | null;
 };
 
 export default function HomeScreen() {
@@ -177,13 +180,37 @@ export default function HomeScreen() {
           body = {};
         }
       }
+      const parsedTestimonials =
+        typeof body.testimonials === "string" && body.testimonials.trim().length
+          ? (() => {
+              try {
+                const parsed = JSON.parse(body.testimonials);
+                return Array.isArray(parsed) ? parsed : null;
+              } catch {
+                return null;
+              }
+            })()
+          : null;
+      const professionalPhoto =
+        typeof body.professionalPhoto === "string" && body.professionalPhoto.trim()
+          ? body.professionalPhoto.trim()
+          : Array.isArray(body.professionalPhotos)
+            ? body.professionalPhotos[0] ?? null
+            : typeof body.professionalPhotos === "string"
+              ? body.professionalPhotos
+                  .split(/\r?\n|,/)
+                  .map((entry) => entry.trim())
+                  .filter(Boolean)[0] ?? null
+              : null;
       setHomeContent({
         headline: body.headline ?? item.content ?? item.title ?? null,
         description: body.description ?? null,
         welcome: body.welcome ?? null,
         introVideoUrl: body.introVideoUrl ?? null,
         heroImageUrl: body.heroImageUrl ?? null,
-        testimonials: body.testimonials ?? null,
+        testimonials: parsedTestimonials ?? (Array.isArray(body.testimonials) ? body.testimonials : null),
+        adminStory: body.adminStory ?? null,
+        professionalPhoto,
       });
       setHomeContentError(null);
     } catch (err: any) {
@@ -350,9 +377,11 @@ export default function HomeScreen() {
                     : athleteName || "Athlete"}
                 </Text>
               </Text>
-              <Text className="text-secondary font-outfit text-sm mt-3 max-w-[240px]">
-                {homeContent?.welcome || "Focus on consistency. Small wins stack into big progress."}
-              </Text>
+              {homeContent?.welcome ? (
+                <Text className="text-secondary font-outfit text-sm mt-3 max-w-[240px]">
+                  {homeContent.welcome}
+                </Text>
+              ) : null}
             </View>
 
             <View className="h-14 w-14 bg-secondary rounded-[22px] border-2 border-app shadow-lg items-center justify-center relative overflow-hidden">
@@ -375,32 +404,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View className="mt-6 flex-row gap-3">
-            <View
-              className="flex-1 rounded-2xl p-4 border"
-              style={{
-                backgroundColor: colors.backgroundSecondary,
-                borderColor: colors.border,
-              }}
-            >
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">
-                Sessions
-              </Text>
-              <Text className="text-2xl font-clash text-app mt-1">2</Text>
-            </View>
-            <View
-              className="flex-1 rounded-2xl p-4 border"
-              style={{
-                backgroundColor: colors.backgroundSecondary,
-                borderColor: colors.border,
-              }}
-            >
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">
-                Streak
-              </Text>
-              <Text className="text-2xl font-clash text-app mt-1">7d</Text>
-            </View>
-          </View>
+          {/* Removed hardcoded stats to avoid mock data */}
 
           {role === "Guardian" || shouldShowSwitchAthlete ? (
             <View className="mt-4 flex-row gap-3">
@@ -526,6 +530,13 @@ export default function HomeScreen() {
             description={homeContent?.description}
             heroImageUrl={homeContent?.heroImageUrl}
             introVideoUrl={homeContent?.introVideoUrl}
+          />
+        </View>
+
+        <View>
+          <AdminStorySection
+            story={homeContent?.adminStory}
+            photoUrl={homeContent?.professionalPhoto ?? null}
           />
         </View>
 
