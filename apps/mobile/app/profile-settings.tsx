@@ -15,6 +15,8 @@ import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { updateProfile } from "@/store/slices/userSlice";
 import { Text, TextInput } from "@/components/ScaledText";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { AgeGate } from "@/components/AgeGate";
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
@@ -23,6 +25,7 @@ export default function ProfileSettingsScreen() {
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const { isLoading } = useRefreshContext();
   const { profile, token } = useAppSelector((state) => state.user);
+  const { isSectionHidden } = useAgeExperience();
   const dispatch = useAppDispatch();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [pendingAvatarUri, setPendingAvatarUri] = useState<string | null>(null);
@@ -59,6 +62,10 @@ export default function ProfileSettingsScreen() {
     extraResponses?: string | null;
     profilePicture?: string | null;
   } | null>(null);
+
+  if (isSectionHidden("settings")) {
+    return <AgeGate title="Settings locked" message="Settings are restricted for this age." />;
+  }
 
   const [name, setName] = useState(profile.name ?? "");
   const [email, setEmail] = useState(profile.email ?? "");

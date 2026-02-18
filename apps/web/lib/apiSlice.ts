@@ -18,6 +18,7 @@ export const apiSlice = createApi({
     "FoodDiary",
     "PhysioReferrals",
     "Programs",
+    "AgeExperience",
   ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<any, void>({
@@ -120,6 +121,33 @@ export const apiSlice = createApi({
     getPhysioReferrals: builder.query<{ items: any[] }, void>({
       query: () => "/admin/physio-referrals",
       providesTags: ["PhysioReferrals"],
+    }),
+    getAgeExperienceRules: builder.query<{ items: any[] }, void>({
+      query: () => "/admin/age-experience",
+      providesTags: ["AgeExperience"],
+    }),
+    createAgeExperienceRule: builder.mutation<{ item: any }, any>({
+      query: (body) => ({
+        url: "/admin/age-experience",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["AgeExperience"],
+    }),
+    updateAgeExperienceRule: builder.mutation<{ item: any }, { id: number; data: any }>({
+      query: ({ id, data }) => ({
+        url: `/admin/age-experience/${id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["AgeExperience"],
+    }),
+    deleteAgeExperienceRule: builder.mutation<{ item: any }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/admin/age-experience/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["AgeExperience"],
     }),
     createPhysioReferral: builder.mutation<{ item: any }, any>({
       query: (body) => ({
@@ -390,6 +418,10 @@ export const {
   useCreatePhysioReferralMutation,
   useUpdatePhysioReferralMutation,
   useDeletePhysioReferralMutation,
+  useGetAgeExperienceRulesQuery,
+  useCreateAgeExperienceRuleMutation,
+  useUpdateAgeExperienceRuleMutation,
+  useDeleteAgeExperienceRuleMutation,
   useGetParentCourseQuery,
   useCreateMediaUploadUrlMutation,
   useCreateParentCourseMutation,

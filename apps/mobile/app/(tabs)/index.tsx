@@ -31,6 +31,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import MoreScreen from "./more";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { AgeGate } from "@/components/AgeGate";
 
 function MenuGlyph({ color }: { color: string }) {
   return (
@@ -93,6 +95,7 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const dispatch = useAppDispatch();
   const { profile, token } = useAppSelector((state) => state.user);
+  const { isSectionHidden } = useAgeExperience();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [athleteName, setAthleteName] = useState<string | null>(null);
   const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
@@ -111,6 +114,10 @@ export default function HomeScreen() {
     const rawWidth = width * 0.8;
     return Math.round(rawWidth / 4) * 4;
   }, [width]);
+
+  if (isSectionHidden("dashboard")) {
+    return <AgeGate title="Dashboard locked" message="Dashboard content is restricted for this age." />;
+  }
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();

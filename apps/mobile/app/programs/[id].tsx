@@ -22,6 +22,7 @@ import { useRole } from "@/context/RoleContext";
 import { canAccessTier, normalizeProgramTier, programIdToTier, tierRank } from "@/lib/planAccess";
 import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -35,10 +36,11 @@ export default function ProgramDetailScreen() {
   const router = useRouter();
   const { programTier, token } = useAppSelector((state) => state.user);
   const { role } = useRole();
+  const { isSectionHidden } = useAgeExperience();
   const tabs = useMemo(() => {
-    const base = PROGRAM_TABS[programId];
+    let base = PROGRAM_TABS[programId];
     if (role === "Athlete") {
-      return base.filter(
+      base = base.filter(
         (tab) =>
           tab !== "Parent Education" &&
           tab !== "Nutrition & Food Diaries" &&
@@ -46,10 +48,19 @@ export default function ProgramDetailScreen() {
       );
     }
     if (role === "Guardian") {
-      return base.filter((tab) => tab !== "Video Upload");
+      base = base.filter((tab) => tab !== "Video Upload");
+    }
+    if (isSectionHidden("videoFeedback")) {
+      base = base.filter((tab) => tab !== "Video Upload");
+    }
+    if (isSectionHidden("foodDiary")) {
+      base = base.filter((tab) => tab !== "Nutrition & Food Diaries" && tab !== "Submit Diary");
+    }
+    if (isSectionHidden("physioReferrals")) {
+      base = base.filter((tab) => tab !== "Physio Referral" && tab !== "Physio Referrals");
     }
     return base;
-  }, [programId, role]);
+  }, [programId, role, isSectionHidden]);
   const [activeTab, setActiveTab] = useState(tabs[0]);
   const [allSessions, setAllSessions] = useState<SessionItem[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);

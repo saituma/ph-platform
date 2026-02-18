@@ -14,6 +14,7 @@ import mediaRoutes from "./media.routes";
 import billingRoutes from "./billing.routes";
 import foodDiaryRoutes from "./food-diary.routes";
 import physioReferralRoutes from "./physio-referral.routes";
+import ageExperienceRoutes from "./age-experience.routes";
 
 const router = Router();
 
@@ -31,5 +32,6 @@ router.use(adminRoutes);
 router.use(billingRoutes);
 router.use(foodDiaryRoutes);
 router.use(physioReferralRoutes);
+router.use(ageExperienceRoutes);
 
 export default router;

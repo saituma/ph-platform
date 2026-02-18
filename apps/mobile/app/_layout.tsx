@@ -19,6 +19,7 @@ import "./global.css";
 import useLoadFonts from "./hooks/useLoadFonts";
 import AppThemeProvider from "./theme/AppThemeProvider";
 import { FontScaleProvider } from "@/context/FontScaleContext";
+import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -167,17 +168,19 @@ export default function RootLayout() {
             <AppLockProvider>
               <AppThemeProvider>
                 <FontScaleProvider>
-                  <RefreshProvider>
-                    <GlobalRefreshLayout>
-                      <StripeProvider
-                        publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                        merchantIdentifier="merchant.ph.performance"
-                      >
-                        <AuthPersist />
-                        <AppShell colorScheme={colorScheme} />
-                      </StripeProvider>
-                    </GlobalRefreshLayout>
-                  </RefreshProvider>
+                  <AgeExperienceProvider>
+                    <RefreshProvider>
+                      <GlobalRefreshLayout>
+                        <StripeProvider
+                          publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                          merchantIdentifier="merchant.ph.performance"
+                        >
+                          <AuthPersist />
+                          <AppShell colorScheme={colorScheme} />
+                        </StripeProvider>
+                      </GlobalRefreshLayout>
+                    </RefreshProvider>
+                  </AgeExperienceProvider>
                 </FontScaleProvider>
               </AppThemeProvider>
             </AppLockProvider>

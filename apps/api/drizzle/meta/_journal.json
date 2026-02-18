@@ -148,6 +148,13 @@
       "when": 1771309000000,
       "tag": "0020_add_guardian_active_athlete",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1771310000000,
+      "tag": "0021_age_experience_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -15,12 +15,15 @@ import { Text } from "@/components/ScaledText";
 import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "@/lib/api";
 import { setLatestSubscriptionRequest, setProgramTier } from "@/store/slices/userSlice";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { AgeGate } from "@/components/AgeGate";
 
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { programTier, token } = useAppSelector((state) => state.user);
+  const { isSectionHidden } = useAgeExperience();
   const {
     reactionOptions,
     currentThread,
@@ -48,6 +51,10 @@ export default function MessagesScreen() {
     loadMessages,
   } = useMessagesController();
   const canMessage = canAccessTier(programTier ?? null, "PHP_Plus");
+
+  if (isSectionHidden("messages")) {
+    return <AgeGate title="Messages locked" message="Messaging is restricted for this age." />;
+  }
 
   useFocusEffect(
     React.useCallback(() => {

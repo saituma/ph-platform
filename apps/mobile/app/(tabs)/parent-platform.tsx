@@ -10,6 +10,8 @@ import { useRole } from "@/context/RoleContext";
 import { setParentContentCache } from "@/lib/parentContentCache";
 import { canAccessTier, tierRank } from "@/lib/planAccess";
 import { Text } from "@/components/ScaledText";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { AgeGate } from "@/components/AgeGate";
 
 const CATEGORIES = [
   { id: "growth", title: "Growth and maturation", icon: "book-open", color: "bg-emerald-500" },
@@ -46,9 +48,14 @@ export default function ParentPlatformScreen() {
   const { role } = useRole();
   const { token, programTier } = useAppSelector((state) => state.user);
   const router = useRouter();
+  const { isSectionHidden } = useAgeExperience();
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  if (isSectionHidden("parentPlatform")) {
+    return <AgeGate title="Parent platform locked" message="Parent education content is restricted for this age." />;
+  }
 
   const fetchCourses = useCallback(async (options?: { refreshing?: boolean }) => {
     if (!token) {

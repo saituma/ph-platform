@@ -4,6 +4,7 @@ import { AdminShell } from "../../components/admin/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { ParentContentCard } from "../../components/parent/config/parent-content-card";
 import { ParentCoursesCard } from "../../components/parent/config/parent-courses-card";
+import { AgeExperienceCard } from "../../components/admin/age-experience/age-experience-card";
 
 export default function AgeContentControlPage() {
   return (
@@ -22,6 +23,7 @@ export default function AgeContentControlPage() {
       <div className="space-y-6">
         <ParentContentCard />
         <ParentCoursesCard />
+        <AgeExperienceCard />
       </div>
     </AdminShell>
   );

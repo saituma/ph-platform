@@ -12,6 +12,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import * as WebBrowser from "expo-web-browser";
 import { Text } from "@/components/ScaledText";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { AgeGate } from "@/components/AgeGate";
 
 type ParentCourseModule = {
   id: string;
@@ -41,9 +43,14 @@ export default function ParentCourseDetail() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
+  const { isSectionHidden } = useAgeExperience();
   const cached = Number.isFinite(Number(idValue)) ? getParentContentCache(Number(idValue)) : null;
   const [item, setItem] = useState<ParentCourseItem | null>(cached as ParentCourseItem | null);
   const [isLoading, setIsLoading] = useState(!cached);
+
+  if (isSectionHidden("parentPlatform")) {
+    return <AgeGate title="Parent platform locked" message="Parent education content is restricted for this age." />;
+  }
 
   const modules = useMemo(() => {
     return (item?.modules ?? [])

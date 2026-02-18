@@ -12,6 +12,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { setLatestSubscriptionRequest, setProgramTier } from "@/store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { AgeGate } from "@/components/AgeGate";
 
 export default function ProgramsScreen() {
   const router = useRouter();
@@ -19,6 +21,7 @@ export default function ProgramsScreen() {
   const { onboardingCompleted, token, isAuthenticated, programTier, latestSubscriptionRequest } = useAppSelector(
     (state) => state.user
   );
+  const { isSectionHidden } = useAgeExperience();
   const [currentTier, setCurrentTier] = useState<string | null>(null);
   const [plansByTier, setPlansByTier] = useState<Record<string, number>>({});
   const [pricingByTier, setPricingByTier] = useState<Record<string, PlanPricing>>({});
@@ -72,6 +75,10 @@ export default function ProgramsScreen() {
   const handleViewProgram = (tierId: string) => {
     router.push(`/programs/${tierId}`);
   };
+
+  if (isSectionHidden("programs")) {
+    return <AgeGate title="Programs locked" message="Programs are restricted for this age." />;
+  }
 
   useEffect(() => {
     let mounted = true;

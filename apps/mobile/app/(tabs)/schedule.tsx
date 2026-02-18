@@ -10,6 +10,8 @@ import { Alert, InteractionManager, Modal, Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Text, TextInput } from "@/components/ScaledText";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { AgeGate } from "@/components/AgeGate";
 
 type ScheduleEvent = {
   id: string;
@@ -62,9 +64,14 @@ export default function ScheduleScreen() {
   const { colors } = useAppTheme();
   const router = useRouter();
   const { token, programTier } = useAppSelector((state) => state.user);
+  const { isSectionHidden } = useAgeExperience();
   const [selectedFilter, setSelectedFilter] = useState<
     (typeof FILTERS)[number]
   >("All");
+
+  if (isSectionHidden("schedule")) {
+    return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
+  }
   const today = new Date();
   const todayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][today.getDay()] ?? "mon";
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(

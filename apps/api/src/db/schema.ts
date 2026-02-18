@@ -132,6 +132,22 @@ export const onboardingConfigTable = pgTable("onboarding_configs", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const ageExperienceTable = pgTable("age_experience_rules", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  title: varchar({ length: 255 }).notNull(),
+  minAge: integer(),
+  maxAge: integer(),
+  isDefault: boolean().notNull().default(false),
+  uiPreset: varchar({ length: 32 }).notNull().default("standard"),
+  fontSizeOption: varchar({ length: 16 }).notNull().default("default"),
+  density: varchar({ length: 16 }).notNull().default("default"),
+  hiddenSections: jsonb(),
+  createdBy: integer().references(() => userTable.id),
+  updatedBy: integer().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
 
 export const enrollmentTable = pgTable("enrollments", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
