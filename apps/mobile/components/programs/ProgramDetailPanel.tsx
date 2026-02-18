@@ -384,10 +384,10 @@ export function ProgramDetailPanel({
     const normalizedTier = normalizeProgramTier(programTier);
     if (!hasAccess) {
       const title = normalizedTier
-        ? "Apply to unlock this program"
+        ? "Program locked"
         : "Complete onboarding to unlock programs";
       const body = normalizedTier
-        ? "This program is available on a higher plan tier. Apply to upgrade your coaching."
+        ? "This program is available on a higher tier."
         : "Once your plan is active, your full program will appear here.";
       return (
         <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
@@ -399,14 +399,6 @@ export function ProgramDetailPanel({
           </View>
           <Text className="text-2xl font-clash text-app">{title}</Text>
           <Text className="text-2xl font-outfit text-secondary">{body}</Text>
-          <TouchableOpacity
-            onPress={() => onNavigate?.("/plans")}
-            className="mt-2 rounded-full bg-accent px-4 py-3"
-          >
-            <Text className="text-white text-2xl font-outfit text-center">
-              {normalizedTier ? "View Plans" : "Choose a Plan"}
-            </Text>
-          </TouchableOpacity>
         </View>
       );
     }
@@ -472,16 +464,8 @@ export function ProgramDetailPanel({
               Parent Program is locked on PHP
             </Text>
             <Text className="text-2xl font-outfit text-secondary">
-              Upgrade to PHP Plus or PHP Premium to access parent education.
+              This section unlocks at higher tiers.
             </Text>
-            <TouchableOpacity
-            onPress={() => onNavigate?.("/plans")}
-            className="mt-2 rounded-full bg-accent px-4 py-3"
-          >
-              <Text className="text-white text-2xl font-outfit text-center">
-                View Plans
-              </Text>
-            </TouchableOpacity>
           </View>
         );
       }
