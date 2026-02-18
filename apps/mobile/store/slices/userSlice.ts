@@ -9,10 +9,12 @@ interface UserProfile {
 
 export type ManagedAthlete = {
   id?: number;
+  userId?: number | null;
   name?: string | null;
   age?: number | null;
   team?: string | null;
   level?: string | null;
+  trainingPerWeek?: number | null;
   profilePicture?: string | null;
 };
 

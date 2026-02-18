@@ -142,6 +142,7 @@ export default function ParentPlatformScreen() {
     }));
   }, [items]);
   const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
+  const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium");
   const selectedAthlete =
     athleteUserId != null
       ? managedAthletes.find((athlete) => athlete.id === athleteUserId) ?? null
@@ -503,6 +504,34 @@ export default function ParentPlatformScreen() {
                       </TouchableOpacity>
                     );
                   })}
+                  {hasPremiumAccess ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsPickerOpen(false);
+                        router.push("/parent-platform/stats");
+                      }}
+                      className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-input px-3 py-3"
+                    >
+                      <View className="flex-row items-center gap-3">
+                        <View className="h-11 w-11 rounded-xl bg-[#2F8F57]/15 items-center justify-center">
+                          <Feather name="bar-chart-2" size={18} color="#2F8F57" />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-sm font-clash text-app">
+                            Athlete Stats
+                          </Text>
+                          <Text className="text-xs font-outfit text-secondary mt-0.5">
+                            Premium analytics dashboard
+                          </Text>
+                        </View>
+                        <View className="px-2 py-1 rounded-full bg-[#2F8F57]/10">
+                          <Text className="text-[10px] font-outfit text-[#2F8F57]">
+                            Premium
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ) : (
                 <Text className="text-sm font-outfit text-secondary">
