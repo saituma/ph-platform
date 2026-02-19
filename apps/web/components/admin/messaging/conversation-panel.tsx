@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../ui/button";
+import { Dialog, DialogContent } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
 import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
@@ -47,6 +48,7 @@ export function ConversationPanel({
 }: ConversationPanelProps) {
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null);
+  const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -127,13 +129,17 @@ export function ConversationPanel({
                   {message.author} • {message.time}
                 </p>
                 {message.mediaUrl && message.contentType === "image" ? (
-                  <a href={message.mediaUrl} target="_blank" rel="noreferrer" className="mt-2 block">
+                  <button
+                    type="button"
+                    className="mt-2 block w-full"
+                    onClick={() => setActiveImageUrl(message.mediaUrl ?? null)}
+                  >
                     <img
                       src={message.mediaUrl}
                       alt={message.text || "Image attachment"}
                       className="max-h-72 w-full rounded-xl object-cover"
                     />
-                  </a>
+                  </button>
                 ) : null}
                 {message.mediaUrl && message.contentType !== "image" ? (
                   <a
@@ -277,6 +283,17 @@ export function ConversationPanel({
           </div>
         </div>
       </div>
+      <Dialog open={Boolean(activeImageUrl)} onOpenChange={(open) => (open ? null : setActiveImageUrl(null))}>
+        <DialogContent className="max-w-5xl p-4">
+          {activeImageUrl ? (
+            <img
+              src={activeImageUrl}
+              alt="Attachment preview"
+              className="max-h-[80vh] w-full rounded-xl object-contain"
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
