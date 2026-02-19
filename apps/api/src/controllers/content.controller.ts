@@ -9,10 +9,13 @@ import {
   getLegalContent,
   updateContent,
   getContentById,
+  getContentByIdAdmin,
   listParentCourses,
   getParentCourseById,
   createParentCourse,
   updateParentCourse,
+  getTestimonialSubmissions,
+  updateContentCategory,
 } from "../services/content.service";
 import { ProgramType, contentType } from "../db/schema";
 
@@ -22,7 +25,7 @@ const contentCreateSchema = z.object({
   type: z.enum(contentType.enumValues),
   body: z.string().optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
-  surface: z.enum(["home", "parent_platform", "legal"]),
+  surface: z.enum(["home", "parent_platform", "legal", "announcements", "testimonial_submissions"]),
   category: z.string().optional(),
   minAge: z.number().int().min(0).optional(),
   maxAge: z.number().int().min(0).optional(),
@@ -92,6 +95,12 @@ const parentCourseCreateSchema = z.object({
 
 const parentCourseUpdateSchema = parentCourseCreateSchema;
 
+const testimonialSubmissionSchema = z.object({
+  name: z.string().min(1),
+  quote: z.string().min(1),
+  photoUrl: z.string().url().optional().nullable(),
+});
+
 export async function listHomeContent(req: Request, res: Response) {
   const items = await getHomeContentForUser(req.user!.id);
   return res.status(200).json({ items });
@@ -156,6 +165,109 @@ export async function updateContentItem(req: Request, res: Response) {
     return res.status(404).json({ error: "Content not found" });
   }
   return res.status(200).json({ item });
+}
+
+export async function submitTestimonial(req: Request, res: Response) {
+  const input = testimonialSubmissionSchema.parse(req.body);
+  const body = JSON.stringify({
+    name: input.name,
+    quote: input.quote,
+    photoUrl: input.photoUrl ?? null,
+  });
+  const item = await createContent({
+    title: `Testimonial: ${input.name}`,
+    content: input.quote.slice(0, 140),
+    type: "article",
+    body,
+    surface: "testimonial_submissions",
+    category: "pending",
+    createdBy: req.user!.id,
+  });
+  return res.status(201).json({ item });
+}
+
+export async function listTestimonialSubmissions(_req: Request, res: Response) {
+  const items = await getTestimonialSubmissions();
+  const pending = items.filter((item) => (item.category ?? "pending") !== "approved");
+  return res.status(200).json({ items: pending });
+}
+
+export async function approveTestimonialSubmission(req: Request, res: Response) {
+  const submissionId = z.coerce.number().int().min(1).parse(req.params.submissionId);
+  const submission = await getContentByIdAdmin(submissionId);
+  if (!submission || submission.surface !== "testimonial_submissions") {
+    return res.status(404).json({ error: "Submission not found" });
+  }
+
+  let payload: any = {};
+  if (submission.body) {
+    try {
+      payload = JSON.parse(submission.body);
+    } catch {
+      payload = {};
+    }
+  }
+
+  const testimonialEntry = {
+    id: `submission_${submission.id}`,
+    name: payload.name ?? submission.title.replace(/^Testimonial:\s*/i, "").trim(),
+    quote: payload.quote ?? submission.content,
+    photoUrl: payload.photoUrl ?? null,
+  };
+
+  const homeItems = await getHomeContentForUser(req.user!.id);
+  const homeItem = homeItems[0];
+  let homeBody: any = {};
+  if (homeItem?.body) {
+    try {
+      homeBody = JSON.parse(homeItem.body);
+    } catch {
+      homeBody = {};
+    }
+  }
+  const existing = Array.isArray(homeBody.testimonials) ? homeBody.testimonials : [];
+  const already = existing.some((item: any) => item?.id === testimonialEntry.id);
+  const nextTestimonials = already ? existing : [...existing, testimonialEntry];
+  const updatedHomeBody = {
+    ...homeBody,
+    testimonials: nextTestimonials,
+  };
+
+  if (homeItem?.id) {
+    await updateContent({
+      id: homeItem.id,
+      title: homeItem.title,
+      content: homeItem.content,
+      type: homeItem.type ?? "article",
+      body: JSON.stringify(updatedHomeBody),
+      programTier: homeItem.programTier,
+      category: homeItem.category,
+      minAge: homeItem.minAge,
+      maxAge: homeItem.maxAge,
+    });
+  } else {
+    await createContent({
+      title: "Home",
+      content: "Home",
+      type: "article",
+      body: JSON.stringify(updatedHomeBody),
+      surface: "home",
+      createdBy: req.user!.id,
+    });
+  }
+
+  await updateContentCategory({ id: submission.id, category: "approved" });
+  return res.status(200).json({ approved: true });
+}
+
+export async function rejectTestimonialSubmission(req: Request, res: Response) {
+  const submissionId = z.coerce.number().int().min(1).parse(req.params.submissionId);
+  const submission = await getContentByIdAdmin(submissionId);
+  if (!submission || submission.surface !== "testimonial_submissions") {
+    return res.status(404).json({ error: "Submission not found" });
+  }
+  await updateContentCategory({ id: submission.id, category: "rejected" });
+  return res.status(200).json({ rejected: true });
 }
 
 export async function listParentCoursesHandler(req: Request, res: Response) {

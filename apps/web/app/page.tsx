@@ -21,11 +21,16 @@ import { RechartSparkline } from "../components/admin/recharts";
 import { GreenDoughnutChart, GreenLineChart, GreenStackedBars } from "../components/admin/chartjs";
 import { ActionDialogs, type DashboardDialog } from "../components/admin/dashboard/action-dialogs";
 import { CalendarPanel } from "../components/admin/dashboard/calendar-panel";
-import { useGetDashboardQuery, useGetHomeContentQuery } from "../lib/apiSlice";
+import { UserLocationMap } from "../components/admin/user-location-map";
+import { useGetDashboardQuery, useGetHomeContentQuery, useGetUserLocationsQuery } from "../lib/apiSlice";
 
 export default function Home() {
   const { data: dashboardData, isLoading } = useGetDashboardQuery();
   const { data: homeContentData } = useGetHomeContentQuery();
+  const [showLocationHistory, setShowLocationHistory] = useState(false);
+  const { data: locationData, isLoading: isLoadingLocations } = useGetUserLocationsQuery(
+    showLocationHistory ? { days: 30 } : undefined
+  );
   const router = useRouter();
 
   const todayLabel = useMemo(() => {
@@ -140,6 +145,32 @@ export default function Home() {
 
   const programOpsData = dashboardData?.programOps ?? [];
 
+  const locationPoints = useMemo(() => {
+    const latest = (locationData?.latest ?? []).map((item: any) => ({
+      id: `latest-${item.userId}`,
+      latitude: Number(item.latitude),
+      longitude: Number(item.longitude),
+      label: item.name ?? "User",
+      role: item.role ?? null,
+      updatedAt: item.recordedAt,
+      isHistory: false,
+    }));
+
+    if (!showLocationHistory) return latest;
+
+    const history = (locationData?.history ?? []).map((item: any, index: number) => ({
+      id: `history-${item.userId}-${index}`,
+      latitude: Number(item.latitude),
+      longitude: Number(item.longitude),
+      label: item.name ?? "User",
+      role: item.role ?? null,
+      updatedAt: item.recordedAt,
+      isHistory: true,
+    }));
+
+    return [...history, ...latest];
+  }, [locationData, showLocationHistory]);
+
   const homeItem = (homeContentData?.items ?? [])[0] ?? null;
   let homeBody: any = {};
   if (homeItem?.body && typeof homeItem.body === "string") {
@@ -244,6 +275,36 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
+          </section>
+
+          <section className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <SectionHeader
+                  title="Athlete Locations"
+                  description="Daily check-ins from mobile devices."
+                  actionLabel={showLocationHistory ? "Hide 30-day history" : "Show 30-day history"}
+                  onAction={() => setShowLocationHistory((prev) => !prev)}
+                />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingLocations ? (
+                  <Skeleton className="h-[360px] w-full rounded-2xl" />
+                ) : (
+                  <UserLocationMap points={locationPoints} />
+                )}
+                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-600/80" />
+                    Latest location
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-sky-600/50" />
+                    History points
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">

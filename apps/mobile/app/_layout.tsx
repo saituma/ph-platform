@@ -6,11 +6,11 @@ import { AuthPersist } from "@/store/AuthPersist";
 import { useAppSelector } from "@/store/hooks";
 import { DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { StripeProvider } from "@stripe/stripe-react-native";
-import { SplashScreen, Stack } from "expo-router";
+import { SplashScreen, Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "nativewind";
 import React, { useEffect, useState } from "react";
-import { LogBox, Platform, View } from "react-native";
+import { BackHandler, LogBox, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppLockGate } from "@/components/AppLockGate";
@@ -193,6 +193,46 @@ export default function RootLayout() {
 
 function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
   const hydrated = useAppSelector((state) => state.user.hydrated);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const moreRoutes = new Set([
+      "/permissions",
+      "/profile-settings",
+      "/notifications",
+      "/privacy-security",
+      "/submit-testimonial",
+      "/help-center",
+      "/feedback",
+      "/about",
+      "/privacy-policy",
+      "/terms",
+      "/plans",
+    ]);
+
+    const isParentPlatformRoute = pathname.startsWith("/parent-platform");
+    const shouldHandle =
+      moreRoutes.has(pathname) || isParentPlatformRoute;
+
+    if (!shouldHandle) return;
+
+    const handler = () => {
+      if (pathname === "/parent-platform") {
+        router.replace("/(tabs)/more");
+      } else if (pathname.startsWith("/parent-platform/")) {
+        router.replace("/parent-platform");
+      } else {
+        router.replace("/(tabs)/more");
+      }
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", handler);
+    return () => subscription.remove();
+  }, [pathname, router]);
+
   if (!hydrated) {
     return null;
   }

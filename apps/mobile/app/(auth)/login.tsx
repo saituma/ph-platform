@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import { sendDailyLocation } from "../../lib/location";
 import { useAppDispatch } from "../../store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
 import {
@@ -109,6 +110,7 @@ export default function LoginScreen() {
         dispatch(setProgramTier(null));
         dispatch(setLatestSubscriptionRequest(null));
       }
+      void sendDailyLocation(token);
       router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
     } catch (err: any) {
       const message = err?.message ?? "Login failed";

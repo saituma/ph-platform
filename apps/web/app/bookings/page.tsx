@@ -9,13 +9,24 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { BookingsDialogs, type BookingsDialog } from "../../components/admin/bookings/bookings-dialogs";
 import { BookingsFilters } from "../../components/admin/bookings/bookings-filters";
 import { BookingsList } from "../../components/admin/bookings/bookings-list";
-import { useGetBookingsQuery, useGetServicesQuery, useUpdateServiceMutation } from "../../lib/apiSlice";
+import {
+  useGetBookingsQuery,
+  useGetServicesQuery,
+  useUpdateBookingStatusMutation,
+  useUpdateServiceMutation,
+} from "../../lib/apiSlice";
 
 type BookingItem = {
+  id: number;
   name: string;
   athlete: string;
   time: string;
   type: string;
+  status?: string | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  startsAt?: string | null;
+  endTime?: string | null;
 };
 
 type ServiceType = {
@@ -58,17 +69,24 @@ export default function BookingsPage() {
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery();
   const { data: servicesData, isLoading: servicesLoading, refetch: refetchServices } = useGetServicesQuery();
   const [updateService, { isLoading: isUpdatingService }] = useUpdateServiceMutation();
+  const [updateBookingStatus, { isLoading: isUpdatingBooking }] = useUpdateBookingStatusMutation();
   const isLoading = bookingsLoading || servicesLoading;
 
   const bookings = useMemo<BookingItem[]>(() => {
     const items = bookingsData?.bookings ?? [];
     return items.map((item: any) => ({
+      id: item.id,
       name: item.serviceName ?? item.type ?? "Session",
       athlete: item.athleteName ?? "Unknown athlete",
       time: item.startsAt
         ? new Date(item.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         : "--",
       type: item.type ?? "Session",
+      status: item.status ?? null,
+      location: item.location ?? null,
+      meetingLink: item.meetingLink ?? null,
+      startsAt: item.startsAt ?? null,
+      endTime: item.endTime ?? null,
     }));
   }, [bookingsData]);
 
@@ -109,7 +127,7 @@ export default function BookingsPage() {
           <CardHeader className="space-y-4">
             <SectionHeader
               title="Upcoming"
-              description="Next confirmed sessions."
+              description="Pending and confirmed booking requests."
               actionLabel="Calendar"
               onAction={() => setActiveDialog("calendar")}
             />
@@ -160,11 +178,10 @@ export default function BookingsPage() {
             <div className="space-y-2">
               <p className="text-sm font-semibold text-foreground">Booking Flow</p>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-                <li>User selects service type</li>
-                <li>Available time slots are displayed</li>
-                <li>User confirms booking</li>
-                <li>Confirmation screen is shown</li>
-                <li>Email and push notification are sent</li>
+                <li>User submits a booking request</li>
+                <li>Admin reviews details</li>
+                <li>Admin approves or declines</li>
+                <li>User sees the status in the app</li>
               </ol>
             </div>
 
@@ -247,6 +264,12 @@ export default function BookingsPage() {
         selectedBooking={selectedBooking}
         services={services}
         selectedService={selectedService}
+        isApproving={isUpdatingBooking}
+        onApproveBooking={async (bookingId) => {
+          await updateBookingStatus({ bookingId, status: "confirmed" }).unwrap();
+          refetchBookings();
+          setActiveDialog(null);
+        }}
         onRefresh={() => {
           refetchBookings();
           refetchServices();

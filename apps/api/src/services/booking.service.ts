@@ -211,7 +211,7 @@ export async function createBooking(input: {
       athleteId: input.athleteId,
       guardianId: input.guardianId,
       type: serviceType[0].type,
-      status: "confirmed",
+      status: "pending",
       startsAt: input.startsAt,
       endTime: input.endsAt,
       location: input.location ?? serviceType[0].defaultLocation ?? null,
@@ -263,8 +263,8 @@ export async function createBooking(input: {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: guardian[0].userId,
-            title: "Booking confirmed",
-            body: `${serviceType[0].name} at ${input.startsAt.toISOString()}`,
+            title: "Booking requested",
+            body: `${serviceType[0].name} request submitted`,
             link: "/schedule",
           }),
         });

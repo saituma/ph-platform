@@ -9,7 +9,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, InteractionManager, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { logout } from "../../store/slices/userSlice";
@@ -30,6 +30,10 @@ export default function MoreScreen() {
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
   const [isSwitching, setIsSwitching] = useState(false);
+
+  const openParentPlatform = () => {
+    router.push("/parent-platform");
+  };
 
   useEffect(() => {
     transition.value = 0;
@@ -152,6 +156,20 @@ export default function MoreScreen() {
                     onPress={() => router.navigate("/profile-settings")}
                     accentColor={colors.accent}
                   />
+                  <MenuItem
+                    icon="shield"
+                    label="Permissions"
+                    isLast={false}
+                    onPress={() => router.navigate("/permissions")}
+                    accentColor={colors.accent}
+                  />
+                  <MenuItem
+                    icon="book"
+                    label="Parent Platform"
+                    isLast={false}
+                    onPress={openParentPlatform}
+                    accentColor={colors.accent}
+                  />
                   {role === "Guardian" && (
                     <MenuItem
                       icon="credit-card"
@@ -186,6 +204,13 @@ export default function MoreScreen() {
                   </Text>
                 </View>
                 <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app">
+                  <MenuItem
+                    icon="star"
+                    label="Submit Testimonial"
+                    isLast={false}
+                    onPress={() => router.navigate("/submit-testimonial")}
+                    accentColor={colors.accent}
+                  />
                   <MenuItem
                     icon="help-circle"
                     label="Help Center"

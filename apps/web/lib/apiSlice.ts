@@ -19,6 +19,7 @@ export const apiSlice = createApi({
     "PhysioReferrals",
     "Programs",
     "AgeExperience",
+    "UserLocations",
   ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<any, void>({
@@ -49,6 +50,15 @@ export const apiSlice = createApi({
       query: () => "/admin/dashboard",
       providesTags: ["Dashboard"],
     }),
+    getUserLocations: builder.query<{ latest: any[]; history: any[]; rangeDays?: number | null }, { days?: number } | void>({
+      query: (params) => {
+        if (!params?.days) return "/admin/user-locations";
+        const query = new URLSearchParams();
+        query.set("days", String(params.days));
+        return `/admin/user-locations?${query.toString()}`;
+      },
+      providesTags: ["UserLocations"],
+    }),
     getUsers: builder.query<{ users: any[] }, void>({
       query: () => "/admin/users",
       providesTags: ["Users"],
@@ -71,6 +81,14 @@ export const apiSlice = createApi({
     getBookings: builder.query<{ bookings: any[] }, void>({
       query: () => "/admin/bookings",
       providesTags: ["Bookings"],
+    }),
+    updateBookingStatus: builder.mutation<any, { bookingId: number; status: string }>({
+      query: ({ bookingId, status }) => ({
+        url: `/admin/bookings/${bookingId}`,
+        method: "PATCH",
+        body: { status },
+      }),
+      invalidatesTags: ["Bookings"],
     }),
     getAdminAvailability: builder.query<{ items: any[] }, void>({
       query: () => "/admin/availability",
@@ -103,6 +121,24 @@ export const apiSlice = createApi({
     getLegalContent: builder.query<{ items: any[] }, void>({
       query: () => "/content/legal",
       providesTags: ["Content"],
+    }),
+    getTestimonialSubmissions: builder.query<{ items: any[] }, void>({
+      query: () => "/content/testimonials/submissions",
+      providesTags: ["TestimonialSubmissions"],
+    }),
+    approveTestimonialSubmission: builder.mutation<{ approved: boolean }, { submissionId: number }>({
+      query: ({ submissionId }) => ({
+        url: `/content/testimonials/${submissionId}/approve`,
+        method: "POST",
+      }),
+      invalidatesTags: ["TestimonialSubmissions", "Content"],
+    }),
+    rejectTestimonialSubmission: builder.mutation<{ rejected: boolean }, { submissionId: number }>({
+      query: ({ submissionId }) => ({
+        url: `/content/testimonials/${submissionId}/reject`,
+        method: "POST",
+      }),
+      invalidatesTags: ["TestimonialSubmissions"],
     }),
     getParentCourses: builder.query<{ items: any[] }, void>({
       query: () => "/content/parent-courses",
@@ -400,6 +436,7 @@ export const {
   useUpdateAdminPreferencesMutation,
   useChangePasswordMutation,
   useGetDashboardQuery,
+  useGetUserLocationsQuery,
   useGetUsersQuery,
   useBlockUserMutation,
   useDeleteUserMutation,

@@ -36,10 +36,23 @@ type ServiceType = {
 type BookingsDialogsProps = {
   active: BookingsDialog;
   onClose: () => void;
-  selectedBooking?: { name: string; athlete: string; time: string; type: string } | null;
+  selectedBooking?: {
+    id: number;
+    name: string;
+    athlete: string;
+    time: string;
+    type: string;
+    status?: string | null;
+    location?: string | null;
+    meetingLink?: string | null;
+    startsAt?: string | null;
+    endTime?: string | null;
+  } | null;
   services?: { id: number; name: string; type: string }[];
   selectedService?: ServiceType | null;
   onRefresh?: () => void;
+  onApproveBooking?: (bookingId: number) => Promise<void>;
+  isApproving?: boolean;
 };
 
 export function BookingsDialogs({
@@ -49,6 +62,8 @@ export function BookingsDialogs({
   services = [],
   selectedService,
   onRefresh,
+  onApproveBooking,
+  isApproving = false,
 }: BookingsDialogsProps) {
   const [serviceName, setServiceName] = useState("");
   const [serviceType, setServiceType] = useState("group_call");
@@ -68,7 +83,6 @@ export function BookingsDialogs({
   const [availabilityEndDate, setAvailabilityEndDate] = useState("");
   const [availabilityEndHour, setAvailabilityEndHour] = useState("");
   const [availabilityEndMinute, setAvailabilityEndMinute] = useState("");
-  const [bookingLocation, setBookingLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [createService, { isLoading: isCreatingService }] = useCreateServiceMutation();
   const [updateService, { isLoading: isUpdatingService }] = useUpdateServiceMutation();
@@ -380,18 +394,47 @@ export function BookingsDialogs({
                   {selectedBooking.athlete} • {selectedBooking.time} • {selectedBooking.type}
                 </p>
               </div>
-              <Input
-                placeholder="Location (optional)"
-                value={bookingLocation}
-                onChange={(e) => setBookingLocation(e.target.value)}
-              />
-              <Textarea placeholder="Coach notes" />
+              <div className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm space-y-2">
+                <div>Status: {selectedBooking.status ?? "unknown"}</div>
+                <div>
+                  Starts:{" "}
+                  {selectedBooking.startsAt
+                    ? new Date(selectedBooking.startsAt).toLocaleString()
+                    : "--"}
+                </div>
+                <div>
+                  Ends:{" "}
+                  {selectedBooking.endTime
+                    ? new Date(selectedBooking.endTime).toLocaleString()
+                    : "--"}
+                </div>
+                <div>Location: {selectedBooking.location ?? "None"}</div>
+                <div>Meeting link: {selectedBooking.meetingLink ?? "None"}</div>
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>
                   Close
                 </Button>
-                <Button onClick={onClose}>Save Notes</Button>
+                {selectedBooking.status === "pending" ? (
+                  <Button
+                    onClick={async () => {
+                      setError(null);
+                      if (!onApproveBooking) return;
+                      try {
+                        await onApproveBooking(selectedBooking.id);
+                      } catch (err: any) {
+                        setError(err.message ?? "Failed to approve booking");
+                      }
+                    }}
+                    disabled={isApproving}
+                  >
+                    Approve Booking
+                  </Button>
+                ) : null}
               </div>
+              {error ? (
+                <div className="text-sm text-red-500">{error}</div>
+              ) : null}
             </>
           ) : null}
         </div>

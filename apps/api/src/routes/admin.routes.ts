@@ -19,6 +19,7 @@ import {
   getOnboarding,
   listExerciseLibrary,
   listBookings,
+  updateBookingStatus,
   listAvailability,
   listVideosAdmin,
   getDashboard,
@@ -49,6 +50,7 @@ router.put("/admin/preferences", updateAdminPreferencesDetails);
 router.get("/admin/onboarding-config", getOnboardingConfigDetails);
 router.put("/admin/onboarding-config", updateOnboardingConfigDetails);
 router.get("/admin/bookings", listBookings);
+router.patch("/admin/bookings/:bookingId", updateBookingStatus);
 router.get("/admin/availability", listAvailability);
 router.get("/admin/videos", listVideosAdmin);
 router.get("/admin/messages/threads", listMessageThreads);

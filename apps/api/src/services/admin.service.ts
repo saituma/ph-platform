@@ -590,6 +590,22 @@ export async function listBookingsAdmin() {
   return rows;
 }
 
+export async function updateBookingStatusAdmin(input: {
+  bookingId: number;
+  status: "pending" | "confirmed" | "declined" | "cancelled";
+}) {
+  const result = await db
+    .update(bookingTable)
+    .set({
+      status: input.status,
+      updatedAt: new Date(),
+    })
+    .where(eq(bookingTable.id, input.bookingId))
+    .returning();
+
+  return result[0] ?? null;
+}
+
 export async function listAvailabilityAdmin() {
   return db
     .select({

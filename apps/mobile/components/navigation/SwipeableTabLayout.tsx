@@ -12,7 +12,7 @@ import type {
   PagerViewOnPageSelectedEvent,
   PageScrollStateChangedNativeEvent,
 } from "react-native-pager-view";
-import { useSharedValue } from "react-native-reanimated";
+import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
 
 interface SwipeableTabLayoutProps {
@@ -83,6 +83,14 @@ export function SwipeableTabLayout({
     pagerRef.current?.setPageWithoutAnimation(initialIndex);
   }, [initialIndex, activeIndex]);
 
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    scrollOffset.value = withTiming(activeIndex, {
+      duration: 90,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [activeIndex, scrollOffset]);
+
   const handlePageScrollStateChanged = useCallback(
     (e: PageScrollStateChangedNativeEvent) => {
       const state = e.nativeEvent.pageScrollState;
@@ -140,6 +148,12 @@ export function SwipeableTabLayout({
 
     isSyncingRef.current = true;
     lastChangeSourceRef.current = "press";
+    if (Platform.OS !== "web") {
+      scrollOffset.value = withTiming(index, {
+        duration: 110,
+        easing: Easing.out(Easing.quad),
+      });
+    }
     pagerRef.current?.setPage(index);
     setActiveIndex(index);
     lastSelectedIndex.current = index;
@@ -152,6 +166,7 @@ export function SwipeableTabLayout({
       lastChangeSourceRef.current = "sync";
     }
   };
+
 
   const childrenArray = React.Children.toArray(children);
 

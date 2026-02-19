@@ -14,6 +14,10 @@ import {
   getParentCourseHandler,
   createParentCourseHandler,
   updateParentCourseHandler,
+  submitTestimonial,
+  listTestimonialSubmissions,
+  approveTestimonialSubmission,
+  rejectTestimonialSubmission,
 } from "../controllers/content.controller";
 
 const router = Router();
@@ -22,6 +26,25 @@ router.get("/content/home", requireAuth, listHomeContent);
 router.get("/content/parent-platform", requireAuth, listParentContent);
 router.get("/content/legal", requireAuth, listLegalContent);
 router.get("/content/legal/public", listLegalContentPublic);
+router.post("/content/testimonials/submit", requireAuth, submitTestimonial);
+router.get(
+  "/content/testimonials/submissions",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  listTestimonialSubmissions
+);
+router.post(
+  "/content/testimonials/:submissionId/approve",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  approveTestimonialSubmission
+);
+router.post(
+  "/content/testimonials/:submissionId/reject",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  rejectTestimonialSubmission
+);
 router.get("/content/parent-courses", requireAuth, listParentCoursesHandler);
 router.get("/content/parent-courses/:courseId", requireAuth, getParentCourseHandler);
 router.get("/content/:contentId", requireAuth, getContentItem);

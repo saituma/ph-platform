@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  doublePrecision,
   integer,
   jsonb,
   pgEnum,
@@ -24,7 +25,13 @@ export const bookingType = pgEnum("booking_type", [
   "one_on_one",
 ]);
 export const contentType = pgEnum("content_type", ["article", "video", "image", "audio", "document", "link", "pdf", "faq"]);
-export const contentSurface = pgEnum("content_surface", ["home", "parent_platform", "legal"]);
+export const contentSurface = pgEnum("content_surface", [
+  "home",
+  "parent_platform",
+  "legal",
+  "announcements",
+  "testimonial_submissions",
+]);
 export const messageType = pgEnum("message_type", ["text", "image", "video"]);
 export const subscriptionStatus = pgEnum("subscription_status", ["pending_payment", "pending_approval", "approved", "rejected"]);
 export const sessionType = pgEnum("session_type", [
@@ -60,6 +67,15 @@ export const userTable = pgTable("users", {
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 
+});
+
+export const userLocationTable = pgTable("user_locations", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer().notNull().references(() => userTable.id),
+  latitude: doublePrecision().notNull(),
+  longitude: doublePrecision().notNull(),
+  accuracy: integer(),
+  recordedAt: timestamp().notNull().defaultNow(),
 });
 
 export const adminSettingsTable = pgTable(

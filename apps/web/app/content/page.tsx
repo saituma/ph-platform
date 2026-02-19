@@ -8,13 +8,25 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { ContentDialogs, type ContentDialog } from "../../components/admin/content/content-dialogs";
 import { ContentTabs } from "../../components/admin/content/content-tabs";
-import { useCreateContentMutation, useGetHomeContentQuery, useGetLegalContentQuery, useUpdateContentMutation } from "../../lib/apiSlice";
+import {
+  useApproveTestimonialSubmissionMutation,
+  useRejectTestimonialSubmissionMutation,
+  useCreateContentMutation,
+  useGetHomeContentQuery,
+  useGetLegalContentQuery,
+  useGetTestimonialSubmissionsQuery,
+  useUpdateContentMutation,
+} from "../../lib/apiSlice";
 
 export default function ContentPage() {
   const [createContent, { isLoading }] = useCreateContentMutation();
   const [updateContent] = useUpdateContentMutation();
+  const [approveSubmission] = useApproveTestimonialSubmissionMutation();
+  const [rejectSubmission] = useRejectTestimonialSubmissionMutation();
   const { data: homeData } = useGetHomeContentQuery();
   const { data: legalData } = useGetLegalContentQuery();
+  const { data: testimonialSubmissionsData, refetch: refetchSubmissions } =
+    useGetTestimonialSubmissionsQuery(undefined, { refetchOnMountOrArgChange: true });
   const [activeDialog, setActiveDialog] = useState<ContentDialog>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -197,6 +209,26 @@ export default function ContentPage() {
                   setActiveDialog("home");
                 } catch (err) {
                   setError("Failed to publish announcement");
+                }
+              }}
+              testimonialSubmissions={testimonialSubmissionsData?.items ?? []}
+              onApproveTestimonial={async (submissionId) => {
+                setError(null);
+                try {
+                  await approveSubmission({ submissionId }).unwrap();
+                  setActiveDialog("home");
+                  refetchSubmissions();
+                } catch (err) {
+                  setError("Failed to approve testimonial");
+                }
+              }}
+              onRejectTestimonial={async (submissionId) => {
+                setError(null);
+                try {
+                  await rejectSubmission({ submissionId }).unwrap();
+                  refetchSubmissions();
+                } catch (err) {
+                  setError("Failed to reject testimonial");
                 }
               }}
             />

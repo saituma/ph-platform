@@ -1,0 +1,201 @@
+import { Feather } from "@/components/ui/theme-icons";
+import { ThemedScrollView } from "@/components/ThemedScrollView";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text } from "@/components/ScaledText";
+import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
+import { useCallback, useEffect, useState } from "react";
+import { Linking, Pressable, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { useAppSelector } from "@/store/hooks";
+import { resetLocationConsent, sendDailyLocation } from "@/lib/location";
+
+type PermissionStatus = "granted" | "denied" | "undetermined";
+
+const formatStatus = (status: PermissionStatus) =>
+  status === "granted" ? "Granted" : status === "denied" ? "Denied" : "Not asked";
+
+export default function PermissionsScreen() {
+  const { colors, isDark } = useAppTheme();
+  const router = useRouter();
+  const { token } = useAppSelector((state) => state.user);
+  const [locationStatus, setLocationStatus] = useState<PermissionStatus>("undetermined");
+  const [notificationStatus, setNotificationStatus] = useState<PermissionStatus>("undetermined");
+
+  const refreshStatuses = useCallback(async () => {
+    const location = await Location.getForegroundPermissionsAsync();
+    const notifications = await Notifications.getPermissionsAsync();
+    setLocationStatus(location.status);
+    setNotificationStatus(notifications.status);
+  }, []);
+
+  useEffect(() => {
+    void refreshStatuses();
+  }, [refreshStatuses]);
+
+  const requestLocation = async () => {
+    await resetLocationConsent();
+    const result = await Location.requestForegroundPermissionsAsync();
+    setLocationStatus(result.status);
+    if (result.status === "granted" && token) {
+      await sendDailyLocation(token, { force: true });
+    }
+  };
+
+  const requestNotifications = async () => {
+    const result = await Notifications.requestPermissionsAsync();
+    setNotificationStatus(result.status);
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-app">
+      <ThemedScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+        <View className="px-6 pt-6 pb-8 bg-input rounded-b-[40px] shadow-sm mb-6">
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center gap-3">
+              <Pressable
+                onPress={() => router.replace("/(tabs)/more")}
+                className="h-10 w-10 items-center justify-center rounded-2xl bg-secondary/60"
+                style={({ pressed }) => ({
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                  opacity: pressed ? 0.92 : 1,
+                })}
+              >
+                <Feather name="chevron-left" size={22} color={colors.accent} />
+              </Pressable>
+              <View className="h-6 w-1.5 rounded-full bg-accent" />
+              <Text className="text-4xl font-clash text-app tracking-tight">
+                Permissions
+              </Text>
+            </View>
+          </View>
+          <Text className="text-sm font-outfit text-secondary">
+            Control the permissions needed for location check-ins and updates.
+          </Text>
+        </View>
+
+        <View className="px-6 gap-6">
+          <PermissionCard
+            icon="map-pin"
+            title="Location"
+            description="Used for daily location check-ins."
+            status={locationStatus}
+            onRequest={requestLocation}
+            onRevoke={() => Linking.openSettings()}
+            accentColor={colors.accent}
+            isDark={isDark}
+          />
+
+          <PermissionCard
+            icon="bell"
+            title="Notifications"
+            description="Get alerts for messages and updates."
+            status={notificationStatus}
+            onRequest={requestNotifications}
+            onRevoke={() => Linking.openSettings()}
+            accentColor={colors.accent}
+            isDark={isDark}
+          />
+
+          <Pressable
+            onPress={() => Linking.openSettings()}
+            className="bg-secondary rounded-3xl px-5 py-4 border border-app"
+            style={({ pressed }) => ({
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+              opacity: pressed ? 0.92 : 1,
+            })}
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="h-10 w-10 items-center justify-center rounded-2xl bg-accent/15">
+                <Feather name="settings" size={18} color={colors.accent} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-clash text-app">
+                  Open System Settings
+                </Text>
+                <Text className="text-xs font-outfit text-secondary">
+                  Manage all app permissions in system settings.
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={`${colors.accent}99`} />
+            </View>
+          </Pressable>
+        </View>
+      </ThemedScrollView>
+    </SafeAreaView>
+  );
+}
+
+function PermissionCard({
+  icon,
+  title,
+  description,
+  status,
+  onRequest,
+  onRevoke,
+  accentColor,
+  isDark,
+}: {
+  icon: any;
+  title: string;
+  description: string;
+  status: PermissionStatus;
+  onRequest: () => void;
+  onRevoke?: () => void;
+  accentColor: string;
+  isDark: boolean;
+}) {
+  const isGranted = status === "granted";
+  const badgeBg = isGranted ? "bg-emerald-100" : "bg-amber-100";
+  const badgeText = isGranted ? "text-emerald-700" : "text-amber-700";
+  const badgeBgDark = isGranted ? "bg-emerald-500/15" : "bg-amber-400/15";
+  const badgeTextDark = isGranted ? "text-emerald-300" : "text-amber-300";
+
+  return (
+    <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app p-5 gap-4">
+      <View className="flex-row items-center gap-4">
+        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-accent/10">
+          <Feather name={icon} size={22} color={accentColor} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-clash text-app">{title}</Text>
+          <Text className="text-xs font-outfit text-secondary">{description}</Text>
+        </View>
+        <View
+          className={`px-3 py-1 rounded-full ${isDark ? badgeBgDark : badgeBg}`}
+        >
+          <Text className={`text-xs font-outfit font-semibold ${isDark ? badgeTextDark : badgeText}`}>
+            {formatStatus(status)}
+          </Text>
+        </View>
+      </View>
+      <Pressable
+        onPress={onRequest}
+        className="bg-accent rounded-2xl px-4 py-3 items-center"
+        style={({ pressed }) => ({
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+          opacity: pressed ? 0.92 : 1,
+        })}
+      >
+        <Text className="text-white font-bold font-outfit text-sm">
+          Request Permission
+        </Text>
+      </Pressable>
+      {onRevoke ? (
+        <Pressable
+          onPress={onRevoke}
+          className="bg-secondary rounded-2xl px-4 py-3 items-center border border-app"
+          style={({ pressed }) => ({
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+            opacity: pressed ? 0.92 : 1,
+          })}
+        >
+          <Text className="text-app font-bold font-outfit text-sm">
+            Revoke in System Settings
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}

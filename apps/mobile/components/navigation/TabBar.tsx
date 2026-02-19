@@ -1,6 +1,6 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { AnimatedText } from "@/components/ScaledText";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, Pressable, View } from "react-native";
 import Animated, {
@@ -15,8 +15,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export interface TabConfig {
   key: string;
   label: string;
-  icon: keyof typeof Feather.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconOutline?: keyof typeof Ionicons.glyphMap;
   badgeCount?: number;
+  hidden?: boolean;
 }
 
 interface TabBarProps {
@@ -105,12 +107,28 @@ const TabItem = React.memo(
       return { opacity };
     }, [scrollOffset, index, activeIndex]);
 
-    // Label animation (Home only)
-    const labelStyle = useAnimatedStyle(() => {
-      if (!isHome) return { opacity: 0 };
+    const iconScaleStyle = useAnimatedStyle(() => {
       if (!scrollOffset) {
+        return { transform: [{ scale: index === activeIndex ? 1.15 : 1 }] };
+      }
+
+      const distance = Math.abs(scrollOffset.value - index);
+      const scale = interpolate(
+        distance,
+        [0, 1],
+        [1.15, 1],
+        Extrapolate.CLAMP,
+      );
+      return { transform: [{ scale }] };
+    }, [scrollOffset, index, activeIndex]);
+
+    // Label animation (focused tab only)
+    const labelStyle = useAnimatedStyle(() => {
+      if (!scrollOffset) {
+        const active = index === activeIndex;
         return {
-          opacity: index === activeIndex ? 1 : 0.5,
+          opacity: active ? 1 : 0,
+          height: active ? 12 : 0,
         };
       }
 
@@ -118,11 +136,17 @@ const TabItem = React.memo(
       const opacity = interpolate(
         distance,
         [0, 1],
-        [1, 0.5],
+        [1, 0],
         Extrapolate.CLAMP,
       );
-      return { opacity };
-    }, [scrollOffset, index, activeIndex, isHome]);
+      const height = interpolate(
+        distance,
+        [0, 1],
+        [12, 0],
+        Extrapolate.CLAMP,
+      );
+      return { opacity, height };
+    }, [scrollOffset, index, activeIndex]);
 
     // Determine icon color based on active state (for non-animated layer)
     const activeTintStyle = useAnimatedStyle(() => {
@@ -176,14 +200,24 @@ const TabItem = React.memo(
             ringStyle,
           ]}
         >
-          <Animated.View style={[iconColorStyle, { position: "relative" }]}>
+          <Animated.View
+            style={[iconColorStyle, iconScaleStyle, { position: "relative" }]}
+          >
             {/* Active icon layer */}
             <Animated.View style={[activeTintStyle, { position: "absolute" }]}>
-              <Feather name={tab.icon} size={iconSize} color={activeColor} />
+              <Ionicons
+                name={tab.icon}
+                size={iconSize}
+                color={activeColor}
+              />
             </Animated.View>
             {/* Inactive icon layer */}
             <Animated.View style={inactiveTintStyle}>
-              <Feather name={tab.icon} size={iconSize} color={inactiveColor} />
+              <Ionicons
+                name={tab.iconOutline ?? tab.icon}
+                size={iconSize}
+                color={inactiveColor}
+              />
             </Animated.View>
           </Animated.View>
 
@@ -217,22 +251,25 @@ const TabItem = React.memo(
           ) : null}
         </Animated.View>
 
-        {/* Label — shown only for Home */}
-        {isHome ? (
-          <Animated.View style={[{ marginTop: 3 }, labelStyle]}>
-            <AnimatedText
-              style={{
-                color: isDark ? "#ffffff" : colors.text,
-                fontSize: 10,
-                fontFamily: "Outfit-Medium",
-                textAlign: "center",
-              }}
-              numberOfLines={1}
-            >
-              Home
-            </AnimatedText>
-          </Animated.View>
-        ) : null}
+        {/* Label — shown only for focused tab */}
+        <Animated.View
+          style={[
+            { marginTop: 3, overflow: "hidden" },
+            labelStyle,
+          ]}
+        >
+          <AnimatedText
+            style={{
+              color: "#22c55e",
+              fontSize: 10,
+              fontFamily: "Outfit-Medium",
+              textAlign: "center",
+            }}
+            numberOfLines={1}
+          >
+            {tab.label}
+          </AnimatedText>
+        </Animated.View>
       </Pressable>
     );
   },
@@ -248,6 +285,9 @@ export function TabBar({
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const barHeight = Platform.OS === "ios" ? 68 : 72;
+  const visibleTabs = tabs
+    .map((tab, index) => ({ tab, index }))
+    .filter(({ tab }) => !tab.hidden);
 
   return (
     <View
@@ -284,7 +324,7 @@ export function TabBar({
           elevation: isDark ? 12 : 10,
         }}
       >
-        {tabs.map((tab, index) => (
+        {visibleTabs.map(({ tab, index }) => (
           <TabItem
             key={tab.key}
             tab={tab}

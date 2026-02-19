@@ -18,6 +18,13 @@ export async function getLegalContent() {
   return db.select().from(contentTable).where(eq(contentTable.surface, "legal"));
 }
 
+export async function getTestimonialSubmissions() {
+  return db
+    .select()
+    .from(contentTable)
+    .where(eq(contentTable.surface, "testimonial_submissions"));
+}
+
 function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
@@ -76,7 +83,7 @@ export async function createContent(input: {
   type: string;
   body?: string | null;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
-  surface: "home" | "parent_platform" | "legal";
+  surface: "home" | "parent_platform" | "legal" | "announcements" | "testimonial_submissions";
   category?: string | null;
   minAge?: number | null;
   maxAge?: number | null;
@@ -129,6 +136,20 @@ export async function updateContent(input: {
     .returning();
 
   return result[0] ?? null;
+}
+
+export async function updateContentCategory(input: { id: number; category: string | null }) {
+  const result = await db
+    .update(contentTable)
+    .set({ category: input.category, updatedAt: new Date() })
+    .where(eq(contentTable.id, input.id))
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function getContentByIdAdmin(contentId: number) {
+  const items = await db.select().from(contentTable).where(eq(contentTable.id, contentId)).limit(1);
+  return items[0] ?? null;
 }
 
 type ParentCourseModule = {

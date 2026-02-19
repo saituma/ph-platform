@@ -13,6 +13,10 @@ type TestimonialItem = {
   role?: string | null;
   quote: string;
   rating?: number | null;
+  photoUrl?: string | null;
+  photo?: string | null;
+  imageUrl?: string | null;
+  image?: string | null;
 };
 
 type TestimonialsSectionProps = {

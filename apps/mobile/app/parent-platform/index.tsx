@@ -1,11 +1,12 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Image, InteractionManager, Modal, Pressable, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Modal, Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { useRole } from "@/context/RoleContext";
 import { setParentContentCache } from "@/lib/parentContentCache";
 import { canAccessTier, tierRank } from "@/lib/planAccess";
@@ -50,6 +51,7 @@ export default function ParentPlatformScreen() {
   const dispatch = useAppDispatch();
   const { token, programTier, athleteUserId, managedAthletes } = useAppSelector((state) => state.user);
   const router = useRouter();
+  const navigation = useNavigation();
   const { isSectionHidden } = useAgeExperience();
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,18 +123,10 @@ export default function ParentPlatformScreen() {
   }, [dispatch, role, token]);
 
   useEffect(() => {
-    let mounted = true;
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (!mounted) return;
-      if (role === "Guardian") {
-        fetchManagedAthletes();
-      }
-      fetchCourses();
-    });
-    return () => {
-      mounted = false;
-      task?.cancel?.();
-    };
+    if (role === "Guardian") {
+      fetchManagedAthletes();
+    }
+    fetchCourses();
   }, [fetchCourses, fetchManagedAthletes, role]);
 
   const grouped = useMemo(() => {
@@ -158,8 +152,35 @@ export default function ParentPlatformScreen() {
   const visibleGroups = isAthlete ? [] : grouped.filter((cat) => cat.items.length > 0);
   const visibleItems = isAthlete ? items : [];
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (event) => {
+      if (event.data.action?.type !== "GO_BACK" && event.data.action?.type !== "POP") {
+        return;
+      }
+      event.preventDefault();
+      router.replace("/(tabs)/more");
+    });
+
+    return unsubscribe;
+  }, [navigation, router]);
+
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      <View className="px-6 pt-6 pb-4 border-b border-app">
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            onPress={() => router.replace("/(tabs)/more")}
+            className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
+          >
+            <Feather name="arrow-left" size={20} className="text-secondary" />
+          </TouchableOpacity>
+          <Text className="text-xl font-clash text-app font-bold">
+            {platformTitle}
+          </Text>
+          <View className="w-10" />
+        </View>
+      </View>
+
       <ThemedScrollView
         onRefresh={async () => {
           if (!token || isRefreshing) return;
@@ -176,9 +197,6 @@ export default function ParentPlatformScreen() {
         <View className="mb-8">
           <View className="flex-row items-start justify-between gap-4">
             <View className="flex-1">
-              <Text className="text-4xl font-clash text-app mb-2">
-                {platformTitle}
-              </Text>
               <Text className="text-base font-outfit text-secondary leading-relaxed">
                 {platformSubtitle}
               </Text>

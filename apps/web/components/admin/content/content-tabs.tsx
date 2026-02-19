@@ -33,6 +33,9 @@ type ContentTabsProps = {
     privacyVersion: string;
   }) => void;
   onPublishAnnouncement: (data: { title: string; body: string }) => void;
+  testimonialSubmissions?: any[];
+  onApproveTestimonial?: (submissionId: number) => void;
+  onRejectTestimonial?: (submissionId: number) => void;
 };
 
 export function ContentTabs({
@@ -43,6 +46,9 @@ export function ContentTabs({
   onSaveIntroVideo,
   onSaveLegal,
   onPublishAnnouncement,
+  testimonialSubmissions = [],
+  onApproveTestimonial,
+  onRejectTestimonial,
 }: ContentTabsProps) {
   const termsRef = useRef<HTMLTextAreaElement | null>(null);
   const privacyRef = useRef<HTMLTextAreaElement | null>(null);
@@ -370,6 +376,63 @@ export function ContentTabs({
                     ) : null}
                   </div>
                 ))}
+              </div>
+            ) : null}
+            {testimonialSubmissions.length ? (
+              <div className="space-y-3 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Pending Submissions
+                </p>
+                {testimonialSubmissions.map((submission: any) => {
+                  let body: any = {};
+                  if (submission?.body && typeof submission.body === "string") {
+                    try {
+                      body = JSON.parse(submission.body);
+                    } catch {
+                      body = {};
+                    }
+                  }
+                  const name = body.name ?? submission.title ?? "Submission";
+                  const quote = body.quote ?? submission.content ?? "";
+                  const photoUrl = body.photoUrl ?? null;
+                  return (
+                    <div
+                      key={`submission-${submission.id}`}
+                      className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{name}</p>
+                          <p className="text-xs text-muted-foreground">{quote}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onRejectTestimonial?.(submission.id)}
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => onApproveTestimonial?.(submission.id)}
+                          >
+                            Approve
+                          </Button>
+                        </div>
+                      </div>
+                      {photoUrl ? (
+                        <div className="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary/40">
+                          <img
+                            src={photoUrl}
+                            alt={`Submission ${name}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
           </div>

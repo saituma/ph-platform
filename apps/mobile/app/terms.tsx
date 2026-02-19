@@ -99,7 +99,7 @@ export default function TermsScreen() {
     if (params.from) {
       router.navigate(params.from as any);
     } else {
-      router.back();
+      router.replace("/(tabs)/more");
     }
   };
 
@@ -152,7 +152,7 @@ export default function TermsScreen() {
         <View className="mt-12">
           <ActionButton
             label="I Understand"
-            onPress={() => router.back()}
+            onPress={() => router.replace("/(tabs)/more")}
             color="bg-secondary"
             icon="check"
             fullWidth={true}

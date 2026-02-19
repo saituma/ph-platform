@@ -31,6 +31,7 @@ import {
   deleteExercise,
   listProgramTemplates,
   updateProgramTemplate,
+  updateBookingStatusAdmin,
 } from "../services/admin.service";
 import { ProgramType, sessionType } from "../db/schema";
 
@@ -376,6 +377,20 @@ export async function deleteSessionExerciseItem(req: Request, res: Response) {
 export async function listBookings(req: Request, res: Response) {
   const bookings = await listBookingsAdmin();
   return res.status(200).json({ bookings });
+}
+
+export async function updateBookingStatus(req: Request, res: Response) {
+  const bookingId = z.coerce.number().int().min(1).parse(req.params.bookingId);
+  const body = z
+    .object({
+      status: z.enum(["pending", "confirmed", "declined", "cancelled"]),
+    })
+    .parse(req.body);
+  const booking = await updateBookingStatusAdmin({ bookingId, status: body.status });
+  if (!booking) {
+    return res.status(404).json({ error: "Booking not found" });
+  }
+  return res.status(200).json({ booking });
 }
 
 export async function listAvailability(_req: Request, res: Response) {

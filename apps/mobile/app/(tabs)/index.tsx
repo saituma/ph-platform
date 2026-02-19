@@ -23,53 +23,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
-import Animated, {
-  Easing,
-  interpolate,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
-import MoreScreen from "./more";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
-
-function MenuGlyph({ color }: { color: string }) {
-  return (
-    <View
-      style={{
-        width: 20,
-        height: 16,
-        justifyContent: "center",
-      }}
-    >
-      <View
-        style={{
-          height: 2,
-          borderRadius: 999,
-          backgroundColor: color,
-          marginBottom: 4,
-        }}
-      />
-      <View
-        style={{
-          height: 2,
-          borderRadius: 999,
-          backgroundColor: color,
-          marginBottom: 4,
-        }}
-      />
-      <View
-        style={{
-          height: 2,
-          borderRadius: 999,
-          backgroundColor: color,
-        }}
-      />
-    </View>
-  );
-}
 
 type HomeTestimonial = {
   id: string;
@@ -77,6 +32,10 @@ type HomeTestimonial = {
   role?: string | null;
   quote: string;
   rating?: number | null;
+  photoUrl?: string | null;
+  photo?: string | null;
+  imageUrl?: string | null;
+  image?: string | null;
 };
 
 type HomeContentPayload = {
@@ -104,19 +63,14 @@ export default function HomeScreen() {
   const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
   const [homeContentError, setHomeContentError] = useState<string | null>(null);
-  const [isMoreVisible, setIsMoreVisible] = useState(false);
   const [athletes, setAthletes] = useState<
     { id: number; name?: string | null; userId?: number | null; profilePicture?: string | null }[]
   >([]);
   const [activeAthleteId, setActiveAthleteId] = useState<number | null>(null);
   const [isAthleteSwitcherVisible, setIsAthleteSwitcherVisible] = useState(false);
+  const isMountedRef = useRef(true);
   const shouldShowSwitchAthlete = role !== "Guardian" && athletes.length > 1;
   const lastLoadAtRef = useRef(0);
-  const drawerProgress = useSharedValue(0);
-  const drawerWidth = useMemo(() => {
-    const rawWidth = width * 0.8;
-    return Math.round(rawWidth / 4) * 4;
-  }, [width]);
 
   if (isSectionHidden("dashboard")) {
     return <AgeGate title="Dashboard locked" message="Dashboard content is restricted for this age." />;
@@ -129,6 +83,12 @@ export default function HomeScreen() {
     return "Good Evening";
   }, []);
 
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadAthleteName = React.useCallback(async () => {
     if (!token) return;
     try {
@@ -136,9 +96,11 @@ export default function HomeScreen() {
         token,
         suppressStatusCodes: [401],
       });
+      if (!isMountedRef.current) return;
       setAthleteName(data.athlete?.name ?? null);
       setAthleteAvatar(data.athlete?.profilePicture ?? null);
     } catch {
+      if (!isMountedRef.current) return;
       setAthleteName(null);
       setAthleteAvatar(null);
     }
@@ -146,6 +108,7 @@ export default function HomeScreen() {
 
   const loadAthleteList = React.useCallback(async () => {
     if (!token || role !== "Athlete") {
+      if (!isMountedRef.current) return;
       setAthletes([]);
       setActiveAthleteId(null);
       return;
@@ -155,9 +118,11 @@ export default function HomeScreen() {
         guardian?: { activeAthleteId?: number | null } | null;
         athletes?: { id: number; name?: string | null; userId?: number | null; profilePicture?: string | null }[];
       }>("/onboarding/athletes", { token, suppressStatusCodes: [401] });
+      if (!isMountedRef.current) return;
       setAthletes(data.athletes ?? []);
       setActiveAthleteId(data.guardian?.activeAthleteId ?? null);
     } catch {
+      if (!isMountedRef.current) return;
       setAthletes([]);
       setActiveAthleteId(null);
     }
@@ -169,6 +134,7 @@ export default function HomeScreen() {
       const data = await apiRequest<{ items?: any[] }>("/content/home", { token });
       const item = (data.items ?? [])[0];
       if (!item) {
+        if (!isMountedRef.current) return;
         setHomeContent(null);
         return;
       }
@@ -202,6 +168,7 @@ export default function HomeScreen() {
                   .map((entry) => entry.trim())
                   .filter(Boolean)[0] ?? null
               : null;
+      if (!isMountedRef.current) return;
       setHomeContent({
         headline: body.headline ?? item.content ?? item.title ?? null,
         description: body.description ?? null,
@@ -214,6 +181,7 @@ export default function HomeScreen() {
       });
       setHomeContentError(null);
     } catch (err: any) {
+      if (!isMountedRef.current) return;
       setHomeContentError(err?.message ?? "Failed to load home content");
     }
   }, [token]);
@@ -248,6 +216,7 @@ export default function HomeScreen() {
         token,
         body: { athleteId },
       });
+      if (!isMountedRef.current) return;
       setActiveAthleteId(athleteId);
       if (userId) {
         dispatch(setAthleteUserId(userId));
@@ -261,40 +230,7 @@ export default function HomeScreen() {
     }
   };
 
-  const openMore = React.useCallback(() => {
-    setIsMoreVisible(true);
-    drawerProgress.value = withTiming(1, {
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [drawerProgress]);
-
-  const closeMore = React.useCallback(() => {
-    drawerProgress.value = withTiming(
-      0,
-      {
-        duration: 200,
-        easing: Easing.out(Easing.cubic),
-      },
-      (finished) => {
-        if (finished) {
-          runOnJS(setIsMoreVisible)(false);
-        }
-      },
-    );
-  }, [drawerProgress]);
-
-  const overlayStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(drawerProgress.value, [0, 1], [0, 0.45]),
-  }));
-
-  const drawerStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: (1 - drawerProgress.value) * -drawerWidth,
-      },
-    ],
-  }));
+  // Removed the hamburger modal; More is now a bottom tab.
 
   return (
     <>
@@ -319,20 +255,6 @@ export default function HomeScreen() {
           />
         }
       >
-      <View className="mb-4 flex-row items-center">
-        <Pressable
-          onPress={openMore}
-          className="h-12 w-12 rounded-2xl bg-input border border-app items-center justify-center"
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.9 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}
-          accessibilityRole="button"
-          accessibilityLabel="Open menu"
-        >
-          <MenuGlyph color={colors.accent} />
-        </Pressable>
-      </View>
       {/* Hero */}
       <View className="mb-10">
         <View className="relative bg-input border border-app rounded-[32px] p-6 overflow-hidden">
@@ -603,53 +525,6 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
       </ScrollView>
-      <Modal
-        visible={isMoreVisible}
-        transparent
-        animationType="none"
-        onRequestClose={closeMore}
-      >
-        <View style={{ flex: 1 }}>
-          <Pressable style={{ flex: 1 }} onPress={closeMore}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                {
-                  position: "absolute",
-                  top: 0,
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: "#0B1118",
-                },
-                overlayStyle,
-              ]}
-            />
-          </Pressable>
-          <Animated.View
-            style={[
-              {
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: 0,
-                width: drawerWidth,
-                backgroundColor: colors.background,
-                borderRightWidth: 1,
-                borderColor: colors.border,
-                shadowColor: "#0F172A",
-                shadowOpacity: 0.18,
-                shadowRadius: 18,
-                shadowOffset: { width: 6, height: 0 },
-                elevation: 12,
-              },
-              drawerStyle,
-            ]}
-          >
-            <MoreScreen />
-          </Animated.View>
-        </View>
-      </Modal>
     </>
   );
 }

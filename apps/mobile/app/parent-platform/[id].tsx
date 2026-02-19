@@ -6,6 +6,7 @@ import { canAccessTier, tierRank } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Image, Linking, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -42,6 +43,7 @@ export default function ParentCourseDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const idValue = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
+  const navigation = useNavigation();
   const { colors } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
@@ -126,12 +128,24 @@ export default function ParentCourseDetail() {
     item && !canAccessTier(programTier, item.programTier ?? null) && !item.isPreview;
   const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (event) => {
+      if (event.data.action?.type !== "GO_BACK" && event.data.action?.type !== "POP") {
+        return;
+      }
+      event.preventDefault();
+      router.replace("/parent-platform");
+    });
+
+    return unsubscribe;
+  }, [navigation, router]);
+
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}>
         <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
-            onPress={() => router.replace("/(tabs)/parent-platform")}
+            onPress={() => router.replace("/parent-platform")}
             className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
           >
             <Feather name="arrow-left" size={20} color={colors.textSecondary} />

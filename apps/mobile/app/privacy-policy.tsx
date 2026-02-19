@@ -101,7 +101,7 @@ export default function PrivacyPolicyScreen() {
     if (params.from) {
       router.navigate(params.from as any);
     } else {
-      router.back();
+      router.replace("/(tabs)/more");
     }
   };
 
