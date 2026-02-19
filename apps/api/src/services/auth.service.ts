@@ -343,15 +343,7 @@ export async function loginLocal(input: { email: string; password: string }) {
   if (!ok) {
     throw { status: 401, message: "Invalid credentials." };
   }
-  const updated = await db
-    .update(userTable)
-    .set({
-      tokenVersion: (user.tokenVersion ?? 0) + 1,
-      updatedAt: new Date(),
-    })
-    .where(eq(userTable.id, user.id))
-    .returning();
-  const nextTokenVersion = updated[0]?.tokenVersion ?? (user.tokenVersion ?? 0) + 1;
+  const nextTokenVersion = user.tokenVersion ?? 0;
   const token = await createLocalToken({
     sub: user.cognitoSub,
     email: user.email,

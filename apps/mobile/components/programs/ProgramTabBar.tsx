@@ -1,5 +1,6 @@
 import React from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 import { Text, TextInput } from "@/components/ScaledText";
 
 export function ProgramTabBar({
@@ -50,6 +51,9 @@ export function ProgramTabBar({
           scrollEnabled
           bounces
           alwaysBounceHorizontal
+          nestedScrollEnabled
+          directionalLockEnabled
+          keyboardShouldPersistTaps="handled"
         >
           {tabs.map((tab) => {
             const isActive = tab === activeTab;
@@ -58,6 +62,7 @@ export function ProgramTabBar({
                 key={tab}
                 onPress={() => onTabChange(tab)}
                 style={[styles.tab, isActive ? styles.tabActive : styles.tabIdle]}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 activeOpacity={0.85}
               >
                 <View style={styles.tabInner}>
@@ -98,8 +103,8 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.22)",
     backgroundColor: "rgba(16, 24, 16, 0.04)",
@@ -148,15 +153,16 @@ const styles = StyleSheet.create({
     color: "#475569",
   },
   scrollContent: {
-    gap: 12,
-    paddingHorizontal: 6,
+    gap: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   tab: {
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderWidth: 1,
-    minHeight: 40,
+    minHeight: 48,
     justifyContent: "center",
   },
   tabActive: {
@@ -173,7 +179,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
   },
   tabTextActive: {

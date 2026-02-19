@@ -18,6 +18,7 @@ import {
   updateContentCategory,
 } from "../services/content.service";
 import { ProgramType, contentType } from "../db/schema";
+import { getAthleteForUser } from "../services/user.service";
 
 const contentCreateSchema = z.object({
   title: z.string().min(1),
@@ -27,11 +28,18 @@ const contentCreateSchema = z.object({
   programTier: z.enum(ProgramType.enumValues).optional(),
   surface: z.enum(["home", "parent_platform", "legal", "announcements", "testimonial_submissions"]),
   category: z.string().optional(),
+  ageList: z.array(z.number().int().min(0)).optional(),
   minAge: z.number().int().min(0).optional(),
   maxAge: z.number().int().min(0).optional(),
 }).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
   message: "Minimum age must be less than or equal to maximum age.",
   path: ["minAge"],
+}).refine((data) => {
+  if (!data.ageList || data.ageList.length === 0) return true;
+  return data.ageList.every((age) => Number.isFinite(age));
+}, {
+  message: "Age list must be a list of valid ages.",
+  path: ["ageList"],
 });
 
 const contentUpdateSchema = z.object({
@@ -41,11 +49,18 @@ const contentUpdateSchema = z.object({
   body: z.string().optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
   category: z.string().optional(),
+  ageList: z.array(z.number().int().min(0)).optional(),
   minAge: z.number().int().min(0).optional(),
   maxAge: z.number().int().min(0).optional(),
 }).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
   message: "Minimum age must be less than or equal to maximum age.",
   path: ["minAge"],
+}).refine((data) => {
+  if (!data.ageList || data.ageList.length === 0) return true;
+  return data.ageList.every((age) => Number.isFinite(age));
+}, {
+  message: "Age list must be a list of valid ages.",
+  path: ["ageList"],
 });
 
 const parentCourseModuleSchema = z.object({
@@ -107,7 +122,8 @@ export async function listHomeContent(req: Request, res: Response) {
 }
 
 export async function listParentContent(req: Request, res: Response) {
-  const items = await getParentPlatformContent(req.user!.id);
+  const role = (req.user as any)?.role as string | undefined;
+  const items = await getParentPlatformContent(req.user!.id, role);
   return res.status(200).json({ items });
 }
 
@@ -140,6 +156,7 @@ export async function createContentItem(req: Request, res: Response) {
     programTier: input.programTier,
     surface: input.surface,
     category: input.category,
+    ageList: input.ageList,
     minAge: input.minAge,
     maxAge: input.maxAge,
     createdBy: req.user!.id,
@@ -158,6 +175,7 @@ export async function updateContentItem(req: Request, res: Response) {
     body: input.body,
     programTier: input.programTier,
     category: input.category,
+    ageList: input.ageList,
     minAge: input.minAge,
     maxAge: input.maxAge,
   });
@@ -169,10 +187,12 @@ export async function updateContentItem(req: Request, res: Response) {
 
 export async function submitTestimonial(req: Request, res: Response) {
   const input = testimonialSubmissionSchema.parse(req.body);
+  const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
   const body = JSON.stringify({
     name: input.name,
     quote: input.quote,
     photoUrl: input.photoUrl ?? null,
+    athleteName: athlete?.name ?? null,
   });
   const item = await createContent({
     title: `Testimonial: ${input.name}`,
@@ -213,6 +233,7 @@ export async function approveTestimonialSubmission(req: Request, res: Response) 
     name: payload.name ?? submission.title.replace(/^Testimonial:\s*/i, "").trim(),
     quote: payload.quote ?? submission.content,
     photoUrl: payload.photoUrl ?? null,
+    role: payload.athleteName ? `Athlete: ${payload.athleteName}` : null,
   };
 
   const homeItems = await getHomeContentForUser(req.user!.id);

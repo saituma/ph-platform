@@ -4,12 +4,10 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
-import { ProgramSessionPanel } from "@/components/programs/ProgramSessionPanel";
 import { Text } from "@/components/ScaledText";
 import {
   BookingsPanel,
   FoodDiaryPanel,
-  ParentEducationPanel,
   PhysioReferralPanel,
   VideoUploadPanel,
 } from "@/components/programs/ProgramPanels";
@@ -18,7 +16,6 @@ import {
   TRAINING_TABS,
   getSessionTypesForTab,
   ProgramId,
-  SessionItem,
 } from "@/constants/program-details";
 import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppSelector } from "@/store/hooks";
@@ -44,6 +41,16 @@ type ProgramDetailPanelProps = {
   showBack?: boolean;
   onBack?: () => void;
   onNavigate?: (path: string) => void;
+};
+
+type ProgramSectionContent = {
+  id: number;
+  sectionType: string;
+  title: string;
+  body: string;
+  videoUrl?: string | null;
+  order?: number | null;
+  updatedAt?: string | null;
 };
 
 export function ProgramDetailPanel({
@@ -84,47 +91,29 @@ export function ProgramDetailPanel({
     return base;
   }, [programId, role, isSectionHidden]);
   const [activeTab, setActiveTab] = useState(tabs[0]);
-  const [allSessions, setAllSessions] = useState<SessionItem[]>([]);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
-  const [sessionError, setSessionError] = useState<string | null>(null);
-  const [ageGateMessage, setAgeGateMessage] = useState<string | null>(null);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sectionContent, setSectionContent] = useState<ProgramSectionContent[]>(
+    [],
+  );
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [contentError, setContentError] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTab(tabs[0]);
   }, [tabs]);
 
-  const sessions = useMemo(() => {
-    const allowedTypes = new Set(getSessionTypesForTab(activeTab));
-    if (allowedTypes.size === 0) {
-      return [];
-    }
-    return allSessions.filter((session) =>
-      allowedTypes.has(String(session.type ?? "")),
-    );
-  }, [activeTab, allSessions]);
-
-  const filteredSessions = useMemo(() => {
+  const filteredSectionContent = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return sessions;
-    return sessions.filter((session) => {
-      const nameMatch = String(session.name ?? "").toLowerCase().includes(query);
-      if (nameMatch) return true;
-      return (session.exercises ?? []).some((exercise) => {
-        const fields = [
-          exercise.name,
-          exercise.notes,
-          exercise.progressions,
-          exercise.regressions,
-        ];
-        return fields.some((field) =>
-          String(field ?? "").toLowerCase().includes(query),
-        );
-      });
+    if (!query) return sectionContent;
+    return sectionContent.filter((item) => {
+      const fields = [item.title, item.body];
+      return fields.some((field) =>
+        String(field ?? "").toLowerCase().includes(query),
+      );
     });
-  }, [searchQuery, sessions]);
+  }, [searchQuery, sectionContent]);
 
   const searchSuggestions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -155,169 +144,82 @@ export function ProgramDetailPanel({
       }
     });
 
-    allSessions.forEach((session) => {
-      const sessionType = String(session.type ?? "");
-      const tab = tabByType.get(sessionType);
+    sectionContent.forEach((item) => {
+      const tab = tabByType.get(String(item.sectionType ?? ""));
       if (!tab) return;
-
-      const sessionName = String(session.name ?? "");
-      if (sessionName.toLowerCase().includes(query)) {
+      const contentTitle = String(item.title ?? "");
+      const contentBody = String(item.body ?? "");
+      if (
+        contentTitle.toLowerCase().includes(query) ||
+        contentBody.toLowerCase().includes(query)
+      ) {
         results.push({
-          id: `session-${session.id}`,
-          title: sessionName,
-          subtitle: `Session • ${tab}`,
+          id: `content-${item.id}`,
+          title: contentTitle || "Program content",
+          subtitle: `Content • ${tab}`,
           tab,
         });
       }
-
-      (session.exercises ?? []).forEach((exercise) => {
-        const fields = [
-          exercise.name,
-          exercise.notes,
-          exercise.progressions,
-          exercise.regressions,
-        ];
-        if (
-          fields.some((field) =>
-            String(field ?? "").toLowerCase().includes(query),
-          )
-        ) {
-          results.push({
-            id: `exercise-${session.id}-${exercise.id}`,
-            title: String(exercise.name ?? "Exercise"),
-            subtitle: `Exercise • ${sessionName || "Session"} • ${tab}`,
-            tab,
-          });
-        }
-      });
     });
 
     return results.slice(0, 8);
-  }, [allSessions, searchQuery, tabs]);
+  }, [searchQuery, tabs, sectionContent]);
 
-  const loadSessions = useCallback(async () => {
-    if (!token) {
-      setAllSessions([]);
-      return;
-    }
-    setIsLoadingSessions(true);
-    setSessionError(null);
-    setAgeGateMessage(null);
-    try {
-      const mapExercise = (entry: any) => ({
-        id: String(entry?.id ?? entry?.exerciseId ?? "exercise-unknown"),
-        name: String(entry?.name ?? "Exercise"),
-        sets: typeof entry?.sets === "number" ? entry.sets : undefined,
-        reps: typeof entry?.reps === "number" ? entry.reps : undefined,
-        time:
-          typeof entry?.duration === "number" && entry.duration > 0
-            ? `${entry.duration}s`
-            : undefined,
-        rest:
-          typeof entry?.restSeconds === "number" && entry.restSeconds > 0
-            ? `${entry.restSeconds}s`
-            : undefined,
-        notes: entry?.notes || undefined,
-        videoUrl: entry?.videoUrl || undefined,
-        progressions: entry?.progression || undefined,
-        regressions: entry?.regression || undefined,
-      });
-
-      const programsData = await apiRequest<{
-        programs: { type: string; programId?: number | null }[];
-      }>("/programs", { token });
-      const libraryData = await apiRequest<{ exercises: any[] }>(
-        "/programs/exercises",
-        { token },
-      );
-      const requiredType = programIdToTier(programId);
-      const selected = (programsData.programs ?? []).find(
-        (item) => item.type === requiredType,
-      );
-      if (!selected?.programId) {
-        setAllSessions([]);
-        setAgeGateMessage(
-          "This program isn’t available for the athlete’s age yet. Check back soon or ask your coach.",
-        );
+  const loadSectionContent = useCallback(
+    async (tab: string) => {
+      if (!token) {
+        setSectionContent([]);
         return;
       }
-      const sessionData = await apiRequest<{ sessions: any[] }>(
-        `/programs/${selected.programId}/sessions`,
-        { token },
-      );
-
-      const mappedSessions: SessionItem[] = (sessionData.sessions ?? []).map(
-        (session) => {
-          const sessionExercises = Array.isArray(session.exercises)
-            ? session.exercises
-            : [];
-          return {
-            id: String(session.id),
-            name: `Week ${session.weekNumber} Session ${session.sessionNumber}`,
-            weekNumber: session.weekNumber,
-            type: String(session.type ?? ""),
-            exercises: sessionExercises.map((entry: any) => {
-              const exercise = entry.exercise ?? {};
-              return {
-                id: String(entry.exerciseId ?? exercise.id ?? entry.id),
-                name: String(exercise.name ?? "Exercise"),
-                sets: typeof exercise.sets === "number" ? exercise.sets : undefined,
-                reps: typeof exercise.reps === "number" ? exercise.reps : undefined,
-                time:
-                  typeof exercise.duration === "number" && exercise.duration > 0
-                    ? `${exercise.duration}s`
-                    : undefined,
-                rest:
-                  typeof exercise.restSeconds === "number" &&
-                  exercise.restSeconds > 0
-                    ? `${exercise.restSeconds}s`
-                    : undefined,
-                notes: entry.coachingNotes || exercise.notes || undefined,
-                videoUrl: exercise.videoUrl || undefined,
-                progressions: entry.progressionNotes || exercise.progression || undefined,
-                regressions: entry.regressionNotes || exercise.regression || undefined,
-              };
-            }),
-          } as SessionItem;
-        },
-      );
-
-      const libraryExercises = (libraryData.exercises ?? []).map(mapExercise);
-      const librarySession: SessionItem[] = libraryExercises.length
-        ? [
-            {
-              id: `${requiredType}-library`,
-              name: "Exercise Library",
-              weekNumber: 1,
-              type: "program",
-              exercises: libraryExercises,
-            },
-          ]
-        : [];
-
-      setAllSessions([...mappedSessions, ...librarySession]);
-    } catch (error: any) {
-      const message = error?.message || "Failed to load configured sessions.";
-      if (typeof message === "string" && message.startsWith("404")) {
-        setAgeGateMessage(
-          "This program isn’t available for the athlete’s age yet. Check back soon or ask your coach.",
-        );
-        setAllSessions([]);
-      } else {
-        setSessionError(message);
-        setAllSessions([]);
+      const types = getSessionTypesForTab(tab);
+      if (types.length === 0) {
+        setSectionContent([]);
+        return;
       }
-    } finally {
-      setIsLoadingSessions(false);
-    }
-  }, [programId, token]);
+      setIsLoadingContent(true);
+      setContentError(null);
+      try {
+        const responses = await Promise.all(
+          types.map((type) =>
+            apiRequest<{ items: ProgramSectionContent[] }>(
+              `/program-section-content?sectionType=${encodeURIComponent(
+                String(type),
+              )}`,
+              { token },
+            ),
+          ),
+        );
+        const merged = responses
+          .flatMap((res) => res.items ?? [])
+          .filter((item) => item && item.id);
+        merged.sort((a, b) => {
+          const orderA = Number.isFinite(a.order) ? (a.order as number) : 9999;
+          const orderB = Number.isFinite(b.order) ? (b.order as number) : 9999;
+          if (orderA !== orderB) return orderA - orderB;
+          return String(b.updatedAt ?? "").localeCompare(
+            String(a.updatedAt ?? ""),
+          );
+        });
+        setSectionContent(merged);
+      } catch (err) {
+        setContentError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load program content.",
+        );
+      } finally {
+        setIsLoadingContent(false);
+      }
+    },
+    [token],
+  );
 
   useEffect(() => {
-    void loadSessions();
-  }, [loadSessions]);
+    void loadSectionContent(activeTab);
+  }, [activeTab, loadSectionContent]);
 
   const handlePageRefresh = async () => {
-    await loadSessions();
+    await loadSectionContent(activeTab);
     setRefreshToken((prev) => prev + 1);
   };
 
@@ -326,56 +228,61 @@ export function ProgramDetailPanel({
   };
 
   const renderTrainingContent = () => {
-    if (isLoadingSessions) {
-      return (
-        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-          <Text className="text-2xl font-outfit text-secondary">
-            Loading configured exercises...
-          </Text>
-        </View>
-      );
-    }
-    if (sessionError) {
-      return (
-        <View className="rounded-3xl border border-red-500/30 bg-red-500/10 px-6 py-5">
-          <Text className="text-2xl font-outfit text-red-600">
-            {sessionError}
-          </Text>
-        </View>
-      );
-    }
-    if (ageGateMessage) {
-      return (
-        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-          <View className="flex-row items-center gap-2">
-            <Feather name="info" size={16} color="#94A3B8" />
-            <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
-              Not Available
-            </Text>
-          </View>
-          <Text className="text-2xl font-clash text-app mt-3">
-            {ageGateMessage}
-          </Text>
-        </View>
-      );
-    }
-    const visibleSessions = searchQuery.trim() ? filteredSessions : sessions;
-    if (visibleSessions.length === 0) {
+    const visibleContent = searchQuery.trim()
+      ? filteredSectionContent
+      : sectionContent;
+    const showContentLoading = isLoadingContent;
+    const showContentError = contentError;
+
+    if (visibleContent.length === 0) {
       return (
         <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
           <Text className="text-2xl font-outfit text-secondary">
             {searchQuery.trim()
-              ? "No matching exercises or sessions found."
-              : "No exercises configured for this section yet. Ask your coach/admin to add sessions in Web Admin."}
+              ? "No matching content found."
+              : "No content configured for this section yet. Ask your coach/admin to add content in Web Admin."}
           </Text>
         </View>
       );
     }
     return (
-      <ProgramSessionPanel
-        sessions={visibleSessions}
-        onVideoPress={handleVideoPress}
-      />
+      <View className="gap-4">
+        {showContentLoading ? (
+          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+            <Text className="text-2xl font-outfit text-secondary">
+              Loading section content...
+            </Text>
+          </View>
+        ) : null}
+        {showContentError ? (
+          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+            <Text className="text-2xl font-outfit text-secondary">
+              {showContentError}
+            </Text>
+          </View>
+        ) : null}
+        {visibleContent.map((item) => (
+          <View
+            key={`content-${item.id}`}
+            className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3"
+          >
+            <Text className="text-2xl font-clash text-app">{item.title}</Text>
+            <Text className="text-2xl font-outfit text-secondary">
+              {item.body}
+            </Text>
+            {item.videoUrl ? (
+              <Pressable
+                onPress={() => setActiveVideoUrl(item.videoUrl ?? null)}
+                className="self-start rounded-full px-4 py-2 bg-[#2F8F57]"
+              >
+                <Text className="text-xs font-outfit text-white">
+                  Watch video
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ))}
+      </View>
     );
   };
 
@@ -438,49 +345,6 @@ export function ProgramDetailPanel({
     if (activeTab === "Physio Referral" || activeTab === "Physio Referrals") {
       return (
         <PhysioReferralPanel discount={programId === "plus" ? "10%" : undefined} />
-      );
-    }
-
-    if (activeTab === "Parent Education") {
-      if (role !== "Guardian") {
-        return (
-          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-2xl font-outfit text-secondary">
-              Parent education is only available for guardians.
-            </Text>
-          </View>
-        );
-      }
-      if (tierRank(programTier) < tierRank("PHP_Plus")) {
-        return (
-          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
-            <View className="flex-row items-center gap-2">
-              <Feather name="lock" size={16} color="#94A3B8" />
-              <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
-                Locked
-              </Text>
-            </View>
-            <Text className="text-2xl font-clash text-app">
-              Parent Program is locked on PHP
-            </Text>
-            <Text className="text-2xl font-outfit text-secondary">
-              This section unlocks at higher tiers.
-            </Text>
-          </View>
-        );
-      }
-      return (
-        <ParentEducationPanel
-          onOpen={() => onNavigate?.("/(tabs)/parent-platform")}
-        />
-      );
-    }
-
-    if (activeTab === "Education") {
-      return (
-        <ParentEducationPanel
-          onOpen={() => onNavigate?.("/(tabs)/parent-platform")}
-        />
       );
     }
 

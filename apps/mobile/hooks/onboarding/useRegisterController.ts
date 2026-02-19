@@ -3,7 +3,7 @@ import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setAthleteUserId, setOnboardingCompleted } from "@/store/slices/userSlice";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useLocalSearchParams, useRouter } from "expo-router";
+type RouterLike = { replace: (path: string) => void };
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, View } from "react-native";
 import { useForm, useWatch } from "react-hook-form";
@@ -53,10 +53,10 @@ const athleteRegisterSchema = z
 
 export type AthleteRegisterFormData = z.infer<typeof athleteRegisterSchema>;
 
-export function useRegisterController() {
-  const router = useRouter();
-  const params = useLocalSearchParams();
-  const createNewAthlete = params?.mode === "add";
+export function useRegisterController(options?: { router?: RouterLike; mode?: string | string[] }) {
+  const router = options?.router;
+  const mode = Array.isArray(options?.mode) ? options?.mode[0] : options?.mode;
+  const createNewAthlete = mode === "add";
   const { setRole } = useRole();
   const dispatch = useAppDispatch();
   const { token, profile } = useAppSelector((state) => state.user);
@@ -356,7 +356,7 @@ export function useRegisterController() {
           dispatch(setAthleteUserId(response.athleteUserId));
         }
         setRole("Guardian");
-        router.replace("/(tabs)");
+        router?.replace("/(tabs)");
       } catch (error) {
         console.error("Onboarding failed:", error);
         const message = error instanceof Error ? error.message : "Onboarding failed";

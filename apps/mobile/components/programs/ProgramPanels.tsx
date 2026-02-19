@@ -123,6 +123,8 @@ export function FoodDiaryPanel() {
       notes?: string | null;
       photoUrl?: string | null;
       meals?: Record<string, string> | null;
+      feedback?: string | null;
+      reviewedAt?: string | null;
     }[]
   >([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
@@ -394,6 +396,19 @@ export function FoodDiaryPanel() {
                 </View>
               ) : null}
               {item.notes ? <Text className="text-xl font-outfit text-app mt-2">{item.notes}</Text> : null}
+              {item.feedback ? (
+                <View className="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
+                  <Text className="text-xs font-outfit text-emerald-300 uppercase tracking-[1.2px]">
+                    Coach Response
+                  </Text>
+                  <Text className="text-xl font-outfit text-app mt-1">{item.feedback}</Text>
+                  {item.reviewedAt ? (
+                    <Text className="text-xs font-outfit text-secondary mt-2">
+                      {new Date(item.reviewedAt).toLocaleString()}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
               {item.photoUrl ? (
                 <Image source={{ uri: item.photoUrl }} className="mt-3 h-24 w-full rounded-2xl" resizeMode="cover" />
               ) : null}

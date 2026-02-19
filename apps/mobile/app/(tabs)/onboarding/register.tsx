@@ -3,7 +3,7 @@ import { RegisterFormFields } from "@/components/onboarding/register/RegisterFor
 import { RegisterOverlays } from "@/components/onboarding/register/RegisterOverlays";
 import { useRegisterController } from "@/hooks/onboarding/useRegisterController";
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, RefreshControl, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -12,6 +12,7 @@ import { Text } from "@/components/ScaledText";
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string | string[] }>();
   const { colors } = useAppTheme();
   const {
     profile,
@@ -45,7 +46,7 @@ export default function RegisterScreen() {
     openDropdown,
     onSubmit,
     dropdownState,
-  } = useRegisterController();
+  } = useRegisterController({ router, mode: params?.mode });
 
   return (
     <SafeAreaView className="flex-1 bg-app">

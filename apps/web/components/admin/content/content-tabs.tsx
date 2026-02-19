@@ -50,28 +50,36 @@ export function ContentTabs({
   onApproveTestimonial,
   onRejectTestimonial,
 }: ContentTabsProps) {
+  const adminStoryRef = useRef<HTMLTextAreaElement | null>(null);
+  const announcementBodyRef = useRef<HTMLTextAreaElement | null>(null);
   const termsRef = useRef<HTMLTextAreaElement | null>(null);
   const privacyRef = useRef<HTMLTextAreaElement | null>(null);
+  const [showAdminStoryPreview, setShowAdminStoryPreview] = useState(false);
   const [showTermsPreview, setShowTermsPreview] = useState(false);
   const [showPrivacyPreview, setShowPrivacyPreview] = useState(false);
+  const [showAnnouncementPreview, setShowAnnouncementPreview] = useState(false);
   const [homeIntroVideo, setHomeIntroVideo] = useState("");
-  const [homeAdminStory, setHomeAdminStory] = useState("");
   const [homeProfessionalPhoto, setHomeProfessionalPhoto] = useState("");
   const [hasTouchedProfessionalPhoto, setHasTouchedProfessionalPhoto] = useState(false);
+  const [adminStory, setAdminStory] = useState("");
   const initialProfessionalPhotoRef = useRef("");
   const [homeTestimonials, setHomeTestimonials] = useState<any[]>([]);
   const [testimonialName, setTestimonialName] = useState("");
   const [testimonialQuote, setTestimonialQuote] = useState("");
   const [testimonialPhoto, setTestimonialPhoto] = useState("");
   const [announcementTitle, setAnnouncementTitle] = useState("");
-  const [announcementBody, setAnnouncementBody] = useState("");
   const [termsVersion, setTermsVersion] = useState("1.0");
   const [privacyVersion, setPrivacyVersion] = useState("1.0");
 
   useEffect(() => {
     if (!initialHome) return;
     if (initialHome.introVideoUrl !== undefined) setHomeIntroVideo(initialHome.introVideoUrl ?? "");
-    if (initialHome.adminStory !== undefined) setHomeAdminStory(initialHome.adminStory ?? "");
+    if (adminStoryRef.current && initialHome.adminStory !== undefined) {
+      adminStoryRef.current.value = initialHome.adminStory ?? "";
+    }
+    if (initialHome.adminStory !== undefined) {
+      setAdminStory(initialHome.adminStory ?? "");
+    }
     if (initialHome.professionalPhoto !== undefined) {
       setHomeProfessionalPhoto(initialHome.professionalPhoto ?? "");
       initialProfessionalPhotoRef.current = initialHome.professionalPhoto ?? "";
@@ -120,6 +128,9 @@ export function ContentTabs({
     const cursor = start + value.length;
     el.focus();
     el.setSelectionRange(cursor, cursor);
+    if (ref === adminStoryRef) {
+      setAdminStory(el.value);
+    }
   };
 
   const wrapSelection = (
@@ -140,6 +151,9 @@ export function ContentTabs({
     const cursorEnd = cursorStart + selected.length;
     el.focus();
     el.setSelectionRange(cursorStart, cursorEnd);
+    if (ref === adminStoryRef) {
+      setAdminStory(el.value);
+    }
   };
 
   const prefixLines = (
@@ -158,6 +172,9 @@ export function ContentTabs({
     el.value = next;
     el.focus();
     el.setSelectionRange(start, start + lines.join("\n").length);
+    if (ref === adminStoryRef) {
+      setAdminStory(el.value);
+    }
   };
 
   const renderMarkdown = (text: string) => {
@@ -186,6 +203,14 @@ export function ContentTabs({
     () => renderMarkdown(privacyRef.current?.value ?? ""),
     [showPrivacyPreview]
   );
+  const adminStoryPreview = useMemo(
+    () => renderMarkdown(adminStory),
+    [adminStory, showAdminStoryPreview]
+  );
+  const announcementPreview = useMemo(
+    () => renderMarkdown(announcementBodyRef.current?.value ?? ""),
+    [showAnnouncementPreview]
+  );
 
   const toolbar = [
     { label: "B", type: "wrap", prefix: "**", suffix: "**", placeholder: "bold" },
@@ -212,7 +237,44 @@ export function ContentTabs({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Admin Story</Label>
-              <Textarea placeholder="Share the admin story..." value={homeAdminStory} onChange={(e) => setHomeAdminStory(e.target.value)} />
+              <div className="flex flex-wrap gap-2">
+                {toolbar.map((item) => (
+                  <Button
+                    key={`admin-story-${item.label}`}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (item.type === "wrap") {
+                        wrapSelection(adminStoryRef, item.prefix, item.suffix, item.placeholder);
+                      } else {
+                        prefixLines(adminStoryRef, item.prefix, item.placeholder);
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdminStoryPreview((prev) => !prev)}
+                >
+                  {showAdminStoryPreview ? "Edit" : "Preview"}
+                </Button>
+              </div>
+              {showAdminStoryPreview ? (
+                <div
+                  className="min-h-[200px] rounded-2xl border border-border bg-secondary/30 p-4 text-sm"
+                  dangerouslySetInnerHTML={{ __html: adminStoryPreview }}
+                />
+              ) : (
+                <Textarea
+                  ref={adminStoryRef}
+                  placeholder="Share the admin story..."
+                  value={adminStory}
+                  onChange={(event) => setAdminStory(event.target.value)}
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label>Professional Photos</Label>
@@ -254,7 +316,7 @@ export function ContentTabs({
               className="w-full"
               onClick={() => {
                 onSaveProfile({
-                  adminStory: homeAdminStory,
+                  adminStory,
                   professionalPhoto: hasTouchedProfessionalPhoto
                     ? homeProfessionalPhoto
                     : initialProfessionalPhotoRef.current,
@@ -594,11 +656,39 @@ export function ContentTabs({
             </div>
             <div className="space-y-2">
               <Label>Announcement Body</Label>
-              <Textarea
-                placeholder="Write the announcement..."
-                value={announcementBody}
-                onChange={(e) => setAnnouncementBody(e.target.value)}
-              />
+              <div className="flex flex-wrap gap-2">
+                {toolbar.map((item) => (
+                  <Button
+                    key={`announcement-${item.label}`}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (item.type === "wrap") {
+                        wrapSelection(announcementBodyRef, item.prefix, item.suffix, item.placeholder);
+                      } else {
+                        prefixLines(announcementBodyRef, item.prefix, item.placeholder);
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAnnouncementPreview((prev) => !prev)}
+                >
+                  {showAnnouncementPreview ? "Edit" : "Preview"}
+                </Button>
+              </div>
+              {showAnnouncementPreview ? (
+                <div
+                  className="min-h-[200px] rounded-2xl border border-border bg-secondary/30 p-4 text-sm"
+                  dangerouslySetInnerHTML={{ __html: announcementPreview }}
+                />
+              ) : (
+                <Textarea ref={announcementBodyRef} placeholder="Write the announcement..." />
+              )}
             </div>
           </div>
           <div className="space-y-4">
@@ -607,7 +697,7 @@ export function ContentTabs({
               onClick={() =>
                 onPublishAnnouncement({
                   title: announcementTitle,
-                  body: announcementBody,
+                  body: announcementBodyRef.current?.value ?? "",
                 })
               }
             >

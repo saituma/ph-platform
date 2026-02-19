@@ -4,6 +4,7 @@ import healthRoutes from "./health.routes";
 import authRoutes from "./auth.routes";
 import onboardingRoutes from "./onboarding.routes";
 import programRoutes from "./program.routes";
+import programSectionRoutes from "./program-section.routes";
 import contentRoutes from "./content.routes";
 import messageRoutes from "./message.routes";
 import chatRoutes from "./chat.routes";
@@ -16,6 +17,7 @@ import foodDiaryRoutes from "./food-diary.routes";
 import physioReferralRoutes from "./physio-referral.routes";
 import ageExperienceRoutes from "./age-experience.routes";
 import locationRoutes from "./location.routes";
+import notificationRoutes from "./notification.routes";
 
 const router = Router();
 
@@ -23,6 +25,7 @@ router.use(healthRoutes);
 router.use(authRoutes);
 router.use(onboardingRoutes);
 router.use(programRoutes);
+router.use(programSectionRoutes);
 router.use(contentRoutes);
 router.use(messageRoutes);
 router.use(chatRoutes);
@@ -35,5 +38,6 @@ router.use(foodDiaryRoutes);
 router.use(physioReferralRoutes);
 router.use(ageExperienceRoutes);
 router.use(locationRoutes);
+router.use(notificationRoutes);
 
 export default router;

@@ -33,8 +33,9 @@ import {
   updateAdminProfileDetails,
   updateProgramTier,
   updateOnboardingConfigDetails,
+  createBookingAdmin,
 } from "../controllers/admin.controller";
-import { listFoodDiaryAdmin } from "../controllers/food-diary.controller";
+import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.put("/admin/preferences", updateAdminPreferencesDetails);
 router.get("/admin/onboarding-config", getOnboardingConfigDetails);
 router.put("/admin/onboarding-config", updateOnboardingConfigDetails);
 router.get("/admin/bookings", listBookings);
+router.post("/admin/bookings", createBookingAdmin);
 router.patch("/admin/bookings/:bookingId", updateBookingStatus);
 router.get("/admin/availability", listAvailability);
 router.get("/admin/videos", listVideosAdmin);
@@ -71,5 +73,6 @@ router.post("/admin/sessions", createSessionItem);
 router.post("/admin/session-exercises", addExercise);
 router.delete("/admin/session-exercises/:sessionExerciseId", deleteSessionExerciseItem);
 router.get("/admin/food-diary", listFoodDiaryAdmin);
+router.post("/admin/food-diary/:entryId/review", reviewFoodDiaryAdmin);
 
 export default router;

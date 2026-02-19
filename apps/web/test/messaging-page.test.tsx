@@ -39,10 +39,12 @@ jest.mock("@/lib/apiSlice", () => ({
   useGetChatGroupMessagesQuery: jest.fn(),
   useGetChatGroupMembersQuery: jest.fn(),
   useCreateChatGroupMutation: jest.fn(),
+  useCreateMediaUploadUrlMutation: jest.fn(),
   useSendMessageMutation: jest.fn(),
   useSendChatGroupMessageMutation: jest.fn(),
   useToggleMessageReactionMutation: jest.fn(),
   useToggleChatGroupMessageReactionMutation: jest.fn(),
+  useMarkThreadReadMutation: jest.fn(),
 }));
 
 const apiSlice = jest.requireMock("@/lib/apiSlice");
@@ -64,10 +66,12 @@ describe("messaging page", () => {
     apiSlice.useGetChatGroupMessagesQuery.mockReturnValue({ data: { messages: [] }, refetch: jest.fn() });
     apiSlice.useGetChatGroupMembersQuery.mockReturnValue({ data: { members: [] } });
     apiSlice.useCreateChatGroupMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
+    apiSlice.useCreateMediaUploadUrlMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
     apiSlice.useSendMessageMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
     apiSlice.useSendChatGroupMessageMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
     apiSlice.useToggleMessageReactionMutation.mockReturnValue([jest.fn()]);
     apiSlice.useToggleChatGroupMessageReactionMutation.mockReturnValue([jest.fn()]);
+    apiSlice.useMarkThreadReadMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
   });
 
   it("renders direct inbox by default", () => {

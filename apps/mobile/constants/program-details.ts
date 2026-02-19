@@ -29,8 +29,7 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
     "Cool Down",
     "Stretching & Foam Rolling",
     "Off Season Program",
-    "Parent Education",
-    "Submit Diary",
+    "Nutrition & Food Diaries",
     "Physio Referrals",
   ],
   premium: [
@@ -42,7 +41,6 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
     "In-Season Program",
     "Off-Season Program",
     "Video Upload",
-    "Education",
     "Submit Diary",
     "Bookings",
   ],
@@ -77,8 +75,6 @@ const TAB_SESSION_TYPES: Record<string, string[]> = {
   "Off Season Program": ["offseason"],
   "Off-Season Program": ["offseason"],
   "In-Season Program": ["inseason"],
-  Education: ["education"],
-  "Parent Education": ["education"],
   "Nutrition & Food Diaries": ["nutrition"],
   "Submit Diary": ["nutrition"],
 };

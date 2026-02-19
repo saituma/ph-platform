@@ -5,7 +5,21 @@ import { athleteTable, foodDiaryTable, guardianTable, userTable } from "../db/sc
 
 export async function listFoodDiaryForGuardian(guardianId: number) {
   return db
-    .select()
+    .select({
+      id: foodDiaryTable.id,
+      athleteId: foodDiaryTable.athleteId,
+      guardianId: foodDiaryTable.guardianId,
+      date: foodDiaryTable.date,
+      meals: foodDiaryTable.meals,
+      notes: foodDiaryTable.notes,
+      quantity: foodDiaryTable.quantity,
+      photoUrl: foodDiaryTable.photoUrl,
+      feedback: foodDiaryTable.feedback,
+      reviewedAt: foodDiaryTable.reviewedAt,
+      reviewedByCoach: foodDiaryTable.reviewedByCoach,
+      createdAt: foodDiaryTable.createdAt,
+      updatedAt: foodDiaryTable.updatedAt,
+    })
     .from(foodDiaryTable)
     .where(eq(foodDiaryTable.guardianId, guardianId))
     .orderBy(desc(foodDiaryTable.date), desc(foodDiaryTable.createdAt));
@@ -29,6 +43,9 @@ export async function listFoodDiaryEntries(input: { guardianId?: number; athlete
       notes: foodDiaryTable.notes,
       quantity: foodDiaryTable.quantity,
       photoUrl: foodDiaryTable.photoUrl,
+      feedback: foodDiaryTable.feedback,
+      reviewedAt: foodDiaryTable.reviewedAt,
+      reviewedByCoach: foodDiaryTable.reviewedByCoach,
       createdAt: foodDiaryTable.createdAt,
       updatedAt: foodDiaryTable.updatedAt,
       athleteName: athleteTable.name,
@@ -70,4 +87,35 @@ export async function createFoodDiaryEntry(input: {
     })
     .returning();
   return result[0];
+}
+
+export async function reviewFoodDiaryEntry(input: {
+  entryId: number;
+  feedback: string | null;
+  reviewedByCoach: number;
+}) {
+  const updated = await db
+    .update(foodDiaryTable)
+    .set({
+      feedback: input.feedback,
+      reviewedByCoach: input.reviewedByCoach,
+      reviewedAt: input.feedback ? new Date() : null,
+    })
+    .where(eq(foodDiaryTable.id, input.entryId))
+    .returning();
+  return updated[0];
+}
+
+export async function getFoodDiaryGuardianUser(entryId: number) {
+  return db
+    .select({
+      guardianUserId: userTable.id,
+      athleteName: athleteTable.name,
+    })
+    .from(foodDiaryTable)
+    .leftJoin(guardianTable, eq(foodDiaryTable.guardianId, guardianTable.id))
+    .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
+    .leftJoin(athleteTable, eq(foodDiaryTable.athleteId, athleteTable.id))
+    .where(eq(foodDiaryTable.id, entryId))
+    .limit(1);
 }

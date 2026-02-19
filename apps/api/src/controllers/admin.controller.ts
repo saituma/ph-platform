@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 import {
   addExerciseToSession,
@@ -33,6 +34,10 @@ import {
   updateProgramTemplate,
   updateBookingStatusAdmin,
 } from "../services/admin.service";
+import { createBooking } from "../services/booking.service";
+import { getGuardianAndAthlete } from "../services/user.service";
+import { db } from "../db";
+import { serviceTypeTable } from "../db/schema";
 import { ProgramType, sessionType } from "../db/schema";
 
 const updateTierSchema = z.object({
@@ -63,6 +68,16 @@ const programSchema = z
       });
     }
   });
+
+const adminBookingSchema = z.object({
+  userId: z.number().int().min(1),
+  serviceTypeId: z.number().int().min(1),
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime(),
+  location: z.string().optional().nullable(),
+  meetingLink: z.string().optional().nullable(),
+  status: z.enum(["pending", "confirmed", "declined", "cancelled"]).optional(),
+});
 
 const programUpdateSchema = z
   .object({
@@ -377,6 +392,51 @@ export async function deleteSessionExerciseItem(req: Request, res: Response) {
 export async function listBookings(req: Request, res: Response) {
   const bookings = await listBookingsAdmin();
   return res.status(200).json({ bookings });
+}
+
+export async function createBookingAdmin(req: Request, res: Response) {
+  const input = adminBookingSchema.parse(req.body);
+  const [service] = await db
+    .select()
+    .from(serviceTypeTable)
+    .where(eq(serviceTypeTable.id, input.serviceTypeId))
+    .limit(1);
+  if (!service) {
+    return res.status(404).json({ error: "Service type not found" });
+  }
+  const { guardian, athlete } = await getGuardianAndAthlete(input.userId);
+  if (!guardian || !athlete) {
+    return res.status(400).json({ error: "Guardian or athlete not found" });
+  }
+  let startsAt = new Date(input.startsAt);
+  let endsAt = new Date(input.endsAt);
+  const fixedStartTime = service.fixedStartTime ?? (service.type === "role_model" ? "13:00" : null);
+  if (fixedStartTime) {
+    const [hour, minute] = fixedStartTime.split(":").map((value) => Number(value));
+    if (Number.isFinite(hour) && Number.isFinite(minute)) {
+      startsAt = new Date(startsAt);
+      startsAt.setHours(hour, minute, 0, 0);
+      endsAt = new Date(startsAt.getTime() + Number(service.durationMinutes) * 60000);
+    }
+  }
+
+  const booking = await createBooking({
+    athleteId: athlete.id,
+    guardianId: guardian.id,
+    serviceTypeId: input.serviceTypeId,
+    startsAt,
+    endsAt,
+    createdBy: req.user!.id,
+    location: input.location ?? undefined,
+    meetingLink: input.meetingLink ?? undefined,
+  });
+
+  if (input.status && input.status !== "pending") {
+    const updated = await updateBookingStatusAdmin({ bookingId: booking.id, status: input.status });
+    return res.status(201).json({ booking: updated ?? booking });
+  }
+
+  return res.status(201).json({ booking });
 }
 
 export async function updateBookingStatus(req: Request, res: Response) {

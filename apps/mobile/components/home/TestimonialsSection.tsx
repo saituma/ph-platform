@@ -29,12 +29,32 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const testimonials = items && items.length ? items : [];
+  const isEmpty = testimonials.length === 0;
+  const isSingle = testimonials.length === 1;
 
-  if (!testimonials.length) {
+  useEffect(() => {
+    if (testimonials.length <= 1) return;
+    const interval = setInterval(() => {
+      let nextIndex = activeIndex + 1;
+      if (nextIndex >= testimonials.length) {
+        nextIndex = 0;
+      }
+
+      flatListRef.current?.scrollToIndex({
+        index: nextIndex,
+        animated: true,
+      });
+      setActiveIndex(nextIndex);
+    }, AUTO_SCROLL_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [activeIndex, testimonials.length]);
+
+  if (isEmpty) {
     return null;
   }
 
-  if (testimonials.length === 1) {
+  if (isSingle) {
     const item = testimonials[0];
     const photo =
       item.photoUrl ??
@@ -104,23 +124,6 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
       </View>
     );
   }
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      let nextIndex = activeIndex + 1;
-      if (nextIndex >= testimonials.length) {
-        nextIndex = 0;
-      }
-
-      flatListRef.current?.scrollToIndex({
-        index: nextIndex,
-        animated: true,
-      });
-      setActiveIndex(nextIndex);
-    }, AUTO_SCROLL_INTERVAL);
-
-    return () => clearInterval(interval);
-  }, [activeIndex, testimonials.length]);
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;

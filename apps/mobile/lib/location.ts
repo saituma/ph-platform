@@ -15,8 +15,6 @@ export async function sendDailyLocation(token: string, options?: { force?: boole
     if (!options?.force && lastSent === today) return;
 
     const consent = await SecureStore.getItemAsync(LOCATION_CONSENT_KEY);
-    if (consent === "denied") return;
-
     let permission = await Location.getForegroundPermissionsAsync();
     if (permission.status !== "granted") {
       if (!consent) {

@@ -217,6 +217,19 @@ export const sessionTable = pgTable("sessions", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const programSectionContentTable = pgTable("program_section_contents", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  sectionType: sessionType().notNull(),
+  programTier: ProgramType(),
+  title: varchar({ length: 255 }).notNull(),
+  body: text().notNull(),
+  videoUrl: varchar({ length: 500 }),
+  order: integer().notNull().default(1),
+  createdBy: integer().notNull().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
 export const sessionExerciseTable = pgTable("session_exercises", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   sessionId: integer().notNull().references(() => sessionTable.id),
@@ -303,10 +316,11 @@ export const contentTable = pgTable("contents", {
   title: varchar({ length: 255 }).notNull(),
   content: varchar({ length: 500 }).notNull(),
   type: contentType(),
-  body: varchar({ length: 2000 }),
+  body: text(),
   programTier: ProgramType(),
   surface: contentSurface().notNull(),
   category: varchar({ length: 255 }),
+  ageList: jsonb(),
   minAge: integer(),
   maxAge: integer(),
   createdBy: integer().notNull().references(() => userTable.id),
@@ -381,6 +395,9 @@ export const foodDiaryTable = pgTable("food_diary", {
   notes: varchar({ length: 500 }),
   quantity: integer(),
   photoUrl: varchar({ length: 500 }),
+  reviewedByCoach: integer().references(() => userTable.id),
+  feedback: varchar({ length: 2000 }),
+  reviewedAt: timestamp(),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });

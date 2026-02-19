@@ -1,6 +1,7 @@
 import React from "react";
 import { Image, View } from "react-native";
 import { Text } from "@/components/ScaledText";
+import { MarkdownText } from "@/components/ui/MarkdownText";
 
 type AdminStorySectionProps = {
   story?: string | null;
@@ -42,9 +43,13 @@ export function AdminStorySection({ story, photoUrl }: AdminStorySectionProps) {
 
       {storyText ? (
         <View className="mx-6 bg-input border border-app rounded-[32px] p-6">
-          <Text className="text-secondary font-outfit text-sm leading-relaxed">
-            {storyText}
-          </Text>
+          <MarkdownText
+            text={storyText}
+            baseStyle={{ fontSize: 14, lineHeight: 22, color: "#64748B" }}
+            headingStyle={{ fontSize: 18, lineHeight: 24, color: "#0F172A", fontWeight: "700" }}
+            subheadingStyle={{ fontSize: 16, lineHeight: 22, color: "#0F172A", fontWeight: "700" }}
+            listItemStyle={{ paddingLeft: 6 }}
+          />
         </View>
       ) : null}
     </View>

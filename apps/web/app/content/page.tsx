@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -23,7 +23,7 @@ export default function ContentPage() {
   const [updateContent] = useUpdateContentMutation();
   const [approveSubmission] = useApproveTestimonialSubmissionMutation();
   const [rejectSubmission] = useRejectTestimonialSubmissionMutation();
-  const { data: homeData } = useGetHomeContentQuery();
+  const { data: homeData, refetch: refetchHome } = useGetHomeContentQuery();
   const { data: legalData } = useGetLegalContentQuery();
   const { data: testimonialSubmissionsData, refetch: refetchSubmissions } =
     useGetTestimonialSubmissionsQuery(undefined, { refetchOnMountOrArgChange: true });
@@ -39,6 +39,10 @@ export default function ContentPage() {
       homeBody = {};
     }
   }
+  const [homeDraft, setHomeDraft] = useState<any>({});
+  useEffect(() => {
+    setHomeDraft(homeBody ?? {});
+  }, [homeItem?.id, homeItem?.body]);
   const baseHomeTitle =
     homeItem?.title?.trim() ||
     homeItem?.content?.trim() ||
@@ -73,15 +77,15 @@ export default function ContentPage() {
           ) : (
             <ContentTabs
               initialHome={{
-                introVideoUrl: homeBody.introVideoUrl ?? "",
-                testimonials: homeBody.testimonials ?? [],
-                adminStory: homeBody.adminStory ?? "",
+                introVideoUrl: homeDraft.introVideoUrl ?? "",
+                testimonials: homeDraft.testimonials ?? [],
+                adminStory: homeDraft.adminStory ?? "",
                 professionalPhoto:
-                  homeBody.professionalPhoto ??
-                  (Array.isArray(homeBody.professionalPhotos)
-                    ? homeBody.professionalPhotos[0] ?? ""
-                    : typeof homeBody.professionalPhotos === "string"
-                      ? homeBody.professionalPhotos
+                  homeDraft.professionalPhoto ??
+                  (Array.isArray(homeDraft.professionalPhotos)
+                    ? homeDraft.professionalPhotos[0] ?? ""
+                    : typeof homeDraft.professionalPhotos === "string"
+                      ? homeDraft.professionalPhotos
                           .split(/\r?\n|,/)
                           .map((item: string) => item.trim())
                           .filter(Boolean)[0] ?? ""
@@ -95,14 +99,17 @@ export default function ContentPage() {
               }}
               onSaveProfile={async (data) => {
                 setError(null);
+                const nextDraft = {
+                  ...homeDraft,
+                  adminStory: data.adminStory,
+                  professionalPhoto: data.professionalPhoto,
+                };
                 const payload = {
                   title: "Home",
                   content: baseHomeTitle,
                   type: "article",
                   body: JSON.stringify({
-                    ...homeBody,
-                    adminStory: data.adminStory,
-                    professionalPhoto: data.professionalPhoto,
+                    ...nextDraft,
                   }),
                   surface: "home",
                   programTier: homeItem?.programTier ?? undefined,
@@ -113,6 +120,8 @@ export default function ContentPage() {
                   } else {
                     await createContent(payload).unwrap();
                   }
+                  setHomeDraft(nextDraft);
+                  refetchHome();
                   setActiveDialog("home");
                 } catch (err) {
                   setError("Failed to save profile content");
@@ -120,13 +129,13 @@ export default function ContentPage() {
               }}
               onSaveTestimonials={async (data) => {
                 setError(null);
+                const nextDraft = { ...homeDraft, testimonials: data.testimonials };
                 const payload = {
                   title: "Home",
                   content: baseHomeTitle,
                   type: "article",
                   body: JSON.stringify({
-                    ...homeBody,
-                    testimonials: data.testimonials,
+                    ...nextDraft,
                   }),
                   surface: "home",
                   programTier: homeItem?.programTier ?? undefined,
@@ -137,6 +146,8 @@ export default function ContentPage() {
                   } else {
                     await createContent(payload).unwrap();
                   }
+                  setHomeDraft(nextDraft);
+                  refetchHome();
                   setActiveDialog("home");
                 } catch (err) {
                   setError("Failed to save testimonials");
@@ -144,13 +155,13 @@ export default function ContentPage() {
               }}
               onSaveIntroVideo={async (data) => {
                 setError(null);
+                const nextDraft = { ...homeDraft, introVideoUrl: data.introVideoUrl };
                 const payload = {
                   title: "Home",
                   content: baseHomeTitle,
                   type: "article",
                   body: JSON.stringify({
-                    ...homeBody,
-                    introVideoUrl: data.introVideoUrl,
+                    ...nextDraft,
                   }),
                   surface: "home",
                   programTier: homeItem?.programTier ?? undefined,
@@ -161,6 +172,8 @@ export default function ContentPage() {
                   } else {
                     await createContent(payload).unwrap();
                   }
+                  setHomeDraft(nextDraft);
+                  refetchHome();
                   setActiveDialog("home");
                 } catch (err) {
                   setError("Failed to save intro video");

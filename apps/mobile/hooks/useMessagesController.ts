@@ -113,7 +113,7 @@ export function useMessagesController() {
         premium: isPremium,
         unread: data.messages?.filter((msg: any) => !msg.read && Number(msg.senderId) !== effectiveUserId).length ?? 0,
         lastSeen: "Active",
-        responseTime: isPremium ? "Priority response" : "Coach replies fast",
+        responseTime: isPremium ? "Priority response window" : "Standard response window",
         avatarUrl: coach.profilePicture ?? null,
       };
 

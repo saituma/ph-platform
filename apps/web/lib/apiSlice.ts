@@ -14,6 +14,7 @@ export const apiSlice = createApi({
     "Dashboard",
     "OnboardingConfig",
     "ParentCourses",
+    "TestimonialSubmissions",
     "Availability",
     "FoodDiary",
     "PhysioReferrals",
@@ -87,6 +88,25 @@ export const apiSlice = createApi({
         url: `/admin/bookings/${bookingId}`,
         method: "PATCH",
         body: { status },
+      }),
+      invalidatesTags: ["Bookings"],
+    }),
+    createAdminBooking: builder.mutation<
+      any,
+      {
+        userId: number;
+        serviceTypeId: number;
+        startsAt: string;
+        endsAt: string;
+        location?: string | null;
+        meetingLink?: string | null;
+        status?: string;
+      }
+    >({
+      query: (body) => ({
+        url: "/admin/bookings",
+        method: "POST",
+        body,
       }),
       invalidatesTags: ["Bookings"],
     }),
@@ -441,6 +461,8 @@ export const {
   useBlockUserMutation,
   useDeleteUserMutation,
   useGetBookingsQuery,
+  useUpdateBookingStatusMutation,
+  useCreateAdminBookingMutation,
   useGetAdminAvailabilityQuery,
   useGetVideoUploadsQuery,
   useGetServicesQuery,
@@ -449,6 +471,9 @@ export const {
   useGetParentContentQuery,
   useGetHomeContentQuery,
   useGetLegalContentQuery,
+  useGetTestimonialSubmissionsQuery,
+  useApproveTestimonialSubmissionMutation,
+  useRejectTestimonialSubmissionMutation,
   useGetParentCoursesQuery,
   useGetFoodDiaryQuery,
   useGetPhysioReferralsQuery,

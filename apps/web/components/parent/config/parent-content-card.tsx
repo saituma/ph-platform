@@ -11,6 +11,7 @@ import { Textarea } from "../../ui/textarea";
 import { Badge } from "../../ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { useCreateContentMutation, useGetParentContentQuery, useUpdateContentMutation } from "../../../lib/apiSlice";
+import { ParentCourseMediaUpload } from "./parent-course-media-upload";
 
 const CATEGORIES = [
   "Growth and maturation",
@@ -33,6 +34,7 @@ export function ParentContentCard() {
   const { data, refetch, isLoading } = useGetParentContentQuery();
   const [createContent, { isLoading: isSaving }] = useCreateContentMutation();
   const [updateContent, { isLoading: isUpdating }] = useUpdateContentMutation();
+  const [ageMode, setAgeMode] = useState<"range" | "exact">("range");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [type, setType] = useState<(typeof CONTENT_TYPES)[number]>("article");
@@ -41,15 +43,29 @@ export function ParentContentCard() {
   const [tier, setTier] = useState("");
   const [minAge, setMinAge] = useState("");
   const [maxAge, setMaxAge] = useState("");
+  const [ageList, setAgeList] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
 
-  const formatAgeRange = (item: { minAge?: number | null; maxAge?: number | null }) => {
+  const formatAgeRange = (item: { minAge?: number | null; maxAge?: number | null; ageList?: number[] | null }) => {
+    if (Array.isArray(item.ageList) && item.ageList.length) {
+      return `Ages ${item.ageList.join(", ")}`;
+    }
     if (item.minAge == null && item.maxAge == null) return "All ages";
     if (item.minAge != null && item.maxAge != null) return `Ages ${item.minAge}-${item.maxAge}`;
     if (item.minAge != null) return `Ages ${item.minAge}+`;
     return `Up to ${item.maxAge}`;
+  };
+
+  const parseAgeList = (value: string) => {
+    const entries = value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => Number(entry));
+    if (!entries.length) return [] as number[];
+    return entries.filter((age) => Number.isFinite(age) && age >= 0);
   };
 
   const grouped = useMemo(() => {
@@ -67,6 +83,8 @@ export function ParentContentCard() {
     setTier("");
     setMinAge("");
     setMaxAge("");
+    setAgeList("");
+    setAgeMode("range");
     setType("article");
     setCategory(CATEGORIES[0]);
     setEditingItem(null);
@@ -78,13 +96,18 @@ export function ParentContentCard() {
       setError("Title and summary are required.");
       return;
     }
+    const ageListValues = ageMode === "exact" ? parseAgeList(ageList) : [];
     const minAgeValue = minAge.trim() ? Number(minAge) : null;
     const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
-    if ((minAgeValue !== null && Number.isNaN(minAgeValue)) || (maxAgeValue !== null && Number.isNaN(maxAgeValue))) {
+    if (ageMode === "exact" && ageList.trim() && ageListValues.length === 0) {
+      setError("Please enter valid ages (e.g. 5, 6, 7).");
+      return;
+    }
+    if (ageMode === "range" && ((minAgeValue !== null && Number.isNaN(minAgeValue)) || (maxAgeValue !== null && Number.isNaN(maxAgeValue)))) {
       setError("Age limits must be valid numbers.");
       return;
     }
-    if (minAgeValue !== null && maxAgeValue !== null && minAgeValue > maxAgeValue) {
+    if (ageMode === "range" && minAgeValue !== null && maxAgeValue !== null && minAgeValue > maxAgeValue) {
       setError("Minimum age cannot be greater than maximum age.");
       return;
     }
@@ -95,8 +118,9 @@ export function ParentContentCard() {
         type,
         body: body.trim() || undefined,
         programTier: tier || undefined,
-        minAge: minAgeValue ?? undefined,
-        maxAge: maxAgeValue ?? undefined,
+        ageList: ageMode === "exact" ? ageListValues : undefined,
+        minAge: ageMode === "range" ? minAgeValue ?? undefined : undefined,
+        maxAge: ageMode === "range" ? maxAgeValue ?? undefined : undefined,
         surface: "parent_platform",
         category,
       }).unwrap();
@@ -119,6 +143,15 @@ export function ParentContentCard() {
     setTier(item.programTier ?? "");
     setMinAge(item.minAge != null ? String(item.minAge) : "");
     setMaxAge(item.maxAge != null ? String(item.maxAge) : "");
+    if (Array.isArray(item.ageList) && item.ageList.length) {
+      setAgeMode("exact");
+      setAgeList(item.ageList.join(", "));
+      setMinAge("");
+      setMaxAge("");
+    } else {
+      setAgeMode("range");
+      setAgeList("");
+    }
     setCategory(item.category ?? CATEGORIES[0]);
     setError(null);
     setModalOpen(true);
@@ -137,13 +170,18 @@ export function ParentContentCard() {
       setError("Title and summary are required.");
       return;
     }
+    const ageListValues = ageMode === "exact" ? parseAgeList(ageList) : [];
     const minAgeValue = minAge.trim() ? Number(minAge) : null;
     const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
-    if ((minAgeValue !== null && Number.isNaN(minAgeValue)) || (maxAgeValue !== null && Number.isNaN(maxAgeValue))) {
+    if (ageMode === "exact" && ageList.trim() && ageListValues.length === 0) {
+      setError("Please enter valid ages (e.g. 5, 6, 7).");
+      return;
+    }
+    if (ageMode === "range" && ((minAgeValue !== null && Number.isNaN(minAgeValue)) || (maxAgeValue !== null && Number.isNaN(maxAgeValue)))) {
       setError("Age limits must be valid numbers.");
       return;
     }
-    if (minAgeValue !== null && maxAgeValue !== null && minAgeValue > maxAgeValue) {
+    if (ageMode === "range" && minAgeValue !== null && maxAgeValue !== null && minAgeValue > maxAgeValue) {
       setError("Minimum age cannot be greater than maximum age.");
       return;
     }
@@ -157,8 +195,9 @@ export function ParentContentCard() {
           body: body.trim() || undefined,
           programTier: tier || undefined,
           category,
-          minAge: minAgeValue ?? undefined,
-          maxAge: maxAgeValue ?? undefined,
+          ageList: ageMode === "exact" ? ageListValues : undefined,
+          minAge: ageMode === "range" ? minAgeValue ?? undefined : undefined,
+          maxAge: ageMode === "range" ? maxAgeValue ?? undefined : undefined,
         },
       }).unwrap();
       resetForm();
@@ -172,11 +211,11 @@ export function ParentContentCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Parent Education Content</CardTitle>
+        <CardTitle>Athlete Education Content</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">Create and edit parent education content.</p>
+          <p className="text-sm text-muted-foreground">Create and edit athlete education content.</p>
           <Button onClick={() => { resetForm(); setModalOpen(true); }}>New Content</Button>
         </div>
 
@@ -244,6 +283,25 @@ export function ParentContentCard() {
               </div>
               <div className="space-y-2">
                 <Label>Details / Media URL</Label>
+                {type === "video" ? (
+                  <div className="space-y-2">
+                    <ParentCourseMediaUpload
+                      label={body ? "Replace Video" : "Upload Video"}
+                      folder="parent-content/video"
+                      accept="video/*"
+                      maxSizeMb={200}
+                      onUploaded={(url) => setBody(url)}
+                    />
+                    {body ? (
+                      <video
+                        className="aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
+                        src={body}
+                        controls
+                        muted
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
                 <Textarea
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
@@ -278,6 +336,25 @@ export function ParentContentCard() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
+                  <Label>Age Targeting</Label>
+                  <Select value={ageMode} onChange={(e) => setAgeMode(e.target.value as "range" | "exact")}>
+                    <option value="range">Min / Max range</option>
+                    <option value="exact">Exact ages</option>
+                  </Select>
+                </div>
+              </div>
+              {ageMode === "exact" ? (
+                <div className="space-y-2">
+                  <Label>Ages (comma-separated)</Label>
+                  <Input
+                    value={ageList}
+                    onChange={(e) => setAgeList(e.target.value)}
+                    placeholder="e.g. 5, 6, 7"
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
                   <Label>Minimum Age</Label>
                   <Input type="number" value={minAge} onChange={(e) => setMinAge(e.target.value)} placeholder="e.g. 10" />
                 </div>
@@ -286,6 +363,7 @@ export function ParentContentCard() {
                   <Input type="number" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} placeholder="e.g. 14" />
                 </div>
               </div>
+              )}
               <div className="space-y-2">
                 <Label>Access Tier</Label>
                 <Select value={tier} onChange={(e) => setTier(e.target.value)}>

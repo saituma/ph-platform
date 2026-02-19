@@ -1,5 +1,4 @@
 import { AdminStorySection } from "@/components/home/AdminStorySection";
-import { CoachSection } from "@/components/home/CoachSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -131,7 +130,7 @@ export default function HomeScreen() {
   const loadHomeContent = React.useCallback(async () => {
     if (!token) return;
     try {
-      const data = await apiRequest<{ items?: any[] }>("/content/home", { token });
+      const data = await apiRequest<{ items?: any[] }>(`/content/home?ts=${Date.now()}`, { token });
       const item = (data.items ?? [])[0];
       if (!item) {
         if (!isMountedRef.current) return;
@@ -356,105 +355,8 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {/* Bento Quick Actions */}
-      <View className="mb-10">
-        <View className="flex-row justify-between items-center mb-4 px-1">
-          <View className="flex-row items-center gap-3">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-xl font-bold font-clash text-app">
-              Quick Actions
-            </Text>
-          </View>
-          <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">
-            Bento
-          </Text>
-        </View>
-
-        <View className="flex-row flex-wrap gap-3">
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => router.navigate("/(tabs)/programs")}
-            className="w-[48%] bg-input border border-app rounded-3xl p-4 h-28 justify-between"
-          >
-            <View className="h-10 w-10 bg-secondary rounded-2xl items-center justify-center">
-              <Feather name="play-circle" size={20} className="text-app" />
-            </View>
-            <View>
-              <Text className="text-sm font-outfit text-secondary uppercase tracking-[2px]">
-                Session
-              </Text>
-              <Text className="text-lg font-clash text-app">Start Now</Text>
-            </View>
-          </TouchableOpacity>
-
-          {role === "Guardian" ? (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => router.push("/programs/plus?tab=Submit%20Diary")}
-              className="w-[48%] bg-input border border-app rounded-3xl p-4 h-28 justify-between"
-            >
-              <View className="h-10 w-10 bg-secondary rounded-2xl items-center justify-center">
-                <Feather name="book-open" size={20} className="text-app" />
-              </View>
-              <View>
-                <Text className="text-sm font-outfit text-secondary uppercase tracking-[2px]">
-                  Diary
-                </Text>
-                <Text className="text-lg font-clash text-app">Submit</Text>
-              </View>
-            </TouchableOpacity>
-          ) : null}
-
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => router.navigate("/(tabs)/schedule")}
-            className="w-[48%] bg-input border border-app rounded-3xl p-4 h-28 justify-between"
-          >
-            <View className="h-10 w-10 bg-secondary rounded-2xl items-center justify-center">
-              <Feather name="calendar" size={20} className="text-app" />
-            </View>
-            <View>
-              <Text className="text-sm font-outfit text-secondary uppercase tracking-[2px]">
-                Schedule
-              </Text>
-              <Text className="text-lg font-clash text-app">View Plan</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => router.navigate("/(tabs)/messages")}
-            className="w-full bg-input border border-app rounded-3xl p-4 h-20 flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center gap-3">
-              <View className="h-10 w-10 bg-secondary rounded-2xl items-center justify-center">
-                <Feather name="message-circle" size={20} className="text-app" />
-              </View>
-              <View>
-                <Text className="text-sm font-outfit text-secondary uppercase tracking-[2px]">
-                  Messages
-                </Text>
-                <Text className="text-lg font-clash text-app">
-                  Talk To Coach
-                </Text>
-              </View>
-            </View>
-            <Feather name="arrow-right" size={18} className="text-secondary" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
       {/* Shared Marketing & Trust Sections (Spec Section 5) */}
       <View className="mt-12 gap-12">
-        <View>
-          <CoachSection
-            headline={homeContent?.headline}
-            description={homeContent?.description}
-            heroImageUrl={homeContent?.heroImageUrl}
-            introVideoUrl={homeContent?.introVideoUrl}
-          />
-        </View>
-
         <View>
           <AdminStorySection
             story={homeContent?.adminStory}

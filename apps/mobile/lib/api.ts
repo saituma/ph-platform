@@ -19,9 +19,9 @@ let refreshInFlight: Promise<string | null> | null = null;
 
 const buildFallbackBaseUrl = (baseUrl: string) => {
   const trimmed = baseUrl.replace(/\/+$/, "");
-  // If we're already on /api, do not fall back to a non-/api base.
+  // If base URL ends with /api, fall back to the root base.
   if (trimmed.endsWith("/api")) {
-    return null;
+    return trimmed.replace(/\/api$/, "");
   }
   // If base URL lacks /api, try /api as a fallback.
   return `${trimmed}/api`;
@@ -105,7 +105,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     : `${normalizedBaseUrl}/api`;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${apiBaseUrl}${normalizedPath}`;
-  const fallbackBaseUrl = buildFallbackBaseUrl(apiBaseUrl);
+  const fallbackBaseUrl = buildFallbackBaseUrl(normalizedBaseUrl);
   const fallbackUrl = fallbackBaseUrl ? `${fallbackBaseUrl}${normalizedPath}` : null;
 
   if (__DEV__) {

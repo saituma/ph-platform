@@ -3,6 +3,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@/components/ui/theme-icons";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
+import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Modal, Platform, Pressable, View } from "react-native";
@@ -90,6 +91,26 @@ export default function ScheduleScreen() {
     new Date(today.getFullYear(), today.getMonth(), 1),
   );
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(todayKey);
+
+  const notifyBookingConfirmed = useCallback(
+    async (serviceName: string, startsAt: Date) => {
+      const Notifications = await getNotifications();
+      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
+      const dateLabel = startsAt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+      const timeLabel = startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Booking confirmed",
+          body: `${serviceName} • ${dateLabel} at ${timeLabel}`,
+          sound: "default",
+          channelId: "bookings",
+          data: { type: "booking", startsAt: startsAt.toISOString(), serviceName },
+        },
+        trigger: null,
+      });
+    },
+    [],
+  );
 
   const mapBookingsToEvents = useCallback((items: any[]) => {
     return (items ?? []).map((item) => {
@@ -716,6 +737,7 @@ export default function ScheduleScreen() {
                       const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
                       setEvents(mapBookingsToEvents(refreshed.items ?? []));
                       setBookingConfirmed(true);
+                      await notifyBookingConfirmed(selectedService.name ?? "Booking", startsAt);
                     } catch (err: any) {
                       setBookingError(err.message ?? "Failed to submit booking");
                     }

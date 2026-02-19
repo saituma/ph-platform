@@ -117,6 +117,11 @@ export default function RootLayout() {
             importance: Notifications.AndroidImportance.MAX,
             sound: "default",
           });
+          await Notifications.setNotificationChannelAsync("bookings", {
+            name: "Bookings",
+            importance: Notifications.AndroidImportance.DEFAULT,
+            sound: "default",
+          });
         }
       }
 

@@ -183,6 +183,15 @@ export function InboxScreen({
                             </Text>
                           </View>
                         )}
+
+                        {thread.premium && thread.responseTime ? (
+                          <View className="px-3 py-1 bg-[#2F8F57]/5 rounded-full flex-row items-center">
+                            <Feather name="clock" size={12} color="#2F8F57" />
+                            <Text className="ml-1 text-[10px] font-bold text-[#2F8F57] uppercase tracking-widest">
+                              {thread.responseTime}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
                   </View>

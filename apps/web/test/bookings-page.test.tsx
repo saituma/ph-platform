@@ -46,9 +46,12 @@ jest.mock("@/components/admin/bookings/bookings-dialogs", () => ({
 jest.mock("@/lib/apiSlice", () => ({
   useGetBookingsQuery: jest.fn(),
   useGetServicesQuery: jest.fn(),
+  useGetUsersQuery: jest.fn(),
+  useUpdateBookingStatusMutation: jest.fn(),
 }));
 
-const { useGetBookingsQuery, useGetServicesQuery } = jest.requireMock("@/lib/apiSlice");
+const { useGetBookingsQuery, useGetServicesQuery, useGetUsersQuery, useUpdateBookingStatusMutation } =
+  jest.requireMock("@/lib/apiSlice");
 
 describe("bookings page", () => {
   beforeEach(() => {
@@ -58,6 +61,8 @@ describe("bookings page", () => {
   it("shows loading state when data is loading", () => {
     useGetBookingsQuery.mockReturnValue({ data: undefined, isLoading: true, refetch: jest.fn() });
     useGetServicesQuery.mockReturnValue({ data: undefined, isLoading: true });
+    useGetUsersQuery.mockReturnValue({ data: { users: [] } });
+    useUpdateBookingStatusMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
 
     render(<BookingsPage />);
 
@@ -68,20 +73,22 @@ describe("bookings page", () => {
     useGetBookingsQuery.mockReturnValue({
       data: {
         bookings: [
-          { serviceName: "Group Session", athleteName: "Sam", startsAt: new Date().toISOString(), type: "Group" },
-          { serviceName: "Video Review", athleteName: "Lee", startsAt: new Date().toISOString(), type: "Video" },
+          { serviceName: "Group Session", athleteName: "Sam", startsAt: new Date().toISOString(), type: "group_call" },
+          { serviceName: "Lift Lab", athleteName: "Lee", startsAt: new Date().toISOString(), type: "lift_lab_1on1" },
         ],
       },
       isLoading: false,
       refetch: jest.fn(),
     });
     useGetServicesQuery.mockReturnValue({ data: { items: [] }, isLoading: false });
+    useGetUsersQuery.mockReturnValue({ data: { users: [] } });
+    useUpdateBookingStatusMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
 
     render(<BookingsPage />);
 
     expect(screen.getByTestId("bookings-count")).toHaveTextContent("2");
 
-    fireEvent.click(screen.getByRole("button", { name: "Video" }));
+    fireEvent.click(screen.getByRole("button", { name: "Group" }));
     expect(screen.getByTestId("bookings-count")).toHaveTextContent("1");
   });
 });

@@ -39,7 +39,17 @@ async function resolveAthleteAge(userId: number) {
   return resolveAgeFromAthlete(athlete[0]);
 }
 
-function matchesAgeRange(item: { minAge?: number | null; maxAge?: number | null }, age: number | null) {
+function matchesAgeRange(
+  item: { minAge?: number | null; maxAge?: number | null; ageList?: unknown | null },
+  age: number | null
+) {
+  const list = Array.isArray(item.ageList)
+    ? (item.ageList as unknown[]).map((val) => Number(val)).filter((val) => Number.isFinite(val))
+    : [];
+  if (list.length) {
+    if (age === null) return false;
+    return list.includes(age);
+  }
   if (age === null) return true;
   if (item.minAge !== null && item.minAge !== undefined && age < item.minAge) return false;
   if (item.maxAge !== null && item.maxAge !== undefined && age > item.maxAge) return false;
@@ -56,7 +66,13 @@ export async function getLegalContentForUser() {
   return db.select().from(contentTable).where(eq(contentTable.surface, "legal"));
 }
 
-export async function getParentPlatformContent(userId: number) {
+export async function getParentPlatformContent(userId: number, role?: string) {
+  if (role && !ADMIN_ROLES.has(role) && role !== "athlete") {
+    return [] as typeof contentTable.$inferSelect[];
+  }
+  if (role && ADMIN_ROLES.has(role)) {
+    return db.select().from(contentTable).where(eq(contentTable.surface, "parent_platform"));
+  }
   const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
   const tier = (athlete[0]?.currentProgramTier ?? "PHP") as (typeof ProgramType.enumValues)[number];
   const age = resolveAgeFromAthlete(athlete[0]);
@@ -85,10 +101,14 @@ export async function createContent(input: {
   programTier?: (typeof ProgramType.enumValues)[number] | null;
   surface: "home" | "parent_platform" | "legal" | "announcements" | "testimonial_submissions";
   category?: string | null;
+  ageList?: number[] | null;
   minAge?: number | null;
   maxAge?: number | null;
   createdBy: number;
 }) {
+  const ageList = Array.isArray(input.ageList)
+    ? input.ageList.filter((val) => Number.isFinite(val))
+    : null;
   const result = await db
     .insert(contentTable)
     .values({
@@ -99,8 +119,9 @@ export async function createContent(input: {
       programTier: input.programTier ?? null,
       surface: input.surface,
       category: input.category ?? null,
-      minAge: input.minAge ?? null,
-      maxAge: input.maxAge ?? null,
+      ageList: ageList && ageList.length ? ageList : null,
+      minAge: ageList && ageList.length ? null : input.minAge ?? null,
+      maxAge: ageList && ageList.length ? null : input.maxAge ?? null,
       createdBy: input.createdBy,
     })
     .returning();
@@ -116,9 +137,13 @@ export async function updateContent(input: {
   body?: string | null;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
   category?: string | null;
+  ageList?: number[] | null;
   minAge?: number | null;
   maxAge?: number | null;
 }) {
+  const ageList = Array.isArray(input.ageList)
+    ? input.ageList.filter((val) => Number.isFinite(val))
+    : null;
   const result = await db
     .update(contentTable)
     .set({
@@ -128,8 +153,9 @@ export async function updateContent(input: {
       body: input.body ?? null,
       programTier: input.programTier ?? null,
       category: input.category ?? null,
-      minAge: input.minAge ?? null,
-      maxAge: input.maxAge ?? null,
+      ageList: ageList && ageList.length ? ageList : null,
+      minAge: ageList && ageList.length ? null : input.minAge ?? null,
+      maxAge: ageList && ageList.length ? null : input.maxAge ?? null,
       updatedAt: new Date(),
     })
     .where(eq(contentTable.id, input.id))

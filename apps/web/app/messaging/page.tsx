@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { io, Socket } from "socket.io-client";
+import { useSound } from "@/hooks/use-sound";
+import { notificationPopSound } from "@/lib/notification-pop";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -60,6 +62,7 @@ type MessageItem = {
 };
 
 export default function MessagingPage() {
+  const [playNotificationSound] = useSound(notificationPopSound);
   const [activeDialog, setActiveDialog] = useState<MessagingDialog>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
@@ -228,6 +231,7 @@ export default function MessagingPage() {
         return;
       }
 
+      playNotificationSound();
       if ("Notification" in window && Notification.permission === "granted") {
         new Notification("New message", { body: payload.content ?? "You received a new message" });
       }
@@ -242,6 +246,7 @@ export default function MessagingPage() {
         setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
         return;
       }
+      playNotificationSound();
       if ("Notification" in window && Notification.permission === "granted") {
         new Notification("New group message", { body: payload.content ?? "You received a group message" });
       }
@@ -265,7 +270,7 @@ export default function MessagingPage() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [refetchGroups, refetchGroupMessages, refetchMessages, refetchThreads, selectedGroupId, selectedUserId]);
+  }, [playNotificationSound, refetchGroups, refetchGroupMessages, refetchMessages, refetchThreads, selectedGroupId, selectedUserId]);
 
   const messages = useMemo<MessageItem[]>(() => {
     if (!selectedThread) return [];

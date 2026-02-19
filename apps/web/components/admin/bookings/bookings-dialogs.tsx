@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -10,12 +10,14 @@ import {
   useCreateAvailabilityMutation,
   useCreateServiceMutation,
   useUpdateServiceMutation,
+  useCreateAdminBookingMutation,
 } from "../../../lib/apiSlice";
 
 export type BookingsDialog =
   | null
   | "new-service"
   | "edit-service"
+  | "new-booking"
   | "open-slots"
   | "calendar"
   | "booking-details";
@@ -48,7 +50,8 @@ type BookingsDialogsProps = {
     startsAt?: string | null;
     endTime?: string | null;
   } | null;
-  services?: { id: number; name: string; type: string }[];
+  services?: ServiceType[];
+  users?: { id: number; name?: string | null; email?: string | null; role?: string | null; athleteName?: string | null }[];
   selectedService?: ServiceType | null;
   onRefresh?: () => void;
   onApproveBooking?: (bookingId: number) => Promise<void>;
@@ -60,6 +63,7 @@ export function BookingsDialogs({
   onClose,
   selectedBooking,
   services = [],
+  users = [],
   selectedService,
   onRefresh,
   onApproveBooking,
@@ -83,10 +87,21 @@ export function BookingsDialogs({
   const [availabilityEndDate, setAvailabilityEndDate] = useState("");
   const [availabilityEndHour, setAvailabilityEndHour] = useState("");
   const [availabilityEndMinute, setAvailabilityEndMinute] = useState("");
+  const [bookingUserId, setBookingUserId] = useState("");
+  const [bookingServiceId, setBookingServiceId] = useState("");
+  const [guardianSearch, setGuardianSearch] = useState("");
+  const [showGuardianSuggestions, setShowGuardianSuggestions] = useState(false);
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingHour, setBookingHour] = useState("");
+  const [bookingMinute, setBookingMinute] = useState("");
+  const [bookingStatus, setBookingStatus] = useState("confirmed");
+  const [bookingLocation, setBookingLocation] = useState("");
+  const [bookingMeetingLink, setBookingMeetingLink] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [createService, { isLoading: isCreatingService }] = useCreateServiceMutation();
   const [updateService, { isLoading: isUpdatingService }] = useUpdateServiceMutation();
   const [createAvailability, { isLoading: isCreatingAvailability }] = useCreateAvailabilityMutation();
+  const [createAdminBooking, { isLoading: isCreatingBooking }] = useCreateAdminBookingMutation();
 
   useEffect(() => {
     if (serviceType === "role_model") {
@@ -113,6 +128,21 @@ export function BookingsDialogs({
       return;
     }
 
+    if (active === "new-booking") {
+      setBookingUserId("");
+      setBookingServiceId("");
+      setGuardianSearch("");
+      setShowGuardianSuggestions(false);
+      setBookingDate("");
+      setBookingHour("");
+      setBookingMinute("");
+      setBookingStatus("confirmed");
+      setBookingLocation("");
+      setBookingMeetingLink("");
+      setError(null);
+      return;
+    }
+
     if (active === "edit-service" && selectedService) {
       setServiceName(selectedService.name ?? "");
       setServiceType(selectedService.type ?? "group_call");
@@ -128,6 +158,34 @@ export function BookingsDialogs({
       setDefaultVideoLink("");
     }
   }, [active, selectedService]);
+
+  useEffect(() => {
+    if (active !== "new-booking") return;
+    const service = services.find((item) => String(item.id) === bookingServiceId);
+    const fixedStart = service?.fixedStartTime ?? "";
+    if (fixedStart) {
+      const [hour, minute] = fixedStart.split(":");
+      setBookingHour(hour ?? "");
+      setBookingMinute(minute ?? "");
+    }
+  }, [active, bookingServiceId, services]);
+
+  const filteredGuardians = useMemo(() => {
+    const guardians = users.filter((user) => user.role === "guardian");
+    const query = guardianSearch.trim().toLowerCase();
+    if (!query) return guardians;
+    return guardians.filter((user) => {
+      const name = user.name?.toLowerCase() ?? "";
+      const email = user.email?.toLowerCase() ?? "";
+      const athlete = user.athleteName?.toLowerCase() ?? "";
+      return name.includes(query) || email.includes(query) || athlete.includes(query);
+    });
+  }, [guardianSearch, users]);
+
+  const suggestionGuardians = useMemo(() => {
+    if (!guardianSearch.trim() || !showGuardianSuggestions) return [];
+    return filteredGuardians.slice(0, 6);
+  }, [filteredGuardians, guardianSearch, showGuardianSuggestions]);
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
       <DialogContent>
@@ -310,6 +368,149 @@ export function BookingsDialogs({
                   disabled={isCreatingService || isUpdatingService}
                 >
                   {active === "edit-service" ? "Save Changes" : "Create"}
+                </Button>
+              </div>
+            </>
+          ) : null}
+          {active === "new-booking" ? (
+            <>
+              <Input
+                placeholder="Search guardians"
+                value={guardianSearch}
+                onChange={(e) => {
+                  setGuardianSearch(e.target.value);
+                  setShowGuardianSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (guardianSearch.trim()) setShowGuardianSuggestions(true);
+                }}
+              />
+              {suggestionGuardians.length > 0 ? (
+                <div className="rounded-xl border border-border bg-background shadow-sm">
+                  {suggestionGuardians.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => {
+                        setBookingUserId(String(user.id));
+                        setGuardianSearch(user.name ?? user.email ?? "");
+                        setShowGuardianSuggestions(false);
+                      }}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-foreground hover:bg-secondary/50"
+                    >
+                      <span>
+                        {user.name ?? user.email ?? `User #${user.id}`}
+                        {user.athleteName ? ` • ${user.athleteName}` : ""}
+                      </span>
+                      <span className="text-xs text-muted-foreground">Select</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <Select value={bookingUserId} onChange={(e) => setBookingUserId(e.target.value)}>
+                <option value="">Select guardian</option>
+                {filteredGuardians.map((user) => (
+                  <option key={user.id} value={String(user.id)}>
+                    {user.name ?? user.email ?? `User #${user.id}`}
+                    {user.athleteName ? ` • ${user.athleteName}` : ""}
+                  </option>
+                ))}
+              </Select>
+              <Select value={bookingServiceId} onChange={(e) => setBookingServiceId(e.target.value)}>
+                <option value="">Service type</option>
+                {services.map((service) => (
+                  <option key={service.id} value={String(service.id)}>
+                    {service.name}
+                  </option>
+                ))}
+              </Select>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input type="date" placeholder="Date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={23}
+                    placeholder="Hour"
+                    value={bookingHour}
+                    onChange={(e) => setBookingHour(e.target.value)}
+                    disabled={Boolean(services.find((item) => String(item.id) === bookingServiceId)?.fixedStartTime)}
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    max={59}
+                    placeholder="Min"
+                    value={bookingMinute}
+                    onChange={(e) => setBookingMinute(e.target.value)}
+                    disabled={Boolean(services.find((item) => String(item.id) === bookingServiceId)?.fixedStartTime)}
+                  />
+                </div>
+              </div>
+              <Select value={bookingStatus} onChange={(e) => setBookingStatus(e.target.value)}>
+                <option value="confirmed">Confirmed</option>
+                <option value="pending">Pending</option>
+                <option value="declined">Declined</option>
+                <option value="cancelled">Cancelled</option>
+              </Select>
+              <Input
+                placeholder="Location (optional)"
+                value={bookingLocation}
+                onChange={(e) => setBookingLocation(e.target.value)}
+              />
+              <Input
+                placeholder="Meeting link (optional)"
+                value={bookingMeetingLink}
+                onChange={(e) => setBookingMeetingLink(e.target.value)}
+              />
+              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setError(null);
+                    if (!bookingUserId || !bookingServiceId) {
+                      setError("Select a guardian and service.");
+                      return;
+                    }
+                    if (!bookingDate || !bookingHour || !bookingMinute) {
+                      setError("Select a date and time.");
+                      return;
+                    }
+                    const pad = (value: string) => value.padStart(2, "0");
+                    const startsAt = new Date(`${bookingDate}T${pad(bookingHour)}:${pad(bookingMinute)}:00`);
+                    if (Number.isNaN(startsAt.getTime())) {
+                      setError("Invalid date or time.");
+                      return;
+                    }
+                    const service = services.find((item) => String(item.id) === bookingServiceId);
+                    const duration = service?.durationMinutes ?? 0;
+                    if (!duration) {
+                      setError("Selected service has no duration.");
+                      return;
+                    }
+                    const endsAt = new Date(startsAt.getTime() + duration * 60000);
+                    try {
+                      await createAdminBooking({
+                        userId: Number(bookingUserId),
+                        serviceTypeId: Number(bookingServiceId),
+                        startsAt: startsAt.toISOString(),
+                        endsAt: endsAt.toISOString(),
+                        location: bookingLocation || undefined,
+                        meetingLink: bookingMeetingLink || undefined,
+                        status: bookingStatus,
+                      }).unwrap();
+                      onRefresh?.();
+                      onClose();
+                    } catch (err: any) {
+                      setError(err?.data?.error || err?.message || "Failed to create booking");
+                    }
+                  }}
+                  disabled={isCreatingBooking}
+                >
+                  Create Booking
                 </Button>
               </div>
             </>

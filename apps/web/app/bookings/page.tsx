@@ -12,8 +12,8 @@ import { BookingsList } from "../../components/admin/bookings/bookings-list";
 import {
   useGetBookingsQuery,
   useGetServicesQuery,
+  useGetUsersQuery,
   useUpdateBookingStatusMutation,
-  useUpdateServiceMutation,
 } from "../../lib/apiSlice";
 
 type BookingItem = {
@@ -49,26 +49,9 @@ export default function BookingsPage() {
   const [selectedService, setSelectedService] = useState<any | null>(null);
   const [activeChip, setActiveChip] = useState<string>("All");
   const chips = ["All", "Group", "Individual", "Lift Lab", "Premium"];
-  const typeLabel = (type: string) => {
-    switch (type) {
-      case "call":
-        return "Call";
-      case "group_call":
-        return "Group call";
-      case "individual_call":
-      case "one_on_one":
-        return "Individual call";
-      case "lift_lab_1on1":
-        return "Lift Lab 1:1";
-      case "role_model":
-        return "Role model (Premium)";
-      default:
-        return type;
-    }
-  };
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery();
   const { data: servicesData, isLoading: servicesLoading, refetch: refetchServices } = useGetServicesQuery();
-  const [updateService, { isLoading: isUpdatingService }] = useUpdateServiceMutation();
+  const { data: usersData } = useGetUsersQuery();
   const [updateBookingStatus, { isLoading: isUpdatingBooking }] = useUpdateBookingStatusMutation();
   const isLoading = bookingsLoading || servicesLoading;
 
@@ -91,19 +74,9 @@ export default function BookingsPage() {
   }, [bookingsData]);
 
   const services = useMemo<ServiceType[]>(() => servicesData?.items ?? [], [servicesData]);
-  const activeServices = useMemo(
-    () => services.filter((service) => service.isActive !== false),
-    [services],
-  );
-  const bookingTypes = useMemo(
-    () => (activeServices.length ? activeServices.map((service) => service.name) : [
-      "Calls",
-      "Group calls",
-      "Individual calls",
-      "Lift Lab 1:1",
-      "Role model meetings (Premium)",
-    ]),
-    [activeServices],
+  const pendingBookings = useMemo(
+    () => bookings.filter((booking) => ["pending", "requested"].includes(booking.status ?? "")),
+    [bookings],
   );
 
   const filteredBookings = useMemo(() => {
@@ -120,8 +93,35 @@ export default function BookingsPage() {
     <AdminShell
       title="Bookings"
       subtitle="Manage availability and sessions with Coach Mike Green."
-      actions={<Button onClick={() => setActiveDialog("new-service")}>New Service</Button>}
     >
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <SectionHeader title="New Booking" description="Create a booking for a guardian." />
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setActiveDialog("new-booking")}>Create Booking</Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <SectionHeader title="Open Slots" description="Add availability for a service." />
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => setActiveDialog("open-slots")}>
+              Open Slots
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <SectionHeader title="New Service" description="Add a new booking type." />
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setActiveDialog("new-service")}>New Service</Button>
+          </CardContent>
+        </Card>
+      </div>
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <CardHeader className="space-y-4">
@@ -151,106 +151,61 @@ export default function BookingsPage() {
           </CardContent>
         </Card>
 
-        {/* Availability panel removed */}
-
         <Card>
           <CardHeader>
             <SectionHeader
-              title="Schedule Rules"
-              description="Configure booking types and call rules."
+              title="Booking Requests"
+              description="Latest requests awaiting review."
             />
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground">Booking Types</p>
-              <div className="flex flex-wrap gap-2">
-                {bookingTypes.map((label) => (
-                  <span
-                    key={label}
-                    className="rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs text-muted-foreground"
-                  >
-                    {label}
-                  </span>
-                ))}
+          <CardContent className="space-y-3">
+            {isLoading ? (
+              <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-4 text-center text-sm text-muted-foreground">
+                Loading requests...
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground">Booking Flow</p>
-              <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-                <li>User submits a booking request</li>
-                <li>Admin reviews details</li>
-                <li>Admin approves or declines</li>
-                <li>User sees the status in the app</li>
-              </ol>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm font-semibold text-foreground">Service Rules</p>
-              {services.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
-                  No services yet. Create one to configure rules.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {services.map((service) => (
-                    <div
-                      key={service.id}
-                      className="rounded-2xl border border-border bg-secondary/20 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">
-                            {service.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {typeLabel(service.type)} • {service.durationMinutes} mins
-                          </p>
-                          {service.isActive === false ? (
-                            <span className="mt-2 inline-flex rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[1.4px] text-muted-foreground">
-                              Inactive
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedService(service);
-                              setActiveDialog("edit-service");
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              await updateService({
-                                id: service.id,
-                                data: { isActive: service.isActive === false },
-                              }).unwrap();
-                              refetchServices();
-                            }}
-                            disabled={isUpdatingService}
-                          >
-                            {service.isActive === false ? "Activate" : "Deactivate"}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
-                        <div>Capacity: {service.capacity ?? "Unlimited"}</div>
-                        <div>Attendee visibility: {service.attendeeVisibility ? "On" : "Off"}</div>
-                        <div>Fixed time: {service.fixedStartTime ?? (service.type === "role_model" ? "13:00" : "None")}</div>
-                        <div>Location: {service.defaultLocation ?? "None"}</div>
-                        <div>Video link: {service.defaultMeetingLink ?? "None"}</div>
-                      </div>
+            ) : pendingBookings.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-4 text-center text-sm text-muted-foreground">
+                No new booking requests.
+              </div>
+            ) : (
+              pendingBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="rounded-2xl border border-border bg-secondary/20 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{booking.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {booking.athlete} • {booking.time}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedBooking(booking);
+                          setActiveDialog("booking-details");
+                        }}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          await updateBookingStatus({ bookingId: booking.id, status: "confirmed" }).unwrap();
+                          refetchBookings();
+                        }}
+                        disabled={isUpdatingBooking}
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
@@ -263,6 +218,7 @@ export default function BookingsPage() {
         }}
         selectedBooking={selectedBooking}
         services={services}
+        users={usersData?.users ?? []}
         selectedService={selectedService}
         isApproving={isUpdatingBooking}
         onApproveBooking={async (bookingId) => {
