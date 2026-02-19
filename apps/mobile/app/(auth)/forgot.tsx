@@ -1,11 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export default function ForgotScreen() {
   const [email, setEmail] = useState("");
@@ -40,7 +41,7 @@ export default function ForgotScreen() {
             Forgot Password?
           </Text>
           <Text className="text-base font-outfit text-secondary leading-6">
-            Enter your email address and we'll send you an OTP to reset your
+            Enter your email address and {"we'll"} send you an OTP to reset your
             password.
           </Text>
         </View>

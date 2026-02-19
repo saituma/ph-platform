@@ -9,6 +9,7 @@ import Animated, {
     useAnimatedStyle,
     useSharedValue,
 } from "react-native-reanimated";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
 
 interface ThemedScrollViewProps extends ScrollViewProps {
   onRefresh?: () => Promise<void> | void;
@@ -24,6 +25,7 @@ export function ThemedScrollView({
 }: ThemedScrollViewProps) {
   const [refreshing, setRefreshing] = useState(false);
   const { setIsLoading } = useRefreshContext();
+  const { config } = useAgeExperience();
   const scrollY = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -87,6 +89,13 @@ export function ThemedScrollView({
         scrollEnabled={!disabled && (props.scrollEnabled ?? true)}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
+        contentContainerStyle={
+          props.contentContainerStyle ??
+          {
+            paddingHorizontal: config.density === "compact" ? 12 : config.density === "spacious" ? 24 : 16,
+            paddingBottom: config.density === "compact" ? 12 : config.density === "spacious" ? 24 : 16,
+          }
+        }
         refreshControl={
           onRefresh && !disabled ? (
             <RefreshControl

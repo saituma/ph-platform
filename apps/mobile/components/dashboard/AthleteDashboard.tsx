@@ -3,7 +3,8 @@ import { useRefreshContext, usePullToRefresh } from "@/context/RefreshContext";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 export function AthleteDashboard() {
   const { isLoading, setIsLoading } = useRefreshContext();
@@ -48,6 +49,19 @@ export function AthleteDashboard() {
   return (
     <View className="gap-8">
       <View>
+        {athlete?.isBirthday ? (
+          <View className="mb-4 rounded-3xl border border-accent/30 bg-accent/10 p-4">
+            <Text className="text-accent font-outfit text-sm uppercase tracking-[1.4px] mb-1">
+              Celebration
+            </Text>
+            <Text className="text-app font-clash text-2xl">
+              Happy Birthday{athlete?.name ? `, ${athlete.name}` : ""}!
+            </Text>
+            <Text className="text-sm font-outfit text-secondary mt-1">
+              New age, new training content unlocked today.
+            </Text>
+          </View>
+        ) : null}
         <View className="p-8 rounded-[40px] shadow-2xl relative overflow-hidden border border-white/20 min-h-[220px] bg-input">
           <View className="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
           <View className="absolute -left-20 -bottom-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
@@ -62,7 +76,7 @@ export function AthleteDashboard() {
             <>
               <View className="flex-row items-center justify-between mb-6">
                 <View className="bg-white/20 px-4 py-1.5 rounded-full border border-white/20 backdrop-blur-sm">
-                  <Text className="text-white font-bold font-outfit text-[10px] uppercase tracking-widest">
+                  <Text className="text-white font-bold font-outfit text-[0.625rem] uppercase tracking-widest">
                     Profile Snapshot
                   </Text>
                 </View>
@@ -176,7 +190,7 @@ function MetricCard({ label, value, trend, good, icon }: any) {
           className={`px-2 py-0.5 rounded-lg ${good ? "bg-success-soft" : "bg-danger-soft"}`}
         >
           <Text
-            className={`text-[10px] font-bold ${good ? "text-success" : "text-danger"}`}
+            className={`text-[0.625rem] font-bold ${good ? "text-success" : "text-danger"}`}
           >
             {trend}
           </Text>
@@ -184,7 +198,7 @@ function MetricCard({ label, value, trend, good, icon }: any) {
       </View>
       <View>
         <Text className="text-2xl font-bold font-clash text-app">{value}</Text>
-        <Text className="text-muted text-[10px] font-outfit uppercase tracking-widest mt-1">
+        <Text className="text-muted text-[0.625rem] font-outfit uppercase tracking-widest mt-1">
           {label}
         </Text>
       </View>
@@ -205,45 +219,10 @@ function StatusTile({ label, value, icon, color, suffix = "%" }: any) {
           {value}
           {suffix}
         </Text>
-        <Text className="text-muted text-[8px] font-outfit uppercase tracking-tighter">
+        <Text className="text-muted text-[0.5rem] font-outfit uppercase tracking-tighter">
           {label}
         </Text>
       </View>
-    </View>
-  );
-}
-
-function PremiumBadge({
-  icon,
-  label,
-  rarity,
-}: {
-  icon: any;
-  label: string;
-  rarity: string;
-}) {
-  const rarityColors: any = {
-    Common: "bg-emerald-200",
-    Rare: "bg-emerald-400",
-    Epic: "bg-emerald-600",
-    Legendary: "bg-emerald-800",
-  };
-
-  return (
-    <View className="items-center">
-      <View className="relative">
-        <View
-          className={`${rarityColors[rarity]} w-20 h-20 rounded-[28px] items-center justify-center shadow-xl shadow-app/10 mb-3 border-4 border-white`}
-        >
-          <Feather name={icon} size={32} color="white" />
-        </View>
-        <View className="absolute -top-1 -right-1 bg-white px-2 py-0.5 rounded-full shadow-sm border border-app/10">
-          <Text className="text-[8px] font-bold text-app uppercase">
-            {rarity}
-          </Text>
-        </View>
-      </View>
-      <Text className="text-app font-bold font-outfit text-xs">{label}</Text>
     </View>
   );
 }

@@ -1,9 +1,11 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
-
+import { ActivityIndicator, Image, Pressable, View } from "react-native";
 import { MessageThread, TypingStatus } from "@/types/messages";
+import { Text } from "@/components/ScaledText";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Ionicons } from "@expo/vector-icons";
 
 type InboxScreenProps = {
   threads: MessageThread[];
@@ -12,9 +14,9 @@ type InboxScreenProps = {
   openingThreadId: string | null;
   onRefresh: () => Promise<void>;
   onOpenThread: (thread: MessageThread) => void;
-  backgroundSecondary: string;
-  borderColor: string;
-  accentLight: string;
+  backgroundSecondary?: string;
+  borderColor?: string;
+  accentLight?: string;
   textSecondaryColor: string;
 };
 
@@ -31,163 +33,210 @@ export function InboxScreen({
   openingThreadId,
   onRefresh,
   onOpenThread,
-  backgroundSecondary,
-  borderColor,
-  accentLight,
   textSecondaryColor,
 }: InboxScreenProps) {
-  return (
-    <ThemedScrollView onRefresh={onRefresh} contentContainerStyle={{ paddingBottom: 24 }}>
-      <View className="px-6 pt-6 pb-4">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-3xl font-clash text-app">Messages</Text>
-            <Text className="text-secondary font-outfit text-sm mt-1">Direct coach support and updates</Text>
-          </View>
-          <View className="h-11 w-11 rounded-2xl bg-secondary/10 items-center justify-center border border-app/10">
-            <Feather name="bell" size={18} className="text-secondary" />
-          </View>
-        </View>
+  const { colors } = useAppTheme();
 
-        <View className="mt-6">
-          <View
-            className="flex-row items-center rounded-2xl border px-4 h-12"
-            style={{ backgroundColor: backgroundSecondary, borderColor }}
-          >
-            <Feather name="search" size={18} className="text-secondary" />
-            <Text className="ml-3 text-secondary font-outfit text-sm">Search messages</Text>
-          </View>
+  return (
+    <ThemedScrollView
+      onRefresh={onRefresh}
+      contentContainerStyle={{ paddingBottom: 100 }}
+    >
+      {/* Search Bar */}
+      <View className="px-6 pt-6 pb-4">
+        <View className="flex-row items-center h-12 bg-input rounded-3xl px-5 border border-gray-100 dark:border-gray-800">
+          <Feather name="search" size={20} color={colors.accent} />
+          <Text className="ml-3 flex-1 text-secondary font-outfit text-[15px]">
+            Search conversations...
+          </Text>
         </View>
       </View>
 
-      <View className="px-6 pb-6">
-        <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-lg font-clash text-app">Inbox</Text>
-          <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-            <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.5px]">Priority</Text>
-          </View>
-        </View>
-
-        <View className="gap-3">
-          {isLoading
-            ? [1, 2, 3, 4].map((item) => (
-                <View
-                  key={`skeleton-${item}`}
-                  className="rounded-3xl border p-4"
-                  style={{ backgroundColor: backgroundSecondary, borderColor }}
-                >
-                  <View className="flex-row items-center">
-                    <View className="h-12 w-12 rounded-2xl bg-secondary/20" />
-                    <View className="flex-1 ml-4">
-                      <View className="h-4 w-40 rounded-full bg-secondary/20" />
-                      <View className="h-3 w-20 rounded-full bg-secondary/20 mt-2" />
-                      <View className="h-3 w-full rounded-full bg-secondary/20 mt-3" />
-                    </View>
+      {/* Threads */}
+      <View className="px-6">
+        <View className="gap-4">
+          {isLoading ? (
+            [1, 2, 3].map((item) => (
+              <View
+                key={`skeleton-${item}`}
+                className="bg-input rounded-3xl p-5 border border-gray-100 dark:border-gray-800"
+              >
+                <View className="flex-row items-center">
+                  <View className="h-14 w-14 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+                  <View className="flex-1 ml-4 space-y-2.5">
+                    <View className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full w-4/5" />
+                    <View className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-1/2" />
+                    <View className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-full" />
                   </View>
                 </View>
-              ))
-            : threads.map((thread) => {
-                const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
-                const typing = typingStatus[typingKey];
-                return (
-                  <Pressable
-                    key={thread.id}
-                    className="rounded-3xl border p-4"
-                    style={{ backgroundColor: backgroundSecondary, borderColor }}
-                    onPress={() => onOpenThread(thread)}
-                  >
-                    <View className="flex-row items-center">
-                      <View
-                        className="h-12 w-12 rounded-2xl items-center justify-center"
-                        style={{ backgroundColor: accentLight, borderWidth: 1, borderColor }}
-                      >
-                        <Text className="font-clash text-app text-base">{getInitials(thread.name)}</Text>
-                      </View>
+              </View>
+            ))
+          ) : threads.length > 0 ? (
+            threads.map((thread) => {
+              const typingKey = thread.id.startsWith("group:")
+                ? thread.id
+                : `user:${thread.id}`;
+              const typing = typingStatus[typingKey];
+              const isOpening = openingThreadId === thread.id;
 
-                      <View className="flex-1 ml-4">
-                        <View className="flex-row items-center justify-between">
-                          <View className="flex-row items-center gap-2">
-                            <Text className="font-clash text-app text-base">{thread.name}</Text>
-                            {thread.premium ? (
-                              <View className="flex-row items-center px-2 py-0.5 rounded-full border border-app/10 bg-secondary/10">
-                                <Feather name="star" size={12} className="text-accent" />
-                                <Text className="ml-1 text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
-                                  Premium
-                                </Text>
-                              </View>
-                            ) : null}
-                          </View>
-                          <View className="flex-row items-center gap-2">
-                            {openingThreadId === thread.id ? (
-                              <ActivityIndicator size="small" color={textSecondaryColor} />
-                            ) : null}
-                            <Text className="text-[11px] font-outfit text-secondary">{thread.time}</Text>
-                          </View>
-                        </View>
-                        <Text className="text-[12px] font-outfit text-secondary mt-0.5">{thread.role}</Text>
-                        <Text className="text-sm font-outfit text-app mt-2" numberOfLines={2}>
-                          {typing?.isTyping ? `${typing.name} is typing...` : thread.preview}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View className="flex-row items-center justify-between mt-4">
-                      <View className="flex-row items-center gap-2">
-                        {thread.pinned ? (
-                          <View className="flex-row items-center px-2 py-1 rounded-full bg-secondary/10 border border-app/10">
-                            <Feather name="bookmark" size={12} className="text-secondary" />
-                            <Text className="ml-1 text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
-                              Pinned
-                            </Text>
-                          </View>
-                        ) : null}
-                        {thread.premium ? (
-                          <View className="flex-row items-center px-2 py-1 rounded-full bg-secondary/10 border border-app/10">
-                            <Feather name="zap" size={12} className="text-secondary" />
-                            <Text className="ml-1 text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
-                              Priority
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      {thread.unread ? (
-                        <View className="px-2.5 py-1 rounded-full bg-accent">
-                          <Text className="text-[11px] font-outfit text-white">{thread.unread} new</Text>
-                        </View>
+              return (
+                <Pressable
+                  key={thread.id}
+                  onPress={() => onOpenThread(thread)}
+                  className="bg-input rounded-3xl p-5 active:opacity-95 border border-gray-100 dark:border-gray-800"
+                >
+                  <View className="flex-row items-start gap-4">
+                    {/* Avatar */}
+                    <View className="relative flex-shrink-0">
+                      {thread.avatarUrl ? (
+                        <Image
+                          source={{ uri: thread.avatarUrl }}
+                          className="h-14 w-14 rounded-2xl"
+                        />
                       ) : (
-                        <View className="flex-row items-center gap-1">
-                          <Feather name="check-circle" size={14} className="text-secondary" />
-                          <Text className="text-[11px] font-outfit text-secondary">Up to date</Text>
+                        <View className="h-14 w-14 rounded-2xl bg-[#2F8F57]/10 dark:bg-[#2F8F57]/20 items-center justify-center">
+                          <Text className="font-clash text-[#2F8F57] text-2xl">
+                            {getInitials(thread.name)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Unread badge */}
+                      {thread.unread > 0 && (
+                        <View className="absolute -top-0.5 -right-0.5 h-5 w-5 bg-[#2F8F57] rounded-full items-center justify-center border-[2.5px] border-input">
+                          <Text className="text-white text-[10px] font-bold font-outfit">
+                            {typeof thread.unread === "number" &&
+                            thread.unread > 9
+                              ? "9+"
+                              : thread.unread}
+                          </Text>
                         </View>
                       )}
                     </View>
-                  </Pressable>
-                );
-              })}
 
-          {!threads.length && !isLoading ? (
-            <View className="rounded-3xl border border-dashed border-app/20 p-4">
-              <Text className="text-sm font-outfit text-secondary">No conversations yet.</Text>
+                    {/* Content */}
+                    <View className="flex-1 pt-0.5">
+                      <View className="flex-row justify-between items-start">
+                        <View className="flex-1 pr-2">
+                          <Text
+                            className="font-clash text-[17px] text-app"
+                            numberOfLines={1}
+                          >
+                            {thread.name}
+                          </Text>
+                          <Text
+                            className="text-sm font-outfit text-secondary mt-0.5"
+                            numberOfLines={1}
+                          >
+                            {thread.role}
+                          </Text>
+                        </View>
+
+                        <View className="items-end">
+                          {isOpening ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={colors.accent}
+                            />
+                          ) : (
+                            <Text className="text-xs font-outfit text-secondary">
+                              {thread.time}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+
+                      {/* Preview / Typing */}
+                      <Text
+                        className={`mt-3 text-[15px] leading-tight font-outfit ${
+                          typing?.isTyping
+                            ? "text-[#2F8F57] font-medium"
+                            : "text-app"
+                        }`}
+                        numberOfLines={2}
+                      >
+                        {typing?.isTyping
+                          ? `${typing.name} is typing...`
+                          : thread.preview}
+                      </Text>
+
+                      {/* Badges */}
+                      <View className="flex-row items-center gap-2 mt-4">
+                        {thread.pinned && (
+                          <View className="px-3 py-1 bg-amber-100 dark:bg-amber-950 rounded-full flex-row items-center">
+                            <Feather
+                              name="bookmark"
+                              size={13}
+                              color="#D97706"
+                            />
+                            <Text className="ml-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                              PINNED
+                            </Text>
+                          </View>
+                        )}
+
+                        {thread.premium && (
+                          <View className="px-3 py-1 bg-[#2F8F57]/10 rounded-full flex-row items-center">
+                            <Ionicons name="star" size={13} color="#2F8F57" />
+                            <Text className="ml-1 text-[10px] font-bold text-[#2F8F57] uppercase tracking-widest">
+                              PRIORITY
+                            </Text>
+                          </View>
+                        )}
+
+                        {thread.premium && thread.responseTime ? (
+                          <View className="px-3 py-1 bg-[#2F8F57]/5 rounded-full flex-row items-center">
+                            <Feather name="clock" size={12} color="#2F8F57" />
+                            <Text className="ml-1 text-[10px] font-bold text-[#2F8F57] uppercase tracking-widest">
+                              {thread.responseTime}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })
+          ) : (
+            /* Empty State */
+            <View className="py-20 items-center">
+              <View className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full items-center justify-center mb-6">
+                <Feather
+                  name="message-circle"
+                  size={42}
+                  color={colors.accent}
+                />
+              </View>
+              <Text className="text-2xl font-clash text-app mb-2">
+                No messages yet
+              </Text>
+              <Text className="text-secondary text-center font-outfit max-w-[260px]">
+                Your coach conversations will appear here
+              </Text>
             </View>
-          ) : null}
+          )}
         </View>
       </View>
 
-      <View className="px-6 pb-10">
-        <View className="rounded-3xl border p-5 bg-input">
-          <Text className="text-base font-clash text-app">Need something urgent?</Text>
-          <Text className="text-sm font-outfit text-secondary mt-2">
-            Premium members get priority response times from your coach.
-          </Text>
-          <View className="mt-4 flex-row items-center gap-2">
-            <View className="h-9 w-9 rounded-2xl bg-secondary/10 items-center justify-center border border-app/10">
-              <Feather name="phone" size={16} className="text-secondary" />
+      {/* Urgent Help Card */}
+      {threads.length > 0 && (
+        <View className="mx-6 mt-10 bg-[#2F8F57]/5 dark:bg-[#2F8F57]/10 border border-[#2F8F57]/20 rounded-3xl p-6">
+          <View className="flex-row items-center gap-4">
+            <View className="w-11 h-11 bg-[#2F8F57] rounded-2xl items-center justify-center">
+              <Feather name="phone" size={22} color="white" />
             </View>
-            <Text className="text-sm font-outfit text-app">Book a 1:1 call in Schedule</Text>
+            <View className="flex-1">
+              <Text className="font-clash text-lg text-app">
+                Need faster help?
+              </Text>
+              <Text className="text-sm text-secondary mt-1 leading-snug">
+                Premium members get priority replies and can book 1:1 calls
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
+      )}
     </ThemedScrollView>
   );
 }

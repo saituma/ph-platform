@@ -48,7 +48,13 @@ describe("chat controller", () => {
 
     await sendGroupChatMessage(req, res);
 
-    expect(createGroupMessage).toHaveBeenCalledWith({ groupId: 2, senderId: 1, content: "Hello" });
+    expect(createGroupMessage).toHaveBeenCalledWith({
+      groupId: 2,
+      senderId: 1,
+      content: "Hello",
+      contentType: "text",
+      mediaUrl: undefined,
+    });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ message: { id: 1 } });
   });

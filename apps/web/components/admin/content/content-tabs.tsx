@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -8,50 +8,115 @@ import { Label } from "../../ui/label";
 import { Select } from "../../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Textarea } from "../../ui/textarea";
+import { ParentCourseMediaUpload } from "../../parent/config/parent-course-media-upload";
 
 type ContentTabsProps = {
-  onSaveHome: (data: {
-    headline: string;
-    description: string;
-    welcome: string;
-    introVideoUrl: string;
-    testimonials: string;
-    heroImageUrl: string;
-    tier: string;
+  initialHome?: {
+    introVideoUrl?: string;
+    adminStory?: string;
+    professionalPhoto?: string;
+    testimonials?: any[] | string;
+  } | null;
+  initialLegal?: {
+    termsText?: string;
+    termsVersion?: string;
+    privacyText?: string;
+    privacyVersion?: string;
+  } | null;
+  onSaveProfile: (data: { adminStory: string; professionalPhoto: string }) => void;
+  onSaveTestimonials: (data: { testimonials: any[] }) => void;
+  onSaveIntroVideo: (data: { introVideoUrl: string }) => void;
+  onSaveLegal: (data: {
+    termsText: string;
+    termsVersion: string;
+    privacyText: string;
+    privacyVersion: string;
   }) => void;
-  onPublishParent: (data: {
-    title: string;
-    category: string;
-    body: string;
-    mediaUrl: string;
-    tier: string;
-  }) => void;
-  onSavePrograms: () => void;
-  onSaveLegal: () => void;
+  onPublishAnnouncement: (data: { title: string; body: string }) => void;
+  testimonialSubmissions?: any[];
+  onApproveTestimonial?: (submissionId: number) => void;
+  onRejectTestimonial?: (submissionId: number) => void;
 };
 
 export function ContentTabs({
-  onSaveHome,
-  onPublishParent,
-  onSavePrograms,
+  initialHome,
+  initialLegal,
+  onSaveProfile,
+  onSaveTestimonials,
+  onSaveIntroVideo,
   onSaveLegal,
+  onPublishAnnouncement,
+  testimonialSubmissions = [],
+  onApproveTestimonial,
+  onRejectTestimonial,
 }: ContentTabsProps) {
+  const adminStoryRef = useRef<HTMLTextAreaElement | null>(null);
+  const announcementBodyRef = useRef<HTMLTextAreaElement | null>(null);
   const termsRef = useRef<HTMLTextAreaElement | null>(null);
   const privacyRef = useRef<HTMLTextAreaElement | null>(null);
+  const [showAdminStoryPreview, setShowAdminStoryPreview] = useState(false);
   const [showTermsPreview, setShowTermsPreview] = useState(false);
   const [showPrivacyPreview, setShowPrivacyPreview] = useState(false);
-  const [homeHeadline, setHomeHeadline] = useState("");
-  const [homeDescription, setHomeDescription] = useState("");
-  const [homeWelcome, setHomeWelcome] = useState("");
+  const [showAnnouncementPreview, setShowAnnouncementPreview] = useState(false);
   const [homeIntroVideo, setHomeIntroVideo] = useState("");
-  const [homeTestimonials, setHomeTestimonials] = useState("");
-  const [homeHeroImage, setHomeHeroImage] = useState("");
-  const [homeTier, setHomeTier] = useState("all");
-  const [parentTitle, setParentTitle] = useState("");
-  const [parentCategory, setParentCategory] = useState("Youth Strength Training 101");
-  const [parentBody, setParentBody] = useState("");
-  const [parentMediaUrl, setParentMediaUrl] = useState("");
-  const [parentTier, setParentTier] = useState("PHP_Plus");
+  const [homeProfessionalPhoto, setHomeProfessionalPhoto] = useState("");
+  const [hasTouchedProfessionalPhoto, setHasTouchedProfessionalPhoto] = useState(false);
+  const [adminStory, setAdminStory] = useState("");
+  const initialProfessionalPhotoRef = useRef("");
+  const [homeTestimonials, setHomeTestimonials] = useState<any[]>([]);
+  const [testimonialName, setTestimonialName] = useState("");
+  const [testimonialQuote, setTestimonialQuote] = useState("");
+  const [testimonialPhoto, setTestimonialPhoto] = useState("");
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [termsVersion, setTermsVersion] = useState("1.0");
+  const [privacyVersion, setPrivacyVersion] = useState("1.0");
+
+  useEffect(() => {
+    if (!initialHome) return;
+    if (initialHome.introVideoUrl !== undefined) setHomeIntroVideo(initialHome.introVideoUrl ?? "");
+    if (adminStoryRef.current && initialHome.adminStory !== undefined) {
+      adminStoryRef.current.value = initialHome.adminStory ?? "";
+    }
+    if (initialHome.adminStory !== undefined) {
+      setAdminStory(initialHome.adminStory ?? "");
+    }
+    if (initialHome.professionalPhoto !== undefined) {
+      setHomeProfessionalPhoto(initialHome.professionalPhoto ?? "");
+      initialProfessionalPhotoRef.current = initialHome.professionalPhoto ?? "";
+      setHasTouchedProfessionalPhoto(false);
+    }
+    if (initialHome.testimonials !== undefined) {
+      const value = initialHome.testimonials;
+      if (Array.isArray(value)) {
+        setHomeTestimonials(value);
+      } else if (typeof value === "string" && value.trim().length) {
+        try {
+          const parsed = JSON.parse(value);
+          setHomeTestimonials(Array.isArray(parsed) ? parsed : []);
+        } catch {
+          setHomeTestimonials([]);
+        }
+      } else {
+        setHomeTestimonials([]);
+      }
+    }
+  }, [initialHome]);
+
+  useEffect(() => {
+    if (!initialLegal) return;
+    if (termsRef.current && initialLegal.termsText !== undefined) {
+      termsRef.current.value = initialLegal.termsText ?? "";
+    }
+    if (privacyRef.current && initialLegal.privacyText !== undefined) {
+      privacyRef.current.value = initialLegal.privacyText ?? "";
+    }
+    if (initialLegal.termsVersion !== undefined) {
+      setTermsVersion(initialLegal.termsVersion ?? "1.0");
+    }
+    if (initialLegal.privacyVersion !== undefined) {
+      setPrivacyVersion(initialLegal.privacyVersion ?? "1.0");
+    }
+  }, [initialLegal]);
 
   const insertAtCursor = (ref: React.RefObject<HTMLTextAreaElement | null>, value: string) => {
     const el = ref.current;
@@ -63,6 +128,9 @@ export function ContentTabs({
     const cursor = start + value.length;
     el.focus();
     el.setSelectionRange(cursor, cursor);
+    if (ref === adminStoryRef) {
+      setAdminStory(el.value);
+    }
   };
 
   const wrapSelection = (
@@ -83,6 +151,9 @@ export function ContentTabs({
     const cursorEnd = cursorStart + selected.length;
     el.focus();
     el.setSelectionRange(cursorStart, cursorEnd);
+    if (ref === adminStoryRef) {
+      setAdminStory(el.value);
+    }
   };
 
   const prefixLines = (
@@ -101,6 +172,9 @@ export function ContentTabs({
     el.value = next;
     el.focus();
     el.setSelectionRange(start, start + lines.join("\n").length);
+    if (ref === adminStoryRef) {
+      setAdminStory(el.value);
+    }
   };
 
   const renderMarkdown = (text: string) => {
@@ -129,6 +203,14 @@ export function ContentTabs({
     () => renderMarkdown(privacyRef.current?.value ?? ""),
     [showPrivacyPreview]
   );
+  const adminStoryPreview = useMemo(
+    () => renderMarkdown(adminStory),
+    [adminStory, showAdminStoryPreview]
+  );
+  const announcementPreview = useMemo(
+    () => renderMarkdown(announcementBodyRef.current?.value ?? ""),
+    [showAnnouncementPreview]
+  );
 
   const toolbar = [
     { label: "B", type: "wrap", prefix: "**", suffix: "**", placeholder: "bold" },
@@ -142,194 +224,311 @@ export function ContentTabs({
   ] as const;
 
   return (
-    <Tabs defaultValue="home">
+    <Tabs defaultValue="profile">
       <TabsList>
-        <TabsTrigger value="home">Home</TabsTrigger>
-        <TabsTrigger value="parent">Parent Platform</TabsTrigger>
-        <TabsTrigger value="programs">Programs</TabsTrigger>
-        <TabsTrigger value="physio">Physio</TabsTrigger>
+        <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
+        <TabsTrigger value="intro">Intro Video</TabsTrigger>
         <TabsTrigger value="legal">Legal</TabsTrigger>
+        <TabsTrigger value="announcements">Announcements</TabsTrigger>
       </TabsList>
-      <div className="flex gap-2 overflow-auto pb-1 md:hidden">
-        {["Drafts", "Published", "Tier Filters", "Media"].map((chip) => (
-          <Button
-            key={chip}
-            variant="outline"
-            size="sm"
-            className="whitespace-nowrap"
-          >
-            {chip}
-          </Button>
-        ))}
-      </div>
-      <TabsContent value="home">
+      <TabsContent value="profile">
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Platform Headline</Label>
-              <Input placeholder="e.g. Parent Education Platform" value={homeHeadline} onChange={(e) => setHomeHeadline(e.target.value)} />
+              <Label>Admin Story</Label>
+              <div className="flex flex-wrap gap-2">
+                {toolbar.map((item) => (
+                  <Button
+                    key={`admin-story-${item.label}`}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (item.type === "wrap") {
+                        wrapSelection(adminStoryRef, item.prefix, item.suffix, item.placeholder);
+                      } else {
+                        prefixLines(adminStoryRef, item.prefix, item.placeholder);
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdminStoryPreview((prev) => !prev)}
+                >
+                  {showAdminStoryPreview ? "Edit" : "Preview"}
+                </Button>
+              </div>
+              {showAdminStoryPreview ? (
+                <div
+                  className="min-h-[200px] rounded-2xl border border-border bg-secondary/30 p-4 text-sm"
+                  dangerouslySetInnerHTML={{ __html: adminStoryPreview }}
+                />
+              ) : (
+                <Textarea
+                  ref={adminStoryRef}
+                  placeholder="Share the admin story..."
+                  value={adminStory}
+                  onChange={(event) => setAdminStory(event.target.value)}
+                />
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Platform Description</Label>
-              <Textarea placeholder="e.g. Understand your athlete's training with our educational module for parents." value={homeDescription} onChange={(e) => setHomeDescription(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Coach Welcome Message</Label>
-              <Textarea placeholder="e.g. Welcome back, [Name]! Learn what your child is learning in the gym this week." value={homeWelcome} onChange={(e) => setHomeWelcome(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Intro Video URL</Label>
-              <Input placeholder="https://video" value={homeIntroVideo} onChange={(e) => setHomeIntroVideo(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Testimonials</Label>
-              <Textarea placeholder="Add testimonials..." value={homeTestimonials} onChange={(e) => setHomeTestimonials(e.target.value)} />
+              <Label>Professional Photos</Label>
+              <ParentCourseMediaUpload
+                label={homeProfessionalPhoto ? "Replace Photo" : "Upload Photo"}
+                folder="home/professional-photo"
+                accept="image/*"
+                maxSizeMb={10}
+                onUploaded={(url) => {
+                  setHomeProfessionalPhoto(url);
+                  setHasTouchedProfessionalPhoto(true);
+                }}
+              />
+              {homeProfessionalPhoto ? (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                    <span className="break-all text-muted-foreground">{homeProfessionalPhoto}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setHomeProfessionalPhoto("");
+                        setHasTouchedProfessionalPhoto(true);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Upload professional photos to appear on the home dashboard.
+                </p>
+              )}
             </div>
           </div>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Hero Image</Label>
-              <Input placeholder="https://image" value={homeHeroImage} onChange={(e) => setHomeHeroImage(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Display Tier</Label>
-              <Select value={homeTier} onChange={(e) => setHomeTier(e.target.value)}>
-                <option value="all">All tiers</option>
-                <option value="PHP">PHP Program</option>
-                <option value="PHP_Plus">PHP Plus</option>
-                <option value="PHP_Premium">PHP Premium</option>
-              </Select>
-            </div>
             <Button
               className="w-full"
-              onClick={() =>
-                onSaveHome({
-                  headline: homeHeadline,
-                  description: homeDescription,
-                  welcome: homeWelcome,
-                  introVideoUrl: homeIntroVideo,
-                  testimonials: homeTestimonials,
-                  heroImageUrl: homeHeroImage,
-                  tier: homeTier,
-                })
-              }
+              onClick={() => {
+                onSaveProfile({
+                  adminStory,
+                  professionalPhoto: hasTouchedProfessionalPhoto
+                    ? homeProfessionalPhoto
+                    : initialProfessionalPhotoRef.current,
+                });
+              }}
             >
               Save Updates
             </Button>
           </div>
         </div>
       </TabsContent>
-      <TabsContent value="parent">
+      <TabsContent value="testimonials">
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Article Title</Label>
-              <Input placeholder="New article title" value={parentTitle} onChange={(e) => setParentTitle(e.target.value)} />
+              <Label>Name</Label>
+              <Input
+                placeholder="e.g. Jordan Smith"
+                value={testimonialName}
+                onChange={(e) => setTestimonialName(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={parentCategory} onChange={(e) => setParentCategory(e.target.value)}>
-                <option>Youth Strength Training 101</option>
-                <option>Benefits of Strength Training</option>
-                <option>Why We Warm Up</option>
-                <option>Recovery for Young Athletes</option>
-                <option>Nutrition for Young Athletes</option>
-                <option>Training Safety Rules</option>
-                <option>Signs of Overtraining and Fatigue</option>
-                <option>Myths About Kids & Strength Training</option>
-              </Select>
+              <Label>Testimony</Label>
+              <Textarea
+                placeholder="Share the testimonial..."
+                value={testimonialQuote}
+                onChange={(e) => setTestimonialQuote(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <Label>Body</Label>
-              <Textarea placeholder="Write the article..." value={parentBody} onChange={(e) => setParentBody(e.target.value)} />
+              <Label>Photo</Label>
+              <ParentCourseMediaUpload
+                label={testimonialPhoto ? "Replace Photo" : "Upload Photo"}
+                folder="home/testimonials"
+                accept="image/*"
+                maxSizeMb={10}
+                onUploaded={(url) => setTestimonialPhoto(url)}
+              />
+              {testimonialPhoto ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                  <span className="break-all text-muted-foreground">{testimonialPhoto}</span>
+                  <Button size="sm" variant="outline" onClick={() => setTestimonialPhoto("")}>
+                    Remove
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Media</Label>
-              <Input placeholder="https://media" value={parentMediaUrl} onChange={(e) => setParentMediaUrl(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Access Tier</Label>
-              <Select value={parentTier} onChange={(e) => setParentTier(e.target.value)}>
-                <option value="PHP_Plus">PHP Plus & Premium</option>
-                <option value="all">All tiers</option>
-                <option value="PHP_Premium">Premium only</option>
-              </Select>
-            </div>
             <Button
               className="w-full"
-              onClick={() =>
-                onPublishParent({
-                  title: parentTitle,
-                  category: parentCategory,
-                  body: parentBody,
-                  mediaUrl: parentMediaUrl,
-                  tier: parentTier,
-                })
-              }
+              onClick={() => {
+                if (!testimonialName.trim() || !testimonialQuote.trim()) {
+                  return;
+                }
+                const entry = {
+                  id: `t_${Date.now()}`,
+                  name: testimonialName.trim(),
+                  quote: testimonialQuote.trim(),
+                  photoUrl: testimonialPhoto.trim() || undefined,
+                };
+                setTestimonialName("");
+                setTestimonialQuote("");
+                setTestimonialPhoto("");
+                setHomeTestimonials((prev) => [...prev, entry]);
+              }}
             >
-              Publish Article
+              Add Testimonial
             </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => {
+                const cleaned = homeTestimonials.filter(
+                  (item: any) => item?.name?.trim?.() && item?.quote?.trim?.()
+                );
+                onSaveTestimonials({ testimonials: cleaned });
+              }}
+            >
+              Save Testimonials
+            </Button>
+            {homeTestimonials.length ? (
+              <div className="space-y-3">
+                {homeTestimonials.map((item: any, index: number) => (
+                  <div
+                    key={item?.id ?? `testimonial-${index}`}
+                    className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {item?.name ?? "Unnamed"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {item?.quote ?? ""}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setHomeTestimonials((prev) =>
+                            prev.filter((_: any, i: number) => i !== index)
+                          )
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    {item?.photoUrl ? (
+                      <div className="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary/40">
+                        <img
+                          src={item.photoUrl}
+                          alt={`Testimonial ${item?.name ?? ""}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {testimonialSubmissions.length ? (
+              <div className="space-y-3 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Pending Submissions
+                </p>
+                {testimonialSubmissions.map((submission: any) => {
+                  let body: any = {};
+                  if (submission?.body && typeof submission.body === "string") {
+                    try {
+                      body = JSON.parse(submission.body);
+                    } catch {
+                      body = {};
+                    }
+                  }
+                  const name = body.name ?? submission.title ?? "Submission";
+                  const quote = body.quote ?? submission.content ?? "";
+                  const photoUrl = body.photoUrl ?? null;
+                  return (
+                    <div
+                      key={`submission-${submission.id}`}
+                      className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{name}</p>
+                          <p className="text-xs text-muted-foreground">{quote}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onRejectTestimonial?.(submission.id)}
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => onApproveTestimonial?.(submission.id)}
+                          >
+                            Approve
+                          </Button>
+                        </div>
+                      </div>
+                      {photoUrl ? (
+                        <div className="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary/40">
+                          <img
+                            src={photoUrl}
+                            alt={`Submission ${name}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         </div>
       </TabsContent>
-      <TabsContent value="physio">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Referral Provider Name</Label>
-              <Input placeholder="e.g. Elite Physio" />
-            </div>
-            <div className="space-y-2">
-              <Label>Referral Link</Label>
-              <Input placeholder="https://physio-provider.com" />
-            </div>
-          </div>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Plus/Premium Discount (%)</Label>
-              <Input type="number" placeholder="10" />
-            </div>
-            <div className="space-y-2">
-              <Label>Discount Code</Label>
-              <Input placeholder="LIFTLAB10" />
-            </div>
-            <Button className="w-full">Save Physio Settings</Button>
-          </div>
-        </div>
-      </TabsContent>
-      <TabsContent value="programs">
+      <TabsContent value="intro">
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Program Card Title</Label>
-              <Input placeholder="PHP Plus" />
-            </div>
-            <div className="space-y-2">
-              <Label>Summary</Label>
-              <Textarea placeholder="Short summary..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Included Features</Label>
-              <Textarea placeholder="Bullets or sentences" />
+              <Label>Intro Video</Label>
+              <ParentCourseMediaUpload
+                label={homeIntroVideo ? "Replace Video" : "Upload Video"}
+                folder="home/intro-video"
+                accept="video/*"
+                maxSizeMb={200}
+                onUploaded={(url) => setHomeIntroVideo(url)}
+              />
+              {homeIntroVideo ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                  <span className="break-all text-muted-foreground">{homeIntroVideo}</span>
+                  <Button size="sm" variant="outline" onClick={() => setHomeIntroVideo("")}>
+                    Remove
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Upload an intro video for the mobile home screen.
+                </p>
+              )}
             </div>
           </div>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>CTA Label</Label>
-              <Input placeholder="Apply now" />
-            </div>
-            <div className="space-y-2">
-              <Label>CTA Behavior</Label>
-              <Select>
-                <option>View program</option>
-                <option>Apply</option>
-                <option>Start onboarding</option>
-              </Select>
-            </div>
-            <Button className="w-full" onClick={onSavePrograms}>
-              Save Program Card
+            <Button className="w-full" onClick={() => onSaveIntroVideo({ introVideoUrl: homeIntroVideo })}>
+              Save Intro Video
             </Button>
           </div>
         </div>
@@ -371,6 +570,14 @@ export function ContentTabs({
             ) : (
               <Textarea ref={termsRef} placeholder="Paste legal content..." />
             )}
+            <div className="space-y-2 pt-2">
+              <Label>Terms Version</Label>
+              <Input
+                placeholder="e.g. v1.0"
+                value={termsVersion}
+                onChange={(e) => setTermsVersion(e.target.value)}
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Privacy Policy</Label>
@@ -412,10 +619,91 @@ export function ContentTabs({
             ) : (
               <Textarea ref={privacyRef} placeholder="Paste policy content..." />
             )}
+            <div className="space-y-2 pt-2">
+              <Label>Privacy Version</Label>
+              <Input
+                placeholder="e.g. v1.0"
+                value={privacyVersion}
+                onChange={(e) => setPrivacyVersion(e.target.value)}
+              />
+            </div>
           </div>
-          <Button className="w-full lg:col-span-2" onClick={onSaveLegal}>
+          <Button
+            className="w-full lg:col-span-2"
+            onClick={() =>
+              onSaveLegal({
+                termsText: termsRef.current?.value ?? "",
+                termsVersion,
+                privacyText: privacyRef.current?.value ?? "",
+                privacyVersion,
+              })
+            }
+          >
             Save Legal
           </Button>
+        </div>
+      </TabsContent>
+      <TabsContent value="announcements">
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Announcement Title</Label>
+              <Input
+                placeholder="e.g. Spring Training Schedule Update"
+                value={announcementTitle}
+                onChange={(e) => setAnnouncementTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Announcement Body</Label>
+              <div className="flex flex-wrap gap-2">
+                {toolbar.map((item) => (
+                  <Button
+                    key={`announcement-${item.label}`}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (item.type === "wrap") {
+                        wrapSelection(announcementBodyRef, item.prefix, item.suffix, item.placeholder);
+                      } else {
+                        prefixLines(announcementBodyRef, item.prefix, item.placeholder);
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAnnouncementPreview((prev) => !prev)}
+                >
+                  {showAnnouncementPreview ? "Edit" : "Preview"}
+                </Button>
+              </div>
+              {showAnnouncementPreview ? (
+                <div
+                  className="min-h-[200px] rounded-2xl border border-border bg-secondary/30 p-4 text-sm"
+                  dangerouslySetInnerHTML={{ __html: announcementPreview }}
+                />
+              ) : (
+                <Textarea ref={announcementBodyRef} placeholder="Write the announcement..." />
+              )}
+            </div>
+          </div>
+          <div className="space-y-4">
+            <Button
+              className="w-full"
+              onClick={() =>
+                onPublishAnnouncement({
+                  title: announcementTitle,
+                  body: announcementBodyRef.current?.value ?? "",
+                })
+              }
+            >
+              Publish Announcement
+            </Button>
+          </div>
         </div>
       </TabsContent>
     </Tabs>

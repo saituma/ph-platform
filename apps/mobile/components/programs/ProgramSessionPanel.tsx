@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, TouchableOpacity, View } from "react-native";
 
 import { ExerciseCard } from "./ExerciseCard";
 import { SessionItem } from "@/constants/program-details";
+import { Text } from "@/components/ScaledText";
 
 export function ProgramSessionPanel({
   sessions,
@@ -48,20 +49,20 @@ export function ProgramSessionPanel({
   return (
     <View className="gap-5">
       <View className="gap-3">
-        <Text className="text-sm font-clash text-app">Week Selector</Text>
+        <Text className="text-2xl font-clash text-app">Week Selector</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-          {weekOptions.map((week) => {
+          {weekOptions.map((week, index) => {
             const isActive = week === activeWeek;
             return (
               <TouchableOpacity
-                key={week}
+                key={`week-${week}-${index}`}
                 onPress={() => {
                   setActiveWeek(week);
                   setActiveSessionIndex(0);
                 }}
                 className={`px-4 py-2 rounded-full border ${isActive ? "bg-accent border-accent" : "bg-input border-app"}`}
               >
-                <Text className={`${isActive ? "text-white" : "text-app"} text-xs font-outfit`}>Week {week}</Text>
+              <Text className={`${isActive ? "text-white" : "text-app"} text-2xl font-outfit`}>Week {week}</Text>
               </TouchableOpacity>
             );
           })}
@@ -69,17 +70,17 @@ export function ProgramSessionPanel({
       </View>
 
       <View className="gap-3">
-        <Text className="text-sm font-clash text-app">Session Selector</Text>
+        <Text className="text-2xl font-clash text-app">Session Selector</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
           {sessionsForWeek.map((session, index) => {
             const isActive = index === activeSessionIndex;
             return (
               <TouchableOpacity
-                key={String(session.id ?? `${session.name}-${index}`)}
+                key={`session-${String(session.id ?? session.name ?? "session")}-${index}`}
                 onPress={() => setActiveSessionIndex(index)}
                 className={`px-4 py-2 rounded-full border ${isActive ? "bg-accent border-accent" : "bg-input border-app"}`}
               >
-                <Text className={`${isActive ? "text-white" : "text-app"} text-xs font-outfit`}>
+                <Text className={`${isActive ? "text-white" : "text-app"} text-2xl font-outfit`}>
                   {String(session.name ?? `Session ${index + 1}`)}
                 </Text>
               </TouchableOpacity>
@@ -89,12 +90,16 @@ export function ProgramSessionPanel({
       </View>
 
       <View className="gap-4">
-        <Text className="text-sm font-clash text-app">Exercises</Text>
+        <Text className="text-2xl font-clash text-app">Exercises</Text>
         {!activeSession?.exercises?.length ? (
-          <Text className="text-sm font-outfit text-secondary">No exercises configured.</Text>
+          <Text className="text-2xl font-outfit text-secondary">No exercises configured.</Text>
         ) : null}
-        {activeSession?.exercises?.map((exercise) => (
-          <ExerciseCard key={exercise.id} exercise={exercise} onVideoPress={onVideoPress} />
+        {activeSession?.exercises?.map((exercise, index) => (
+          <ExerciseCard
+            key={`exercise-${String(exercise.id ?? exercise.name ?? "item")}-${index}`}
+            exercise={exercise}
+            onVideoPress={onVideoPress}
+          />
         ))}
       </View>
     </View>

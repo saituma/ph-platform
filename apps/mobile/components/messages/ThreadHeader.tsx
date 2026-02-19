@@ -1,8 +1,10 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, View, Alert } from "react-native";
 
 import { MessageThread } from "@/types/messages";
+import { Text } from "@/components/ScaledText";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 type ThreadHeaderProps = {
   thread: MessageThread;
@@ -10,28 +12,50 @@ type ThreadHeaderProps = {
 };
 
 export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
+  const { colors } = useAppTheme();
+
+  const handleOpenMenu = () => {
+    Alert.alert(
+      "Thread Options",
+      "Manage this conversation",
+      [
+        { text: "Mute Notifications", onPress: () => console.log("Muted") },
+        { text: "Archive Thread", onPress: () => console.log("Archived") },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
   return (
-    <View className="px-6 pt-4 pb-4 border-b border-app/10 bg-app">
+    <View className="px-6 pt-4 pb-4 border-b border-accent/20 bg-app">
       <View className="flex-row items-center justify-between">
         <Pressable
           onPress={onBack}
-          className="h-11 w-11 rounded-2xl items-center justify-center border border-app/10 bg-secondary/10"
+          className="h-11 w-11 rounded-2xl items-center justify-center bg-accent/5"
+          style={{ borderWidth: 1, borderColor: `${colors.accent}33` }}
         >
-          <Feather name="chevron-left" size={20} className="text-secondary" />
+          <Feather name="chevron-left" size={20} color={colors.accent} />
         </Pressable>
 
         <View className="flex-1 mx-4">
           <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="font-clash text-lg text-app">{thread.name}</Text>
-              <Text className="text-xs font-outfit text-secondary mt-0.5">
-                {thread.role} · {thread.lastSeen ?? "Active recently"}
-              </Text>
+            <View className="flex-row items-center gap-3">
+              {thread.avatarUrl ? (
+                <View className="h-10 w-10 rounded-2xl overflow-hidden">
+                  <Image source={{ uri: thread.avatarUrl }} style={{ width: 40, height: 40 }} />
+                </View>
+              ) : null}
+              <View>
+                <Text className="font-clash text-lg text-app">{thread.name}</Text>
+                <Text className="text-xs font-outfit text-secondary mt-0.5">
+                  {thread.role} · {thread.lastSeen ?? "Active recently"}
+                </Text>
+              </View>
             </View>
             {thread.premium ? (
-              <View className="flex-row items-center px-2 py-1 rounded-full bg-secondary/10 border border-app/10">
-                <Feather name="star" size={12} className="text-accent" />
-                <Text className="ml-1 text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+              <View className="flex-row items-center px-2 py-1 rounded-full bg-accent">
+                <Feather name="star" size={10} color="#FFFFFF" />
+                <Text className="ml-1 text-[0.625rem] font-bold font-outfit text-white uppercase tracking-[1.2px]">
                   Premium
                 </Text>
               </View>
@@ -39,8 +63,12 @@ export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
           </View>
         </View>
 
-        <Pressable className="h-11 w-11 rounded-2xl items-center justify-center border border-app/10 bg-secondary/10">
-          <Feather name="more-vertical" size={18} className="text-secondary" />
+        <Pressable 
+          onPress={handleOpenMenu}
+          className="h-11 w-11 rounded-2xl items-center justify-center bg-accent/5"
+          style={{ borderWidth: 1, borderColor: `${colors.accent}33` }}
+        >
+          <Feather name="more-vertical" size={18} color={colors.accent} />
         </Pressable>
       </View>
 
@@ -52,7 +80,7 @@ export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
           </Text>
         </View>
         <View className="flex-row items-center gap-2">
-          <Feather name="shield" size={12} className="text-secondary" />
+          <Feather name="shield" size={12} color={colors.accent} />
           <Text className="text-xs font-outfit text-secondary">Secure 1:1 thread</Text>
         </View>
       </View>

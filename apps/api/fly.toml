@@ -20,8 +20,8 @@ primary_region = 'lhr'
   min_machines_running = 0
   processes = ['app']
 
-[deploy]
-  release_command = 'npm run db:migrate'
+#[deploy]
+#  release_command = 'npm run db:migrate'
 
 [[vm]]
   memory = '1gb'

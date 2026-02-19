@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import { getExerciseLibrary, getProgramCards, getProgramById, getProgramSessions } from "../services/program.service";
+import { getExerciseLibrary, getProgramByIdForUser, getProgramCards, getProgramSessions } from "../services/program.service";
 
 const programIdSchema = z.coerce.number().int().min(1);
 
@@ -12,7 +12,7 @@ export async function listPrograms(req: Request, res: Response) {
 
 export async function getProgram(req: Request, res: Response) {
   const programId = programIdSchema.parse(req.params.programId);
-  const program = await getProgramById(programId);
+  const program = await getProgramByIdForUser(req.user!.id, programId);
   if (!program) {
     return res.status(404).json({ error: "Program not found" });
   }
@@ -21,6 +21,10 @@ export async function getProgram(req: Request, res: Response) {
 
 export async function getProgramSessionsById(req: Request, res: Response) {
   const programId = programIdSchema.parse(req.params.programId);
+  const program = await getProgramByIdForUser(req.user!.id, programId);
+  if (!program) {
+    return res.status(404).json({ error: "Program not found" });
+  }
   const sessions = await getProgramSessions(programId);
   return res.status(200).json({ sessions });
 }

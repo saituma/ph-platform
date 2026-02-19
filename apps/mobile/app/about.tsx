@@ -3,8 +3,9 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Text } from "@/components/ScaledText";
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -77,7 +78,7 @@ export default function AboutScreen() {
           fullWidth={true}
         />
 
-        <Text className="text-center text-secondary font-outfit text-[10px] mt-8 uppercase tracking-[3px]">
+        <Text className="text-center text-secondary font-outfit text-[0.625rem] mt-8 uppercase tracking-[3px]">
           © 2026 LIFT LAB LTD. ALL RIGHTS RESERVED.
         </Text>
       </ThemedScrollView>

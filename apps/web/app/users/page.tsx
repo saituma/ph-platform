@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { EmptyState } from "../../components/admin/empty-state";
@@ -12,8 +13,9 @@ import { UsersCards } from "../../components/admin/users/users-cards";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { useBlockUserMutation, useDeleteUserMutation, useGetUsersQuery } from "../../lib/apiSlice";
 
-export default function UsersPage() {
+function UsersPageContent() {
   const { data: usersData, isLoading } = useGetUsersQuery();
+  const searchParams = useSearchParams();
   const [blockUser] = useBlockUserMutation();
   const [deleteUser] = useDeleteUserMutation();
 
@@ -51,6 +53,31 @@ export default function UsersPage() {
     }
     return users.filter((user) => user.tier === activeChip);
   }, [activeChip, users]);
+
+  useEffect(() => {
+    const userIdParam = searchParams.get("userId");
+    const athleteIdParam = searchParams.get("athleteId");
+    if (!userIdParam && !athleteIdParam) return;
+
+    let resolvedUserId: number | null = null;
+    if (userIdParam) {
+      const parsed = Number(userIdParam);
+      if (Number.isFinite(parsed)) {
+        resolvedUserId = parsed;
+      }
+    } else if (athleteIdParam) {
+      const parsed = Number(athleteIdParam);
+      if (Number.isFinite(parsed)) {
+        const match = usersData?.users?.find((user: any) => user.athleteId === parsed);
+        resolvedUserId = match?.id ?? null;
+      }
+    }
+
+    if (resolvedUserId) {
+      setSelectedUserId(resolvedUserId);
+      setActiveDialog("review-onboarding");
+    }
+  }, [searchParams, usersData]);
 
   return (
     <AdminShell
@@ -143,5 +170,21 @@ export default function UsersPage() {
         selectedUserId={selectedUserId}
       />
     </AdminShell>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminShell title="Users" subtitle="Manage athletes, parents, and onboarding.">
+          <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
+            Loading users...
+          </div>
+        </AdminShell>
+      }
+    >
+      <UsersPageContent />
+    </Suspense>
   );
 }

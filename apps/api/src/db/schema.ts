@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  doublePrecision,
   integer,
   jsonb,
   pgEnum,
@@ -24,7 +25,13 @@ export const bookingType = pgEnum("booking_type", [
   "one_on_one",
 ]);
 export const contentType = pgEnum("content_type", ["article", "video", "image", "audio", "document", "link", "pdf", "faq"]);
-export const contentSurface = pgEnum("content_surface", ["home", "parent_platform"]);
+export const contentSurface = pgEnum("content_surface", [
+  "home",
+  "parent_platform",
+  "legal",
+  "announcements",
+  "testimonial_submissions",
+]);
 export const messageType = pgEnum("message_type", ["text", "image", "video"]);
 export const subscriptionStatus = pgEnum("subscription_status", ["pending_payment", "pending_approval", "approved", "rejected"]);
 export const sessionType = pgEnum("session_type", [
@@ -46,7 +53,7 @@ export const userTable = pgTable("users", {
   name: varchar({ length: 255 }).notNull(),
   email: varchar({ length: 255 }).notNull(),
   role: Role().default("guardian").notNull(),
-  profilePicture: varchar({ length: 255 }),
+  profilePicture: text(),
   passwordHash: varchar({ length: 255 }),
   passwordSalt: varchar({ length: 255 }),
   emailVerified: boolean().notNull().default(false),
@@ -55,10 +62,20 @@ export const userTable = pgTable("users", {
   verificationAttempts: integer().notNull().default(0),
   isBlocked: boolean().notNull().default(false),
   isDeleted: boolean().notNull().default(false),
+  tokenVersion: integer().notNull().default(0),
 
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 
+});
+
+export const userLocationTable = pgTable("user_locations", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer().notNull().references(() => userTable.id),
+  latitude: doublePrecision().notNull(),
+  longitude: doublePrecision().notNull(),
+  accuracy: integer(),
+  recordedAt: timestamp().notNull().defaultNow(),
 });
 
 export const adminSettingsTable = pgTable(
@@ -87,6 +104,7 @@ export const guardianTable = pgTable("guardians", {
   email: varchar({ length: 255 }),
   phoneNumber: varchar({ length: 255 }),
   relationToAthlete: varchar({ length: 255 }),
+  activeAthleteId: integer(),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
@@ -98,12 +116,14 @@ export const athleteTable = pgTable("athletes", {
   guardianId: integer().notNull().references(() => guardianTable.id),
   name: varchar({ length: 255 }).notNull(),
   age: integer().notNull(),
+  birthDate: date(),
   team: varchar({ length: 255 }).notNull(),
   trainingPerWeek: integer().notNull(),
   injuries: jsonb(),
   growthNotes: varchar({ length: 255 }),
   performanceGoals: varchar({ length: 255 }),
   equipmentAccess: varchar({ length: 255 }),
+  profilePicture: text(),
   extraResponses: jsonb(),
   currentProgramTier: ProgramType(),
   onboardingCompleted: boolean().notNull().default(false),
@@ -128,6 +148,22 @@ export const onboardingConfigTable = pgTable("onboarding_configs", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const ageExperienceTable = pgTable("age_experience_rules", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  title: varchar({ length: 255 }).notNull(),
+  minAge: integer(),
+  maxAge: integer(),
+  isDefault: boolean().notNull().default(false),
+  uiPreset: varchar({ length: 32 }).notNull().default("standard"),
+  fontSizeOption: varchar({ length: 16 }).notNull().default("default"),
+  density: varchar({ length: 16 }).notNull().default("default"),
+  hiddenSections: jsonb(),
+  createdBy: integer().references(() => userTable.id),
+  updatedBy: integer().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
 
 export const enrollmentTable = pgTable("enrollments", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -145,6 +181,8 @@ export const programTable = pgTable("programs", {
   name: varchar({ length: 255 }).notNull(),
   type: ProgramType(),
   description: varchar({ length: 255 }),
+  minAge: integer(),
+  maxAge: integer(),
   isTemplate: boolean().notNull().default(true),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
@@ -175,6 +213,19 @@ export const sessionTable = pgTable("sessions", {
   weekNumber: integer().notNull(),
   sessionNumber: integer().notNull(),
   type: sessionType().notNull().default("program"),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
+export const programSectionContentTable = pgTable("program_section_contents", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  sectionType: sessionType().notNull(),
+  programTier: ProgramType(),
+  title: varchar({ length: 255 }).notNull(),
+  body: text().notNull(),
+  videoUrl: varchar({ length: 500 }),
+  order: integer().notNull().default(1),
+  createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
@@ -265,10 +316,13 @@ export const contentTable = pgTable("contents", {
   title: varchar({ length: 255 }).notNull(),
   content: varchar({ length: 500 }).notNull(),
   type: contentType(),
-  body: varchar({ length: 2000 }),
+  body: text(),
   programTier: ProgramType(),
   surface: contentSurface().notNull(),
   category: varchar({ length: 255 }),
+  ageList: jsonb(),
+  minAge: integer(),
+  maxAge: integer(),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
@@ -282,6 +336,8 @@ export const parentCourseTable = pgTable("parent_courses", {
   coverImage: text(),
   category: varchar({ length: 255 }).notNull(),
   programTier: ProgramType(),
+  minAge: integer(),
+  maxAge: integer(),
   modules: jsonb().notNull(),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
@@ -339,6 +395,9 @@ export const foodDiaryTable = pgTable("food_diary", {
   notes: varchar({ length: 500 }),
   quantity: integer(),
   photoUrl: varchar({ length: 500 }),
+  reviewedByCoach: integer().references(() => userTable.id),
+  feedback: varchar({ length: 2000 }),
+  reviewedAt: timestamp(),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });

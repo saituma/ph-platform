@@ -23,14 +23,16 @@ export function useMessagesController() {
 
   const router = useRouter();
   const { thread: threadId } = useLocalSearchParams<{ thread?: string }>();
-  const { token, profile, athleteUserId } = useAppSelector((state) => state.user);
+  const { token, profile, athleteUserId, programTier } = useAppSelector((state) => state.user);
   const { role } = useRole();
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isThreadLoading, setIsThreadLoading] = useState(false);
-  const [groupMembers, setGroupMembers] = useState<Record<number, Record<number, string>>>({});
+  const [groupMembers, setGroupMembers] = useState<
+    Record<number, Record<number, { name: string; avatar?: string | null }>>
+  >({});
   const [typingStatus, setTypingStatus] = useState<TypingStatus>({});
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [draft, setDraft] = useState("");
@@ -68,7 +70,10 @@ export function useMessagesController() {
       const effectiveUserId = role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
       const actingHeaders = role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
       const [data, groupsData] = await Promise.all([
-        apiRequest<{ messages: any[]; coach?: { id: number; name: string; role?: string } }>("/messages", {
+        apiRequest<{
+          messages: any[];
+          coach?: { id: number; name: string; role?: string; profilePicture?: string | null };
+        }>("/messages", {
           token,
           headers: actingHeaders,
         }),
@@ -95,6 +100,7 @@ export function useMessagesController() {
       }
 
       const coach = data.coach;
+      const isPremium = programTier === "PHP_Premium";
       const thread = {
         id: String(coach.id),
         name: coach.name,
@@ -104,10 +110,11 @@ export function useMessagesController() {
           ? new Date(data.messages[data.messages.length - 1].createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
         pinned: false,
-        premium: false,
+        premium: isPremium,
         unread: data.messages?.filter((msg: any) => !msg.read && Number(msg.senderId) !== effectiveUserId).length ?? 0,
         lastSeen: "Active",
-        responseTime: "Coach replies fast",
+        responseTime: isPremium ? "Priority response window" : "Standard response window",
+        avatarUrl: coach.profilePicture ?? null,
       };
 
       const mappedMessages = (data.messages ?? []).map((msg: any) => ({
@@ -120,6 +127,7 @@ export function useMessagesController() {
         time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
         status: msg.read ? "read" : "sent",
         reactions: msg.reactions ?? [],
+        authorAvatar: Number(msg.senderId) === effectiveUserId ? null : coach.profilePicture ?? null,
       })) as ChatMessage[];
 
       setThreads([thread, ...groupThreads]);
@@ -140,10 +148,16 @@ export function useMessagesController() {
           apiRequest<{ messages: any[] }>(`/chat/groups/${groupId}/messages`, { token }),
           apiRequest<{ members: any[] }>(`/chat/groups/${groupId}/members`, { token }),
         ]);
-        const memberMap = membersData.members.reduce<Record<number, string>>((acc, member) => {
-          acc[member.userId] = member.name || member.email;
+        const memberMap = membersData.members.reduce<Record<number, { name: string; avatar?: string | null }>>(
+          (acc, member) => {
+            acc[member.userId] = {
+              name: member.name || member.email,
+              avatar: member.profilePicture ?? null,
+            };
           return acc;
-        }, {});
+          },
+          {}
+        );
         setGroupMembers((prev) => ({ ...prev, [groupId]: memberMap }));
 
         const mappedMessages = (data.messages ?? []).map((msg: any) => ({
@@ -159,7 +173,8 @@ export function useMessagesController() {
           mediaUrl: msg.mediaUrl ?? undefined,
           time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
           status: "sent",
-          authorName: memberMap[msg.senderId],
+          authorName: memberMap[msg.senderId]?.name,
+          authorAvatar: memberMap[msg.senderId]?.avatar ?? null,
           reactions: msg.reactions ?? [],
         })) as ChatMessage[];
 

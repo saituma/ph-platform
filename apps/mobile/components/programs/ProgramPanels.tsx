@@ -1,13 +1,48 @@
-import React, { useEffect, useState } from "react";
-import { Alert, Image, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, Image, Linking, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { ResizeMode, Video } from "expo-av";
 
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export function PhysioReferralPanel({ discount }: { discount?: string }) {
+  const { token } = useAppSelector((state) => state.user);
+  const [loading, setLoading] = useState(false);
+  const [referral, setReferral] = useState<{ referalLink?: string | null; discountPercent?: number | null } | null>(
+    null,
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  const loadReferral = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiRequest<{ item?: any }>("/physio-referral", { token, suppressLog: true });
+      setReferral(data.item ?? null);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to load referral.");
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadReferral();
+  }, [loadReferral]);
+
+  const resolvedDiscount = referral?.discountPercent
+    ? `${referral.discountPercent}%`
+    : discount;
+  const referralLink = referral?.referalLink ?? null;
+  const statusCopy = referralLink
+    ? "Your referral is ready. Tap to book your physio session."
+    : "A referral link will appear here once your coach activates it.";
+
   return (
     <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
       <Text className="text-lg font-clash text-app mb-2">Physio Referral</Text>
@@ -16,11 +51,26 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
       </Text>
       <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
         <Text className="text-xs font-outfit text-secondary">
-          {discount ? `Discount: ${discount}` : "Standard referral (no discount)."}
+          {resolvedDiscount ? `Discount: ${resolvedDiscount}` : "Standard referral (no discount)."}
         </Text>
       </View>
-      <TouchableOpacity className="mt-4 rounded-full bg-accent px-4 py-3">
-        <Text className="text-white text-sm font-outfit">Open Referral Link</Text>
+      <Text className="text-xs font-outfit text-secondary mt-3">{statusCopy}</Text>
+      {loading ? (
+        <Text className="text-xs font-outfit text-secondary mt-3">Loading referral...</Text>
+      ) : error ? (
+        <Text className="text-xs font-outfit text-red-400 mt-3">{error}</Text>
+      ) : null}
+      <TouchableOpacity
+        onPress={() => {
+          if (!referralLink) return;
+          Linking.openURL(referralLink).catch(() => null);
+        }}
+        disabled={!referralLink}
+        className={`mt-4 rounded-full px-4 py-3 ${referralLink ? "bg-accent" : "bg-secondary/20"}`}
+      >
+        <Text className={`text-sm font-outfit text-center ${referralLink ? "text-white" : "text-secondary"}`}>
+          {referralLink ? "Open Referral Link" : "Referral link not set"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -55,13 +105,57 @@ export function BookingsPanel({ onOpen }: { onOpen: () => void }) {
 }
 
 export function FoodDiaryPanel() {
+  const { token } = useAppSelector((state) => state.user);
   const [entry, setEntry] = useState("");
+  const [meals, setMeals] = useState({
+    breakfast: "",
+    lunch: "",
+    dinner: "",
+    snacks: "",
+  });
   const [photo, setPhoto] = useState<string | null>(null);
-  const [entries, setEntries] = useState<{ id: string; text: string; photo?: string }[]>([]);
+  const [entryDate, setEntryDate] = useState<Date>(new Date());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [entries, setEntries] = useState<
+    {
+      id: number;
+      date?: string | null;
+      notes?: string | null;
+      photoUrl?: string | null;
+      meals?: Record<string, string> | null;
+      feedback?: string | null;
+      reviewedAt?: string | null;
+    }[]
+  >([]);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ tone: "error" | "success" | "info"; message: string } | null>(null);
+
+  const loadEntries = useCallback(async () => {
+    if (!token) return;
+    try {
+      setLoadingEntries(true);
+      const data = await apiRequest<{ items: any[] }>("/food-diary", { token, suppressLog: true });
+      setEntries(data.items ?? []);
+    } catch (error: any) {
+      setStatus({ tone: "error", message: error?.message ?? "Failed to load food diary." });
+    } finally {
+      setLoadingEntries(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadEntries();
+  }, [loadEntries]);
 
   const handlePickPhoto = async () => {
+    setStatus(null);
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Images
+        ? [(ImagePicker as any).MediaType.Images]
+        : (ImagePicker as any).MediaTypeOptions?.Images;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes,
       quality: 0.7,
     });
     if (!result.canceled && result.assets?.[0]?.uri) {
@@ -69,57 +163,261 @@ export function FoodDiaryPanel() {
     }
   };
 
-  const handleSave = () => {
-    if (!entry.trim()) return;
-    setEntries((prev) => [
-      { id: `${Date.now()}`, text: entry.trim(), photo: photo ?? undefined },
-      ...prev,
-    ]);
-    setEntry("");
-    setPhoto(null);
+  const uploadPhoto = async (uri: string) => {
+    if (!token) return null;
+    const fileName = uri.split("/").pop() ?? `food-${Date.now()}.jpg`;
+    const contentType = "image/jpeg";
+    const blob = await (await fetch(uri)).blob();
+    const sizeBytes = blob.size;
+    const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
+      method: "POST",
+      token,
+      body: {
+        folder: "food-diary",
+        fileName,
+        contentType,
+        sizeBytes,
+      },
+    });
+    await fetch(presign.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: blob,
+    });
+    return presign.publicUrl;
+  };
+
+  const handleSave = async () => {
+    const hasContent = entry.trim().length > 0 || Object.values(meals).some((value) => value.trim());
+    if (!token) return;
+    if (!hasContent) {
+      setStatus({ tone: "info", message: "Add a note or at least one meal before saving." });
+      return;
+    }
+    setSaving(true);
+    setStatus(null);
+    try {
+      const photoUrl = photo ? await uploadPhoto(photo) : null;
+      const today = entryDate.toISOString().slice(0, 10);
+      const payload: Record<string, unknown> = {
+        date: today,
+        notes: entry.trim(),
+        meals: Object.fromEntries(
+          Object.entries(meals).filter(([, value]) => value.trim())
+        ),
+      };
+      if (photoUrl) {
+        payload.photoUrl = photoUrl;
+      }
+      await apiRequest("/food-diary", {
+        method: "POST",
+        token,
+        body: payload,
+      });
+      setEntry("");
+      setMeals({ breakfast: "", lunch: "", dinner: "", snacks: "" });
+      setPhoto(null);
+      await loadEntries();
+      setStatus({ tone: "success", message: "Entry saved." });
+    } catch (error: any) {
+      setStatus({ tone: "error", message: error?.message ?? "Failed to save entry." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "Today";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "Today";
+    return d.toLocaleDateString();
+  };
+
+  const formatMeals = (mealData?: Record<string, string> | null) => {
+    if (!mealData) return [];
+    return Object.entries(mealData)
+      .filter(([, value]) => value && value.trim())
+      .map(([key, value]) => ({
+        label: key.replace(/^\w/, (c) => c.toUpperCase()),
+        value,
+      }));
   };
 
   return (
     <View className="gap-4">
       <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-        <Text className="text-lg font-clash text-app mb-2">Food Diary</Text>
-        <Text className="text-sm font-outfit text-secondary">
+        <Text className="text-xl font-clash text-app mb-2">Food Diary</Text>
+        <Text className="text-xl font-outfit text-secondary">
           Log meals and snacks to support training and recovery.
         </Text>
+        <TouchableOpacity
+          onPress={() => setDatePickerOpen(true)}
+          className="mt-4 flex-row items-center justify-between rounded-2xl border border-app/10 bg-white/5 px-4 py-3"
+        >
+          <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+            Entry Date
+          </Text>
+          <Text className="text-xl font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
+        </TouchableOpacity>
+        {datePickerOpen ? (
+          <DateTimePicker
+            value={entryDate}
+            mode="date"
+            display="default"
+            onChange={(_, selected) => {
+              setDatePickerOpen(false);
+              if (selected) {
+                setEntryDate(selected);
+              }
+            }}
+          />
+        ) : null}
+        <View className="mt-4 flex-row items-center justify-between">
+          <Text className="text-xl font-outfit text-secondary">Notes (optional)</Text>
+          <Text className="text-xl font-outfit text-secondary">{entry.trim().length}/500</Text>
+        </View>
         <TextInput
           value={entry}
           onChangeText={setEntry}
           placeholder="Breakfast, lunch, snacks..."
           placeholderTextColor="#9CA3AF"
           multiline
-          className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-sm font-outfit text-app"
+          maxLength={500}
+          className="mt-2 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-xl font-outfit text-app"
           style={{ minHeight: 90 }}
         />
+        <View className="mt-4 gap-3">
+          {(["breakfast", "lunch", "dinner", "snacks"] as const).map((meal) => (
+            <View key={meal} className="rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+                  {meal}
+                </Text>
+                <Text className="text-xl font-outfit text-secondary">Optional</Text>
+              </View>
+              <TextInput
+                value={meals[meal]}
+                onChangeText={(value) => setMeals((prev) => ({ ...prev, [meal]: value }))}
+                placeholder={`Add ${meal}`}
+                placeholderTextColor="#9CA3AF"
+                className="mt-2 text-xl font-outfit text-app"
+              />
+            </View>
+          ))}
+        </View>
         {photo ? (
           <Image source={{ uri: photo }} className="mt-4 h-28 w-full rounded-2xl" resizeMode="cover" />
         ) : null}
         <View className="mt-4 flex-row gap-3">
           <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
-            <Text className="text-app text-xs font-outfit text-center">Add Photo</Text>
+            <Text className="text-app text-xl font-outfit text-center">
+              {photo ? "Change Photo" : "Add Photo"}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleSave} className="flex-1 rounded-full bg-accent px-4 py-3">
-            <Text className="text-white text-xs font-outfit text-center">Save Entry</Text>
+          {photo ? (
+            <TouchableOpacity
+              onPress={() => setPhoto(null)}
+              className="rounded-full border border-app/30 px-4 py-3"
+            >
+              <Text className="text-app text-xl font-outfit text-center">Remove</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))}
+            className={`flex-1 rounded-full px-4 py-3 ${
+              saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
+                ? "bg-secondary/20"
+                : "bg-accent"
+            }`}
+          >
+            <Text
+              className={`text-xl font-outfit text-center ${
+                saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
+                  ? "text-secondary"
+                  : "text-white"
+              }`}
+            >
+              {saving ? "Saving..." : "Save Entry"}
+            </Text>
           </TouchableOpacity>
         </View>
+        {status ? (
+          <View
+            className={`mt-3 rounded-2xl border px-4 py-3 ${
+              status.tone === "error"
+                ? "border-red-400/40 bg-red-500/10"
+                : status.tone === "success"
+                  ? "border-emerald-400/40 bg-emerald-500/10"
+                  : "border-app/20 bg-white/5"
+            }`}
+          >
+            <Text
+              className={`text-xl font-outfit ${
+                status.tone === "error"
+                  ? "text-red-200"
+                  : status.tone === "success"
+                    ? "text-emerald-200"
+                    : "text-secondary"
+              }`}
+            >
+              {status.message}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
-      {entries.length ? (
+      <View className="flex-row items-center justify-between">
+        <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
+        <TouchableOpacity onPress={loadEntries}>
+          <Text className="text-xl font-outfit text-accent">Refresh</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loadingEntries ? (
+        <Text className="text-xl font-outfit text-secondary">Loading entries...</Text>
+      ) : entries.length ? (
         <View className="gap-3">
           {entries.map((item) => (
             <View key={item.id} className="rounded-3xl border border-app/10 bg-input px-5 py-4">
-              <Text className="text-sm font-outfit text-app">{item.text}</Text>
-              {item.photo ? (
-                <Image source={{ uri: item.photo }} className="mt-3 h-24 w-full rounded-2xl" resizeMode="cover" />
+              <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.4px]">
+                {formatDate(item.date)}
+              </Text>
+              {formatMeals(item.meals).length ? (
+                <View className="mt-2 gap-2">
+                  {formatMeals(item.meals).map((meal) => (
+                    <View key={meal.label}>
+                      <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+                        {meal.label}
+                      </Text>
+                      <Text className="text-xl font-outfit text-app mt-1">{meal.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {item.notes ? <Text className="text-xl font-outfit text-app mt-2">{item.notes}</Text> : null}
+              {item.feedback ? (
+                <View className="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
+                  <Text className="text-xs font-outfit text-emerald-300 uppercase tracking-[1.2px]">
+                    Coach Response
+                  </Text>
+                  <Text className="text-xl font-outfit text-app mt-1">{item.feedback}</Text>
+                  {item.reviewedAt ? (
+                    <Text className="text-xs font-outfit text-secondary mt-2">
+                      {new Date(item.reviewedAt).toLocaleString()}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+              {item.photoUrl ? (
+                <Image source={{ uri: item.photoUrl }} className="mt-3 h-24 w-full rounded-2xl" resizeMode="cover" />
               ) : null}
             </View>
           ))}
         </View>
-      ) : null}
+      ) : (
+        <Text className="text-xl font-outfit text-secondary">No entries yet.</Text>
+      )}
     </View>
   );
 }
@@ -130,7 +428,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [videoItems, setVideoItems] = useState<
-    Array<{ id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }>
+    { id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }[]
   >([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<{
@@ -140,11 +438,11 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     sizeBytes: number;
   } | null>(null);
 
-  const loadVideos = async () => {
+  const loadVideos = useCallback(async () => {
     if (!token) return;
     try {
       setLoadingVideos(true);
-      const data = await apiRequest<{ items: Array<{ id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }> }>(
+      const data = await apiRequest<{ items: { id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }[] }>(
         "/videos",
         { token, suppressLog: true }
       );
@@ -154,11 +452,11 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     } finally {
       setLoadingVideos(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     void loadVideos();
-  }, [token, refreshToken]);
+  }, [loadVideos, refreshToken]);
 
   const awaitingVideos = videoItems.filter((item) => !item.feedback);
   const reviewedVideos = videoItems.filter((item) => Boolean(item.feedback));
@@ -172,8 +470,12 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
   const handlePickVideo = async () => {
     if (!token) return;
     setStatus(null);
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Videos
+        ? [(ImagePicker as any).MediaType.Videos]
+        : (ImagePicker as any).MediaTypeOptions?.Videos;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes,
     });
     if (result.canceled || !result.assets?.[0]?.uri) return;
 

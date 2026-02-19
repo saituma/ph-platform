@@ -1,7 +1,7 @@
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 interface CheckboxProps {
   checked: boolean;
@@ -11,8 +11,6 @@ interface CheckboxProps {
 }
 
 export function Checkbox({ checked, onChange, label, error }: CheckboxProps) {
-  const { isDark } = useAppTheme();
-
   return (
     <View>
       <View className="flex-row items-start gap-3">

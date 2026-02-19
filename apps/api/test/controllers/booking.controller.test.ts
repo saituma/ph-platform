@@ -31,7 +31,7 @@ describe("booking controller", () => {
     (listServiceTypes as jest.Mock).mockResolvedValue([{ id: 1 }]);
     const res = createRes();
 
-    await listServices({} as any, res);
+    await listServices({ query: {}, user: { role: "guardian" } } as any, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ items: [{ id: 1 }] });

@@ -9,9 +9,10 @@ const issuer = env.cognitoUserPoolId
 const jwks = issuer ? createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`)) : null;
 
 export async function verifyAccessToken(token: string) {
+  const clockTolerance = env.allowExpiredTokens ? 60 * 60 * 24 * 365 * 100 : undefined;
   if (env.authMode === "local") {
     const secret = new TextEncoder().encode(env.localJwtSecret);
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret, clockTolerance ? { clockTolerance } : undefined);
     return payload;
   }
   if (!issuer || !jwks) {
@@ -20,7 +21,11 @@ export async function verifyAccessToken(token: string) {
 
   let payload: Record<string, unknown>;
   try {
-    ({ payload } = await jwtVerify(token, jwks, { issuer }));
+    ({ payload } = await jwtVerify(
+      token,
+      jwks,
+      clockTolerance ? { issuer, clockTolerance } : { issuer }
+    ));
   } catch (error: any) {
     if (env.allowJwtBypass && (error?.code === "ERR_JWKS_TIMEOUT" || env.nodeEnv === "development")) {
       return decodeJwt(token) as Record<string, unknown>;
@@ -44,17 +49,29 @@ export async function verifyAccessToken(token: string) {
   return payload;
 }
 
-export async function createLocalToken(input: { sub: string; email: string; name: string; role: string; userId: number }) {
+export async function createLocalToken(input: {
+  sub: string;
+  email: string;
+  name: string;
+  role: string;
+  userId: number;
+  tokenVersion: number;
+}) {
   const secret = new TextEncoder().encode(env.localJwtSecret);
-  return await new SignJWT({
+  const signer = new SignJWT({
     sub: input.sub,
     email: input.email,
     name: input.name,
     role: input.role,
     user_id: input.userId,
+    token_version: input.tokenVersion,
   })
     .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("1h")
-    .sign(secret);
+    .setIssuedAt();
+
+  if (!env.allowExpiredTokens) {
+    signer.setExpirationTime("1h");
+  }
+
+  return await signer.sign(secret);
 }

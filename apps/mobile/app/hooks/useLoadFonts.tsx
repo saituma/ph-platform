@@ -2,8 +2,6 @@ import { useFonts } from "expo-font";
 import { Platform } from "react-native";
 
 export default function useLoadFonts(): boolean {
-  if (Platform.OS === "web") return true;
-
   const [loaded] = useFonts({
     // Britney
     "Britney-Light": require("../../assets/fonts/Britney-Light.ttf"),
@@ -155,6 +153,8 @@ export default function useLoadFonts(): boolean {
     "Telma-Bold": require("../../assets/fonts/Telma-Bold.ttf"),
     "Telma-Black": require("../../assets/fonts/Telma-Black.ttf"),
   });
+
+  if (Platform.OS === "web") return true;
 
   return loaded;
 }

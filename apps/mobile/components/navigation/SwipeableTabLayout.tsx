@@ -6,13 +6,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { StyleSheet, View } from "react-native";
-import PagerView, {
+import { Platform, StyleSheet, View } from "react-native";
+import type {
   PagerViewOnPageScrollEvent,
   PagerViewOnPageSelectedEvent,
   PageScrollStateChangedNativeEvent,
 } from "react-native-pager-view";
-import { useSharedValue } from "react-native-reanimated";
+import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
 
 interface SwipeableTabLayoutProps {
@@ -29,9 +29,13 @@ export function SwipeableTabLayout({
   onIndexChange,
 }: SwipeableTabLayoutProps) {
   const { colors } = useAppTheme();
-  const pagerRef = useRef<PagerView>(null);
+  const pagerRef = useRef<{
+    setPage: (index: number) => void;
+    setPageWithoutAnimation: (index: number) => void;
+  }>(null);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
+  const [PagerView, setPagerView] = useState<any>(null);
 
   const scrollOffset = useSharedValue(initialIndex);
 
@@ -44,6 +48,23 @@ export function SwipeableTabLayout({
   const isUserSwipingRef = useRef(false);
 
   const staticInitialPage = useRef(initialIndex);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let mounted = true;
+    import("react-native-pager-view")
+      .then((mod) => {
+        if (!mounted) return;
+        setPagerView(() => (mod as any).default ?? mod);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setPagerView(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (initialIndex === lastInitialIndex.current) {
@@ -61,6 +82,14 @@ export function SwipeableTabLayout({
 
     pagerRef.current?.setPageWithoutAnimation(initialIndex);
   }, [initialIndex, activeIndex]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    scrollOffset.value = withTiming(activeIndex, {
+      duration: 90,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [activeIndex, scrollOffset]);
 
   const handlePageScrollStateChanged = useCallback(
     (e: PageScrollStateChangedNativeEvent) => {
@@ -119,10 +148,25 @@ export function SwipeableTabLayout({
 
     isSyncingRef.current = true;
     lastChangeSourceRef.current = "press";
+    if (Platform.OS !== "web") {
+      scrollOffset.value = withTiming(index, {
+        duration: 110,
+        easing: Easing.out(Easing.quad),
+      });
+    }
     pagerRef.current?.setPage(index);
     setActiveIndex(index);
     lastSelectedIndex.current = index;
+
+    if (Platform.OS === "web") {
+      if (lastNotifiedIndex.current !== index) {
+        lastNotifiedIndex.current = index;
+        onIndexChange?.(index, "press");
+      }
+      lastChangeSourceRef.current = "sync";
+    }
   };
+
 
   const childrenArray = React.Children.toArray(children);
 
@@ -136,6 +180,22 @@ export function SwipeableTabLayout({
       );
     });
   }, [childrenArray, tabs]);
+
+  if (Platform.OS === "web" || !PagerView) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.pager, { backgroundColor: colors.background }]}>
+          {pagerChildren[activeIndex]}
+        </View>
+        <TabBar
+          tabs={tabs}
+          activeIndex={activeIndex}
+          onTabPress={handleTabPress}
+          scrollOffset={scrollOffset}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

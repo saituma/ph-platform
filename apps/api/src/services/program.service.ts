@@ -9,18 +9,37 @@ import {
   sessionExerciseTable,
   sessionTable,
 } from "../db/schema";
+import { calculateAge, normalizeDate } from "../lib/age";
+
+function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
+  if (!row) return null;
+  const birthDate = normalizeDate(row.birthDate as any);
+  if (birthDate) {
+    return calculateAge(birthDate);
+  }
+  return row.age ?? null;
+}
+
+function matchesAgeRange(item: { minAge?: number | null; maxAge?: number | null }, age: number | null) {
+  if (age === null) return true;
+  if (item.minAge !== null && item.minAge !== undefined && age < item.minAge) return false;
+  if (item.maxAge !== null && item.maxAge !== undefined && age > item.maxAge) return false;
+  return true;
+}
 
 export async function getProgramCards(userId: number) {
   const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
   const athleteId = athlete[0]?.id;
+  const age = resolveAgeFromAthlete(athlete[0]);
 
   const enrollments = athleteId
     ? await db.select().from(enrollmentTable).where(eq(enrollmentTable.athleteId, athleteId))
     : [];
   const programs = await db.select().from(programTable).orderBy(desc(programTable.updatedAt));
+  const eligiblePrograms = programs.filter((program) => matchesAgeRange(program, age));
 
   const programByType = new Map<string, number>();
-  for (const program of programs) {
+  for (const program of eligiblePrograms) {
     if (program.type && !programByType.has(program.type)) {
       programByType.set(program.type, program.id);
     }
@@ -39,6 +58,15 @@ export async function getProgramCards(userId: number) {
 export async function getProgramById(programId: number) {
   const programs = await db.select().from(programTable).where(eq(programTable.id, programId)).limit(1);
   return programs[0] ?? null;
+}
+
+export async function getProgramByIdForUser(userId: number, programId: number) {
+  const program = await getProgramById(programId);
+  if (!program) return null;
+  const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
+  const age = resolveAgeFromAthlete(athlete[0]);
+  if (!matchesAgeRange(program, age)) return null;
+  return program;
 }
 
 export async function getProgramSessions(programId: number) {

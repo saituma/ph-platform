@@ -11,7 +11,7 @@ type UseMessagesRealtimeParams = {
   profileId: number;
   draft: string;
   currentThread: MessageThread | null;
-  groupMembers: Record<number, Record<number, string>>;
+  groupMembers: Record<number, Record<number, { name: string; avatar?: string | null }>>;
   loadMessages: () => void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   setThreads: React.Dispatch<React.SetStateAction<MessageThread[]>>;
@@ -137,7 +137,8 @@ export function useMessagesRealtime({
           ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
         status: "sent",
-        authorName: groupMembers[groupId]?.[payload.senderId],
+        authorName: groupMembers[groupId]?.[payload.senderId]?.name,
+        authorAvatar: groupMembers[groupId]?.[payload.senderId]?.avatar ?? null,
         clientId: payload.clientId,
         reactions: payload.reactions ?? [],
       };

@@ -9,24 +9,28 @@ import { useAppSelector } from "@/store/hooks";
 import HomeScreen from "./index";
 import MessagesScreen from "./messages";
 import MoreScreen from "./more";
-import ParentPlatformScreen from "./parent-platform";
 import ProgramsScreen from "./programs";
 import ScheduleScreen from "./schedule";
 
+let lastTabKey = "index";
+
 const TAB_ROUTES: TabConfig[] = [
-  { key: "index", label: "Home", icon: "home" },
-  { key: "programs", label: "Programs", icon: "activity" },
-  { key: "messages", label: "Messages", icon: "message-square" },
-  { key: "parent-platform", label: "Parent", icon: "book" },
-  { key: "schedule", label: "Schedule", icon: "calendar" },
-  { key: "more", label: "More", icon: "menu" },
+  { key: "programs", label: "Programs", icon: "pulse", iconOutline: "pulse-outline" },
+  {
+    key: "messages",
+    label: "Messages",
+    icon: "chatbox-ellipses",
+    iconOutline: "chatbox-ellipses-outline",
+  },
+  { key: "index", label: "Home", icon: "home", iconOutline: "home-outline" },
+  { key: "schedule", label: "Schedule", icon: "calendar", iconOutline: "calendar-outline" },
+  { key: "more", label: "More", icon: "menu", iconOutline: "menu-outline" },
 ];
 
 const TAB_COMPONENTS: Record<string, React.ComponentType> = {
   index: React.memo(HomeScreen),
   programs: React.memo(ProgramsScreen),
   messages: React.memo(MessagesScreen),
-  "parent-platform": React.memo(ParentPlatformScreen),
   schedule: React.memo(ScheduleScreen),
   more: React.memo(MoreScreen),
 };
@@ -82,25 +86,34 @@ export default function TabLayout() {
       }
     };
 
-    syncUnread();
+    const task = InteractionManager.runAfterInteractions(() => {
+      syncUnread();
+    });
     const timer = setInterval(syncUnread, 30000);
     return () => {
       active = false;
       clearInterval(timer);
+      task?.cancel?.();
     };
   }, [athleteUserId, isAuthenticated, profile.id, role, token, pathname]);
 
   const visibleTabs = useMemo(() => {
-    const tabsWithBadges = TAB_ROUTES.map((tab) =>
-      tab.key === "messages" ? { ...tab, badgeCount: messagesUnread } : tab
-    );
-    if (role === "Athlete") {
-      return tabsWithBadges.filter((tab) => tab.key !== "parent-platform");
-    }
-    return tabsWithBadges;
+    return TAB_ROUTES.map((tab) => {
+      if (tab.key === "messages") {
+        return { ...tab, badgeCount: messagesUnread };
+      }
+      if (tab.key === "parent-platform" && role === "Athlete") {
+        return { ...tab, label: "Athlete" };
+      }
+      return tab;
+    });
   }, [messagesUnread, role]);
 
   const initialIndex = useMemo(() => {
+    if (!pathname.startsWith("/(tabs)")) {
+      const storedIndex = visibleTabs.findIndex((tab) => tab.key === lastTabKey);
+      return storedIndex >= 0 ? storedIndex : 0;
+    }
     // Normalize path by removing leading slash and (tabs) group
     const normalizedPath = pathname
       .replace(/^\//, "")
@@ -108,13 +121,17 @@ export default function TabLayout() {
     const routeName = normalizedPath.split("/")[0] || "index";
 
     const index = visibleTabs.findIndex((tab) => tab.key === routeName);
-    return index >= 0 ? index : 0;
+    const resolvedIndex = index >= 0 ? index : 0;
+    lastTabKey = visibleTabs[resolvedIndex]?.key ?? "index";
+    return resolvedIndex;
   }, [pathname, visibleTabs]);
 
   const handleIndexChange = useCallback(
     (index: number, source: "swipe" | "press" | "sync") => {
       const tab = visibleTabs[index];
       if (!tab) return;
+
+      lastTabKey = tab.key;
 
       if (source === "swipe") {
         return;

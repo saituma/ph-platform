@@ -1,21 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
-import { EmptyState } from "../../components/admin/empty-state";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { ContentDialogs, type ContentDialog } from "../../components/admin/content/content-dialogs";
 import { ContentTabs } from "../../components/admin/content/content-tabs";
-import { useCreateContentMutation } from "../../lib/apiSlice";
+import {
+  useApproveTestimonialSubmissionMutation,
+  useRejectTestimonialSubmissionMutation,
+  useCreateContentMutation,
+  useGetHomeContentQuery,
+  useGetLegalContentQuery,
+  useGetTestimonialSubmissionsQuery,
+  useUpdateContentMutation,
+} from "../../lib/apiSlice";
 
 export default function ContentPage() {
-  const hasContent = false;
   const [createContent, { isLoading }] = useCreateContentMutation();
+  const [updateContent] = useUpdateContentMutation();
+  const [approveSubmission] = useApproveTestimonialSubmissionMutation();
+  const [rejectSubmission] = useRejectTestimonialSubmissionMutation();
+  const { data: homeData, refetch: refetchHome } = useGetHomeContentQuery();
+  const { data: legalData } = useGetLegalContentQuery();
+  const { data: testimonialSubmissionsData, refetch: refetchSubmissions } =
+    useGetTestimonialSubmissionsQuery(undefined, { refetchOnMountOrArgChange: true });
   const [activeDialog, setActiveDialog] = useState<ContentDialog>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const homeItem = (homeData?.items ?? [])[0] ?? null;
+  let homeBody: any = {};
+  if (homeItem?.body && typeof homeItem.body === "string") {
+    try {
+      homeBody = JSON.parse(homeItem.body);
+    } catch {
+      homeBody = {};
+    }
+  }
+  const [homeDraft, setHomeDraft] = useState<any>({});
+  useEffect(() => {
+    setHomeDraft(homeBody ?? {});
+  }, [homeItem?.id, homeItem?.body]);
+  const baseHomeTitle =
+    homeItem?.title?.trim() ||
+    homeItem?.content?.trim() ||
+    homeBody.headline?.trim?.() ||
+    "Home";
+
+  const legalItems = legalData?.items ?? [];
+  const findLegal = (key: "terms" | "privacy") =>
+    legalItems.find((item: any) => String(item.category ?? "").toLowerCase() === key) ||
+    legalItems.find((item: any) => String(item.title ?? "").toLowerCase().includes(key));
+  const termsItem = findLegal("terms");
+  const privacyItem = findLegal("privacy");
   return (
     <AdminShell title="Content" subtitle="Manage every page in the mobile app.">
       <Card>
@@ -35,57 +74,176 @@ export default function ContentPage() {
               </div>
               <Skeleton className="h-10 w-32" />
             </div>
-          ) : hasContent ? (
+          ) : (
             <ContentTabs
-              onSaveHome={async (data) => {
+              initialHome={{
+                introVideoUrl: homeDraft.introVideoUrl ?? "",
+                testimonials: homeDraft.testimonials ?? [],
+                adminStory: homeDraft.adminStory ?? "",
+                professionalPhoto:
+                  homeDraft.professionalPhoto ??
+                  (Array.isArray(homeDraft.professionalPhotos)
+                    ? homeDraft.professionalPhotos[0] ?? ""
+                    : typeof homeDraft.professionalPhotos === "string"
+                      ? homeDraft.professionalPhotos
+                          .split(/\r?\n|,/)
+                          .map((item: string) => item.trim())
+                          .filter(Boolean)[0] ?? ""
+                      : ""),
+              }}
+              initialLegal={{
+                termsText: termsItem?.body ?? "",
+                termsVersion: termsItem?.content ?? "1.0",
+                privacyText: privacyItem?.body ?? "",
+                privacyVersion: privacyItem?.content ?? "1.0",
+              }}
+              onSaveProfile={async (data) => {
                 setError(null);
+                const nextDraft = {
+                  ...homeDraft,
+                  adminStory: data.adminStory,
+                  professionalPhoto: data.professionalPhoto,
+                };
                 const payload = {
                   title: "Home",
-                  content: data.headline,
+                  content: baseHomeTitle,
                   type: "article",
                   body: JSON.stringify({
-                    description: data.description,
-                    welcome: data.welcome,
-                    introVideoUrl: data.introVideoUrl,
-                    testimonials: data.testimonials,
-                    heroImageUrl: data.heroImageUrl,
+                    ...nextDraft,
                   }),
                   surface: "home",
-                  programTier: data.tier === "all" ? undefined : data.tier,
+                  programTier: homeItem?.programTier ?? undefined,
                 };
                 try {
-                  await createContent(payload).unwrap();
+                  if (homeItem?.id) {
+                    await updateContent({ id: homeItem.id, data: payload }).unwrap();
+                  } else {
+                    await createContent(payload).unwrap();
+                  }
+                  setHomeDraft(nextDraft);
+                  refetchHome();
                   setActiveDialog("home");
                 } catch (err) {
-                  setError("Failed to save home content");
+                  setError("Failed to save profile content");
                 }
               }}
-              onPublishParent={async (data) => {
+              onSaveTestimonials={async (data) => {
+                setError(null);
+                const nextDraft = { ...homeDraft, testimonials: data.testimonials };
+                const payload = {
+                  title: "Home",
+                  content: baseHomeTitle,
+                  type: "article",
+                  body: JSON.stringify({
+                    ...nextDraft,
+                  }),
+                  surface: "home",
+                  programTier: homeItem?.programTier ?? undefined,
+                };
+                try {
+                  if (homeItem?.id) {
+                    await updateContent({ id: homeItem.id, data: payload }).unwrap();
+                  } else {
+                    await createContent(payload).unwrap();
+                  }
+                  setHomeDraft(nextDraft);
+                  refetchHome();
+                  setActiveDialog("home");
+                } catch (err) {
+                  setError("Failed to save testimonials");
+                }
+              }}
+              onSaveIntroVideo={async (data) => {
+                setError(null);
+                const nextDraft = { ...homeDraft, introVideoUrl: data.introVideoUrl };
+                const payload = {
+                  title: "Home",
+                  content: baseHomeTitle,
+                  type: "article",
+                  body: JSON.stringify({
+                    ...nextDraft,
+                  }),
+                  surface: "home",
+                  programTier: homeItem?.programTier ?? undefined,
+                };
+                try {
+                  if (homeItem?.id) {
+                    await updateContent({ id: homeItem.id, data: payload }).unwrap();
+                  } else {
+                    await createContent(payload).unwrap();
+                  }
+                  setHomeDraft(nextDraft);
+                  refetchHome();
+                  setActiveDialog("home");
+                } catch (err) {
+                  setError("Failed to save intro video");
+                }
+              }}
+              onSaveLegal={async (data) => {
+                setError(null);
+                const upsert = async (key: "terms" | "privacy", text: string, version: string) => {
+                  const existing =
+                    key === "terms" ? termsItem : privacyItem;
+                  const payload = {
+                    title: key === "terms" ? "Terms & Conditions" : "Privacy Policy",
+                    content: version,
+                    type: "article",
+                    body: text,
+                    surface: "legal",
+                    category: key,
+                  };
+                  if (existing?.id) {
+                    await updateContent({ id: existing.id, data: payload }).unwrap();
+                  } else {
+                    await createContent(payload).unwrap();
+                  }
+                };
+                try {
+                  await Promise.all([
+                    upsert("terms", data.termsText, data.termsVersion || "1.0"),
+                    upsert("privacy", data.privacyText, data.privacyVersion || "1.0"),
+                  ]);
+                  setActiveDialog("legal");
+                } catch (err) {
+                  setError("Failed to save legal content");
+                }
+              }}
+              onPublishAnnouncement={async (data) => {
                 setError(null);
                 const payload = {
                   title: data.title,
                   content: data.body.slice(0, 140),
                   type: "article",
                   body: data.body,
-                  surface: "parent_platform",
-                  category: data.category,
-                  programTier: data.tier === "all" ? undefined : data.tier,
+                  surface: "announcements",
                 };
                 try {
                   await createContent(payload).unwrap();
-                  setActiveDialog("parent");
+                  setActiveDialog("home");
                 } catch (err) {
-                  setError("Failed to publish parent article");
+                  setError("Failed to publish announcement");
                 }
               }}
-              onSavePrograms={() => setActiveDialog("programs")}
-              onSaveLegal={() => setActiveDialog("legal")}
-            />
-          ) : (
-            <EmptyState
-              title="No content yet"
-              description="Start by adding your first page content."
-              actionLabel="Add Content"
+              testimonialSubmissions={testimonialSubmissionsData?.items ?? []}
+              onApproveTestimonial={async (submissionId) => {
+                setError(null);
+                try {
+                  await approveSubmission({ submissionId }).unwrap();
+                  setActiveDialog("home");
+                  refetchSubmissions();
+                } catch (err) {
+                  setError("Failed to approve testimonial");
+                }
+              }}
+              onRejectTestimonial={async (submissionId) => {
+                setError(null);
+                try {
+                  await rejectSubmission({ submissionId }).unwrap();
+                  refetchSubmissions();
+                } catch (err) {
+                  setError("Failed to reject testimonial");
+                }
+              }}
             />
           )}
         </CardContent>

@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View, useColorScheme } from "react-native";
+import { Text } from "@/components/ScaledText";
 
 export type ProgramTier = {
   id: string;
@@ -41,55 +42,72 @@ export function ProgramCard({
   const secondaryText = secondaryLabel ?? "View Details";
   const handlePrimary = onPrimaryPress ?? onPress;
   const handleSecondary = onSecondaryPress ?? onPress;
+  const colorScheme = useColorScheme();
+  const secondaryTextColor = colorScheme === "dark" ? "#F2F6F2" : "#0E1510";
 
   return (
     <View className="mb-6">
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.9}
-        className="bg-input rounded-[32px] overflow-hidden border border-app"
+        className="rounded-[28px] overflow-hidden bg-[#F4F8F4] dark:bg-[#0F1A12]"
       >
         <View
-          className={`${tier.color} p-5 rounded-b-[28px]`}
-          style={{
-            borderBottomWidth: 1,
-            borderBottomColor: "rgba(255,255,255,0.2)",
-          }}
+          className={`${tier.color} p-5 rounded-b-[24px]`}
         >
           <View className="flex-row items-center justify-between">
-            <View className="flex-1 mr-4">
-              <View className="flex-row items-center gap-2 mb-2">
+            <View className="flex-1 mr-4 min-w-0">
+              <View className="flex-row flex-wrap items-center gap-2 mb-2 max-w-full">
                 {tier.highlight && (
-                  <View className="px-3 py-1 rounded-full bg-white/20 border border-white/30">
-                    <Text className="text-white text-[10px] font-bold uppercase tracking-[2px]">
+                  <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/20">
+                    <Text
+                      className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                      style={{ color: "#F2F6F2" }}
+                    >
                       {tier.highlight}
                     </Text>
                   </View>
                 )}
                 {tier.price && (
-                  <View className="px-3 py-1 rounded-full bg-white/10 border border-white/30">
-                    <Text className="text-white text-[10px] font-bold uppercase tracking-[2px]">
+                  <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/15">
+                    <Text
+                      className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                      style={{ color: "#F2F6F2" }}
+                    >
                       {tier.price}
                     </Text>
                   </View>
                 )}
                 {tier.priceBadge && (
-                  <View className="px-3 py-1 rounded-full bg-white/10 border border-white/30">
-                    <Text className="text-white text-[10px] font-bold uppercase tracking-[2px]">
+                  <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/15">
+                    <Text
+                      className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                      style={{ color: "#F2F6F2" }}
+                    >
                       {tier.priceBadge}
                     </Text>
                   </View>
                 )}
               </View>
-              <Text className="text-white text-2xl font-clash font-bold mb-1">
+              <Text
+                className="text-[1.375rem] leading-tight font-clash font-bold mb-1"
+                style={{ color: "#F2F6F2" }}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
                 {tier.name}
               </Text>
-              <Text className="text-white/80 font-outfit text-sm leading-tight">
+              <Text
+                className="font-outfit text-sm leading-snug"
+                style={{ color: "#E6F2E6" }}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
                 {tier.description}
               </Text>
             </View>
-            <View className="h-12 w-12 bg-white/20 rounded-2xl items-center justify-center border border-white/30">
-              <Feather name={tier.icon} size={24} color="white" />
+            <View className="h-12 w-12 bg-[#F2F6F2]/20 rounded-2xl items-center justify-center">
+              <Feather name={tier.icon} size={24} color="#F2F6F2" />
             </View>
           </View>
         </View>
@@ -98,12 +116,12 @@ export function ProgramCard({
           {tier.priceLines && tier.priceLines.length > 0 ? (
             <View className="mb-4">
               {tier.priceLines.map((line, i) => (
-                <Text key={i} className="text-sm font-outfit text-app">
+                <Text key={i} className="text-sm font-outfit text-[#0E1510] dark:text-[#F2F6F2]">
                   {line}
                 </Text>
               ))}
               {tier.discountNote ? (
-                <Text className="text-xs font-outfit text-secondary mt-1">
+                <Text className="text-xs font-outfit text-[#1D2A22] dark:text-[#D8E6D8] mt-1">
                   {tier.discountNote}
                 </Text>
               ) : null}
@@ -112,10 +130,10 @@ export function ProgramCard({
           <View className="gap-3 mb-6">
             {tier.features.map((feature, i) => (
               <View key={i} className="flex-row items-center">
-                <View className="h-5 w-5 bg-success-soft rounded-full items-center justify-center mr-3">
-                  <Feather name="check" size={12} className="text-success" />
+                <View className="h-5 w-5 bg-[#2F8F57]/15 rounded-full items-center justify-center mr-3">
+                  <Feather name="check" size={12} color="#2F8F57" />
                 </View>
-                <Text className="flex-1 text-app font-outfit text-[15px]">
+                <Text className="flex-1 text-[#0E1510] dark:text-[#F2F6F2] font-outfit text-[0.9375rem]">
                   {feature}
                 </Text>
               </View>
@@ -123,7 +141,7 @@ export function ProgramCard({
           </View>
 
           {helperNote ? (
-            <Text className="text-xs font-outfit text-secondary mb-4">
+            <Text className="text-xs font-outfit text-[#1D2A22] dark:text-[#D8E6D8] mb-4">
               {helperNote}
             </Text>
           ) : null}
@@ -132,18 +150,21 @@ export function ProgramCard({
             <TouchableOpacity
               onPress={handleSecondary}
               activeOpacity={0.8}
-              className="flex-1 h-12 rounded-2xl items-center justify-center border border-app"
+              className="flex-1 h-12 rounded-2xl items-center justify-center border border-[#0E1510]/15 dark:border-[#E6F2E6]/25"
             >
-              <Text className="text-app font-bold font-outfit text-sm">
+              <Text className="font-bold font-outfit text-sm" style={{ color: secondaryTextColor }}>
                 {secondaryText}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handlePrimary}
               activeOpacity={0.8}
-              className="flex-1 h-12 rounded-2xl items-center justify-center bg-accent"
+              className="flex-1 h-12 rounded-2xl items-center justify-center bg-[#2F8F57]"
             >
-              <Text className="text-white font-bold font-clash text-base">
+              <Text
+                className="font-bold font-clash text-base"
+                style={{ color: "#F2F6F2" }}
+              >
                 {primaryText}
               </Text>
             </TouchableOpacity>

@@ -7,7 +7,7 @@ import { Input } from "../../ui/input";
 import { Select } from "../../ui/select";
 import { Badge } from "../../ui/badge";
 
-type FieldType = "text" | "number" | "select" | "textarea" | "email";
+type FieldType = "text" | "number" | "select" | "textarea" | "email" | "date";
 
 type Field = {
   id: string;
@@ -22,7 +22,7 @@ type OnboardingBuilderProps = {
 
 const defaults: Field[] = [
   { id: "name", label: "Athlete Name", type: "text", required: true },
-  { id: "age", label: "Age", type: "number", required: true },
+  { id: "birthDate", label: "Birth Date", type: "date", required: true },
   { id: "training", label: "Training Days Per Week", type: "number", required: true },
   { id: "injuries", label: "Injuries", type: "textarea", required: false },
   { id: "goals", label: "Performance Goals", type: "textarea", required: true },
@@ -84,6 +84,7 @@ export function OnboardingBuilder({ onSave }: OnboardingBuilderProps) {
             <option value="email">Email</option>
             <option value="select">Select</option>
             <option value="textarea">Textarea</option>
+            <option value="date">Date</option>
           </Select>
           <Select
             value={newRequired ? "required" : "optional"}
@@ -117,6 +118,7 @@ export function OnboardingBuilder({ onSave }: OnboardingBuilderProps) {
                     <option value="email">Email</option>
                     <option value="select">Select</option>
                     <option value="textarea">Textarea</option>
+                    <option value="date">Date</option>
                   </Select>
                   <Select
                     value={field.required ? "required" : "optional"}

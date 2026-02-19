@@ -5,9 +5,13 @@ import { EmptyState } from "../empty-state";
 import { Skeleton } from "../../ui/skeleton";
 
 type ProgramItem = {
+  id: number;
   name: string;
-  summary: string;
+  summary?: string | null;
   access: string;
+  type: string;
+  minAge?: number | null;
+  maxAge?: number | null;
 };
 
 type ProgramsGridProps = {
@@ -23,6 +27,13 @@ export function ProgramsGrid({
   onManage,
   onAssign,
 }: ProgramsGridProps) {
+  const formatAgeRange = (program: { minAge?: number | null; maxAge?: number | null }) => {
+    if (program.minAge == null && program.maxAge == null) return "All ages";
+    if (program.minAge != null && program.maxAge != null) return `Ages ${program.minAge}-${program.maxAge}`;
+    if (program.minAge != null) return `Ages ${program.minAge}+`;
+    return `Up to ${program.maxAge}`;
+  };
+
   if (isLoading) {
     return (
       <div className="grid gap-6 lg:grid-cols-3">
@@ -58,13 +69,16 @@ export function ProgramsGrid({
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       {programs.map((program) => (
-        <Card key={program.name} className="hover:border-primary/40">
+        <Card key={program.id} className="hover:border-primary/40">
           <CardHeader>
             <CardTitle>{program.name}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{program.summary}</p>
-            <Badge variant="outline">{program.access}</Badge>
+            <p className="text-sm text-muted-foreground">{program.summary || "No description yet."}</p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{program.access}</Badge>
+              <Badge>{formatAgeRange(program)}</Badge>
+            </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => onManage(program)}>
                 Manage

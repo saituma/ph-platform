@@ -1,11 +1,11 @@
-import { Text } from 'react-native';
+import { Text } from "@/components/ScaledText";
 
 export function HelloWave() {
   return (
     <Text
       style={{
-        fontSize: 28,
-        lineHeight: 32,
+        fontSize: 32,
+        lineHeight: 36,
         marginTop: -6,
       }}>
       👋

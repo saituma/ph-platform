@@ -41,9 +41,18 @@ export function ParentCoursesCard() {
   const [coverImage, setCoverImage] = useState("");
   const [category, setCategory] = useState(PARENT_COURSE_CATEGORIES[0]);
   const [tier, setTier] = useState("");
+  const [minAge, setMinAge] = useState("");
+  const [maxAge, setMaxAge] = useState("");
   const [modules, setModules] = useState<ParentCourseModule[]>([]);
   const [newModuleType, setNewModuleType] = useState<ModuleType>(INITIAL_MODULE_TYPE);
   const [error, setError] = useState<string | null>(null);
+
+  const formatAgeRange = (course: { minAge?: number | null; maxAge?: number | null }) => {
+    if (course.minAge == null && course.maxAge == null) return "All ages";
+    if (course.minAge != null && course.maxAge != null) return `Ages ${course.minAge}-${course.maxAge}`;
+    if (course.minAge != null) return `Ages ${course.minAge}+`;
+    return `Up to ${course.maxAge}`;
+  };
 
   const courses = useMemo(() => {
     return (data?.items ?? []).map((course: ParentCourse) => ({
@@ -59,6 +68,8 @@ export function ParentCoursesCard() {
     setCoverImage("");
     setCategory(PARENT_COURSE_CATEGORIES[0]);
     setTier("");
+    setMinAge("");
+    setMaxAge("");
     setModules([]);
     setNewModuleType(INITIAL_MODULE_TYPE);
     setEditingCourse(null);
@@ -78,6 +89,8 @@ export function ParentCoursesCard() {
     setCoverImage(course.coverImage ?? "");
     setCategory(course.category ?? PARENT_COURSE_CATEGORIES[0]);
     setTier(course.programTier ?? "");
+    setMinAge(course.minAge != null ? String(course.minAge) : "");
+    setMaxAge(course.maxAge != null ? String(course.maxAge) : "");
     setModules(normalizeModules(course.modules ?? []));
     setNewModuleType(course.modules?.[0]?.type ?? INITIAL_MODULE_TYPE);
     setError(null);
@@ -99,6 +112,16 @@ export function ParentCoursesCard() {
   const handleSave = async (keepOpen = false) => {
     setError(null);
     if (!validateCourse()) return;
+    const minAgeValue = minAge.trim() ? Number(minAge) : null;
+    const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
+    if ((minAgeValue !== null && Number.isNaN(minAgeValue)) || (maxAgeValue !== null && Number.isNaN(maxAgeValue))) {
+      setError("Age limits must be valid numbers.");
+      return;
+    }
+    if (minAgeValue !== null && maxAgeValue !== null && minAgeValue > maxAgeValue) {
+      setError("Minimum age cannot be greater than maximum age.");
+      return;
+    }
 
     const payload = {
       title: title.trim(),
@@ -107,6 +130,8 @@ export function ParentCoursesCard() {
       coverImage: coverImage.trim() || undefined,
       category,
       programTier: tier || undefined,
+      minAge: minAgeValue ?? undefined,
+      maxAge: maxAgeValue ?? undefined,
       modules: modules.map((module, index) => ({
         ...module,
         title: module.title.trim(),
@@ -173,7 +198,7 @@ export function ParentCoursesCard() {
                   <div>
                     <p className="text-sm font-semibold text-foreground">{course.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {course.category} • {course.programTier ?? "All tiers"}
+                      {course.category} • {course.programTier ?? "All tiers"} • {formatAgeRange(course)}
                     </p>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => openEditCourse(course)}>
@@ -250,6 +275,17 @@ export function ParentCoursesCard() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional course overview"
                 />
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Minimum Age</Label>
+                  <Input type="number" value={minAge} onChange={(e) => setMinAge(e.target.value)} placeholder="e.g. 10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Maximum Age</Label>
+                  <Input type="number" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} placeholder="e.g. 14" />
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">

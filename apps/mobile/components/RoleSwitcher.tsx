@@ -1,16 +1,11 @@
 import { PinModal } from "@/components/PinModal";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRole } from "@/context/RoleContext";
-import { Feather } from "@expo/vector-icons";
+import { Feather } from "@/components/ui/theme-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useState } from "react";
-import {
-  Dimensions,
-  LayoutChangeEvent,
-  Pressable,
-  Text,
-  View,
-} from "react-native";
+import { Dimensions, InteractionManager, LayoutChangeEvent, Pressable, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -32,7 +27,7 @@ export function RoleSwitcher() {
       damping: 15,
       stiffness: 150,
     });
-  }, [role]);
+  }, [role, activeIndex]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);
@@ -54,7 +49,9 @@ export function RoleSwitcher() {
     if (process.env.EXPO_OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    setRole(newRole);
+    InteractionManager.runAfterInteractions(() => {
+      setRole(newRole);
+    });
   };
 
   const handlePinSuccess = (pin: string) => {
@@ -87,8 +84,8 @@ export function RoleSwitcher() {
     <View className="mb-0 overflow-hidden">
       <View className="flex-row items-center justify-between mb-4 px-1">
         <View className="flex-row items-center gap-3">
-          <View className="bg-secondary p-2.5 rounded-full shadow-sm">
-            <Feather name="repeat" size={18} className="text-app" />
+          <View className="bg-accent/10 p-2.5 rounded-full shadow-sm">
+            <Feather name="repeat" size={18} color={colors.accent} />
           </View>
           <View>
             <Text className="text-lg font-bold font-clash text-app leading-tight">
@@ -128,12 +125,14 @@ export function RoleSwitcher() {
           icon="shield"
           isActive={role === "Guardian"}
           onPress={() => handleRoleChange("Guardian")}
+          colors={colors}
         />
         <RoleOption
           label="Athlete"
           icon="activity"
           isActive={role === "Athlete"}
           onPress={() => handleRoleChange("Athlete")}
+          colors={colors}
         />
       </View>
 
@@ -154,11 +153,13 @@ function RoleOption({
   icon,
   isActive,
   onPress,
+  colors,
 }: {
   label: string;
   icon: any;
   isActive: boolean;
   onPress: () => void;
+  colors: any;
 }) {
   return (
     <Pressable
@@ -169,8 +170,8 @@ function RoleOption({
       <Feather
         name={icon}
         size={18}
-        // Active: white. Inactive: text-secondary.
-        className={isActive ? "text-white" : "text-secondary"}
+        // Active: white. Inactive: green (accent).
+        color={isActive ? "#FFFFFF" : colors.accent}
       />
       <Text
         className={`font-semibold font-outfit text-base ${
