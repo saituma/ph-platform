@@ -1,4 +1,5 @@
 import { AdminStorySection } from "@/components/home/AdminStorySection";
+import { IntroVideoSection } from "@/components/home/IntroVideoSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -352,6 +353,12 @@ export default function HomeScreen() {
       {homeContentError ? (
         <View className="mb-8 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
           <Text className="text-sm font-outfit text-red-400">{homeContentError}</Text>
+        </View>
+      ) : null}
+
+      {homeContent?.introVideoUrl ? (
+        <View className="mb-6">
+          <IntroVideoSection introVideoUrl={homeContent.introVideoUrl} />
         </View>
       ) : null}
 

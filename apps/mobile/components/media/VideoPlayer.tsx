@@ -73,12 +73,22 @@ export function YouTubeEmbed({ url }: { url: string }) {
   );
 }
 
-export function VideoPlayer({ uri, title }: { uri: string; title?: string }) {
+export function VideoPlayer({
+  uri,
+  title,
+  autoPlay = false,
+  initialMuted = false,
+}: {
+  uri: string;
+  title?: string;
+  autoPlay?: boolean;
+  initialMuted?: boolean;
+}) {
   const videoRef = useRef<Video>(null);
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(initialMuted);
 
   const loadedStatus = useMemo(() => {
     if (!status || !("isLoaded" in status) || !status.isLoaded) {
@@ -138,6 +148,8 @@ export function VideoPlayer({ uri, title }: { uri: string; title?: string }) {
         ref={videoRef}
         source={{ uri }}
         resizeMode={ResizeMode.COVER}
+        shouldPlay={autoPlay}
+        isMuted={isMuted}
         onLoadStart={() => setIsLoading(true)}
         onReadyForDisplay={() => setIsLoading(false)}
         onError={(err) => {

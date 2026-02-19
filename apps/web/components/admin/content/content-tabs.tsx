@@ -512,6 +512,14 @@ export function ContentTabs({
                 maxSizeMb={200}
                 onUploaded={(url) => setHomeIntroVideo(url)}
               />
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Or paste a link</Label>
+                <Input
+                  placeholder="https://youtube.com/watch?v=..."
+                  value={homeIntroVideo}
+                  onChange={(event) => setHomeIntroVideo(event.target.value)}
+                />
+              </div>
               {homeIntroVideo ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
                   <span className="break-all text-muted-foreground">{homeIntroVideo}</span>
@@ -521,7 +529,7 @@ export function ContentTabs({
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Upload an intro video for the mobile home screen.
+                  Upload an intro video or paste a YouTube/Vimeo link for the mobile home screen.
                 </p>
               )}
             </div>
