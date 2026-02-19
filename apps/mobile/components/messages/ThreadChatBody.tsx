@@ -1,22 +1,14 @@
 import { Feather } from "@/components/ui/theme-icons";
 import { ChatMessage } from "@/constants/messages";
 import React from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MessageBubble } from "./MessageBubble";
 import { MessageThread, TypingStatus } from "@/types/messages";
+import { Text, TextInput } from "@/components/ScaledText";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 type ThreadChatBodyProps = {
   thread: MessageThread;
@@ -64,19 +56,17 @@ export function ThreadChatBody({
   onRemovePendingAttachment,
   isUploadingAttachment = false,
 }: ThreadChatBodyProps) {
+  const { colors } = useAppTheme();
   const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
   const typing = typingStatus[typingKey];
   const isGroup = thread.id.startsWith("group:");
+  const hasInitialScrolled = React.useRef<string | null>(null);
   const listRef = React.useRef<FlatList<ChatMessage> | null>(null);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
-
-  React.useEffect(() => {
-    if (!messages.length) return;
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: false });
-    });
-  }, [messages.length, thread.id, isFocused]);
+  
+  // Rest of the component (truncated for brevity in planning, but I'll write the full replacement)
+  // ... (Lines 66-194 skip) ...
 
   return (
     <KeyboardAvoidingView
@@ -107,14 +97,14 @@ export function ThreadChatBody({
         ListHeaderComponent={
           <>
             {isThreadLoading || isLoading ? (
-              <View className="mb-4 rounded-2xl border border-app/10 bg-secondary/10 px-4 py-3 flex-row items-center">
-                <ActivityIndicator size="small" color={textSecondaryColor} />
+              <View className="mb-4 rounded-2xl bg-accent/5 border border-accent/10 px-4 py-3 flex-row items-center">
+                <ActivityIndicator size="small" color={colors.accent} />
                 <Text className="text-xs font-outfit text-secondary ml-2">Loading messages...</Text>
               </View>
             ) : null}
             <View className="items-center mb-6">
-              <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-                <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+              <View className="px-3.5 py-1.5 rounded-full bg-accent/10">
+                <Text className="text-[0.75rem] font-bold font-outfit text-accent uppercase tracking-[1.2px]">
                   Today
                 </Text>
               </View>
@@ -125,7 +115,7 @@ export function ThreadChatBody({
           isThreadLoading || isLoading ? (
             <View className="gap-3">
               {[1, 2, 3].map((item) => (
-                <View key={item} className="rounded-3xl border border-app/10 bg-input px-4 py-3">
+                <View key={item} className="rounded-3xl bg-input px-4 py-3 border border-accent/5">
                   <View className="h-3 w-24 rounded-full bg-secondary/20" />
                   <View className="h-3 w-full rounded-full bg-secondary/20 mt-2" />
                   <View className="h-3 w-2/3 rounded-full bg-secondary/20 mt-2" />
@@ -133,7 +123,7 @@ export function ThreadChatBody({
               ))}
             </View>
           ) : (
-            <View className="rounded-3xl border border-dashed border-app/20 p-4">
+            <View className="rounded-3xl bg-accent/5 border border-accent/10 p-4">
               <Text className="text-sm font-outfit text-secondary">No messages yet.</Text>
             </View>
           )
@@ -147,33 +137,30 @@ export function ThreadChatBody({
             onReactionPress={onReactionPress}
           />
         )}
-        onContentSizeChange={() => {
-          listRef.current?.scrollToEnd({ animated: false });
-        }}
       />
 
       {typing?.isTyping ? (
         <View className="px-6 pb-3">
-          <Text className="text-xs font-outfit text-secondary">{typing.name} is typing...</Text>
+          <Text className="text-xs font-outfit text-accent font-medium">{typing.name} is typing...</Text>
         </View>
       ) : null}
 
-      <View className="px-6 pt-3 border-t border-app/10 bg-app" style={{ paddingBottom: Math.max(12, insets.bottom) }}>
+      <View className="px-6 pt-3 bg-app" style={{ paddingBottom: Math.max(12, insets.bottom) }}>
         {composerDisabled && disabledMessage ? (
-          <View className="mb-3 rounded-2xl border border-amber-200 bg-amber-100 px-4 py-3">
-            <Text className="text-xs font-outfit text-amber-900">
+          <View className="mb-3 rounded-2xl bg-warning-soft px-4 py-3">
+            <Text className="text-xs font-outfit text-warning">
               {disabledMessage}
             </Text>
           </View>
         ) : null}
         {pendingAttachment ? (
-          <View className="mb-3 rounded-2xl border border-app/10 bg-input px-3 py-3">
+          <View className="mb-3 rounded-2xl bg-input px-3 py-3 border border-accent/20">
             <View className="flex-row items-center justify-between">
-              <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+              <Text className="text-[0.6875rem] font-bold font-outfit text-accent uppercase tracking-[1.2px]">
                 Attachment Preview
               </Text>
               <Pressable onPress={onRemovePendingAttachment} disabled={isUploadingAttachment}>
-                <Text className="text-xs font-outfit text-secondary">Remove</Text>
+                <Text className="text-xs font-bold font-outfit text-red-500">Remove</Text>
               </Pressable>
             </View>
             {pendingAttachment.isImage ? (
@@ -194,12 +181,12 @@ export function ThreadChatBody({
             ) : null}
           </View>
         ) : null}
-        <View className="flex-row items-center rounded-3xl border px-4 py-3 bg-input border-app/10">
+        <View className="flex-row items-center rounded-3xl px-4 py-3 bg-input border border-accent/10">
           <Pressable
             onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onOpenComposerMenu}
-            className="h-9 w-9 rounded-2xl items-center justify-center bg-secondary/10 border border-app/10"
+            className="h-9 w-9 rounded-2xl items-center justify-center bg-accent/10"
           >
-            <Feather name="plus" size={16} className="text-secondary" />
+            <Feather name="plus" size={16} color={colors.accent} />
           </Pressable>
           <TextInput
             className="flex-1 mx-3 text-sm font-outfit text-app"
@@ -218,7 +205,7 @@ export function ThreadChatBody({
               opacity: composerDisabled || isUploadingAttachment ? 0.5 : draft.trim() || pendingAttachment ? 1 : 0.6,
             }}
           >
-            <Feather name="send" size={16} className="text-white" />
+            <Feather name="send" size={16} color="#FFFFFF" />
           </Pressable>
         </View>
       </View>

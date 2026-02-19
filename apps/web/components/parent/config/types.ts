@@ -1,4 +1,4 @@
-export type FieldType = "text" | "number" | "dropdown";
+export type FieldType = "text" | "number" | "dropdown" | "date";
 
 export type FieldConfig = {
   id: string;
@@ -18,7 +18,7 @@ export type DocumentConfig = {
 
 export const initialFields: FieldConfig[] = [
   { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
-  { id: "age", label: "Age", type: "number", required: true, visible: true },
+  { id: "birthDate", label: "Birth Date", type: "date", required: true, visible: true },
   { id: "team", label: "Team", type: "dropdown", required: true, visible: true, options: ["Team A", "Team B"] },
   {
     id: "level",

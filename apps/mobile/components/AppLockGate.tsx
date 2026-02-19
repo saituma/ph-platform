@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Modal, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, TouchableOpacity, View } from "react-native";
 import { PinModal } from "@/components/PinModal";
 import { useAppLock } from "@/context/AppLockContext";
 import { useAppSelector } from "@/store/hooks";
+import { Text, TextInput } from "@/components/ScaledText";
 
 export function AppLockGate() {
   const {

@@ -1,27 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Textarea } from "../../components/ui/textarea";
-import { ExerciseDialogs, type ExerciseDialog } from "../../components/admin/exercise-library/exercise-dialogs";
-import { ExerciseFilters } from "../../components/admin/exercise-library/exercise-filters";
-import { ExerciseTable } from "../../components/admin/exercise-library/exercise-table";
-import { ExerciseCards } from "../../components/admin/exercise-library/exercise-cards";
-import type { Exercise } from "../../components/admin/exercise-library/types";
+import { ParentCourseMediaUpload } from "../../components/parent/config/parent-course-media-upload";
 
-const EXERCISE_API_BASE =
-  process.env.NEXT_PUBLIC_EXERCISE_LIBRARY_URL ?? "/api/backend/admin/exercises";
-const ADMIN_API_BASE = "/api/backend/admin";
-const PROGRAMS_API_BASE = "/api/backend/programs";
+const PROGRAM_SECTION_API_BASE = "/api/backend/program-section-content";
 
-const statusChips = ["Uploaded", "Pending"];
-const PROGRAM_TYPES = ["PHP", "PHP_Plus", "PHP_Premium"] as const;
 const SESSION_TYPES = [
   { value: "program", label: "Session Program" },
   { value: "warmup", label: "Warmups" },
@@ -31,849 +23,622 @@ const SESSION_TYPES = [
   { value: "recovery", label: "Recovery" },
   { value: "offseason", label: "Off Session Program" },
   { value: "inseason", label: "In Session Program" },
-  { value: "education", label: "Education" },
   { value: "nutrition", label: "Nutrition & Food Diaries" },
 ] as const;
-const SESSION_TYPE_LABEL = Object.fromEntries(SESSION_TYPES.map((item) => [item.value, item.label])) as Record<string, string>;
 
-type ProgramCardItem = { type: string; programId?: number | null };
-type ConfiguredAssignment = {
-  assignmentId: number;
-  programType: string;
-  sessionType: string;
-  weekNumber: number;
-  sessionNumber: number;
-  order: number;
-  exerciseName: string;
+const SESSION_TYPE_LABEL = Object.fromEntries(
+  SESSION_TYPES.map((item) => [item.value, item.label])
+) as Record<string, string>;
+
+type ProgramSectionContent = {
+  id: number;
+  sectionType: string;
+  title: string;
+  body: string;
+  videoUrl?: string | null;
+  order?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-function toNumber(value?: string | number) {
-  if (value === undefined || value === null || value === "") return undefined;
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? undefined : parsed;
-}
+type FoodDiaryItem = {
+  id: number;
+  date?: string | null;
+  notes?: string | null;
+  photoUrl?: string | null;
+  meals?: Record<string, string> | null;
+  athleteName?: string | null;
+  guardianName?: string | null;
+  guardianEmail?: string | null;
+  guardianUserId?: number | null;
+  athleteId?: number | null;
+  feedback?: string | null;
+  reviewedAt?: string | null;
+};
 
-function asString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function asStringOrNumber(value: unknown, fallback: string | number = ""): string | number {
-  if (typeof value === "string" || typeof value === "number") {
-    return value;
-  }
-  return fallback;
-}
-
-function normalizeExercise(item: Record<string, unknown>): Exercise {
-  const rawVideo = item.videoUrl ?? item.video ?? item.videoURL ?? "";
-  const rawVideoString = asString(rawVideo, "");
-  const videoField = asString(item.video, "");
-  const videoStatus =
-    item.videoStatus ??
-    ((videoField === "Uploaded" || videoField === "Pending")
-      ? videoField
-      : rawVideoString
-      ? "Uploaded"
-      : "Pending");
-
-  return {
-    id: asStringOrNumber(item.id ?? item._id ?? item.exerciseId ?? item.name, "unknown"),
-    name: asString(item.name ?? item.title, "Untitled Exercise"),
-    category: asString(item.category ?? item.type, ""),
-    sets: asStringOrNumber(item.sets ?? item.setsCount, ""),
-    reps: asStringOrNumber(item.reps ?? item.repsCount, ""),
-    time: asStringOrNumber(item.time ?? item.duration ?? item.durationSeconds, ""),
-    rest: asStringOrNumber(item.rest ?? item.restSeconds, ""),
-    videoUrl: rawVideoString,
-    videoStatus: asString(videoStatus, "Pending"),
-    notes: asString(item.notes ?? item.coachingNotes, ""),
-    cues: asString(item.cues, ""),
-    howTo: asString(item.howTo, ""),
-    progression: asString(item.progression ?? item.progressions, ""),
-    regression: asString(item.regression ?? item.regressions, ""),
-  };
-}
-
-async function fetchExercises(): Promise<Exercise[]> {
-  const res = await fetch(EXERCISE_API_BASE, { credentials: "include" });
+async function fetchProgramSectionContent(sectionType: string) {
+  const res = await fetch(
+    `${PROGRAM_SECTION_API_BASE}?sectionType=${encodeURIComponent(sectionType)}`,
+    { credentials: "include" }
+  );
   if (!res.ok) {
-    throw new Error("Failed to load exercise library.");
+    throw new Error("Failed to load program section content.");
   }
-  const data = (await res.json()) as Record<string, unknown>;
-  const items = Array.isArray(data)
-    ? data
-    : (data.exercises as unknown[]) ??
-      (data.items as unknown[]) ??
-      (data.data as unknown[]) ??
-      (data.results as unknown[]) ??
-      [];
-  return items.map((item) => normalizeExercise(item as Record<string, unknown>));
+  const data = await res.json();
+  return (data.items ?? []) as ProgramSectionContent[];
 }
 
-async function createExercise(payload: Exercise): Promise<Exercise> {
-  const res = await fetch(EXERCISE_API_BASE, {
+async function createProgramSectionContent(payload: {
+  sectionType: string;
+  title: string;
+  body: string;
+  videoUrl?: string | null;
+  order?: number | null;
+}) {
+  const res = await fetch(PROGRAM_SECTION_API_BASE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    throw new Error("Failed to create exercise.");
+    throw new Error("Failed to create section content.");
   }
   const data = await res.json();
-  return normalizeExercise(data.exercise ?? data.item ?? data);
+  return data.item as ProgramSectionContent;
 }
 
-async function updateExercise(id: number | string, payload: Exercise): Promise<Exercise> {
-  const target = `${EXERCISE_API_BASE}/${id}`;
-  const res = await fetch(target, {
-    method: "PATCH",
+async function updateProgramSectionContent(id: number, payload: {
+  sectionType: string;
+  title: string;
+  body: string;
+  videoUrl?: string | null;
+  order?: number | null;
+}) {
+  const res = await fetch(`${PROGRAM_SECTION_API_BASE}/${id}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    throw new Error("Failed to update exercise.");
+    throw new Error("Failed to update section content.");
   }
   const data = await res.json();
-  return normalizeExercise(data.exercise ?? data.item ?? data);
+  return data.item as ProgramSectionContent;
 }
 
-async function deleteExercise(id: number | string): Promise<void> {
-  const target = `${EXERCISE_API_BASE}/${id}`;
-  const res = await fetch(target, {
+async function deleteProgramSectionContent(id: number) {
+  const res = await fetch(`${PROGRAM_SECTION_API_BASE}/${id}`, {
     method: "DELETE",
     credentials: "include",
   });
   if (!res.ok) {
-    throw new Error("Failed to delete exercise.");
+    throw new Error("Failed to delete section content.");
   }
 }
 
-function buildProgramName(type: (typeof PROGRAM_TYPES)[number]) {
-  if (type === "PHP") return "PHP Program";
-  if (type === "PHP_Plus") return "PHP Plus";
-  return "PHP Premium";
-}
-
-async function fetchProgramCards(): Promise<ProgramCardItem[]> {
-  const res = await fetch(PROGRAMS_API_BASE, { credentials: "include" });
+async function fetchFoodDiaryEntries() {
+  const res = await fetch("/api/backend/admin/food-diary", { credentials: "include" });
   if (!res.ok) {
-    throw new Error("Failed to load programs.");
+    throw new Error("Failed to load food diary entries.");
   }
   const data = await res.json();
-  return data.programs ?? [];
+  return (data.items ?? []) as FoodDiaryItem[];
 }
 
-async function createProgram(type: (typeof PROGRAM_TYPES)[number]) {
-  const res = await fetch(`${ADMIN_API_BASE}/programs`, {
+async function submitFoodDiaryReview(entryId: number, feedback: string | null) {
+  const res = await fetch(`/api/backend/admin/food-diary/${entryId}/review`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({
-      name: buildProgramName(type),
-      type,
-      description: `${buildProgramName(type)} template`,
-    }),
+    body: JSON.stringify({ feedback }),
   });
   if (!res.ok) {
-    throw new Error("Failed to create program template.");
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "Failed to save feedback.");
   }
   const data = await res.json();
-  return Number(data?.program?.id);
+  return data.item as FoodDiaryItem;
 }
 
-async function fetchSessions(programId: number): Promise<Array<Record<string, unknown>>> {
-  const res = await fetch(`${PROGRAMS_API_BASE}/${programId}/sessions`, { credentials: "include" });
-  if (!res.ok) {
-    throw new Error("Failed to load sessions.");
-  }
-  const data = (await res.json()) as { sessions?: Array<Record<string, unknown>> };
-  return data.sessions ?? [];
-}
-
-async function createSession(input: {
-  programId: number;
-  weekNumber: number;
-  sessionNumber: number;
-  type: string;
-}) {
-  const res = await fetch(`${ADMIN_API_BASE}/sessions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    throw new Error("Failed to create session.");
-  }
-  const data = await res.json();
-  return Number(data?.session?.id);
-}
-
-async function addSessionExercise(input: {
-  sessionId: number;
-  exerciseId: number;
-  order: number;
-  coachingNotes?: string;
-  progressionNotes?: string;
-  regressionNotes?: string;
-}) {
-  const res = await fetch(`${ADMIN_API_BASE}/session-exercises`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    throw new Error("Failed to assign exercise to session.");
-  }
-}
-
-async function removeSessionExercise(sessionExerciseId: number) {
-  const res = await fetch(`${ADMIN_API_BASE}/session-exercises/${sessionExerciseId}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
-  if (!res.ok) {
-    throw new Error("Failed to remove assigned exercise.");
-  }
-}
-
-export default function ExerciseLibraryPage() {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+function ExerciseLibraryPageInner() {
+  const searchParams = useSearchParams();
+  const [activeSection, setActiveSection] = useState<string>("program");
+  const [items, setItems] = useState<ProgramSectionContent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [activeDialog, setActiveDialog] = useState<ExerciseDialog>(null);
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All categories");
-  const [status, setStatus] = useState("All status");
-  const [assignExerciseId, setAssignExerciseId] = useState<string>("");
-  const [assignProgramType, setAssignProgramType] = useState<(typeof PROGRAM_TYPES)[number]>("PHP");
-  const [assignSessionType, setAssignSessionType] = useState<string>("warmup");
-  const [assignWeek, setAssignWeek] = useState("1");
-  const [assignSessionNumber, setAssignSessionNumber] = useState("1");
-  const [assignOrder, setAssignOrder] = useState("1");
-  const [assignCoachingNotes, setAssignCoachingNotes] = useState("");
-  const [assignProgressionNotes, setAssignProgressionNotes] = useState("");
-  const [assignRegressionNotes, setAssignRegressionNotes] = useState("");
-  const [assignSaving, setAssignSaving] = useState(false);
-  const [assignMessage, setAssignMessage] = useState<string | null>(null);
-  const [configuredAssignments, setConfiguredAssignments] = useState<ConfiguredAssignment[]>([]);
-  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [order, setOrder] = useState("1");
+  const [foodDiaryItems, setFoodDiaryItems] = useState<FoodDiaryItem[]>([]);
+  const [foodDiaryLoading, setFoodDiaryLoading] = useState(false);
+  const [foodDiaryError, setFoodDiaryError] = useState<string | null>(null);
+  const [foodDiarySearch, setFoodDiarySearch] = useState("");
+  const [reviewDrafts, setReviewDrafts] = useState<Record<number, string>>({});
+  const [reviewSavingId, setReviewSavingId] = useState<number | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+
+  const loadItems = async (sectionType = activeSection) => {
     setIsLoading(true);
-    fetchExercises()
-      .then((items) => {
-        if (!active) return;
-        setExercises(items);
-        setError(null);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : "Failed to load exercise library.");
-      })
-      .finally(() => {
-        if (!active) return;
-        setIsLoading(false);
-      });
-    return () => {
-      active = false;
+    setError(null);
+    try {
+      const data = await fetchProgramSectionContent(sectionType);
+      setItems(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load section content.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && SESSION_TYPES.some((item) => item.value === tab)) {
+      setActiveSection(tab);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    void loadItems(activeSection);
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (activeSection !== "nutrition") return;
+    const loadFoodDiary = async () => {
+      setFoodDiaryLoading(true);
+      setFoodDiaryError(null);
+      try {
+        const items = await fetchFoodDiaryEntries();
+        setFoodDiaryItems(items);
+      } catch (err) {
+        setFoodDiaryError(err instanceof Error ? err.message : "Failed to load food diary entries.");
+      } finally {
+        setFoodDiaryLoading(false);
+      }
     };
-  }, []);
+    void loadFoodDiary();
+  }, [activeSection]);
 
-  useEffect(() => {
-    if (!assignExerciseId) {
-      setAssignCoachingNotes("");
-      setAssignProgressionNotes("");
-      setAssignRegressionNotes("");
-      return;
-    }
-    const selected = exercises.find((item) => String(item.id) === assignExerciseId);
-    setAssignCoachingNotes(String(selected?.notes || selected?.cues || ""));
-    setAssignProgressionNotes(String(selected?.progression || ""));
-    setAssignRegressionNotes(String(selected?.regression || ""));
-  }, [assignExerciseId, exercises]);
-
-  const loadConfiguredAssignments = async () => {
-    setLoadingAssignments(true);
-    try {
-      const cards = await fetchProgramCards();
-      const rows = await Promise.all(
-        cards
-          .filter((card) => Number(card.programId))
-          .map(async (card) => {
-            const sessions = await fetchSessions(Number(card.programId));
-            const items: ConfiguredAssignment[] = [];
-            sessions.forEach((session) => {
-              const sessionExercises = Array.isArray(session.exercises) ? session.exercises : [];
-              sessionExercises.forEach((entry: Record<string, unknown>) => {
-                const exercise = (entry.exercise as Record<string, unknown> | undefined) ?? {};
-                items.push({
-                  assignmentId: Number(entry.id),
-                  programType: card.type,
-                  sessionType: String(session.type ?? "program"),
-                  weekNumber: Number(session.weekNumber ?? 1),
-                  sessionNumber: Number(session.sessionNumber ?? 1),
-                  order: Number(entry.order ?? 1),
-                  exerciseName: String(exercise.name ?? `Exercise #${entry.exerciseId ?? "Unknown"}`),
-                });
-              });
-            });
-            return items;
-          })
-      );
-      const merged = rows
-        .flat()
-        .filter((item) => Number.isFinite(item.assignmentId))
-        .sort((a, b) => {
-          if (a.programType !== b.programType) return a.programType.localeCompare(b.programType);
-          if (a.weekNumber !== b.weekNumber) return a.weekNumber - b.weekNumber;
-          if (a.sessionNumber !== b.sessionNumber) return a.sessionNumber - b.sessionNumber;
-          if (a.sessionType !== b.sessionType) return a.sessionType.localeCompare(b.sessionType);
-          return a.order - b.order;
-        });
-      setConfiguredAssignments(merged);
-    } catch {
-      // keep assignment form usable even if listing fails
-    } finally {
-      setLoadingAssignments(false);
-    }
+  const resetForm = () => {
+    setEditingId(null);
+    setTitle("");
+    setBody("");
+    setVideoUrl(null);
+    setOrder("1");
   };
 
-  useEffect(() => {
-    void loadConfiguredAssignments();
-  }, []);
-
-  const categories = useMemo(() => {
-    const unique = new Set<string>();
-    exercises.forEach((exercise) => {
-      if (exercise.category) unique.add(exercise.category);
-    });
-    return ["All", ...Array.from(unique)];
-  }, [exercises]);
-
-  const chips = useMemo(() => {
-    return ["All", ...categories.filter((item) => item !== "All"), ...statusChips];
-  }, [categories]);
-
-  const handleChipSelect = (chip: string) => {
-    if (chip === "All") {
-      setCategory("All categories");
-      setStatus("All status");
-      return;
-    }
-    if (statusChips.includes(chip)) {
-      setStatus(chip);
-      return;
-    }
-    setCategory(chip);
-  };
-
-  const filteredExercises = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    return exercises.filter((exercise) => {
-      if (normalizedSearch) {
-        const haystack = [
-          exercise.name,
-          exercise.category,
-          exercise.notes,
-          exercise.cues,
-          exercise.howTo,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(normalizedSearch)) return false;
-      }
-      if (category !== "All categories" && category !== "All") {
-        if (exercise.category !== category) return false;
-      }
-      if (status !== "All status") {
-        if ((exercise.videoStatus ?? "Pending") !== status) return false;
-      }
-      return true;
-    });
-  }, [exercises, search, category, status]);
-
-  const handleCreate = async (payload: Exercise) => {
+  const handleSubmit = async () => {
+    if (!title.trim() || !body.trim()) return;
     setIsSaving(true);
     setError(null);
     try {
-      const requestPayload = {
-        ...payload,
-        sets: toNumber(payload.sets),
-        reps: toNumber(payload.reps),
-        duration: toNumber(payload.time),
-        time: toNumber(payload.time),
-        restSeconds: toNumber(payload.rest),
-        rest: toNumber(payload.rest),
-        videoUrl: payload.videoUrl || undefined,
-        cues: payload.cues || undefined,
-        notes: payload.notes || undefined,
-        howTo: payload.howTo || undefined,
-        progression: payload.progression || undefined,
-        regression: payload.regression || undefined,
+      const payload = {
+        sectionType: activeSection,
+        title: title.trim(),
+        body: body.trim(),
+        videoUrl: videoUrl || null,
+        order: order.trim() ? Number(order) : null,
       };
-      const created = await createExercise(requestPayload);
-      setExercises((prev) => [created, ...prev]);
-      setActiveDialog(null);
+
+      if (editingId) {
+        const updated = await updateProgramSectionContent(editingId, payload);
+        setItems((prev) => prev.map((item) => (item.id === editingId ? updated : item)));
+      } else {
+        const created = await createProgramSectionContent(payload);
+        setItems((prev) => [created, ...prev]);
+      }
+      resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create exercise.");
+      setError(err instanceof Error ? err.message : "Failed to save section content.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleUpdate = async (id: number | string, payload: Exercise) => {
-    setIsSaving(true);
-    setError(null);
-    try {
-      const requestPayload = {
-        ...payload,
-        sets: toNumber(payload.sets),
-        reps: toNumber(payload.reps),
-        duration: toNumber(payload.time),
-        time: toNumber(payload.time),
-        restSeconds: toNumber(payload.rest),
-        rest: toNumber(payload.rest),
-        videoUrl: payload.videoUrl || undefined,
-        cues: payload.cues || undefined,
-        notes: payload.notes || undefined,
-        howTo: payload.howTo || undefined,
-        progression: payload.progression || undefined,
-        regression: payload.regression || undefined,
-      };
-      const updated = await updateExercise(id, requestPayload);
-      setExercises((prev) =>
-        prev.map((exercise) =>
-          String(exercise.id) === String(id) ? updated : exercise
-        )
-      );
-      setActiveDialog(null);
-      setSelectedExercise(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update exercise.");
-    } finally {
-      setIsSaving(false);
-    }
+  const handleEdit = (item: ProgramSectionContent) => {
+    setEditingId(item.id);
+    setTitle(item.title ?? "");
+    setBody(item.body ?? "");
+    setVideoUrl(item.videoUrl ?? null);
+    setOrder(item.order ? String(item.order) : "1");
   };
 
-  const handleDelete = async (id: number | string) => {
-    setIsDeleting(true);
-    setError(null);
-    try {
-      await deleteExercise(id);
-      setExercises((prev) =>
-        prev.filter((exercise) => String(exercise.id) !== String(id))
-      );
-      setActiveDialog(null);
-      setSelectedExercise(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete exercise.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleAssign = async () => {
-    const exerciseId = Number(assignExerciseId);
-    const weekNumber = Number(assignWeek);
-    const sessionNumber = Number(assignSessionNumber);
-    const order = Number(assignOrder);
-    if (!exerciseId || !weekNumber || !sessionNumber || !order) {
-      setAssignMessage("Choose exercise and enter valid week/session/order numbers.");
-      return;
-    }
-    const selected = exercises.find((item) => Number(item.id) === exerciseId);
-    if (!selected) {
-      setAssignMessage("Selected exercise was not found.");
-      return;
-    }
-
-    setAssignSaving(true);
-    setAssignMessage(null);
-    try {
-      const cards = await fetchProgramCards();
-      let programId = Number(cards.find((card) => card.type === assignProgramType)?.programId ?? 0);
-      if (!programId) {
-        programId = await createProgram(assignProgramType);
-      }
-      if (!programId) {
-        throw new Error("Unable to resolve program template.");
-      }
-
-      const sessions = await fetchSessions(programId);
-      let sessionId = Number(
-        sessions.find(
-          (session) =>
-            Number(session.weekNumber) === weekNumber &&
-            Number(session.sessionNumber) === sessionNumber &&
-            String(session.type) === assignSessionType
-        )?.id ?? 0
-      );
-      if (!sessionId) {
-        sessionId = await createSession({
-          programId,
-          weekNumber,
-          sessionNumber,
-          type: assignSessionType,
-        });
-      }
-      if (!sessionId) {
-        throw new Error("Unable to create/find session.");
-      }
-
-      await addSessionExercise({
-        sessionId,
-        exerciseId,
-        order,
-        coachingNotes: assignCoachingNotes.trim() || selected.notes || selected.cues || undefined,
-        progressionNotes: assignProgressionNotes.trim() || selected.progression || undefined,
-        regressionNotes: assignRegressionNotes.trim() || selected.regression || undefined,
-      });
-
-      setAssignMessage("Exercise assigned successfully.");
-      await loadConfiguredAssignments();
-    } catch (err) {
-      setAssignMessage(err instanceof Error ? err.message : "Failed to assign exercise.");
-    } finally {
-      setAssignSaving(false);
-    }
-  };
-
-  const handleCreateWeekSession = async () => {
-    const weekNumber = Number(assignWeek);
-    const sessionNumber = Number(assignSessionNumber);
-    if (!weekNumber || !sessionNumber) {
-      setAssignMessage("Enter valid Week and Session # to create a session.");
-      return;
-    }
-
-    setAssignSaving(true);
-    setAssignMessage(null);
-    try {
-      const cards = await fetchProgramCards();
-      let programId = Number(cards.find((card) => card.type === assignProgramType)?.programId ?? 0);
-      if (!programId) {
-        programId = await createProgram(assignProgramType);
-      }
-      if (!programId) {
-        throw new Error("Unable to resolve program template.");
-      }
-
-      const sessions = await fetchSessions(programId);
-      const existingSession = sessions.find(
-        (session) =>
-          Number(session.weekNumber) === weekNumber &&
-          Number(session.sessionNumber) === sessionNumber &&
-          String(session.type) === assignSessionType
-      );
-
-      if (existingSession) {
-        setAssignMessage("That week/session already exists for this section.");
-        return;
-      }
-
-      await createSession({
-        programId,
-        weekNumber,
-        sessionNumber,
-        type: assignSessionType,
-      });
-
-      setAssignMessage("Week session created successfully.");
-      await loadConfiguredAssignments();
-    } catch (err) {
-      setAssignMessage(err instanceof Error ? err.message : "Failed to create week session.");
-    } finally {
-      setAssignSaving(false);
-    }
-  };
-
-  const handleRemoveAssignment = async (assignmentId: number) => {
-    const confirmed = window.confirm("Remove this exercise from the program section?");
+  const handleDelete = async (id: number) => {
+    const confirmed = window.confirm("Delete this content entry?");
     if (!confirmed) return;
-    setAssignSaving(true);
-    setAssignMessage(null);
+    setIsSaving(true);
+    setError(null);
     try {
-      await removeSessionExercise(assignmentId);
-      setAssignMessage("Assignment removed.");
-      await loadConfiguredAssignments();
+      await deleteProgramSectionContent(id);
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      if (editingId === id) {
+        resetForm();
+      }
     } catch (err) {
-      setAssignMessage(err instanceof Error ? err.message : "Failed to remove assignment.");
+      setError(err instanceof Error ? err.message : "Failed to delete section content.");
     } finally {
-      setAssignSaving(false);
+      setIsSaving(false);
     }
+  };
+
+  const orderedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      const orderA = Number.isFinite(a.order) ? (a.order as number) : 9999;
+      const orderB = Number.isFinite(b.order) ? (b.order as number) : 9999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+    });
+  }, [items]);
+
+  const filteredFoodDiary = useMemo(() => {
+    if (!foodDiarySearch.trim()) return foodDiaryItems;
+    const needle = foodDiarySearch.trim().toLowerCase();
+    return foodDiaryItems.filter((entry) => {
+      const athlete = entry.athleteName ?? "";
+      const guardian = entry.guardianName ?? "";
+      const email = entry.guardianEmail ?? "";
+      return (
+        athlete.toLowerCase().includes(needle) ||
+        guardian.toLowerCase().includes(needle) ||
+        email.toLowerCase().includes(needle)
+      );
+    });
+  }, [foodDiaryItems, foodDiarySearch]);
+
+  const formatDiaryDate = (value?: string | null) => {
+    if (!value) return "Today";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "Today";
+    return d.toLocaleDateString();
+  };
+
+  const formatMeals = (mealData?: Record<string, string> | null) => {
+    if (!mealData) return [];
+    return Object.entries(mealData)
+      .filter(([, value]) => value && value.trim())
+      .map(([key, value]) => ({
+        label: key.replace(/^\w/, (c) => c.toUpperCase()),
+        value,
+      }));
   };
 
   return (
-    <AdminShell
-      title="Exercise Library"
-      subtitle="Centralized exercise and video management."
-    >
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+    <AdminShell title="Exercise Library" subtitle="Centralized exercise and video management.">
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Program Section
+          </p>
+          <Tabs value={activeSection} onValueChange={setActiveSection}>
+            <TabsList className="flex w-full flex-wrap gap-2">
+              {SESSION_TYPES.map((sessionType) => (
+                <TabsTrigger
+                  key={sessionType.value}
+                  value={sessionType.value}
+                  className="rounded-full px-3 py-1 text-xs"
+                >
+                  {sessionType.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <Card>
           <CardHeader>
-            <SectionHeader title="Library" description="Reuse exercises across every program." />
+            <SectionHeader
+              title={`${SESSION_TYPE_LABEL[activeSection] ?? "Program"} Upload`}
+              description="Create section-specific guidance for athletes."
+            />
           </CardHeader>
           <CardContent className="space-y-4">
-            <ExerciseFilters
-              chips={chips}
-              onChipSelect={handleChipSelect}
-              search={search}
-              onSearchChange={setSearch}
-              category={category}
-              onCategoryChange={setCategory}
-              status={status}
-              onStatusChange={setStatus}
-            />
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Title
+              </label>
+              <Input
+                placeholder="Warmup Focus"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Steps / Notes
+              </label>
+              <Textarea
+                className="min-h-[180px]"
+                placeholder="Outline the steps athletes should follow..."
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2 rounded-2xl border border-border bg-secondary/30 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Optional Video
+                </p>
+                <ParentCourseMediaUpload
+                  label={videoUrl ? "Replace Video" : "Upload Video"}
+                  folder="program-section"
+                  accept="video/*"
+                  maxSizeMb={200}
+                  onUploaded={(url) => setVideoUrl(url)}
+                />
+              </div>
+              {videoUrl ? (
+                <video
+                  className="aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
+                  src={videoUrl}
+                  controls
+                  muted
+                />
+              ) : (
+                <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border bg-secondary/40 text-xs text-muted-foreground">
+                  Upload a video file for this section.
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Order
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={order}
+                  onChange={(event) => setOrder(event.target.value)}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                {editingId ? (
+                  <Button variant="outline" onClick={resetForm} disabled={isSaving}>
+                    Cancel Edit
+                  </Button>
+                ) : null}
+                <Button
+                  className="w-full"
+                  onClick={handleSubmit}
+                  disabled={isSaving || !title.trim() || !body.trim()}
+                >
+                  {isSaving ? "Saving..." : editingId ? "Update Content" : "Publish Content"}
+                </Button>
+              </div>
+            </div>
             {error ? (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             ) : null}
-            {isLoading ? (
-              <div className="rounded-2xl border border-border bg-secondary/30 p-6 text-sm text-muted-foreground">
-                Loading exercise library...
-              </div>
-            ) : null}
-            <ExerciseTable
-              exercises={filteredExercises}
-              onSelect={(exercise) => {
-                setSelectedExercise(exercise);
-                setActiveDialog("edit");
-              }}
-              onDelete={(exercise) => {
-                if (!exercise.id) return;
-                const confirmed = window.confirm("Delete this exercise from the library?");
-                if (!confirmed) return;
-                handleDelete(exercise.id);
-              }}
-            />
-            <ExerciseCards
-              exercises={filteredExercises}
-              onSelect={(exercise) => {
-                setSelectedExercise(exercise);
-                setActiveDialog("edit");
-              }}
-              onDelete={(exercise) => {
-                if (!exercise.id) return;
-                const confirmed = window.confirm("Delete this exercise from the library?");
-                if (!confirmed) return;
-                handleDelete(exercise.id);
-              }}
-            />
           </CardContent>
         </Card>
 
+        {activeSection !== "nutrition" ? (
           <Card>
             <CardHeader>
               <SectionHeader
-                title="Upload Video"
-                description="Upload exercise videos only."
+                title={`${SESSION_TYPE_LABEL[activeSection] ?? "Program"} Content`}
               />
             </CardHeader>
-          <CardContent className="space-y-3">
-            <Button variant="outline" onClick={() => setActiveDialog("add")}>
-              Open Upload Form
-            </Button>
-            <div className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
-              <p className="font-semibold text-foreground">Upload Tips</p>
-              <p className="text-xs text-muted-foreground">
-                Add clear cues, sets, reps, and a short video clip.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-secondary/30 p-4 space-y-3">
-              <SectionHeader
-                title="Assign To Program Section"
-                description="Configure Warmups, Cool Downs, Mobility, Recovery, In/Off Session Programs, and more."
-              />
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Exercise
-                </label>
-              <Select
-                value={assignExerciseId}
-                onChange={(event) => setAssignExerciseId(event.target.value)}
-              >
-                <option value="">Select exercise</option>
-                {exercises.map((exercise) => (
-                  <option key={String(exercise.id)} value={String(exercise.id)}>
-                    {exercise.name}
-                  </option>
-                ))}
-              </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Program Tier
-                </label>
-              <Select
-                value={assignProgramType}
-                onChange={(event) => setAssignProgramType(event.target.value as (typeof PROGRAM_TYPES)[number])}
-              >
-                {PROGRAM_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Section Type
-                </label>
-              <Select
-                value={assignSessionType}
-                onChange={(event) => setAssignSessionType(event.target.value)}
-              >
-                {SESSION_TYPES.map((sessionType) => (
-                  <option key={sessionType.value} value={sessionType.value}>
-                    {sessionType.label}
-                  </option>
-                ))}
-              </Select>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Week</label>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="Week"
-                  value={assignWeek}
-                  onChange={(event) => setAssignWeek(event.target.value)}
-                />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session #</label>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="Session #"
-                  value={assignSessionNumber}
-                  onChange={(event) => setAssignSessionNumber(event.target.value)}
-                />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order</label>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="Order"
-                  value={assignOrder}
-                  onChange={(event) => setAssignOrder(event.target.value)}
-                />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Coaching Notes
-                </label>
-              <Textarea
-                className="min-h-[84px]"
-                placeholder="Coaching Notes for this session exercise"
-                value={assignCoachingNotes}
-                onChange={(event) => setAssignCoachingNotes(event.target.value)}
-              />
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Progression Notes
-                  </label>
-                <Textarea
-                  className="min-h-[84px]"
-                  placeholder="Progression Notes"
-                  value={assignProgressionNotes}
-                  onChange={(event) => setAssignProgressionNotes(event.target.value)}
-                />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Regression Notes
-                  </label>
-                <Textarea
-                  className="min-h-[84px]"
-                  placeholder="Regression Notes"
-                  value={assignRegressionNotes}
-                  onChange={(event) => setAssignRegressionNotes(event.target.value)}
-                />
-                </div>
-              </div>
-              {assignMessage ? (
-                <div className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
-                  {assignMessage}
+            <CardContent className="space-y-3">
+              {isLoading ? (
+                <div className="rounded-2xl border border-border bg-secondary/30 p-6 text-sm text-muted-foreground">
+                  Loading content...
                 </div>
               ) : null}
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button variant="outline" onClick={handleCreateWeekSession} disabled={assignSaving}>
-                  {assignSaving ? "Saving..." : "Create Week Session"}
-                </Button>
-                <Button onClick={handleAssign} disabled={assignSaving}>
-                  {assignSaving ? "Assigning..." : "Assign Exercise"}
-                </Button>
-              </div>
-
-              <div className="rounded-2xl border border-border bg-background p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">Configured Program Sections</p>
-                  <Button variant="outline" onClick={() => void loadConfiguredAssignments()} disabled={loadingAssignments}>
-                    {loadingAssignments ? "Refreshing..." : "Refresh"}
-                  </Button>
+              {orderedItems.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-border bg-background p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">Order {item.order ?? 1}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => handleEdit(item)} disabled={isSaving}>
+                        Edit
+                      </Button>
+                      <Button variant="outline" onClick={() => void handleDelete(item.id)} disabled={isSaving}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap text-sm text-foreground/90">
+                    {item.body}
+                  </p>
+                  {item.videoUrl ? (
+                    <video
+                      className="mt-3 aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
+                      src={item.videoUrl}
+                      controls
+                      muted
+                    />
+                  ) : null}
                 </div>
-                {loadingAssignments ? (
-                  <p className="text-xs text-muted-foreground">Loading assigned items...</p>
-                ) : configuredAssignments.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No assignments yet.</p>
-                ) : (
-                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                    {configuredAssignments.map((item) => (
-                      <div
-                        key={`${item.assignmentId}-${item.order}`}
-                        className="rounded-xl border border-border bg-secondary/30 px-3 py-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">{item.exerciseName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.programType} • {SESSION_TYPE_LABEL[item.sessionType] ?? item.sessionType} • Week {item.weekNumber} • Session {item.sessionNumber} • Order {item.order}
-                            </p>
-                          </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+
+      {activeSection === "nutrition" ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <SectionHeader
+              title="Food Diary Reviews"
+              description="Review guardian submissions and respond to athletes."
+            />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Input
+                value={foodDiarySearch}
+                onChange={(event) => setFoodDiarySearch(event.target.value)}
+                placeholder="Search athlete or guardian"
+                className="sm:max-w-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                Showing {filteredFoodDiary.length} of {foodDiaryItems.length}
+              </p>
+            </div>
+
+            {foodDiaryLoading ? (
+              <div className="rounded-2xl border border-border bg-secondary/30 p-6 text-sm text-muted-foreground">
+                Loading food diary entries...
+              </div>
+            ) : foodDiaryError ? (
+              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                {foodDiaryError}
+              </div>
+            ) : filteredFoodDiary.length === 0 ? (
+              <div className="rounded-2xl border border-border bg-secondary/30 p-6 text-sm text-muted-foreground">
+                No food diary submissions yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredFoodDiary.map((entry) => {
+                  const meals = formatMeals(entry.meals);
+                  const draft = reviewDrafts[entry.id] ?? entry.feedback ?? "";
+                  return (
+                    <div key={entry.id} className="rounded-3xl border border-border bg-secondary/20 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-[2px] text-muted-foreground">
+                            {formatDiaryDate(entry.date)}
+                          </p>
+                          <p className="text-lg font-semibold text-foreground">
+                            {entry.athleteName ?? "Athlete"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Guardian: {entry.guardianName ?? entry.guardianEmail ?? "Unknown"}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {entry.feedback ? (
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">
+                              Reviewed
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-600">
+                              Needs review
+                            </span>
+                          )}
+                          {entry.photoUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => setPhotoPreviewUrl(entry.photoUrl ?? null)}
+                              className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
+                            >
+                              View Photo
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {meals.length ? (
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                          {meals.map((meal) => (
+                            <div key={meal.label} className="rounded-2xl border border-border bg-background/40 p-3">
+                              <p className="text-[11px] uppercase tracking-[1.4px] text-muted-foreground">
+                                {meal.label}
+                              </p>
+                              <p className="mt-2 text-sm text-foreground">{meal.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {entry.notes ? (
+                        <p className="mt-4 text-sm text-foreground">{entry.notes}</p>
+                      ) : null}
+
+                      <div className="mt-4 space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Coach Response
+                        </label>
+                        <Textarea
+                          value={draft}
+                          onChange={(event) =>
+                            setReviewDrafts((prev) => ({ ...prev, [entry.id]: event.target.value }))
+                          }
+                          placeholder="Share feedback or guidance for this entry..."
+                          className="min-h-[120px]"
+                        />
+                        <div className="flex items-center justify-end">
                           <Button
-                            variant="outline"
-                            onClick={() => void handleRemoveAssignment(item.assignmentId)}
-                            disabled={assignSaving}
+                            onClick={async () => {
+                              setReviewSavingId(entry.id);
+                              setFoodDiaryError(null);
+                              try {
+                                const updated = await submitFoodDiaryReview(entry.id, draft.trim() || null);
+                                setFoodDiaryItems((prev) =>
+                                  prev.map((item) => (item.id === entry.id ? { ...item, ...updated } : item))
+                                );
+                                setReviewDrafts((prev) => ({ ...prev, [entry.id]: updated.feedback ?? "" }));
+                              } catch (err) {
+                                setFoodDiaryError(err instanceof Error ? err.message : "Failed to save feedback.");
+                              } finally {
+                                setReviewSavingId(null);
+                              }
+                            }}
+                            disabled={reviewSavingId === entry.id}
                           >
-                            Remove
+                            {reviewSavingId === entry.id ? "Saving..." : "Send Response"}
                           </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
-      </div>
-
-      <ExerciseDialogs
-        active={activeDialog}
-        onClose={() => setActiveDialog(null)}
-        selectedExercise={selectedExercise}
-        onCreate={handleCreate}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        saving={isSaving}
-        deleting={isDeleting}
-      />
+      ) : null}
+      {photoPreviewUrl ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
+          onClick={() => setPhotoPreviewUrl(null)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-background shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">Food Diary Photo</p>
+              <button
+                type="button"
+                onClick={() => setPhotoPreviewUrl(null)}
+                className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex items-center justify-center bg-black/90">
+              <img
+                src={photoPreviewUrl}
+                alt="Food diary submission"
+                className="max-h-[80vh] w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AdminShell>
+  );
+}
+
+export default function ExerciseLibraryPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading...</div>}>
+      <ExerciseLibraryPageInner />
+    </Suspense>
   );
 }

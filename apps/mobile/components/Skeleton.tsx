@@ -28,7 +28,7 @@ export function Skeleton({
 
   useEffect(() => {
     opacity.value = withRepeat(withTiming(0.7, { duration: 800 }), -1, true);
-  }, []);
+  }, [opacity]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {

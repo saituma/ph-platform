@@ -9,6 +9,7 @@ import {
   startPasswordReset,
   confirmPasswordReset,
   getMe,
+  updateMe,
   updatePassword,
 } from "../controllers/auth.controller";
 import { requireAuth } from "../middlewares/auth";
@@ -23,6 +24,7 @@ router.post("/auth/refresh", refreshToken);
 router.post("/auth/forgot", startPasswordReset);
 router.post("/auth/forgot/confirm", confirmPasswordReset);
 router.get("/auth/me", requireAuth, getMe);
+router.patch("/auth/me", requireAuth, updateMe);
 router.post("/auth/change-password", requireAuth, updatePassword);
 
 export default router;

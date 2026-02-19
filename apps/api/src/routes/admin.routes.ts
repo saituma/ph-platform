@@ -7,6 +7,8 @@ import {
   assignProgram,
   createExerciseItem,
   createProgram,
+  listPrograms,
+  updateProgram,
   createSessionItem,
   deleteSessionExerciseItem,
   blockUser,
@@ -17,6 +19,7 @@ import {
   getOnboarding,
   listExerciseLibrary,
   listBookings,
+  updateBookingStatus,
   listAvailability,
   listVideosAdmin,
   getDashboard,
@@ -30,7 +33,9 @@ import {
   updateAdminProfileDetails,
   updateProgramTier,
   updateOnboardingConfigDetails,
+  createBookingAdmin,
 } from "../controllers/admin.controller";
+import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
 const router = Router();
 
@@ -46,6 +51,8 @@ router.put("/admin/preferences", updateAdminPreferencesDetails);
 router.get("/admin/onboarding-config", getOnboardingConfigDetails);
 router.put("/admin/onboarding-config", updateOnboardingConfigDetails);
 router.get("/admin/bookings", listBookings);
+router.post("/admin/bookings", createBookingAdmin);
+router.patch("/admin/bookings/:bookingId", updateBookingStatus);
 router.get("/admin/availability", listAvailability);
 router.get("/admin/videos", listVideosAdmin);
 router.get("/admin/messages/threads", listMessageThreads);
@@ -56,6 +63,8 @@ router.get("/admin/users/:userId/onboarding", getOnboarding);
 router.post("/admin/users/program-tier", updateProgramTier);
 router.post("/admin/enrollments", assignProgram);
 router.post("/admin/programs", createProgram);
+router.get("/admin/programs", listPrograms);
+router.patch("/admin/programs/:programId", updateProgram);
 router.get("/admin/exercises", listExerciseLibrary);
 router.post("/admin/exercises", createExerciseItem);
 router.patch("/admin/exercises/:exerciseId", updateExerciseItem);
@@ -63,5 +72,7 @@ router.delete("/admin/exercises/:exerciseId", deleteExerciseItem);
 router.post("/admin/sessions", createSessionItem);
 router.post("/admin/session-exercises", addExercise);
 router.delete("/admin/session-exercises/:sessionExerciseId", deleteSessionExerciseItem);
+router.get("/admin/food-diary", listFoodDiaryAdmin);
+router.post("/admin/food-diary/:entryId/review", reviewFoodDiaryAdmin);
 
 export default router;

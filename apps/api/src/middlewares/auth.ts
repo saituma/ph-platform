@@ -21,6 +21,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const email = payload.email as string | undefined;
     const name = (payload.name as string | undefined) ?? email ?? "";
     const userId = payload.user_id as number | undefined;
+    const tokenVersion = payload.token_version as number | undefined;
 
     if (!sub && !userId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -44,10 +45,23 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       }
     }
 
+    if (env.authMode === "local") {
+      if (typeof tokenVersion !== "number" || tokenVersion !== user.tokenVersion) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+    }
+
     if (user.isBlocked) {
       return res.status(403).json({ error: "Account is blocked" });
     }
-    req.user = { id: user.id, role: user.role, email: user.email, name: user.name, sub: user.cognitoSub };
+    req.user = {
+      id: user.id,
+      role: user.role,
+      email: user.email,
+      name: user.name,
+      sub: user.cognitoSub,
+      profilePicture: user.profilePicture ?? null,
+    };
     next();
   } catch (err) {
     console.error("Auth failed", err);

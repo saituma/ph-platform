@@ -99,6 +99,83 @@
       "when": 1771109000000,
       "tag": "0013_add_exercise_category",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1771120000000,
+      "tag": "0014_exercise_text_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1771121000000,
+      "tag": "0015_age_content_and_birthdate",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1771122000000,
+      "tag": "0016_add_legal_content_surface",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1771123000000,
+      "tag": "0017_add_user_token_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1771124000000,
+      "tag": "0018_add_athlete_profile_picture",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1771125000000,
+      "tag": "0019_expand_profile_picture_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1771309000000,
+      "tag": "0020_add_guardian_active_athlete",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1771310000000,
+      "tag": "0021_age_experience_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1771501567000,
+      "tag": "0022_add_program_age_range",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1771503530000,
+      "tag": "0023_program_section_content",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1771511172483,
+      "tag": "0024_sparkling_spitfire",
+      "breakpoints": true
     }
   ]
 }

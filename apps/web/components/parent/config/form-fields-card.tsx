@@ -131,6 +131,7 @@ export function FormFieldsCard(props: FormFieldsCardProps) {
               <option value="text">Text</option>
               <option value="number">Number</option>
               <option value="dropdown">Dropdown</option>
+              <option value="date">Date</option>
             </Select>
           </div>
           {newFieldType === "dropdown" ? (

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Sora, Space_Grotesk } from "next/font/google";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { Providers } from "./providers";
+import { SileoToaster } from "../components/ui/sileo-toaster";
 
 const sora = Sora({
   variable: "--font-sans",
@@ -45,7 +47,10 @@ export default function RootLayout({
       <body
         className={`${sora.variable} ${spaceGrotesk.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <SileoToaster />
+        </Providers>
       </body>
     </html>
   );

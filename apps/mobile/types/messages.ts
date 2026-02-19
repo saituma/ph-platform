@@ -9,6 +9,7 @@ export type MessageThread = {
   pinned: boolean;
   premium: boolean;
   unread: number;
+  avatarUrl?: string | null;
   lastSeen?: string;
   responseTime?: string;
 };

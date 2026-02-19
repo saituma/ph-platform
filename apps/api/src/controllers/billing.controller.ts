@@ -100,8 +100,8 @@ export async function downgradePlan(req: Request, res: Response) {
     PHP_Plus: 2,
     PHP_Premium: 3,
   };
-  const currentTier = athlete.currentProgramTier;
-  const targetTier = parsed.data.tier;
+  const currentTier = athlete.currentProgramTier as (typeof ProgramType.enumValues)[number];
+  const targetTier = parsed.data.tier as (typeof ProgramType.enumValues)[number];
   const currentRank = tierOrder[currentTier];
   const targetRank = tierOrder[targetTier];
 

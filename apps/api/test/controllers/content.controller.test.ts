@@ -1,11 +1,11 @@
 jest.mock("../../src/services/content.service", () => ({
   createContent: jest.fn(),
-  getHomeContent: jest.fn(),
+  getHomeContentForUser: jest.fn(),
   getParentPlatformContent: jest.fn(),
 }));
 
 import { listHomeContent, listParentContent, createContentItem } from "../../src/controllers/content.controller";
-import { createContent, getHomeContent, getParentPlatformContent } from "../../src/services/content.service";
+import { createContent, getHomeContentForUser, getParentPlatformContent } from "../../src/services/content.service";
 
 function createRes() {
   const res: any = {};
@@ -20,10 +20,11 @@ describe("content controller", () => {
   });
 
   it("lists home content", async () => {
-    (getHomeContent as jest.Mock).mockResolvedValue([{ id: 1 }]);
+    (getHomeContentForUser as jest.Mock).mockResolvedValue([{ id: 1 }]);
+    const req = { user: { id: 7 } } as any;
     const res = createRes();
 
-    await listHomeContent({} as any, res);
+    await listHomeContent(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ items: [{ id: 1 }] });
@@ -64,6 +65,8 @@ describe("content controller", () => {
       programTier: undefined,
       surface: "home",
       category: undefined,
+      minAge: undefined,
+      maxAge: undefined,
       createdBy: 5,
     });
     expect(res.status).toHaveBeenCalledWith(201);

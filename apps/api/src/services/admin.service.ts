@@ -29,7 +29,7 @@ const defaultOnboardingConfig = {
   version: 1,
   fields: [
     { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
-    { id: "age", label: "Age", type: "number", required: true, visible: true },
+    { id: "birthDate", label: "Birth Date", type: "date", required: true, visible: true },
     {
       id: "team",
       label: "Team",
@@ -370,6 +370,8 @@ export async function createProgramTemplate(input: {
   name: string;
   type: (typeof ProgramType.enumValues)[number];
   description?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   createdBy: number;
 }) {
   const result = await db
@@ -378,12 +380,49 @@ export async function createProgramTemplate(input: {
       name: input.name,
       type: input.type,
       description: input.description ?? null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
       isTemplate: true,
       createdBy: input.createdBy,
     })
     .returning();
 
   return result[0];
+}
+
+export async function listProgramTemplates() {
+  return db
+    .select()
+    .from(programTable)
+    .where(eq(programTable.isTemplate, true))
+    .orderBy(desc(programTable.createdAt));
+}
+
+export async function updateProgramTemplate(input: {
+  programId: number;
+  name?: string | null;
+  type?: (typeof ProgramType.enumValues)[number] | null;
+  description?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+}) {
+  const existing = await db.select().from(programTable).where(eq(programTable.id, input.programId)).limit(1);
+  if (!existing[0]) {
+    throw new Error("Program template not found");
+  }
+  const [updated] = await db
+    .update(programTable)
+    .set({
+      name: input.name ?? existing[0].name,
+      type: input.type ?? existing[0].type,
+      description: input.description ?? existing[0].description ?? null,
+      minAge: input.minAge ?? existing[0].minAge ?? null,
+      maxAge: input.maxAge ?? existing[0].maxAge ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(programTable.id, input.programId))
+    .returning();
+  return updated;
 }
 
 export async function createExercise(input: {
@@ -551,6 +590,22 @@ export async function listBookingsAdmin() {
   return rows;
 }
 
+export async function updateBookingStatusAdmin(input: {
+  bookingId: number;
+  status: "pending" | "confirmed" | "declined" | "cancelled";
+}) {
+  const result = await db
+    .update(bookingTable)
+    .set({
+      status: input.status,
+      updatedAt: new Date(),
+    })
+    .where(eq(bookingTable.id, input.bookingId))
+    .returning();
+
+  return result[0] ?? null;
+}
+
 export async function listAvailabilityAdmin() {
   return db
     .select({
@@ -612,15 +667,51 @@ export async function listMessageThreadsAdmin(coachId: number) {
     ? await db.select().from(userTable).where(inArray(userTable.id, userIds))
     : [];
 
+  const tierMap = new Map<number, string | null>();
+  if (userIds.length) {
+    const athleteRows = await db
+      .select({
+        userId: userTable.id,
+        programTier: sql`${athleteTable.currentProgramTier}::text`.as("programTier"),
+      })
+      .from(userTable)
+      .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
+      .where(inArray(userTable.id, userIds));
+
+    const guardianRows = await db
+      .select({
+        userId: userTable.id,
+        guardianTier: sql`${athleteTable.currentProgramTier}::text`.as("guardianTier"),
+      })
+      .from(userTable)
+      .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
+      .leftJoin(athleteTable, eq(athleteTable.guardianId, guardianTable.id))
+      .where(inArray(userTable.id, userIds));
+
+    for (const row of guardianRows) {
+      if (row.guardianTier) {
+        tierMap.set(row.userId, row.guardianTier as string);
+      }
+    }
+    for (const row of athleteRows) {
+      if (row.programTier) {
+        tierMap.set(row.userId, row.programTier as string);
+      }
+    }
+  }
+
   return userIds.map((id) => {
     const info = threads.get(id)!;
     const user = users.find((u) => u.id === id);
+    const programTier = tierMap.get(id) ?? null;
     return {
       userId: id,
       name: user?.name ?? user?.email ?? "Unknown",
       preview: info.lastMessage.content,
       time: info.lastMessage.createdAt,
       unread: info.unread,
+      programTier,
+      premium: programTier === "PHP_Premium",
     };
   });
 }

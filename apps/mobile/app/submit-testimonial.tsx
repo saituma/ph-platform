@@ -1,0 +1,225 @@
+import { ActionButton } from "@/components/dashboard/ActionButton";
+import { ThemedScrollView } from "@/components/ThemedScrollView";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text, TextInput } from "@/components/ScaledText";
+import { apiRequest } from "@/lib/api";
+import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import { Image, KeyboardAvoidingView, Platform, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSelector } from "@/store/hooks";
+
+export default function SubmitTestimonialScreen() {
+  const router = useRouter();
+  const { colors } = useAppTheme();
+  const { token } = useAppSelector((state) => state.user);
+  const [name, setName] = useState("");
+  const [quote, setQuote] = useState("");
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const canSubmit = useMemo(() => {
+    return Boolean(name.trim()) && Boolean(quote.trim()) && !isSubmitting;
+  }, [name, quote, isSubmitting]);
+
+  useEffect(() => {
+    if (!isSubmitted) return;
+    const timer = setTimeout(() => {
+      router.replace("/(tabs)/more");
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [isSubmitted, router]);
+
+  const uploadPhoto = async (uri: string) => {
+    if (!token) throw new Error("Authentication required");
+    const fileName = uri.split("/").pop() ?? `testimonial-${Date.now()}.jpg`;
+    const contentType = "image/jpeg";
+    const blob = await (await fetch(uri)).blob();
+    const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
+      method: "POST",
+      token,
+      body: {
+        folder: "testimonials",
+        fileName,
+        contentType,
+        sizeBytes: blob.size,
+      },
+    });
+    await fetch(presign.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: blob,
+    });
+    return presign.publicUrl;
+  };
+
+  const handlePickPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Images
+        ? [(ImagePicker as any).MediaType.Images]
+        : (ImagePicker as any).MediaTypeOptions?.Images;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes,
+      quality: 0.9,
+      allowsEditing: true,
+      aspect: [3, 4],
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    setPhotoUri(result.assets[0].uri);
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      let mediaUrl: string | undefined;
+      if (photoUri) {
+        mediaUrl = await uploadPhoto(photoUri);
+      }
+      await apiRequest("/content/testimonials/submit", {
+        method: "POST",
+        token,
+        body: {
+          name: name.trim(),
+          quote: quote.trim(),
+          photoUrl: mediaUrl,
+        },
+      });
+      setIsSubmitted(true);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to submit testimonial.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      <View className="px-6 py-4 flex-row items-center justify-between border-b border-app">
+        <TouchableOpacity
+          onPress={() => router.replace("/(tabs)/more")}
+          className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
+        >
+          <Feather name="arrow-left" size={20} className="text-app" />
+        </TouchableOpacity>
+        <Text className="text-xl font-clash text-app font-bold">
+          Submit Testimonial
+        </Text>
+        <View className="w-10" />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
+        <ThemedScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: 40,
+          }}
+        >
+          {isSubmitted ? (
+            <View className="items-center">
+              <View className="h-20 w-20 rounded-full bg-accent/10 items-center justify-center mb-6">
+                <Feather name="check" size={28} color={colors.accent} />
+              </View>
+              <Text className="text-3xl font-clash text-app mb-2 text-center">
+                Thank you!
+              </Text>
+              <Text className="text-base font-outfit text-secondary leading-relaxed mb-8 text-center">
+                Your testimonial has been submitted.
+              </Text>
+              <ActionButton
+                label="Back to More"
+                onPress={() => router.replace("/(tabs)/more")}
+                color="bg-accent"
+                icon="arrow-left"
+                fullWidth={true}
+              />
+            </View>
+          ) : (
+            <>
+              <Text className="text-3xl font-clash text-app mb-2">
+                Share your experience
+              </Text>
+              <Text className="text-base font-outfit text-secondary leading-relaxed mb-6">
+                Submit a quick testimonial and we&apos;ll review it for the homepage.
+              </Text>
+
+              <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+                Your Name
+              </Text>
+              <View className="bg-input border border-app rounded-2xl p-4 mb-6">
+                <TextInput
+                  placeholder="Name"
+                  placeholderTextColor={colors.placeholder}
+                  value={name}
+                  onChangeText={setName}
+                  className="font-outfit text-app text-base"
+                />
+              </View>
+
+              <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+                Testimony
+              </Text>
+              <View className="bg-input border border-app rounded-3xl p-5 mb-6 shadow-inner min-h-[160px]">
+                <TextInput
+                  multiline
+                  placeholder="Tell us about your results..."
+                  placeholderTextColor={colors.placeholder}
+                  value={quote}
+                  onChangeText={setQuote}
+                  className="font-outfit text-app text-base"
+                  style={{ textAlignVertical: "top" }}
+                />
+              </View>
+
+              <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+                Photo (optional)
+              </Text>
+              <View className="bg-input border border-app rounded-3xl p-5 mb-6">
+                <TouchableOpacity
+                  onPress={handlePickPhoto}
+                  className="flex-row items-center justify-between"
+                >
+                  <Text className="text-sm font-outfit text-app">
+                    {photoUri ? "Replace Photo" : "Upload Photo"}
+                  </Text>
+                  <Feather name="upload" size={18} color={colors.accent} />
+                </TouchableOpacity>
+                {photoUri ? (
+                  <View className="mt-4 w-40 aspect-[3/4] rounded-2xl overflow-hidden border border-app">
+                    <Image source={{ uri: photoUri }} style={{ width: "100%", height: "100%" }} />
+                  </View>
+                ) : null}
+              </View>
+
+              {error ? (
+                <View className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
+                  <Text className="text-sm font-outfit text-red-400">{error}</Text>
+                </View>
+              ) : null}
+
+              <ActionButton
+                label={isSubmitting ? "Submitting..." : "Submit Testimonial"}
+                onPress={handleSubmit}
+                color="bg-accent"
+                icon="send"
+                disabled={!canSubmit}
+                fullWidth={true}
+              />
+            </>
+          )}
+        </ThemedScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}

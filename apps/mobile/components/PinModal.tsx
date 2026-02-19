@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { Modal, TouchableOpacity, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text } from "@/components/ScaledText";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -47,20 +48,20 @@ export function PinModal({
     }
   }, [visible]);
 
-  useEffect(() => {
-    if (error) {
-      shake();
-      setPin("");
-    }
-  }, [error]);
-
-  const shake = () => {
+  const shake = useCallback(() => {
     shakeOffset.value = withSequence(
       withTiming(-10, { duration: 50 }),
       withRepeat(withTiming(10, { duration: 100 }), 5, true),
       withTiming(0, { duration: 50 }),
     );
-  };
+  }, [shakeOffset]);
+
+  useEffect(() => {
+    if (error) {
+      shake();
+      setPin("");
+    }
+  }, [error, shake]);
 
   const handleNumberPress = (number: string) => {
     if (pin.length < 4) {

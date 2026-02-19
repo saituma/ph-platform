@@ -3,16 +3,22 @@ import { z } from "zod";
 
 import {
   createContent,
-  getHomeContent,
+  getHomeContentForUser,
   getParentPlatformContent,
+  getLegalContentForUser,
+  getLegalContent,
   updateContent,
   getContentById,
+  getContentByIdAdmin,
   listParentCourses,
   getParentCourseById,
   createParentCourse,
   updateParentCourse,
+  getTestimonialSubmissions,
+  updateContentCategory,
 } from "../services/content.service";
 import { ProgramType, contentType } from "../db/schema";
+import { getAthleteForUser } from "../services/user.service";
 
 const contentCreateSchema = z.object({
   title: z.string().min(1),
@@ -20,8 +26,20 @@ const contentCreateSchema = z.object({
   type: z.enum(contentType.enumValues),
   body: z.string().optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
-  surface: z.enum(["home", "parent_platform"]),
+  surface: z.enum(["home", "parent_platform", "legal", "announcements", "testimonial_submissions"]),
   category: z.string().optional(),
+  ageList: z.array(z.number().int().min(0)).optional(),
+  minAge: z.number().int().min(0).optional(),
+  maxAge: z.number().int().min(0).optional(),
+}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+  message: "Minimum age must be less than or equal to maximum age.",
+  path: ["minAge"],
+}).refine((data) => {
+  if (!data.ageList || data.ageList.length === 0) return true;
+  return data.ageList.every((age) => Number.isFinite(age));
+}, {
+  message: "Age list must be a list of valid ages.",
+  path: ["ageList"],
 });
 
 const contentUpdateSchema = z.object({
@@ -31,6 +49,18 @@ const contentUpdateSchema = z.object({
   body: z.string().optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
   category: z.string().optional(),
+  ageList: z.array(z.number().int().min(0)).optional(),
+  minAge: z.number().int().min(0).optional(),
+  maxAge: z.number().int().min(0).optional(),
+}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+  message: "Minimum age must be less than or equal to maximum age.",
+  path: ["minAge"],
+}).refine((data) => {
+  if (!data.ageList || data.ageList.length === 0) return true;
+  return data.ageList.every((age) => Number.isFinite(age));
+}, {
+  message: "Age list must be a list of valid ages.",
+  path: ["ageList"],
 });
 
 const parentCourseModuleSchema = z.object({
@@ -70,18 +100,40 @@ const parentCourseCreateSchema = z.object({
     .nullable(),
   category: z.string().min(1),
   programTier: z.enum(ProgramType.enumValues).optional().nullable(),
+  minAge: z.number().int().min(0).optional(),
+  maxAge: z.number().int().min(0).optional(),
   modules: z.array(parentCourseModuleSchema).min(1),
+}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+  message: "Minimum age must be less than or equal to maximum age.",
+  path: ["minAge"],
 });
 
 const parentCourseUpdateSchema = parentCourseCreateSchema;
 
-export async function listHomeContent(_req: Request, res: Response) {
-  const items = await getHomeContent();
+const testimonialSubmissionSchema = z.object({
+  name: z.string().min(1),
+  quote: z.string().min(1),
+  photoUrl: z.string().url().optional().nullable(),
+});
+
+export async function listHomeContent(req: Request, res: Response) {
+  const items = await getHomeContentForUser(req.user!.id);
   return res.status(200).json({ items });
 }
 
 export async function listParentContent(req: Request, res: Response) {
-  const items = await getParentPlatformContent(req.user!.id);
+  const role = (req.user as any)?.role as string | undefined;
+  const items = await getParentPlatformContent(req.user!.id, role);
+  return res.status(200).json({ items });
+}
+
+export async function listLegalContent(req: Request, res: Response) {
+  const items = await getLegalContentForUser();
+  return res.status(200).json({ items });
+}
+
+export async function listLegalContentPublic(_req: Request, res: Response) {
+  const items = await getLegalContent();
   return res.status(200).json({ items });
 }
 
@@ -104,6 +156,9 @@ export async function createContentItem(req: Request, res: Response) {
     programTier: input.programTier,
     surface: input.surface,
     category: input.category,
+    ageList: input.ageList,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });
@@ -120,11 +175,120 @@ export async function updateContentItem(req: Request, res: Response) {
     body: input.body,
     programTier: input.programTier,
     category: input.category,
+    ageList: input.ageList,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
   });
   if (!item) {
     return res.status(404).json({ error: "Content not found" });
   }
   return res.status(200).json({ item });
+}
+
+export async function submitTestimonial(req: Request, res: Response) {
+  const input = testimonialSubmissionSchema.parse(req.body);
+  const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
+  const body = JSON.stringify({
+    name: input.name,
+    quote: input.quote,
+    photoUrl: input.photoUrl ?? null,
+    athleteName: athlete?.name ?? null,
+  });
+  const item = await createContent({
+    title: `Testimonial: ${input.name}`,
+    content: input.quote.slice(0, 140),
+    type: "article",
+    body,
+    surface: "testimonial_submissions",
+    category: "pending",
+    createdBy: req.user!.id,
+  });
+  return res.status(201).json({ item });
+}
+
+export async function listTestimonialSubmissions(_req: Request, res: Response) {
+  const items = await getTestimonialSubmissions();
+  const pending = items.filter((item) => (item.category ?? "pending") !== "approved");
+  return res.status(200).json({ items: pending });
+}
+
+export async function approveTestimonialSubmission(req: Request, res: Response) {
+  const submissionId = z.coerce.number().int().min(1).parse(req.params.submissionId);
+  const submission = await getContentByIdAdmin(submissionId);
+  if (!submission || submission.surface !== "testimonial_submissions") {
+    return res.status(404).json({ error: "Submission not found" });
+  }
+
+  let payload: any = {};
+  if (submission.body) {
+    try {
+      payload = JSON.parse(submission.body);
+    } catch {
+      payload = {};
+    }
+  }
+
+  const testimonialEntry = {
+    id: `submission_${submission.id}`,
+    name: payload.name ?? submission.title.replace(/^Testimonial:\s*/i, "").trim(),
+    quote: payload.quote ?? submission.content,
+    photoUrl: payload.photoUrl ?? null,
+    role: payload.athleteName ? `Athlete: ${payload.athleteName}` : null,
+  };
+
+  const homeItems = await getHomeContentForUser(req.user!.id);
+  const homeItem = homeItems[0];
+  let homeBody: any = {};
+  if (homeItem?.body) {
+    try {
+      homeBody = JSON.parse(homeItem.body);
+    } catch {
+      homeBody = {};
+    }
+  }
+  const existing = Array.isArray(homeBody.testimonials) ? homeBody.testimonials : [];
+  const already = existing.some((item: any) => item?.id === testimonialEntry.id);
+  const nextTestimonials = already ? existing : [...existing, testimonialEntry];
+  const updatedHomeBody = {
+    ...homeBody,
+    testimonials: nextTestimonials,
+  };
+
+  if (homeItem?.id) {
+    await updateContent({
+      id: homeItem.id,
+      title: homeItem.title,
+      content: homeItem.content,
+      type: homeItem.type ?? "article",
+      body: JSON.stringify(updatedHomeBody),
+      programTier: homeItem.programTier,
+      category: homeItem.category,
+      minAge: homeItem.minAge,
+      maxAge: homeItem.maxAge,
+    });
+  } else {
+    await createContent({
+      title: "Home",
+      content: "Home",
+      type: "article",
+      body: JSON.stringify(updatedHomeBody),
+      surface: "home",
+      createdBy: req.user!.id,
+    });
+  }
+
+  await updateContentCategory({ id: submission.id, category: "approved" });
+  return res.status(200).json({ approved: true });
+}
+
+export async function rejectTestimonialSubmission(req: Request, res: Response) {
+  const submissionId = z.coerce.number().int().min(1).parse(req.params.submissionId);
+  const submission = await getContentByIdAdmin(submissionId);
+  if (!submission || submission.surface !== "testimonial_submissions") {
+    return res.status(404).json({ error: "Submission not found" });
+  }
+  await updateContentCategory({ id: submission.id, category: "rejected" });
+  return res.status(200).json({ rejected: true });
 }
 
 export async function listParentCoursesHandler(req: Request, res: Response) {
@@ -152,6 +316,8 @@ export async function createParentCourseHandler(req: Request, res: Response) {
     coverImage: input.coverImage,
     category: input.category,
     programTier: input.programTier,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
     modules: input.modules,
     createdBy: req.user!.id,
   });
@@ -171,6 +337,8 @@ export async function updateParentCourseHandler(req: Request, res: Response) {
     coverImage: input.coverImage,
     category: input.category,
     programTier: input.programTier,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
     modules: input.modules,
   });
   if (!item) {

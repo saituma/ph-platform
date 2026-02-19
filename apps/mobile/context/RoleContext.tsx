@@ -1,4 +1,12 @@
-import React, { createContext, ReactNode, useContext, useState } from "react";
+import React, {
+  createContext,
+  ReactNode,
+  startTransition,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 type RoleType = "Guardian" | "Athlete";
 
@@ -22,18 +30,27 @@ const defaultContext: RoleContextType = {
 const RoleContext = createContext<RoleContextType>(defaultContext);
 
 export const RoleProvider = ({ children }: { children: ReactNode }) => {
-  const [role, setRole] = useState<RoleType>("Guardian");
+  const [role, setRoleState] = useState<RoleType>("Guardian");
   const [guardianPin, setGuardianPin] = useState<string | null>(null);
 
-  const checkPin = (pin: string) => {
+  const setRole = useCallback((nextRole: RoleType) => {
+    startTransition(() => {
+      setRoleState(nextRole);
+    });
+  }, []);
+
+  const checkPin = useCallback((pin: string) => {
     if (!guardianPin) return true;
     return guardianPin === pin;
-  };
+  }, [guardianPin]);
+
+  const value = useMemo(
+    () => ({ role, setRole, guardianPin, setGuardianPin, checkPin }),
+    [role, setRole, guardianPin, checkPin],
+  );
 
   return (
-    <RoleContext.Provider
-      value={{ role, setRole, guardianPin, setGuardianPin, checkPin }}
-    >
+    <RoleContext.Provider value={value}>
       {children}
     </RoleContext.Provider>
   );

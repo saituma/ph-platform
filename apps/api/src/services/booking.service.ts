@@ -178,13 +178,16 @@ export async function createBooking(input: {
     throw new Error("Service type not found");
   }
 
-  const startTimeUtc = input.startsAt.toISOString().substring(11, 16);
-  const startTimeLocal = `${String(input.startsAt.getHours()).padStart(2, "0")}:${String(
-    input.startsAt.getMinutes()
-  ).padStart(2, "0")}`;
+  const normalizeTime = (value?: string | null) => (value ? value.trim().slice(0, 5) : null);
+  const startTimeUtc = normalizeTime(input.startsAt.toISOString().substring(11, 16)) ?? "";
+  const startTimeLocal =
+    normalizeTime(
+      `${String(input.startsAt.getHours()).padStart(2, "0")}:${String(input.startsAt.getMinutes()).padStart(2, "0")}`,
+    ) ?? "";
   const matchesFixed = (fixed: string) => fixed === startTimeUtc || fixed === startTimeLocal;
-  if (serviceType[0].fixedStartTime) {
-    if (!matchesFixed(serviceType[0].fixedStartTime)) {
+  const fixedStartTime = normalizeTime(serviceType[0].fixedStartTime);
+  if (fixedStartTime) {
+    if (!matchesFixed(fixedStartTime)) {
       throw new Error("Invalid start time");
     }
   } else if (serviceType[0].type === "role_model" && !matchesFixed("13:00")) {
@@ -208,7 +211,7 @@ export async function createBooking(input: {
       athleteId: input.athleteId,
       guardianId: input.guardianId,
       type: serviceType[0].type,
-      status: "confirmed",
+      status: "pending",
       startsAt: input.startsAt,
       endTime: input.endsAt,
       location: input.location ?? serviceType[0].defaultLocation ?? null,
@@ -260,8 +263,8 @@ export async function createBooking(input: {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: guardian[0].userId,
-            title: "Booking confirmed",
-            body: `${serviceType[0].name} at ${input.startsAt.toISOString()}`,
+            title: "Booking requested",
+            body: `${serviceType[0].name} request submitted`,
             link: "/schedule",
           }),
         });

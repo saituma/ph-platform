@@ -5,6 +5,30 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      colors: {
+        app: "var(--color-text)",
+        secondary: "var(--color-text-secondary)",
+        muted: "var(--color-text-muted)",
+        accent: "var(--color-accent)",
+        "accent-light": "var(--color-accent-light)",
+        input: "var(--color-bg-input)",
+        background: "var(--color-bg)",
+        "background-secondary": "var(--color-bg-secondary)",
+        border: "var(--color-border)",
+        success: "var(--color-success)",
+        warning: "var(--color-warning)",
+        danger: "var(--color-danger)",
+      },
+      fontSize: {
+        xs: ["0.8125rem", "1.125rem"],
+        sm: ["0.9375rem", "1.3125rem"],
+        base: ["1.0625rem", "1.5rem"],
+        lg: ["1.1875rem", "1.625rem"],
+        xl: ["1.3125rem", "1.75rem"],
+        "2xl": ["1.5625rem", "2rem"],
+        "3xl": ["1.9375rem", "2.5rem"],
+        "4xl": ["2.3125rem", "2.875rem"],
+      },
       fontFamily: {
         // Britney
         'britney-light': ['Britney-Light'],

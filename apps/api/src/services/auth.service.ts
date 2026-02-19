@@ -343,12 +343,14 @@ export async function loginLocal(input: { email: string; password: string }) {
   if (!ok) {
     throw { status: 401, message: "Invalid credentials." };
   }
+  const nextTokenVersion = user.tokenVersion ?? 0;
   const token = await createLocalToken({
     sub: user.cognitoSub,
     email: user.email,
     name: user.name,
     role: user.role,
     userId: user.id,
+    tokenVersion: nextTokenVersion,
   });
   return { accessToken: token, idToken: token, refreshToken: null, expiresIn: 3600, tokenType: "Bearer" };
 }

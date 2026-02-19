@@ -167,12 +167,14 @@ export default function ParentDashboardPage() {
     if (!data?.config) return;
     const config = data.config as Record<string, unknown>;
     const rawFields = Array.isArray(config.fields) ? config.fields : initialFields;
+    const hasBirthDate = rawFields.some((field: any) => field?.id === "birthDate");
     const normalizedFields: FieldConfig[] = rawFields.map((field) => {
       const item = field as Partial<FieldConfig>;
+      const normalizedId = item.id === "age" && !hasBirthDate ? "birthDate" : item.id;
       return {
-        id: item.id ?? `field-${Date.now()}`,
-        label: item.label ?? "Field",
-        type: (item.type as FieldType) ?? "text",
+        id: normalizedId ?? `field-${Date.now()}`,
+        label: item.id === "age" && !hasBirthDate ? "Birth Date" : item.label ?? "Field",
+        type: (item.id === "age" && !hasBirthDate ? "date" : (item.type as FieldType)) ?? "text",
         required: Boolean(item.required),
         visible: item.visible !== false,
         options: item.options ?? undefined,

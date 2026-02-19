@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Linking, TouchableOpacity, View } from "react-native";
 import { Video, ResizeMode, AVPlaybackStatus, AVPlaybackStatusSuccess } from "expo-av";
 import { Feather } from "@expo/vector-icons";
 
 const YOUTUBE_HOSTS = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"];
+import { Text } from "@/components/ScaledText";
 
 const normalizeUrl = (url: string) => {
   if (!/^https?:\/\//i.test(url)) {
@@ -192,7 +193,7 @@ export function VideoPlayer({ uri, title }: { uri: string; title?: string }) {
               <Feather name="maximize" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
-          <Text className="text-[11px] font-outfit text-white">
+          <Text className="text-[0.6875rem] font-outfit text-white">
             {formatTime(positionMillis)} / {formatTime(durationMillis)}
           </Text>
         </View>

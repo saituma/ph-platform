@@ -15,6 +15,7 @@ import {
   registerLocal,
   startForgotPassword,
 } from "../services/auth.service";
+import { updateUserProfile } from "../services/user.service";
 import { env } from "../config/env";
 
 const registerSchema = z.object({
@@ -55,6 +56,15 @@ const changePasswordSchema = z.object({
   oldPassword: z.string().min(8),
   newPassword: z.string().min(8),
 });
+
+const updateMeSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    profilePicture: z.string().url().nullable().optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "No fields to update",
+  });
 
 export async function register(req: Request, res: Response) {
   const input = registerSchema.parse(req.body);
@@ -151,4 +161,25 @@ export async function updatePassword(req: Request, res: Response) {
 
 export async function getMe(req: Request, res: Response) {
   return res.status(200).json({ user: req.user });
+}
+
+export async function updateMe(req: Request, res: Response) {
+  const parsed = updateMeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+  const updated = await updateUserProfile(req.user!.id, parsed.data);
+  if (!updated) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  return res.status(200).json({
+    user: {
+      id: updated.id,
+      role: updated.role,
+      email: updated.email,
+      name: updated.name,
+      sub: updated.cognitoSub,
+      profilePicture: updated.profilePicture ?? null,
+    },
+  });
 }

@@ -25,6 +25,7 @@ export const env = {
   cloudfrontKeyId: process.env.CLOUDFRONT_KEY_ID ?? "",
   cloudfrontPrivateKey: process.env.CLOUDFRONT_PRIVATE_KEY ?? "",
   allowJwtBypass: process.env.ALLOW_JWT_BYPASS === "true",
+  allowExpiredTokens: process.env.ALLOW_EXPIRED_TOKENS === "true",
   authMode: process.env.AUTH_MODE ?? "cognito",
   localJwtSecret: process.env.LOCAL_JWT_SECRET ?? "local-dev-secret",
   smtpHost: process.env.SMTP_HOST ?? "smtp.gmail.com",

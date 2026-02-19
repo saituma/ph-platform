@@ -9,37 +9,51 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { ProgramsDialogs, type ProgramsDialog } from "../../components/admin/programs/programs-dialogs";
 import { ProgramsFilters } from "../../components/admin/programs/programs-filters";
 import { ProgramsGrid } from "../../components/admin/programs/programs-grid";
+import { useCreateProgramMutation, useGetProgramsQuery, useGetUsersQuery, useAssignProgramMutation, useUpdateProgramMutation } from "../../lib/apiSlice";
 
-const programs = [
-  {
-    name: "PHP Program",
-    summary: "Core performance training",
-    access: "Self-enroll",
-  },
-  {
-    name: "PHP Plus",
-    summary: "Structured + parent platform",
-    access: "Coach assigned",
-  },
-  {
-    name: "PHP Premium",
-    summary: "Individualized high-touch",
-    access: "Approval required",
-  },
-];
+const accessLabel = (type: string) => {
+  if (type === "PHP_Premium") return "Approval required";
+  if (type === "PHP_Plus") return "Coach assigned";
+  return "Self-enroll";
+};
 
 export default function ProgramsPage() {
-  const isLoading = false;
+  const { data: programsData, isLoading: programsLoading } = useGetProgramsQuery();
+  const { data: usersData } = useGetUsersQuery();
+  const [createProgram, { isLoading: isCreating }] = useCreateProgramMutation();
+  const [updateProgram, { isLoading: isUpdating }] = useUpdateProgramMutation();
+  const [assignProgram, { isLoading: isAssigning }] = useAssignProgramMutation();
   const [activeDialog, setActiveDialog] = useState<ProgramsDialog>(null);
-  const [selectedProgram, setSelectedProgram] = useState<(typeof programs)[number] | null>(null);
+  const [selectedProgram, setSelectedProgram] = useState<any | null>(null);
   const [activeChip, setActiveChip] = useState<string>("All");
   const chips = ["All", "Program", "Plus", "Premium", "Templates"];
 
   const filteredPrograms = useMemo(() => {
-    if (activeChip === "All") return programs;
-    if (activeChip === "Templates") return programs;
-    return programs.filter((program) => program.name.includes(activeChip));
-  }, [activeChip]);
+    const source = programsData?.programs ?? [];
+    if (activeChip === "All") return source;
+    if (activeChip === "Templates") return source;
+    if (activeChip === "Premium") return source.filter((program: any) => program.type === "PHP_Premium");
+    if (activeChip === "Plus") return source.filter((program: any) => program.type === "PHP_Plus");
+    if (activeChip === "Program") return source.filter((program: any) => program.type === "PHP");
+    return source;
+  }, [activeChip, programsData]);
+
+  const programs = useMemo(
+    () =>
+      filteredPrograms.map((program: any) => ({
+        id: program.id,
+        name: program.name,
+        summary: program.description ?? "",
+        access: accessLabel(program.type),
+        type: program.type,
+        minAge: program.minAge ?? null,
+        maxAge: program.maxAge ?? null,
+      })),
+    [filteredPrograms]
+  );
+
+  const users = useMemo(() => usersData?.users ?? [], [usersData]);
+  const isSaving = isCreating || isUpdating || isAssigning;
 
   return (
     <AdminShell
@@ -50,8 +64,8 @@ export default function ProgramsPage() {
       <SectionHeader title="Program Tiers" description="Access rules and templates." />
       <ProgramsFilters chips={chips} onChipSelect={setActiveChip} />
       <ProgramsGrid
-        programs={filteredPrograms}
-        isLoading={isLoading}
+        programs={programs}
+        isLoading={programsLoading}
         onManage={(program) => {
           setSelectedProgram(program);
           setActiveDialog("manage");
@@ -91,6 +105,27 @@ export default function ProgramsPage() {
         active={activeDialog}
         onClose={() => setActiveDialog(null)}
         selectedProgram={selectedProgram}
+        programs={programs}
+        users={users}
+        isSaving={isSaving}
+        onCreate={async (input) => {
+          await createProgram(input).unwrap();
+        }}
+        onUpdate={async (input) => {
+          await updateProgram({
+            programId: input.programId,
+            data: {
+              name: input.name,
+              type: input.type,
+              description: input.description ?? null,
+              minAge: input.minAge ?? null,
+              maxAge: input.maxAge ?? null,
+            },
+          }).unwrap();
+        }}
+        onAssign={async (input) => {
+          await assignProgram(input).unwrap();
+        }}
       />
     </AdminShell>
   );

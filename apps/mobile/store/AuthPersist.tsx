@@ -11,6 +11,7 @@ import {
   setHydrated,
   setProgramTier,
   setLatestSubscriptionRequest,
+  updateProfile,
 } from "./slices/userSlice";
 import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
@@ -75,6 +76,23 @@ export function AuthPersist() {
           lastSavedToken.current = storedToken;
           lastSavedRefreshToken.current = storedRefreshToken;
           try {
+            const me = await apiRequest<{ user?: { name?: string | null; email?: string | null; profilePicture?: string | null } }>(
+              "/auth/me",
+              { token: storedToken, suppressStatusCodes: [401, 403] }
+            );
+            if (me.user) {
+              dispatch(
+                updateProfile({
+                  name: me.user.name ?? null,
+                  email: me.user.email ?? null,
+                  avatar: me.user.profilePicture ?? null,
+                })
+              );
+            }
+          } catch {
+            // no-op
+          }
+          try {
             const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
               "/onboarding",
               { token: storedToken, suppressStatusCodes: [401, 403] }
@@ -128,6 +146,25 @@ export function AuthPersist() {
     let active = true;
     let initialized = false;
 
+    const syncProfile = async () => {
+      try {
+        const me = await apiRequest<{ user?: { name?: string | null; email?: string | null; profilePicture?: string | null } }>(
+          "/auth/me",
+          { token, suppressStatusCodes: [401, 403] }
+        );
+        if (!active || !me.user) return;
+        dispatch(
+          updateProfile({
+            name: me.user.name ?? null,
+            email: me.user.email ?? null,
+            avatar: me.user.profilePicture ?? null,
+          })
+        );
+      } catch {
+        if (!active) return;
+      }
+    };
+
     const syncBillingStatus = async (allowNotify: boolean) => {
       try {
         const status = await apiRequest<{
@@ -144,8 +181,10 @@ export function AuthPersist() {
         });
         if (!active) return;
 
-        const nextTier = status?.currentProgramTier ?? null;
         const nextRequestStatus = status?.latestRequest?.status ?? null;
+        const nextTier =
+          status?.currentProgramTier ??
+          (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
         const previous = lastBillingSnapshot.current;
         const becameApproved =
           previous &&
@@ -177,6 +216,7 @@ export function AuthPersist() {
     };
 
     void syncBillingStatus(false);
+    void syncProfile();
     initialized = true;
     const interval = setInterval(() => {
       void syncBillingStatus(initialized);
@@ -185,6 +225,7 @@ export function AuthPersist() {
     const appStateSub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         void syncBillingStatus(initialized);
+        void syncProfile();
       }
     });
 

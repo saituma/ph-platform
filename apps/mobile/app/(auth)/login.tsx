@@ -3,13 +3,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import { sendDailyLocation } from "../../lib/location";
 import { useAppDispatch } from "../../store/hooks";
+import { Text, TextInput } from "@/components/ScaledText";
 import {
   setCredentials,
   setOnboardingCompleted,
@@ -64,7 +66,9 @@ export default function LoginScreen() {
         throw new Error("Login failed");
       }
 
-      const me = await apiRequest<{ user: { id: number; name: string; email: string } }>("/auth/me", {
+      const me = await apiRequest<{
+        user: { id: number; name: string; email: string; profilePicture?: string | null };
+      }>("/auth/me", {
         token,
       });
 
@@ -76,7 +80,7 @@ export default function LoginScreen() {
             id: String(me.user.id),
             name: me.user.name,
             email: me.user.email,
-            avatar: null,
+            avatar: me.user.profilePicture ?? null,
           },
         })
       );
@@ -106,6 +110,7 @@ export default function LoginScreen() {
         dispatch(setProgramTier(null));
         dispatch(setLatestSubscriptionRequest(null));
       }
+      void sendDailyLocation(token);
       router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
     } catch (err: any) {
       const message = err?.message ?? "Login failed";
@@ -253,7 +258,7 @@ export default function LoginScreen() {
         ) : null}
         <View className="flex-row justify-center items-center">
           <Text className="text-secondary text-base font-outfit">
-            Don't have an account?{" "}
+            {"Don't"} have an account?{" "}
           </Text>
           <Pressable onPress={() => router.push("/(auth)/register")}>
             <Text className="text-accent font-bold text-base font-outfit">

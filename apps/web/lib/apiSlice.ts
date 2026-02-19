@@ -5,7 +5,23 @@ export const apiSlice = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: "/api/backend",
   }),
-  tagTypes: ["Users", "Bookings", "Threads", "Content", "Services", "Dashboard", "OnboardingConfig", "ParentCourses", "Availability"],
+  tagTypes: [
+    "Users",
+    "Bookings",
+    "Threads",
+    "Content",
+    "Services",
+    "Dashboard",
+    "OnboardingConfig",
+    "ParentCourses",
+    "TestimonialSubmissions",
+    "Availability",
+    "FoodDiary",
+    "PhysioReferrals",
+    "Programs",
+    "AgeExperience",
+    "UserLocations",
+  ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<any, void>({
       query: () => "/admin/profile",
@@ -35,6 +51,15 @@ export const apiSlice = createApi({
       query: () => "/admin/dashboard",
       providesTags: ["Dashboard"],
     }),
+    getUserLocations: builder.query<{ latest: any[]; history: any[]; rangeDays?: number | null }, { days?: number } | void>({
+      query: (params) => {
+        if (!params?.days) return "/admin/user-locations";
+        const query = new URLSearchParams();
+        query.set("days", String(params.days));
+        return `/admin/user-locations?${query.toString()}`;
+      },
+      providesTags: ["UserLocations"],
+    }),
     getUsers: builder.query<{ users: any[] }, void>({
       query: () => "/admin/users",
       providesTags: ["Users"],
@@ -57,6 +82,33 @@ export const apiSlice = createApi({
     getBookings: builder.query<{ bookings: any[] }, void>({
       query: () => "/admin/bookings",
       providesTags: ["Bookings"],
+    }),
+    updateBookingStatus: builder.mutation<any, { bookingId: number; status: string }>({
+      query: ({ bookingId, status }) => ({
+        url: `/admin/bookings/${bookingId}`,
+        method: "PATCH",
+        body: { status },
+      }),
+      invalidatesTags: ["Bookings"],
+    }),
+    createAdminBooking: builder.mutation<
+      any,
+      {
+        userId: number;
+        serviceTypeId: number;
+        startsAt: string;
+        endsAt: string;
+        location?: string | null;
+        meetingLink?: string | null;
+        status?: string;
+      }
+    >({
+      query: (body) => ({
+        url: "/admin/bookings",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Bookings"],
     }),
     getAdminAvailability: builder.query<{ items: any[] }, void>({
       query: () => "/admin/availability",
@@ -82,9 +134,99 @@ export const apiSlice = createApi({
       query: () => "/content/parent-platform",
       providesTags: ["Content"],
     }),
+    getHomeContent: builder.query<{ items: any[] }, void>({
+      query: () => "/content/home",
+      providesTags: ["Content"],
+    }),
+    getLegalContent: builder.query<{ items: any[] }, void>({
+      query: () => "/content/legal",
+      providesTags: ["Content"],
+    }),
+    getTestimonialSubmissions: builder.query<{ items: any[] }, void>({
+      query: () => "/content/testimonials/submissions",
+      providesTags: ["TestimonialSubmissions"],
+    }),
+    approveTestimonialSubmission: builder.mutation<{ approved: boolean }, { submissionId: number }>({
+      query: ({ submissionId }) => ({
+        url: `/content/testimonials/${submissionId}/approve`,
+        method: "POST",
+      }),
+      invalidatesTags: ["TestimonialSubmissions", "Content"],
+    }),
+    rejectTestimonialSubmission: builder.mutation<{ rejected: boolean }, { submissionId: number }>({
+      query: ({ submissionId }) => ({
+        url: `/content/testimonials/${submissionId}/reject`,
+        method: "POST",
+      }),
+      invalidatesTags: ["TestimonialSubmissions"],
+    }),
     getParentCourses: builder.query<{ items: any[] }, void>({
       query: () => "/content/parent-courses",
       providesTags: ["ParentCourses"],
+    }),
+    getFoodDiary: builder.query<{ items: any[] }, { athleteId?: number; guardianId?: number } | void>({
+      query: (params) => {
+        if (!params) return "/admin/food-diary";
+        const query = new URLSearchParams();
+        if (params.athleteId) query.set("athleteId", String(params.athleteId));
+        if (params.guardianId) query.set("guardianId", String(params.guardianId));
+        return `/admin/food-diary?${query.toString()}`;
+      },
+      providesTags: ["FoodDiary"],
+    }),
+    getPhysioReferrals: builder.query<{ items: any[] }, void>({
+      query: () => "/admin/physio-referrals",
+      providesTags: ["PhysioReferrals"],
+    }),
+    getAgeExperienceRules: builder.query<{ items: any[] }, void>({
+      query: () => "/admin/age-experience",
+      providesTags: ["AgeExperience"],
+    }),
+    createAgeExperienceRule: builder.mutation<{ item: any }, any>({
+      query: (body) => ({
+        url: "/admin/age-experience",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["AgeExperience"],
+    }),
+    updateAgeExperienceRule: builder.mutation<{ item: any }, { id: number; data: any }>({
+      query: ({ id, data }) => ({
+        url: `/admin/age-experience/${id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["AgeExperience"],
+    }),
+    deleteAgeExperienceRule: builder.mutation<{ item: any }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/admin/age-experience/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["AgeExperience"],
+    }),
+    createPhysioReferral: builder.mutation<{ item: any }, any>({
+      query: (body) => ({
+        url: "/admin/physio-referrals",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["PhysioReferrals"],
+    }),
+    updatePhysioReferral: builder.mutation<{ item: any }, { id: number; data: any }>({
+      query: ({ id, data }) => ({
+        url: `/admin/physio-referrals/${id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["PhysioReferrals"],
+    }),
+    deletePhysioReferral: builder.mutation<{ item: any }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/admin/physio-referrals/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["PhysioReferrals"],
     }),
     createMediaUploadUrl: builder.mutation<
       { uploadUrl: string; publicUrl: string; key: string },
@@ -208,13 +350,42 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    assignProgram: builder.mutation<any, { athleteId: number; programType: string }>({
+    assignProgram: builder.mutation<any, { athleteId: number; programType: string; programTemplateId?: number }>({
       query: (body) => ({
         url: "/admin/enrollments",
         method: "POST",
         body,
       }),
       invalidatesTags: ["Users"],
+    }),
+    getPrograms: builder.query<{ programs: any[] }, void>({
+      query: () => "/admin/programs",
+      providesTags: ["Programs"],
+    }),
+    createProgram: builder.mutation<
+      { program: any },
+      { name: string; type: string; description?: string; minAge?: number | null; maxAge?: number | null }
+    >({
+      query: (body) => ({
+        url: "/admin/programs",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Programs"],
+    }),
+    updateProgram: builder.mutation<
+      { program: any },
+      {
+        programId: number;
+        data: { name?: string; type?: string; description?: string | null; minAge?: number | null; maxAge?: number | null };
+      }
+    >({
+      query: ({ programId, data }) => ({
+        url: `/admin/programs/${programId}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["Programs"],
     }),
     getOnboardingConfig: builder.query<{ config: any }, void>({
       query: () => "/admin/onboarding-config",
@@ -285,17 +456,34 @@ export const {
   useUpdateAdminPreferencesMutation,
   useChangePasswordMutation,
   useGetDashboardQuery,
+  useGetUserLocationsQuery,
   useGetUsersQuery,
   useBlockUserMutation,
   useDeleteUserMutation,
   useGetBookingsQuery,
+  useUpdateBookingStatusMutation,
+  useCreateAdminBookingMutation,
   useGetAdminAvailabilityQuery,
   useGetVideoUploadsQuery,
   useGetServicesQuery,
   useGetThreadsQuery,
   useGetMessagesQuery,
   useGetParentContentQuery,
+  useGetHomeContentQuery,
+  useGetLegalContentQuery,
+  useGetTestimonialSubmissionsQuery,
+  useApproveTestimonialSubmissionMutation,
+  useRejectTestimonialSubmissionMutation,
   useGetParentCoursesQuery,
+  useGetFoodDiaryQuery,
+  useGetPhysioReferralsQuery,
+  useCreatePhysioReferralMutation,
+  useUpdatePhysioReferralMutation,
+  useDeletePhysioReferralMutation,
+  useGetAgeExperienceRulesQuery,
+  useCreateAgeExperienceRuleMutation,
+  useUpdateAgeExperienceRuleMutation,
+  useDeleteAgeExperienceRuleMutation,
   useGetParentCourseQuery,
   useCreateMediaUploadUrlMutation,
   useCreateParentCourseMutation,
@@ -312,6 +500,9 @@ export const {
   useGetUserOnboardingQuery,
   useUpdateProgramTierMutation,
   useAssignProgramMutation,
+  useGetProgramsQuery,
+  useCreateProgramMutation,
+  useUpdateProgramMutation,
   useGetOnboardingConfigQuery,
   useUpdateOnboardingConfigMutation,
   useGetChatGroupsQuery,

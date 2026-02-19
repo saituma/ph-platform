@@ -44,14 +44,15 @@ export default function ParallaxScrollView({
       return;
     }
 
-    try {
-      const R = require("react-native-reanimated");
-      setReanimatedModule(R);
-    } catch (e) {
-      console.warn(
-        "react-native-reanimated not available — using fallback ScrollView.",
-      );
-    }
+    import("react-native-reanimated")
+      .then((module) => {
+        setReanimatedModule(module);
+      })
+      .catch(() => {
+        console.warn(
+          "react-native-reanimated not available — using fallback ScrollView.",
+        );
+      });
   }, []);
 
   if (!ReanimatedModule) {
@@ -95,23 +96,29 @@ function ParallaxWithReanimated({
   backgroundColor: string;
   colorScheme: "dark" | "light";
 }) {
-  const { interpolate, useAnimatedRef, useAnimatedStyle, useScrollOffset } =
-    Reanimated;
-  const scrollRef = useAnimatedRef();
-  const scrollOffset = useScrollOffset(scrollRef);
+  const {
+    interpolate,
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    useSharedValue,
+  } = Reanimated;
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((event: any) => {
+    scrollY.value = event.contentOffset.y;
+  });
   const headerAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
         {
           translateY: interpolate(
-            scrollOffset.value,
+            scrollY.value,
             [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
             [-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75],
           ),
         },
         {
           scale: interpolate(
-            scrollOffset.value,
+            scrollY.value,
             [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
             [2, 1, 1],
           ),
@@ -124,7 +131,7 @@ function ParallaxWithReanimated({
 
   return (
     <Animated.ScrollView
-      ref={scrollRef}
+      onScroll={onScroll}
       style={{ backgroundColor, flex: 1 }}
       scrollEventThrottle={16}
     >

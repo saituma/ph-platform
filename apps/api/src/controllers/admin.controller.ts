@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 import {
   addExerciseToSession,
@@ -29,7 +30,14 @@ import {
   updateOnboardingConfig,
   updateExercise,
   deleteExercise,
+  listProgramTemplates,
+  updateProgramTemplate,
+  updateBookingStatusAdmin,
 } from "../services/admin.service";
+import { createBooking } from "../services/booking.service";
+import { getGuardianAndAthlete } from "../services/user.service";
+import { db } from "../db";
+import { serviceTypeTable } from "../db/schema";
 import { ProgramType, sessionType } from "../db/schema";
 
 const updateTierSchema = z.object({
@@ -43,11 +51,54 @@ const assignSchema = z.object({
   programTemplateId: z.number().int().min(1).optional(),
 });
 
-const programSchema = z.object({
-  name: z.string().min(1),
-  type: z.enum(ProgramType.enumValues),
-  description: z.string().optional(),
+const programSchema = z
+  .object({
+    name: z.string().min(1),
+    type: z.enum(ProgramType.enumValues),
+    description: z.string().optional(),
+    minAge: z.number().int().min(1).max(99).optional().nullable(),
+    maxAge: z.number().int().min(1).max(99).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.minAge != null && data.maxAge != null && data.minAge > data.maxAge) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Minimum age cannot be greater than maximum age.",
+        path: ["minAge"],
+      });
+    }
+  });
+
+const adminBookingSchema = z.object({
+  userId: z.number().int().min(1),
+  serviceTypeId: z.number().int().min(1),
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime(),
+  location: z.string().optional().nullable(),
+  meetingLink: z.string().optional().nullable(),
+  status: z.enum(["pending", "confirmed", "declined", "cancelled"]).optional(),
 });
+
+const programUpdateSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    type: z.enum(ProgramType.enumValues).optional(),
+    description: z.string().optional().nullable(),
+    minAge: z.number().int().min(1).max(99).optional().nullable(),
+    maxAge: z.number().int().min(1).max(99).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.minAge != null && data.maxAge != null && data.minAge > data.maxAge) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Minimum age cannot be greater than maximum age.",
+        path: ["minAge"],
+      });
+    }
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "No fields to update",
+  });
 
 const exerciseSchema = z.object({
   name: z.string().min(1),
@@ -119,7 +170,7 @@ const adminPreferencesSchema = z.object({
 const onboardingFieldSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  type: z.enum(["text", "number", "dropdown"]),
+  type: z.enum(["text", "number", "dropdown", "date"]),
   required: z.boolean(),
   visible: z.boolean(),
   options: z.array(z.string().min(1)).optional(),
@@ -236,9 +287,30 @@ export async function createProgram(req: Request, res: Response) {
     name: input.name,
     type: input.type,
     description: input.description,
+    minAge: input.minAge ?? null,
+    maxAge: input.maxAge ?? null,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ program });
+}
+
+export async function listPrograms(_req: Request, res: Response) {
+  const programs = await listProgramTemplates();
+  return res.status(200).json({ programs });
+}
+
+export async function updateProgram(req: Request, res: Response) {
+  const programId = z.coerce.number().int().min(1).parse(req.params.programId);
+  const input = programUpdateSchema.parse(req.body);
+  const program = await updateProgramTemplate({
+    programId,
+    name: input.name,
+    type: input.type,
+    description: input.description ?? null,
+    minAge: input.minAge ?? null,
+    maxAge: input.maxAge ?? null,
+  });
+  return res.status(200).json({ program });
 }
 
 export async function createExerciseItem(req: Request, res: Response) {
@@ -320,6 +392,65 @@ export async function deleteSessionExerciseItem(req: Request, res: Response) {
 export async function listBookings(req: Request, res: Response) {
   const bookings = await listBookingsAdmin();
   return res.status(200).json({ bookings });
+}
+
+export async function createBookingAdmin(req: Request, res: Response) {
+  const input = adminBookingSchema.parse(req.body);
+  const [service] = await db
+    .select()
+    .from(serviceTypeTable)
+    .where(eq(serviceTypeTable.id, input.serviceTypeId))
+    .limit(1);
+  if (!service) {
+    return res.status(404).json({ error: "Service type not found" });
+  }
+  const { guardian, athlete } = await getGuardianAndAthlete(input.userId);
+  if (!guardian || !athlete) {
+    return res.status(400).json({ error: "Guardian or athlete not found" });
+  }
+  let startsAt = new Date(input.startsAt);
+  let endsAt = new Date(input.endsAt);
+  const fixedStartTime = service.fixedStartTime ?? (service.type === "role_model" ? "13:00" : null);
+  if (fixedStartTime) {
+    const [hour, minute] = fixedStartTime.split(":").map((value) => Number(value));
+    if (Number.isFinite(hour) && Number.isFinite(minute)) {
+      startsAt = new Date(startsAt);
+      startsAt.setHours(hour, minute, 0, 0);
+      endsAt = new Date(startsAt.getTime() + Number(service.durationMinutes) * 60000);
+    }
+  }
+
+  const booking = await createBooking({
+    athleteId: athlete.id,
+    guardianId: guardian.id,
+    serviceTypeId: input.serviceTypeId,
+    startsAt,
+    endsAt,
+    createdBy: req.user!.id,
+    location: input.location ?? undefined,
+    meetingLink: input.meetingLink ?? undefined,
+  });
+
+  if (input.status && input.status !== "pending") {
+    const updated = await updateBookingStatusAdmin({ bookingId: booking.id, status: input.status });
+    return res.status(201).json({ booking: updated ?? booking });
+  }
+
+  return res.status(201).json({ booking });
+}
+
+export async function updateBookingStatus(req: Request, res: Response) {
+  const bookingId = z.coerce.number().int().min(1).parse(req.params.bookingId);
+  const body = z
+    .object({
+      status: z.enum(["pending", "confirmed", "declined", "cancelled"]),
+    })
+    .parse(req.body);
+  const booking = await updateBookingStatusAdmin({ bookingId, status: body.status });
+  if (!booking) {
+    return res.status(404).json({ error: "Booking not found" });
+  }
+  return res.status(200).json({ booking });
 }
 
 export async function listAvailability(_req: Request, res: Response) {

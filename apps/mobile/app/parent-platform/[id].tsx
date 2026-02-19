@@ -6,11 +6,16 @@ import { canAccessTier, tierRank } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Image, Linking, Text, TouchableOpacity, View } from "react-native";
+import { Image, Linking, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import * as WebBrowser from "expo-web-browser";
+import { Text } from "@/components/ScaledText";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { AgeGate } from "@/components/AgeGate";
+import { useRole } from "@/context/RoleContext";
 
 type ParentCourseModule = {
   id: string;
@@ -38,11 +43,24 @@ export default function ParentCourseDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const idValue = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
+  const navigation = useNavigation();
   const { colors } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
+  const { isSectionHidden } = useAgeExperience();
+  const { role } = useRole();
   const cached = Number.isFinite(Number(idValue)) ? getParentContentCache(Number(idValue)) : null;
   const [item, setItem] = useState<ParentCourseItem | null>(cached as ParentCourseItem | null);
   const [isLoading, setIsLoading] = useState(!cached);
+
+  const isAthlete = role === "Athlete";
+  const lockedTitle = isAthlete ? "Athlete platform locked" : "Parent platform locked";
+  const lockedMessage = isAthlete
+    ? "Athlete education content is restricted for this age."
+    : "Parent education content is restricted for this age.";
+
+  if (isSectionHidden("parentPlatform")) {
+    return <AgeGate title={lockedTitle} message={lockedMessage} />;
+  }
 
   const modules = useMemo(() => {
     return (item?.modules ?? [])
@@ -66,7 +84,7 @@ export default function ParentCourseDetail() {
         ]);
         if (mounted) setItem(data.item ?? null);
       } catch {
-        if (mounted && !item) setItem(null);
+        if (mounted) setItem(null);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -110,17 +128,31 @@ export default function ParentCourseDetail() {
     item && !canAccessTier(programTier, item.programTier ?? null) && !item.isPreview;
   const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (event) => {
+      if (event.data.action?.type !== "GO_BACK" && event.data.action?.type !== "POP") {
+        return;
+      }
+      event.preventDefault();
+      router.replace("/parent-platform");
+    });
+
+    return unsubscribe;
+  }, [navigation, router]);
+
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}>
         <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
-            onPress={() => router.replace("/(tabs)/parent-platform")}
+            onPress={() => router.replace("/parent-platform")}
             className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
           >
             <Feather name="arrow-left" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text className="text-xl font-clash text-app font-bold">Parent Course</Text>
+          <Text className="text-xl font-clash text-app font-bold">
+            {isAthlete ? "Athlete Course" : "Parent Course"}
+          </Text>
           <View className="w-10" />
         </View>
 
@@ -168,21 +200,21 @@ export default function ParentCourseDetail() {
               <View className="flex-row flex-wrap items-center gap-2 mb-3">
                 {item.category ? (
                   <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-                    <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                    <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                       {item.category}
                     </Text>
                   </View>
                 ) : null}
                 {item.programTier ? (
                   <View className="px-3 py-1 rounded-full bg-accent/15 border border-accent/20">
-                    <Text className="text-[11px] font-outfit text-accent uppercase tracking-[1.2px]">
+                    <Text className="text-[0.6875rem] font-outfit text-accent uppercase tracking-[1.2px]">
                       {item.programTier.replace("_", " ")}
                     </Text>
                   </View>
                 ) : null}
                 {item.isPreview ? (
                   <View className="px-3 py-1 rounded-full bg-amber-100 border border-amber-200">
-                    <Text className="text-[11px] font-outfit text-amber-900 uppercase tracking-[1.2px]">
+                    <Text className="text-[0.6875rem] font-outfit text-amber-900 uppercase tracking-[1.2px]">
                       Preview access
                     </Text>
                   </View>

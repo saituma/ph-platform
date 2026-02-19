@@ -1,7 +1,8 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text } from "@/components/ScaledText";
 
 interface ActionButtonProps {
   icon: any;

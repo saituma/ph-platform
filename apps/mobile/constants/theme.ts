@@ -50,7 +50,7 @@ export const Colors = {
     icon: '#94a3b8',
     tabIconDefault: '#4b5563',
     tabIconSelected: tintColorDark,
-    themeToggleIcon: '#fde047',
+    themeToggleIcon: '#22c55e', // Consistent emerald green
     placeholder: '#4b5563',
   },
 };

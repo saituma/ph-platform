@@ -3,10 +3,12 @@ import { EmptyState } from "../empty-state";
 import { Skeleton } from "../../ui/skeleton";
 
 type Booking = {
+  id: number;
   name: string;
   athlete: string;
   time: string;
   type: string;
+  status?: string | null;
 };
 
 type BookingsListProps = {
@@ -53,7 +55,7 @@ export function BookingsList({ bookings, isLoading = false, onSelect }: Bookings
       {bookings.map((booking) => (
         <button
           type="button"
-          key={booking.name}
+          key={booking.id}
           onClick={() => onSelect(booking)}
           className="flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-left text-sm transition hover:border-primary/40"
         >
@@ -63,7 +65,14 @@ export function BookingsList({ bookings, isLoading = false, onSelect }: Bookings
           </div>
           <div className="text-left sm:text-right">
             <p className="font-semibold text-foreground">{booking.time}</p>
-            <Badge variant="accent">{booking.type}</Badge>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <Badge variant="accent">{booking.type}</Badge>
+              {booking.status ? (
+                <Badge variant={booking.status === "pending" ? "outline" : "default"}>
+                  {booking.status}
+                </Badge>
+              ) : null}
+            </div>
           </div>
         </button>
       ))}
