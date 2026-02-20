@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Image, Linking, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Image, Linking, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { ResizeMode, Video } from "expo-av";
 
 import { apiRequest } from "@/lib/api";
+import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
 
@@ -114,6 +115,8 @@ export function FoodDiaryPanel() {
     snacks: "",
   });
   const [photo, setPhoto] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoAspectRatio, setPhotoAspectRatio] = useState<number>(4 / 3);
   const [entryDate, setEntryDate] = useState<Date>(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [entries, setEntries] = useState<
@@ -129,14 +132,48 @@ export function FoodDiaryPanel() {
   >([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoPreviewLoading, setPhotoPreviewLoading] = useState(false);
   const [status, setStatus] = useState<{ tone: "error" | "success" | "info"; message: string } | null>(null);
+  const previousEntriesRef = useRef<{ id: number; feedback?: string | null }[]>([]);
+
+  const scheduleLocalNotification = useCallback(
+    async (title: string, body: string, data?: Record<string, string>) => {
+      const Notifications = await getNotifications();
+      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: "default",
+          data,
+        },
+        trigger: null,
+      });
+    },
+    []
+  );
 
   const loadEntries = useCallback(async () => {
     if (!token) return;
     try {
       setLoadingEntries(true);
       const data = await apiRequest<{ items: any[] }>("/food-diary", { token, suppressLog: true });
-      setEntries(data.items ?? []);
+      const items = data.items ?? [];
+      setEntries(items);
+
+      const previousById = new Map(previousEntriesRef.current.map((item) => [item.id, item]));
+      const newlyReviewed = items.filter(
+        (item) => item?.id && item?.feedback && previousById.has(item.id) && !previousById.get(item.id)?.feedback
+      );
+      if (newlyReviewed.length) {
+        await scheduleLocalNotification(
+          "Coach responded",
+          "Your food diary has new feedback.",
+          { type: "food-diary-feedback" }
+        );
+      }
+      previousEntriesRef.current = items.map((item) => ({ id: item.id, feedback: item.feedback ?? null }));
     } catch (error: any) {
       setStatus({ tone: "error", message: error?.message ?? "Failed to load food diary." });
     } finally {
@@ -158,8 +195,37 @@ export function FoodDiaryPanel() {
       mediaTypes,
       quality: 0.7,
     });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setPhoto(result.assets[0].uri);
+    const canceled = (result as any).canceled ?? (result as any).cancelled;
+    const uri = result.assets?.[0]?.uri ?? (result as any).uri;
+    if (!canceled && uri) {
+      setPhotoError(null);
+      setPhotoAspectRatio(4 / 3);
+      setPhoto(uri);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    if (!token) return;
+    setStatus(null);
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setStatus({ tone: "info", message: "Camera permission is required to take a photo." });
+      return;
+    }
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Images
+        ? [(ImagePicker as any).MediaType.Images]
+        : (ImagePicker as any).MediaTypeOptions?.Images;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes,
+      quality: 0.7,
+    });
+    const canceled = (result as any).canceled ?? (result as any).cancelled;
+    const uri = result.assets?.[0]?.uri ?? (result as any).uri;
+    if (!canceled && uri) {
+      setPhotoError(null);
+      setPhotoAspectRatio(4 / 3);
+      setPhoto(uri);
     }
   };
 
@@ -197,7 +263,7 @@ export function FoodDiaryPanel() {
     setSaving(true);
     setStatus(null);
     try {
-      const photoUrl = photo ? await uploadPhoto(photo) : null;
+      const photoUrl = photo ? (setPhotoUploading(true), await uploadPhoto(photo)) : null;
       const today = entryDate.toISOString().slice(0, 10);
       const payload: Record<string, unknown> = {
         date: today,
@@ -219,9 +285,15 @@ export function FoodDiaryPanel() {
       setPhoto(null);
       await loadEntries();
       setStatus({ tone: "success", message: "Entry saved." });
+      await scheduleLocalNotification(
+        "Food diary submitted",
+        "Your entry has been sent to your coach.",
+        { type: "food-diary-submitted" }
+      );
     } catch (error: any) {
       setStatus({ tone: "error", message: error?.message ?? "Failed to save entry." });
     } finally {
+      setPhotoUploading(false);
       setSaving(false);
     }
   };
@@ -305,27 +377,77 @@ export function FoodDiaryPanel() {
             </View>
           ))}
         </View>
-        {photo ? (
-          <Image source={{ uri: photo }} className="mt-4 h-28 w-full rounded-2xl" resizeMode="cover" />
-        ) : null}
-        <View className="mt-4 flex-row gap-3">
-          <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
-            <Text className="text-app text-sm font-outfit text-center">
-              {photo ? "Change Photo" : "Add Photo"}
-            </Text>
-          </TouchableOpacity>
+        <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
+          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+            Photo Preview
+          </Text>
           {photo ? (
-            <TouchableOpacity
-              onPress={() => setPhoto(null)}
-              className="rounded-full border border-app/30 px-4 py-3"
-            >
-              <Text className="text-app text-sm font-outfit text-center">Remove</Text>
-            </TouchableOpacity>
+            <View className="mt-2">
+              <Image
+                source={{ uri: photo }}
+                className="w-full rounded-2xl"
+                resizeMode="cover"
+                style={{ width: "100%", height: undefined, aspectRatio: photoAspectRatio }}
+                onLoadStart={() => setPhotoPreviewLoading(true)}
+                onLoad={(event) => {
+                  const width = event?.nativeEvent?.source?.width;
+                  const height = event?.nativeEvent?.source?.height;
+                  if (width && height) {
+                    setPhotoAspectRatio(width / height);
+                  }
+                }}
+                onLoadEnd={() => setPhotoPreviewLoading(false)}
+                onError={(event) => {
+                  const message =
+                    event?.nativeEvent?.error
+                      ? String(event.nativeEvent.error)
+                      : "Failed to load preview.";
+                  setPhotoError(message);
+                }}
+              />
+              {photoPreviewLoading ? (
+                <View className="absolute inset-0 items-center justify-center rounded-2xl bg-black/25">
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text className="mt-2 text-xs font-outfit text-white">Loading preview...</Text>
+                </View>
+              ) : null}
+              {photoUploading ? (
+                <View className="absolute inset-0 items-center justify-center rounded-2xl bg-black/35">
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text className="mt-2 text-xs font-outfit text-white">Uploading photo...</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <Text className="mt-2 text-sm font-outfit text-secondary">No photo selected.</Text>
+          )}
+          {photoError ? (
+            <Text className="mt-2 text-xs font-outfit text-red-300">{photoError}</Text>
           ) : null}
+        </View>
+        <View className="mt-4 gap-3">
+          <View className="flex-row gap-3">
+            <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
+              <Text className="text-app text-sm font-outfit text-center">
+                {photo ? "Change Photo" : "Add Photo"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleTakePhoto} className="flex-1 rounded-full border border-app px-4 py-3">
+              <Text className="text-app text-sm font-outfit text-center">Take Photo</Text>
+            </TouchableOpacity>
+            {photo ? (
+              <TouchableOpacity
+                onPress={() => setPhoto(null)}
+                className="rounded-full border border-app/30 px-4 py-3"
+              >
+                <Text className="text-app text-sm font-outfit text-center">Remove</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
           <TouchableOpacity
             onPress={handleSave}
             disabled={saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))}
-            className={`flex-1 rounded-full px-4 py-3 ${
+            className={`rounded-full px-4 py-3 ${
               saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
                 ? "bg-secondary/20"
                 : "bg-accent"
