@@ -17,6 +17,7 @@ export default function SubmitTestimonialScreen() {
   const { token } = useAppSelector((state) => state.user);
   const [name, setName] = useState("");
   const [quote, setQuote] = useState("");
+  const [rating, setRating] = useState(5);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +90,7 @@ export default function SubmitTestimonialScreen() {
         body: {
           name: name.trim(),
           quote: quote.trim(),
+          rating,
           photoUrl: mediaUrl,
         },
       });
@@ -180,6 +182,22 @@ export default function SubmitTestimonialScreen() {
                   className="font-outfit text-app text-base"
                   style={{ textAlignVertical: "top" }}
                 />
+              </View>
+
+              <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+                Rating
+              </Text>
+              <View className="bg-input border border-app rounded-2xl p-4 mb-6 flex-row items-center gap-1">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <TouchableOpacity key={i} onPress={() => setRating(i)} className="p-1">
+                    <Feather
+                      name="star"
+                      size={28}
+                      color={i <= rating ? "#F59E0B" : colors.textSecondary}
+                      style={i <= rating ? { opacity: 1 } : { opacity: 0.25 }}
+                    />
+                  </TouchableOpacity>
+                ))}
               </View>
 
               <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">

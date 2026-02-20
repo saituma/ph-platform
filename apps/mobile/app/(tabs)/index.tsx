@@ -47,6 +47,7 @@ type HomeContentPayload = {
   testimonials?: HomeTestimonial[] | null;
   adminStory?: string | null;
   professionalPhoto?: string | null;
+  professionalPhotos?: string[] | string | null;
 };
 
 export default function HomeScreen() {
@@ -139,15 +140,19 @@ export default function HomeScreen() {
         return;
       }
       let body: HomeContentPayload = {};
-      if (typeof item.body === "string" && item.body.trim().length) {
-        try {
-          body = JSON.parse(item.body) as HomeContentPayload;
-        } catch {
-          body = {};
+      if (item.body) {
+        if (typeof item.body === "string" && item.body.trim().length) {
+          try {
+            body = JSON.parse(item.body) as HomeContentPayload;
+          } catch {
+            body = {};
+          }
+        } else if (typeof item.body === "object") {
+          body = item.body as HomeContentPayload;
         }
       }
       const parsedTestimonials =
-        typeof body.testimonials === "string" && body.testimonials.trim().length
+        typeof body.testimonials === "string" && (body.testimonials as string).trim().length
           ? (() => {
               try {
                 const parsed = JSON.parse(body.testimonials);

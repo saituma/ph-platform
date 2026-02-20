@@ -33,7 +33,10 @@ const isUnauthorizedError = (error: unknown) => {
 
 export function AuthPersist() {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, token, refreshToken, profile } = useAppSelector((state) => state.user);
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const token = useAppSelector((state) => state.user.token);
+  const refreshToken = useAppSelector((state) => state.user.refreshToken);
+  const profile = useAppSelector((state) => state.user.profile);
   const router = useRouter();
   const pathname = usePathname();
   const [hydrated, setHydratedState] = useState(false);

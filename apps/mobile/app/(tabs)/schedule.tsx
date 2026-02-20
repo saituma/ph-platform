@@ -517,7 +517,20 @@ export default function ScheduleScreen() {
                   View Plan
                 </Text>
               </Pressable>
-              <Pressable className="flex-1 px-4 py-3 rounded-full border border-app/10 bg-secondary/10">
+              <Pressable
+                className="flex-1 px-4 py-3 rounded-full border border-app/10 bg-secondary/10"
+                onPress={() => {
+                  if (selectedEvent) {
+                    const eventDate = new Date(selectedEvent.startsAt);
+                    setBookingDate(eventDate);
+                    setBookingTime(eventDate);
+                  }
+                  setSelectedEvent(null);
+                  setBookingConfirmed(false);
+                  setBookingError(null);
+                  setBookingOpen(true);
+                }}
+              >
                 <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
                   Reschedule
                 </Text>

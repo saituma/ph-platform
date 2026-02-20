@@ -20,6 +20,7 @@ import useLoadFonts from "./hooks/useLoadFonts";
 import AppThemeProvider from "./theme/AppThemeProvider";
 import { FontScaleProvider } from "@/context/FontScaleContext";
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
+import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -169,27 +170,29 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ReduxProvider>
         <SafeAreaProvider>
-          <RoleProvider>
-            <AppLockProvider>
-              <AppThemeProvider>
-                <FontScaleProvider>
-                  <AgeExperienceProvider>
-                    <RefreshProvider>
-                      <GlobalRefreshLayout>
-                        <StripeProvider
-                          publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                          merchantIdentifier="merchant.ph.performance"
-                        >
-                          <AuthPersist />
-                          <AppShell colorScheme={colorScheme} />
-                        </StripeProvider>
-                      </GlobalRefreshLayout>
-                    </RefreshProvider>
-                  </AgeExperienceProvider>
-                </FontScaleProvider>
-              </AppThemeProvider>
-            </AppLockProvider>
-          </RoleProvider>
+          <TabVisibilityProvider>
+            <RoleProvider>
+              <AppLockProvider>
+                <AppThemeProvider>
+                  <FontScaleProvider>
+                    <AgeExperienceProvider>
+                      <RefreshProvider>
+                        <GlobalRefreshLayout>
+                          <StripeProvider
+                            publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                            merchantIdentifier="merchant.ph.performance"
+                          >
+                            <AuthPersist />
+                            <AppShell colorScheme={colorScheme} />
+                          </StripeProvider>
+                        </GlobalRefreshLayout>
+                      </RefreshProvider>
+                    </AgeExperienceProvider>
+                  </FontScaleProvider>
+                </AppThemeProvider>
+              </AppLockProvider>
+            </RoleProvider>
+          </TabVisibilityProvider>
         </SafeAreaProvider>
       </ReduxProvider>
     </GestureHandlerRootView>
@@ -198,6 +201,38 @@ export default function RootLayout() {
 
 function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
   const hydrated = useAppSelector((state) => state.user.hydrated);
+
+  if (!hydrated) {
+    return null;
+  }
+  return (
+    <>
+      <Stack screenOptions={{ headerShown: false, animation: "none" }} />
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+      <AppLockGate />
+      <SafeNavigationLayer />
+    </>
+  );
+}
+
+function SafeNavigationLayer() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(true);
+  }, []);
+
+  if (!ready) return null;
+
+  return (
+    <>
+      <AuthPersist />
+      <BackButtonHandler />
+    </>
+  );
+}
+
+function BackButtonHandler() {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -218,8 +253,7 @@ function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
     ]);
 
     const isParentPlatformRoute = pathname.startsWith("/parent-platform");
-    const shouldHandle =
-      moreRoutes.has(pathname) || isParentPlatformRoute;
+    const shouldHandle = moreRoutes.has(pathname) || isParentPlatformRoute;
 
     if (!shouldHandle) return;
 
@@ -234,18 +268,12 @@ function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
       return true;
     };
 
-    const subscription = BackHandler.addEventListener("hardwareBackPress", handler);
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      handler
+    );
     return () => subscription.remove();
   }, [pathname, router]);
 
-  if (!hydrated) {
-    return null;
-  }
-  return (
-    <>
-      <Stack screenOptions={{ headerShown: false, animation: "none" }} />
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-      <AppLockGate />
-    </>
-  );
+  return null;
 }

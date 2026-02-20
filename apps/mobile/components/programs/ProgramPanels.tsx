@@ -45,20 +45,20 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
 
   return (
     <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-      <Text className="text-lg font-clash text-app mb-2">Physio Referral</Text>
-      <Text className="text-sm font-outfit text-secondary">
+      <Text className="text-xl font-clash text-app font-bold mb-2">Physio Referral</Text>
+      <Text className="text-base font-outfit text-secondary leading-relaxed">
         Access our trusted physio partners for injuries and recovery support.
       </Text>
       <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
-        <Text className="text-xs font-outfit text-secondary">
+        <Text className="text-sm font-outfit text-secondary">
           {resolvedDiscount ? `Discount: ${resolvedDiscount}` : "Standard referral (no discount)."}
         </Text>
       </View>
-      <Text className="text-xs font-outfit text-secondary mt-3">{statusCopy}</Text>
+      <Text className="text-sm font-outfit text-secondary mt-3">{statusCopy}</Text>
       {loading ? (
-        <Text className="text-xs font-outfit text-secondary mt-3">Loading referral...</Text>
+        <Text className="text-sm font-outfit text-secondary mt-3">Loading referral...</Text>
       ) : error ? (
-        <Text className="text-xs font-outfit text-red-400 mt-3">{error}</Text>
+        <Text className="text-sm font-outfit text-red-400 mt-3">{error}</Text>
       ) : null}
       <TouchableOpacity
         onPress={() => {
@@ -79,8 +79,8 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
 export function ParentEducationPanel({ onOpen }: { onOpen: () => void }) {
   return (
     <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-      <Text className="text-lg font-clash text-app mb-2">Parent Education Hub</Text>
-      <Text className="text-sm font-outfit text-secondary">
+      <Text className="text-xl font-clash text-app font-bold mb-2">Parent Education Hub</Text>
+      <Text className="text-base font-outfit text-secondary leading-relaxed">
         Explore curated courses on growth, recovery, nutrition, and mindset.
       </Text>
       <TouchableOpacity onPress={onOpen} className="mt-4 rounded-full bg-accent px-4 py-3">
@@ -93,8 +93,8 @@ export function ParentEducationPanel({ onOpen }: { onOpen: () => void }) {
 export function BookingsPanel({ onOpen }: { onOpen: () => void }) {
   return (
     <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-      <Text className="text-lg font-clash text-app mb-2">Bookings</Text>
-      <Text className="text-sm font-outfit text-secondary">
+      <Text className="text-xl font-clash text-app font-bold mb-2">Bookings</Text>
+      <Text className="text-base font-outfit text-secondary leading-relaxed">
         Book one-to-one sessions, lift lab visits, or role model meetings.
       </Text>
       <TouchableOpacity onPress={onOpen} className="mt-4 rounded-full bg-accent px-4 py-3">
@@ -246,18 +246,18 @@ export function FoodDiaryPanel() {
   return (
     <View className="gap-4">
       <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-        <Text className="text-xl font-clash text-app mb-2">Food Diary</Text>
-        <Text className="text-xl font-outfit text-secondary">
+        <Text className="text-xl font-clash text-app font-bold mb-2">Food Diary</Text>
+        <Text className="text-base font-outfit text-secondary leading-relaxed">
           Log meals and snacks to support training and recovery.
         </Text>
         <TouchableOpacity
           onPress={() => setDatePickerOpen(true)}
           className="mt-4 flex-row items-center justify-between rounded-2xl border border-app/10 bg-white/5 px-4 py-3"
         >
-          <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
             Entry Date
           </Text>
-          <Text className="text-xl font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
+          <Text className="text-base font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
         </TouchableOpacity>
         {datePickerOpen ? (
           <DateTimePicker
@@ -273,8 +273,8 @@ export function FoodDiaryPanel() {
           />
         ) : null}
         <View className="mt-4 flex-row items-center justify-between">
-          <Text className="text-xl font-outfit text-secondary">Notes (optional)</Text>
-          <Text className="text-xl font-outfit text-secondary">{entry.trim().length}/500</Text>
+          <Text className="text-sm font-outfit text-secondary">Notes (optional)</Text>
+          <Text className="text-sm font-outfit text-secondary">{entry.trim().length}/500</Text>
         </View>
         <TextInput
           value={entry}
@@ -283,24 +283,24 @@ export function FoodDiaryPanel() {
           placeholderTextColor="#9CA3AF"
           multiline
           maxLength={500}
-          className="mt-2 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-xl font-outfit text-app"
+          className="mt-2 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-base font-outfit text-app"
           style={{ minHeight: 90 }}
         />
         <View className="mt-4 gap-3">
           {(["breakfast", "lunch", "dinner", "snacks"] as const).map((meal) => (
             <View key={meal} className="rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
               <View className="flex-row items-center justify-between">
-                <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                   {meal}
                 </Text>
-                <Text className="text-xl font-outfit text-secondary">Optional</Text>
+                <Text className="text-xs font-outfit text-secondary">Optional</Text>
               </View>
               <TextInput
                 value={meals[meal]}
                 onChangeText={(value) => setMeals((prev) => ({ ...prev, [meal]: value }))}
                 placeholder={`Add ${meal}`}
                 placeholderTextColor="#9CA3AF"
-                className="mt-2 text-xl font-outfit text-app"
+                className="mt-2 text-base font-outfit text-app"
               />
             </View>
           ))}
@@ -310,7 +310,7 @@ export function FoodDiaryPanel() {
         ) : null}
         <View className="mt-4 flex-row gap-3">
           <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
-            <Text className="text-app text-xl font-outfit text-center">
+            <Text className="text-app text-base font-outfit text-center">
               {photo ? "Change Photo" : "Add Photo"}
             </Text>
           </TouchableOpacity>
@@ -319,7 +319,7 @@ export function FoodDiaryPanel() {
               onPress={() => setPhoto(null)}
               className="rounded-full border border-app/30 px-4 py-3"
             >
-              <Text className="text-app text-xl font-outfit text-center">Remove</Text>
+              <Text className="text-app text-base font-outfit text-center">Remove</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity
@@ -332,7 +332,7 @@ export function FoodDiaryPanel() {
             }`}
           >
             <Text
-              className={`text-xl font-outfit text-center ${
+              className={`text-base font-outfit text-center ${
                 saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
                   ? "text-secondary"
                   : "text-white"
@@ -353,7 +353,7 @@ export function FoodDiaryPanel() {
             }`}
           >
             <Text
-              className={`text-xl font-outfit ${
+              className={`text-base font-outfit ${
                 status.tone === "error"
                   ? "text-red-200"
                   : status.tone === "success"
@@ -368,40 +368,40 @@ export function FoodDiaryPanel() {
       </View>
 
       <View className="flex-row items-center justify-between">
-        <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
+        <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
         <TouchableOpacity onPress={loadEntries}>
-          <Text className="text-xl font-outfit text-accent">Refresh</Text>
+          <Text className="text-base font-outfit text-accent">Refresh</Text>
         </TouchableOpacity>
       </View>
 
       {loadingEntries ? (
-        <Text className="text-xl font-outfit text-secondary">Loading entries...</Text>
+        <Text className="text-base font-outfit text-secondary">Loading entries...</Text>
       ) : entries.length ? (
         <View className="gap-3">
           {entries.map((item) => (
             <View key={item.id} className="rounded-3xl border border-app/10 bg-input px-5 py-4">
-              <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.4px]">
+              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
                 {formatDate(item.date)}
               </Text>
               {formatMeals(item.meals).length ? (
                 <View className="mt-2 gap-2">
                   {formatMeals(item.meals).map((meal) => (
                     <View key={meal.label}>
-                      <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+                      <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
                         {meal.label}
                       </Text>
-                      <Text className="text-xl font-outfit text-app mt-1">{meal.value}</Text>
+                      <Text className="text-base font-outfit text-app mt-1">{meal.value}</Text>
                     </View>
                   ))}
                 </View>
               ) : null}
-              {item.notes ? <Text className="text-xl font-outfit text-app mt-2">{item.notes}</Text> : null}
+              {item.notes ? <Text className="text-base font-outfit text-app mt-2">{item.notes}</Text> : null}
               {item.feedback ? (
                 <View className="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
-                  <Text className="text-xs font-outfit text-emerald-300 uppercase tracking-[1.2px]">
+                  <Text className="text-[10px] font-outfit text-emerald-300 uppercase tracking-[1.2px]">
                     Coach Response
                   </Text>
-                  <Text className="text-xl font-outfit text-app mt-1">{item.feedback}</Text>
+                  <Text className="text-base font-outfit text-app mt-1">{item.feedback}</Text>
                   {item.reviewedAt ? (
                     <Text className="text-xs font-outfit text-secondary mt-2">
                       {new Date(item.reviewedAt).toLocaleString()}
@@ -416,7 +416,7 @@ export function FoodDiaryPanel() {
           ))}
         </View>
       ) : (
-        <Text className="text-xl font-outfit text-secondary">No entries yet.</Text>
+        <Text className="text-base font-outfit text-secondary">No entries yet.</Text>
       )}
     </View>
   );
@@ -553,7 +553,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
   return (
     <View className="rounded-3xl border border-app/15 bg-input px-5 py-5">
       <View className="flex-row items-center justify-between">
-        <Text className="text-xl font-clash text-app">Video Upload</Text>
+        <Text className="text-xl font-clash text-app font-bold">Video Upload</Text>
         <View className="rounded-full border border-app/20 bg-white/10 px-3 py-1">
           <Text className="text-xs font-outfit text-secondary uppercase tracking-[1px]">Coach Review</Text>
         </View>
@@ -586,7 +586,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
       ) : null}
       {status ? (
         <View className={`mt-3 rounded-xl border px-3 py-2 ${status.toLowerCase().includes("submitted") ? "border-emerald-400/40 bg-emerald-400/10" : "border-app/20 bg-white/10"}`}>
-          <Text className="text-base font-outfit text-secondary">{status}</Text>
+          <Text className="text-sm font-outfit text-secondary">{status}</Text>
         </View>
       ) : null}
       <View className="mt-4 flex-row gap-3">
@@ -610,7 +610,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
 
       <View className="mt-6 rounded-2xl border border-app/15 bg-white/5 p-4">
         <View className="mb-1 flex-row items-center justify-between">
-          <Text className="text-lg font-clash text-app">Your Uploaded Videos</Text>
+          <Text className="text-xl font-clash text-app font-bold">Your Uploaded Videos</Text>
           <TouchableOpacity
             onPress={() => void loadVideos()}
             disabled={loadingVideos}
@@ -638,7 +638,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
             <View className="gap-5">
               <View className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3">
                 <View className="mb-3 flex-row items-center justify-between">
-                  <Text className="text-lg font-clash text-app">Awaiting Review</Text>
+                  <Text className="text-xl font-clash text-app font-bold">Awaiting Review</Text>
                   <View className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1">
                     <Text className="text-xs font-outfit text-app">{awaitingVideos.length}</Text>
                   </View>
@@ -672,7 +672,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
 
               <View className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
                 <View className="mb-3 flex-row items-center justify-between">
-                  <Text className="text-lg font-clash text-app">Reviewed With Coach Feedback</Text>
+                  <Text className="text-xl font-clash text-app font-bold">Reviewed With Coach Feedback</Text>
                   <View className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1">
                     <Text className="text-xs font-outfit text-app">{reviewedVideos.length}</Text>
                   </View>

@@ -37,9 +37,12 @@ const TAB_COMPONENTS: Record<string, React.ComponentType> = {
 
 export default function TabLayout() {
   const { role } = useRole();
-  const { isAuthenticated, onboardingCompleted, hydrated, token, profile, athleteUserId } = useAppSelector(
-    (state) => state.user
-  );
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const onboardingCompleted = useAppSelector((state) => state.user.onboardingCompleted);
+  const hydrated = useAppSelector((state) => state.user.hydrated);
+  const token = useAppSelector((state) => state.user.token);
+  const profile = useAppSelector((state) => state.user.profile);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();

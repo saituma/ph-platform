@@ -170,15 +170,6 @@ export default function MoreScreen() {
                     onPress={openParentPlatform}
                     accentColor={colors.accent}
                   />
-                  {role === "Guardian" && (
-                    <MenuItem
-                      icon="credit-card"
-                      label="Subscription Plan"
-                      isLast={false}
-                      onPress={() => router.navigate("/plans")}
-                      accentColor={colors.accent}
-                    />
-                  )}
                   <MenuItem
                     icon="bell"
                     label="Notifications"
@@ -265,8 +256,8 @@ export default function MoreScreen() {
             <ActionButton
               label="Logout"
               icon="log-out"
-              color="bg-red-50 dark:bg-red-950/30"
-              iconColor="text-red-600 dark:text-red-400"
+              color="bg-red-600"
+              iconColor="text-black"
               onPress={() => {
                 dispatch(logout());
                 router.replace("/(auth)/login");

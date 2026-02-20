@@ -7,7 +7,6 @@ import {
   BookOpen,
   CalendarDays,
   ClipboardCheck,
-  ClipboardList,
   Home,
   MessageCircle,
   PlaySquare,
@@ -62,7 +61,6 @@ export function AdminSidebarContent({
     { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
     { label: "Physio Referrals", href: "/physio-referrals", icon: Stethoscope },
     { label: "Exercise Library", href: "/exercise-library", icon: BadgeCheck },
-    { label: "Age Content Control", href: "/age-content", icon: ClipboardList },
     { label: "Settings", href: "/settings", icon: Settings },
   ];
   return (

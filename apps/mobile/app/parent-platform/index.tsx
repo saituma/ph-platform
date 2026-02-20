@@ -1,10 +1,10 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Image, Modal, Pressable, TouchableOpacity, View } from "react-native";
+import { Alert, Image, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
 import { useNavigation } from "@react-navigation/native";
 import { useRole } from "@/context/RoleContext";
@@ -13,7 +13,6 @@ import { canAccessTier, tierRank } from "@/lib/planAccess";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
-import { setAthleteUserId, setManagedAthletes } from "@/store/slices/userSlice";
 
 const CATEGORIES = [
   { id: "growth", title: "Growth and maturation", icon: "book-open", color: "bg-emerald-500" },
@@ -48,15 +47,12 @@ type ParentCourseItem = {
 
 export default function ParentPlatformScreen() {
   const { role } = useRole();
-  const dispatch = useAppDispatch();
-  const { token, programTier, athleteUserId, managedAthletes } = useAppSelector((state) => state.user);
+  const { token, programTier } = useAppSelector((state) => state.user);
   const router = useRouter();
   const navigation = useNavigation();
   const { isSectionHidden } = useAgeExperience();
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   const isAthlete = role === "Athlete";
   const platformTitle = isAthlete ? "Athlete Platform" : "Parent Education Platform";
@@ -78,13 +74,8 @@ export default function ParentPlatformScreen() {
       return;
     }
     try {
-      const headers =
-        !isAthlete && athleteUserId
-          ? { "X-Acting-User-Id": String(athleteUserId) }
-          : undefined;
       const data = await apiRequest<{ items: ParentCourseItem[] }>("/content/parent-courses", {
         token,
-        headers,
       });
       setItems(data.items ?? []);
     } catch {
@@ -92,42 +83,15 @@ export default function ParentPlatformScreen() {
         setItems([]);
       }
     } finally {
-      if (options?.refreshing) {
-        setIsRefreshing(false);
-      } else {
+      if (!options?.refreshing) {
         setIsLoading(false);
       }
     }
-  }, [athleteUserId, isAthlete, token]);
-
-  const fetchManagedAthletes = useCallback(async () => {
-    if (!token || role !== "Guardian") return;
-    try {
-      const data = await apiRequest<{
-        guardian?: { activeAthleteId?: number | null } | null;
-        athletes?: ManagedAthlete[];
-      }>("/onboarding/athletes", { token });
-      const athleteList = data.athletes ?? [];
-      dispatch(setManagedAthletes(athleteList));
-      const activeAthlete =
-        athleteList.find((item) => item.id === data.guardian?.activeAthleteId) ??
-        athleteList[0] ??
-        null;
-      if (activeAthlete?.id) {
-        dispatch(setAthleteUserId(activeAthlete.id));
-      }
-    } catch {
-      dispatch(setManagedAthletes([]));
-      dispatch(setAthleteUserId(null));
-    }
-  }, [dispatch, role, token]);
+  }, [isAthlete, token]);
 
   useEffect(() => {
-    if (role === "Guardian") {
-      fetchManagedAthletes();
-    }
     fetchCourses();
-  }, [fetchCourses, fetchManagedAthletes, role]);
+  }, [fetchCourses]);
 
   const grouped = useMemo(() => {
     return CATEGORIES.map((category) => ({
@@ -137,18 +101,6 @@ export default function ParentPlatformScreen() {
   }, [items]);
   const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
   const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium");
-  const selectedAthlete =
-    athleteUserId != null
-      ? managedAthletes.find((athlete) => athlete.id === athleteUserId) ?? null
-      : null;
-  const sortedAthletes = useMemo(() => {
-    if (!managedAthletes.length) return [];
-    if (!selectedAthlete) return managedAthletes;
-    return [
-      selectedAthlete,
-      ...managedAthletes.filter((athlete) => athlete.id !== selectedAthlete.id),
-    ];
-  }, [managedAthletes, selectedAthlete]);
   const visibleGroups = isAthlete ? [] : grouped.filter((cat) => cat.items.length > 0);
   const visibleItems = isAthlete ? items : [];
 
@@ -172,7 +124,7 @@ export default function ParentPlatformScreen() {
             onPress={() => router.replace("/(tabs)/more")}
             className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
           >
-            <Feather name="arrow-left" size={20} className="text-secondary" />
+            <Feather name="arrow-left" size={20} color="#6B7280" />
           </TouchableOpacity>
           <Text className="text-xl font-clash text-app font-bold">
             {platformTitle}
@@ -183,11 +135,9 @@ export default function ParentPlatformScreen() {
 
       <ThemedScrollView
         onRefresh={async () => {
-          if (!token || isRefreshing) return;
-          setIsRefreshing(true);
+          if (!token) return;
           await fetchCourses({ refreshing: true });
         }}
-        refreshing={isRefreshing}
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
@@ -201,14 +151,6 @@ export default function ParentPlatformScreen() {
                 {platformSubtitle}
               </Text>
             </View>
-            {role === "Guardian" ? (
-              <TouchableOpacity
-                onPress={() => setIsPickerOpen(true)}
-                className="h-11 w-11 rounded-2xl bg-secondary/10 border border-app/10 items-center justify-center"
-              >
-                <Feather name="menu" size={18} className="text-secondary" />
-              </TouchableOpacity>
-            ) : null}
           </View>
           {isAthlete ? (
             <View className="mt-4 rounded-2xl border border-app/10 bg-secondary/10 px-4 py-3">
@@ -220,34 +162,13 @@ export default function ParentPlatformScreen() {
                 guidance will unlock when your age increases.
               </Text>
             </View>
-          ) : selectedAthlete ? (
-            <View className="mt-4 rounded-2xl border border-app/10 bg-secondary/10 px-4 py-3 flex-row items-center gap-3">
-              {selectedAthlete.profilePicture ? (
-                <Image
-                  source={{ uri: selectedAthlete.profilePicture }}
-                  style={{ width: 44, height: 44, borderRadius: 12 }}
-                />
-              ) : (
-                <View className="h-11 w-11 rounded-xl bg-secondary/20 items-center justify-center">
-                  <Feather name="user" size={18} className="text-secondary" />
-                </View>
-              )}
-              <View className="flex-1">
-                <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.2px]">
-                  Viewing Athlete
-                </Text>
-                <Text className="text-base font-clash text-app mt-0.5">
-                  {selectedAthlete.name ?? "Athlete"}
-                </Text>
-              </View>
-            </View>
           ) : null}
         </View>
 
         {!hasParentProgramAccess ? (
           <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
             <View className="flex-row items-center gap-2 mb-2">
-              <Feather name="lock" size={16} className="text-secondary" />
+              <Feather name="lock" size={16} color="#6B7280" />
               <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
                 Locked
               </Text>
@@ -419,7 +340,7 @@ export default function ParentPlatformScreen() {
 
         <View className="mt-8 bg-accent/10 rounded-3xl p-6 border border-accent/20">
           <View className="flex-row items-center mb-2">
-            <Feather name="info" size={20} className="text-accent mr-2" />
+            <Feather name="info" size={20} color="#10B981" />
             <Text className="text-accent font-bold font-clash text-lg">
               Full Access
             </Text>
@@ -431,135 +352,6 @@ export default function ParentPlatformScreen() {
         </View>
       </ThemedScrollView>
 
-      {role === "Guardian" ? (
-        <Modal transparent visible={isPickerOpen} animationType="fade" onRequestClose={() => setIsPickerOpen(false)}>
-          <Pressable className="flex-1 bg-black/40" onPress={() => setIsPickerOpen(false)}>
-            <Pressable
-              onPress={() => {}}
-              className="absolute right-6 top-24 w-72 rounded-3xl bg-app border border-app/10 p-4"
-            >
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
-                  Switch Athlete
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setIsPickerOpen(false)}
-                  className="h-8 w-8 rounded-full bg-secondary/20 items-center justify-center"
-                >
-                  <Feather name="x" size={14} className="text-secondary" />
-                </TouchableOpacity>
-              </View>
-              {managedAthletes.length ? (
-                <View className="gap-2">
-                  <TouchableOpacity
-                    onPress={() => {
-                      dispatch(setAthleteUserId(null));
-                      setIsPickerOpen(false);
-                    }}
-                    className={`rounded-2xl border px-3 py-3 ${
-                      athleteUserId == null
-                        ? "bg-[#2F8F57]/10 border-[#2F8F57]/30"
-                        : "bg-input border-gray-100 dark:border-gray-800"
-                    }`}
-                  >
-                    <View className="flex-row items-center gap-3">
-                      <View className="h-11 w-11 rounded-xl bg-secondary/20 items-center justify-center">
-                        <Feather name="users" size={18} className="text-secondary" />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-clash text-app">
-                          Parent (my courses)
-                        </Text>
-                        <Text className="text-xs font-outfit text-secondary mt-0.5">
-                          View guardian content
-                        </Text>
-                      </View>
-                      {athleteUserId == null ? (
-                        <View className="h-2.5 w-2.5 rounded-full bg-[#2F8F57]" />
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                  {sortedAthletes.map((athlete) => {
-                    const isActive = selectedAthlete?.id === athlete.id;
-                    return (
-                      <TouchableOpacity
-                        key={athlete.id ?? athlete.name ?? Math.random()}
-                        onPress={() => {
-                          if (athlete.id) {
-                            dispatch(setAthleteUserId(athlete.id));
-                          }
-                          setIsPickerOpen(false);
-                        }}
-                        className={`rounded-2xl border px-3 py-3 ${
-                          isActive
-                            ? "bg-[#2F8F57]/10 border-[#2F8F57]/30"
-                            : "bg-input border-gray-100 dark:border-gray-800"
-                        }`}
-                      >
-                        <View className="flex-row items-center gap-3">
-                          {athlete.profilePicture ? (
-                            <Image
-                              source={{ uri: athlete.profilePicture }}
-                              style={{ width: 44, height: 44, borderRadius: 12 }}
-                            />
-                          ) : (
-                            <View className="h-11 w-11 rounded-xl bg-secondary/20 items-center justify-center">
-                              <Feather name="user" size={18} className="text-secondary" />
-                            </View>
-                          )}
-                          <View className="flex-1">
-                            <Text className="text-sm font-clash text-app">
-                              {athlete.name ?? "Athlete"}
-                            </Text>
-                            <Text className="text-xs font-outfit text-secondary mt-0.5">
-                              {athlete.team ?? "Team not set"} • {athlete.age ?? "—"} yrs
-                            </Text>
-                          </View>
-                          {isActive ? (
-                            <View className="h-2.5 w-2.5 rounded-full bg-[#2F8F57]" />
-                          ) : null}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {hasPremiumAccess ? (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setIsPickerOpen(false);
-                        router.push("/parent-platform/stats");
-                      }}
-                      className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-input px-3 py-3"
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <View className="h-11 w-11 rounded-xl bg-[#2F8F57]/15 items-center justify-center">
-                          <Feather name="bar-chart-2" size={18} color="#2F8F57" />
-                        </View>
-                        <View className="flex-1">
-                          <Text className="text-sm font-clash text-app">
-                            Athlete Stats
-                          </Text>
-                          <Text className="text-xs font-outfit text-secondary mt-0.5">
-                            Premium analytics dashboard
-                          </Text>
-                        </View>
-                        <View className="px-2 py-1 rounded-full bg-[#2F8F57]/10">
-                          <Text className="text-[10px] font-outfit text-[#2F8F57]">
-                            Premium
-                          </Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ) : (
-                <Text className="text-sm font-outfit text-secondary">
-                  No athlete profiles found for this account.
-                </Text>
-              )}
-            </Pressable>
-          </Pressable>
-        </Modal>
-      ) : null}
     </SafeAreaView>
   );
 }

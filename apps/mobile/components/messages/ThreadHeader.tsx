@@ -1,6 +1,7 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
-import { Image, Pressable, View, Alert } from "react-native";
+import { Image, Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { MessageThread } from "@/types/messages";
 import { Text } from "@/components/ScaledText";
@@ -14,74 +15,65 @@ type ThreadHeaderProps = {
 export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
   const { colors } = useAppTheme();
 
-  const handleOpenMenu = () => {
-    Alert.alert(
-      "Thread Options",
-      "Manage this conversation",
-      [
-        { text: "Mute Notifications", onPress: () => console.log("Muted") },
-        { text: "Archive Thread", onPress: () => console.log("Archived") },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
-  };
 
   return (
-    <View className="px-6 pt-4 pb-4 border-b border-accent/20 bg-app">
+    <View className="px-6 pt-2 pb-4 border-b border-app/5 bg-app shadow-sm">
       <View className="flex-row items-center justify-between">
         <Pressable
           onPress={onBack}
-          className="h-11 w-11 rounded-2xl items-center justify-center bg-accent/5"
-          style={{ borderWidth: 1, borderColor: `${colors.accent}33` }}
+          className="h-10 w-10 rounded-2xl items-center justify-center bg-input border border-app/5 shadow-sm active:opacity-80"
         >
           <Feather name="chevron-left" size={20} color={colors.accent} />
         </Pressable>
 
-        <View className="flex-1 mx-4">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3">
-              {thread.avatarUrl ? (
-                <View className="h-10 w-10 rounded-2xl overflow-hidden">
-                  <Image source={{ uri: thread.avatarUrl }} style={{ width: 40, height: 40 }} />
-                </View>
-              ) : null}
-              <View>
-                <Text className="font-clash text-lg text-app">{thread.name}</Text>
-                <Text className="text-xs font-outfit text-secondary mt-0.5">
-                  {thread.role} · {thread.lastSeen ?? "Active recently"}
-                </Text>
+        <View className="flex-1 ml-2 mr-4">
+          <View className="flex-row items-center gap-3">
+            {thread.avatarUrl ? (
+              <View className="h-10 w-10 rounded-2xl overflow-hidden border border-app/5">
+                <Image 
+                  source={{ uri: thread.avatarUrl }} 
+                  className="h-full w-full"
+                  resizeMode="cover"
+                />
               </View>
+            ) : (
+              <View className="h-10 w-10 rounded-2xl bg-accent/10 items-center justify-center border border-accent/20">
+                 <Text className="text-accent font-clash text-lg font-bold">
+                   {thread.name.charAt(0)}
+                 </Text>
+              </View>
+            )}
+            <View className="flex-1">
+              <Text className="font-clash text-[17px] font-bold text-app" numberOfLines={1}>
+                {thread.name}
+              </Text>
             </View>
-            {thread.premium ? (
-              <View className="flex-row items-center px-2 py-1 rounded-full bg-accent">
-                <Feather name="star" size={10} color="#FFFFFF" />
-                <Text className="ml-1 text-[0.625rem] font-bold font-outfit text-white uppercase tracking-[1.2px]">
-                  Premium
-                </Text>
-              </View>
-            ) : null}
           </View>
         </View>
 
-        <Pressable 
-          onPress={handleOpenMenu}
-          className="h-11 w-11 rounded-2xl items-center justify-center bg-accent/5"
-          style={{ borderWidth: 1, borderColor: `${colors.accent}33` }}
-        >
-          <Feather name="more-vertical" size={18} color={colors.accent} />
-        </Pressable>
+        <View className="h-10 w-10" />
       </View>
 
-      <View className="mt-3 flex-row items-center justify-between">
-        <View className="flex-row items-center gap-2">
-          <View className="h-2 w-2 rounded-full bg-success" />
-          <Text className="text-xs font-outfit text-secondary">
-            {thread.responseTime ?? "Coach replies fast"}
+      <View className="mt-4 flex-row items-center justify-between">
+        <View className="flex-row items-center gap-2 px-3 py-1 bg-success/5 rounded-full border border-success/10">
+          <Feather name="clock" size={11} color="#2F8F57" />
+          <Text className="text-[10px] font-bold font-outfit text-[#2F8F57] uppercase tracking-wide">
+            {thread.responseTime ?? "Fast Replies"}
           </Text>
         </View>
         <View className="flex-row items-center gap-2">
-          <Feather name="shield" size={12} color={colors.accent} />
-          <Text className="text-xs font-outfit text-secondary">Secure 1:1 thread</Text>
+          {thread.premium && (
+            <View className="flex-row items-center px-2.5 py-1 rounded-full bg-accent border border-accent">
+              <Ionicons name="star" size={10} color="#FFFFFF" />
+              <Text className="ml-1 text-[9px] font-bold font-outfit text-white uppercase tracking-[1px]">
+                Premium
+              </Text>
+            </View>
+          )}
+          <View className="flex-row items-center gap-1.5 px-2 py-1 bg-input rounded-full border border-app/5">
+            <Feather name="shield" size={10} color={colors.accent} />
+            <Text className="text-[10px] font-medium font-outfit text-secondary">Secure</Text>
+          </View>
         </View>
       </View>
     </View>

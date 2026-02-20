@@ -1,0 +1,107 @@
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
+import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
+import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
+import { ThreadHeader } from "@/components/messages/ThreadHeader";
+import { useMessagesController } from "@/hooks/useMessagesController";
+import React from "react";
+import { Alert, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams } from "expo-router";
+import { useAppSelector } from "@/store/hooks";
+import { canAccessTier } from "@/lib/planAccess";
+
+export default function ThreadScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { colors } = useAppTheme();
+  const programTier = useAppSelector((state) => state.user.programTier);
+  const canMessage = canAccessTier(programTier ?? null, "PHP_Plus");
+
+  const {
+    reactionOptions,
+    currentThread,
+    localMessages,
+    typingStatus,
+    isLoading,
+    isThreadLoading,
+    draft,
+    reactionTarget,
+    composerMenuOpen,
+    isUploadingAttachment,
+    pendingAttachment,
+    setDraft,
+    setReactionTarget,
+    setComposerMenuOpen,
+    setPendingAttachment,
+    clearThread,
+    handleSend,
+    handleAttachFile,
+    handleAttachImage,
+    handleToggleReaction,
+  } = useMessagesController();
+
+  const handleLockedPress = () => {
+    Alert.alert(
+      "Messaging locked",
+      "Messaging is available on PHP Plus and PHP Premium plans.",
+      [{ text: "OK" }],
+    );
+  };
+
+  if (!currentThread) {
+    return (
+      <SafeAreaView className="flex-1 bg-app items-center justify-center">
+        <ActivityIndicator size="large" color={colors.accent} />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      <ThreadHeader thread={currentThread} onBack={clearThread} />
+      <ThreadChatBody
+        thread={currentThread}
+        messages={localMessages}
+        draft={draft}
+        isLoading={isLoading}
+        isThreadLoading={isThreadLoading}
+        typingStatus={typingStatus}
+        textSecondaryColor={colors.textSecondary}
+        onDraftChange={setDraft}
+        onSend={handleSend}
+        onOpenComposerMenu={() => setComposerMenuOpen(true)}
+        onLongPressMessage={(message) => {
+          const isGroup = message.threadId.startsWith("group:");
+          const parsedId = isGroup
+            ? Number(message.id.replace("group-", ""))
+            : Number(message.id);
+          if (!Number.isFinite(parsedId)) return;
+          setReactionTarget(message);
+        }}
+        onReactionPress={handleToggleReaction}
+        composerDisabled={!canMessage}
+        pendingAttachment={pendingAttachment}
+        onRemovePendingAttachment={() => setPendingAttachment(null)}
+        isUploadingAttachment={isUploadingAttachment}
+        disabledMessage={
+          !canMessage
+            ? "Messaging unlocks on PHP Plus and PHP Premium."
+            : undefined
+        }
+        onDisabledPress={handleLockedPress}
+      />
+      <ReactionPickerModal
+        reactionTarget={reactionTarget}
+        options={reactionOptions}
+        onClose={() => setReactionTarget(null)}
+        onSelect={handleToggleReaction}
+      />
+      <ComposerActionsModal
+        open={composerMenuOpen}
+        onClose={() => setComposerMenuOpen(false)}
+        onAttachFile={handleAttachFile}
+        onAttachImage={handleAttachImage}
+      />
+    </SafeAreaView>
+  );
+}

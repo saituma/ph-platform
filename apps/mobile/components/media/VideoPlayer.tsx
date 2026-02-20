@@ -14,31 +14,27 @@ const normalizeUrl = (url: string) => {
 };
 
 const getYoutubeId = (url: string) => {
-  try {
-    const parsed = new URL(normalizeUrl(url));
-    if (parsed.hostname === "youtu.be") {
-      return parsed.pathname.replace("/", "");
-    }
-    if (parsed.pathname.startsWith("/shorts/")) {
-      return parsed.pathname.replace("/shorts/", "");
-    }
-    if (parsed.searchParams.get("v")) {
-      return parsed.searchParams.get("v");
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  const normalized = normalizeUrl(url);
+  
+  // youtu.be/VIDEO_ID
+  const shortMatch = normalized.match(/youtu\.be\/([^?#/]+)/i);
+  if (shortMatch) return shortMatch[1];
+
+  // youtube.com/shorts/VIDEO_ID
+  const shortsMatch = normalized.match(/\/shorts\/([^?#/]+)/i);
+  if (shortsMatch) return shortsMatch[1];
+
+  // youtube.com/watch?v=VIDEO_ID
+  const watchMatch = normalized.match(/[?&]v=([^&#]+)/i);
+  if (watchMatch) return watchMatch[1];
+
+  return null;
 };
 
 export const isYoutubeUrl = (url?: string) => {
   if (!url) return false;
-  try {
-    const parsed = new URL(normalizeUrl(url));
-    return YOUTUBE_HOSTS.includes(parsed.hostname);
-  } catch {
-    return false;
-  }
+  const normalized = normalizeUrl(url);
+  return /youtube\.com|youtu\.be/i.test(normalized);
 };
 
 export function YouTubeEmbed({ url }: { url: string }) {

@@ -1,4 +1,4 @@
-import { ActionButton } from "@/components/dashboard/ActionButton";
+
 import { PinModal } from "@/components/PinModal";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
@@ -82,7 +82,7 @@ export default function PrivacySecurityScreen() {
             </Text>
           </View>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Manage your data, passwords, and two-factor authentication.
+            Manage your passwords and account security settings.
           </Text>
         </View>
 
@@ -104,21 +104,6 @@ export default function PrivacySecurityScreen() {
             label="Change Password"
             icon="key"
             onPress={() => router.navigate("/(auth)/forgot")}
-          />
-          <SecurityLink
-            label="Two-Factor Authentication"
-            icon="shield"
-            onPress={() => {}}
-          />
-          <SecurityLink
-            label="Authorized Devices"
-            icon="tablet"
-            onPress={() => {}}
-          />
-          <SecurityLink
-            label="Download My Data"
-            icon="download"
-            onPress={() => {}}
             isLast
           />
         </View>
@@ -179,36 +164,7 @@ export default function PrivacySecurityScreen() {
           </View>
         </View>
 
-        <View
-          className="bg-red-50 dark:bg-red-950/20 rounded-[32px] overflow-hidden border border-red-100 dark:border-red-900/30 p-2 mb-8"
-          style={
-            isDark
-              ? undefined
-              : {
-                  shadowColor: "#0F172A",
-                  shadowOpacity: 0.08,
-                  shadowRadius: 12,
-                  shadowOffset: { width: 0, height: 6 },
-                  elevation: 6,
-                }
-          }
-        >
-          <SecurityLink
-            label="Delete Account"
-            icon="trash-2"
-            onPress={() => {}}
-            isLast
-            color="text-danger"
-          />
-        </View>
 
-        <ActionButton
-          label="Close"
-          onPress={() => router.navigate("/(tabs)/more")}
-          color="bg-secondary"
-          icon="x"
-          fullWidth={true}
-        />
       </ThemedScrollView>
 
       <PinModal

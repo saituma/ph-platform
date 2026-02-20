@@ -1,4 +1,5 @@
 import { ChatMessage } from "@/constants/messages";
+import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "@/lib/api";
 import { useRole } from "@/context/RoleContext";
 import { useAppSelector } from "@/store/hooks";
@@ -22,8 +23,12 @@ export function useMessagesController() {
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
 
   const router = useRouter();
-  const { thread: threadId } = useLocalSearchParams<{ thread?: string }>();
-  const { token, profile, athleteUserId, programTier } = useAppSelector((state) => state.user);
+  const { thread, id } = useLocalSearchParams<{ thread?: string; id?: string }>();
+  const threadId = thread || id;
+  const token = useAppSelector((state) => state.user.token);
+  const profile = useAppSelector((state) => state.user.profile);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+  const programTier = useAppSelector((state) => state.user.programTier);
   const { role } = useRole();
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
@@ -217,8 +222,13 @@ export function useMessagesController() {
   );
 
   const clearThread = useCallback(() => {
-    router.setParams({ thread: undefined });
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)/messages");
+    }
     setSelectedThread(null);
+    setOpeningThreadId(null);
     setPendingAttachment(null);
   }, [router]);
 
@@ -227,7 +237,7 @@ export function useMessagesController() {
       if (openingThreadId === thread.id) return;
       setOpeningThreadId(thread.id);
       setSelectedThread(thread);
-      router.setParams({ thread: thread.id });
+      router.push(`/messages/${thread.id}`);
     },
     [openingThreadId, router]
   );
@@ -579,6 +589,12 @@ export function useMessagesController() {
   useEffect(() => {
     setPendingAttachment(null);
   }, [currentThread?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setOpeningThreadId(null);
+    }, [])
+  );
 
   useEffect(() => {
     if (Platform.OS !== "android" || !currentThread) return;

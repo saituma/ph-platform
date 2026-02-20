@@ -35,6 +35,7 @@ type ProgramSectionContent = {
   sectionType: string;
   title: string;
   body: string;
+  ageList?: number[] | null;
   videoUrl?: string | null;
   order?: number | null;
   createdAt?: string;
@@ -70,6 +71,7 @@ async function fetchProgramSectionContent(sectionType: string) {
 
 async function createProgramSectionContent(payload: {
   sectionType: string;
+  ageList?: number[] | null;
   title: string;
   body: string;
   videoUrl?: string | null;
@@ -90,6 +92,7 @@ async function createProgramSectionContent(payload: {
 
 async function updateProgramSectionContent(id: number, payload: {
   sectionType: string;
+  ageList?: number[] | null;
   title: string;
   body: string;
   videoUrl?: string | null;
@@ -153,6 +156,8 @@ function ExerciseLibraryPageInner() {
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [ageInput, setAgeInput] = useState("");
+  const [ageList, setAgeList] = useState<number[]>([]);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [order, setOrder] = useState("1");
   const [foodDiaryItems, setFoodDiaryItems] = useState<FoodDiaryItem[]>([]);
@@ -208,6 +213,8 @@ function ExerciseLibraryPageInner() {
     setEditingId(null);
     setTitle("");
     setBody("");
+    setAgeInput("");
+    setAgeList([]);
     setVideoUrl(null);
     setOrder("1");
   };
@@ -221,6 +228,7 @@ function ExerciseLibraryPageInner() {
         sectionType: activeSection,
         title: title.trim(),
         body: body.trim(),
+        ageList: ageList.length ? ageList : null,
         videoUrl: videoUrl || null,
         order: order.trim() ? Number(order) : null,
       };
@@ -244,8 +252,25 @@ function ExerciseLibraryPageInner() {
     setEditingId(item.id);
     setTitle(item.title ?? "");
     setBody(item.body ?? "");
+    setAgeInput("");
+    setAgeList(Array.isArray(item.ageList) ? item.ageList : []);
     setVideoUrl(item.videoUrl ?? null);
     setOrder(item.order ? String(item.order) : "1");
+  };
+
+  const handleAddAge = () => {
+    const parsed = Number(ageInput);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    const normalized = Math.floor(parsed);
+    setAgeList((prev) => {
+      if (prev.includes(normalized)) return prev;
+      return [...prev, normalized].sort((a, b) => a - b);
+    });
+    setAgeInput("");
+  };
+
+  const handleRemoveAge = (age: number) => {
+    setAgeList((prev) => prev.filter((item) => item !== age));
   };
 
   const handleDelete = async (id: number) => {
@@ -360,6 +385,59 @@ function ExerciseLibraryPageInner() {
                 onChange={(event) => setBody(event.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Ages
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Add age"
+                  value={ageInput}
+                  onChange={(event) => setAgeInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleAddAge();
+                    }
+                  }}
+                  className="w-28"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAddAge}
+                  disabled={!ageInput.trim()}
+                >
+                  Add Age
+                </Button>
+              </div>
+              {ageList.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {ageList.map((age) => (
+                    <div
+                      key={age}
+                      className="flex items-center gap-2 rounded-full border border-border bg-secondary/30 px-3 py-1 text-xs"
+                    >
+                      <span>Age {age}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAge(age)}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove age ${age}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No ages set. Content will show for all ages.
+                </p>
+              )}
+            </div>
             <div className="space-y-2 rounded-2xl border border-border bg-secondary/30 p-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -439,8 +517,15 @@ function ExerciseLibraryPageInner() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">Order {item.order ?? 1}</p>
-                    </div>
+                  <p className="text-xs text-muted-foreground">Order {item.order ?? 1}</p>
+                  {Array.isArray(item.ageList) && item.ageList.length ? (
+                    <p className="text-xs text-muted-foreground">
+                      Ages: {item.ageList.join(", ")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Ages: All</p>
+                  )}
+                </div>
                     <div className="flex gap-2">
                       <Button variant="outline" onClick={() => handleEdit(item)} disabled={isSaving}>
                         Edit

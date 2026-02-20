@@ -86,6 +86,11 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
               elevation: isDark ? 0 : 5,
             }}
           >
+            {item.rating ? (
+              <View className="mb-4">
+                <StarRating rating={item.rating} />
+              </View>
+            ) : null}
             <Text className="text-app font-outfit text-lg italic leading-relaxed mb-8 opacity-90">
               {"\u201C"}
               {item.quote}
@@ -158,6 +163,11 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
             elevation: isDark ? 0 : 5,
           }}
         >
+          {item.rating ? (
+            <View className="mb-4">
+              <StarRating rating={item.rating} />
+            </View>
+          ) : null}
           <Text className="text-app font-outfit text-lg italic leading-relaxed mb-8 opacity-90">
             {"\u201C"}
             {item.quote}
@@ -255,4 +265,21 @@ function DotIndicator({
   }, [isActive, activeColor, inactiveColor]);
 
   return <Animated.View className="h-2 rounded-full" style={dotStyle} />;
+}
+
+function StarRating({ rating, size = 16 }: { rating: number; size?: number }) {
+  const { colors } = useAppTheme();
+  return (
+    <View className="flex-row gap-1">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Feather
+          key={i}
+          name="star"
+          size={size}
+          color={i <= rating ? "#F59E0B" : colors.textSecondary}
+          style={i <= rating ? { opacity: 1 } : { opacity: 0.25 }}
+        />
+      ))}
+    </View>
+  );
 }

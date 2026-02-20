@@ -221,6 +221,7 @@ export const programSectionContentTable = pgTable("program_section_contents", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   sectionType: sessionType().notNull(),
   programTier: ProgramType(),
+  ageList: jsonb(),
   title: varchar({ length: 255 }).notNull(),
   body: text().notNull(),
   videoUrl: varchar({ length: 500 }),

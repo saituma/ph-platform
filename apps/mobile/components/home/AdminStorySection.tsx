@@ -35,7 +35,7 @@ export function AdminStorySection({ story, photoUrl }: AdminStorySectionProps) {
             <Image
               source={{ uri: photo }}
               resizeMode="cover"
-              style={{ width: "100%", aspectRatio: 3 / 4 }}
+              style={{ width: "100%", aspectRatio: 16 / 9 }}
             />
           </View>
         </View>

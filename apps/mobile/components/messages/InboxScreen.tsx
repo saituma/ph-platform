@@ -42,16 +42,6 @@ export function InboxScreen({
       onRefresh={onRefresh}
       contentContainerStyle={{ paddingBottom: 100 }}
     >
-      {/* Search Bar */}
-      <View className="px-6 pt-6 pb-4">
-        <View className="flex-row items-center h-12 bg-input rounded-3xl px-5 border border-gray-100 dark:border-gray-800">
-          <Feather name="search" size={20} color={colors.accent} />
-          <Text className="ml-3 flex-1 text-secondary font-outfit text-[15px]">
-            Search conversations...
-          </Text>
-        </View>
-      </View>
-
       {/* Threads */}
       <View className="px-6">
         <View className="gap-4">
@@ -83,7 +73,7 @@ export function InboxScreen({
                 <Pressable
                   key={thread.id}
                   onPress={() => onOpenThread(thread)}
-                  className="bg-input rounded-3xl p-5 active:opacity-95 border border-gray-100 dark:border-gray-800"
+                  className="bg-input rounded-3xl p-5 active:opacity-95 border border-black/5 dark:border-app/10"
                 >
                   <View className="flex-row items-start gap-4">
                     {/* Avatar */}
@@ -103,8 +93,8 @@ export function InboxScreen({
 
                       {/* Unread badge */}
                       {thread.unread > 0 && (
-                        <View className="absolute -top-0.5 -right-0.5 h-5 w-5 bg-[#2F8F57] rounded-full items-center justify-center border-[2.5px] border-input">
-                          <Text className="text-white text-[10px] font-bold font-outfit">
+                        <View className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 rounded-full items-center justify-center border-4 border-app">
+                          <Text className="text-white text-[9px] font-bold font-outfit">
                             {typeof thread.unread === "number" &&
                             thread.unread > 9
                               ? "9+"
@@ -139,59 +129,62 @@ export function InboxScreen({
                               color={colors.accent}
                             />
                           ) : (
-                            <Text className="text-xs font-outfit text-secondary">
-                              {thread.time}
-                            </Text>
+                            <View className="items-end gap-1.5">
+                              <Text className="text-[0.6875rem] font-bold font-outfit text-secondary/60">
+                                {thread.time}
+                              </Text>
+                            </View>
                           )}
                         </View>
                       </View>
 
                       {/* Preview / Typing */}
                       <Text
-                        className={`mt-3 text-[15px] leading-tight font-outfit ${
+                        className={`mt-2.5 text-sm leading-snug font-outfit ${
                           typing?.isTyping
-                            ? "text-[#2F8F57] font-medium"
-                            : "text-app"
+                            ? "text-[#2F8F57] font-semibold"
+                            : "text-secondary"
                         }`}
-                        numberOfLines={2}
+                        numberOfLines={1}
                       >
                         {typing?.isTyping
                           ? `${typing.name} is typing...`
                           : thread.preview}
                       </Text>
 
-                      {/* Badges */}
-                      <View className="flex-row items-center gap-2 mt-4">
-                        {thread.pinned && (
-                          <View className="px-3 py-1 bg-amber-100 dark:bg-amber-950 rounded-full flex-row items-center">
-                            <Feather
-                              name="bookmark"
-                              size={13}
-                              color="#D97706"
-                            />
-                            <Text className="ml-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
-                              PINNED
-                            </Text>
-                          </View>
-                        )}
+                      {/* Badges & Status */}
+                      <View className="flex-row items-end justify-between mt-4">
+                        <View className="flex-row items-center gap-2">
+                          {thread.pinned && (
+                            <View className="px-2.5 py-1 bg-amber-500/10 rounded-full flex-row items-center border border-amber-500/20">
+                              <Feather
+                                name="bookmark"
+                                size={11}
+                                color="#D97706"
+                              />
+                              <Text className="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                                PINNED
+                              </Text>
+                            </View>
+                          )}
+                        </View>
 
                         {thread.premium && (
-                          <View className="px-3 py-1 bg-[#2F8F57]/10 rounded-full flex-row items-center">
-                            <Ionicons name="star" size={13} color="#2F8F57" />
-                            <Text className="ml-1 text-[10px] font-bold text-[#2F8F57] uppercase tracking-widest">
-                              PRIORITY
-                            </Text>
+                          <View className="flex-col items-end gap-1">
+                            <View className="bg-[#2F8F57] px-1.5 py-0.5 rounded shadow-sm">
+                              <Text className="text-[7px] font-bold text-white uppercase tracking-tighter">
+                                PRIORITY
+                              </Text>
+                            </View>
+                            {thread.responseTime && (
+                              <View className="bg-[#2F8F57]/90 px-1.5 py-0.5 rounded shadow-sm">
+                                <Text className="text-[7px] font-bold text-white uppercase tracking-tighter">
+                                  {thread.responseTime}
+                                </Text>
+                              </View>
+                            )}
                           </View>
                         )}
-
-                        {thread.premium && thread.responseTime ? (
-                          <View className="px-3 py-1 bg-[#2F8F57]/5 rounded-full flex-row items-center">
-                            <Feather name="clock" size={12} color="#2F8F57" />
-                            <Text className="ml-1 text-[10px] font-bold text-[#2F8F57] uppercase tracking-widest">
-                              {thread.responseTime}
-                            </Text>
-                          </View>
-                        ) : null}
                       </View>
                     </View>
                   </View>
@@ -221,17 +214,17 @@ export function InboxScreen({
 
       {/* Urgent Help Card */}
       {threads.length > 0 && (
-        <View className="mx-6 mt-10 bg-[#2F8F57]/5 dark:bg-[#2F8F57]/10 border border-[#2F8F57]/20 rounded-3xl p-6">
+        <View className="mx-12 mt-8 mb-10 bg-accent/5 rounded-3xl p-6">
           <View className="flex-row items-center gap-4">
-            <View className="w-11 h-11 bg-[#2F8F57] rounded-2xl items-center justify-center">
-              <Feather name="phone" size={22} color="white" />
+            <View className="w-12 h-12 bg-accent rounded-2xl items-center justify-center shadow-lg shadow-accent/20">
+              <Feather name="help-circle" size={24} color="white" />
             </View>
             <View className="flex-1">
-              <Text className="font-clash text-lg text-app">
-                Need faster help?
+              <Text className="font-clash text-lg font-bold text-app">
+                Need priority help?
               </Text>
-              <Text className="text-sm text-secondary mt-1 leading-snug">
-                Premium members get priority replies and can book 1:1 calls
+              <Text className="text-sm text-secondary mt-0.5 leading-relaxed">
+                Premium members get faster replies and 1:1 video review support.
               </Text>
             </View>
           </View>
