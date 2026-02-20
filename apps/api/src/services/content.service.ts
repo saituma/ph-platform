@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, contentTable, parentCourseTable, ProgramType } from "../db/schema";
@@ -11,7 +11,11 @@ const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
 };
 
 export async function getHomeContent() {
-  return db.select().from(contentTable).where(eq(contentTable.surface, "home"));
+  return db
+    .select()
+    .from(contentTable)
+    .where(eq(contentTable.surface, "home"))
+    .orderBy(desc(contentTable.updatedAt));
 }
 
 export async function getLegalContent() {
@@ -58,7 +62,11 @@ function matchesAgeRange(
 
 export async function getHomeContentForUser(userId: number) {
   const age = await resolveAthleteAge(userId);
-  const items = await db.select().from(contentTable).where(eq(contentTable.surface, "home"));
+  const items = await db
+    .select()
+    .from(contentTable)
+    .where(eq(contentTable.surface, "home"))
+    .orderBy(desc(contentTable.updatedAt));
   return items.filter((item) => matchesAgeRange(item, age));
 }
 

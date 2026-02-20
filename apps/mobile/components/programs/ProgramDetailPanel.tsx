@@ -246,7 +246,7 @@ export function ProgramDetailPanel({
     if (visibleContent.length === 0) {
       return (
         <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-          <Text className="text-base font-outfit text-secondary text-center">
+          <Text className="text-sm font-outfit text-secondary text-center">
             {searchQuery.trim()
               ? "No matching content found."
               : "No content configured for this section yet. Ask your coach/admin to add content in Web Admin."}
@@ -258,14 +258,14 @@ export function ProgramDetailPanel({
       <View className="gap-4">
         {showContentLoading ? (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-base font-outfit text-secondary text-center">
+            <Text className="text-sm font-outfit text-secondary text-center">
               Loading section content...
             </Text>
           </View>
         ) : null}
         {showContentError ? (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-base font-outfit text-secondary text-center">
+            <Text className="text-sm font-outfit text-secondary text-center">
               {showContentError}
             </Text>
           </View>
@@ -275,8 +275,8 @@ export function ProgramDetailPanel({
             key={`content-${item.id}`}
             className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3"
           >
-            <Text className="text-xl font-clash text-app font-bold">{item.title}</Text>
-            <Text className="text-base font-outfit text-secondary leading-relaxed">
+            <Text className="text-lg font-clash text-app font-bold">{item.title}</Text>
+            <Text className="text-sm font-outfit text-secondary leading-relaxed">
               {item.body}
             </Text>
             {item.videoUrl ? (
@@ -313,8 +313,8 @@ export function ProgramDetailPanel({
               Pending Access
             </Text>
           </View>
-          <Text className="text-xl font-clash text-app font-bold">{title}</Text>
-          <Text className="text-base font-outfit text-secondary leading-relaxed">{body}</Text>
+          <Text className="text-lg font-clash text-app font-bold">{title}</Text>
+          <Text className="text-sm font-outfit text-secondary leading-relaxed">{body}</Text>
         </View>
       );
     }
@@ -323,7 +323,7 @@ export function ProgramDetailPanel({
       return (
         <View className="gap-4">
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
-            <Text className="text-xl font-clash text-app font-bold">Program Features</Text>
+            <Text className="text-lg font-clash text-app font-bold">Program Features</Text>
             {tier?.features?.map((feature, index) => (
               <View
                 key={`${tier.id}-feature-${index}`}
@@ -332,7 +332,7 @@ export function ProgramDetailPanel({
                 <View className="h-5 w-5 rounded-full bg-success-soft items-center justify-center">
                   <Feather name="check" size={10} color="#16A34A" />
                 </View>
-                <Text className="text-base font-outfit text-app flex-1">
+                <Text className="text-sm font-outfit text-app flex-1">
                   {feature}
                 </Text>
               </View>
@@ -361,7 +361,7 @@ export function ProgramDetailPanel({
       if (role !== "Guardian") {
         return (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-base font-outfit text-secondary text-center">
+            <Text className="text-sm font-outfit text-secondary text-center">
               Food diaries are managed by guardians.
             </Text>
           </View>
@@ -374,7 +374,7 @@ export function ProgramDetailPanel({
       if (role !== "Athlete") {
         return (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-base font-outfit text-secondary text-center">
+            <Text className="text-sm font-outfit text-secondary text-center">
               Video uploads are available for athletes.
             </Text>
           </View>
@@ -385,7 +385,7 @@ export function ProgramDetailPanel({
 
     return (
       <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-        <Text className="text-base font-outfit text-secondary text-center">
+        <Text className="text-sm font-outfit text-secondary text-center">
           Content coming soon.
         </Text>
       </View>
@@ -410,13 +410,13 @@ export function ProgramDetailPanel({
             ) : (
               <View className="w-10" />
             )}
-            <Text className="text-2xl font-clash text-app font-bold">
+            <Text className="text-xl font-clash text-app font-bold">
               {PROGRAM_TITLES[programId]}
             </Text>
             <View className="w-10" />
           </View>
 
-          <Text className="text-base font-outfit text-secondary mb-4">
+          <Text className="text-sm font-outfit text-secondary mb-4">
             Select a tab to view your program sessions and resources.
           </Text>
         </View>
@@ -512,7 +512,7 @@ export function ProgramDetailPanel({
         <View className="flex-1 bg-black/80 justify-end">
           <View className="bg-app rounded-t-3xl p-4 pb-8">
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-xl font-clash text-app font-bold">
+              <Text className="text-lg font-clash text-app font-bold">
                 Exercise Video
               </Text>
               <TouchableOpacity

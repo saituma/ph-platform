@@ -74,11 +74,13 @@ export function VideoPlayer({
   title,
   autoPlay = false,
   initialMuted = false,
+  isLooping = false,
 }: {
   uri: string;
   title?: string;
   autoPlay?: boolean;
   initialMuted?: boolean;
+  isLooping?: boolean;
 }) {
   const videoRef = useRef<Video>(null);
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
@@ -146,6 +148,7 @@ export function VideoPlayer({
         resizeMode={ResizeMode.COVER}
         shouldPlay={autoPlay}
         isMuted={isMuted}
+        isLooping={isLooping}
         onLoadStart={() => setIsLoading(true)}
         onReadyForDisplay={() => setIsLoading(false)}
         onError={(err) => {

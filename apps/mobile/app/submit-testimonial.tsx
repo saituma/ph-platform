@@ -15,7 +15,6 @@ export default function SubmitTestimonialScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const { token } = useAppSelector((state) => state.user);
-  const [name, setName] = useState("");
   const [quote, setQuote] = useState("");
   const [rating, setRating] = useState(5);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -24,8 +23,8 @@ export default function SubmitTestimonialScreen() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const canSubmit = useMemo(() => {
-    return Boolean(name.trim()) && Boolean(quote.trim()) && !isSubmitting;
-  }, [name, quote, isSubmitting]);
+    return Boolean(quote.trim()) && !isSubmitting;
+  }, [quote, isSubmitting]);
 
   useEffect(() => {
     if (!isSubmitted) return;
@@ -88,7 +87,6 @@ export default function SubmitTestimonialScreen() {
         method: "POST",
         token,
         body: {
-          name: name.trim(),
           quote: quote.trim(),
           rating,
           photoUrl: mediaUrl,
@@ -155,19 +153,6 @@ export default function SubmitTestimonialScreen() {
               <Text className="text-base font-outfit text-secondary leading-relaxed mb-6">
                 Submit a quick testimonial and we&apos;ll review it for the homepage.
               </Text>
-
-              <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
-                Your Name
-              </Text>
-              <View className="bg-input border border-app rounded-2xl p-4 mb-6">
-                <TextInput
-                  placeholder="Name"
-                  placeholderTextColor={colors.placeholder}
-                  value={name}
-                  onChangeText={setName}
-                  className="font-outfit text-app text-base"
-                />
-              </View>
 
               <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
                 Testimony

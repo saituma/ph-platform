@@ -12,6 +12,7 @@ import {
   setProgramTier,
   setLatestSubscriptionRequest,
   updateProfile,
+  setManagedAthletes,
 } from "./slices/userSlice";
 import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
@@ -126,6 +127,26 @@ export function AuthPersist() {
           } catch {
             dispatch(setProgramTier(null));
             dispatch(setLatestSubscriptionRequest(null));
+          }
+          try {
+            const data = await apiRequest<{
+              athletes?: {
+                id?: number;
+                userId?: number | null;
+                name?: string | null;
+                age?: number | null;
+                team?: string | null;
+                level?: string | null;
+                trainingPerWeek?: number | null;
+                profilePicture?: string | null;
+              }[];
+            }>("/onboarding/athletes", {
+              token: storedToken,
+              suppressStatusCodes: [401, 403, 404],
+            });
+            dispatch(setManagedAthletes(data.athletes ?? []));
+          } catch {
+            dispatch(setManagedAthletes([]));
           }
         } else {
           dispatch(logout());

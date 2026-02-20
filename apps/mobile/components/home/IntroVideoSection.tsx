@@ -35,7 +35,7 @@ export function IntroVideoSection({ introVideoUrl }: IntroVideoSectionProps) {
               <YouTubeEmbed url={introVideoUrl} />
             </View>
           ) : (
-            <VideoPlayer uri={introVideoUrl} title="Intro Video" autoPlay initialMuted />
+            <VideoPlayer uri={introVideoUrl} title="Intro Video" autoPlay initialMuted isLooping />
           )}
         </View>
       </View>

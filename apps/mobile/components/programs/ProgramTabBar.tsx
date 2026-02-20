@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tabText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
   },
   tabTextActive: {

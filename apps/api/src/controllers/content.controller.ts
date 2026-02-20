@@ -111,8 +111,9 @@ const parentCourseCreateSchema = z.object({
 const parentCourseUpdateSchema = parentCourseCreateSchema;
 
 const testimonialSubmissionSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().optional(),
   quote: z.string().min(1),
+  rating: z.number().int().min(1).max(5).default(5),
   photoUrl: z.string().url().optional().nullable(),
 });
 
@@ -188,14 +189,17 @@ export async function updateContentItem(req: Request, res: Response) {
 export async function submitTestimonial(req: Request, res: Response) {
   const input = testimonialSubmissionSchema.parse(req.body);
   const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
+  const resolvedName = input.name?.trim() || athlete?.name || "Anonymous";
+
   const body = JSON.stringify({
-    name: input.name,
+    name: resolvedName,
     quote: input.quote,
+    rating: input.rating,
     photoUrl: input.photoUrl ?? null,
     athleteName: athlete?.name ?? null,
   });
   const item = await createContent({
-    title: `Testimonial: ${input.name}`,
+    title: `Testimonial: ${resolvedName}`,
     content: input.quote.slice(0, 140),
     type: "article",
     body,
@@ -232,6 +236,7 @@ export async function approveTestimonialSubmission(req: Request, res: Response) 
     id: `submission_${submission.id}`,
     name: payload.name ?? submission.title.replace(/^Testimonial:\s*/i, "").trim(),
     quote: payload.quote ?? submission.content,
+    rating: payload.rating ?? 5,
     photoUrl: payload.photoUrl ?? null,
     role: payload.athleteName ? `Athlete: ${payload.athleteName}` : null,
   };

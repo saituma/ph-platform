@@ -14,9 +14,9 @@ function matchesAgeList(
   item: { ageList?: unknown | null },
   age: number | null,
 ) {
-  if (age === null || age === undefined) return true;
   const list = normalizeAgeList(item.ageList);
   if (list.length === 0) return true;
+  if (age === null || age === undefined) return false;
   return list.includes(age);
 }
 
@@ -45,7 +45,6 @@ export async function listProgramSectionContent(input: {
         .orderBy(programSectionContentTable.order, desc(programSectionContentTable.updatedAt));
 
   const rows = await query;
-  if (input.age === null || input.age === undefined) return rows;
   return rows.filter((item) => matchesAgeList(item, input.age ?? null));
 }
 
