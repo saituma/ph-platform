@@ -3,7 +3,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import { Linking, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 
@@ -64,10 +64,15 @@ export default function AboutScreen() {
           </Text>
         </View>
 
-        <View className="flex-row justify-center gap-6 mb-10">
-          <SocialIcon icon="instagram" />
-          <SocialIcon icon="twitter" />
-          <SocialIcon icon="globe" />
+        <View className="items-center mb-10">
+          <Text className="text-sm font-outfit text-secondary uppercase tracking-[3px] mb-4">
+            Follow Us On Instagram
+          </Text>
+          <SocialIcon
+            icon="instagram"
+            url="https://www.instagram.com/ph.perform/"
+            accessibilityLabel="Follow PH Performance on Instagram"
+          />
         </View>
 
         <ActionButton
@@ -86,9 +91,22 @@ export default function AboutScreen() {
   );
 }
 
-function SocialIcon({ icon }: { icon: any }) {
+function SocialIcon({
+  icon,
+  url,
+  accessibilityLabel,
+}: {
+  icon: any;
+  url: string;
+  accessibilityLabel: string;
+}) {
   return (
-    <TouchableOpacity className="h-14 w-14 bg-input border border-app rounded-full items-center justify-center shadow-sm">
+    <TouchableOpacity
+      className="h-14 w-14 bg-input border border-app rounded-full items-center justify-center shadow-sm"
+      onPress={() => Linking.openURL(url)}
+      accessibilityRole="link"
+      accessibilityLabel={accessibilityLabel}
+    >
       <Feather name={icon} size={24} className="text-app" />
     </TouchableOpacity>
   );
