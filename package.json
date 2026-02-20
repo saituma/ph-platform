@@ -10,7 +10,9 @@
     "test:e2e": "playwright test",
     "test:all": "pnpm run test:unit && pnpm run test:e2e",
     "dev:web": "pnpm --filter web dev",
-    "check:max-lines": "node tools/check-max-lines.mjs"
+    "check:max-lines": "node tools/check-max-lines.mjs",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "keywords": [],
   "author": "",
@@ -19,5 +21,10 @@
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "turbo": "^2.8.1"
+  },
+  "dependencies": {
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }
