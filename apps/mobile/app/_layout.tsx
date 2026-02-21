@@ -18,6 +18,7 @@ import { getNotifications } from "@/lib/notifications";
 import "./global.css";
 import useLoadFonts from "./hooks/useLoadFonts";
 import AppThemeProvider from "./theme/AppThemeProvider";
+import { useAppTheme } from "./theme/AppThemeProvider";
 import { FontScaleProvider } from "@/context/FontScaleContext";
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
@@ -222,13 +223,17 @@ export default function RootLayout() {
 }
 
 function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
+  const { colors } = useAppTheme();
   const hydrated = useAppSelector((state) => state.user.hydrated);
+
+  if (!hydrated) {
+    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  }
 
   return (
     <>
       <Stack screenOptions={{ headerShown: false, animation: "none" }} />
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-      {!hydrated ? <View style={{ flex: 1, backgroundColor: "transparent" }} /> : null}
       <AppLockGate />
       <SafeNavigationLayer />
     </>

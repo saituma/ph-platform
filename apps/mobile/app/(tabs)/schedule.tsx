@@ -12,6 +12,7 @@ import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useRouter } from "expo-router";
 
 type ScheduleEvent = {
   id: string;
@@ -22,6 +23,7 @@ type ScheduleEvent = {
   timeStart: string;
   timeEnd: string;
   location: string;
+  meetingLink?: string | null;
   type: "training" | "call" | "recovery";
   tag: string;
   athlete: string;
@@ -63,6 +65,7 @@ const EVENT_TITLE_BY_TYPE: Record<string, string> = {
 };
 
 export default function ScheduleScreen() {
+  const router = useRouter();
   const { role } = useRole();
   const { colors } = useAppTheme();
   const { token } = useAppSelector((state) => state.user);
@@ -77,6 +80,7 @@ export default function ScheduleScreen() {
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(
     null,
   );
+  const [showDetails, setShowDetails] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [services, setServices] = useState<ServiceType[]>([]);
   const [servicesError, setServicesError] = useState<string | null>(null);
@@ -142,7 +146,8 @@ export default function ScheduleScreen() {
         title: EVENT_TITLE_BY_TYPE[item.type] ?? "Session",
         timeStart: startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
         timeEnd: endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
-        location: item.location || item.meetingLink || "TBD",
+        location: item.location || "TBD",
+        meetingLink: item.meetingLink ?? null,
         type: item.type?.includes("call") ? "call" : "training",
         status: item.status ?? undefined,
         tag: role === "Guardian" ? "Parent" : "Athlete",
@@ -616,68 +621,144 @@ export default function ScheduleScreen() {
         visible={!!selectedEvent}
         transparent
         animationType="fade"
-        onRequestClose={() => setSelectedEvent(null)}
+        onRequestClose={() => {
+          setSelectedEvent(null);
+          setShowDetails(false);
+        }}
       >
         <Pressable
           className="flex-1 bg-black/40 justify-end"
-          onPress={() => setSelectedEvent(null)}
+          onPress={() => {
+            setSelectedEvent(null);
+            setShowDetails(false);
+          }}
         >
           <Pressable
             onPress={(event) => event.stopPropagation()}
             className="rounded-t-[28px] p-6"
             style={{ backgroundColor: colors.background }}
           >
-            <View className="flex-row items-center justify-between">
-              <Text className="text-lg font-clash text-app">
-                {selectedEvent?.title}
-              </Text>
-              <Pressable onPress={() => setSelectedEvent(null)}>
-                <Feather name="x" size={20} className="text-secondary" />
-              </Pressable>
-            </View>
-            <Text className="text-sm font-outfit text-secondary mt-2">
-              {selectedEvent?.timeStart} - {selectedEvent?.timeEnd} · {selectedEvent?.location}
-            </Text>
-            {selectedEvent?.status === "pending" ? (
-              <Text className="text-xs font-outfit text-secondary mt-1">
-                Pending approval
-              </Text>
-            ) : null}
-
-            <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                Notes
-              </Text>
-              <Text className="text-sm font-outfit text-app mt-2">
-                {selectedEvent?.notes}
-              </Text>
-            </View>
-
-            <View className="mt-4 flex-row items-center gap-3">
-              <Pressable className="flex-1 px-4 py-3 rounded-full bg-accent">
-                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                  View Plan
+            {!showDetails ? (
+              <>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-lg font-clash text-app">
+                    {selectedEvent?.title}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setSelectedEvent(null);
+                      setShowDetails(false);
+                    }}
+                  >
+                    <Feather name="x" size={20} className="text-secondary" />
+                  </Pressable>
+                </View>
+                <Text className="text-sm font-outfit text-secondary mt-2">
+                  {selectedEvent?.timeStart} - {selectedEvent?.timeEnd} · {selectedEvent?.location}
                 </Text>
-              </Pressable>
-              <Pressable
-                className="flex-1 px-4 py-3 rounded-full border border-app/10 bg-secondary/10"
-                onPress={() => {
-                  if (selectedEvent) {
-                    const eventDate = new Date(selectedEvent.startsAt);
-                    setBookingDate(eventDate);
-                    setBookingTime(eventDate);
-                  }
-                  setSelectedEvent(null);
-                  setBookingConfirmed(false);
-                  setBookingError(null);
-                  setBookingOpen(true);
-                }}
-              >
-                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
-                  Reschedule
-                </Text>
-              </Pressable>
-            </View>
+                {selectedEvent?.meetingLink ? (
+                  <Text className="text-xs font-outfit text-secondary mt-1">
+                    Meeting link available
+                  </Text>
+                ) : null}
+                {selectedEvent?.status === "pending" ? (
+                  <Text className="text-xs font-outfit text-secondary mt-1">
+                    Pending approval
+                  </Text>
+                ) : null}
+
+                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                    Notes
+                  </Text>
+                  <Text className="text-sm font-outfit text-app mt-2">
+                    {selectedEvent?.notes || "No notes yet."}
+                  </Text>
+                </View>
+
+                <View className="mt-4 flex-row items-center gap-3">
+                  <Pressable
+                    className="flex-1 px-4 py-3 rounded-full bg-accent"
+                    onPress={() => setShowDetails(true)}
+                  >
+                    <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
+                      View Plan
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    className="flex-1 px-4 py-3 rounded-full border border-app/10 bg-secondary/10"
+                    onPress={() => {
+                      if (selectedEvent) {
+                        const eventDate = new Date(selectedEvent.startsAt);
+                        setBookingDate(eventDate);
+                        setBookingTime(eventDate);
+                      }
+                      setSelectedEvent(null);
+                      setShowDetails(false);
+                      setBookingConfirmed(false);
+                      setBookingError(null);
+                      setBookingOpen(true);
+                    }}
+                  >
+                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
+                      Reschedule
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-lg font-clash text-app">
+                    Booking details
+                  </Text>
+                  <Pressable onPress={() => setShowDetails(false)}>
+                    <Feather name="x" size={20} className="text-secondary" />
+                  </Pressable>
+                </View>
+                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10 gap-2">
+                  <Text className="text-sm font-outfit text-app">{selectedEvent?.title}</Text>
+                  <Text className="text-xs font-outfit text-secondary">
+                    {selectedEvent?.timeStart} - {selectedEvent?.timeEnd}
+                  </Text>
+                  <Text className="text-xs font-outfit text-secondary">
+                    Status: {selectedEvent?.status ?? "confirmed"}
+                  </Text>
+                  <Text className="text-xs font-outfit text-secondary">
+                    Location: {selectedEvent?.location ?? "TBD"}
+                  </Text>
+                  {selectedEvent?.meetingLink ? (
+                    <Text className="text-xs font-outfit text-secondary">
+                      Meeting: {selectedEvent.meetingLink}
+                    </Text>
+                  ) : null}
+                  <Text className="text-xs font-outfit text-secondary">
+                    Athlete: {selectedEvent?.athlete ?? "Athlete"}
+                  </Text>
+                </View>
+                <View className="mt-4 flex-row items-center gap-3">
+                  <Pressable
+                    className="flex-1 px-4 py-3 rounded-full border border-app/10 bg-secondary/10"
+                    onPress={() => setShowDetails(false)}
+                  >
+                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
+                      Back
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    className="flex-1 px-4 py-3 rounded-full bg-accent"
+                    onPress={() => {
+                      setSelectedEvent(null);
+                      setShowDetails(false);
+                    }}
+                  >
+                    <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
+                      Done
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>

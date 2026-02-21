@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { Text } from "@/components/ScaledText";
+import { Skeleton } from "@/components/Skeleton";
 
 type HomeTestimonial = {
   id: string;
@@ -53,8 +54,10 @@ export default function HomeScreen() {
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[] | null>(null);
   const [homeContentError, setHomeContentError] = useState<string | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const isMountedRef = useRef(true);
   const lastLoadAtRef = useRef(0);
+  const hasLoadedRef = useRef(false);
 
   if (isSectionHidden("dashboard")) {
     return <AgeGate title="Dashboard locked" message="Dashboard content is restricted for this age." />;
@@ -75,6 +78,10 @@ export default function HomeScreen() {
 
   const loadHomeContent = React.useCallback(async () => {
     if (!token) return;
+    const showSkeleton = !hasLoadedRef.current;
+    if (showSkeleton) {
+      setIsInitialLoading(true);
+    }
     try {
       const [data, announcementsData] = await Promise.all([
         apiRequest<{ items?: any[] }>(`/content/home?ts=${Date.now()}`, { token }),
@@ -150,6 +157,11 @@ export default function HomeScreen() {
     } catch (err: any) {
       if (!isMountedRef.current) return;
       setHomeContentError(err?.message ?? "Failed to load home content");
+    } finally {
+      if (isMountedRef.current && showSkeleton) {
+        setIsInitialLoading(false);
+        hasLoadedRef.current = true;
+      }
     }
   }, [token]);
 
@@ -166,6 +178,8 @@ export default function HomeScreen() {
   useEffect(() => {
     return scheduleLoad();
   }, [scheduleLoad]);
+
+  const showSkeleton = isInitialLoading && !homeContent && !homeContentError;
 
   return (
     <ScrollView
@@ -224,21 +238,33 @@ export default function HomeScreen() {
                   Today
                 </Text>
               </View>
-              <Text className="font-clash text-4xl text-app leading-[1.05]">
-                {greeting},{"\n"}
-                <Text className="text-accent">
-                  {profile?.name || "Guardian"}
-                </Text>
-              </Text>
-              {homeContent?.welcome ? (
-                <Text className="text-secondary font-outfit text-sm mt-3 max-w-[240px]">
-                  {homeContent.welcome}
-                </Text>
-              ) : null}
+              {showSkeleton ? (
+                <>
+                  <Skeleton width={220} height={36} borderRadius={18} style={{ marginBottom: 10 }} />
+                  <Skeleton width={180} height={30} borderRadius={16} />
+                  <Skeleton width={200} height={16} borderRadius={10} style={{ marginTop: 16 }} />
+                </>
+              ) : (
+                <>
+                  <Text className="font-clash text-4xl text-app leading-[1.05]">
+                    {greeting},{"\n"}
+                    <Text className="text-accent">
+                      {profile?.name || "Guardian"}
+                    </Text>
+                  </Text>
+                  {homeContent?.welcome ? (
+                    <Text className="text-secondary font-outfit text-sm mt-3 max-w-[240px]">
+                      {homeContent.welcome}
+                    </Text>
+                  ) : null}
+                </>
+              )}
             </View>
 
             <View className="h-14 w-14 bg-secondary rounded-[22px] border-2 border-app shadow-lg items-center justify-center relative overflow-hidden">
-              {profile?.avatar ? (
+              {showSkeleton ? (
+                <Skeleton width={56} height={56} circle />
+              ) : profile?.avatar ? (
                 <Image
                   source={{ uri: profile.avatar }}
                   resizeMode="cover"
@@ -259,29 +285,47 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {homeContent?.introVideoUrl ? (
-        <View className="mb-6">
-          <IntroVideoSection introVideoUrl={homeContent.introVideoUrl} />
-        </View>
-      ) : null}
+      {showSkeleton ? (
+        <>
+          <View className="mb-6">
+            <Skeleton width="100%" height={180} borderRadius={28} />
+          </View>
+          <View className="mb-8">
+            <Skeleton width="100%" height={140} borderRadius={24} />
+          </View>
+          <View className="mt-6 gap-6">
+            <Skeleton width="100%" height={120} borderRadius={24} />
+            <Skeleton width="100%" height={180} borderRadius={24} />
+            <Skeleton width="100%" height={160} borderRadius={24} />
+          </View>
+        </>
+      ) : (
+        <>
+          {homeContent?.introVideoUrl ? (
+            <View className="mb-6">
+              <IntroVideoSection introVideoUrl={homeContent.introVideoUrl} />
+            </View>
+          ) : null}
 
-      <GuardianDashboard />
+          <GuardianDashboard />
 
-      <View className="mt-12 gap-12">
-        <View>
-          <AnnouncementsSection items={announcements ?? null} />
-        </View>
-        <View>
-          <AdminStorySection
-            story={homeContent?.adminStory}
-            photoUrl={homeContent?.professionalPhoto ?? null}
-          />
-        </View>
+          <View className="mt-12 gap-12">
+            <View>
+              <AnnouncementsSection items={announcements ?? null} />
+            </View>
+            <View>
+              <AdminStorySection
+                story={homeContent?.adminStory}
+                photoUrl={homeContent?.professionalPhoto ?? null}
+              />
+            </View>
 
-        <View>
-          <TestimonialsSection items={homeContent?.testimonials ?? null} />
-        </View>
-      </View>
+            <View>
+              <TestimonialsSection items={homeContent?.testimonials ?? null} />
+            </View>
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
