@@ -87,34 +87,40 @@ export function AnnouncementsSection({ items }: AnnouncementsSectionProps) {
   const { colors, isDark } = useAppTheme();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const activeIndexRef = useRef(0);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const announcements = items && items.length ? items : [];
   const cardWidth = width;
 
   useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
+
+  useEffect(() => {
     if (announcements.length <= 1) return;
     const interval = setInterval(() => {
-      let nextIndex = activeIndex + 1;
-      if (nextIndex >= announcements.length) {
-        nextIndex = 0;
-      }
+      const current = activeIndexRef.current;
+      const nextIndex = current + 1 >= announcements.length ? 0 : current + 1;
       flatListRef.current?.scrollToIndex({
         index: nextIndex,
         animated: true,
       });
+      activeIndexRef.current = nextIndex;
       setActiveIndex(nextIndex);
     }, AUTO_SCROLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [activeIndex, announcements.length]);
+  }, [announcements.length]);
 
   const isEmpty = announcements.length === 0;
   if (isEmpty) return null;
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!cardWidth) return;
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(contentOffsetX / cardWidth);
-    if (index !== activeIndex) {
+    if (index !== activeIndexRef.current) {
+      activeIndexRef.current = index;
       setActiveIndex(index);
     }
   };
