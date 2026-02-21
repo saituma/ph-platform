@@ -1,19 +1,18 @@
 import { ActionButton } from "@/components/dashboard/ActionButton";
-import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useRefreshContext } from "@/context/RefreshContext";
-import { useRole } from "@/context/RoleContext";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, InteractionManager, TouchableOpacity, View } from "react-native";
+import React, { useEffect } from "react";
+import { Image, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { logout } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
+import { canAccessTier } from "@/lib/planAccess";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -22,14 +21,13 @@ import Animated, {
 } from "react-native-reanimated";
 
 export default function MoreScreen() {
-  const { role } = useRole();
   const { colors } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated } = useAppSelector((state) => state.user);
+  const { profile, isAuthenticated, programTier } = useAppSelector((state) => state.user);
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
-  const [isSwitching, setIsSwitching] = useState(false);
+  const canAccessParentPlatform = canAccessTier(programTier ?? null, "PHP_Premium");
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -41,10 +39,7 @@ export default function MoreScreen() {
       duration: 140,
       easing: Easing.out(Easing.cubic),
     });
-    setIsSwitching(true);
-    const timer = setTimeout(() => setIsSwitching(false), 220);
-    return () => clearTimeout(timer);
-  }, [role, transition]);
+  }, [transition]);
 
   const transitionStyle = useAnimatedStyle(() => ({
     opacity: transition.value,
@@ -106,22 +101,9 @@ export default function MoreScreen() {
             </View>
           )}
 
-          {!isLoading && (
-            <View>
-              <RoleSwitcher />
-            </View>
-          )}
         </View>
 
         <Animated.View className="px-6 gap-6" style={transitionStyle}>
-          {isSwitching ? (
-            <View className="mb-2 flex-row items-center gap-3 rounded-2xl border border-app/20 bg-white/5 px-4 py-3">
-              <ActivityIndicator size="small" color="#9CA3AF" />
-              <Text className="text-sm font-outfit text-secondary">
-                Switching to {role === "Guardian" ? "Guardian" : "Athlete"}…
-              </Text>
-            </View>
-          ) : null}
           {isLoading ? (
             <View className="gap-6">
               {[1, 2, 3].map((i) => (
@@ -163,22 +145,15 @@ export default function MoreScreen() {
                     onPress={() => router.navigate("/permissions")}
                     accentColor={colors.accent}
                   />
-                  <MenuItem
-                    icon="book"
-                    label="Parent Platform"
-                    isLast={false}
-                    onPress={openParentPlatform}
-                    accentColor={colors.accent}
-                  />
-                  {role === "Guardian" && (
+                  {canAccessParentPlatform ? (
                     <MenuItem
-                      icon="credit-card"
-                      label="Subscription Plan"
+                      icon="book"
+                      label="Parent Platform"
                       isLast={false}
-                      onPress={() => router.navigate("/plans")}
+                      onPress={openParentPlatform}
                       accentColor={colors.accent}
                     />
-                  )}
+                  ) : null}
                   <MenuItem
                     icon="bell"
                     label="Notifications"
@@ -265,8 +240,8 @@ export default function MoreScreen() {
             <ActionButton
               label="Logout"
               icon="log-out"
-              color="bg-red-50 dark:bg-red-950/30"
-              iconColor="text-red-600 dark:text-red-400"
+              color="bg-red-600"
+              iconColor="text-black"
               onPress={() => {
                 dispatch(logout());
                 router.replace("/(auth)/login");

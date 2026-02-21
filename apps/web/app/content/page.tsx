@@ -12,8 +12,9 @@ import {
   useApproveTestimonialSubmissionMutation,
   useRejectTestimonialSubmissionMutation,
   useCreateContentMutation,
+  useDeleteContentMutation,
   useGetHomeContentQuery,
-  useGetLegalContentQuery,
+  useGetAnnouncementsQuery,
   useGetTestimonialSubmissionsQuery,
   useUpdateContentMutation,
 } from "../../lib/apiSlice";
@@ -21,10 +22,11 @@ import {
 export default function ContentPage() {
   const [createContent, { isLoading }] = useCreateContentMutation();
   const [updateContent] = useUpdateContentMutation();
+  const [deleteContent] = useDeleteContentMutation();
   const [approveSubmission] = useApproveTestimonialSubmissionMutation();
   const [rejectSubmission] = useRejectTestimonialSubmissionMutation();
   const { data: homeData, refetch: refetchHome } = useGetHomeContentQuery();
-  const { data: legalData } = useGetLegalContentQuery();
+  const { data: announcementsData } = useGetAnnouncementsQuery();
   const { data: testimonialSubmissionsData, refetch: refetchSubmissions } =
     useGetTestimonialSubmissionsQuery(undefined, { refetchOnMountOrArgChange: true });
   const [activeDialog, setActiveDialog] = useState<ContentDialog>(null);
@@ -49,12 +51,6 @@ export default function ContentPage() {
     homeBody.headline?.trim?.() ||
     "Home";
 
-  const legalItems = legalData?.items ?? [];
-  const findLegal = (key: "terms" | "privacy") =>
-    legalItems.find((item: any) => String(item.category ?? "").toLowerCase() === key) ||
-    legalItems.find((item: any) => String(item.title ?? "").toLowerCase().includes(key));
-  const termsItem = findLegal("terms");
-  const privacyItem = findLegal("privacy");
   return (
     <AdminShell title="Content" subtitle="Manage every page in the mobile app.">
       <Card>
@@ -90,12 +86,6 @@ export default function ContentPage() {
                           .map((item: string) => item.trim())
                           .filter(Boolean)[0] ?? ""
                       : ""),
-              }}
-              initialLegal={{
-                termsText: termsItem?.body ?? "",
-                termsVersion: termsItem?.content ?? "1.0",
-                privacyText: privacyItem?.body ?? "",
-                privacyVersion: privacyItem?.content ?? "1.0",
               }}
               onSaveProfile={async (data) => {
                 setError(null);
@@ -179,35 +169,6 @@ export default function ContentPage() {
                   setError("Failed to save intro video");
                 }
               }}
-              onSaveLegal={async (data) => {
-                setError(null);
-                const upsert = async (key: "terms" | "privacy", text: string, version: string) => {
-                  const existing =
-                    key === "terms" ? termsItem : privacyItem;
-                  const payload = {
-                    title: key === "terms" ? "Terms & Conditions" : "Privacy Policy",
-                    content: version,
-                    type: "article",
-                    body: text,
-                    surface: "legal",
-                    category: key,
-                  };
-                  if (existing?.id) {
-                    await updateContent({ id: existing.id, data: payload }).unwrap();
-                  } else {
-                    await createContent(payload).unwrap();
-                  }
-                };
-                try {
-                  await Promise.all([
-                    upsert("terms", data.termsText, data.termsVersion || "1.0"),
-                    upsert("privacy", data.privacyText, data.privacyVersion || "1.0"),
-                  ]);
-                  setActiveDialog("legal");
-                } catch (err) {
-                  setError("Failed to save legal content");
-                }
-              }}
               onPublishAnnouncement={async (data) => {
                 setError(null);
                 const payload = {
@@ -224,6 +185,31 @@ export default function ContentPage() {
                   setError("Failed to publish announcement");
                 }
               }}
+              onUpdateAnnouncement={async (data) => {
+                setError(null);
+                const payload = {
+                  title: data.title,
+                  content: data.body.slice(0, 140),
+                  type: "article",
+                  body: data.body,
+                };
+                try {
+                  await updateContent({ id: data.id, data: payload }).unwrap();
+                  setActiveDialog("home");
+                } catch (err) {
+                  setError("Failed to update announcement");
+                }
+              }}
+              onDeleteAnnouncement={async (data) => {
+                setError(null);
+                try {
+                  await deleteContent({ id: data.id }).unwrap();
+                  setActiveDialog("home");
+                } catch (err) {
+                  setError("Failed to delete announcement");
+                }
+              }}
+              announcements={announcementsData?.items ?? []}
               testimonialSubmissions={testimonialSubmissionsData?.items ?? []}
               onApproveTestimonial={async (submissionId) => {
                 setError(null);

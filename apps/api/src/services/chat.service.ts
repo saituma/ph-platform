@@ -2,7 +2,14 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { sql } from "drizzle-orm";
-import { chatGroupMemberTable, chatGroupMessageTable, chatGroupTable, messageTable, userTable } from "../db/schema";
+import {
+  chatGroupMemberTable,
+  chatGroupMessageReactionTable,
+  chatGroupMessageTable,
+  chatGroupTable,
+  messageTable,
+  userTable,
+} from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { attachGroupMessageReactions } from "./reaction.service";
 
@@ -168,4 +175,31 @@ export async function createGroupMessage(input: {
     io.to(`group:${input.groupId}`).emit("group:message", { ...message, reactions: [] });
   }
   return message;
+}
+
+export async function deleteGroupMessage(input: { groupId: number; messageId: number; userId: number }) {
+  await ensureChatTables();
+  const rows = await db
+    .select()
+    .from(chatGroupMessageTable)
+    .where(and(eq(chatGroupMessageTable.id, input.messageId), eq(chatGroupMessageTable.groupId, input.groupId)))
+    .limit(1);
+  const message = rows[0];
+  if (!message) {
+    throw new Error("Message not found");
+  }
+  if (message.senderId !== input.userId) {
+    throw new Error("Forbidden");
+  }
+  await db
+    .delete(chatGroupMessageReactionTable)
+    .where(eq(chatGroupMessageReactionTable.messageId, input.messageId));
+  await db
+    .delete(chatGroupMessageTable)
+    .where(and(eq(chatGroupMessageTable.id, input.messageId), eq(chatGroupMessageTable.groupId, input.groupId)));
+  const io = getSocketServer();
+  if (io) {
+    io.to(`group:${input.groupId}`).emit("group:message:deleted", { messageId: input.messageId });
+  }
+  return { deleted: true };
 }

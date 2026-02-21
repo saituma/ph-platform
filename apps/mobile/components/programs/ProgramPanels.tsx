@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Image, Linking, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Image, Linking, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { ResizeMode, Video } from "expo-av";
 
 import { apiRequest } from "@/lib/api";
+import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
 
@@ -45,20 +46,20 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
 
   return (
     <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-      <Text className="text-lg font-clash text-app mb-2">Physio Referral</Text>
-      <Text className="text-sm font-outfit text-secondary">
+      <Text className="text-lg font-clash text-app font-bold mb-2">Physio Referral</Text>
+      <Text className="text-sm font-outfit text-secondary leading-relaxed">
         Access our trusted physio partners for injuries and recovery support.
       </Text>
       <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
-        <Text className="text-xs font-outfit text-secondary">
+        <Text className="text-sm font-outfit text-secondary">
           {resolvedDiscount ? `Discount: ${resolvedDiscount}` : "Standard referral (no discount)."}
         </Text>
       </View>
-      <Text className="text-xs font-outfit text-secondary mt-3">{statusCopy}</Text>
+      <Text className="text-sm font-outfit text-secondary mt-3">{statusCopy}</Text>
       {loading ? (
-        <Text className="text-xs font-outfit text-secondary mt-3">Loading referral...</Text>
+        <Text className="text-sm font-outfit text-secondary mt-3">Loading referral...</Text>
       ) : error ? (
-        <Text className="text-xs font-outfit text-red-400 mt-3">{error}</Text>
+        <Text className="text-sm font-outfit text-red-400 mt-3">{error}</Text>
       ) : null}
       <TouchableOpacity
         onPress={() => {
@@ -79,8 +80,8 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
 export function ParentEducationPanel({ onOpen }: { onOpen: () => void }) {
   return (
     <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-      <Text className="text-lg font-clash text-app mb-2">Parent Education Hub</Text>
-      <Text className="text-sm font-outfit text-secondary">
+      <Text className="text-lg font-clash text-app font-bold mb-2">Parent Education Hub</Text>
+      <Text className="text-sm font-outfit text-secondary leading-relaxed">
         Explore curated courses on growth, recovery, nutrition, and mindset.
       </Text>
       <TouchableOpacity onPress={onOpen} className="mt-4 rounded-full bg-accent px-4 py-3">
@@ -93,8 +94,8 @@ export function ParentEducationPanel({ onOpen }: { onOpen: () => void }) {
 export function BookingsPanel({ onOpen }: { onOpen: () => void }) {
   return (
     <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-      <Text className="text-lg font-clash text-app mb-2">Bookings</Text>
-      <Text className="text-sm font-outfit text-secondary">
+      <Text className="text-lg font-clash text-app font-bold mb-2">Bookings</Text>
+      <Text className="text-sm font-outfit text-secondary leading-relaxed">
         Book one-to-one sessions, lift lab visits, or role model meetings.
       </Text>
       <TouchableOpacity onPress={onOpen} className="mt-4 rounded-full bg-accent px-4 py-3">
@@ -114,6 +115,8 @@ export function FoodDiaryPanel() {
     snacks: "",
   });
   const [photo, setPhoto] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoAspectRatio, setPhotoAspectRatio] = useState<number>(4 / 3);
   const [entryDate, setEntryDate] = useState<Date>(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [entries, setEntries] = useState<
@@ -129,14 +132,48 @@ export function FoodDiaryPanel() {
   >([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoPreviewLoading, setPhotoPreviewLoading] = useState(false);
   const [status, setStatus] = useState<{ tone: "error" | "success" | "info"; message: string } | null>(null);
+  const previousEntriesRef = useRef<{ id: number; feedback?: string | null }[]>([]);
+
+  const scheduleLocalNotification = useCallback(
+    async (title: string, body: string, data?: Record<string, string>) => {
+      const Notifications = await getNotifications();
+      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: "default",
+          data,
+        },
+        trigger: null,
+      });
+    },
+    []
+  );
 
   const loadEntries = useCallback(async () => {
     if (!token) return;
     try {
       setLoadingEntries(true);
       const data = await apiRequest<{ items: any[] }>("/food-diary", { token, suppressLog: true });
-      setEntries(data.items ?? []);
+      const items = data.items ?? [];
+      setEntries(items);
+
+      const previousById = new Map(previousEntriesRef.current.map((item) => [item.id, item]));
+      const newlyReviewed = items.filter(
+        (item) => item?.id && item?.feedback && previousById.has(item.id) && !previousById.get(item.id)?.feedback
+      );
+      if (newlyReviewed.length) {
+        await scheduleLocalNotification(
+          "Coach responded",
+          "Your food diary has new feedback.",
+          { type: "food-diary-feedback" }
+        );
+      }
+      previousEntriesRef.current = items.map((item) => ({ id: item.id, feedback: item.feedback ?? null }));
     } catch (error: any) {
       setStatus({ tone: "error", message: error?.message ?? "Failed to load food diary." });
     } finally {
@@ -158,8 +195,37 @@ export function FoodDiaryPanel() {
       mediaTypes,
       quality: 0.7,
     });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setPhoto(result.assets[0].uri);
+    const canceled = (result as any).canceled ?? (result as any).cancelled;
+    const uri = result.assets?.[0]?.uri ?? (result as any).uri;
+    if (!canceled && uri) {
+      setPhotoError(null);
+      setPhotoAspectRatio(4 / 3);
+      setPhoto(uri);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    if (!token) return;
+    setStatus(null);
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setStatus({ tone: "info", message: "Camera permission is required to take a photo." });
+      return;
+    }
+    const mediaTypes =
+      (ImagePicker as any).MediaType?.Images
+        ? [(ImagePicker as any).MediaType.Images]
+        : (ImagePicker as any).MediaTypeOptions?.Images;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes,
+      quality: 0.7,
+    });
+    const canceled = (result as any).canceled ?? (result as any).cancelled;
+    const uri = result.assets?.[0]?.uri ?? (result as any).uri;
+    if (!canceled && uri) {
+      setPhotoError(null);
+      setPhotoAspectRatio(4 / 3);
+      setPhoto(uri);
     }
   };
 
@@ -197,7 +263,7 @@ export function FoodDiaryPanel() {
     setSaving(true);
     setStatus(null);
     try {
-      const photoUrl = photo ? await uploadPhoto(photo) : null;
+      const photoUrl = photo ? (setPhotoUploading(true), await uploadPhoto(photo)) : null;
       const today = entryDate.toISOString().slice(0, 10);
       const payload: Record<string, unknown> = {
         date: today,
@@ -219,9 +285,15 @@ export function FoodDiaryPanel() {
       setPhoto(null);
       await loadEntries();
       setStatus({ tone: "success", message: "Entry saved." });
+      await scheduleLocalNotification(
+        "Food diary submitted",
+        "Your entry has been sent to your coach.",
+        { type: "food-diary-submitted" }
+      );
     } catch (error: any) {
       setStatus({ tone: "error", message: error?.message ?? "Failed to save entry." });
     } finally {
+      setPhotoUploading(false);
       setSaving(false);
     }
   };
@@ -246,18 +318,18 @@ export function FoodDiaryPanel() {
   return (
     <View className="gap-4">
       <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-        <Text className="text-xl font-clash text-app mb-2">Food Diary</Text>
-        <Text className="text-xl font-outfit text-secondary">
+        <Text className="text-lg font-clash text-app font-bold mb-2">Food Diary</Text>
+        <Text className="text-sm font-outfit text-secondary leading-relaxed">
           Log meals and snacks to support training and recovery.
         </Text>
         <TouchableOpacity
           onPress={() => setDatePickerOpen(true)}
           className="mt-4 flex-row items-center justify-between rounded-2xl border border-app/10 bg-white/5 px-4 py-3"
         >
-          <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
             Entry Date
           </Text>
-          <Text className="text-xl font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
+          <Text className="text-sm font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
         </TouchableOpacity>
         {datePickerOpen ? (
           <DateTimePicker
@@ -273,8 +345,8 @@ export function FoodDiaryPanel() {
           />
         ) : null}
         <View className="mt-4 flex-row items-center justify-between">
-          <Text className="text-xl font-outfit text-secondary">Notes (optional)</Text>
-          <Text className="text-xl font-outfit text-secondary">{entry.trim().length}/500</Text>
+          <Text className="text-sm font-outfit text-secondary">Notes (optional)</Text>
+          <Text className="text-sm font-outfit text-secondary">{entry.trim().length}/500</Text>
         </View>
         <TextInput
           value={entry}
@@ -283,56 +355,106 @@ export function FoodDiaryPanel() {
           placeholderTextColor="#9CA3AF"
           multiline
           maxLength={500}
-          className="mt-2 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-xl font-outfit text-app"
+          className="mt-2 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-sm font-outfit text-app"
           style={{ minHeight: 90 }}
         />
         <View className="mt-4 gap-3">
           {(["breakfast", "lunch", "dinner", "snacks"] as const).map((meal) => (
             <View key={meal} className="rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
               <View className="flex-row items-center justify-between">
-                <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                   {meal}
                 </Text>
-                <Text className="text-xl font-outfit text-secondary">Optional</Text>
+                <Text className="text-xs font-outfit text-secondary">Optional</Text>
               </View>
               <TextInput
                 value={meals[meal]}
                 onChangeText={(value) => setMeals((prev) => ({ ...prev, [meal]: value }))}
                 placeholder={`Add ${meal}`}
                 placeholderTextColor="#9CA3AF"
-                className="mt-2 text-xl font-outfit text-app"
+                className="mt-2 text-sm font-outfit text-app"
               />
             </View>
           ))}
         </View>
-        {photo ? (
-          <Image source={{ uri: photo }} className="mt-4 h-28 w-full rounded-2xl" resizeMode="cover" />
-        ) : null}
-        <View className="mt-4 flex-row gap-3">
-          <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
-            <Text className="text-app text-xl font-outfit text-center">
-              {photo ? "Change Photo" : "Add Photo"}
-            </Text>
-          </TouchableOpacity>
+        <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
+          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+            Photo Preview
+          </Text>
           {photo ? (
-            <TouchableOpacity
-              onPress={() => setPhoto(null)}
-              className="rounded-full border border-app/30 px-4 py-3"
-            >
-              <Text className="text-app text-xl font-outfit text-center">Remove</Text>
-            </TouchableOpacity>
+            <View className="mt-2">
+              <Image
+                source={{ uri: photo }}
+                className="w-full rounded-2xl"
+                resizeMode="cover"
+                style={{ width: "100%", height: undefined, aspectRatio: photoAspectRatio }}
+                onLoadStart={() => setPhotoPreviewLoading(true)}
+                onLoad={(event) => {
+                  const width = event?.nativeEvent?.source?.width;
+                  const height = event?.nativeEvent?.source?.height;
+                  if (width && height) {
+                    setPhotoAspectRatio(width / height);
+                  }
+                }}
+                onLoadEnd={() => setPhotoPreviewLoading(false)}
+                onError={(event) => {
+                  const message =
+                    event?.nativeEvent?.error
+                      ? String(event.nativeEvent.error)
+                      : "Failed to load preview.";
+                  setPhotoError(message);
+                }}
+              />
+              {photoPreviewLoading ? (
+                <View className="absolute inset-0 items-center justify-center rounded-2xl bg-black/25">
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text className="mt-2 text-xs font-outfit text-white">Loading preview...</Text>
+                </View>
+              ) : null}
+              {photoUploading ? (
+                <View className="absolute inset-0 items-center justify-center rounded-2xl bg-black/35">
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text className="mt-2 text-xs font-outfit text-white">Uploading photo...</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <Text className="mt-2 text-sm font-outfit text-secondary">No photo selected.</Text>
+          )}
+          {photoError ? (
+            <Text className="mt-2 text-xs font-outfit text-red-300">{photoError}</Text>
           ) : null}
+        </View>
+        <View className="mt-4 gap-3">
+          <View className="flex-row gap-3">
+            <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
+              <Text className="text-app text-sm font-outfit text-center">
+                {photo ? "Change Photo" : "Add Photo"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleTakePhoto} className="flex-1 rounded-full border border-app px-4 py-3">
+              <Text className="text-app text-sm font-outfit text-center">Take Photo</Text>
+            </TouchableOpacity>
+            {photo ? (
+              <TouchableOpacity
+                onPress={() => setPhoto(null)}
+                className="rounded-full border border-app/30 px-4 py-3"
+              >
+                <Text className="text-app text-sm font-outfit text-center">Remove</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
           <TouchableOpacity
             onPress={handleSave}
             disabled={saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))}
-            className={`flex-1 rounded-full px-4 py-3 ${
+            className={`rounded-full px-4 py-3 ${
               saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
                 ? "bg-secondary/20"
                 : "bg-accent"
             }`}
           >
             <Text
-              className={`text-xl font-outfit text-center ${
+              className={`text-sm font-outfit text-center ${
                 saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
                   ? "text-secondary"
                   : "text-white"
@@ -353,7 +475,7 @@ export function FoodDiaryPanel() {
             }`}
           >
             <Text
-              className={`text-xl font-outfit ${
+              className={`text-sm font-outfit ${
                 status.tone === "error"
                   ? "text-red-200"
                   : status.tone === "success"
@@ -368,40 +490,40 @@ export function FoodDiaryPanel() {
       </View>
 
       <View className="flex-row items-center justify-between">
-        <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
+        <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">Recent Entries</Text>
         <TouchableOpacity onPress={loadEntries}>
-          <Text className="text-xl font-outfit text-accent">Refresh</Text>
+          <Text className="text-sm font-outfit text-accent">Refresh</Text>
         </TouchableOpacity>
       </View>
 
       {loadingEntries ? (
-        <Text className="text-xl font-outfit text-secondary">Loading entries...</Text>
+        <Text className="text-sm font-outfit text-secondary">Loading entries...</Text>
       ) : entries.length ? (
         <View className="gap-3">
           {entries.map((item) => (
             <View key={item.id} className="rounded-3xl border border-app/10 bg-input px-5 py-4">
-              <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.4px]">
+              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
                 {formatDate(item.date)}
               </Text>
               {formatMeals(item.meals).length ? (
                 <View className="mt-2 gap-2">
                   {formatMeals(item.meals).map((meal) => (
                     <View key={meal.label}>
-                      <Text className="text-xl font-outfit text-secondary uppercase tracking-[1.2px]">
+                      <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
                         {meal.label}
                       </Text>
-                      <Text className="text-xl font-outfit text-app mt-1">{meal.value}</Text>
+                      <Text className="text-sm font-outfit text-app mt-1">{meal.value}</Text>
                     </View>
                   ))}
                 </View>
               ) : null}
-              {item.notes ? <Text className="text-xl font-outfit text-app mt-2">{item.notes}</Text> : null}
+              {item.notes ? <Text className="text-sm font-outfit text-app mt-2">{item.notes}</Text> : null}
               {item.feedback ? (
                 <View className="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
-                  <Text className="text-xs font-outfit text-emerald-300 uppercase tracking-[1.2px]">
+                  <Text className="text-[10px] font-outfit text-emerald-300 uppercase tracking-[1.2px]">
                     Coach Response
                   </Text>
-                  <Text className="text-xl font-outfit text-app mt-1">{item.feedback}</Text>
+                  <Text className="text-sm font-outfit text-app mt-1">{item.feedback}</Text>
                   {item.reviewedAt ? (
                     <Text className="text-xs font-outfit text-secondary mt-2">
                       {new Date(item.reviewedAt).toLocaleString()}
@@ -416,14 +538,14 @@ export function FoodDiaryPanel() {
           ))}
         </View>
       ) : (
-        <Text className="text-xl font-outfit text-secondary">No entries yet.</Text>
+        <Text className="text-sm font-outfit text-secondary">No entries yet.</Text>
       )}
     </View>
   );
 }
 
 export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }) {
-  const { token } = useAppSelector((state) => state.user);
+  const { token, profile, role, athleteUserId } = useAppSelector((state) => state.user);
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -431,6 +553,10 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     { id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }[]
   >([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
+  const [loadingResponses, setLoadingResponses] = useState(false);
+  const [coachResponses, setCoachResponses] = useState<
+    { id: string; mediaUrl: string; text?: string; createdAt?: string | null; videoUploadId?: number }[]
+  >([]);
   const [selectedVideo, setSelectedVideo] = useState<{
     uri: string;
     fileName: string;
@@ -454,12 +580,52 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     }
   }, [token]);
 
+  const loadCoachResponses = useCallback(async () => {
+    if (!token) return;
+    try {
+      setLoadingResponses(true);
+      const effectiveUserId = role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
+      const headers =
+        role === "Athlete" && athleteUserId
+          ? { "X-Acting-User-Id": String(athleteUserId) }
+          : undefined;
+      const data = await apiRequest<{ messages: any[] }>("/messages", { token, headers, suppressLog: true });
+      const items = (data.messages ?? [])
+        .filter(
+          (msg: any) =>
+            msg.contentType === "video" &&
+            msg.mediaUrl &&
+            Number(msg.senderId) !== effectiveUserId &&
+            Number.isFinite(msg.videoUploadId)
+        )
+        .map((msg: any) => ({
+          id: String(msg.id),
+          mediaUrl: msg.mediaUrl,
+          text: msg.content,
+          createdAt: msg.createdAt ?? null,
+          videoUploadId: msg.videoUploadId ?? undefined,
+        }));
+      setCoachResponses(items);
+    } catch {
+      // avoid blocking the main upload flow if messages fail
+    } finally {
+      setLoadingResponses(false);
+    }
+  }, [athleteUserId, profile.id, role, token]);
+
   useEffect(() => {
     void loadVideos();
-  }, [loadVideos, refreshToken]);
+    void loadCoachResponses();
+  }, [loadCoachResponses, loadVideos, refreshToken]);
 
   const awaitingVideos = videoItems.filter((item) => !item.feedback);
   const reviewedVideos = videoItems.filter((item) => Boolean(item.feedback));
+  const responsesByUpload = coachResponses.reduce<Record<number, typeof coachResponses>>((acc, item) => {
+    if (!item.videoUploadId) return acc;
+    if (!acc[item.videoUploadId]) acc[item.videoUploadId] = [];
+    acc[item.videoUploadId].push(item);
+    return acc;
+  }, {});
   const formatDate = (value?: string | null) => {
     if (!value) return null;
     const d = new Date(value);
@@ -553,12 +719,12 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
   return (
     <View className="rounded-3xl border border-app/15 bg-input px-5 py-5">
       <View className="flex-row items-center justify-between">
-        <Text className="text-xl font-clash text-app">Video Upload</Text>
+        <Text className="text-lg font-clash text-app font-bold">Video Upload</Text>
         <View className="rounded-full border border-app/20 bg-white/10 px-3 py-1">
           <Text className="text-xs font-outfit text-secondary uppercase tracking-[1px]">Coach Review</Text>
         </View>
       </View>
-      <Text className="text-base font-outfit text-secondary mt-2">
+      <Text className="text-sm font-outfit text-secondary mt-2">
         Share training clips and receive detailed coach feedback.
       </Text>
       <TextInput
@@ -567,7 +733,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
         placeholder="Optional notes for your coach"
         placeholderTextColor="#9CA3AF"
         multiline
-        className="mt-4 rounded-2xl border border-app/15 bg-white/10 px-4 py-3 text-base font-outfit text-app"
+        className="mt-4 rounded-2xl border border-app/15 bg-white/10 px-4 py-3 text-sm font-outfit text-app"
         style={{ minHeight: 88 }}
       />
       {selectedVideo ? (
@@ -586,7 +752,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
       ) : null}
       {status ? (
         <View className={`mt-3 rounded-xl border px-3 py-2 ${status.toLowerCase().includes("submitted") ? "border-emerald-400/40 bg-emerald-400/10" : "border-app/20 bg-white/10"}`}>
-          <Text className="text-base font-outfit text-secondary">{status}</Text>
+          <Text className="text-sm font-outfit text-secondary">{status}</Text>
         </View>
       ) : null}
       <View className="mt-4 flex-row gap-3">
@@ -596,7 +762,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
           className="flex-1 rounded-2xl border border-app/20 bg-white/10 px-4 py-3 flex-row items-center justify-center gap-2"
         >
           <Feather name="video" size={16} color="#0F172A" />
-          <Text className="text-app text-base font-outfit">Choose Video</Text>
+          <Text className="text-app text-sm font-outfit">Choose Video</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleSubmitVideo}
@@ -604,13 +770,13 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
           className={`flex-1 rounded-2xl px-4 py-3 flex-row items-center justify-center gap-2 ${uploading || !selectedVideo ? "bg-accent/40" : "bg-accent"}`}
         >
           <Feather name="send" size={16} color="white" />
-          <Text className="text-white text-base font-outfit">{uploading ? "Uploading..." : "Send to Coach"}</Text>
+          <Text className="text-white text-sm font-outfit">{uploading ? "Uploading..." : "Send to Coach"}</Text>
         </TouchableOpacity>
       </View>
 
       <View className="mt-6 rounded-2xl border border-app/15 bg-white/5 p-4">
         <View className="mb-1 flex-row items-center justify-between">
-          <Text className="text-lg font-clash text-app">Your Uploaded Videos</Text>
+          <Text className="text-lg font-clash text-app font-bold">Your Uploaded Videos</Text>
           <TouchableOpacity
             onPress={() => void loadVideos()}
             disabled={loadingVideos}
@@ -619,7 +785,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
             <Text className="text-xs font-outfit text-app">{loadingVideos ? "Refreshing..." : "Refresh"}</Text>
           </TouchableOpacity>
         </View>
-        <Text className="text-base font-outfit text-secondary mb-3">
+        <Text className="text-sm font-outfit text-secondary mb-3">
           Pull down inside this section to refresh. Shows videos uploaded from this account only.
         </Text>
         <ScrollView
@@ -627,24 +793,32 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
           nestedScrollEnabled
           alwaysBounceVertical
           contentContainerStyle={{ paddingBottom: 8 }}
-          refreshControl={<RefreshControl refreshing={loadingVideos} onRefresh={() => void loadVideos()} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={loadingVideos || loadingResponses}
+              onRefresh={() => {
+                void loadVideos();
+                void loadCoachResponses();
+              }}
+            />
+          }
           showsVerticalScrollIndicator={false}
         >
           {loadingVideos && videoItems.length === 0 ? (
-            <Text className="text-base font-outfit text-secondary">Loading uploads...</Text>
+            <Text className="text-sm font-outfit text-secondary">Loading uploads...</Text>
           ) : videoItems.length === 0 ? (
-            <Text className="text-base font-outfit text-secondary">No videos uploaded yet.</Text>
+            <Text className="text-sm font-outfit text-secondary">No videos uploaded yet.</Text>
           ) : (
             <View className="gap-5">
               <View className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3">
                 <View className="mb-3 flex-row items-center justify-between">
-                  <Text className="text-lg font-clash text-app">Awaiting Review</Text>
+                  <Text className="text-lg font-clash text-app font-bold">Awaiting Review</Text>
                   <View className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1">
                     <Text className="text-xs font-outfit text-app">{awaitingVideos.length}</Text>
                   </View>
                 </View>
                 {awaitingVideos.length === 0 ? (
-                  <Text className="text-base font-outfit text-secondary">No pending videos.</Text>
+                  <Text className="text-sm font-outfit text-secondary">No pending videos.</Text>
                 ) : (
                   <View className="gap-4">
                     {awaitingVideos.map((item) => (
@@ -662,7 +836,32 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                           ) : null}
                         </View>
                         {item.notes ? (
-                          <Text className="text-base font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
+                          <Text className="text-sm font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
+                        ) : null}
+                        {responsesByUpload[item.id]?.length ? (
+                          <View className="mt-3 gap-3">
+                            <Text className="text-xs font-outfit text-secondary">Coach response video</Text>
+                            {responsesByUpload[item.id]
+                              .slice()
+                              .sort((a, b) => {
+                                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                                return bTime - aTime;
+                              })
+                              .map((response) => (
+                                <View key={`awaiting-response-${item.id}-${response.id}`} className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-2">
+                                  <Video
+                                    source={{ uri: response.mediaUrl }}
+                                    useNativeControls
+                                    resizeMode={ResizeMode.COVER}
+                                    style={{ width: "100%", height: 160, borderRadius: 10 }}
+                                  />
+                                  {response.text ? (
+                                    <Text className="text-xs font-outfit text-secondary mt-2">{response.text}</Text>
+                                  ) : null}
+                                </View>
+                              ))}
+                          </View>
                         ) : null}
                       </View>
                     ))}
@@ -672,13 +871,13 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
 
               <View className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
                 <View className="mb-3 flex-row items-center justify-between">
-                  <Text className="text-lg font-clash text-app">Reviewed With Coach Feedback</Text>
+                  <Text className="text-lg font-clash text-app font-bold">Reviewed With Coach Feedback</Text>
                   <View className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1">
                     <Text className="text-xs font-outfit text-app">{reviewedVideos.length}</Text>
                   </View>
                 </View>
                 {reviewedVideos.length === 0 ? (
-                  <Text className="text-base font-outfit text-secondary">No reviewed videos yet.</Text>
+                  <Text className="text-sm font-outfit text-secondary">No reviewed videos yet.</Text>
                 ) : (
                   <View className="gap-4">
                     {reviewedVideos.map((item) => (
@@ -696,12 +895,37 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                           ) : null}
                         </View>
                         {item.notes ? (
-                          <Text className="text-base font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
+                          <Text className="text-sm font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
                         ) : null}
                         <View className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                           <Text className="text-sm font-clash text-app">Coach feedback</Text>
-                          <Text className="text-base font-outfit text-secondary mt-1">{item.feedback}</Text>
+                          <Text className="text-sm font-outfit text-secondary mt-1">{item.feedback}</Text>
                         </View>
+                        {responsesByUpload[item.id]?.length ? (
+                          <View className="mt-3 gap-3">
+                            <Text className="text-xs font-outfit text-secondary">Coach response video</Text>
+                            {responsesByUpload[item.id]
+                              .slice()
+                              .sort((a, b) => {
+                                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                                return bTime - aTime;
+                              })
+                              .map((response) => (
+                                <View key={`reviewed-response-${item.id}-${response.id}`} className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-2">
+                                  <Video
+                                    source={{ uri: response.mediaUrl }}
+                                    useNativeControls
+                                    resizeMode={ResizeMode.COVER}
+                                    style={{ width: "100%", height: 160, borderRadius: 10 }}
+                                  />
+                                  {response.text ? (
+                                    <Text className="text-xs font-outfit text-secondary mt-2">{response.text}</Text>
+                                  ) : null}
+                                </View>
+                              ))}
+                          </View>
+                        ) : null}
                       </View>
                     ))}
                   </View>

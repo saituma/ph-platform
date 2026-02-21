@@ -33,6 +33,10 @@ import {
   updateAdminProfileDetails,
   updateProgramTier,
   updateOnboardingConfigDetails,
+  getPhpPlusTabsAdmin,
+  putPhpPlusTabsAdmin,
+  postPhpPlusTabsAdmin,
+  deletePhpPlusTabsAdmin,
   createBookingAdmin,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
@@ -50,6 +54,10 @@ router.put("/admin/profile", updateAdminProfileDetails);
 router.put("/admin/preferences", updateAdminPreferencesDetails);
 router.get("/admin/onboarding-config", getOnboardingConfigDetails);
 router.put("/admin/onboarding-config", updateOnboardingConfigDetails);
+router.get("/admin/php-plus-tabs", getPhpPlusTabsAdmin);
+router.put("/admin/php-plus-tabs", putPhpPlusTabsAdmin);
+router.post("/admin/php-plus-tabs", postPhpPlusTabsAdmin);
+router.delete("/admin/php-plus-tabs", deletePhpPlusTabsAdmin);
 router.get("/admin/bookings", listBookings);
 router.post("/admin/bookings", createBookingAdmin);
 router.patch("/admin/bookings/:bookingId", updateBookingStatus);

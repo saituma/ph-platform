@@ -29,6 +29,8 @@ import {
   useSendMessageMutation,
   useToggleChatGroupMessageReactionMutation,
   useToggleMessageReactionMutation,
+  useDeleteMessageMutation,
+  useDeleteGroupMessageMutation,
 } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
@@ -46,6 +48,7 @@ type ThreadItem = {
   role?: string;
   hasAthlete?: boolean;
   athleteName?: string | null;
+  programTier?: string | null;
   typing?: boolean;
   avatarUrl?: string | null;
 };
@@ -71,6 +74,7 @@ export default function MessagingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [typingMap, setTypingMap] = useState<Record<string, { name: string; isTyping: boolean }>>({});
+  const [mobileView, setMobileView] = useState<"inbox" | "conversation">("inbox");
   const socketRef = useRef<Socket | null>(null);
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
@@ -81,6 +85,8 @@ export default function MessagingPage() {
   const [sendGroupMessage, { isLoading: isSendingGroup }] = useSendChatGroupMessageMutation();
   const [toggleMessageReaction] = useToggleMessageReactionMutation();
   const [toggleGroupMessageReaction] = useToggleChatGroupMessageReactionMutation();
+  const [deleteMessage] = useDeleteMessageMutation();
+  const [deleteGroupMessage] = useDeleteGroupMessageMutation();
   const [markThreadRead] = useMarkThreadReadMutation();
   const [newGroupName, setNewGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
@@ -110,13 +116,24 @@ export default function MessagingPage() {
           lastTimestamp: timestamp,
           role: user.role,
           hasAthlete: Boolean(user.athleteId),
+          programTier: user.programTier ?? null,
           online: onlineUsers.includes(user.id),
           typing: typingMap[`user:${user.id}`]?.isTyping ?? false,
           avatarUrl: user.profilePicture ?? null,
         } as ThreadItem;
       });
 
-    return combined.sort((a, b) => {
+    const guardiansOnly = combined.filter((thread) => thread.role === "guardian");
+
+    const tierWeight = (tier?: string | null) => {
+      if (tier === "PHP_Premium") return 3;
+      if (tier === "PHP_Plus") return 2;
+      return 1;
+    };
+
+    return guardiansOnly.sort((a, b) => {
+      const tierDiff = tierWeight(b.programTier) - tierWeight(a.programTier);
+      if (tierDiff !== 0) return tierDiff;
       if (a.premium !== b.premium) {
         return a.premium ? -1 : 1;
       }
@@ -231,10 +248,14 @@ export default function MessagingPage() {
         return;
       }
 
+      const isResponseVideo = payload.contentType === "video" && Number.isFinite(payload.videoUploadId);
+      const toastTitle = isResponseVideo ? "Coach response video" : "New message";
+      const toastBody = isResponseVideo ? "A coach response video is ready." : payload.content ?? "You received a new message";
       playNotificationSound();
       if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("New message", { body: payload.content ?? "You received a new message" });
+        new Notification(toastTitle, { body: toastBody });
       }
+      toast.info(toastTitle, toastBody);
     });
     socket.on("group:message", (payload: any) => {
       handleIncoming();
@@ -250,9 +271,19 @@ export default function MessagingPage() {
       if ("Notification" in window && Notification.permission === "granted") {
         new Notification("New group message", { body: payload.content ?? "You received a group message" });
       }
+      toast.info("New group message", payload.content ?? "You received a group message");
     });
     socket.on("message:reaction", handleIncoming);
     socket.on("group:reaction", handleIncoming);
+    socket.on("message:deleted", (payload: { messageId: number }) => {
+      if (!payload?.messageId) return;
+      refetchMessages();
+      refetchThreads();
+    });
+    socket.on("group:message:deleted", (payload: { messageId: number }) => {
+      if (!payload?.messageId) return;
+      refetchGroupMessages();
+    });
     socket.on("presence:update", (payload: number[]) => {
       setOnlineUsers(Array.isArray(payload) ? payload : []);
     });
@@ -314,9 +345,7 @@ export default function MessagingPage() {
 
   const filteredThreads = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    let result = threads;
-    if (activeFilter === "Guardian") result = result.filter((thread) => thread.role === "guardian");
-    if (activeFilter === "Athlete") result = result.filter((thread) => thread.role === "athlete");
+    let result = threads.filter((thread) => thread.role === "guardian");
     if (activeFilter === "Unread") result = result.filter((thread) => (thread.unread ?? 0) > 0);
     if (activeFilter === "Premium") result = result.filter((thread) => thread.premium);
     result = result.map((thread) => ({
@@ -332,12 +361,11 @@ export default function MessagingPage() {
   }, [activeFilter, threads, searchTerm]);
 
   const filterCounts = useMemo(() => {
+    const guardianThreads = threads.filter((thread) => thread.role === "guardian");
     return {
-      All: threads.length,
-      Guardian: threads.filter((thread) => thread.role === "guardian").length,
-      Athlete: threads.filter((thread) => thread.role === "athlete").length,
-      Unread: threads.filter((thread) => (thread.unread ?? 0) > 0).length,
-      Premium: threads.filter((thread) => thread.premium).length,
+      All: guardianThreads.length,
+      Unread: guardianThreads.filter((thread) => (thread.unread ?? 0) > 0).length,
+      Premium: guardianThreads.filter((thread) => thread.premium).length,
     };
   }, [threads]);
 
@@ -350,9 +378,32 @@ export default function MessagingPage() {
     return result;
   }, [groups, searchTerm]);
 
+  const handleDeleteMessage = async (messageId: string, mode: "direct" | "group", groupId: number | null) => {
+    try {
+      if (mode === "group") {
+        if (!groupId) return;
+        const parsed = Number(messageId.replace("group-", ""));
+        if (!Number.isFinite(parsed)) return;
+        await deleteGroupMessage({ groupId, messageId: parsed }).unwrap();
+        await refetchGroupMessages();
+      } else {
+        const parsed = Number(messageId);
+        if (!Number.isFinite(parsed)) return;
+        await deleteMessage({ messageId: parsed }).unwrap();
+        await refetchMessages();
+        await refetchThreads();
+      }
+      toast.success("Message deleted");
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || "Delete failed";
+      toast.error("Delete failed", msg);
+    }
+  };
+
   const uploadAttachment = async (attachment: ComposerAttachment) => {
     const file = attachment.file;
-    const inferredType = file.type || (attachment.kind === "image" ? "image/jpeg" : "application/octet-stream");
+    const inferredType =
+      file.type || (attachment.kind === "image" ? "image/jpeg" : "application/octet-stream");
     const folder = attachment.kind === "image" ? "messages/images" : "messages/files";
     const presign = await createMediaUploadUrl({
       folder,
@@ -391,23 +442,29 @@ export default function MessagingPage() {
       subtitle="Priority inbox and coach responses."
     >
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <Card className="h-full lg:h-[calc(100vh-11rem)]">
+        <Card className={`h-full lg:h-[calc(100vh-11rem)] ${mobileView === "conversation" ? "hidden lg:block" : ""}`}>
           <CardHeader>
             <SectionHeader title="Inbox" description="Connect with every athlete and guardian." />
           </CardHeader>
-          <CardContent className="h-full overflow-hidden">
+          <CardContent className="h-full overflow-visible lg:overflow-hidden">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <Button
                 variant={inboxMode === "direct" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setInboxMode("direct")}
+                onClick={() => {
+                  setInboxMode("direct");
+                  setMobileView("inbox");
+                }}
               >
                 Direct
               </Button>
               <Button
                 variant={inboxMode === "group" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setInboxMode("group")}
+                onClick={() => {
+                  setInboxMode("group");
+                  setMobileView("inbox");
+                }}
               >
                 Groups
               </Button>
@@ -420,7 +477,10 @@ export default function MessagingPage() {
                 selectedMemberIds={selectedMemberIds}
                 newGroupName={newGroupName}
                 isCreatingGroup={isCreatingGroup}
-                onSelectGroup={setSelectedGroupId}
+                onSelectGroup={(groupId) => {
+                  setSelectedGroupId(groupId);
+                  setMobileView("conversation");
+                }}
                 onNewGroupNameChange={setNewGroupName}
                 onToggleMember={(memberId) => {
                   setSelectedMemberIds((prev) =>
@@ -445,11 +505,14 @@ export default function MessagingPage() {
                 }}
               />
             ) : (
-              <div className="h-[calc(100%-3.5rem)] overflow-y-auto pr-1">
+              <div className="lg:h-[calc(100%-3.5rem)] lg:overflow-y-auto pr-1">
                 <InboxList
                   threads={filteredThreads}
                   selected={selectedUserId}
-                  onSelect={setSelectedUserId}
+                  onSelect={(userId) => {
+                    setSelectedUserId(userId);
+                    setMobileView("conversation");
+                  }}
                   onFilterSelect={setActiveFilter}
                   searchValue={searchTerm}
                   onSearch={setSearchTerm}
@@ -462,6 +525,9 @@ export default function MessagingPage() {
         </Card>
 
         <MessagingConversationCard
+          showBack={mobileView === "conversation"}
+          onBack={() => setMobileView("inbox")}
+          className={mobileView === "inbox" ? "hidden lg:block" : ""}
           inboxMode={inboxMode}
           groups={groups}
           selectedGroupId={selectedGroupId}
@@ -553,6 +619,7 @@ export default function MessagingPage() {
               toast.error("Reaction failed", err?.data?.error || "Please try again.");
             }
           }}
+          onDelete={handleDeleteMessage}
         />
       </div>
 

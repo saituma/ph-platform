@@ -8,8 +8,10 @@ import {
   listParentContent,
   listLegalContent,
   listLegalContentPublic,
+  listAnnouncementsContent,
   updateContentItem,
   getContentItem,
+  deleteContent,
   listParentCoursesHandler,
   getParentCourseHandler,
   createParentCourseHandler,
@@ -25,6 +27,7 @@ const router = Router();
 router.get("/content/home", requireAuth, listHomeContent);
 router.get("/content/parent-platform", requireAuth, listParentContent);
 router.get("/content/legal", requireAuth, listLegalContent);
+router.get("/content/announcements", requireAuth, listAnnouncementsContent);
 router.get("/content/legal/public", listLegalContentPublic);
 router.post("/content/testimonials/submit", requireAuth, submitTestimonial);
 router.get(
@@ -50,6 +53,7 @@ router.get("/content/parent-courses/:courseId", requireAuth, getParentCourseHand
 router.get("/content/:contentId", requireAuth, getContentItem);
 router.post("/content", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createContentItem);
 router.put("/content/:contentId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateContentItem);
+router.delete("/content/:contentId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteContent);
 router.post("/content/parent-courses", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createParentCourseHandler);
 router.put("/content/parent-courses/:courseId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateParentCourseHandler);
 

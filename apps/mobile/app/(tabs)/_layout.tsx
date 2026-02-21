@@ -5,6 +5,7 @@ import { Redirect, Slot, usePathname, useRouter, useSegments } from "expo-router
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Platform } from "react-native";
 import { useAppSelector } from "@/store/hooks";
+import { canAccessTier } from "@/lib/planAccess";
 
 import HomeScreen from "./index";
 import MessagesScreen from "./messages";
@@ -37,9 +38,13 @@ const TAB_COMPONENTS: Record<string, React.ComponentType> = {
 
 export default function TabLayout() {
   const { role } = useRole();
-  const { isAuthenticated, onboardingCompleted, hydrated, token, profile, athleteUserId } = useAppSelector(
-    (state) => state.user
-  );
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const onboardingCompleted = useAppSelector((state) => state.user.onboardingCompleted);
+  const hydrated = useAppSelector((state) => state.user.hydrated);
+  const token = useAppSelector((state) => state.user.token);
+  const profile = useAppSelector((state) => state.user.profile);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+  const programTier = useAppSelector((state) => state.user.programTier);
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
@@ -58,7 +63,7 @@ export default function TabLayout() {
   }, [isAuthenticated, onboardingCompleted, isOnboarding, router]);
 
   useEffect(() => {
-    if (!token || !isAuthenticated) {
+    if (!token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) {
       setMessagesUnread(0);
       return;
     }
@@ -95,7 +100,7 @@ export default function TabLayout() {
       clearInterval(timer);
       task?.cancel?.();
     };
-  }, [athleteUserId, isAuthenticated, profile.id, role, token, pathname]);
+  }, [athleteUserId, isAuthenticated, profile.id, programTier, role, token, pathname]);
 
   const visibleTabs = useMemo(() => {
     return TAB_ROUTES.map((tab) => {

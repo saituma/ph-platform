@@ -1,5 +1,6 @@
 import React from "react";
 import { Image, Linking, TouchableOpacity, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 
 type CoachSectionProps = {

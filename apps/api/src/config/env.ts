@@ -50,4 +50,7 @@ export const env = {
   stripePricePremiumYearly: process.env.STRIPE_PRICE_PHP_PREMIUM_YEARLY ?? "",
   mediaMaxMb: Number(process.env.MEDIA_MAX_MB ?? 25),
   videoMaxMb: Number(process.env.VIDEO_MAX_MB ?? 200),
+  publicApiBaseUrl: process.env.PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL ?? "",
+  adminWebUrl: process.env.ADMIN_WEB_URL ?? "",
+  bookingActionSecret: process.env.BOOKING_ACTION_SECRET ?? process.env.LOCAL_JWT_SECRET ?? "local-dev-secret",
 };

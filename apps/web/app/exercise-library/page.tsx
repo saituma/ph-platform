@@ -23,7 +23,7 @@ const SESSION_TYPES = [
   { value: "recovery", label: "Recovery" },
   { value: "offseason", label: "Off Session Program" },
   { value: "inseason", label: "In Session Program" },
-  { value: "nutrition", label: "Nutrition & Food Diaries" },
+  { value: "nutrition", label: "Athlete Platform" },
 ] as const;
 
 const SESSION_TYPE_LABEL = Object.fromEntries(
@@ -35,25 +35,11 @@ type ProgramSectionContent = {
   sectionType: string;
   title: string;
   body: string;
+  ageList?: number[] | null;
   videoUrl?: string | null;
   order?: number | null;
   createdAt?: string;
   updatedAt?: string;
-};
-
-type FoodDiaryItem = {
-  id: number;
-  date?: string | null;
-  notes?: string | null;
-  photoUrl?: string | null;
-  meals?: Record<string, string> | null;
-  athleteName?: string | null;
-  guardianName?: string | null;
-  guardianEmail?: string | null;
-  guardianUserId?: number | null;
-  athleteId?: number | null;
-  feedback?: string | null;
-  reviewedAt?: string | null;
 };
 
 async function fetchProgramSectionContent(sectionType: string) {
@@ -70,6 +56,7 @@ async function fetchProgramSectionContent(sectionType: string) {
 
 async function createProgramSectionContent(payload: {
   sectionType: string;
+  ageList?: number[] | null;
   title: string;
   body: string;
   videoUrl?: string | null;
@@ -90,6 +77,7 @@ async function createProgramSectionContent(payload: {
 
 async function updateProgramSectionContent(id: number, payload: {
   sectionType: string;
+  ageList?: number[] | null;
   title: string;
   body: string;
   videoUrl?: string | null;
@@ -118,30 +106,6 @@ async function deleteProgramSectionContent(id: number) {
   }
 }
 
-async function fetchFoodDiaryEntries() {
-  const res = await fetch("/api/backend/admin/food-diary", { credentials: "include" });
-  if (!res.ok) {
-    throw new Error("Failed to load food diary entries.");
-  }
-  const data = await res.json();
-  return (data.items ?? []) as FoodDiaryItem[];
-}
-
-async function submitFoodDiaryReview(entryId: number, feedback: string | null) {
-  const res = await fetch(`/api/backend/admin/food-diary/${entryId}/review`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ feedback }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => null);
-    throw new Error(data?.error ?? "Failed to save feedback.");
-  }
-  const data = await res.json();
-  return data.item as FoodDiaryItem;
-}
-
 function ExerciseLibraryPageInner() {
   const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState<string>("program");
@@ -153,15 +117,10 @@ function ExerciseLibraryPageInner() {
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [ageInput, setAgeInput] = useState("");
+  const [ageList, setAgeList] = useState<number[]>([]);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [order, setOrder] = useState("1");
-  const [foodDiaryItems, setFoodDiaryItems] = useState<FoodDiaryItem[]>([]);
-  const [foodDiaryLoading, setFoodDiaryLoading] = useState(false);
-  const [foodDiaryError, setFoodDiaryError] = useState<string | null>(null);
-  const [foodDiarySearch, setFoodDiarySearch] = useState("");
-  const [reviewDrafts, setReviewDrafts] = useState<Record<number, string>>({});
-  const [reviewSavingId, setReviewSavingId] = useState<number | null>(null);
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
 
   const loadItems = async (sectionType = activeSection) => {
     setIsLoading(true);
@@ -187,27 +146,12 @@ function ExerciseLibraryPageInner() {
     void loadItems(activeSection);
   }, [activeSection]);
 
-  useEffect(() => {
-    if (activeSection !== "nutrition") return;
-    const loadFoodDiary = async () => {
-      setFoodDiaryLoading(true);
-      setFoodDiaryError(null);
-      try {
-        const items = await fetchFoodDiaryEntries();
-        setFoodDiaryItems(items);
-      } catch (err) {
-        setFoodDiaryError(err instanceof Error ? err.message : "Failed to load food diary entries.");
-      } finally {
-        setFoodDiaryLoading(false);
-      }
-    };
-    void loadFoodDiary();
-  }, [activeSection]);
-
   const resetForm = () => {
     setEditingId(null);
     setTitle("");
     setBody("");
+    setAgeInput("");
+    setAgeList([]);
     setVideoUrl(null);
     setOrder("1");
   };
@@ -221,6 +165,7 @@ function ExerciseLibraryPageInner() {
         sectionType: activeSection,
         title: title.trim(),
         body: body.trim(),
+        ageList: ageList.length ? ageList : null,
         videoUrl: videoUrl || null,
         order: order.trim() ? Number(order) : null,
       };
@@ -244,8 +189,25 @@ function ExerciseLibraryPageInner() {
     setEditingId(item.id);
     setTitle(item.title ?? "");
     setBody(item.body ?? "");
+    setAgeInput("");
+    setAgeList(Array.isArray(item.ageList) ? item.ageList : []);
     setVideoUrl(item.videoUrl ?? null);
     setOrder(item.order ? String(item.order) : "1");
+  };
+
+  const handleAddAge = () => {
+    const parsed = Number(ageInput);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    const normalized = Math.floor(parsed);
+    setAgeList((prev) => {
+      if (prev.includes(normalized)) return prev;
+      return [...prev, normalized].sort((a, b) => a - b);
+    });
+    setAgeInput("");
+  };
+
+  const handleRemoveAge = (age: number) => {
+    setAgeList((prev) => prev.filter((item) => item !== age));
   };
 
   const handleDelete = async (id: number) => {
@@ -274,38 +236,6 @@ function ExerciseLibraryPageInner() {
       return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
     });
   }, [items]);
-
-  const filteredFoodDiary = useMemo(() => {
-    if (!foodDiarySearch.trim()) return foodDiaryItems;
-    const needle = foodDiarySearch.trim().toLowerCase();
-    return foodDiaryItems.filter((entry) => {
-      const athlete = entry.athleteName ?? "";
-      const guardian = entry.guardianName ?? "";
-      const email = entry.guardianEmail ?? "";
-      return (
-        athlete.toLowerCase().includes(needle) ||
-        guardian.toLowerCase().includes(needle) ||
-        email.toLowerCase().includes(needle)
-      );
-    });
-  }, [foodDiaryItems, foodDiarySearch]);
-
-  const formatDiaryDate = (value?: string | null) => {
-    if (!value) return "Today";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "Today";
-    return d.toLocaleDateString();
-  };
-
-  const formatMeals = (mealData?: Record<string, string> | null) => {
-    if (!mealData) return [];
-    return Object.entries(mealData)
-      .filter(([, value]) => value && value.trim())
-      .map(([key, value]) => ({
-        label: key.replace(/^\w/, (c) => c.toUpperCase()),
-        value,
-      }));
-  };
 
   return (
     <AdminShell title="Exercise Library" subtitle="Centralized exercise and video management.">
@@ -341,24 +271,77 @@ function ExerciseLibraryPageInner() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Title
+                Course / Module Title
               </label>
               <Input
-                placeholder="Warmup Focus"
+                placeholder="Course title or module name"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
               />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Steps / Notes
+                Module Notes
               </label>
               <Textarea
                 className="min-h-[180px]"
-                placeholder="Outline the steps athletes should follow..."
+                placeholder="Outline the module steps or coaching notes..."
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Ages
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Add age"
+                  value={ageInput}
+                  onChange={(event) => setAgeInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleAddAge();
+                    }
+                  }}
+                  className="w-28"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAddAge}
+                  disabled={!ageInput.trim()}
+                >
+                  Add Age
+                </Button>
+              </div>
+              {ageList.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {ageList.map((age) => (
+                    <div
+                      key={age}
+                      className="flex items-center gap-2 rounded-full border border-border bg-secondary/30 px-3 py-1 text-xs"
+                    >
+                      <span>Age {age}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAge(age)}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove age ${age}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No ages set. Content will show for all ages.
+                </p>
+              )}
             </div>
             <div className="space-y-2 rounded-2xl border border-border bg-secondary/30 p-4">
               <div className="flex items-center justify-between">
@@ -421,216 +404,58 @@ function ExerciseLibraryPageInner() {
           </CardContent>
         </Card>
 
-        {activeSection !== "nutrition" ? (
-          <Card>
-            <CardHeader>
-              <SectionHeader
-                title={`${SESSION_TYPE_LABEL[activeSection] ?? "Program"} Content`}
-              />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoading ? (
-                <div className="rounded-2xl border border-border bg-secondary/30 p-6 text-sm text-muted-foreground">
-                  Loading content...
-                </div>
-              ) : null}
-              {orderedItems.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-border bg-background p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">Order {item.order ?? 1}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => handleEdit(item)} disabled={isSaving}>
-                        Edit
-                      </Button>
-                      <Button variant="outline" onClick={() => void handleDelete(item.id)} disabled={isSaving}>
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="mt-3 whitespace-pre-wrap text-sm text-foreground/90">
-                    {item.body}
-                  </p>
-                  {item.videoUrl ? (
-                    <video
-                      className="mt-3 aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
-                      src={item.videoUrl}
-                      controls
-                      muted
-                    />
-                  ) : null}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        ) : null}
-      </div>
-
-      {activeSection === "nutrition" ? (
-        <Card className="mt-6">
+        <Card>
           <CardHeader>
             <SectionHeader
-              title="Food Diary Reviews"
-              description="Review guardian submissions and respond to athletes."
+              title={`${SESSION_TYPE_LABEL[activeSection] ?? "Program"} Content`}
+              description="Publish age-specific courses and modules for athletes."
             />
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Input
-                value={foodDiarySearch}
-                onChange={(event) => setFoodDiarySearch(event.target.value)}
-                placeholder="Search athlete or guardian"
-                className="sm:max-w-xs"
-              />
-              <p className="text-xs text-muted-foreground">
-                Showing {filteredFoodDiary.length} of {foodDiaryItems.length}
-              </p>
-            </div>
-
-            {foodDiaryLoading ? (
+          <CardContent className="space-y-3">
+            {isLoading ? (
               <div className="rounded-2xl border border-border bg-secondary/30 p-6 text-sm text-muted-foreground">
-                Loading food diary entries...
+                Loading content...
               </div>
-            ) : foodDiaryError ? (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-                {foodDiaryError}
+            ) : null}
+            {orderedItems.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">Order {item.order ?? 1}</p>
+                    {Array.isArray(item.ageList) && item.ageList.length ? (
+                      <p className="text-xs text-muted-foreground">
+                        Ages: {item.ageList.join(", ")}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Ages: All</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => handleEdit(item)} disabled={isSaving}>
+                      Edit
+                    </Button>
+                    <Button variant="outline" onClick={() => void handleDelete(item.id)} disabled={isSaving}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm text-foreground/90">
+                  {item.body}
+                </p>
+                {item.videoUrl ? (
+                  <video
+                    className="mt-3 aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
+                    src={item.videoUrl}
+                    controls
+                    muted
+                  />
+                ) : null}
               </div>
-            ) : filteredFoodDiary.length === 0 ? (
-              <div className="rounded-2xl border border-border bg-secondary/30 p-6 text-sm text-muted-foreground">
-                No food diary submissions yet.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredFoodDiary.map((entry) => {
-                  const meals = formatMeals(entry.meals);
-                  const draft = reviewDrafts[entry.id] ?? entry.feedback ?? "";
-                  return (
-                    <div key={entry.id} className="rounded-3xl border border-border bg-secondary/20 p-5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="text-xs uppercase tracking-[2px] text-muted-foreground">
-                            {formatDiaryDate(entry.date)}
-                          </p>
-                          <p className="text-lg font-semibold text-foreground">
-                            {entry.athleteName ?? "Athlete"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Guardian: {entry.guardianName ?? entry.guardianEmail ?? "Unknown"}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {entry.feedback ? (
-                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">
-                              Reviewed
-                            </span>
-                          ) : (
-                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-600">
-                              Needs review
-                            </span>
-                          )}
-                          {entry.photoUrl ? (
-                            <button
-                              type="button"
-                              onClick={() => setPhotoPreviewUrl(entry.photoUrl ?? null)}
-                              className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
-                            >
-                              View Photo
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      {meals.length ? (
-                        <div className="mt-4 grid gap-3 md:grid-cols-2">
-                          {meals.map((meal) => (
-                            <div key={meal.label} className="rounded-2xl border border-border bg-background/40 p-3">
-                              <p className="text-[11px] uppercase tracking-[1.4px] text-muted-foreground">
-                                {meal.label}
-                              </p>
-                              <p className="mt-2 text-sm text-foreground">{meal.value}</p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {entry.notes ? (
-                        <p className="mt-4 text-sm text-foreground">{entry.notes}</p>
-                      ) : null}
-
-                      <div className="mt-4 space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Coach Response
-                        </label>
-                        <Textarea
-                          value={draft}
-                          onChange={(event) =>
-                            setReviewDrafts((prev) => ({ ...prev, [entry.id]: event.target.value }))
-                          }
-                          placeholder="Share feedback or guidance for this entry..."
-                          className="min-h-[120px]"
-                        />
-                        <div className="flex items-center justify-end">
-                          <Button
-                            onClick={async () => {
-                              setReviewSavingId(entry.id);
-                              setFoodDiaryError(null);
-                              try {
-                                const updated = await submitFoodDiaryReview(entry.id, draft.trim() || null);
-                                setFoodDiaryItems((prev) =>
-                                  prev.map((item) => (item.id === entry.id ? { ...item, ...updated } : item))
-                                );
-                                setReviewDrafts((prev) => ({ ...prev, [entry.id]: updated.feedback ?? "" }));
-                              } catch (err) {
-                                setFoodDiaryError(err instanceof Error ? err.message : "Failed to save feedback.");
-                              } finally {
-                                setReviewSavingId(null);
-                              }
-                            }}
-                            disabled={reviewSavingId === entry.id}
-                          >
-                            {reviewSavingId === entry.id ? "Saving..." : "Send Response"}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            ))}
           </CardContent>
         </Card>
-      ) : null}
-      {photoPreviewUrl ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
-          onClick={() => setPhotoPreviewUrl(null)}
-        >
-          <div
-            className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-background shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <p className="text-sm font-semibold text-foreground">Food Diary Photo</p>
-              <button
-                type="button"
-                onClick={() => setPhotoPreviewUrl(null)}
-                className="rounded-full border border-border px-3 py-1 text-xs text-foreground"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex items-center justify-center bg-black/90">
-              <img
-                src={photoPreviewUrl}
-                alt="Food diary submission"
-                className="max-h-[80vh] w-full object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      </div>
     </AdminShell>
   );
 }

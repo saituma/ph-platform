@@ -68,6 +68,7 @@ export function useMessagesRealtime({
         text: payload.content,
         contentType: payload.contentType ?? "text",
         mediaUrl: payload.mediaUrl ?? undefined,
+        videoUploadId: payload.videoUploadId ?? undefined,
         time: payload.createdAt
           ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
@@ -108,10 +109,15 @@ export function useMessagesRealtime({
       if (senderId !== effectiveUserId) {
         const Notifications = await getNotifications();
         if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
+        const isResponseVideo = payload.contentType === "video" && Number.isFinite(payload.videoUploadId);
+        const notificationTitle = isResponseVideo ? "Coach response video" : "New message";
+        const notificationBody = isResponseVideo
+          ? "Your coach sent a response video."
+          : payload.content ?? "You received a new message";
         Notifications.scheduleNotificationAsync({
           content: {
-            title: "New message",
-            body: payload.content ?? "You received a new message",
+            title: notificationTitle,
+            body: notificationBody,
             sound: "default",
             categoryIdentifier: "messages",
             channelId: "messages",
@@ -213,6 +219,22 @@ export function useMessagesRealtime({
       setMessages((prev) =>
         prev.map((message) => (message.id === id ? { ...message, reactions: payload.reactions ?? [] } : message))
       );
+    });
+
+    socket.on("message:deleted", (payload: { messageId: number }) => {
+      const id = String(payload.messageId);
+      setMessages((prev) => prev.filter((message) => message.id !== id));
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === currentThreadId ? { ...thread, preview: thread.preview, time: thread.time } : thread
+        )
+      );
+      loadMessages();
+    });
+
+    socket.on("group:message:deleted", (payload: { messageId: number }) => {
+      const id = `group-${payload.messageId}`;
+      setMessages((prev) => prev.filter((message) => message.id !== id));
     });
 
     return () => {

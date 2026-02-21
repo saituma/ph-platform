@@ -17,22 +17,13 @@ type ContentTabsProps = {
     professionalPhoto?: string;
     testimonials?: any[] | string;
   } | null;
-  initialLegal?: {
-    termsText?: string;
-    termsVersion?: string;
-    privacyText?: string;
-    privacyVersion?: string;
-  } | null;
+  announcements?: any[];
   onSaveProfile: (data: { adminStory: string; professionalPhoto: string }) => void;
   onSaveTestimonials: (data: { testimonials: any[] }) => void;
   onSaveIntroVideo: (data: { introVideoUrl: string }) => void;
-  onSaveLegal: (data: {
-    termsText: string;
-    termsVersion: string;
-    privacyText: string;
-    privacyVersion: string;
-  }) => void;
   onPublishAnnouncement: (data: { title: string; body: string }) => void;
+  onUpdateAnnouncement: (data: { id: number; title: string; body: string }) => void;
+  onDeleteAnnouncement: (data: { id: number }) => void;
   testimonialSubmissions?: any[];
   onApproveTestimonial?: (submissionId: number) => void;
   onRejectTestimonial?: (submissionId: number) => void;
@@ -40,23 +31,20 @@ type ContentTabsProps = {
 
 export function ContentTabs({
   initialHome,
-  initialLegal,
+  announcements = [],
   onSaveProfile,
   onSaveTestimonials,
   onSaveIntroVideo,
-  onSaveLegal,
   onPublishAnnouncement,
+  onUpdateAnnouncement,
+  onDeleteAnnouncement,
   testimonialSubmissions = [],
   onApproveTestimonial,
   onRejectTestimonial,
 }: ContentTabsProps) {
   const adminStoryRef = useRef<HTMLTextAreaElement | null>(null);
   const announcementBodyRef = useRef<HTMLTextAreaElement | null>(null);
-  const termsRef = useRef<HTMLTextAreaElement | null>(null);
-  const privacyRef = useRef<HTMLTextAreaElement | null>(null);
   const [showAdminStoryPreview, setShowAdminStoryPreview] = useState(false);
-  const [showTermsPreview, setShowTermsPreview] = useState(false);
-  const [showPrivacyPreview, setShowPrivacyPreview] = useState(false);
   const [showAnnouncementPreview, setShowAnnouncementPreview] = useState(false);
   const [homeIntroVideo, setHomeIntroVideo] = useState("");
   const [homeProfessionalPhoto, setHomeProfessionalPhoto] = useState("");
@@ -68,9 +56,10 @@ export function ContentTabs({
   const [testimonialQuote, setTestimonialQuote] = useState("");
   const [testimonialPhoto, setTestimonialPhoto] = useState("");
   const [announcementTitle, setAnnouncementTitle] = useState("");
-  const [termsVersion, setTermsVersion] = useState("1.0");
-  const [privacyVersion, setPrivacyVersion] = useState("1.0");
-
+  const [announcementMedia, setAnnouncementMedia] = useState<
+    { url: string; type: "image" | "video" }[]
+  >([]);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<number | null>(null);
   useEffect(() => {
     if (!initialHome) return;
     if (initialHome.introVideoUrl !== undefined) setHomeIntroVideo(initialHome.introVideoUrl ?? "");
@@ -101,22 +90,6 @@ export function ContentTabs({
       }
     }
   }, [initialHome]);
-
-  useEffect(() => {
-    if (!initialLegal) return;
-    if (termsRef.current && initialLegal.termsText !== undefined) {
-      termsRef.current.value = initialLegal.termsText ?? "";
-    }
-    if (privacyRef.current && initialLegal.privacyText !== undefined) {
-      privacyRef.current.value = initialLegal.privacyText ?? "";
-    }
-    if (initialLegal.termsVersion !== undefined) {
-      setTermsVersion(initialLegal.termsVersion ?? "1.0");
-    }
-    if (initialLegal.privacyVersion !== undefined) {
-      setPrivacyVersion(initialLegal.privacyVersion ?? "1.0");
-    }
-  }, [initialLegal]);
 
   const insertAtCursor = (ref: React.RefObject<HTMLTextAreaElement | null>, value: string) => {
     const el = ref.current;
@@ -195,22 +168,55 @@ export function ContentTabs({
       .replace(/\n/g, "<br />");
   };
 
-  const termsPreview = useMemo(
-    () => renderMarkdown(termsRef.current?.value ?? ""),
-    [showTermsPreview]
-  );
-  const privacyPreview = useMemo(
-    () => renderMarkdown(privacyRef.current?.value ?? ""),
-    [showPrivacyPreview]
-  );
   const adminStoryPreview = useMemo(
     () => renderMarkdown(adminStory),
     [adminStory, showAdminStoryPreview]
   );
   const announcementPreview = useMemo(
-    () => renderMarkdown(announcementBodyRef.current?.value ?? ""),
+    () => {
+      const base = announcementBodyRef.current?.value ?? "";
+      const mediaLines = announcementMedia
+        .map((item) => (item.type === "image" ? `![](${item.url})` : `[Video](${item.url})`))
+        .join("\n");
+      return renderMarkdown([base, mediaLines].filter(Boolean).join("\n\n"));
+    },
     [showAnnouncementPreview]
   );
+  const announcementDraftText = announcementBodyRef.current?.value ?? "";
+  const announcementDraftTitle = announcementTitle.trim() || "Announcement";
+
+  const parsedAnnouncements = useMemo(() => {
+    const imageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+    const videoRegex = /\[Video\]\(([^)]+)\)/gi;
+    return (announcements ?? []).map((item: any) => {
+      const raw = String(item.body ?? item.content ?? "");
+      const images: string[] = [];
+      const videos: string[] = [];
+      let match: RegExpExecArray | null;
+      while ((match = imageRegex.exec(raw)) !== null) {
+        if (match[1]) images.push(match[1]);
+      }
+      while ((match = videoRegex.exec(raw)) !== null) {
+        if (match[1]) videos.push(match[1]);
+      }
+      const text = raw
+        .replace(imageRegex, "")
+        .replace(videoRegex, "")
+        .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+      return {
+        id: String(item.id ?? item.title ?? Math.random()),
+        rawId: item.id ?? null,
+        title: item.title ?? "Announcement",
+        updatedAt: item.updatedAt ?? item.createdAt ?? null,
+        rawBody: raw,
+        text,
+        images,
+        videos,
+      };
+    });
+  }, [announcements]);
 
   const toolbar = [
     { label: "B", type: "wrap", prefix: "**", suffix: "**", placeholder: "bold" },
@@ -229,11 +235,10 @@ export function ContentTabs({
         <TabsTrigger value="profile">Profile</TabsTrigger>
         <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
         <TabsTrigger value="intro">Intro Video</TabsTrigger>
-        <TabsTrigger value="legal">Legal</TabsTrigger>
         <TabsTrigger value="announcements">Announcements</TabsTrigger>
       </TabsList>
       <TabsContent value="profile">
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Admin Story</Label>
@@ -311,20 +316,22 @@ export function ContentTabs({
               )}
             </div>
           </div>
-          <div className="space-y-4">
-            <Button
-              className="w-full"
-              onClick={() => {
-                onSaveProfile({
-                  adminStory,
-                  professionalPhoto: hasTouchedProfessionalPhoto
-                    ? homeProfessionalPhoto
-                    : initialProfessionalPhotoRef.current,
-                });
-              }}
-            >
-              Save Updates
-            </Button>
+          <div className="space-y-4 lg:sticky lg:top-6">
+            <div className="rounded-2xl border border-border bg-secondary/10 p-4 space-y-4">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  onSaveProfile({
+                    adminStory,
+                    professionalPhoto: hasTouchedProfessionalPhoto
+                      ? homeProfessionalPhoto
+                      : initialProfessionalPhotoRef.current,
+                  });
+                }}
+              >
+                Save Updates
+              </Button>
+            </div>
           </div>
         </div>
       </TabsContent>
@@ -512,6 +519,14 @@ export function ContentTabs({
                 maxSizeMb={200}
                 onUploaded={(url) => setHomeIntroVideo(url)}
               />
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Or paste a link</Label>
+                <Input
+                  placeholder="https://youtube.com/watch?v=..."
+                  value={homeIntroVideo}
+                  onChange={(event) => setHomeIntroVideo(event.target.value)}
+                />
+              </div>
               {homeIntroVideo ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
                   <span className="break-all text-muted-foreground">{homeIntroVideo}</span>
@@ -521,7 +536,7 @@ export function ContentTabs({
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Upload an intro video for the mobile home screen.
+                  Upload an intro video or paste a YouTube/Vimeo link for the mobile home screen.
                 </p>
               )}
             </div>
@@ -531,116 +546,6 @@ export function ContentTabs({
               Save Intro Video
             </Button>
           </div>
-        </div>
-      </TabsContent>
-      <TabsContent value="legal">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Terms & Conditions</Label>
-            <div className="flex flex-wrap gap-2">
-              {toolbar.map((item) => (
-                <Button
-                  key={`terms-${item.label}`}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (item.type === "wrap") {
-                      wrapSelection(termsRef, item.prefix, item.suffix, item.placeholder);
-                    } else {
-                      prefixLines(termsRef, item.prefix, item.placeholder);
-                    }
-                  }}
-                >
-                  {item.label}
-                </Button>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTermsPreview((prev) => !prev)}
-              >
-                {showTermsPreview ? "Edit" : "Preview"}
-              </Button>
-            </div>
-            {showTermsPreview ? (
-              <div
-                className="min-h-[200px] rounded-2xl border border-border bg-secondary/30 p-4 text-sm"
-                dangerouslySetInnerHTML={{ __html: termsPreview }}
-              />
-            ) : (
-              <Textarea ref={termsRef} placeholder="Paste legal content..." />
-            )}
-            <div className="space-y-2 pt-2">
-              <Label>Terms Version</Label>
-              <Input
-                placeholder="e.g. v1.0"
-                value={termsVersion}
-                onChange={(e) => setTermsVersion(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Privacy Policy</Label>
-            <div className="flex flex-wrap gap-2">
-              {toolbar.map((item) => (
-                <Button
-                  key={`privacy-${item.label}`}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (item.type === "wrap") {
-                      wrapSelection(
-                        privacyRef,
-                        item.prefix,
-                        item.suffix,
-                        item.placeholder
-                      );
-                    } else {
-                      prefixLines(privacyRef, item.prefix, item.placeholder);
-                    }
-                  }}
-                >
-                  {item.label}
-                </Button>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPrivacyPreview((prev) => !prev)}
-              >
-                {showPrivacyPreview ? "Edit" : "Preview"}
-              </Button>
-            </div>
-            {showPrivacyPreview ? (
-              <div
-                className="min-h-[200px] rounded-2xl border border-border bg-secondary/30 p-4 text-sm"
-                dangerouslySetInnerHTML={{ __html: privacyPreview }}
-              />
-            ) : (
-              <Textarea ref={privacyRef} placeholder="Paste policy content..." />
-            )}
-            <div className="space-y-2 pt-2">
-              <Label>Privacy Version</Label>
-              <Input
-                placeholder="e.g. v1.0"
-                value={privacyVersion}
-                onChange={(e) => setPrivacyVersion(e.target.value)}
-              />
-            </div>
-          </div>
-          <Button
-            className="w-full lg:col-span-2"
-            onClick={() =>
-              onSaveLegal({
-                termsText: termsRef.current?.value ?? "",
-                termsVersion,
-                privacyText: privacyRef.current?.value ?? "",
-                privacyVersion,
-              })
-            }
-          >
-            Save Legal
-          </Button>
         </div>
       </TabsContent>
       <TabsContent value="announcements">
@@ -690,20 +595,271 @@ export function ContentTabs({
                 <Textarea ref={announcementBodyRef} placeholder="Write the announcement..." />
               )}
             </div>
+            <div className="space-y-2">
+              <Label>Media</Label>
+              <div className="flex flex-wrap gap-2">
+                <ParentCourseMediaUpload
+                  label="Add Photo"
+                  folder="announcements/photos"
+                  accept="image/*"
+                  maxSizeMb={25}
+                  onUploaded={(url) =>
+                    setAnnouncementMedia((prev) => [...prev, { url, type: "image" }])
+                  }
+                />
+                <ParentCourseMediaUpload
+                  label="Add Video"
+                  folder="announcements/videos"
+                  accept="video/*"
+                  maxSizeMb={200}
+                  onUploaded={(url) =>
+                    setAnnouncementMedia((prev) => [...prev, { url, type: "video" }])
+                  }
+                />
+              </div>
+              {announcementMedia.length ? (
+                <div className="space-y-2">
+                  {announcementMedia.map((item) => (
+                    <div
+                      key={item.url}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs"
+                    >
+                      <div className="truncate text-muted-foreground">
+                        {item.type === "image" ? "Photo" : "Video"} • {item.url}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setAnnouncementMedia((prev) => prev.filter((media) => media.url !== item.url))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Upload multiple photos or videos to attach to the announcement.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div className="rounded-2xl border border-border bg-secondary/20 p-4">
+                <div className="text-sm font-semibold text-foreground">
+                  {announcementDraftTitle}
+                </div>
+                {announcementDraftText || announcementMedia.length ? (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {announcementDraftText ? (
+                      <div
+                        className="text-sm"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(announcementDraftText) }}
+                      />
+                    ) : null}
+                    {announcementMedia.length ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {announcementMedia
+                          .filter((item) => item.type === "image")
+                          .slice(0, 4)
+                          .map((item) => (
+                            <img
+                              key={item.url}
+                              src={item.url}
+                              alt="Announcement media"
+                              className="h-24 w-36 rounded-xl border border-border object-cover"
+                              loading="lazy"
+                            />
+                          ))}
+                        {announcementMedia
+                          .filter((item) => item.type === "video")
+                          .slice(0, 2)
+                          .map((item) => (
+                            <video
+                              key={item.url}
+                              src={item.url}
+                              className="h-24 w-36 rounded-xl border border-border object-cover"
+                              muted
+                              preload="metadata"
+                            />
+                          ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Start typing to preview your announcement.
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border bg-secondary/10 p-4 space-y-3">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  const body = [
+                    announcementBodyRef.current?.value ?? "",
+                    announcementMedia
+                      .map((item) =>
+                        item.type === "image" ? `![](${item.url})` : `[Video](${item.url})`
+                      )
+                      .join("\n"),
+                  ]
+                    .filter(Boolean)
+                    .join("\n\n");
+                  const title = announcementTitle.trim() || "Announcement";
+                  if (editingAnnouncementId) {
+                    onUpdateAnnouncement({ id: editingAnnouncementId, title, body });
+                  } else {
+                    onPublishAnnouncement({ title, body });
+                  }
+                  setAnnouncementTitle("");
+                  setAnnouncementMedia([]);
+                  if (announcementBodyRef.current) announcementBodyRef.current.value = "";
+                  setEditingAnnouncementId(null);
+                }}
+              >
+                {editingAnnouncementId ? "Save Changes" : "Publish Announcement"}
+              </Button>
+              {editingAnnouncementId ? (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => {
+                    setAnnouncementTitle("");
+                    setAnnouncementMedia([]);
+                    if (announcementBodyRef.current) announcementBodyRef.current.value = "";
+                    setEditingAnnouncementId(null);
+                  }}
+                >
+                  Cancel Edit
+                </Button>
+              ) : null}
+            </div>
           </div>
-          <div className="space-y-4">
-            <Button
-              className="w-full"
-              onClick={() =>
-                onPublishAnnouncement({
-                  title: announcementTitle,
-                  body: announcementBodyRef.current?.value ?? "",
-                })
-              }
-            >
-              Publish Announcement
-            </Button>
+        </div>
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <Label>Uploaded Announcements</Label>
+            <span className="text-xs text-muted-foreground">
+              {parsedAnnouncements.length} total
+            </span>
           </div>
+          {parsedAnnouncements.length === 0 ? null : (
+            <div className="space-y-3">
+              {parsedAnnouncements.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-border bg-secondary/20 p-4 text-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-foreground">{item.title}</p>
+                      {item.updatedAt ? (
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(item.updatedAt).toLocaleString()}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {item.images.length ? `${item.images.length} photo` + (item.images.length > 1 ? "s" : "") : ""}
+                      {item.images.length && item.videos.length ? " • " : ""}
+                      {item.videos.length ? `${item.videos.length} video` + (item.videos.length > 1 ? "s" : "") : ""}
+                    </div>
+                  </div>
+                  {item.text ? (
+                    <p className="mt-2 text-xs text-muted-foreground">{item.text}</p>
+                  ) : null}
+                  {(item.images.length || item.videos.length) ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {item.images.map((url) => (
+                        <span
+                          key={url}
+                          className="rounded-full border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground"
+                        >
+                          Image
+                        </span>
+                      ))}
+                      {item.videos.map((url) => (
+                        <span
+                          key={url}
+                          className="rounded-full border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground"
+                        >
+                          Video
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {(item.images.length || item.videos.length) ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {item.images.slice(0, 3).map((url) => (
+                        <img
+                          key={url}
+                          src={url}
+                          alt="Announcement media"
+                          className="h-24 w-36 rounded-xl border border-border object-cover"
+                          loading="lazy"
+                        />
+                      ))}
+                      {item.videos.slice(0, 2).map((url) => (
+                        <video
+                          key={url}
+                          src={url}
+                          className="h-24 w-36 rounded-xl border border-border object-cover"
+                          muted
+                          preload="metadata"
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const title = item.title === "Announcement" ? "" : item.title;
+                        setAnnouncementTitle(title);
+                        if (announcementBodyRef.current) {
+                          announcementBodyRef.current.value = item.rawBody ?? "";
+                        }
+                        const imageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+                        const videoRegex = /\[Video\]\(([^)]+)\)/gi;
+                        const nextMedia: { url: string; type: "image" | "video" }[] = [];
+                        let match: RegExpExecArray | null;
+                        const raw = item.rawBody ?? "";
+                        while ((match = imageRegex.exec(raw)) !== null) {
+                          if (match[1]) nextMedia.push({ url: match[1], type: "image" });
+                        }
+                        while ((match = videoRegex.exec(raw)) !== null) {
+                          if (match[1]) nextMedia.push({ url: match[1], type: "video" });
+                        }
+                        setAnnouncementMedia(nextMedia);
+                        if (item.rawId) setEditingAnnouncementId(Number(item.rawId));
+                      }}
+                      disabled={!item.rawId}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        if (!item.rawId) return;
+                        const ok = typeof window !== "undefined" ? window.confirm("Delete this announcement?") : false;
+                        if (!ok) return;
+                        onDeleteAnnouncement({ id: Number(item.rawId) });
+                      }}
+                      disabled={!item.rawId}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </TabsContent>
     </Tabs>

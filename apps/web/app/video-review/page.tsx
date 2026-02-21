@@ -8,7 +8,7 @@ import { Button } from "../../components/ui/button";
 import { VideoDialogs, type VideoReviewDialog } from "../../components/admin/video-review/video-dialogs";
 import { VideoFilters } from "../../components/admin/video-review/video-filters";
 import { VideoGrid } from "../../components/admin/video-review/video-grid";
-import { useGetVideoUploadsQuery, useReviewVideoUploadMutation } from "../../lib/apiSlice";
+import { useGetVideoUploadsQuery, useReviewVideoUploadMutation, useSendMessageMutation } from "../../lib/apiSlice";
 
 type VideoItem = {
   id: number;
@@ -17,6 +17,7 @@ type VideoItem = {
   status: string;
   videoUrl?: string | null;
   feedback?: string | null;
+  athleteUserId?: number | null;
   reviewedAt?: string | null;
   createdAt?: string | null;
 };
@@ -24,6 +25,7 @@ type VideoItem = {
 export default function VideoReviewPage() {
   const { data: videosData, isLoading, refetch } = useGetVideoUploadsQuery();
   const [reviewVideo, { isLoading: isSubmitting }] = useReviewVideoUploadMutation();
+  const [sendMessage, { isLoading: isSendingResponse }] = useSendMessageMutation();
   const [activeDialog, setActiveDialog] = useState<VideoReviewDialog>(null);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
   const [activeChip, setActiveChip] = useState<string>("All");
@@ -47,6 +49,7 @@ export default function VideoReviewPage() {
         status,
         videoUrl: item.videoUrl ?? null,
         feedback: item.feedback ?? null,
+        athleteUserId: item.athleteUserId ?? null,
         reviewedAt: item.reviewedAt ?? null,
         createdAt: item.createdAt ?? null,
       };
@@ -109,6 +112,10 @@ export default function VideoReviewPage() {
           setActiveDialog(null);
           refetch();
         }}
+        onSendResponseVideo={async ({ athleteUserId, mediaUrl, uploadId }) => {
+          await sendMessage({ userId: athleteUserId, contentType: "video", mediaUrl, videoUploadId: uploadId }).unwrap();
+        }}
+        isSendingResponse={isSendingResponse}
       />
     </AdminShell>
   );
