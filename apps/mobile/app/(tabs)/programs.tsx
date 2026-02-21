@@ -17,10 +17,12 @@ import { AgeGate } from "@/components/AgeGate";
 import { Ionicons } from "@expo/vector-icons";
 import { buildPlanPricing, PlanPricing } from "@/lib/billing";
 import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
+import { useRouter } from "expo-router";
 
 export default function ProgramsScreen() {
   const dispatch = useAppDispatch();
   const { width } = useWindowDimensions();
+  const router = useRouter();
   const {
     token,
     programTier,
@@ -316,6 +318,7 @@ export default function ProgramsScreen() {
               programId={selectedTierId}
               showBack
               onBack={() => setSelectedTierId(null)}
+              onNavigate={(path) => router.push(path)}
               planDetails={plan}
               pricing={pricing}
               onApply={handleApply}

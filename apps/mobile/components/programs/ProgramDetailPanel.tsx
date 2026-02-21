@@ -301,25 +301,21 @@ export function ProgramDetailPanel({
           </View>
         ) : null}
         {visibleContent.map((item) => (
-          <View
+          <Pressable
             key={`content-${item.id}`}
-            className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3"
+            onPress={() => onNavigate?.(`/programs/content/${item.id}`)}
+            className="rounded-3xl border border-[#2F8F57]/40 bg-[#2F8F57] px-6 py-5 gap-3"
           >
-            <Text className="text-lg font-clash text-app font-bold">{item.title}</Text>
-            <Text className="text-sm font-outfit text-secondary leading-relaxed">
-              {item.body}
-            </Text>
-            {item.videoUrl ? (
-              <Pressable
-                onPress={() => setActiveVideoUrl(item.videoUrl ?? null)}
-                className="self-start rounded-full px-4 py-2 bg-[#2F8F57]"
-              >
-                <Text className="text-xs font-outfit text-white">
-                  Watch video
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
+            <Text className="text-lg font-clash text-white font-bold">{item.title}</Text>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
+                View details
+              </Text>
+              <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
+                <Feather name="chevron-right" size={14} color="#FFFFFF" />
+              </View>
+            </View>
+          </Pressable>
         ))}
       </View>
     );
@@ -352,17 +348,17 @@ export function ProgramDetailPanel({
       const tier = PROGRAM_TIERS.find((item) => item.id === programId);
       return (
         <View className="gap-4">
-          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
-            <Text className="text-lg font-clash text-app font-bold">Program Features</Text>
+          <View className="rounded-3xl border border-[#2F8F57]/40 bg-[#2F8F57] px-6 py-5 gap-3">
+            <Text className="text-lg font-clash text-white font-bold">Program Features</Text>
             {tier?.features?.map((feature, index) => (
               <View
                 key={`${tier.id}-feature-${index}`}
                 className="flex-row items-center gap-3"
               >
-                <View className="h-5 w-5 rounded-full bg-success-soft items-center justify-center">
-                  <Feather name="check" size={10} color="#16A34A" />
+                <View className="h-5 w-5 rounded-full bg-white/15 items-center justify-center">
+                  <Feather name="check" size={10} color="#FFFFFF" />
                 </View>
-                <Text className="text-sm font-outfit text-app flex-1">
+                <Text className="text-sm font-outfit text-white flex-1">
                   {feature}
                 </Text>
               </View>
