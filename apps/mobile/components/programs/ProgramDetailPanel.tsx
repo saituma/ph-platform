@@ -259,6 +259,13 @@ export function ProgramDetailPanel({
     setActiveVideoUrl(url);
   };
 
+  const handleTabDetail = (tab: string) => {
+    const path = `/programs/tab/${encodeURIComponent(tab)}`;
+    if (onNavigate) {
+      onNavigate(path);
+    }
+  };
+
   const renderTrainingContent = () => {
     const visibleContent = searchQuery.trim()
       ? filteredSectionContent
@@ -450,6 +457,7 @@ export function ProgramDetailPanel({
           onTabChange={setActiveTab}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
+          onTabPress={handleTabDetail}
         />
 
         {searchQuery.trim().length > 0 ? (

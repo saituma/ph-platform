@@ -22,6 +22,7 @@ import { AgeGate } from "@/components/AgeGate";
 import { Ionicons } from "@expo/vector-icons";
 import { useTabVisibility } from "@/context/TabVisibilityContext";
 import { useEffect } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
@@ -38,9 +39,10 @@ export default function MessagesScreen() {
     openingThreadId,
     openThread,
     loadMessages,
+    resetOpeningThread,
   } = useMessagesController();
 
-  const canMessage = canAccessTier(programTier ?? null, "PHP_Plus");
+  const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");
 
   if (isSectionHidden("messages")) {
     return (
@@ -74,6 +76,12 @@ export default function MessagesScreen() {
       }
     })();
   }, [dispatch, token]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      resetOpeningThread();
+    }, [resetOpeningThread])
+  );
 
   // ====================== LOCKED / UPGRADE STATE ======================
   if (!canMessage) {

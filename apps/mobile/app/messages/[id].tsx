@@ -16,7 +16,7 @@ export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useAppTheme();
   const programTier = useAppSelector((state) => state.user.programTier);
-  const canMessage = canAccessTier(programTier ?? null, "PHP_Plus");
+  const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");
 
   const {
     reactionOptions,
@@ -49,7 +49,7 @@ export default function ThreadScreen() {
   const handleLockedPress = () => {
     Alert.alert(
       "Messaging locked",
-      "Messaging is available on PHP Plus and PHP Premium plans.",
+      "Messaging is available on PHP Premium plans.",
       [{ text: "OK" }],
     );
   };
@@ -104,7 +104,7 @@ export default function ThreadScreen() {
         isUploadingAttachment={isUploadingAttachment}
         disabledMessage={
           !canMessage
-            ? "Messaging unlocks on PHP Plus and PHP Premium."
+            ? "Messaging unlocks on PHP Premium."
             : undefined
         }
         onDisabledPress={handleLockedPress}

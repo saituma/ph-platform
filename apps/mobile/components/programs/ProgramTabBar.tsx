@@ -10,12 +10,14 @@ export function ProgramTabBar({
   onTabChange,
   searchValue,
   onSearchChange,
+  onTabPress,
 }: {
   tabs: string[];
   activeTab: string;
   onTabChange: (tab: string) => void;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  onTabPress?: (tab: string) => void;
 }) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -64,7 +66,10 @@ export function ProgramTabBar({
             return (
               <TouchableOpacity
                 key={tab}
-                onPress={() => onTabChange(tab)}
+                onPress={() => {
+                  onTabChange(tab);
+                  onTabPress?.(tab);
+                }}
                 style={[
                   styles.tab,
                   isActive ? styles.tabActive : styles.tabIdle,

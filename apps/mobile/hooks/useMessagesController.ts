@@ -234,13 +234,18 @@ export function useMessagesController() {
 
   const openThread = useCallback(
     (thread: MessageThread) => {
-      if (openingThreadId === thread.id) return;
+      // Allow re-opening from inbox even if the opening flag stuck previously.
+      if (openingThreadId === thread.id && threadId === thread.id) return;
       setOpeningThreadId(thread.id);
       setSelectedThread(thread);
       router.push(`/messages/${thread.id}`);
     },
-    [openingThreadId, router]
+    [openingThreadId, router, threadId]
   );
+
+  const resetOpeningThread = useCallback(() => {
+    setOpeningThreadId(null);
+  }, []);
 
   const markDirectThreadRead = useCallback(async () => {
     if (!token || !currentThread) return;
@@ -736,6 +741,7 @@ export function useMessagesController() {
     setComposerMenuOpen,
     setPendingAttachment,
     openThread,
+    resetOpeningThread,
     clearThread,
     handleSend,
     handleAttachFile,
