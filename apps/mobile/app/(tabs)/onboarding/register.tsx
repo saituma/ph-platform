@@ -5,15 +5,22 @@ import { useRegisterController } from "@/hooks/onboarding/useRegisterController"
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Pressable, RefreshControl, View } from "react-native";
+import { Alert, Pressable, RefreshControl, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
+import { apiRequest } from "@/lib/api";
+import { buildPlanPricing } from "@/lib/billing";
+import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setLatestSubscriptionRequest } from "@/store/slices/userSlice";
 
 export default function RegisterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string | string[] }>();
   const { colors } = useAppTheme();
+  const dispatch = useAppDispatch();
+  const { token } = useAppSelector((state) => state.user);
   const {
     profile,
     control,
@@ -47,6 +54,115 @@ export default function RegisterScreen() {
     onSubmit,
     dropdownState,
   } = useRegisterController({ router, mode: params?.mode });
+
+  const [planByTier, setPlanByTier] = React.useState<Record<string, any>>({});
+  const [planPricingByTier, setPlanPricingByTier] = React.useState<Record<string, any>>({});
+  const [isPaying, setIsPaying] = React.useState(false);
+  const [payingTier, setPayingTier] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    const loadPlans = async () => {
+      try {
+        const data = await apiRequest<{ plans: any[] }>("/public/plans");
+        if (!active) return;
+        const map: Record<string, any> = {};
+        const pricingMap: Record<string, any> = {};
+        (data.plans ?? []).forEach((plan) => {
+          const tierKey = String(plan?.tier ?? "");
+          if (!tierKey) return;
+          map[tierKey] = plan;
+          pricingMap[tierKey] = buildPlanPricing(plan);
+        });
+        setPlanByTier(map);
+        setPlanPricingByTier(pricingMap);
+      } catch {
+        if (!active) return;
+      }
+    };
+    loadPlans();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handlePayPlan = React.useCallback(
+    async (tierKey: string, interval?: "monthly" | "yearly") => {
+      if (isPaying) return;
+      const plan = planByTier[tierKey];
+      if (!plan?.id) {
+        Alert.alert("Plan unavailable", "Pricing is not available right now.");
+        return;
+      }
+      if (!token) {
+        Alert.alert("Login required", "Please log in as a guardian to purchase a plan.");
+        router.replace("/(auth)/login");
+        return;
+      }
+      try {
+        setIsPaying(true);
+        setPayingTier(tierKey);
+        setValue("desiredProgramType", tierKey);
+
+        const data = await apiRequest<{
+          customerId: string;
+          ephemeralKey: string;
+          paymentIntentId: string;
+          paymentIntentClientSecret: string;
+          request?: any;
+        }>("/billing/payment-sheet", {
+          method: "POST",
+          body: { planId: plan.id, interval },
+          token,
+        });
+
+        const init = await initPaymentSheet({
+          merchantDisplayName: "PH Platform",
+          customerId: data.customerId,
+          customerEphemeralKeySecret: data.ephemeralKey,
+          paymentIntentClientSecret: data.paymentIntentClientSecret,
+          allowsDelayedPaymentMethods: true,
+        });
+        if (init.error) {
+          throw new Error(init.error.message);
+        }
+
+        const result = await presentPaymentSheet();
+        if (result.error) {
+          throw new Error(result.error.message);
+        }
+
+        const confirm = await apiRequest<{ paymentStatus?: string; request?: any }>(
+          "/billing/payment-sheet/confirm",
+          {
+            method: "POST",
+            body: { paymentIntentId: data.paymentIntentId },
+            token,
+          }
+        );
+
+        dispatch(setLatestSubscriptionRequest(confirm.request ?? data.request ?? null));
+
+        Alert.alert(
+          "Payment status",
+          confirm.paymentStatus === "succeeded" || confirm.paymentStatus === "processing"
+            ? "Payment received. Awaiting admin approval."
+            : "Payment pending. We will update your plan once confirmed."
+        );
+      } catch (error: any) {
+        const message = error?.message || "Failed to start checkout.";
+        if (typeof message === "string" && message.includes("403")) {
+          Alert.alert("Guardian only", "Only guardian accounts can purchase plans.");
+          return;
+        }
+        Alert.alert("Payment failed", message);
+      } finally {
+        setIsPaying(false);
+        setPayingTier(null);
+      }
+    },
+    [dispatch, isPaying, planByTier, router, setValue, token],
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -106,6 +222,10 @@ export default function RegisterScreen() {
           onOpenDropdown={openDropdown}
           onOpenTerms={() => setShowTerms(true)}
           onOpenPrivacy={() => setShowPrivacy(true)}
+          planPricingByTier={planPricingByTier}
+          onPayPlan={handlePayPlan}
+          payingTier={payingTier}
+          isPaying={isPaying}
         />
 
         <Pressable
