@@ -6,12 +6,15 @@ import {
   createBooking,
   createServiceType,
   listAvailabilityBlocks,
+  listBookingsForServiceInRange,
   listBookingsForUser,
   listServiceTypes,
   updateServiceType,
 } from "../services/booking.service";
 import { getGuardianAndAthlete } from "../services/user.service";
 import { ProgramType } from "../db/schema";
+import { verifyBookingActionToken } from "../lib/booking-actions";
+import { updateBookingStatusAdmin } from "../services/admin.service";
 
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
@@ -50,6 +53,7 @@ const bookingSchema = z.object({
   endsAt: z.string().datetime(),
   location: z.string().optional(),
   meetingLink: z.string().optional(),
+  timezoneOffsetMinutes: z.number().int().optional(),
 });
 
 const availabilityQuerySchema = z.object({
@@ -111,8 +115,11 @@ export async function createAvailability(req: Request, res: Response) {
 
 export async function listAvailability(req: Request, res: Response) {
   const query = availabilityQuerySchema.parse(req.query);
-  const items = await listAvailabilityBlocks(query.serviceTypeId, new Date(query.from), new Date(query.to));
-  return res.status(200).json({ items });
+  const from = new Date(query.from);
+  const to = new Date(query.to);
+  const items = await listAvailabilityBlocks(query.serviceTypeId, from, to);
+  const bookings = await listBookingsForServiceInRange(query.serviceTypeId, from, to);
+  return res.status(200).json({ items, bookings });
 }
 
 export async function createBookingForUser(req: Request, res: Response) {
@@ -131,6 +138,7 @@ export async function createBookingForUser(req: Request, res: Response) {
     createdBy: req.user!.id,
     location: input.location,
     meetingLink: input.meetingLink,
+    timezoneOffsetMinutes: input.timezoneOffsetMinutes,
   });
 
   return res.status(201).json({ booking });
@@ -143,4 +151,22 @@ export async function listBookings(req: Request, res: Response) {
   }
   const items = await listBookingsForUser(guardian.id);
   return res.status(200).json({ items });
+}
+
+export async function bookingAction(req: Request, res: Response) {
+  const parsed = z.string().min(1).safeParse(req.query.token);
+  if (!parsed.success) {
+    return res.status(400).send("Missing booking action token.");
+  }
+  const token = parsed.data;
+  const verified = verifyBookingActionToken(token);
+  if (!verified) {
+    return res.status(400).send("Invalid or expired booking action.");
+  }
+  const status = verified.action === "approve" ? "confirmed" : "declined";
+  const updated = await updateBookingStatusAdmin({ bookingId: verified.bookingId, status });
+  if (!updated) {
+    return res.status(404).send("Booking not found.");
+  }
+  return res.status(200).send(`Booking ${status}.`);
 }

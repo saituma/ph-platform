@@ -9,7 +9,7 @@ import { Label } from "../../ui/label";
 import { Select } from "../../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 
-type PlanTier = "PHP" | "PHP_Plus" | "PHP_Premium";
+type PlanTier = "PHP_Plus" | "PHP_Premium";
 type PlanFormState = {
   id?: number;
   name: string;
@@ -40,18 +40,6 @@ function formatIntervals(values: Set<string>) {
 }
 
 const PLAN_DEFINITIONS: PlanFormState[] = [
-  {
-    name: "PHP Program",
-    tier: "PHP",
-    displayPrice: "",
-    billingInterval: "monthly",
-    monthlyPrice: "",
-    yearlyPrice: "",
-    discountType: "percent",
-    discountValue: "",
-    discountAppliesTo: "both",
-    isActive: true,
-  },
   {
     name: "PHP Plus",
     tier: "PHP_Plus",

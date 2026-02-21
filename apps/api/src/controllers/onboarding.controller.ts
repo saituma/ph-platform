@@ -5,6 +5,7 @@ import {
   getOnboardingByUser,
   submitOnboarding as submitOnboardingService,
   getPublicOnboardingConfig,
+  getPhpPlusProgramTabs,
   updateAthleteProfilePicture,
   listGuardianAthletesWithUsers,
   setActiveGuardianAthlete,
@@ -86,6 +87,11 @@ export async function submitOnboarding(req: Request, res: Response) {
 export async function getOnboardingConfig(_req: Request, res: Response) {
   const config = await getPublicOnboardingConfig();
   return res.status(200).json({ config });
+}
+
+export async function getPhpPlusTabs(_req: Request, res: Response) {
+  const tabs = await getPhpPlusProgramTabs();
+  return res.status(200).json({ tabs });
 }
 
 export async function getOnboardingStatus(req: Request, res: Response) {

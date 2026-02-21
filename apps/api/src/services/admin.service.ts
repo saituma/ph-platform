@@ -20,8 +20,12 @@ import {
   userTable,
   ProgramType,
   videoUploadTable,
+  notificationTable,
 } from "../db/schema";
+import { env } from "../config/env";
+import { sendBookingApprovedEmail, sendBookingDeclinedEmail } from "../lib/mailer";
 import { ensureAthleteUserRecord } from "./onboarding.service";
+import { getAthleteForUser } from "./user.service";
 import { getAdminCoachIds, sendMessage } from "./message.service";
 import { attachDirectMessageReactions } from "./reaction.service";
 
@@ -82,6 +86,28 @@ const defaultOnboardingConfig = {
   defaultProgramTier: "PHP" as (typeof ProgramType.enumValues)[number],
   approvalWorkflow: "manual",
   notes: "",
+  phpPlusProgramTabs: [
+    "Program",
+    "Warmups",
+    "Cool Downs",
+    "Mobility",
+    "Recovery",
+    "In-Season Program",
+    "Off-Season Program",
+    "Video Upload",
+    "Submit Diary",
+    "Bookings",
+  ],
+};
+
+const PHP_PLUS_TABS = new Set(defaultOnboardingConfig.phpPlusProgramTabs);
+
+const normalizePhpPlusTabs = (input: unknown) => {
+  if (!Array.isArray(input)) return null;
+  const normalized = input
+    .map((tab) => String(tab))
+    .filter((tab) => PHP_PLUS_TABS.has(tab));
+  return normalized;
 };
 
 async function ensureOnboardingConfigTable() {
@@ -96,11 +122,15 @@ async function ensureOnboardingConfigTable() {
       "defaultProgramTier" program_type NOT NULL DEFAULT 'PHP',
       "approvalWorkflow" varchar(50) NOT NULL DEFAULT 'manual',
       "notes" varchar(1000),
+      "phpPlusProgramTabs" jsonb,
       "createdBy" integer REFERENCES "users"("id"),
       "updatedBy" integer REFERENCES "users"("id"),
       "createdAt" timestamp DEFAULT now() NOT NULL,
       "updatedAt" timestamp DEFAULT now() NOT NULL
     )
+  `);
+  await db.execute(sql`
+    ALTER TABLE "onboarding_configs" ADD COLUMN IF NOT EXISTS "phpPlusProgramTabs" jsonb
   `);
   await db.execute(sql`
     ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "extraResponses" jsonb
@@ -214,10 +244,59 @@ export async function getOnboardingConfig() {
       defaultProgramTier: defaultOnboardingConfig.defaultProgramTier,
       approvalWorkflow: defaultOnboardingConfig.approvalWorkflow,
       notes: defaultOnboardingConfig.notes,
+      phpPlusProgramTabs: defaultOnboardingConfig.phpPlusProgramTabs,
     } as any)
     .returning();
 
   return created[0];
+}
+
+export async function getPhpPlusProgramTabsAdmin() {
+  const config = await getOnboardingConfig();
+  const normalized = normalizePhpPlusTabs(config?.phpPlusProgramTabs);
+  return normalized ?? defaultOnboardingConfig.phpPlusProgramTabs;
+}
+
+export async function setPhpPlusProgramTabsAdmin(
+  userId: number,
+  tabs: unknown
+) {
+  await ensureOnboardingConfigTable();
+  const normalized = normalizePhpPlusTabs(tabs);
+  const existing = await db.select().from(onboardingConfigTable).limit(1);
+  if (existing[0]) {
+    const updated = await db
+      .update(onboardingConfigTable)
+      .set({
+        phpPlusProgramTabs: normalized,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(onboardingConfigTable.id, existing[0].id))
+      .returning();
+    return updated[0];
+  }
+  const created = await db
+    .insert(onboardingConfigTable)
+    .values({
+      version: defaultOnboardingConfig.version,
+      fields: defaultOnboardingConfig.fields,
+      requiredDocuments: defaultOnboardingConfig.requiredDocuments,
+      welcomeMessage: defaultOnboardingConfig.welcomeMessage,
+      coachMessage: defaultOnboardingConfig.coachMessage,
+      defaultProgramTier: defaultOnboardingConfig.defaultProgramTier,
+      approvalWorkflow: defaultOnboardingConfig.approvalWorkflow,
+      notes: defaultOnboardingConfig.notes,
+      phpPlusProgramTabs: normalized,
+      createdBy: userId,
+      updatedBy: userId,
+    } as any)
+    .returning();
+  return created[0];
+}
+
+export async function clearPhpPlusProgramTabsAdmin(userId: number) {
+  return setPhpPlusProgramTabsAdmin(userId, []);
 }
 
 export async function updateOnboardingConfig(
@@ -231,9 +310,11 @@ export async function updateOnboardingConfig(
     defaultProgramTier: (typeof ProgramType.enumValues)[number];
     approvalWorkflow: string;
     notes?: string | null;
+    phpPlusProgramTabs?: string[] | null;
   }
 ) {
   await ensureOnboardingConfigTable();
+  const normalizedPhpPlusTabs = normalizePhpPlusTabs(input.phpPlusProgramTabs);
   const existing = await db.select().from(onboardingConfigTable).limit(1);
   if (existing[0]) {
     const updated = await db
@@ -247,6 +328,7 @@ export async function updateOnboardingConfig(
         defaultProgramTier: input.defaultProgramTier,
         approvalWorkflow: input.approvalWorkflow,
         notes: input.notes ?? null,
+        phpPlusProgramTabs: normalizedPhpPlusTabs,
         updatedBy: userId,
         updatedAt: new Date(),
       })
@@ -266,6 +348,7 @@ export async function updateOnboardingConfig(
       defaultProgramTier: input.defaultProgramTier,
       approvalWorkflow: input.approvalWorkflow,
       notes: input.notes ?? null,
+      phpPlusProgramTabs: normalizedPhpPlusTabs,
       createdBy: userId,
       updatedBy: userId,
     })
@@ -287,7 +370,7 @@ export async function listUsers() {
     }
   }
 
-  return db
+  const users = await db
     .select({
       id: userTable.id,
       cognitoSub: userTable.cognitoSub,
@@ -302,10 +385,103 @@ export async function listUsers() {
       athleteName: athleteTable.name,
       programTier: athleteTable.currentProgramTier,
       onboardingCompleted: athleteTable.onboardingCompleted,
+      guardianProgramTier: guardianTable.currentProgramTier,
     })
     .from(userTable)
     .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
+    .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
     .where(eq(userTable.isDeleted, false));
+
+  const guardianUsers = users.filter((user) => user.role === "guardian");
+  if (!guardianUsers.length) {
+    return users;
+  }
+
+  const guardianUserIds = guardianUsers.map((user) => user.id);
+  const guardians = await db
+    .select({
+      userId: guardianTable.userId,
+      guardianId: guardianTable.id,
+      activeAthleteId: guardianTable.activeAthleteId,
+      guardianProgramTier: guardianTable.currentProgramTier,
+    })
+    .from(guardianTable)
+    .where(inArray(guardianTable.userId, guardianUserIds));
+
+  if (!guardians.length) {
+    return users;
+  }
+
+  const guardianById = new Map<number, { userId: number; activeAthleteId: number | null }>();
+  const guardianIds: number[] = [];
+  for (const guardian of guardians) {
+    guardianById.set(guardian.guardianId, {
+      userId: guardian.userId,
+      activeAthleteId: guardian.activeAthleteId ?? null,
+    });
+    guardianIds.push(guardian.guardianId);
+  }
+
+  const tierByUserId = new Map<number, string | null>();
+  for (const guardian of guardians) {
+    if (guardian.guardianProgramTier) {
+      tierByUserId.set(guardian.userId, guardian.guardianProgramTier);
+    }
+  }
+  const activeAthleteIds = guardians
+    .map((guardian) => guardian.activeAthleteId)
+    .filter((id): id is number => typeof id === "number");
+
+  if (activeAthleteIds.length) {
+    const activeAthletes = await db
+      .select({
+        id: athleteTable.id,
+        guardianId: athleteTable.guardianId,
+        programTier: athleteTable.currentProgramTier,
+      })
+      .from(athleteTable)
+      .where(inArray(athleteTable.id, activeAthleteIds));
+
+    for (const athlete of activeAthletes) {
+      const guardian = guardianById.get(athlete.guardianId);
+      if (!guardian || !athlete.programTier) continue;
+      if (tierByUserId.has(guardian.userId)) continue;
+      tierByUserId.set(guardian.userId, athlete.programTier);
+    }
+  }
+
+  const missingGuardianIds = guardianIds.filter((guardianId) => {
+    const guardian = guardianById.get(guardianId);
+    if (!guardian) return false;
+    return !tierByUserId.has(guardian.userId);
+  });
+
+  if (missingGuardianIds.length) {
+    const fallbackAthletes = await db
+      .select({
+        guardianId: athleteTable.guardianId,
+        programTier: athleteTable.currentProgramTier,
+        createdAt: athleteTable.createdAt,
+      })
+      .from(athleteTable)
+      .where(inArray(athleteTable.guardianId, missingGuardianIds))
+      .orderBy(athleteTable.guardianId, athleteTable.createdAt);
+
+    for (const athlete of fallbackAthletes) {
+      const guardian = guardianById.get(athlete.guardianId);
+      if (!guardian || tierByUserId.has(guardian.userId)) continue;
+      if (athlete.programTier) {
+        tierByUserId.set(guardian.userId, athlete.programTier);
+      }
+    }
+  }
+
+  return users.map((user) => {
+    if (user.role !== "guardian") return user;
+    const resolvedTier = tierByUserId.get(user.id);
+    if (!resolvedTier) return user;
+    return { ...user, programTier: resolvedTier };
+  });
 }
 
 export async function setUserBlocked(userId: number, blocked: boolean) {
@@ -329,11 +505,8 @@ export async function softDeleteUser(userId: number) {
 export async function getUserOnboarding(userId: number) {
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0] ?? null;
-  if (!guardian) {
-    return { guardian: null, athlete: null };
-  }
-  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1);
-  return { guardian, athlete: athletes[0] ?? null };
+  const athlete = await getAthleteForUser(userId);
+  return { guardian, athlete };
 }
 
 export async function updateAthleteProgramTier(athleteId: number, tier: (typeof ProgramType.enumValues)[number]) {
@@ -343,6 +516,18 @@ export async function updateAthleteProgramTier(athleteId: number, tier: (typeof 
     .where(eq(athleteTable.id, athleteId))
     .returning();
 
+  return result[0] ?? null;
+}
+
+export async function updateGuardianProgramTier(userId: number, tier: (typeof ProgramType.enumValues)[number]) {
+  const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
+  const guardian = guardians[0] ?? null;
+  if (!guardian) return null;
+  const result = await db
+    .update(guardianTable)
+    .set({ currentProgramTier: tier, updatedAt: new Date() })
+    .where(eq(guardianTable.id, guardian.id))
+    .returning();
   return result[0] ?? null;
 }
 
@@ -594,6 +779,12 @@ export async function updateBookingStatusAdmin(input: {
   bookingId: number;
   status: "pending" | "confirmed" | "declined" | "cancelled";
 }) {
+  const [existing] = await db
+    .select({ status: bookingTable.status })
+    .from(bookingTable)
+    .where(eq(bookingTable.id, input.bookingId))
+    .limit(1);
+
   const result = await db
     .update(bookingTable)
     .set({
@@ -603,7 +794,130 @@ export async function updateBookingStatusAdmin(input: {
     .where(eq(bookingTable.id, input.bookingId))
     .returning();
 
-  return result[0] ?? null;
+  const updated = result[0] ?? null;
+  if (!updated) return null;
+
+  if (input.status === "confirmed" && existing?.status !== "confirmed") {
+    const [detail] = await db
+      .select({
+        startsAt: bookingTable.startsAt,
+        location: bookingTable.location,
+        meetingLink: bookingTable.meetingLink,
+        serviceName: serviceTypeTable.name,
+        guardianUserId: guardianTable.userId,
+        guardianEmail: userTable.email,
+        guardianName: userTable.name,
+      })
+      .from(bookingTable)
+      .leftJoin(serviceTypeTable, eq(bookingTable.serviceTypeId, serviceTypeTable.id))
+      .leftJoin(guardianTable, eq(bookingTable.guardianId, guardianTable.id))
+      .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
+      .where(eq(bookingTable.id, input.bookingId))
+      .limit(1);
+
+    if (detail?.guardianUserId) {
+      await db.insert(notificationTable).values({
+        userId: detail.guardianUserId,
+        type: "booking_confirmed",
+        content: `Booking confirmed for ${detail.serviceName ?? "session"} at ${detail.startsAt?.toISOString?.() ?? ""}`,
+        link: "/schedule",
+      });
+
+      if (detail.guardianEmail) {
+        try {
+          await sendBookingApprovedEmail({
+            to: detail.guardianEmail,
+            name: detail.guardianName ?? "there",
+            serviceName: detail.serviceName ?? "Session",
+            startsAt: detail.startsAt ?? new Date(),
+            location: detail.location ?? undefined,
+            meetingLink: detail.meetingLink ?? undefined,
+          });
+        } catch (error) {
+          console.error("Failed to send booking confirmation email", error);
+        }
+      }
+
+      if (env.pushWebhookUrl) {
+        try {
+          await fetch(env.pushWebhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: detail.guardianUserId,
+              title: "Booking confirmed",
+              body: `${detail.serviceName ?? "Session"} confirmed`,
+              link: "/schedule",
+            }),
+          });
+        } catch (error) {
+          console.error("Failed to send booking confirmation push", error);
+        }
+      }
+    }
+  }
+
+  if (input.status === "declined" && existing?.status !== "declined") {
+    const [detail] = await db
+      .select({
+        startsAt: bookingTable.startsAt,
+        location: bookingTable.location,
+        meetingLink: bookingTable.meetingLink,
+        serviceName: serviceTypeTable.name,
+        guardianUserId: guardianTable.userId,
+        guardianEmail: userTable.email,
+        guardianName: userTable.name,
+      })
+      .from(bookingTable)
+      .leftJoin(serviceTypeTable, eq(bookingTable.serviceTypeId, serviceTypeTable.id))
+      .leftJoin(guardianTable, eq(bookingTable.guardianId, guardianTable.id))
+      .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
+      .where(eq(bookingTable.id, input.bookingId))
+      .limit(1);
+
+    if (detail?.guardianUserId) {
+      await db.insert(notificationTable).values({
+        userId: detail.guardianUserId,
+        type: "booking_declined",
+        content: `Booking declined for ${detail.serviceName ?? "session"} at ${detail.startsAt?.toISOString?.() ?? ""}`,
+        link: "/schedule",
+      });
+
+      if (detail.guardianEmail) {
+        try {
+          await sendBookingDeclinedEmail({
+            to: detail.guardianEmail,
+            name: detail.guardianName ?? "there",
+            serviceName: detail.serviceName ?? "Session",
+            startsAt: detail.startsAt ?? new Date(),
+            location: detail.location ?? undefined,
+            meetingLink: detail.meetingLink ?? undefined,
+          });
+        } catch (error) {
+          console.error("Failed to send booking decline email", error);
+        }
+      }
+
+      if (env.pushWebhookUrl) {
+        try {
+          await fetch(env.pushWebhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: detail.guardianUserId,
+              title: "Booking declined",
+              body: `${detail.serviceName ?? "Session"} declined`,
+              link: "/schedule",
+            }),
+          });
+        } catch (error) {
+          console.error("Failed to send booking declined push", error);
+        }
+      }
+    }
+  }
+
+  return updated;
 }
 
 export async function listAvailabilityAdmin() {
@@ -625,6 +939,8 @@ export async function listVideoUploadsAdmin() {
   return db
     .select({
       id: videoUploadTable.id,
+      athleteId: videoUploadTable.athleteId,
+      athleteUserId: athleteTable.userId,
       athleteName: athleteTable.name,
       videoUrl: videoUploadTable.videoUrl,
       notes: videoUploadTable.notes,
@@ -752,6 +1068,7 @@ export async function sendMessageAdmin(input: {
   content: string;
   contentType?: "text" | "image" | "video";
   mediaUrl?: string;
+  videoUploadId?: number;
 }) {
   return sendMessage({
     senderId: input.coachId,
@@ -759,6 +1076,7 @@ export async function sendMessageAdmin(input: {
     content: input.content,
     contentType: input.contentType ?? "text",
     mediaUrl: input.mediaUrl,
+    videoUploadId: input.videoUploadId,
   });
 }
 

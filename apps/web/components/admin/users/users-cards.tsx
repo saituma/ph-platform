@@ -14,11 +14,12 @@ type UserCard = {
 type UsersCardsProps = {
   users: UserCard[];
   onSelect: (userId: number) => void;
+  onChangePlan: (userId: number) => void;
   onToggleBlock: (userId: number, blocked: boolean) => void;
   onDelete: (userId: number) => void;
 };
 
-export function UsersCards({ users, onSelect, onToggleBlock, onDelete }: UsersCardsProps) {
+export function UsersCards({ users, onSelect, onChangePlan, onToggleBlock, onDelete }: UsersCardsProps) {
   return (
     <div className="space-y-3 md:hidden">
       {users.map((user) => (
@@ -64,6 +65,16 @@ export function UsersCards({ users, onSelect, onToggleBlock, onDelete }: UsersCa
             </div>
           </div>
           <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/70"
+              onClick={(event) => {
+                event.stopPropagation();
+                onChangePlan(user.id);
+              }}
+            >
+              Change Plan
+            </button>
             <button
               type="button"
               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/70"

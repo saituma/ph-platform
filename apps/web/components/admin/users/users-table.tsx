@@ -22,11 +22,12 @@ type UserRow = {
 type UsersTableProps = {
   users: UserRow[];
   onSelect: (userId: number) => void;
+  onChangePlan: (userId: number) => void;
   onToggleBlock: (userId: number, blocked: boolean) => void;
   onDelete: (userId: number) => void;
 };
 
-export function UsersTable({ users, onSelect, onToggleBlock, onDelete }: UsersTableProps) {
+export function UsersTable({ users, onSelect, onChangePlan, onToggleBlock, onDelete }: UsersTableProps) {
   return (
     <div className="hidden md:block">
       <Table>
@@ -60,6 +61,16 @@ export function UsersTable({ users, onSelect, onToggleBlock, onDelete }: UsersTa
               <TableCell>{user.lastActive}</TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/70"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onChangePlan(user.id);
+                    }}
+                  >
+                    Change Plan
+                  </button>
                   <button
                     type="button"
                     className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/70"

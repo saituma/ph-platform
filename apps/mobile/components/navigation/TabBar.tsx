@@ -89,7 +89,7 @@ const TabItem = React.memo(
     }, [scrollOffset, index, activeIndex, isDark]);
 
     // Icon color animation
-    const activeColor = isDark ? "#ffffff" : colors.tint;
+    const activeColor = colors.tint;
     const inactiveColor = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)";
 
     const iconColorStyle = useAnimatedStyle(() => {

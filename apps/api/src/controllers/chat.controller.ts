@@ -5,6 +5,7 @@ import {
   addGroupMembers,
   createGroup,
   createGroupMessage,
+  deleteGroupMessage,
   isGroupMember,
   listGroupMembers,
   listGroupMessages,
@@ -108,6 +109,28 @@ export async function toggleGroupReaction(req: Request, res: Response) {
     return res.status(200).json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Request failed";
+    if (message === "Message not found") {
+      return res.status(404).json({ error: message });
+    }
+    throw error;
+  }
+}
+
+export async function deleteGroupChatMessage(req: Request, res: Response) {
+  const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
+  const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
+  const allowed = await isGroupMember(groupId, req.user!.id);
+  if (!allowed) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  try {
+    const result = await deleteGroupMessage({ groupId, messageId, userId: req.user!.id });
+    return res.status(200).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request failed";
+    if (message === "Forbidden") {
+      return res.status(403).json({ error: message });
+    }
     if (message === "Message not found") {
       return res.status(404).json({ error: message });
     }

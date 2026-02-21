@@ -14,6 +14,7 @@ import type {
 } from "react-native-pager-view";
 import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
+import { useTabVisibility } from "../../context/TabVisibilityContext";
 
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
@@ -29,6 +30,7 @@ export function SwipeableTabLayout({
   onIndexChange,
 }: SwipeableTabLayoutProps) {
   const { colors } = useAppTheme();
+  const { isTabBarVisible } = useTabVisibility();
   const pagerRef = useRef<{
     setPage: (index: number) => void;
     setPageWithoutAnimation: (index: number) => void;
@@ -187,12 +189,14 @@ export function SwipeableTabLayout({
         <View style={[styles.pager, { backgroundColor: colors.background }]}>
           {pagerChildren[activeIndex]}
         </View>
-        <TabBar
-          tabs={tabs}
-          activeIndex={activeIndex}
-          onTabPress={handleTabPress}
-          scrollOffset={scrollOffset}
-        />
+        {isTabBarVisible && (
+          <TabBar
+            tabs={tabs}
+            activeIndex={activeIndex}
+            onTabPress={handleTabPress}
+            scrollOffset={scrollOffset}
+          />
+        )}
       </View>
     );
   }
@@ -207,18 +211,20 @@ export function SwipeableTabLayout({
         onPageSelected={handlePageSelected}
         onPageScroll={handlePageScroll}
         onPageScrollStateChanged={handlePageScrollStateChanged}
-        scrollEnabled={true}
+        scrollEnabled={isTabBarVisible}
         overdrag={false}
         offscreenPageLimit={Math.min(4, Math.max(1, tabs.length - 1))}
       >
         {pagerChildren}
       </PagerView>
-      <TabBar
-        tabs={tabs}
-        activeIndex={activeIndex}
-        onTabPress={handleTabPress}
-        scrollOffset={scrollOffset}
-      />
+      {isTabBarVisible && (
+        <TabBar
+          tabs={tabs}
+          activeIndex={activeIndex}
+          onTabPress={handleTabPress}
+          scrollOffset={scrollOffset}
+        />
+      )}
     </View>
   );
 }

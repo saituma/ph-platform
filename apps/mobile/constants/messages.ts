@@ -18,6 +18,7 @@ export type ChatMessage = {
   text: string;
   contentType?: "text" | "image" | "video";
   mediaUrl?: string;
+  videoUploadId?: number;
   time: string;
   status?: "sent" | "delivered" | "read";
   authorName?: string;

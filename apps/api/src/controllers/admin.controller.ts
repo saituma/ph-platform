@@ -28,6 +28,9 @@ import {
   updateAthleteProgramTier,
   getOnboardingConfig,
   updateOnboardingConfig,
+  getPhpPlusProgramTabsAdmin,
+  setPhpPlusProgramTabsAdmin,
+  clearPhpPlusProgramTabsAdmin,
   updateExercise,
   deleteExercise,
   listProgramTemplates,
@@ -37,8 +40,9 @@ import {
 import { createBooking } from "../services/booking.service";
 import { getGuardianAndAthlete } from "../services/user.service";
 import { db } from "../db";
-import { serviceTypeTable } from "../db/schema";
+import { notificationTable, serviceTypeTable } from "../db/schema";
 import { ProgramType, sessionType } from "../db/schema";
+import { env } from "../config/env";
 
 const updateTierSchema = z.object({
   athleteId: z.number().int().min(1),
@@ -192,6 +196,11 @@ const onboardingConfigSchema = z.object({
   defaultProgramTier: z.enum(ProgramType.enumValues),
   approvalWorkflow: z.enum(["manual", "auto"]).default("manual"),
   notes: z.string().optional().nullable(),
+  phpPlusProgramTabs: z.array(z.string().min(1)).optional().nullable(),
+});
+
+const phpPlusTabsSchema = z.object({
+  tabs: z.array(z.string().min(1)),
 });
 
 export async function listAllUsers(_req: Request, res: Response) {
@@ -262,6 +271,34 @@ export async function updateOnboardingConfigDetails(req: Request, res: Response)
   }
   const data = await updateOnboardingConfig(req.user!.id, parsed.data);
   return res.status(200).json({ config: data });
+}
+
+export async function getPhpPlusTabsAdmin(_req: Request, res: Response) {
+  const tabs = await getPhpPlusProgramTabsAdmin();
+  return res.status(200).json({ tabs });
+}
+
+export async function putPhpPlusTabsAdmin(req: Request, res: Response) {
+  const parsed = phpPlusTabsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+  const config = await setPhpPlusProgramTabsAdmin(req.user!.id, parsed.data.tabs);
+  return res.status(200).json({ config });
+}
+
+export async function postPhpPlusTabsAdmin(req: Request, res: Response) {
+  const parsed = phpPlusTabsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+  const config = await setPhpPlusProgramTabsAdmin(req.user!.id, parsed.data.tabs);
+  return res.status(201).json({ config });
+}
+
+export async function deletePhpPlusTabsAdmin(req: Request, res: Response) {
+  const config = await clearPhpPlusProgramTabsAdmin(req.user!.id);
+  return res.status(200).json({ config });
 }
 
 export async function updateProgramTier(req: Request, res: Response) {
@@ -429,6 +466,7 @@ export async function createBookingAdmin(req: Request, res: Response) {
     createdBy: req.user!.id,
     location: input.location ?? undefined,
     meetingLink: input.meetingLink ?? undefined,
+    bypassAvailability: true,
   });
 
   if (input.status && input.status !== "pending") {
@@ -487,6 +525,7 @@ export async function sendAdminMessage(req: Request, res: Response) {
       content: z.string().trim().optional().default(""),
       contentType: z.enum(["text", "image", "video"]).default("text"),
       mediaUrl: z.string().url().optional(),
+      videoUploadId: z.number().int().min(1).optional(),
     })
     .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
       message: "Message content or mediaUrl is required",
@@ -498,7 +537,35 @@ export async function sendAdminMessage(req: Request, res: Response) {
     content: body.content,
     contentType: body.contentType,
     mediaUrl: body.mediaUrl,
+    videoUploadId: body.videoUploadId,
   });
+  if (body.contentType === "video" && body.videoUploadId) {
+    const content = "Coach sent a response video to your upload.";
+    try {
+      await db.insert(notificationTable).values({
+        userId,
+        type: "video_response",
+        content,
+        link: "/(tabs)/programs",
+      });
+    } catch (error) {
+      console.error("Failed to store response video notification", error);
+    }
+    if (env.pushWebhookUrl) {
+      await fetch(env.pushWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          title: "Coach response video",
+          body: content,
+          link: "/(tabs)/programs",
+        }),
+      }).catch((error) => {
+        console.error("Failed to send push notification", error);
+      });
+    }
+  }
   return res.status(201).json({ message });
 }
 

@@ -9,25 +9,38 @@ import {
   useGetUserOnboardingQuery,
   useGetUsersQuery,
   useUpdateOnboardingConfigMutation,
+  useUpdatePhpPlusTabsMutation,
 } from "../../lib/apiSlice";
 import { CompletedOnboardingCard } from "../../components/parent/config/completed-onboarding-card";
-import { FormFieldsCard } from "../../components/parent/config/form-fields-card";
-import { MessagesCard } from "../../components/parent/config/messages-card";
-import { PublishBar } from "../../components/parent/config/publish-bar";
 import { TeamLevelsDialog } from "../../components/parent/config/team-levels-dialog";
 import { documentRequirements, FieldConfig, FieldType, initialFields, DocumentConfig } from "../../components/parent/config/types";
 import { ParentCoursesCard } from "../../components/parent/config/parent-courses-card";
 import { CollapsibleSection } from "../../components/parent/config/collapsible-section";
 import { BillingSection } from "../../components/parent/config/billing-section";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+
+const PREMIUM_PROGRAM_TABS = [
+  "Program",
+  "Warmups",
+  "Cool Downs",
+  "Mobility",
+  "Recovery",
+  "In-Season Program",
+  "Off-Season Program",
+  "Video Upload",
+  "Submit Diary",
+  "Bookings",
+];
 
 export default function ParentDashboardPage() {
   const { data } = useGetOnboardingConfigQuery();
   const { data: usersData } = useGetUsersQuery();
   const [updateConfig, { isLoading: isSaving }] = useUpdateOnboardingConfigMutation();
+  const [updatePhpPlusTabs, { isLoading: isSavingTabs }] = useUpdatePhpPlusTabsMutation();
 
   const [fields, setFields] = useState<FieldConfig[]>(initialFields);
   const [docs, setDocs] = useState<DocumentConfig[]>(documentRequirements);
-  const [defaultProgramTier, setDefaultProgramTier] = useState("PHP");
   const [approvalWorkflow, setApprovalWorkflow] = useState("manual");
   const [notes, setNotes] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
@@ -44,11 +57,12 @@ export default function ParentDashboardPage() {
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [newLevelOption, setNewLevelOption] = useState("");
   const [editLevelOption, setEditLevelOption] = useState<string | null>(null);
-  const [openSection, setOpenSection] = useState<string | null>("form-fields");
+  const [openSection, setOpenSection] = useState<string | null>("parent-content");
 
   const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const { data: onboardingData } = useGetUserOnboardingQuery(selectedUserId ?? 0, { skip: !selectedUserId });
+  const [phpPlusProgramTabs, setPhpPlusProgramTabs] = useState<string[]>(PREMIUM_PROGRAM_TABS);
 
   const completedGuardians = useMemo(() => {
     const users = usersData?.users ?? [];
@@ -196,14 +210,18 @@ export default function ParentDashboardPage() {
     });
     setDocs(normalizedDocs);
 
-    setDefaultProgramTier(String(config.defaultProgramTier ?? "PHP"));
     setApprovalWorkflow(String(config.approvalWorkflow ?? "manual"));
     setNotes(String(config.notes ?? ""));
     setWelcomeMessage(String(config.welcomeMessage ?? ""));
     setCoachMessage(String(config.coachMessage ?? ""));
+    const rawPlusTabs = Array.isArray(config.phpPlusProgramTabs) ? config.phpPlusProgramTabs : [];
+    const normalizedPlusTabs = rawPlusTabs
+      .map((tab) => String(tab))
+      .filter((tab) => PREMIUM_PROGRAM_TABS.includes(tab));
+    setPhpPlusProgramTabs(normalizedPlusTabs.length ? normalizedPlusTabs : PREMIUM_PROGRAM_TABS);
   }, [data]);
 
-  const handleSave = async () => {
+  const buildConfigPayload = () => {
     const hasTeam = fields.some((field) => field.id === "team");
     const hasLevel = fields.some((field) => field.id === "level");
     const normalizedFields = [
@@ -216,18 +234,24 @@ export default function ParentDashboardPage() {
     ].map((field) => ({ ...field, visible: field.visible }));
 
     const normalizedDocs = docs.map((doc) => ({ ...doc, required: doc.required }));
+    return {
+      version: 1,
+      fields: normalizedFields,
+      requiredDocuments: normalizedDocs,
+      welcomeMessage,
+      coachMessage,
+      defaultProgramTier: "PHP",
+      approvalWorkflow,
+      notes,
+      phpPlusProgramTabs,
+    };
+  };
+
+  const handleSave = async () => {
+    const payload = buildConfigPayload();
 
     try {
-      await updateConfig({
-        version: 1,
-        fields: normalizedFields,
-        requiredDocuments: normalizedDocs,
-        welcomeMessage,
-        coachMessage,
-        defaultProgramTier,
-        approvalWorkflow,
-        notes,
-      }).unwrap();
+      await updateConfig(payload).unwrap();
       setSaveStatus({ type: "success", message: "Onboarding configuration saved." });
     } catch (error: unknown) {
       const message =
@@ -235,6 +259,21 @@ export default function ParentDashboardPage() {
           ? String((error as { message?: unknown }).message ?? "")
           : "";
       setSaveStatus({ type: "error", message: message || "Failed to save configuration." });
+    } finally {
+      setTimeout(() => setSaveStatus(null), 3000);
+    }
+  };
+
+  const handleSavePhpPlusPrograms = async () => {
+    try {
+      await updatePhpPlusTabs({ tabs: phpPlusProgramTabs }).unwrap();
+      setSaveStatus({ type: "success", message: "PHP Plus programs updated." });
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message?: unknown }).message ?? "")
+          : "";
+      setSaveStatus({ type: "error", message: message || "Failed to update programs." });
     } finally {
       setTimeout(() => setSaveStatus(null), 3000);
     }
@@ -256,41 +295,51 @@ export default function ParentDashboardPage() {
       ) : null}
 
       <div className="space-y-4">
-        <CollapsibleSection id="form-fields" title="Onboarding Form Fields" openSection={openSection} onToggle={setOpenSection}>
-          <div className="space-y-6">
-            <FormFieldsCard
-              fields={fields}
-              newFieldLabel={newFieldLabel}
-              newFieldType={newFieldType}
-              newFieldRequired={newFieldRequired}
-              newFieldOption={newFieldOption}
-              newTeamOption={newTeamOption}
-              editTeamOption={editTeamOption}
-              selectedTeam={selectedTeam}
-              onSetNewFieldLabel={setNewFieldLabel}
-              onSetNewFieldType={setNewFieldType}
-              onSetNewFieldRequired={setNewFieldRequired}
-              onSetNewFieldOption={setNewFieldOption}
-              onSetNewTeamOption={setNewTeamOption}
-              onSetEditTeamOption={setEditTeamOption}
-              onSetSelectedTeam={setSelectedTeam}
-              onUpdateFields={updateFields}
-              onHandleAddField={handleAddField}
-              onHandleAddTeamLevel={handleAddTeamLevel}
-              onOpenTeamModal={handleOpenTeamModal}
-            />
-            <MessagesCard
-              welcomeMessage={welcomeMessage}
-              coachMessage={coachMessage}
-              onSetWelcomeMessage={setWelcomeMessage}
-              onSetCoachMessage={setCoachMessage}
-            />
-            <PublishBar isSaving={isSaving} onPublish={handleSave} />
-          </div>
-        </CollapsibleSection>
-
         <CollapsibleSection id="parent-content" title="Parent Education Content" openSection={openSection} onToggle={setOpenSection}>
           <ParentCoursesCard />
+        </CollapsibleSection>
+
+        <CollapsibleSection id="php-plus-programs" title="PHP Plus Programs" openSection={openSection} onToggle={setOpenSection}>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <div>
+                <CardTitle>PHP Plus Plan Programs</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Select which programs are included for PHP Plus.
+                </p>
+              </div>
+              <Button onClick={handleSavePhpPlusPrograms} disabled={isSavingTabs}>
+                {isSavingTabs ? "Saving..." : "Save Selection"}
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-2 md:grid-cols-2">
+                {PREMIUM_PROGRAM_TABS.map((tab) => {
+                  const checked = phpPlusProgramTabs.includes(tab);
+                  return (
+                    <label
+                      key={tab}
+                      className="flex items-start gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          setPhpPlusProgramTabs((prev) => {
+                            if (event.target.checked) {
+                              return prev.includes(tab) ? prev : [...prev, tab];
+                            }
+                            return prev.filter((item) => item !== tab);
+                          });
+                        }}
+                      />
+                      <span className="font-medium text-foreground">{tab}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </CollapsibleSection>
 
         <CollapsibleSection id="billing" title="Billing" openSection={openSection} onToggle={setOpenSection}>

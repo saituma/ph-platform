@@ -45,7 +45,7 @@ export function InboxList({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {["All", "Guardian", "Athlete", "Unread", "Premium"].map((chip) => (
+        {["All", "Unread", "Premium"].map((chip) => (
           <Button
             key={chip}
             variant="outline"
@@ -118,11 +118,7 @@ export function InboxList({
                     ) : null}
                     {thread.role ? (
                       <span className="rounded-full bg-secondary/70 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {activeFilter === "Athlete"
-                          ? "Athlete"
-                          : thread.role === "guardian"
-                          ? "Guardian"
-                          : thread.role}
+                        {thread.role === "guardian" ? "Guardian" : thread.role}
                       </span>
                     ) : null}
                     {thread.online ? (

@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader } from "../../ui/card";
 import { SectionHeader } from "../section-header";
 import { ComposerAttachment, ConversationPanel } from "./conversation-panel";
+import { Button } from "../../ui/button";
+import { ArrowLeft } from "lucide-react";
 
 type MessageItem = {
   id: string;
@@ -14,6 +16,9 @@ type MessageItem = {
 };
 
 type MessagingConversationCardProps = {
+  className?: string;
+  showBack?: boolean;
+  onBack?: () => void;
   inboxMode: "direct" | "group";
   groups: { id: number; name: string }[];
   selectedGroupId: number | null;
@@ -27,9 +32,13 @@ type MessagingConversationCardProps = {
   onTypingChange: (isTyping: boolean) => void;
   onSend: (payload: { text: string; attachment?: ComposerAttachment | null }) => Promise<void>;
   onReact: (messageId: string, emoji: string) => Promise<void>;
+  onDelete: (messageId: string, inboxMode: "direct" | "group", groupId: number | null) => Promise<void>;
 };
 
 export function MessagingConversationCard({
+  className,
+  showBack,
+  onBack,
   inboxMode,
   groups,
   selectedGroupId,
@@ -43,6 +52,7 @@ export function MessagingConversationCard({
   onTypingChange,
   onSend,
   onReact,
+  onDelete,
 }: MessagingConversationCardProps) {
   const selectedGroupName = groups.find((group) => group.id === selectedGroupId)?.name;
   const responseBadge =
@@ -53,27 +63,43 @@ export function MessagingConversationCard({
       : null;
 
   return (
-    <Card className="h-full">
+    <Card className={`h-full ${className ?? ""}`}>
       <CardHeader>
-        <SectionHeader
-          title={
-            inboxMode === "group" ? selectedGroupName ?? "Group Conversation" : selectedThreadName ?? "Conversation"
-          }
-          description={
-            inboxMode === "group"
-              ? selectedGroupId
-                ? "Group chat"
-                : "Select a group"
-              : selectedThreadExists
-              ? "Active"
-              : "Select a thread"
-          }
-        />
-        {responseBadge ? (
-          <div className="mt-2 inline-flex items-center rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-            {responseBadge}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <SectionHeader
+              title={
+                inboxMode === "group" ? selectedGroupName ?? "Group Conversation" : selectedThreadName ?? "Conversation"
+              }
+              description={
+                inboxMode === "group"
+                  ? selectedGroupId
+                    ? "Group chat"
+                    : "Select a group"
+                  : selectedThreadExists
+                  ? "Active"
+                  : "Select a thread"
+              }
+            />
+            {responseBadge ? (
+              <div className="mt-2 inline-flex items-center rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+                {responseBadge}
+              </div>
+            ) : null}
           </div>
-        ) : null}
+          {showBack ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={onBack}
+              title="Back to inbox"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent>
         <ConversationPanel
@@ -92,6 +118,7 @@ export function MessagingConversationCard({
           onTypingChange={onTypingChange}
           onSend={onSend}
           onReact={onReact}
+          onDeleteMessage={(messageId) => onDelete(messageId, inboxMode, selectedGroupId)}
         />
       </CardContent>
     </Card>

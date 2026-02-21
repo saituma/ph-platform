@@ -1,6 +1,5 @@
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "expo-router";
 import { AppState } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
 import {
@@ -12,6 +11,7 @@ import {
   setProgramTier,
   setLatestSubscriptionRequest,
   updateProfile,
+  setManagedAthletes,
 } from "./slices/userSlice";
 import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
@@ -33,20 +33,15 @@ const isUnauthorizedError = (error: unknown) => {
 
 export function AuthPersist() {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, token, refreshToken, profile } = useAppSelector((state) => state.user);
-  const router = useRouter();
-  const pathname = usePathname();
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const token = useAppSelector((state) => state.user.token);
+  const refreshToken = useAppSelector((state) => state.user.refreshToken);
+  const profile = useAppSelector((state) => state.user.profile);
+  const isAuthRoute = false;
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
   const lastSavedRefreshToken = useRef<string | null>(null);
   const lastBillingSnapshot = useRef<{ tier: string | null; requestStatus: string | null } | null>(null);
-  const isAuthRoute =
-    pathname.startsWith("/(auth)") ||
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/verify" ||
-    pathname === "/forgot" ||
-    pathname === "/reset-password";
 
   useEffect(() => {
     let mounted = true;
@@ -124,11 +119,28 @@ export function AuthPersist() {
             dispatch(setProgramTier(null));
             dispatch(setLatestSubscriptionRequest(null));
           }
+          try {
+            const data = await apiRequest<{
+              athletes?: {
+                id?: number;
+                userId?: number | null;
+                name?: string | null;
+                age?: number | null;
+                team?: string | null;
+                level?: string | null;
+                trainingPerWeek?: number | null;
+                profilePicture?: string | null;
+              }[];
+            }>("/onboarding/athletes", {
+              token: storedToken,
+              suppressStatusCodes: [401, 403, 404],
+            });
+            dispatch(setManagedAthletes(data.athletes ?? []));
+          } catch {
+            dispatch(setManagedAthletes([]));
+          }
         } else {
           dispatch(logout());
-          if (!isAuthRoute) {
-            router.replace("/(auth)/login");
-          }
         }
       } finally {
         if (!mounted) return;
@@ -139,7 +151,7 @@ export function AuthPersist() {
     return () => {
       mounted = false;
     };
-  }, [dispatch, isAuthRoute, router]);
+  }, [dispatch, isAuthRoute]);
 
   useEffect(() => {
     if (!hydrated || !isAuthenticated || !token) return;
@@ -264,12 +276,10 @@ export function AuthPersist() {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
         lastSavedToken.current = null;
         lastSavedRefreshToken.current = null;
-        if (!isAuthRoute) {
-          router.replace("/(auth)/login");
-        }
+        // navigation disabled outside router context
       }
     })();
-  }, [hydrated, isAuthenticated, token, refreshToken, profile, pathname, router, isAuthRoute]);
+  }, [hydrated, isAuthenticated, token, refreshToken, profile, isAuthRoute]);
 
   return null;
 }

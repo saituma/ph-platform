@@ -72,6 +72,28 @@ const defaultPublicConfig = {
   defaultProgramTier: "PHP" as (typeof ProgramType.enumValues)[number],
   approvalWorkflow: "manual",
   notes: "",
+  phpPlusProgramTabs: [
+    "Program",
+    "Warmups",
+    "Cool Downs",
+    "Mobility",
+    "Recovery",
+    "In-Season Program",
+    "Off-Season Program",
+    "Video Upload",
+    "Submit Diary",
+    "Bookings",
+  ],
+};
+
+const PHP_PLUS_TABS = new Set(defaultPublicConfig.phpPlusProgramTabs);
+
+const normalizePhpPlusTabs = (input: unknown) => {
+  if (!Array.isArray(input)) return null;
+  const normalized = input
+    .map((tab) => String(tab))
+    .filter((tab) => PHP_PLUS_TABS.has(tab));
+  return normalized;
 };
 
 async function ensureOnboardingConfigTable() {
@@ -86,11 +108,15 @@ async function ensureOnboardingConfigTable() {
       "defaultProgramTier" program_type NOT NULL DEFAULT 'PHP',
       "approvalWorkflow" varchar(50) NOT NULL DEFAULT 'manual',
       "notes" varchar(1000),
+      "phpPlusProgramTabs" jsonb,
       "createdBy" integer REFERENCES "users"("id"),
       "updatedBy" integer REFERENCES "users"("id"),
       "createdAt" timestamp DEFAULT now() NOT NULL,
       "updatedAt" timestamp DEFAULT now() NOT NULL
     )
+  `);
+  await db.execute(sql`
+    ALTER TABLE "onboarding_configs" ADD COLUMN IF NOT EXISTS "phpPlusProgramTabs" jsonb
   `);
   await db.execute(sql`
     ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "extraResponses" jsonb
@@ -355,7 +381,8 @@ export async function listGuardianAthletesWithUsers(userId: number) {
     return { guardian: null, athletes: [] as (typeof athleteTable.$inferSelect)[] };
   }
   const ensured = await Promise.all(athletes.map((athlete) => ensureAthleteUserRecord(athlete)));
-  return { guardian, athletes: ensured };
+  const decorated = ensured.map((athlete) => decorateAthlete(athlete)).filter(Boolean) as typeof ensured;
+  return { guardian, athletes: decorated };
 }
 
 export async function setActiveGuardianAthlete(input: { userId: number; athleteId: number }) {
@@ -392,7 +419,12 @@ export async function getPublicOnboardingConfig() {
     const configs = await db.select().from(onboardingConfigTable).limit(1);
     if (configs[0]) {
       const config = configs[0];
-      return { ...config, fields: normalizeConfigFields(config.fields as any) };
+      const normalizedTabs = normalizePhpPlusTabs(config.phpPlusProgramTabs);
+      return {
+        ...config,
+        fields: normalizeConfigFields(config.fields as any),
+        phpPlusProgramTabs: normalizedTabs ?? defaultPublicConfig.phpPlusProgramTabs,
+      };
     }
   } catch {
     await ensureOnboardingConfigTable();
@@ -409,8 +441,17 @@ export async function getPublicOnboardingConfig() {
       defaultProgramTier: defaultPublicConfig.defaultProgramTier,
       approvalWorkflow: defaultPublicConfig.approvalWorkflow,
       notes: defaultPublicConfig.notes,
+      phpPlusProgramTabs: defaultPublicConfig.phpPlusProgramTabs,
     } as any)
     .returning();
 
   return created[0];
+}
+
+export async function getPhpPlusProgramTabs() {
+  const config = await getPublicOnboardingConfig();
+  const tabs = Array.isArray(config?.phpPlusProgramTabs)
+    ? config.phpPlusProgramTabs
+    : defaultPublicConfig.phpPlusProgramTabs;
+  return tabs;
 }

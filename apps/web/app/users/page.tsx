@@ -20,39 +20,57 @@ function UsersPageContent() {
   const [deleteUser] = useDeleteUserMutation();
 
   const users = useMemo(() => {
-    const source = usersData?.users ?? [];
-    return source.map((user: any) => ({
-      id: user.id,
-      name: user.name ?? user.email,
-      email: user.email,
-      isBlocked: Boolean(user.isBlocked),
-      tier:
-        user.role === "admin" || user.role === "superAdmin"
-          ? "Admin"
-          : user.programTier === "PHP_Premium"
-            ? "Premium"
-            : user.programTier === "PHP_Plus"
-              ? "Plus"
-              : "Program",
-      status: user.isBlocked ? "Blocked" : "Active",
-      lastActive: "Recently",
-      onboarding: user.onboardingCompleted === false ? "Awaiting review" : "Complete",
-    }));
+    const source = (usersData?.users ?? []).filter((user: any) => user.role === "guardian");
+    return source
+      .slice()
+      .sort((a: any, b: any) => {
+        const left = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const right = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return right - left;
+      })
+      .map((user: any) => {
+        const resolvedTier = user.programTier ?? user.guardianProgramTier ?? null;
+        return {
+          id: user.id,
+          name: user.name ?? user.email,
+          email: user.email,
+          isBlocked: Boolean(user.isBlocked),
+          tier:
+            user.role === "admin" || user.role === "superAdmin"
+              ? "Admin"
+              : resolvedTier === "PHP_Premium"
+                ? "Premium"
+                : resolvedTier === "PHP_Plus"
+                  ? "Plus"
+                  : "Program",
+          status: user.isBlocked ? "Blocked" : "Active",
+          lastActive: "Recently",
+          onboarding: user.onboardingCompleted === false ? "Awaiting review" : "Complete",
+        };
+      });
   }, [usersData]);
   const hasUsers = users.length > 0;
   const [activeDialog, setActiveDialog] = useState<UsersDialog>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [activeChip, setActiveChip] = useState<string>("All");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
   const chips = ["All", "Premium", "Plus", "Program", "Pending"];
 
   const filteredUsers = useMemo(() => {
-    if (activeChip === "All") return users;
+    let result = users;
     if (activeChip === "Pending") {
-      return users.filter((user) => user.onboarding !== "Complete");
+      result = result.filter((user) => user.onboarding !== "Complete");
+    } else if (activeChip !== "All") {
+      result = result.filter((user) => user.tier === activeChip);
     }
-    return users.filter((user) => user.tier === activeChip);
-  }, [activeChip, users]);
+    const normalized = searchTerm.trim().toLowerCase();
+    if (!normalized) return result;
+    return result.filter((user) => {
+      const haystack = `${user.name ?? ""} ${user.email ?? ""}`.toLowerCase();
+      return haystack.includes(normalized);
+    });
+  }, [activeChip, searchTerm, users]);
 
   useEffect(() => {
     const userIdParam = searchParams.get("userId");
@@ -95,7 +113,12 @@ function UsersPageContent() {
             <SectionHeader title="All Users" actionLabel="Export" />
           </CardHeader>
           <CardContent className="space-y-4">
-            <UsersFilters chips={chips} onChipSelect={setActiveChip} />
+            <UsersFilters
+              chips={chips}
+              onChipSelect={setActiveChip}
+              searchValue={searchTerm}
+              onSearchChange={setSearchTerm}
+            />
             {isLoading ? (
               <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
                 Loading users...
@@ -107,6 +130,10 @@ function UsersPageContent() {
                   onSelect={(userId) => {
                     setSelectedUserId(userId);
                     setActiveDialog("review-onboarding");
+                  }}
+                  onChangePlan={(userId) => {
+                    setSelectedUserId(userId);
+                    setActiveDialog("assign-program");
                   }}
                   onToggleBlock={async (userId, blocked) => {
                     setActionError(null);
@@ -132,6 +159,10 @@ function UsersPageContent() {
                   onSelect={(userId) => {
                     setSelectedUserId(userId);
                     setActiveDialog("review-onboarding");
+                  }}
+                  onChangePlan={(userId) => {
+                    setSelectedUserId(userId);
+                    setActiveDialog("assign-program");
                   }}
                   onToggleBlock={async (userId, blocked) => {
                     setActionError(null);

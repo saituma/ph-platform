@@ -55,17 +55,96 @@ function resolveTierFallbackPrice(
 }
 
 function ensureStripePriceId(
-  stripePriceId?: string | null,
-  tier?: (typeof ProgramType.enumValues)[number],
+  plan: {
+    stripePriceId?: string | null;
+    stripePriceIdMonthly?: string | null;
+    stripePriceIdYearly?: string | null;
+    tier?: (typeof ProgramType.enumValues)[number];
+  },
   interval?: "monthly" | "yearly"
 ) {
-  const normalized = (stripePriceId ?? "").trim();
+  const intervalPrice =
+    interval === "monthly"
+      ? (plan.stripePriceIdMonthly ?? "").trim()
+      : interval === "yearly"
+      ? (plan.stripePriceIdYearly ?? "").trim()
+      : "";
+  if (intervalPrice) return intervalPrice;
+  const normalized = (plan.stripePriceId ?? "").trim();
   if (!normalized || normalized === "manual") {
-    const fallback = tier ? resolveTierFallbackPrice(tier, interval).trim() : "";
+    const fallback = plan.tier ? resolveTierFallbackPrice(plan.tier, interval).trim() : "";
     if (fallback) return fallback;
     throw new Error("Plan is not configured for Stripe payments");
   }
   return normalized;
+}
+
+function parsePriceToCents(value?: string | null): number | null {
+  if (!value) return null;
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  if (!cleaned) return null;
+  const amount = Number(cleaned);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return Math.round(amount * 100);
+}
+
+function applyDiscountToAmount(input: {
+  originalCents: number;
+  discountType?: string | null;
+  discountValue?: string | null;
+  discountAppliesTo?: string | null;
+  interval: "monthly" | "yearly";
+}) {
+  const { originalCents, discountType, discountValue, discountAppliesTo, interval } = input;
+  const appliesTo =
+    discountAppliesTo === "monthly"
+      ? "monthly"
+      : discountAppliesTo === "yearly"
+      ? "yearly"
+      : discountAppliesTo === "both"
+      ? "both"
+      : null;
+  if (!appliesTo || (appliesTo !== "both" && appliesTo !== interval)) {
+    return originalCents;
+  }
+  if (!discountType || !discountValue) {
+    return originalCents;
+  }
+  if (discountType === "percent") {
+    const percent = Number(discountValue);
+    if (!Number.isFinite(percent) || percent <= 0) return originalCents;
+    const discounted = Math.round(originalCents * (1 - percent / 100));
+    return discounted > 0 ? discounted : originalCents;
+  }
+  if (discountType === "amount") {
+    const discounted = parsePriceToCents(discountValue);
+    if (!discounted || discounted <= 0) return originalCents;
+    return discounted;
+  }
+  return originalCents;
+}
+
+async function createStripePriceForPlan(input: {
+  name: string;
+  tier: (typeof ProgramType.enumValues)[number];
+  interval: "monthly" | "yearly";
+  unitAmount: number;
+}) {
+  const stripeClient = getStripeClient();
+  const recurringInterval = input.interval === "yearly" ? "year" : "month";
+  const price = await stripeClient.prices.create({
+    currency: "gbp",
+    unit_amount: input.unitAmount,
+    recurring: { interval: recurringInterval },
+    product_data: {
+      name: `${input.name} (${input.tier.replace("_", " ")} ${input.interval})`,
+    },
+    metadata: {
+      tier: input.tier,
+      interval: input.interval,
+    },
+  });
+  return price.id;
 }
 
 export async function listSubscriptionPlans(options?: { includeInactive?: boolean }) {
@@ -106,6 +185,8 @@ export async function createSubscriptionPlan(input: {
   name: string;
   tier: (typeof ProgramType.enumValues)[number];
   stripePriceId: string;
+  stripePriceIdMonthly?: string;
+  stripePriceIdYearly?: string;
   displayPrice: string;
   billingInterval: string;
   monthlyPrice?: string;
@@ -115,12 +196,54 @@ export async function createSubscriptionPlan(input: {
   discountAppliesTo?: string;
   isActive?: boolean;
 }) {
+  let stripePriceIdMonthly = input.stripePriceIdMonthly;
+  let stripePriceIdYearly = input.stripePriceIdYearly;
+  let stripePriceId = input.stripePriceId || "manual";
+  if (stripe) {
+    const monthlyAmount = parsePriceToCents(input.monthlyPrice);
+    const yearlyAmount = parsePriceToCents(input.yearlyPrice);
+    if (monthlyAmount) {
+      const discountedMonthly = applyDiscountToAmount({
+        originalCents: monthlyAmount,
+        discountType: input.discountType,
+        discountValue: input.discountValue,
+        discountAppliesTo: input.discountAppliesTo,
+        interval: "monthly",
+      });
+      stripePriceIdMonthly = await createStripePriceForPlan({
+        name: input.name,
+        tier: input.tier,
+        interval: "monthly",
+        unitAmount: discountedMonthly,
+      });
+      stripePriceId = stripePriceIdMonthly;
+    }
+    if (yearlyAmount) {
+      const discountedYearly = applyDiscountToAmount({
+        originalCents: yearlyAmount,
+        discountType: input.discountType,
+        discountValue: input.discountValue,
+        discountAppliesTo: input.discountAppliesTo,
+        interval: "yearly",
+      });
+      stripePriceIdYearly = await createStripePriceForPlan({
+        name: input.name,
+        tier: input.tier,
+        interval: "yearly",
+        unitAmount: discountedYearly,
+      });
+      if (!stripePriceId) stripePriceId = stripePriceIdYearly;
+    }
+  }
+
   const result = await db
     .insert(subscriptionPlanTable)
     .values({
       name: input.name,
       tier: input.tier,
-      stripePriceId: input.stripePriceId,
+      stripePriceId,
+      stripePriceIdMonthly,
+      stripePriceIdYearly,
       displayPrice: input.displayPrice,
       billingInterval: input.billingInterval,
       monthlyPrice: input.monthlyPrice,
@@ -140,6 +263,8 @@ export async function updateSubscriptionPlan(
     name: string;
     tier: (typeof ProgramType.enumValues)[number];
     stripePriceId: string;
+    stripePriceIdMonthly: string;
+    stripePriceIdYearly: string;
     displayPrice: string;
     billingInterval: string;
     monthlyPrice: string;
@@ -150,10 +275,67 @@ export async function updateSubscriptionPlan(
     isActive: boolean;
   }>
 ) {
+  const existingRows = await db
+    .select()
+    .from(subscriptionPlanTable)
+    .where(eq(subscriptionPlanTable.id, planId))
+    .limit(1);
+  const existing = existingRows[0];
+  if (!existing) {
+    return null;
+  }
+
+  let stripePriceIdMonthly = input.stripePriceIdMonthly ?? existing.stripePriceIdMonthly ?? null;
+  let stripePriceIdYearly = input.stripePriceIdYearly ?? existing.stripePriceIdYearly ?? null;
+  let stripePriceId = input.stripePriceId ?? existing.stripePriceId;
+  if (stripe) {
+    const nextName = input.name ?? existing.name;
+    const nextTier = input.tier ?? existing.tier;
+    const monthlyAmount = parsePriceToCents(input.monthlyPrice ?? existing.monthlyPrice);
+    const yearlyAmount = parsePriceToCents(input.yearlyPrice ?? existing.yearlyPrice);
+    const discountType = input.discountType ?? existing.discountType ?? null;
+    const discountValue = input.discountValue ?? existing.discountValue ?? null;
+    const discountAppliesTo = input.discountAppliesTo ?? existing.discountAppliesTo ?? null;
+    if (monthlyAmount) {
+      const discountedMonthly = applyDiscountToAmount({
+        originalCents: monthlyAmount,
+        discountType,
+        discountValue,
+        discountAppliesTo,
+        interval: "monthly",
+      });
+      stripePriceIdMonthly = await createStripePriceForPlan({
+        name: nextName,
+        tier: nextTier,
+        interval: "monthly",
+        unitAmount: discountedMonthly,
+      });
+      stripePriceId = stripePriceIdMonthly;
+    }
+    if (yearlyAmount) {
+      const discountedYearly = applyDiscountToAmount({
+        originalCents: yearlyAmount,
+        discountType,
+        discountValue,
+        discountAppliesTo,
+        interval: "yearly",
+      });
+      stripePriceIdYearly = await createStripePriceForPlan({
+        name: nextName,
+        tier: nextTier,
+        interval: "yearly",
+        unitAmount: discountedYearly,
+      });
+      if (!stripePriceId) stripePriceId = stripePriceIdYearly;
+    }
+  }
   const result = await db
     .update(subscriptionPlanTable)
     .set({
       ...input,
+      stripePriceId,
+      stripePriceIdMonthly,
+      stripePriceIdYearly,
       updatedAt: new Date(),
     })
     .where(eq(subscriptionPlanTable.id, planId))
@@ -177,7 +359,7 @@ export async function createCheckoutSession(input: {
   if (!plan || !plan.isActive) {
     throw new Error("Plan not available");
   }
-  const priceId = ensureStripePriceId(plan.stripePriceId, plan.tier, input.interval);
+  const priceId = ensureStripePriceId(plan, input.interval);
 
   const stripeClient = getStripeClient();
   const mode = plan.billingInterval === "one_time" ? "payment" : "subscription";
@@ -226,7 +408,7 @@ export async function createPaymentSheetIntent(input: {
   if (!plan || !plan.isActive) {
     throw new Error("Plan not available");
   }
-  const priceId = ensureStripePriceId(plan.stripePriceId, plan.tier, input.interval);
+  const priceId = ensureStripePriceId(plan, input.interval);
 
   const stripeClient = getStripeClient();
   const customer = await stripeClient.customers.create({

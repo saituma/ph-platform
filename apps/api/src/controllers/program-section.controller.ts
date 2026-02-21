@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ProgramType, sessionType } from "../db/schema";
 import {
   createProgramSectionContent,
+  getProgramSectionContentById,
   deleteProgramSectionContent,
   listProgramSectionContent,
   updateProgramSectionContent,
@@ -12,11 +13,13 @@ import {
 const listSchema = z.object({
   sectionType: z.enum(sessionType.enumValues).optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
+  age: z.coerce.number().int().optional(),
 });
 
 const createSchema = z.object({
   sectionType: z.enum(sessionType.enumValues),
   programTier: z.enum(ProgramType.enumValues).optional().nullable(),
+  ageList: z.array(z.number().int().min(0)).optional().nullable(),
   title: z.string().min(1),
   body: z.string().min(1),
   videoUrl: z.string().url().optional().nullable(),
@@ -26,6 +29,7 @@ const createSchema = z.object({
 const updateSchema = z.object({
   sectionType: z.enum(sessionType.enumValues),
   programTier: z.enum(ProgramType.enumValues).optional().nullable(),
+  ageList: z.array(z.number().int().min(0)).optional().nullable(),
   title: z.string().min(1),
   body: z.string().min(1),
   videoUrl: z.string().url().optional().nullable(),
@@ -37,8 +41,18 @@ export async function listProgramSectionContentHandler(req: Request, res: Respon
   const items = await listProgramSectionContent({
     sectionType: input.sectionType,
     programTier: input.programTier ?? null,
+    age: Number.isFinite(input.age) ? input.age : null,
   });
   return res.status(200).json({ items });
+}
+
+export async function getProgramSectionContentHandler(req: Request, res: Response) {
+  const id = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const item = await getProgramSectionContentById(id);
+  if (!item) {
+    return res.status(404).json({ error: "Content not found" });
+  }
+  return res.status(200).json({ item });
 }
 
 export async function createProgramSectionContentHandler(req: Request, res: Response) {
@@ -46,6 +60,7 @@ export async function createProgramSectionContentHandler(req: Request, res: Resp
   const item = await createProgramSectionContent({
     sectionType: input.sectionType,
     programTier: input.programTier ?? null,
+    ageList: input.ageList ?? null,
     title: input.title,
     body: input.body,
     videoUrl: input.videoUrl ?? null,
@@ -62,6 +77,7 @@ export async function updateProgramSectionContentHandler(req: Request, res: Resp
     id,
     sectionType: input.sectionType,
     programTier: input.programTier ?? null,
+    ageList: input.ageList ?? null,
     title: input.title,
     body: input.body,
     videoUrl: input.videoUrl ?? null,

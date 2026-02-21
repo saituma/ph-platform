@@ -5,7 +5,6 @@ import { apiRequest } from "@/lib/api";
 import { buildPlanPricing } from "@/lib/billing";
 import { normalizeProgramTier, tierRank } from "@/lib/planAccess";
 import { Feather } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, TouchableOpacity, View } from "react-native";
@@ -110,12 +109,9 @@ export default function PlansScreen() {
     void loadPlans();
     void refreshBillingStatus();
   }, [loadPlans, refreshBillingStatus]);
-  useFocusEffect(
-    useCallback(() => {
-      void refreshBillingStatus();
-      return () => {};
-    }, [refreshBillingStatus])
-  );
+  useEffect(() => {
+    void refreshBillingStatus();
+  }, [refreshBillingStatus]);
 
   const handleCheckout = useCallback(
     async (planId: number, interval?: "monthly" | "yearly") => {

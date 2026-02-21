@@ -31,7 +31,7 @@ export function GroupInboxPanel({
   onCreateGroup,
 }: GroupInboxPanelProps) {
   return (
-    <div className="space-y-4 h-[calc(100%-3.5rem)] overflow-y-auto pr-1">
+    <div className="space-y-4 lg:h-[calc(100%-3.5rem)] lg:overflow-y-auto pr-1">
       <div className="rounded-2xl border border-border bg-secondary/30 p-4">
         <p className="text-sm font-semibold text-foreground">Create group chat</p>
         <p className="text-xs text-muted-foreground">Add guardians/athletes to a shared conversation.</p>

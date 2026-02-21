@@ -53,6 +53,43 @@ export async function sendBookingConfirmationEmail(input: {
 }) {
   const transporter = getMailer();
   const from = env.smtpFrom || env.smtpUser;
+  const subject = `Booking requested: ${input.serviceName}`;
+  const time = input.startsAt.toISOString();
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#0b0f0c; color:#e6f4ea; padding:24px;">
+    <div style="max-width:520px; margin:0 auto; background:#0f1612; border:1px solid #1c2b22; border-radius:16px; padding:24px;">
+      <h1 style="margin:0 0 8px; font-size:22px; color:#c7ffd6;">PH Performance</h1>
+      <p style="margin:0 0 16px; color:#b3c3b8;">Booking requested</p>
+      <div style="font-size:18px; font-weight:700; color:#3ddc84; margin:12px 0;">
+        ${input.serviceName}
+      </div>
+      <p style="margin:0; color:#b3c3b8;">Scheduled for: <strong>${time}</strong></p>
+      ${input.location ? `<p style="margin:6px 0 0; color:#b3c3b8;">Location: ${input.location}</p>` : ""}
+      ${input.meetingLink ? `<p style="margin:6px 0 0; color:#b3c3b8;">Link: ${input.meetingLink}</p>` : ""}
+      <p style="margin:16px 0 0; color:#8ea097; font-size:12px;">
+        Thanks ${input.name}. We'll confirm your session soon.
+      </p>
+    </div>
+  </div>`;
+
+  await transporter.sendMail({
+    from,
+    to: input.to,
+    subject,
+    html,
+  });
+}
+
+export async function sendBookingApprovedEmail(input: {
+  to: string;
+  name: string;
+  serviceName: string;
+  startsAt: Date;
+  location?: string;
+  meetingLink?: string;
+}) {
+  const transporter = getMailer();
+  const from = env.smtpFrom || env.smtpUser;
   const subject = `Booking confirmed: ${input.serviceName}`;
   const time = input.startsAt.toISOString();
   const html = `
@@ -68,6 +105,125 @@ export async function sendBookingConfirmationEmail(input: {
       ${input.meetingLink ? `<p style="margin:6px 0 0; color:#b3c3b8;">Link: ${input.meetingLink}</p>` : ""}
       <p style="margin:16px 0 0; color:#8ea097; font-size:12px;">
         Thanks ${input.name}, see you then.
+      </p>
+    </div>
+  </div>`;
+
+  await transporter.sendMail({
+    from,
+    to: input.to,
+    subject,
+    html,
+  });
+}
+
+export async function sendBookingDeclinedEmail(input: {
+  to: string;
+  name: string;
+  serviceName: string;
+  startsAt: Date;
+  location?: string;
+  meetingLink?: string;
+}) {
+  const transporter = getMailer();
+  const from = env.smtpFrom || env.smtpUser;
+  const subject = `Booking declined: ${input.serviceName}`;
+  const time = input.startsAt.toISOString();
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#0b0f0c; color:#e6f4ea; padding:24px;">
+    <div style="max-width:520px; margin:0 auto; background:#0f1612; border:1px solid #1c2b22; border-radius:16px; padding:24px;">
+      <h1 style="margin:0 0 8px; font-size:22px; color:#c7ffd6;">PH Performance</h1>
+      <p style="margin:0 0 16px; color:#b3c3b8;">Booking declined</p>
+      <div style="font-size:18px; font-weight:700; color:#ff9f76; margin:12px 0;">
+        ${input.serviceName}
+      </div>
+      <p style="margin:0; color:#b3c3b8;">Scheduled for: <strong>${time}</strong></p>
+      ${input.location ? `<p style="margin:6px 0 0; color:#b3c3b8;">Location: ${input.location}</p>` : ""}
+      ${input.meetingLink ? `<p style="margin:6px 0 0; color:#b3c3b8;">Link: ${input.meetingLink}</p>` : ""}
+      <p style="margin:16px 0 0; color:#8ea097; font-size:12px;">
+        Thanks ${input.name}. Please request another time and we’ll get back to you.
+      </p>
+    </div>
+  </div>`;
+
+  await transporter.sendMail({
+    from,
+    to: input.to,
+    subject,
+    html,
+  });
+}
+
+export async function sendBookingRequestAdminEmail(input: {
+  to: string;
+  bookingId: number;
+  serviceName: string;
+  startsAt: Date;
+  guardianName?: string;
+  guardianEmail?: string;
+  athleteName?: string;
+  location?: string;
+  meetingLink?: string;
+  approveUrl?: string;
+  declineUrl?: string;
+  adminUrl?: string;
+}) {
+  const transporter = getMailer();
+  const from = env.smtpFrom || env.smtpUser;
+  const subject = `New booking request: ${input.serviceName}`;
+  const time = input.startsAt.toISOString();
+  const humanTime = input.startsAt.toLocaleString();
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#0b0f0c; color:#e6f4ea; padding:24px;">
+    <div style="max-width:600px; margin:0 auto; background:#0f1612; border:1px solid #1c2b22; border-radius:18px; padding:24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div>
+          <h1 style="margin:0 0 6px; font-size:22px; color:#c7ffd6;">PH Performance</h1>
+          <p style="margin:0; color:#b3c3b8;">New booking request</p>
+        </div>
+        <div style="padding:6px 10px; border-radius:999px; background:#152218; color:#9ad5b0; font-size:12px; border:1px solid #1c2b22;">
+          #${input.bookingId}
+        </div>
+      </div>
+
+      <div style="margin:18px 0 16px; padding:16px; border-radius:14px; background:#111b16; border:1px solid #1c2b22;">
+        <div style="font-size:18px; font-weight:700; color:#3ddc84; margin-bottom:6px;">
+          ${input.serviceName}
+        </div>
+        <div style="color:#b3c3b8; font-size:14px;">
+          Requested for: <strong style="color:#e6f4ea;">${humanTime}</strong>
+        </div>
+        <div style="color:#7f9288; font-size:12px; margin-top:4px;">${time}</div>
+      </div>
+
+      <table style="width:100%; border-collapse:separate; border-spacing:0 8px; font-size:14px; color:#b3c3b8;">
+        ${input.athleteName ? `<tr><td style="width:120px; color:#7f9288;">Athlete</td><td style="color:#e6f4ea;">${input.athleteName}</td></tr>` : ""}
+        ${input.guardianName ? `<tr><td style="width:120px; color:#7f9288;">Guardian</td><td style="color:#e6f4ea;">${input.guardianName}</td></tr>` : ""}
+        ${input.guardianEmail ? `<tr><td style="width:120px; color:#7f9288;">Email</td><td style="color:#e6f4ea;">${input.guardianEmail}</td></tr>` : ""}
+        ${input.location ? `<tr><td style="width:120px; color:#7f9288;">Location</td><td style="color:#e6f4ea;">${input.location}</td></tr>` : ""}
+        ${input.meetingLink ? `<tr><td style="width:120px; color:#7f9288;">Meeting</td><td style="color:#e6f4ea;">${input.meetingLink}</td></tr>` : ""}
+      </table>
+
+      <div style="margin:20px 0 8px; display:flex; gap:12px; flex-wrap:wrap;">
+        ${
+          input.approveUrl
+            ? `<a href="${input.approveUrl}" style="background:#3ddc84; color:#0b0f0c; text-decoration:none; font-weight:700; padding:12px 18px; border-radius:999px; display:inline-block;">Approve</a>`
+            : ""
+        }
+        ${
+          input.declineUrl
+            ? `<a href="${input.declineUrl}" style="background:#ff9f76; color:#0b0f0c; text-decoration:none; font-weight:700; padding:12px 18px; border-radius:999px; display:inline-block;">Decline</a>`
+            : ""
+        }
+        ${
+          input.adminUrl
+            ? `<a href="${input.adminUrl}" style="background:#111b16; color:#c7ffd6; text-decoration:none; font-weight:600; padding:12px 16px; border-radius:999px; border:1px solid #1c2b22; display:inline-block;">Open Admin</a>`
+            : ""
+        }
+      </div>
+
+      <p style="margin:10px 0 0; color:#7f9288; font-size:12px;">
+        You can approve or decline directly using the buttons above.
       </p>
     </div>
   </div>`;

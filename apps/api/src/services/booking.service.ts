@@ -1,7 +1,8 @@
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
+  athleteTable,
   availabilityBlockTable,
   bookingTable,
   guardianTable,
@@ -10,7 +11,8 @@ import {
   userTable,
 } from "../db/schema";
 import { env } from "../config/env";
-import { sendBookingConfirmationEmail } from "../lib/mailer";
+import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../lib/mailer";
+import { createBookingActionToken } from "../lib/booking-actions";
 
 type ServiceTypeKind =
   | "call"
@@ -160,7 +162,31 @@ export async function listAvailabilityBlocks(serviceTypeId: number, from: Date, 
   return db
     .select()
     .from(availabilityBlockTable)
-    .where(and(eq(availabilityBlockTable.serviceTypeId, serviceTypeId), gte(availabilityBlockTable.startsAt, from), lte(availabilityBlockTable.endsAt, to)));
+    .where(
+      and(
+        eq(availabilityBlockTable.serviceTypeId, serviceTypeId),
+        lte(availabilityBlockTable.startsAt, to),
+        gte(availabilityBlockTable.endsAt, from),
+      ),
+    );
+}
+
+export async function listBookingsForServiceInRange(serviceTypeId: number, from: Date, to: Date) {
+  return db
+    .select({
+      id: bookingTable.id,
+      startsAt: bookingTable.startsAt,
+      status: bookingTable.status,
+    })
+    .from(bookingTable)
+    .where(
+      and(
+        eq(bookingTable.serviceTypeId, serviceTypeId),
+        gte(bookingTable.startsAt, from),
+        lte(bookingTable.startsAt, to),
+        inArray(bookingTable.status, ["pending", "confirmed"]),
+      ),
+    );
 }
 
 export async function createBooking(input: {
@@ -172,20 +198,67 @@ export async function createBooking(input: {
   createdBy: number;
   location?: string | null;
   meetingLink?: string | null;
+  timezoneOffsetMinutes?: number;
+  bypassAvailability?: boolean;
 }) {
   const serviceType = await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.id, input.serviceTypeId)).limit(1);
   if (!serviceType[0]) {
     throw new Error("Service type not found");
   }
 
-  const normalizeTime = (value?: string | null) => (value ? value.trim().slice(0, 5) : null);
-  const startTimeUtc = normalizeTime(input.startsAt.toISOString().substring(11, 16)) ?? "";
-  const startTimeLocal =
-    normalizeTime(
-      `${String(input.startsAt.getHours()).padStart(2, "0")}:${String(input.startsAt.getMinutes()).padStart(2, "0")}`,
-    ) ?? "";
-  const matchesFixed = (fixed: string) => fixed === startTimeUtc || fixed === startTimeLocal;
-  const fixedStartTime = normalizeTime(serviceType[0].fixedStartTime);
+  const formatTime = (value: Date, useUtc: boolean) => {
+    const hours = useUtc ? value.getUTCHours() : value.getHours();
+    const minutes = useUtc ? value.getUTCMinutes() : value.getMinutes();
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  };
+  const parseTimeToMinutes = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) return null;
+    const ampmMatch = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+    if (ampmMatch) {
+      let hour = Number(ampmMatch[1]);
+      const minute = Number(ampmMatch[2] ?? "00");
+      if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return null;
+      const period = ampmMatch[3];
+      if (hour === 12) hour = 0;
+      if (period === "pm") hour += 12;
+      return hour * 60 + minute;
+    }
+    const timeMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (!timeMatch) return null;
+    const hour = Number(timeMatch[1]);
+    const minute = Number(timeMatch[2]);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+    return hour * 60 + minute;
+  };
+
+  const startTimeUtc = formatTime(input.startsAt, true);
+  const startTimeLocal = formatTime(input.startsAt, false);
+  const startTimeOffset = Number.isFinite(input.timezoneOffsetMinutes)
+    ? (() => {
+        const offsetMs = Number(input.timezoneOffsetMinutes) * 60 * 1000;
+        const localDate = new Date(input.startsAt.getTime() - offsetMs);
+        return formatTime(localDate, true);
+      })()
+    : "";
+  const startTimeOffsetInverse = Number.isFinite(input.timezoneOffsetMinutes)
+    ? (() => {
+        const offsetMs = Number(input.timezoneOffsetMinutes) * 60 * 1000;
+        const localDate = new Date(input.startsAt.getTime() + offsetMs);
+        return formatTime(localDate, true);
+      })()
+    : "";
+
+  const fixedStartTime = serviceType[0].fixedStartTime ?? null;
+  const matchesFixed = (fixed: string) => {
+    const fixedMinutes = parseTimeToMinutes(fixed);
+    if (fixedMinutes === null) return false;
+    const candidates = [startTimeUtc, startTimeLocal, startTimeOffset, startTimeOffsetInverse].filter(Boolean);
+    return candidates.some((time) => parseTimeToMinutes(time) === fixedMinutes);
+  };
   if (fixedStartTime) {
     if (!matchesFixed(fixedStartTime)) {
       throw new Error("Invalid start time");
@@ -205,6 +278,25 @@ export async function createBooking(input: {
     }
   }
 
+  if (!input.bypassAvailability) {
+    const blocks = await db
+      .select()
+      .from(availabilityBlockTable)
+      .where(
+        and(
+          eq(availabilityBlockTable.serviceTypeId, input.serviceTypeId),
+          lte(availabilityBlockTable.startsAt, input.startsAt),
+          gte(availabilityBlockTable.endsAt, input.endsAt),
+        ),
+      )
+      .limit(1);
+    if (!blocks[0]) {
+      if (!serviceType[0].capacity) {
+        throw new Error("Selected time is not available");
+      }
+    }
+  }
+
   const result = await db
     .insert(bookingTable)
     .values({
@@ -221,6 +313,15 @@ export async function createBooking(input: {
     })
     .returning();
 
+  const bookingId = result[0]?.id;
+  const publicApiBase = env.publicApiBaseUrl ? env.publicApiBaseUrl.replace(/\/$/, "") : "";
+  const adminWebBase = env.adminWebUrl ? env.adminWebUrl.replace(/\/$/, "") : "";
+  const approveToken = bookingId ? createBookingActionToken({ bookingId, action: "approve" }) : null;
+  const declineToken = bookingId ? createBookingActionToken({ bookingId, action: "decline" }) : null;
+  const approveUrl = publicApiBase && approveToken ? `${publicApiBase}/api/public/booking-action?token=${approveToken}` : undefined;
+  const declineUrl = publicApiBase && declineToken ? `${publicApiBase}/api/public/booking-action?token=${declineToken}` : undefined;
+  const adminUrl = adminWebBase ? `${adminWebBase}/bookings` : undefined;
+
   const guardian = await db
     .select({ userId: guardianTable.userId })
     .from(guardianTable)
@@ -234,10 +335,43 @@ export async function createBooking(input: {
       .where(eq(userTable.id, guardian[0].userId))
       .limit(1);
 
+    const athlete = await db
+      .select({ name: athleteTable.name })
+      .from(athleteTable)
+      .where(eq(athleteTable.id, input.athleteId))
+      .limit(1);
+
+    const adminUsers = await db
+      .select({ email: userTable.email })
+      .from(userTable)
+      .where(inArray(userTable.role, ["coach", "admin", "superAdmin"]));
+
+    for (const admin of adminUsers) {
+      if (!admin.email) continue;
+      try {
+        await sendBookingRequestAdminEmail({
+          to: admin.email,
+          bookingId: bookingId ?? 0,
+          serviceName: serviceType[0].name,
+          startsAt: input.startsAt,
+          guardianName: user[0]?.name ?? undefined,
+          guardianEmail: user[0]?.email ?? undefined,
+          athleteName: athlete[0]?.name ?? undefined,
+          location: input.location ?? serviceType[0].defaultLocation ?? undefined,
+          meetingLink: input.meetingLink ?? serviceType[0].defaultMeetingLink ?? undefined,
+          approveUrl,
+          declineUrl,
+          adminUrl,
+        });
+      } catch (error) {
+        console.error("Failed to send booking request admin email", error);
+      }
+    }
+
     await db.insert(notificationTable).values({
       userId: guardian[0].userId,
       type: "booking_confirmed",
-      content: `Booking confirmed for ${serviceType[0].name} at ${input.startsAt.toISOString()}`,
+      content: `Booking requested for ${serviceType[0].name} at ${input.startsAt.toISOString()}`,
       link: "/schedule",
     });
 

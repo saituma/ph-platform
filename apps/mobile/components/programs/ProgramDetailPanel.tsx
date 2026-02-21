@@ -59,10 +59,23 @@ export function ProgramDetailPanel({
   onBack,
   onNavigate,
 }: ProgramDetailPanelProps) {
-  const { programTier, token } = useAppSelector((state) => state.user);
+  const { programTier, token, athleteUserId, managedAthletes } = useAppSelector(
+    (state) => state.user,
+  );
   const { role } = useRole();
   const { isSectionHidden } = useAgeExperience();
+  const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
+  const activeAthleteAge = useMemo(() => {
+    if (!managedAthletes.length) return null;
+    const selected =
+      managedAthletes.find((athlete) => athlete.id === athleteUserId) ??
+      managedAthletes[0];
+    return selected?.age ?? null;
+  }, [managedAthletes, athleteUserId]);
   const tabs = useMemo(() => {
+    if (programId === "plus") {
+      return phpPlusTabs ?? [];
+    }
     let base = PROGRAM_TABS[programId];
     if (role === "Athlete") {
       base = base.filter(
@@ -89,7 +102,7 @@ export function ProgramDetailPanel({
       );
     }
     return base;
-  }, [programId, role, isSectionHidden]);
+  }, [programId, role, isSectionHidden, phpPlusTabs]);
   const [activeTab, setActiveTab] = useState(tabs[0]);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -99,6 +112,25 @@ export function ProgramDetailPanel({
   );
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+
+  const loadPhpPlusTabs = useCallback(async () => {
+    if (programId !== "plus") return;
+    try {
+      const response = await apiRequest<{ tabs?: string[] }>(
+        `/onboarding/php-plus-tabs?ts=${Date.now()}`,
+        { method: "GET", suppressLog: true },
+      );
+      if (Array.isArray(response.tabs)) {
+        setPhpPlusTabs(response.tabs.map((tab) => String(tab)));
+      }
+    } catch {
+      setPhpPlusTabs(null);
+    }
+  }, [programId]);
+
+  useEffect(() => {
+    void loadPhpPlusTabs();
+  }, [loadPhpPlusTabs]);
 
   useEffect(() => {
     setActiveTab(tabs[0]);
@@ -184,7 +216,7 @@ export function ProgramDetailPanel({
             apiRequest<{ items: ProgramSectionContent[] }>(
               `/program-section-content?sectionType=${encodeURIComponent(
                 String(type),
-              )}`,
+              )}${activeAthleteAge !== null ? `&age=${encodeURIComponent(String(activeAthleteAge))}` : ""}`,
               { token },
             ),
           ),
@@ -211,7 +243,7 @@ export function ProgramDetailPanel({
         setIsLoadingContent(false);
       }
     },
-    [token],
+    [token, activeAthleteAge],
   );
 
   useEffect(() => {
@@ -219,12 +251,19 @@ export function ProgramDetailPanel({
   }, [activeTab, loadSectionContent]);
 
   const handlePageRefresh = async () => {
-    await loadSectionContent(activeTab);
+    await Promise.all([loadSectionContent(activeTab), loadPhpPlusTabs()]);
     setRefreshToken((prev) => prev + 1);
   };
 
   const handleVideoPress = (url: string) => {
     setActiveVideoUrl(url);
+  };
+
+  const handleTabDetail = (tab: string) => {
+    const path = `/programs/tab/${encodeURIComponent(tab)}`;
+    if (onNavigate) {
+      onNavigate(path);
+    }
   };
 
   const renderTrainingContent = () => {
@@ -237,7 +276,7 @@ export function ProgramDetailPanel({
     if (visibleContent.length === 0) {
       return (
         <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-          <Text className="text-2xl font-outfit text-secondary">
+          <Text className="text-sm font-outfit text-secondary text-center">
             {searchQuery.trim()
               ? "No matching content found."
               : "No content configured for this section yet. Ask your coach/admin to add content in Web Admin."}
@@ -249,38 +288,34 @@ export function ProgramDetailPanel({
       <View className="gap-4">
         {showContentLoading ? (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-2xl font-outfit text-secondary">
+            <Text className="text-sm font-outfit text-secondary text-center">
               Loading section content...
             </Text>
           </View>
         ) : null}
         {showContentError ? (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-2xl font-outfit text-secondary">
+            <Text className="text-sm font-outfit text-secondary text-center">
               {showContentError}
             </Text>
           </View>
         ) : null}
         {visibleContent.map((item) => (
-          <View
+          <Pressable
             key={`content-${item.id}`}
-            className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3"
+            onPress={() => onNavigate?.(`/programs/content/${item.id}`)}
+            className="rounded-3xl border border-[#2F8F57]/40 bg-[#2F8F57] px-6 py-5 gap-3"
           >
-            <Text className="text-2xl font-clash text-app">{item.title}</Text>
-            <Text className="text-2xl font-outfit text-secondary">
-              {item.body}
-            </Text>
-            {item.videoUrl ? (
-              <Pressable
-                onPress={() => setActiveVideoUrl(item.videoUrl ?? null)}
-                className="self-start rounded-full px-4 py-2 bg-[#2F8F57]"
-              >
-                <Text className="text-xs font-outfit text-white">
-                  Watch video
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
+            <Text className="text-lg font-clash text-white font-bold">{item.title}</Text>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
+                View details
+              </Text>
+              <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
+                <Feather name="chevron-right" size={14} color="#FFFFFF" />
+              </View>
+            </View>
+          </Pressable>
         ))}
       </View>
     );
@@ -300,12 +335,12 @@ export function ProgramDetailPanel({
         <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
           <View className="flex-row items-center gap-2">
             <Feather name="lock" size={16} color="#94A3B8" />
-            <Text className="text-2xl font-outfit text-secondary uppercase tracking-[1.2px]">
+            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
               Pending Access
             </Text>
           </View>
-          <Text className="text-2xl font-clash text-app">{title}</Text>
-          <Text className="text-2xl font-outfit text-secondary">{body}</Text>
+          <Text className="text-lg font-clash text-app font-bold">{title}</Text>
+          <Text className="text-sm font-outfit text-secondary leading-relaxed">{body}</Text>
         </View>
       );
     }
@@ -313,17 +348,17 @@ export function ProgramDetailPanel({
       const tier = PROGRAM_TIERS.find((item) => item.id === programId);
       return (
         <View className="gap-4">
-          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
-            <Text className="text-2xl font-clash text-app">Program Features</Text>
+          <View className="rounded-3xl border border-[#2F8F57]/40 bg-[#2F8F57] px-6 py-5 gap-3">
+            <Text className="text-lg font-clash text-white font-bold">Program Features</Text>
             {tier?.features?.map((feature, index) => (
               <View
                 key={`${tier.id}-feature-${index}`}
                 className="flex-row items-center gap-3"
               >
-                <View className="h-6 w-6 rounded-full bg-success-soft items-center justify-center">
-                  <Feather name="check" size={12} color="#16A34A" />
+                <View className="h-5 w-5 rounded-full bg-white/15 items-center justify-center">
+                  <Feather name="check" size={10} color="#FFFFFF" />
                 </View>
-                <Text className="text-2xl font-outfit text-app flex-1">
+                <Text className="text-sm font-outfit text-white flex-1">
                   {feature}
                 </Text>
               </View>
@@ -352,7 +387,7 @@ export function ProgramDetailPanel({
       if (role !== "Guardian") {
         return (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-2xl font-outfit text-secondary">
+            <Text className="text-sm font-outfit text-secondary text-center">
               Food diaries are managed by guardians.
             </Text>
           </View>
@@ -365,7 +400,7 @@ export function ProgramDetailPanel({
       if (role !== "Athlete") {
         return (
           <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-            <Text className="text-2xl font-outfit text-secondary">
+            <Text className="text-sm font-outfit text-secondary text-center">
               Video uploads are available for athletes.
             </Text>
           </View>
@@ -376,7 +411,7 @@ export function ProgramDetailPanel({
 
     return (
       <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
-        <Text className="text-2xl font-outfit text-secondary">
+        <Text className="text-sm font-outfit text-secondary text-center">
           Content coming soon.
         </Text>
       </View>
@@ -401,13 +436,13 @@ export function ProgramDetailPanel({
             ) : (
               <View className="w-10" />
             )}
-            <Text className="text-2xl font-clash text-app font-bold">
+            <Text className="text-xl font-clash text-app font-bold">
               {PROGRAM_TITLES[programId]}
             </Text>
             <View className="w-10" />
           </View>
 
-          <Text className="text-2xl font-outfit text-secondary mb-4">
+          <Text className="text-sm font-outfit text-secondary mb-4">
             Select a tab to view your program sessions and resources.
           </Text>
         </View>
@@ -418,6 +453,7 @@ export function ProgramDetailPanel({
           onTabChange={setActiveTab}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
+          onTabPress={handleTabDetail}
         />
 
         {searchQuery.trim().length > 0 ? (
@@ -503,14 +539,14 @@ export function ProgramDetailPanel({
         <View className="flex-1 bg-black/80 justify-end">
           <View className="bg-app rounded-t-3xl p-4 pb-8">
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-2xl font-clash text-app">
+              <Text className="text-lg font-clash text-app font-bold">
                 Exercise Video
               </Text>
               <TouchableOpacity
                 onPress={() => setActiveVideoUrl(null)}
-                className="h-9 w-9 rounded-full bg-secondary items-center justify-center"
+                className="h-10 w-10 rounded-full bg-secondary items-center justify-center"
               >
-                <Feather name="x" size={18} color="#94A3B8" />
+                <Feather name="x" size={20} color="#94A3B8" />
               </TouchableOpacity>
             </View>
             {activeVideoUrl ? <VideoPlayer uri={activeVideoUrl} /> : null}

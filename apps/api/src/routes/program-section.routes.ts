@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   createProgramSectionContentHandler,
   deleteProgramSectionContentHandler,
+  getProgramSectionContentHandler,
   listProgramSectionContentHandler,
   updateProgramSectionContentHandler,
 } from "../controllers/program-section.controller";
@@ -12,6 +13,7 @@ import { requireRole } from "../middlewares/roles";
 const router = Router();
 
 router.get("/program-section-content", requireAuth, listProgramSectionContentHandler);
+router.get("/program-section-content/:contentId", requireAuth, getProgramSectionContentHandler);
 router.post(
   "/program-section-content",
   requireAuth,
