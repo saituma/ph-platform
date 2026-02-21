@@ -1,7 +1,6 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
 import { Image, Pressable, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { MessageThread } from "@/types/messages";
 import { Text } from "@/components/ScaledText";
@@ -13,68 +12,47 @@ type ThreadHeaderProps = {
 };
 
 export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
-  const { colors } = useAppTheme();
-
+  const { colors, isDark } = useAppTheme();
+  const headerBg = colors.accent;
+  const headerBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
 
   return (
-    <View className="px-6 pt-2 pb-4 border-b border-app/5 bg-app shadow-sm">
-      <View className="flex-row items-center justify-between">
+    <View className="px-5 pt-3 pb-4 border-b" style={{ backgroundColor: headerBg, borderColor: headerBorder }}>
+      <View className="flex-row items-center">
         <Pressable
           onPress={onBack}
-          className="h-10 w-10 rounded-2xl items-center justify-center bg-input border border-app/5 shadow-sm active:opacity-80"
+          className="h-9 w-9 rounded-full items-center justify-center active:opacity-80"
         >
-          <Feather name="chevron-left" size={20} color={colors.accent} />
+          <Feather name="chevron-left" size={22} color="#FFFFFF" />
         </Pressable>
 
-        <View className="flex-1 ml-2 mr-4">
-          <View className="flex-row items-center gap-3">
-            {thread.avatarUrl ? (
-              <View className="h-10 w-10 rounded-2xl overflow-hidden border border-app/5">
-                <Image 
-                  source={{ uri: thread.avatarUrl }} 
-                  className="h-full w-full"
-                  resizeMode="cover"
-                />
-              </View>
-            ) : (
-              <View className="h-10 w-10 rounded-2xl bg-accent/10 items-center justify-center border border-accent/20">
-                 <Text className="text-accent font-clash text-lg font-bold">
-                   {thread.name.charAt(0)}
-                 </Text>
-              </View>
-            )}
-            <View className="flex-1">
-              <Text className="font-clash text-[17px] font-bold text-app" numberOfLines={1}>
-                {thread.name}
-              </Text>
+        <View className="flex-row items-center gap-3 ml-1 flex-1">
+          {thread.avatarUrl ? (
+            <View className="h-9 w-9 rounded-full overflow-hidden border border-white/30">
+              <Image
+                source={{ uri: thread.avatarUrl }}
+                className="h-full w-full"
+                resizeMode="cover"
+              />
             </View>
-          </View>
-        </View>
-
-        <View className="h-10 w-10" />
-      </View>
-
-      <View className="mt-4 flex-row items-center justify-between">
-        <View className="flex-row items-center gap-2 px-3 py-1 bg-success/5 rounded-full border border-success/10">
-          <Feather name="clock" size={11} color="#2F8F57" />
-          <Text className="text-[10px] font-bold font-outfit text-[#2F8F57] uppercase tracking-wide">
-            {thread.responseTime ?? "Fast Replies"}
-          </Text>
-        </View>
-        <View className="flex-row items-center gap-2">
-          {thread.premium && (
-            <View className="flex-row items-center px-2.5 py-1 rounded-full bg-accent border border-accent">
-              <Ionicons name="star" size={10} color="#FFFFFF" />
-              <Text className="ml-1 text-[9px] font-bold font-outfit text-white uppercase tracking-[1px]">
-                Premium
+          ) : (
+            <View className="h-9 w-9 rounded-full bg-white/20 items-center justify-center border border-white/30">
+              <Text className="text-white font-clash text-base font-bold">
+                {thread.name.charAt(0)}
               </Text>
             </View>
           )}
-          <View className="flex-row items-center gap-1.5 px-2 py-1 bg-input rounded-full border border-app/5">
-            <Feather name="shield" size={10} color={colors.accent} />
-            <Text className="text-[10px] font-medium font-outfit text-secondary">Secure</Text>
+          <View className="flex-1">
+            <Text className="font-clash text-[16px] font-bold text-white" numberOfLines={1}>
+              {thread.name}
+            </Text>
+            <Text className="text-[11px] font-outfit text-white" numberOfLines={1}>
+              {thread.responseTime ?? "Typically replies quickly"}
+            </Text>
           </View>
         </View>
+
+        <View className="h-9 w-9" />
       </View>
     </View>
   );

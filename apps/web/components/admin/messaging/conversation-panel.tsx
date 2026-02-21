@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../ui/button";
-import { Dialog, DialogContent } from "../../ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
 import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
-import { Image as ImageIcon, Paperclip, Smile, Send, Star } from "lucide-react";
+import { Check, CheckCheck, Image as ImageIcon, Mic, Paperclip, Play, Send, Smile, Star, Video } from "lucide-react";
 
 type Message = {
   id: string;
@@ -19,7 +19,7 @@ type Message = {
 
 export type ComposerAttachment = {
   file: File;
-  kind: "image" | "file";
+  kind: "image" | "file" | "video" | "audio";
 };
 
 type ConversationPanelProps = {
@@ -32,6 +32,7 @@ type ConversationPanelProps = {
     tags: string[];
   } | null;
   onReact?: (messageId: string, emoji: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
   onSend?: (payload: { text: string; attachment?: ComposerAttachment | null }) => void;
   onTypingChange?: (isTyping: boolean) => void;
   typingLabel?: string | null;
@@ -42,20 +43,174 @@ export function ConversationPanel({
   messages,
   profile,
   onReact,
+  onDeleteMessage,
   onSend,
   onTypingChange,
   typingLabel,
 }: ConversationPanelProps) {
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null);
-  const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
+  const [activeMedia, setActiveMedia] = useState<{ url: string; type: "image" | "video" } | null>(null);
+  const [recorderOpen, setRecorderOpen] = useState(false);
+  const [recordMode, setRecordMode] = useState<"audio" | "video" | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordError, setRecordError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
+  const discardRecordingRef = useRef(false);
   const typingRef = useRef<{ active: boolean; timer?: NodeJS.Timeout | null }>({
     active: false,
     timer: null,
   });
+
+  useEffect(() => {
+    return () => {
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaRecorderRef.current = null;
+    };
+  }, [recordedUrl]);
+
+  const closeRecorder = () => {
+    setRecorderOpen(false);
+    setRecordMode(null);
+    setRecording(false);
+    setRecordError(null);
+    discardRecordingRef.current = true;
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    setRecordedUrl(null);
+    setRecordedBlob(null);
+    mediaChunksRef.current = [];
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        // ignore stop failures
+      }
+    }
+    mediaRecorderRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    if (videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = null;
+    }
+  };
+
+  const openRecorder = (mode: "audio" | "video") => {
+    setRecordMode(mode);
+    setRecorderOpen(true);
+    setRecordError(null);
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    setRecordedUrl(null);
+    setRecordedBlob(null);
+    mediaChunksRef.current = [];
+  };
+
+  const pickMimeType = (mode: "audio" | "video") => {
+    const options =
+      mode === "video"
+        ? [
+            "video/webm;codecs=vp9,opus",
+            "video/webm;codecs=vp8,opus",
+            "video/webm",
+            "video/mp4",
+          ]
+        : ["audio/webm;codecs=opus", "audio/webm", "audio/ogg", "audio/mp4"];
+    if (typeof MediaRecorder === "undefined") return undefined;
+    return options.find((type) => MediaRecorder.isTypeSupported(type));
+  };
+
+  const startRecording = async () => {
+    if (!recordMode) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setRecordError("Recording is not supported in this browser.");
+      return;
+    }
+    try {
+      discardRecordingRef.current = false;
+      setRecordError(null);
+      mediaChunksRef.current = [];
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+      setRecordedUrl(null);
+      setRecordedBlob(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: recordMode === "audio" ? { echoCancellation: true, noiseSuppression: true } : true,
+        video: recordMode === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } : false,
+      });
+      mediaStreamRef.current = stream;
+      if (recordMode === "video" && videoPreviewRef.current) {
+        videoPreviewRef.current.srcObject = stream;
+        videoPreviewRef.current.muted = true;
+        await videoPreviewRef.current.play().catch(() => {});
+      }
+      const mimeType = pickMimeType(recordMode);
+      const bitrateConfig =
+        recordMode === "video"
+          ? { videoBitsPerSecond: 3_500_000, audioBitsPerSecond: 256_000 }
+          : { audioBitsPerSecond: 256_000 };
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType, ...bitrateConfig } : bitrateConfig);
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) mediaChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blobType = recorder.mimeType || (recordMode === "video" ? "video/webm" : "audio/webm");
+        const blob = new Blob(mediaChunksRef.current, { type: blobType });
+        const url = URL.createObjectURL(blob);
+        if (discardRecordingRef.current) {
+          URL.revokeObjectURL(url);
+          mediaChunksRef.current = [];
+          return;
+        }
+        setRecordedBlob(blob);
+        setRecordedUrl(url);
+        mediaChunksRef.current = [];
+      };
+      recorder.start();
+      setRecording(true);
+    } catch (error) {
+      console.warn("Failed to start recording", error);
+      setRecordError("Unable to access camera or microphone.");
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    if (videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = null;
+    }
+    setRecording(false);
+  };
+
+  const sendRecording = () => {
+    if (!recordedBlob || !recordMode) return;
+    const mimeType = recordedBlob.type || (recordMode === "video" ? "video/webm" : "audio/webm");
+    const extension = mimeType.includes("mp4")
+      ? "mp4"
+      : mimeType.includes("ogg")
+      ? "ogg"
+      : mimeType.includes("mpeg")
+      ? "mpeg"
+      : "webm";
+    const fileName =
+      recordMode === "video" ? `recording-${Date.now()}.${extension}` : `voice-${Date.now()}.${extension}`;
+    const file = new File([recordedBlob], fileName, { type: mimeType });
+    setAttachment({ file, kind: recordMode });
+    closeRecorder();
+  };
   useEffect(() => {
     if (!onTypingChange) return;
     if (draft.trim().length > 0) {
@@ -91,7 +246,7 @@ export function ConversationPanel({
   }
 
   return (
-    <div className="flex h-[calc(100vh-16rem)] min-h-[34rem] flex-col gap-4">
+    <div className="flex min-h-[24rem] flex-col gap-4 lg:h-[calc(100vh-16rem)] lg:min-h-[34rem]">
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-secondary/30 px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-foreground">{name}</p>
@@ -111,8 +266,8 @@ export function ConversationPanel({
           </Button>
         </div>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto pr-1">
-        <div className="space-y-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto rounded-2xl border border-border bg-background/80 p-3 pr-2 dark:bg-black/60">
+        <div className="space-y-3 pb-[calc(11rem+env(safe-area-inset-bottom))] lg:pb-0">
         {messages.map((message) => {
           const isCoach = message.author === "Coach";
           return (
@@ -121,18 +276,26 @@ export function ConversationPanel({
               className={`flex ${isCoach ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`group max-w-[80%] rounded-2xl border border-border p-4 text-sm ${
-                  isCoach ? "bg-primary/10 text-foreground" : "bg-secondary/40"
+                className={`group max-w-[80%] rounded-2xl border p-3 text-sm shadow-sm ${
+                  isCoach
+                    ? "bg-emerald-100/80 text-foreground dark:bg-emerald-900/40"
+                    : "bg-white text-foreground dark:bg-slate-900"
                 }`}
+                onContextMenu={(event) => {
+                  if (!onDeleteMessage) return;
+                  event.preventDefault();
+                  const confirmed = window.confirm("Delete this message?");
+                  if (confirmed) onDeleteMessage(message.id);
+                }}
               >
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground">
                   {message.author} • {message.time}
                 </p>
                 {message.mediaUrl && message.contentType === "image" ? (
                   <button
                     type="button"
                     className="mt-2 block w-full"
-                    onClick={() => setActiveImageUrl(message.mediaUrl ?? null)}
+                    onClick={() => setActiveMedia({ url: message.mediaUrl ?? "", type: "image" })}
                   >
                     <img
                       src={message.mediaUrl}
@@ -141,7 +304,28 @@ export function ConversationPanel({
                     />
                   </button>
                 ) : null}
-                {message.mediaUrl && message.contentType !== "image" ? (
+                {message.mediaUrl && message.contentType === "video" ? (
+                  <button
+                    type="button"
+                    className="mt-2 block w-full"
+                    onClick={() => setActiveMedia({ url: message.mediaUrl ?? "", type: "video" })}
+                  >
+                    <div className="relative">
+                      <video
+                        src={message.mediaUrl}
+                        className="max-h-72 w-full rounded-xl object-cover"
+                        muted
+                        playsInline
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+                          <Play className="h-5 w-5 text-white" />
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ) : null}
+                {message.mediaUrl && message.contentType !== "image" && message.contentType !== "video" ? (
                   <a
                     href={message.mediaUrl}
                     target="_blank"
@@ -182,14 +366,17 @@ export function ConversationPanel({
                     </button>
                   ))}
                 </div>
-                {isCoach && message.status ? (
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    {message.status === "read"
-                      ? "Read"
-                      : message.status === "delivered"
-                      ? "Delivered"
-                      : "Sent"}
-                  </p>
+                {isCoach ? (
+                  <div className="mt-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
+                    {message.status === "read" ? (
+                      <CheckCheck className="h-3.5 w-3.5 text-sky-500" />
+                    ) : message.status === "delivered" ? (
+                      <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className="text-[11px]">{message.time}</span>
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -203,7 +390,7 @@ export function ConversationPanel({
           {typingLabel}
         </div>
       ) : null}
-      <div className="space-y-3 rounded-2xl border border-border bg-background p-4">
+      <div className="fixed bottom-0 left-0 right-0 z-20 space-y-3 border-t border-border bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-sm backdrop-blur lg:static lg:rounded-2xl lg:border lg:border-border lg:bg-background lg:shadow-none">
         <input
           ref={fileInputRef}
           type="file"
@@ -229,7 +416,7 @@ export function ConversationPanel({
         />
         <Textarea
           placeholder="Write a response..."
-          className="min-h-[120px]"
+          className="min-h-[56px] rounded-2xl bg-background px-4 py-3"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
@@ -261,6 +448,12 @@ export function ConversationPanel({
             >
               <ImageIcon className="h-4 w-4" />
             </Button>
+            <Button size="icon" variant="ghost" onClick={() => openRecorder("audio")} title="Record voice">
+              <Mic className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="ghost" onClick={() => openRecorder("video")} title="Record video">
+              <Video className="h-4 w-4" />
+            </Button>
             <Button size="icon" variant="ghost">
               <Smile className="h-4 w-4" />
             </Button>
@@ -268,7 +461,7 @@ export function ConversationPanel({
           <div className="flex items-center gap-2">
             <Button variant="outline">Save Draft</Button>
             <Button
-              className="gap-2"
+              className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
               onClick={() => {
                 const text = draft.trim();
                 if (!text && !attachment) return;
@@ -283,15 +476,107 @@ export function ConversationPanel({
           </div>
         </div>
       </div>
-      <Dialog open={Boolean(activeImageUrl)} onOpenChange={(open) => (open ? null : setActiveImageUrl(null))}>
+      <Dialog open={Boolean(activeMedia)} onOpenChange={(open) => (open ? null : setActiveMedia(null))}>
         <DialogContent className="max-w-5xl p-4">
-          {activeImageUrl ? (
+          <DialogTitle className="sr-only">Media preview</DialogTitle>
+          {activeMedia?.type === "image" ? (
             <img
-              src={activeImageUrl}
+              src={activeMedia.url}
               alt="Attachment preview"
               className="max-h-[80vh] w-full rounded-xl object-contain"
             />
           ) : null}
+          {activeMedia?.type === "video" ? (
+            <video
+              src={activeMedia.url}
+              className="max-h-[80vh] w-full rounded-xl"
+              controls
+              playsInline
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={recorderOpen} onOpenChange={(open) => (open ? null : closeRecorder())}>
+        <DialogContent className="max-w-3xl p-4">
+          <DialogTitle className="sr-only">
+            {recordMode === "video" ? "Record video" : "Record voice"}
+          </DialogTitle>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {recordMode === "video" ? "Record video" : "Record voice"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {recordMode === "video"
+                    ? "Use your webcam and mic. Review before sending."
+                    : "Use your mic. Review before sending."}
+                </p>
+              </div>
+              <Button variant="ghost" onClick={closeRecorder}>
+                Close
+              </Button>
+            </div>
+
+            {recordError ? (
+              <p className="rounded-xl border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                {recordError}
+              </p>
+            ) : null}
+
+            <div className="rounded-2xl border border-border bg-black/90 p-4 text-center">
+              {recordMode === "video" ? (
+                <video
+                  ref={videoPreviewRef}
+                  className="mx-auto aspect-video w-full max-w-2xl rounded-xl bg-black"
+                  controls={Boolean(recordedUrl)}
+                  src={recordedUrl ?? undefined}
+                />
+              ) : (
+                <audio
+                  className="w-full"
+                  controls
+                  src={recordedUrl ?? undefined}
+                />
+              )}
+              {!recordedUrl && !recording ? (
+                <p className="mt-3 text-xs text-white/70">
+                  Press record to start.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {!recording ? (
+                  <Button onClick={startRecording} variant="outline">
+                    Start recording
+                  </Button>
+                ) : (
+                  <Button onClick={stopRecording} variant="outline">
+                    Stop recording
+                  </Button>
+                )}
+                {recordedUrl ? (
+                  <Button variant="ghost" onClick={() => {
+                    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+                    setRecordedUrl(null);
+                    setRecordedBlob(null);
+                  }}>
+                    Discard
+                  </Button>
+                ) : null}
+              </div>
+              <Button
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={sendRecording}
+                disabled={!recordedBlob}
+              >
+                Use recording
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

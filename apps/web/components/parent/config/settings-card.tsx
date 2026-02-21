@@ -3,19 +3,15 @@ import { Select } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 
 type SettingsCardProps = {
-  defaultProgramTier: string;
   approvalWorkflow: string;
   notes: string;
-  onSetDefaultProgramTier: (value: string) => void;
   onSetApprovalWorkflow: (value: string) => void;
   onSetNotes: (value: string) => void;
 };
 
 export function SettingsCard({
-  defaultProgramTier,
   approvalWorkflow,
   notes,
-  onSetDefaultProgramTier,
   onSetApprovalWorkflow,
   onSetNotes,
 }: SettingsCardProps) {
@@ -27,10 +23,8 @@ export function SettingsCard({
       <CardContent className="grid gap-4 text-sm text-muted-foreground sm:grid-cols-2">
         <div>
           <p className="mb-2 font-medium text-foreground">Default Program Tier</p>
-          <Select value={defaultProgramTier} onChange={(event) => onSetDefaultProgramTier(event.target.value)}>
+          <Select value="PHP" disabled>
             <option value="PHP">PHP</option>
-            <option value="PHP_Plus">PHP Plus</option>
-            <option value="PHP_Premium">PHP Premium</option>
           </Select>
         </div>
         <div>

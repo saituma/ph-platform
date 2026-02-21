@@ -2,6 +2,12 @@ export type PlanPricing = {
   badge?: string;
   lines: string[];
   discountNote?: string;
+  entries?: {
+    label: string;
+    original: string;
+    discounted?: string;
+    discountLabel?: string;
+  }[];
 };
 
 function parseAmount(value: string) {
@@ -20,6 +26,7 @@ function formatAmount(symbol: string, amount: number) {
 
 export function buildPlanPricing(plan: any): PlanPricing {
   const lines: string[] = [];
+  const entries: PlanPricing["entries"] = [];
   const monthlyRaw = plan?.monthlyPrice ? String(plan.monthlyPrice) : "";
   const yearlyRaw = plan?.yearlyPrice ? String(plan.yearlyPrice) : "";
   const discountValue = plan?.discountValue ? Number(plan.discountValue) : 0;
@@ -27,17 +34,28 @@ export function buildPlanPricing(plan: any): PlanPricing {
 
   const addLine = (label: string, rawValue: string, applyDiscount: boolean) => {
     if (!rawValue.trim()) return;
+    const entry: { label: string; original: string; discounted?: string; discountLabel?: string } = {
+      label,
+      original: rawValue,
+    };
     if (!applyDiscount || !discountValue) {
       lines.push(`${label} ${rawValue}`);
+      entries?.push(entry);
       return;
     }
     const parsed = parseAmount(rawValue);
     if (!parsed) {
       lines.push(`${label} ${rawValue} (-${discountValue}%)`);
+      entry.discountLabel = `${discountValue}% off`;
+      entries?.push(entry);
       return;
     }
     const discounted = parsed.amount * (1 - discountValue / 100);
-    lines.push(`${label} ${rawValue} → ${formatAmount(parsed.symbol, discounted)}`);
+    const discountedLabel = formatAmount(parsed.symbol, discounted);
+    lines.push(`${label} ${rawValue} → ${discountedLabel}`);
+    entry.discounted = discountedLabel;
+    entry.discountLabel = `${discountValue}% off`;
+    entries?.push(entry);
   };
 
   addLine(
@@ -60,5 +78,5 @@ export function buildPlanPricing(plan: any): PlanPricing {
     ? String(plan.displayPrice)
     : lines[0];
 
-  return { badge, lines, discountNote };
+  return { badge, lines, discountNote, entries };
 }

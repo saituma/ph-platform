@@ -1,6 +1,5 @@
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "expo-router";
 import { AppState } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
 import {
@@ -38,19 +37,11 @@ export function AuthPersist() {
   const token = useAppSelector((state) => state.user.token);
   const refreshToken = useAppSelector((state) => state.user.refreshToken);
   const profile = useAppSelector((state) => state.user.profile);
-  const router = useRouter();
-  const pathname = usePathname();
+  const isAuthRoute = false;
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
   const lastSavedRefreshToken = useRef<string | null>(null);
   const lastBillingSnapshot = useRef<{ tier: string | null; requestStatus: string | null } | null>(null);
-  const isAuthRoute =
-    pathname.startsWith("/(auth)") ||
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/verify" ||
-    pathname === "/forgot" ||
-    pathname === "/reset-password";
 
   useEffect(() => {
     let mounted = true;
@@ -150,9 +141,6 @@ export function AuthPersist() {
           }
         } else {
           dispatch(logout());
-          if (!isAuthRoute) {
-            router.replace("/(auth)/login");
-          }
         }
       } finally {
         if (!mounted) return;
@@ -163,7 +151,7 @@ export function AuthPersist() {
     return () => {
       mounted = false;
     };
-  }, [dispatch, isAuthRoute, router]);
+  }, [dispatch, isAuthRoute]);
 
   useEffect(() => {
     if (!hydrated || !isAuthenticated || !token) return;
@@ -288,12 +276,10 @@ export function AuthPersist() {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
         lastSavedToken.current = null;
         lastSavedRefreshToken.current = null;
-        if (!isAuthRoute) {
-          router.replace("/(auth)/login");
-        }
+        // navigation disabled outside router context
       }
     })();
-  }, [hydrated, isAuthenticated, token, refreshToken, profile, pathname, router, isAuthRoute]);
+  }, [hydrated, isAuthenticated, token, refreshToken, profile, isAuthRoute]);
 
   return null;
 }

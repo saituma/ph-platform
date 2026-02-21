@@ -1,5 +1,4 @@
 import { ChatMessage } from "@/constants/messages";
-import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "@/lib/api";
 import { useRole } from "@/context/RoleContext";
 import { useAppSelector } from "@/store/hooks";
@@ -129,6 +128,7 @@ export function useMessagesController() {
         text: msg.content,
         contentType: msg.contentType ?? "text",
         mediaUrl: msg.mediaUrl ?? undefined,
+        videoUploadId: msg.videoUploadId ?? undefined,
         time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
         status: msg.read ? "read" : "sent",
         reactions: msg.reactions ?? [],
@@ -473,6 +473,35 @@ export function useMessagesController() {
     [athleteUserId, role, token]
   );
 
+  const handleDeleteMessage = useCallback(
+    async (message: ChatMessage) => {
+      if (!token) return;
+      try {
+        if (message.threadId.startsWith("group:")) {
+          const groupId = Number(message.threadId.replace("group:", ""));
+          const messageId = Number(message.id.replace("group-", ""));
+          if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return;
+          await apiRequest(`/chat/groups/${groupId}/messages/${messageId}`, {
+            method: "DELETE",
+            token,
+          });
+        } else {
+          const messageId = Number(message.id);
+          if (!Number.isFinite(messageId)) return;
+          await apiRequest(`/messages/${messageId}`, {
+            method: "DELETE",
+            token,
+            headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
+          });
+        }
+        setMessages((prev) => prev.filter((item) => item.id !== message.id));
+      } catch (error) {
+        console.warn("Failed to delete message", error);
+      }
+    },
+    [athleteUserId, role, token]
+  );
+
   const handleSend = useCallback(async () => {
     const trimmed = draft.trim();
     if (!trimmed && !pendingAttachment) return;
@@ -519,6 +548,90 @@ export function useMessagesController() {
       });
     } catch (error) {
       console.warn("Failed to attach image", error);
+    } finally {
+      setComposerMenuOpen(false);
+    }
+  }, [currentThread, isUploadingAttachment, token]);
+
+  const handleAttachVideo = useCallback(async () => {
+    if (!currentThread || !token || isUploadingAttachment) return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        quality: 0.9,
+        allowsEditing: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+      const mimeType = asset.mimeType || "video/mp4";
+      setPendingAttachment({
+        uri: asset.uri,
+        fileName: asset.fileName || `video-${Date.now()}.mp4`,
+        mimeType,
+        sizeBytes: asset.fileSize ?? 2000000,
+        isImage: false,
+      });
+    } catch (error) {
+      console.warn("Failed to attach video", error);
+    } finally {
+      setComposerMenuOpen(false);
+    }
+  }, [currentThread, isUploadingAttachment, token]);
+
+  const handleTakePhoto = useCallback(async () => {
+    if (!currentThread || !token || isUploadingAttachment) return;
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) return;
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        quality: 0.9,
+        allowsEditing: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+      const mimeType = asset.mimeType || "image/jpeg";
+      setPendingAttachment({
+        uri: asset.uri,
+        fileName: asset.fileName || `photo-${Date.now()}.jpg`,
+        mimeType,
+        sizeBytes: asset.fileSize ?? 512000,
+        isImage: true,
+      });
+    } catch (error) {
+      console.warn("Failed to take photo", error);
+    } finally {
+      setComposerMenuOpen(false);
+    }
+  }, [currentThread, isUploadingAttachment, token]);
+
+  const handleRecordVideo = useCallback(async () => {
+    if (!currentThread || !token || isUploadingAttachment) return;
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) return;
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["videos"],
+        quality: 0.9,
+        allowsEditing: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+      const mimeType = asset.mimeType || "video/mp4";
+      setPendingAttachment({
+        uri: asset.uri,
+        fileName: asset.fileName || `video-${Date.now()}.mp4`,
+        mimeType,
+        sizeBytes: asset.fileSize ?? 2000000,
+        isImage: false,
+      });
+    } catch (error) {
+      console.warn("Failed to record video", error);
     } finally {
       setComposerMenuOpen(false);
     }
@@ -590,11 +703,9 @@ export function useMessagesController() {
     setPendingAttachment(null);
   }, [currentThread?.id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      setOpeningThreadId(null);
-    }, [])
-  );
+  useEffect(() => {
+    setOpeningThreadId(null);
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== "android" || !currentThread) return;
@@ -629,7 +740,11 @@ export function useMessagesController() {
     handleSend,
     handleAttachFile,
     handleAttachImage,
+    handleAttachVideo,
+    handleTakePhoto,
+    handleRecordVideo,
     handleToggleReaction,
+    handleDeleteMessage,
     loadMessages,
   };
 }

@@ -6,7 +6,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
-import { useNavigation } from "@react-navigation/native";
 import { useRole } from "@/context/RoleContext";
 import { setParentContentCache } from "@/lib/parentContentCache";
 import { canAccessTier, tierRank } from "@/lib/planAccess";
@@ -49,7 +48,6 @@ export default function ParentPlatformScreen() {
   const { role } = useRole();
   const { token, programTier } = useAppSelector((state) => state.user);
   const router = useRouter();
-  const navigation = useNavigation();
   const { isSectionHidden } = useAgeExperience();
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,17 +102,6 @@ export default function ParentPlatformScreen() {
   const visibleGroups = isAthlete ? [] : grouped.filter((cat) => cat.items.length > 0);
   const visibleItems = isAthlete ? items : [];
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("beforeRemove", (event) => {
-      if (event.data.action?.type !== "GO_BACK" && event.data.action?.type !== "POP") {
-        return;
-      }
-      event.preventDefault();
-      router.replace("/(tabs)/more");
-    });
-
-    return unsubscribe;
-  }, [navigation, router]);
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>

@@ -5,6 +5,7 @@ import {
   submitOnboarding,
   getOnboardingStatus,
   getOnboardingConfig,
+  getPhpPlusTabs,
   updateAthletePhoto,
   listGuardianAthletes,
   selectActiveAthlete,
@@ -18,5 +19,6 @@ router.get("/onboarding/athletes", requireAuth, listGuardianAthletes);
 router.post("/onboarding/select-athlete", requireAuth, selectActiveAthlete);
 router.patch("/onboarding/athlete-photo", requireAuth, updateAthletePhoto);
 router.get("/onboarding/config", getOnboardingConfig);
+router.get("/onboarding/php-plus-tabs", getPhpPlusTabs);
 
 export default router;

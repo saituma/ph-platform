@@ -1,7 +1,8 @@
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
+  athleteTable,
   availabilityBlockTable,
   bookingTable,
   guardianTable,
@@ -10,7 +11,7 @@ import {
   userTable,
 } from "../db/schema";
 import { env } from "../config/env";
-import { sendBookingConfirmationEmail } from "../lib/mailer";
+import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../lib/mailer";
 
 type ServiceTypeKind =
   | "call"
@@ -160,7 +161,31 @@ export async function listAvailabilityBlocks(serviceTypeId: number, from: Date, 
   return db
     .select()
     .from(availabilityBlockTable)
-    .where(and(eq(availabilityBlockTable.serviceTypeId, serviceTypeId), gte(availabilityBlockTable.startsAt, from), lte(availabilityBlockTable.endsAt, to)));
+    .where(
+      and(
+        eq(availabilityBlockTable.serviceTypeId, serviceTypeId),
+        lte(availabilityBlockTable.startsAt, to),
+        gte(availabilityBlockTable.endsAt, from),
+      ),
+    );
+}
+
+export async function listBookingsForServiceInRange(serviceTypeId: number, from: Date, to: Date) {
+  return db
+    .select({
+      id: bookingTable.id,
+      startsAt: bookingTable.startsAt,
+      status: bookingTable.status,
+    })
+    .from(bookingTable)
+    .where(
+      and(
+        eq(bookingTable.serviceTypeId, serviceTypeId),
+        gte(bookingTable.startsAt, from),
+        lte(bookingTable.startsAt, to),
+        inArray(bookingTable.status, ["pending", "confirmed"]),
+      ),
+    );
 }
 
 export async function createBooking(input: {
@@ -172,6 +197,8 @@ export async function createBooking(input: {
   createdBy: number;
   location?: string | null;
   meetingLink?: string | null;
+  timezoneOffsetMinutes?: number;
+  bypassAvailability?: boolean;
 }) {
   const serviceType = await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.id, input.serviceTypeId)).limit(1);
   if (!serviceType[0]) {
@@ -184,7 +211,17 @@ export async function createBooking(input: {
     normalizeTime(
       `${String(input.startsAt.getHours()).padStart(2, "0")}:${String(input.startsAt.getMinutes()).padStart(2, "0")}`,
     ) ?? "";
-  const matchesFixed = (fixed: string) => fixed === startTimeUtc || fixed === startTimeLocal;
+  const startTimeOffset = Number.isFinite(input.timezoneOffsetMinutes)
+    ? (() => {
+        const offsetMs = Number(input.timezoneOffsetMinutes) * 60 * 1000;
+        const localDate = new Date(input.startsAt.getTime() - offsetMs);
+        const hours = String(localDate.getUTCHours()).padStart(2, "0");
+        const minutes = String(localDate.getUTCMinutes()).padStart(2, "0");
+        return `${hours}:${minutes}`;
+      })()
+    : "";
+  const matchesFixed = (fixed: string) =>
+    fixed === startTimeUtc || fixed === startTimeLocal || (startTimeOffset ? fixed === startTimeOffset : false);
   const fixedStartTime = normalizeTime(serviceType[0].fixedStartTime);
   if (fixedStartTime) {
     if (!matchesFixed(fixedStartTime)) {
@@ -202,6 +239,25 @@ export async function createBooking(input: {
 
     if (existing.length >= serviceType[0].capacity) {
       throw new Error("Capacity reached");
+    }
+  }
+
+  if (!input.bypassAvailability) {
+    const blocks = await db
+      .select()
+      .from(availabilityBlockTable)
+      .where(
+        and(
+          eq(availabilityBlockTable.serviceTypeId, input.serviceTypeId),
+          lte(availabilityBlockTable.startsAt, input.startsAt),
+          gte(availabilityBlockTable.endsAt, input.endsAt),
+        ),
+      )
+      .limit(1);
+    if (!blocks[0]) {
+      if (!serviceType[0].capacity) {
+        throw new Error("Selected time is not available");
+      }
     }
   }
 
@@ -234,10 +290,39 @@ export async function createBooking(input: {
       .where(eq(userTable.id, guardian[0].userId))
       .limit(1);
 
+    const athlete = await db
+      .select({ name: athleteTable.name })
+      .from(athleteTable)
+      .where(eq(athleteTable.id, input.athleteId))
+      .limit(1);
+
+    const adminUsers = await db
+      .select({ email: userTable.email })
+      .from(userTable)
+      .where(inArray(userTable.role, ["coach", "admin", "superAdmin"]));
+
+    for (const admin of adminUsers) {
+      if (!admin.email) continue;
+      try {
+        await sendBookingRequestAdminEmail({
+          to: admin.email,
+          serviceName: serviceType[0].name,
+          startsAt: input.startsAt,
+          guardianName: user[0]?.name ?? undefined,
+          guardianEmail: user[0]?.email ?? undefined,
+          athleteName: athlete[0]?.name ?? undefined,
+          location: input.location ?? serviceType[0].defaultLocation ?? undefined,
+          meetingLink: input.meetingLink ?? serviceType[0].defaultMeetingLink ?? undefined,
+        });
+      } catch (error) {
+        console.error("Failed to send booking request admin email", error);
+      }
+    }
+
     await db.insert(notificationTable).values({
       userId: guardian[0].userId,
       type: "booking_confirmed",
-      content: `Booking confirmed for ${serviceType[0].name} at ${input.startsAt.toISOString()}`,
+      content: `Booking requested for ${serviceType[0].name} at ${input.startsAt.toISOString()}`,
       link: "/schedule",
     });
 

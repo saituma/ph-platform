@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
-import { useAssignProgramMutation, useGetUserOnboardingQuery, useUpdateProgramTierMutation } from "../../../lib/apiSlice";
+import { useGetUserOnboardingQuery, useUpdateProgramTierMutation } from "../../../lib/apiSlice";
 
 export type UsersDialog =
   | null
@@ -24,6 +24,14 @@ type UsersDialogsProps = {
 export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsProps) {
   const [error, setError] = useState<string | null>(null);
   const [programTier, setProgramTier] = useState("PHP");
+  const [billingStatus, setBillingStatus] = useState<{
+    planTier?: string | null;
+    displayPrice?: string | null;
+    billingInterval?: string | null;
+    status?: string | null;
+    paymentStatus?: string | null;
+    createdAt?: string | null;
+  } | null>(null);
   const shouldFetch = Boolean(
     selectedUserId && (active === "review-onboarding" || active === "assign-program")
   );
@@ -31,9 +39,49 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
     shouldFetch ? selectedUserId! : skipToken
   );
   const [updateProgramTier, { isLoading: isUpdatingTier }] = useUpdateProgramTierMutation();
-  const [assignProgram, { isLoading: isAssigning }] = useAssignProgramMutation();
 
   const athleteId = useMemo(() => onboarding?.athlete?.id, [onboarding]);
+  const resolvedTier =
+    onboarding?.athlete?.currentProgramTier ??
+    onboarding?.guardian?.currentProgramTier ??
+    "PHP";
+  useEffect(() => {
+    if (!shouldFetch) return;
+    setProgramTier(resolvedTier);
+    setError(null);
+  }, [resolvedTier, shouldFetch]);
+  useEffect(() => {
+    if (!selectedUserId || !shouldFetch) return;
+    let activeRequest = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/backend/admin/subscription-requests");
+        if (!res.ok) return;
+        const payload = await res.json();
+        const requests = payload?.requests ?? [];
+        const match = requests.find((request: any) => request.userId === selectedUserId);
+        if (!activeRequest) return;
+        if (!match) {
+          setBillingStatus(null);
+          return;
+        }
+        setBillingStatus({
+          planTier: match.planTier ?? null,
+          displayPrice: match.displayPrice ?? null,
+          billingInterval: match.billingInterval ?? null,
+          status: match.status ?? null,
+          paymentStatus: match.paymentStatus ?? null,
+          createdAt: match.createdAt ?? null,
+        });
+      } catch {
+        if (!activeRequest) return;
+        setBillingStatus(null);
+      }
+    })();
+    return () => {
+      activeRequest = false;
+    };
+  }, [selectedUserId, shouldFetch]);
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
       <DialogContent>
@@ -74,6 +122,33 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                 </div>
               ) : null}
               <div className="grid gap-3 rounded-2xl border border-border bg-secondary/20 p-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current Tier:</span>
+                  <span className="font-medium">{resolvedTier}</span>
+                </div>
+                {billingStatus ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Latest Plan:</span>
+                      <span className="font-medium">
+                        {billingStatus.planTier ?? "--"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Billing:</span>
+                      <span className="font-medium">
+                        {billingStatus.displayPrice ?? "--"}{" "}
+                        {billingStatus.billingInterval ? `• ${billingStatus.billingInterval}` : ""}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className="font-medium">
+                        {billingStatus.status ?? "--"} / {billingStatus.paymentStatus ?? "--"}
+                      </span>
+                    </div>
+                  </>
+                ) : null}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Age / Team:</span>
                   <span className="font-medium">
@@ -118,7 +193,10 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                 </Button>
                 <Button
                   onClick={async () => {
-                    if (!selectedUserId || !athleteId) return;
+                    if (!selectedUserId || !athleteId) {
+                      setError("Unable to resolve athlete for this user.");
+                      return;
+                    }
                     setError(null);
                     try {
                       await updateProgramTier({ athleteId, programTier }).unwrap();
@@ -130,13 +208,33 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                   }}
                   disabled={isUpdatingTier}
                 >
-                  Finalize Review
+                  {isUpdatingTier ? "Saving..." : "Finalize Review"}
                 </Button>
               </div>
             </div>
           ) : null}
           {active === "assign-program" ? (
             <>
+              <div className="rounded-2xl border border-border bg-secondary/20 p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current Tier:</span>
+                  <span className="font-medium">{resolvedTier}</span>
+                </div>
+                {billingStatus ? (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Latest Plan:</span>
+                      <span className="font-medium">{billingStatus.planTier ?? "--"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className="font-medium">
+                        {billingStatus.status ?? "--"} / {billingStatus.paymentStatus ?? "--"}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               <Select value={programTier} onChange={(e) => setProgramTier(e.target.value)}>
                 <option value="PHP">PHP Program</option>
                 <option value="PHP_Plus">PHP Plus</option>
@@ -150,19 +248,22 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                 </Button>
                 <Button
                   onClick={async () => {
-                    if (!selectedUserId || !athleteId) return;
+                    if (!selectedUserId || !athleteId) {
+                      setError("Unable to resolve athlete for this user.");
+                      return;
+                    }
                     setError(null);
                     try {
-                      await assignProgram({ athleteId, programType: programTier }).unwrap();
+                      await updateProgramTier({ athleteId, programTier }).unwrap();
                       onClose();
                     } catch (err) {
-                      setError("Failed to assign program");
+                      setError("Failed to update tier");
                       return;
                     }
                   }}
-                  disabled={isAssigning}
+                  disabled={isUpdatingTier}
                 >
-                  Assign
+                  {isUpdatingTier ? "Assigning..." : "Assign"}
                 </Button>
               </div>
             </>

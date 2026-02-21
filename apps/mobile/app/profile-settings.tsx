@@ -1,5 +1,4 @@
 import { ActionButton } from "@/components/dashboard/ActionButton";
-import { PinModal } from "@/components/PinModal";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -9,7 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, Switch, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -20,18 +19,14 @@ import { AgeGate } from "@/components/AgeGate";
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
-  const { role, guardianPin, setGuardianPin } = useRole();
+  const { role } = useRole();
   const { isDark, colors } = useAppTheme();
-  const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const { isLoading } = useRefreshContext();
   const { profile, token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
   const dispatch = useAppDispatch();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [pendingAvatarUri, setPendingAvatarUri] = useState<string | null>(null);
-  const [isUploadingAthleteAvatar, setIsUploadingAthleteAvatar] = useState(false);
-  const [pendingAthleteAvatarUri, setPendingAthleteAvatarUri] = useState<string | null>(null);
-  const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
   const [managedAthleteCount, setManagedAthleteCount] = useState(0);
   const [isManagedAthleteModalVisible, setIsManagedAthleteModalVisible] = useState(false);
   const [managedAthletes, setManagedAthletes] = useState<
@@ -107,12 +102,10 @@ export default function ProfileSettingsScreen() {
         setManagedAthletes(athleteList);
         const activeAthlete =
           athleteList.find((item) => item.id === data.guardian?.activeAthleteId) ?? athleteList[0] ?? null;
-        setAthleteAvatar(activeAthlete?.profilePicture ?? null);
         setManagedAthlete(activeAthlete ?? null);
         setManagedAthleteCount(athleteList.length);
       } catch {
         if (!active) return;
-        setAthleteAvatar(null);
         setManagedAthlete(null);
         setManagedAthleteCount(0);
         setManagedAthletes([]);
@@ -123,19 +116,6 @@ export default function ProfileSettingsScreen() {
       active = false;
     };
   }, [role, token]);
-
-  const handleSetPin = (pin: string) => {
-    setGuardianPin(pin);
-    setIsPinModalVisible(false);
-  };
-
-  const handleTogglePin = (value: boolean) => {
-    if (value) {
-      setIsPinModalVisible(true);
-    } else {
-      setGuardianPin(null);
-    }
-  };
 
   const handleRefresh = async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -183,24 +163,6 @@ export default function ProfileSettingsScreen() {
     setPendingAvatarUri(result.assets[0].uri);
   };
 
-  const handlePickAthleteAvatar = async () => {
-    if (!token || isUploadingAthleteAvatar) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
-    const mediaTypes =
-      (ImagePicker as any).MediaType?.Images
-        ? [(ImagePicker as any).MediaType.Images]
-        : (ImagePicker as any).MediaTypeOptions?.Images;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes,
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-    setPendingAthleteAvatarUri(result.assets[0].uri);
-  };
-
   const handleConfirmAvatar = async () => {
     if (!pendingAvatarUri || !token || isUploadingAvatar) return;
     setIsUploadingAvatar(true);
@@ -217,25 +179,6 @@ export default function ProfileSettingsScreen() {
       console.warn("Failed to update avatar", error);
     } finally {
       setIsUploadingAvatar(false);
-    }
-  };
-
-  const handleConfirmAthleteAvatar = async () => {
-    if (!pendingAthleteAvatarUri || !token || isUploadingAthleteAvatar) return;
-    setIsUploadingAthleteAvatar(true);
-    try {
-      const publicUrl = await uploadAvatar(pendingAthleteAvatarUri);
-      const response = await apiRequest<{ athlete?: { profilePicture?: string | null } }>("/onboarding/athlete-photo", {
-        method: "PATCH",
-        token,
-        body: { profilePicture: publicUrl },
-      });
-      setAthleteAvatar(response.athlete?.profilePicture ?? publicUrl);
-      setPendingAthleteAvatarUri(null);
-    } catch (error) {
-      console.warn("Failed to update athlete avatar", error);
-    } finally {
-      setIsUploadingAthleteAvatar(false);
     }
   };
 
@@ -315,43 +258,6 @@ export default function ProfileSettingsScreen() {
                 </View>
               </View>
 
-              {role === "Guardian" ? (
-                <View className="flex-row items-center gap-4 mb-6">
-                  <View className="relative">
-                    {athleteAvatar ? (
-                      <View className="w-20 h-20 rounded-full overflow-hidden border-2 border-accent">
-                        <Image source={{ uri: athleteAvatar }} style={{ width: 80, height: 80 }} />
-                      </View>
-                    ) : (
-                      <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center border-2 border-accent">
-                        <Feather name="user" size={40} className="text-secondary" />
-                      </View>
-                    )}
-                    <TouchableOpacity
-                      onPress={handlePickAthleteAvatar}
-                      className="absolute bottom-0 right-0 w-7 h-7 bg-accent rounded-full items-center justify-center border-2 border-white"
-                    >
-                      {isUploadingAthleteAvatar ? (
-                        <ActivityIndicator size="small" color="white" />
-                      ) : (
-                        <Feather name="camera" size={14} color="white" />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-3 mb-1">
-                      <View className="h-4 w-1 rounded-full bg-accent" />
-                      <Text className="text-lg font-bold font-clash text-app">
-                        Athlete Photo
-                      </Text>
-                    </View>
-                    <Text className="text-secondary font-outfit text-sm">
-                      Upload a separate photo for your athlete.
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
-
               <View className="gap-4">
                 <InputField
                   label="Full Name"
@@ -384,61 +290,28 @@ export default function ProfileSettingsScreen() {
                 }
               >
                 <SectionHeader
-                  title="Guardian Security"
-                  subtitle="Protect sensitive settings with a PIN."
+                  title="Guardian Settings"
+                  subtitle="Manage your household settings."
                   icon="shield"
                   iconColor="text-blue-500"
                 />
 
-                <View className="flex-row items-center justify-between py-4 border-t border-app">
-                  <View className="flex-1 mr-4">
-                    <Text className="text-base font-semibold font-outfit text-app mb-1">
-                      Enable PIN Protection
-                    </Text>
-                    <Text className="text-muted font-outfit text-xs leading-relaxed">
-                      Require a PIN when switching roles.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={!!guardianPin}
-                    onValueChange={handleTogglePin}
-                    trackColor={{ false: colors.border, true: colors.accent }}
-                    thumbColor={colors.background}
-                  />
-                </View>
-
-                {guardianPin && (
-                  <TouchableOpacity
-                    onPress={() => setIsPinModalVisible(true)}
-                    className="flex-row items-center justify-between py-4 border-t border-app mt-2"
-                  >
-                    <Text className="text-base font-medium font-outfit text-app">
-                      Change PIN
+                <TouchableOpacity
+                  onPress={() => setIsManagedAthleteModalVisible(true)}
+                  className="flex-row items-center justify-between py-4 border-t border-app"
+                >
+                  <Text className="text-base font-medium font-outfit text-app">
+                    Managed Athletes
+                  </Text>
+                  <View className="flex-row items-center">
+                    <Text className="text-accent font-medium mr-2">
+                      {managedAthleteCount} Active
                     </Text>
                     <Feather
                       name="chevron-right"
                       size={20}
                       className="text-muted"
                     />
-                  </TouchableOpacity>
-                )}
-
-                  <TouchableOpacity
-                    onPress={() => setIsManagedAthleteModalVisible(true)}
-                    className="flex-row items-center justify-between py-4 border-t border-app"
-                  >
-                    <Text className="text-base font-medium font-outfit text-app">
-                      Managed Athletes
-                    </Text>
-                    <View className="flex-row items-center">
-                      <Text className="text-accent font-medium mr-2">
-                        {managedAthleteCount} Active
-                      </Text>
-                      <Feather
-                        name="chevron-right"
-                        size={20}
-                        className="text-muted"
-                      />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -519,14 +392,6 @@ export default function ProfileSettingsScreen() {
           </View>
         )}
       </ThemedScrollView>
-
-      <PinModal
-        visible={isPinModalVisible}
-        onClose={() => setIsPinModalVisible(false)}
-        onSuccess={handleSetPin}
-        title="Set Guardian PIN"
-        subtitle="Create a 4-digit PIN to protect your settings."
-      />
 
       <Modal
         visible={isManagedAthleteModalVisible}
@@ -646,49 +511,6 @@ export default function ProfileSettingsScreen() {
         </Pressable>
       </Modal>
 
-      <Modal
-        visible={Boolean(pendingAthleteAvatarUri)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPendingAthleteAvatarUri(null)}
-      >
-        <Pressable
-          className="flex-1 bg-black/50 items-center justify-center px-6"
-          onPress={() => setPendingAthleteAvatarUri(null)}
-        >
-          <Pressable className="w-full rounded-3xl bg-app p-6 border border-app" onPress={() => undefined}>
-            <Text className="text-lg font-clash text-app mb-2">Use this athlete photo?</Text>
-            <Text className="text-sm font-outfit text-secondary mb-4">
-              Confirm the cropped athlete profile picture.
-            </Text>
-            {pendingAthleteAvatarUri ? (
-              <View className="items-center mb-6">
-                <View className="h-32 w-32 rounded-full overflow-hidden border-2 border-accent">
-                  <Image source={{ uri: pendingAthleteAvatarUri }} style={{ width: 128, height: 128 }} />
-                </View>
-              </View>
-            ) : null}
-            <View className="flex-row items-center gap-3">
-              <TouchableOpacity
-                onPress={() => setPendingAthleteAvatarUri(null)}
-                className="flex-1 rounded-2xl border border-app py-3 items-center"
-              >
-                <Text className="text-sm font-outfit text-secondary">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleConfirmAthleteAvatar}
-                disabled={isUploadingAthleteAvatar}
-                className="flex-1 rounded-2xl bg-accent py-3 items-center"
-                style={{ opacity: isUploadingAthleteAvatar ? 0.6 : 1 }}
-              >
-                <Text className="text-sm font-outfit text-white">
-                  {isUploadingAthleteAvatar ? "Uploading..." : "Confirm"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }

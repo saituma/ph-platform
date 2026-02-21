@@ -3,6 +3,7 @@ import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal
 import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
+import { VoiceRecorderModal } from "@/components/messages/VoiceRecorderModal";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
 import { Alert, ActivityIndicator } from "react-native";
@@ -37,8 +38,13 @@ export default function ThreadScreen() {
     handleSend,
     handleAttachFile,
     handleAttachImage,
+    handleAttachVideo,
+    handleTakePhoto,
+    handleRecordVideo,
     handleToggleReaction,
+    handleDeleteMessage,
   } = useMessagesController();
+  const [voiceRecorderOpen, setVoiceRecorderOpen] = React.useState(false);
 
   const handleLockedPress = () => {
     Alert.alert(
@@ -71,11 +77,24 @@ export default function ThreadScreen() {
         onSend={handleSend}
         onOpenComposerMenu={() => setComposerMenuOpen(true)}
         onLongPressMessage={(message) => {
-          const isGroup = message.threadId.startsWith("group:");
-          const parsedId = isGroup
-            ? Number(message.id.replace("group-", ""))
-            : Number(message.id);
-          if (!Number.isFinite(parsedId)) return;
+          const isOwn = message.from === "user";
+          if (isOwn) {
+            Alert.alert("Message options", "Choose an action", [
+              {
+                text: "React",
+                onPress: () => {
+                  setReactionTarget(message);
+                },
+              },
+              {
+                text: "Delete",
+                style: "destructive",
+                onPress: () => handleDeleteMessage(message),
+              },
+              { text: "Cancel", style: "cancel" },
+            ]);
+            return;
+          }
           setReactionTarget(message);
         }}
         onReactionPress={handleToggleReaction}
@@ -101,6 +120,26 @@ export default function ThreadScreen() {
         onClose={() => setComposerMenuOpen(false)}
         onAttachFile={handleAttachFile}
         onAttachImage={handleAttachImage}
+        onAttachVideo={handleAttachVideo}
+        onTakePhoto={handleTakePhoto}
+        onRecordVideo={handleRecordVideo}
+        onRecordVoice={() => {
+          setComposerMenuOpen(false);
+          setVoiceRecorderOpen(true);
+        }}
+      />
+      <VoiceRecorderModal
+        open={voiceRecorderOpen}
+        onClose={() => setVoiceRecorderOpen(false)}
+        onRecorded={(payload) => {
+          setPendingAttachment({
+            uri: payload.uri,
+            fileName: payload.fileName,
+            mimeType: payload.mimeType,
+            sizeBytes: payload.sizeBytes,
+            isImage: false,
+          });
+        }}
       />
     </SafeAreaView>
   );

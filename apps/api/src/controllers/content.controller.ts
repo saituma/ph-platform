@@ -7,6 +7,8 @@ import {
   getParentPlatformContent,
   getLegalContentForUser,
   getLegalContent,
+  getAnnouncements,
+  deleteContentItem,
   updateContent,
   getContentById,
   getContentByIdAdmin,
@@ -21,8 +23,8 @@ import { ProgramType, contentType } from "../db/schema";
 import { getAthleteForUser } from "../services/user.service";
 
 const contentCreateSchema = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
+  title: z.string().optional().transform((val) => val?.trim() || ""),
+  content: z.string().optional().transform((val) => val?.trim() || ""),
   type: z.enum(contentType.enumValues),
   body: z.string().optional(),
   programTier: z.enum(ProgramType.enumValues).optional(),
@@ -31,6 +33,31 @@ const contentCreateSchema = z.object({
   ageList: z.array(z.number().int().min(0)).optional(),
   minAge: z.number().int().min(0).optional(),
   maxAge: z.number().int().min(0).optional(),
+}).superRefine((data, ctx) => {
+  if (data.surface !== "announcements") {
+    if (!data.title) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.too_small,
+        minimum: 1,
+        type: "string",
+        inclusive: true,
+        exact: false,
+        message: "Title is required.",
+        path: ["title"],
+      });
+    }
+    if (!data.content) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.too_small,
+        minimum: 1,
+        type: "string",
+        inclusive: true,
+        exact: false,
+        message: "Content is required.",
+        path: ["content"],
+      });
+    }
+  }
 }).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
   message: "Minimum age must be less than or equal to maximum age.",
   path: ["minAge"],
@@ -133,6 +160,11 @@ export async function listLegalContent(req: Request, res: Response) {
   return res.status(200).json({ items });
 }
 
+export async function listAnnouncementsContent(_req: Request, res: Response) {
+  const items = await getAnnouncements();
+  return res.status(200).json({ items });
+}
+
 export async function listLegalContentPublic(_req: Request, res: Response) {
   const items = await getLegalContent();
   return res.status(200).json({ items });
@@ -149,9 +181,12 @@ export async function getContentItem(req: Request, res: Response) {
 
 export async function createContentItem(req: Request, res: Response) {
   const input = contentCreateSchema.parse(req.body);
+  const isAnnouncement = input.surface === "announcements";
+  const title = isAnnouncement && !input.title ? "Announcement" : input.title;
+  const content = isAnnouncement && !input.content ? "Announcement" : input.content;
   const item = await createContent({
-    title: input.title,
-    content: input.content,
+    title,
+    content,
     type: input.type,
     body: input.body,
     programTier: input.programTier,
@@ -184,6 +219,15 @@ export async function updateContentItem(req: Request, res: Response) {
     return res.status(404).json({ error: "Content not found" });
   }
   return res.status(200).json({ item });
+}
+
+export async function deleteContent(req: Request, res: Response) {
+  const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const item = await deleteContentItem(contentId);
+  if (!item) {
+    return res.status(404).json({ error: "Content not found" });
+  }
+  return res.status(200).json({ deleted: true });
 }
 
 export async function submitTestimonial(req: Request, res: Response) {

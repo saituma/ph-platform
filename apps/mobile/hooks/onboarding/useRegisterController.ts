@@ -27,6 +27,7 @@ type OnboardingConfig = {
   welcomeMessage?: string;
   coachMessage?: string;
   defaultProgramTier?: string;
+  phpPlusProgramTabs?: string[];
 };
 
 const optionalText = () =>

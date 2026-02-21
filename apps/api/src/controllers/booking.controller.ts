@@ -6,6 +6,7 @@ import {
   createBooking,
   createServiceType,
   listAvailabilityBlocks,
+  listBookingsForServiceInRange,
   listBookingsForUser,
   listServiceTypes,
   updateServiceType,
@@ -50,6 +51,7 @@ const bookingSchema = z.object({
   endsAt: z.string().datetime(),
   location: z.string().optional(),
   meetingLink: z.string().optional(),
+  timezoneOffsetMinutes: z.number().int().optional(),
 });
 
 const availabilityQuerySchema = z.object({
@@ -111,8 +113,11 @@ export async function createAvailability(req: Request, res: Response) {
 
 export async function listAvailability(req: Request, res: Response) {
   const query = availabilityQuerySchema.parse(req.query);
-  const items = await listAvailabilityBlocks(query.serviceTypeId, new Date(query.from), new Date(query.to));
-  return res.status(200).json({ items });
+  const from = new Date(query.from);
+  const to = new Date(query.to);
+  const items = await listAvailabilityBlocks(query.serviceTypeId, from, to);
+  const bookings = await listBookingsForServiceInRange(query.serviceTypeId, from, to);
+  return res.status(200).json({ items, bookings });
 }
 
 export async function createBookingForUser(req: Request, res: Response) {
@@ -131,6 +136,7 @@ export async function createBookingForUser(req: Request, res: Response) {
     createdBy: req.user!.id,
     location: input.location,
     meetingLink: input.meetingLink,
+    timezoneOffsetMinutes: input.timezoneOffsetMinutes,
   });
 
   return res.status(201).json({ booking });

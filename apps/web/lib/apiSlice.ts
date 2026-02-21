@@ -83,6 +83,10 @@ export const apiSlice = createApi({
       query: () => "/admin/bookings",
       providesTags: ["Bookings"],
     }),
+    getUserBookings: builder.query<{ items: any[] }, void>({
+      query: () => "/bookings",
+      providesTags: ["Bookings"],
+    }),
     updateBookingStatus: builder.mutation<any, { bookingId: number; status: string }>({
       query: ({ bookingId, status }) => ({
         url: `/admin/bookings/${bookingId}`,
@@ -122,6 +126,41 @@ export const apiSlice = createApi({
       query: () => "/bookings/services?includeInactive=true",
       providesTags: ["Services"],
     }),
+    getBookingServices: builder.query<{ items: any[] }, void>({
+      query: () => "/bookings/services",
+      providesTags: ["Services"],
+    }),
+    getBookingAvailability: builder.query<
+      { items: any[] },
+      { serviceTypeId: number; from: string; to: string }
+    >({
+      query: ({ serviceTypeId, from, to }) => {
+        const query = new URLSearchParams();
+        query.set("serviceTypeId", String(serviceTypeId));
+        query.set("from", from);
+        query.set("to", to);
+        return `/bookings/availability?${query.toString()}`;
+      },
+      providesTags: ["Availability"],
+    }),
+    createBooking: builder.mutation<
+      any,
+      {
+        serviceTypeId: number;
+        startsAt: string;
+        endsAt: string;
+        location?: string;
+        meetingLink?: string;
+        timezoneOffsetMinutes?: number;
+      }
+    >({
+      query: (body) => ({
+        url: "/bookings",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Bookings"],
+    }),
     getThreads: builder.query<{ threads: any[] }, void>({
       query: () => "/admin/messages/threads",
       providesTags: ["Threads"],
@@ -140,6 +179,10 @@ export const apiSlice = createApi({
     }),
     getLegalContent: builder.query<{ items: any[] }, void>({
       query: () => "/content/legal",
+      providesTags: ["Content"],
+    }),
+    getAnnouncements: builder.query<{ items: any[] }, void>({
+      query: () => "/content/announcements",
       providesTags: ["Content"],
     }),
     getTestimonialSubmissions: builder.query<{ items: any[] }, void>({
@@ -280,12 +323,13 @@ export const apiSlice = createApi({
         content?: string;
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
+        videoUploadId?: number;
       }
     >({
-      query: ({ userId, content, contentType, mediaUrl }) => ({
+      query: ({ userId, content, contentType, mediaUrl, videoUploadId }) => ({
         url: `/admin/messages/${userId}`,
         method: "POST",
-        body: { content, contentType, mediaUrl },
+        body: { content, contentType, mediaUrl, videoUploadId },
       }),
       invalidatesTags: ["Threads"],
     }),
@@ -297,6 +341,18 @@ export const apiSlice = createApi({
         url: `/messages/${messageId}/reactions`,
         method: "PUT",
         body: { emoji },
+      }),
+    }),
+    deleteMessage: builder.mutation<{ deleted: boolean }, { messageId: number }>({
+      query: ({ messageId }) => ({
+        url: `/messages/${messageId}`,
+        method: "DELETE",
+      }),
+    }),
+    deleteGroupMessage: builder.mutation<{ deleted: boolean }, { groupId: number; messageId: number }>({
+      query: ({ groupId, messageId }) => ({
+        url: `/chat/groups/${groupId}/messages/${messageId}`,
+        method: "DELETE",
       }),
     }),
     createService: builder.mutation<any, any>({
@@ -331,6 +387,13 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Content"],
     }),
+    deleteContent: builder.mutation<{ deleted: boolean }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/content/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Content"],
+    }),
     reviewVideoUpload: builder.mutation<{ item: any }, { uploadId: number; feedback: string }>({
       query: (body) => ({
         url: "/videos/review",
@@ -341,6 +404,7 @@ export const apiSlice = createApi({
     }),
     getUserOnboarding: builder.query<any, number>({
       query: (userId) => `/admin/users/${userId}/onboarding`,
+      providesTags: ["Users"],
     }),
     updateProgramTier: builder.mutation<any, { athleteId: number; programTier: string }>({
       query: (body) => ({
@@ -391,6 +455,9 @@ export const apiSlice = createApi({
       query: () => "/admin/onboarding-config",
       providesTags: ["OnboardingConfig"],
     }),
+    getPhpPlusTabs: builder.query<{ tabs: string[] }, void>({
+      query: () => "/admin/php-plus-tabs",
+    }),
     updateOnboardingConfig: builder.mutation<{ config: any }, any>({
       query: (body) => ({
         url: "/admin/onboarding-config",
@@ -398,6 +465,13 @@ export const apiSlice = createApi({
         body,
       }),
       invalidatesTags: ["OnboardingConfig"],
+    }),
+    updatePhpPlusTabs: builder.mutation<{ config: any }, { tabs: string[] }>({
+      query: (body) => ({
+        url: "/admin/php-plus-tabs",
+        method: "PUT",
+        body,
+      }),
     }),
     getChatGroups: builder.query<{ groups: any[] }, void>({
       query: () => "/chat/groups",
@@ -461,16 +535,21 @@ export const {
   useBlockUserMutation,
   useDeleteUserMutation,
   useGetBookingsQuery,
+  useGetUserBookingsQuery,
   useUpdateBookingStatusMutation,
   useCreateAdminBookingMutation,
   useGetAdminAvailabilityQuery,
   useGetVideoUploadsQuery,
   useGetServicesQuery,
+  useGetBookingServicesQuery,
+  useGetBookingAvailabilityQuery,
+  useCreateBookingMutation,
   useGetThreadsQuery,
   useGetMessagesQuery,
   useGetParentContentQuery,
   useGetHomeContentQuery,
   useGetLegalContentQuery,
+  useGetAnnouncementsQuery,
   useGetTestimonialSubmissionsQuery,
   useApproveTestimonialSubmissionMutation,
   useRejectTestimonialSubmissionMutation,
@@ -492,10 +571,13 @@ export const {
   useMarkThreadReadMutation,
   useSendMessageMutation,
   useToggleMessageReactionMutation,
+  useDeleteMessageMutation,
+  useDeleteGroupMessageMutation,
   useCreateServiceMutation,
   useUpdateServiceMutation,
   useCreateAvailabilityMutation,
   useCreateContentMutation,
+  useDeleteContentMutation,
   useReviewVideoUploadMutation,
   useGetUserOnboardingQuery,
   useUpdateProgramTierMutation,
@@ -505,6 +587,8 @@ export const {
   useUpdateProgramMutation,
   useGetOnboardingConfigQuery,
   useUpdateOnboardingConfigMutation,
+  useGetPhpPlusTabsQuery,
+  useUpdatePhpPlusTabsMutation,
   useGetChatGroupsQuery,
   useCreateChatGroupMutation,
   useAddChatGroupMembersMutation,

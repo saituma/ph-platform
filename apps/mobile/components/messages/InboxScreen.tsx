@@ -214,16 +214,16 @@ export function InboxScreen({
 
       {/* Urgent Help Card */}
       {threads.length > 0 && (
-        <View className="mx-12 mt-8 mb-10 bg-accent/5 rounded-3xl p-6">
+        <View className="mx-12 mt-8 mb-10 bg-[#1F6F45] rounded-3xl p-6">
           <View className="flex-row items-center gap-4">
-            <View className="w-12 h-12 bg-accent rounded-2xl items-center justify-center shadow-lg shadow-accent/20">
+            <View className="w-12 h-12 bg-white/15 rounded-2xl items-center justify-center shadow-lg shadow-black/10">
               <Feather name="help-circle" size={24} color="white" />
             </View>
             <View className="flex-1">
-              <Text className="font-clash text-lg font-bold text-app">
+              <Text className="font-clash text-lg font-bold text-white">
                 Need priority help?
               </Text>
-              <Text className="text-sm text-secondary mt-0.5 leading-relaxed">
+              <Text className="text-sm text-white mt-0.5 leading-relaxed">
                 Premium members get faster replies and 1:1 video review support.
               </Text>
             </View>

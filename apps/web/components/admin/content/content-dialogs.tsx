@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 
-export type ContentDialog = null | "home" | "parent" | "programs" | "legal";
+export type ContentDialog = null | "home" | "parent" | "programs";
 
 type ContentDialogsProps = {
   active: ContentDialog;
@@ -19,7 +19,6 @@ export function ContentDialogs({ active, onClose }: ContentDialogsProps) {
             {active === "home" && "Home Content Saved"}
             {active === "parent" && "Parent Article Published"}
             {active === "programs" && "Program Card Updated"}
-            {active === "legal" && "Legal Content Saved"}
           </DialogTitle>
           <DialogDescription>UI-only confirmation.</DialogDescription>
         </DialogHeader>

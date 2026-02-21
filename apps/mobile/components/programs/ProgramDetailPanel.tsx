@@ -64,6 +64,7 @@ export function ProgramDetailPanel({
   );
   const { role } = useRole();
   const { isSectionHidden } = useAgeExperience();
+  const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
   const activeAthleteAge = useMemo(() => {
     if (!managedAthletes.length) return null;
     const selected =
@@ -73,6 +74,9 @@ export function ProgramDetailPanel({
   }, [managedAthletes, athleteUserId]);
   const tabs = useMemo(() => {
     let base = PROGRAM_TABS[programId];
+    if (programId === "plus") {
+      base = phpPlusTabs ?? PROGRAM_TABS[programId];
+    }
     if (role === "Athlete") {
       base = base.filter(
         (tab) =>
@@ -98,7 +102,7 @@ export function ProgramDetailPanel({
       );
     }
     return base;
-  }, [programId, role, isSectionHidden]);
+  }, [programId, role, isSectionHidden, phpPlusTabs]);
   const [activeTab, setActiveTab] = useState(tabs[0]);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -108,6 +112,30 @@ export function ProgramDetailPanel({
   );
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (programId !== "plus") return;
+    let active = true;
+    const loadTabs = async () => {
+      try {
+        const response = await apiRequest<{ tabs?: string[] }>(
+          `/onboarding/php-plus-tabs?ts=${Date.now()}`,
+          { method: "GET", suppressLog: true },
+        );
+        if (!active) return;
+        if (Array.isArray(response.tabs)) {
+          setPhpPlusTabs(response.tabs.map((tab) => String(tab)));
+        }
+      } catch {
+        if (!active) return;
+        setPhpPlusTabs(null);
+      }
+    };
+    void loadTabs();
+    return () => {
+      active = false;
+    };
+  }, [programId]);
 
   useEffect(() => {
     setActiveTab(tabs[0]);

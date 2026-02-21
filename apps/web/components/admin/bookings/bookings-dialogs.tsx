@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
+import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select } from "../../ui/select";
@@ -38,6 +39,18 @@ type ServiceType = {
 type BookingsDialogsProps = {
   active: BookingsDialog;
   onClose: () => void;
+  bookings?: {
+    id: number;
+    name: string;
+    athlete: string;
+    time: string;
+    type: string;
+    status?: string | null;
+    location?: string | null;
+    meetingLink?: string | null;
+    startsAt?: string | null;
+    endTime?: string | null;
+  }[];
   selectedBooking?: {
     id: number;
     name: string;
@@ -55,18 +68,60 @@ type BookingsDialogsProps = {
   selectedService?: ServiceType | null;
   onRefresh?: () => void;
   onApproveBooking?: (bookingId: number) => Promise<void>;
+  onDeclineBooking?: (bookingId: number) => Promise<void>;
   isApproving?: boolean;
 };
+
+const BOOKING_TYPE_LABELS: Record<string, string> = {
+  group_call: "Group Call",
+  individual_call: "1:1",
+  one_on_one: "1:1",
+  lift_lab_1on1: "Lift Lab 1:1",
+  role_model: "Premium",
+  call: "Call",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: "Confirmed",
+  pending: "Pending",
+  requested: "Requested",
+  declined: "Declined",
+  cancelled: "Cancelled",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  confirmed: "border-emerald-200/70 bg-emerald-50/80 text-emerald-700",
+  pending: "border-amber-200/70 bg-amber-50/80 text-amber-700",
+  requested: "border-amber-200/70 bg-amber-50/80 text-amber-700",
+  declined: "border-rose-200/70 bg-rose-50/80 text-rose-700",
+  cancelled: "border-slate-200/70 bg-slate-50/80 text-slate-700",
+};
+
+const pad = (value: number) => String(value).padStart(2, "0");
+
+const getDateKey = (date: Date) =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+const formatDay = (date: Date) =>
+  date.toLocaleDateString("en-US", { weekday: "short" });
+
+const formatDate = (date: Date) =>
+  date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+const formatTime = (date: Date) =>
+  date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 export function BookingsDialogs({
   active,
   onClose,
+  bookings = [],
   selectedBooking,
   services = [],
   users = [],
   selectedService,
   onRefresh,
   onApproveBooking,
+  onDeclineBooking,
   isApproving = false,
 }: BookingsDialogsProps) {
   const [serviceName, setServiceName] = useState("");
@@ -102,6 +157,16 @@ export function BookingsDialogs({
   const [updateService, { isLoading: isUpdatingService }] = useUpdateServiceMutation();
   const [createAvailability, { isLoading: isCreatingAvailability }] = useCreateAvailabilityMutation();
   const [createAdminBooking, { isLoading: isCreatingBooking }] = useCreateAdminBookingMutation();
+
+  const availabilityService = useMemo(
+    () => services.find((service) => String(service.id) === availabilityServiceId) ?? null,
+    [services, availabilityServiceId],
+  );
+  const availabilityFixedTime = useMemo(() => {
+    if (availabilityService?.fixedStartTime) return availabilityService.fixedStartTime;
+    if (availabilityService?.type === "role_model") return "13:00";
+    return "";
+  }, [availabilityService]);
 
   useEffect(() => {
     if (serviceType === "role_model") {
@@ -186,6 +251,44 @@ export function BookingsDialogs({
     if (!guardianSearch.trim() || !showGuardianSuggestions) return [];
     return filteredGuardians.slice(0, 6);
   }, [filteredGuardians, guardianSearch, showGuardianSuggestions]);
+
+  const calendarDays = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const dayMap = new Map<string, { date: Date; items: typeof bookings }>();
+    for (let i = 0; i < 7; i += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      dayMap.set(getDateKey(date), { date, items: [] });
+    }
+    bookings.forEach((booking) => {
+      if (!booking.startsAt) return;
+      const startsAt = new Date(booking.startsAt);
+      if (Number.isNaN(startsAt.getTime())) return;
+      if (startsAt < start || startsAt > end) return;
+      const key = getDateKey(startsAt);
+      const day = dayMap.get(key);
+      if (day) {
+        day.items.push(booking);
+      }
+    });
+    return Array.from(dayMap.values()).map((day) => ({
+      ...day,
+      items: [...day.items].sort((a, b) => {
+        const aTime = a.startsAt ? new Date(a.startsAt).getTime() : 0;
+        const bTime = b.startsAt ? new Date(b.startsAt).getTime() : 0;
+        return aTime - bTime;
+      }),
+    }));
+  }, [bookings]);
+
+  const totalWeekBookings = useMemo(
+    () => calendarDays.reduce((count, day) => count + day.items.length, 0),
+    [calendarDays],
+  );
+
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
       <DialogContent>
@@ -235,14 +338,19 @@ export function BookingsDialogs({
                   setError(null);
                 }}
               />
-              <Input
-                placeholder="Capacity (optional)"
-                value={capacity}
-                onChange={(e) => {
-                  setCapacity(e.target.value);
-                  setError(null);
-                }}
-              />
+              <div className="space-y-1">
+                <Input
+                  placeholder="Slots available (optional)"
+                  value={capacity}
+                  onChange={(e) => {
+                    setCapacity(e.target.value);
+                    setError(null);
+                  }}
+                />
+                <div className="text-xs text-muted-foreground">
+                  Number of parents allowed per time slot. Leave blank for unlimited.
+                </div>
+              </div>
               <div className="grid gap-2">
                 <div className="text-xs text-muted-foreground">Fixed start time</div>
                 <div className="flex gap-2">
@@ -520,17 +628,29 @@ export function BookingsDialogs({
               <>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input type="date" placeholder="Start date" value={availabilityStartDate} onChange={(e) => setAvailabilityStartDate(e.target.value)} />
-                <div className="flex gap-2">
-                  <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityStartHour} onChange={(e) => setAvailabilityStartHour(e.target.value)} />
-                  <Input type="number" min={0} max={59} placeholder="Min" value={availabilityStartMinute} onChange={(e) => setAvailabilityStartMinute(e.target.value)} />
-                </div>
+                {availabilityFixedTime ? (
+                  <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+                    Fixed time at {availabilityFixedTime}.
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityStartHour} onChange={(e) => setAvailabilityStartHour(e.target.value)} />
+                    <Input type="number" min={0} max={59} placeholder="Min" value={availabilityStartMinute} onChange={(e) => setAvailabilityStartMinute(e.target.value)} />
+                  </div>
+                )}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input type="date" placeholder="End date" value={availabilityEndDate} onChange={(e) => setAvailabilityEndDate(e.target.value)} />
-                <div className="flex gap-2">
-                  <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityEndHour} onChange={(e) => setAvailabilityEndHour(e.target.value)} />
-                  <Input type="number" min={0} max={59} placeholder="Min" value={availabilityEndMinute} onChange={(e) => setAvailabilityEndMinute(e.target.value)} />
-                </div>
+                {availabilityFixedTime ? (
+                  <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+                    End time uses service duration.
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityEndHour} onChange={(e) => setAvailabilityEndHour(e.target.value)} />
+                    <Input type="number" min={0} max={59} placeholder="Min" value={availabilityEndMinute} onChange={(e) => setAvailabilityEndMinute(e.target.value)} />
+                  </div>
+                )}
               </div>
               </>
               <Select value={availabilityServiceId} onChange={(e) => setAvailabilityServiceId(e.target.value)}>
@@ -549,13 +669,66 @@ export function BookingsDialogs({
                 <Button
                   onClick={async () => {
                     setError(null);
-                    if (!availabilityStartDate || !availabilityStartHour || !availabilityStartMinute || !availabilityEndDate || !availabilityEndHour || !availabilityEndMinute) {
+                    if (!availabilityServiceId) {
+                      setError("Select a service.");
+                      return;
+                    }
+                    if (!availabilityStartDate || !availabilityEndDate) {
+                      setError("Select a start and end date.");
+                      return;
+                    }
+                    const service = availabilityService;
+                    const duration = service?.durationMinutes ?? 0;
+                    if (!duration) {
+                      setError("Selected service has no duration.");
+                      return;
+                    }
+                    const padValue = (value: string) => value.padStart(2, "0");
+                    if (availabilityFixedTime) {
+                      const [hour, minute] = availabilityFixedTime.split(":");
+                      const startDate = new Date(availabilityStartDate);
+                      const endDate = new Date(availabilityEndDate);
+                      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+                        setError("Invalid date.");
+                        return;
+                      }
+                      if (endDate < startDate) {
+                        setError("End date must be after start date.");
+                        return;
+                      }
+                      const days: Date[] = [];
+                      const cursor = new Date(startDate);
+                      cursor.setHours(0, 0, 0, 0);
+                      const endCursor = new Date(endDate);
+                      endCursor.setHours(0, 0, 0, 0);
+                      while (cursor <= endCursor) {
+                        days.push(new Date(cursor));
+                        cursor.setDate(cursor.getDate() + 1);
+                      }
+                      try {
+                        for (const day of days) {
+                          const startsAt = new Date(day);
+                          startsAt.setHours(Number(hour), Number(minute), 0, 0);
+                          const endsAt = new Date(startsAt.getTime() + duration * 60000);
+                          await createAvailability({
+                            serviceTypeId: Number(availabilityServiceId),
+                            startsAt: startsAt.toISOString(),
+                            endsAt: endsAt.toISOString(),
+                          }).unwrap();
+                        }
+                        onClose();
+                      } catch (err: any) {
+                        setError(err.message ?? "Failed to open slots");
+                      }
+                      return;
+                    }
+
+                    if (!availabilityStartHour || !availabilityStartMinute || !availabilityEndHour || !availabilityEndMinute) {
                       setError("Select a start and end time.");
                       return;
                     }
-                    const pad = (value: string) => value.padStart(2, "0");
-                    const startsAt = new Date(`${availabilityStartDate}T${pad(availabilityStartHour)}:${pad(availabilityStartMinute)}`);
-                    const endsAt = new Date(`${availabilityEndDate}T${pad(availabilityEndHour)}:${pad(availabilityEndMinute)}`);
+                    const startsAt = new Date(`${availabilityStartDate}T${padValue(availabilityStartHour)}:${padValue(availabilityStartMinute)}`);
+                    const endsAt = new Date(`${availabilityEndDate}T${padValue(availabilityEndHour)}:${padValue(availabilityEndMinute)}`);
                     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
                       setError("Invalid date or time.");
                       return;
@@ -583,8 +756,73 @@ export function BookingsDialogs({
             </>
           ) : null}
           {active === "calendar" ? (
-            <div className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
-              Calendar view will display weekly sessions here.
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Next 7 days</p>
+                  <p className="text-xs text-muted-foreground">
+                    {totalWeekBookings} booking{totalWeekBookings === 1 ? "" : "s"} scheduled.
+                  </p>
+                </div>
+                <Badge variant="outline" className="border-border text-muted-foreground">
+                  {formatDate(new Date())}
+                </Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {calendarDays.map((day) => (
+                  <div
+                    key={getDateKey(day.date)}
+                    className="rounded-2xl border border-border bg-secondary/20 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{formatDay(day.date)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(day.date)}</p>
+                      </div>
+                      <Badge variant="accent">{day.items.length}</Badge>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                      {day.items.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                          No bookings.
+                        </div>
+                      ) : (
+                        day.items.map((booking) => {
+                          const startsAt = booking.startsAt ? new Date(booking.startsAt) : null;
+                          const statusKey = booking.status ?? "confirmed";
+                          return (
+                            <div
+                              key={`${booking.id}-${booking.startsAt}`}
+                              className="rounded-xl border border-border bg-background px-3 py-2 text-xs"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-foreground">
+                                  {startsAt ? formatTime(startsAt) : booking.time}
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className={STATUS_STYLES[statusKey] ?? "border-border text-muted-foreground"}
+                                >
+                                  {STATUS_LABELS[statusKey] ?? "Scheduled"}
+                                </Badge>
+                              </div>
+                              <p className="mt-1 text-[13px] text-foreground">
+                                {BOOKING_TYPE_LABELS[booking.type] ?? booking.name}
+                              </p>
+                              <p className="text-muted-foreground">{booking.athlete}</p>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {bookings.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-secondary/30 p-4 text-center text-xs text-muted-foreground">
+                  No bookings found yet. Create a booking or open slots to populate the calendar.
+                </div>
+              ) : null}
             </div>
           ) : null}
           {active === "booking-details" && selectedBooking ? (
@@ -617,20 +855,37 @@ export function BookingsDialogs({
                   Close
                 </Button>
                 {selectedBooking.status === "pending" ? (
-                  <Button
-                    onClick={async () => {
-                      setError(null);
-                      if (!onApproveBooking) return;
-                      try {
-                        await onApproveBooking(selectedBooking.id);
-                      } catch (err: any) {
-                        setError(err.message ?? "Failed to approve booking");
-                      }
-                    }}
-                    disabled={isApproving}
-                  >
-                    Approve Booking
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        setError(null);
+                        if (!onDeclineBooking) return;
+                        try {
+                          await onDeclineBooking(selectedBooking.id);
+                        } catch (err: any) {
+                          setError(err.message ?? "Failed to decline booking");
+                        }
+                      }}
+                      disabled={isApproving}
+                    >
+                      Decline Booking
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        setError(null);
+                        if (!onApproveBooking) return;
+                        try {
+                          await onApproveBooking(selectedBooking.id);
+                        } catch (err: any) {
+                          setError(err.message ?? "Failed to approve booking");
+                        }
+                      }}
+                      disabled={isApproving}
+                    >
+                      Approve Booking
+                    </Button>
+                  </>
                 ) : null}
               </div>
               {error ? (

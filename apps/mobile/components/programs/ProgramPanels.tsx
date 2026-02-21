@@ -545,7 +545,7 @@ export function FoodDiaryPanel() {
 }
 
 export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }) {
-  const { token } = useAppSelector((state) => state.user);
+  const { token, profile, role, athleteUserId } = useAppSelector((state) => state.user);
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -553,6 +553,10 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     { id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }[]
   >([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
+  const [loadingResponses, setLoadingResponses] = useState(false);
+  const [coachResponses, setCoachResponses] = useState<
+    { id: string; mediaUrl: string; text?: string; createdAt?: string | null; videoUploadId?: number }[]
+  >([]);
   const [selectedVideo, setSelectedVideo] = useState<{
     uri: string;
     fileName: string;
@@ -576,12 +580,52 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     }
   }, [token]);
 
+  const loadCoachResponses = useCallback(async () => {
+    if (!token) return;
+    try {
+      setLoadingResponses(true);
+      const effectiveUserId = role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
+      const headers =
+        role === "Athlete" && athleteUserId
+          ? { "X-Acting-User-Id": String(athleteUserId) }
+          : undefined;
+      const data = await apiRequest<{ messages: any[] }>("/messages", { token, headers, suppressLog: true });
+      const items = (data.messages ?? [])
+        .filter(
+          (msg: any) =>
+            msg.contentType === "video" &&
+            msg.mediaUrl &&
+            Number(msg.senderId) !== effectiveUserId &&
+            Number.isFinite(msg.videoUploadId)
+        )
+        .map((msg: any) => ({
+          id: String(msg.id),
+          mediaUrl: msg.mediaUrl,
+          text: msg.content,
+          createdAt: msg.createdAt ?? null,
+          videoUploadId: msg.videoUploadId ?? undefined,
+        }));
+      setCoachResponses(items);
+    } catch {
+      // avoid blocking the main upload flow if messages fail
+    } finally {
+      setLoadingResponses(false);
+    }
+  }, [athleteUserId, profile.id, role, token]);
+
   useEffect(() => {
     void loadVideos();
-  }, [loadVideos, refreshToken]);
+    void loadCoachResponses();
+  }, [loadCoachResponses, loadVideos, refreshToken]);
 
   const awaitingVideos = videoItems.filter((item) => !item.feedback);
   const reviewedVideos = videoItems.filter((item) => Boolean(item.feedback));
+  const responsesByUpload = coachResponses.reduce<Record<number, typeof coachResponses>>((acc, item) => {
+    if (!item.videoUploadId) return acc;
+    if (!acc[item.videoUploadId]) acc[item.videoUploadId] = [];
+    acc[item.videoUploadId].push(item);
+    return acc;
+  }, {});
   const formatDate = (value?: string | null) => {
     if (!value) return null;
     const d = new Date(value);
@@ -749,7 +793,15 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
           nestedScrollEnabled
           alwaysBounceVertical
           contentContainerStyle={{ paddingBottom: 8 }}
-          refreshControl={<RefreshControl refreshing={loadingVideos} onRefresh={() => void loadVideos()} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={loadingVideos || loadingResponses}
+              onRefresh={() => {
+                void loadVideos();
+                void loadCoachResponses();
+              }}
+            />
+          }
           showsVerticalScrollIndicator={false}
         >
           {loadingVideos && videoItems.length === 0 ? (
@@ -785,6 +837,31 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                         </View>
                         {item.notes ? (
                           <Text className="text-sm font-outfit text-secondary mt-2">Notes: {item.notes}</Text>
+                        ) : null}
+                        {responsesByUpload[item.id]?.length ? (
+                          <View className="mt-3 gap-3">
+                            <Text className="text-xs font-outfit text-secondary">Coach response video</Text>
+                            {responsesByUpload[item.id]
+                              .slice()
+                              .sort((a, b) => {
+                                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                                return bTime - aTime;
+                              })
+                              .map((response) => (
+                                <View key={`awaiting-response-${item.id}-${response.id}`} className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-2">
+                                  <Video
+                                    source={{ uri: response.mediaUrl }}
+                                    useNativeControls
+                                    resizeMode={ResizeMode.COVER}
+                                    style={{ width: "100%", height: 160, borderRadius: 10 }}
+                                  />
+                                  {response.text ? (
+                                    <Text className="text-xs font-outfit text-secondary mt-2">{response.text}</Text>
+                                  ) : null}
+                                </View>
+                              ))}
+                          </View>
                         ) : null}
                       </View>
                     ))}
@@ -824,6 +901,31 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                           <Text className="text-sm font-clash text-app">Coach feedback</Text>
                           <Text className="text-sm font-outfit text-secondary mt-1">{item.feedback}</Text>
                         </View>
+                        {responsesByUpload[item.id]?.length ? (
+                          <View className="mt-3 gap-3">
+                            <Text className="text-xs font-outfit text-secondary">Coach response video</Text>
+                            {responsesByUpload[item.id]
+                              .slice()
+                              .sort((a, b) => {
+                                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                                return bTime - aTime;
+                              })
+                              .map((response) => (
+                                <View key={`reviewed-response-${item.id}-${response.id}`} className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-2">
+                                  <Video
+                                    source={{ uri: response.mediaUrl }}
+                                    useNativeControls
+                                    resizeMode={ResizeMode.COVER}
+                                    style={{ width: "100%", height: 160, borderRadius: 10 }}
+                                  />
+                                  {response.text ? (
+                                    <Text className="text-xs font-outfit text-secondary mt-2">{response.text}</Text>
+                                  ) : null}
+                                </View>
+                              ))}
+                          </View>
+                        ) : null}
                       </View>
                     ))}
                   </View>

@@ -27,7 +27,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Select } from "../ui/select";
-import { useGetThreadsQuery } from "../../lib/apiSlice";
+import { useGetThreadsQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
 
 type SidebarContentProps = {
   currentPath: string;
@@ -40,10 +40,12 @@ export function AdminSidebarContent({
 }: SidebarContentProps) {
   const [premiumWindowOpen, setPremiumWindowOpen] = useState(false);
   const { data: threadsData } = useGetThreadsQuery();
+  const { data: videosData } = useGetVideoUploadsQuery();
   const unreadCount = (threadsData?.threads ?? []).reduce(
     (sum: number, thread: any) => sum + (thread.unread ?? 0),
     0
   );
+  const pendingVideoCount = (videosData?.items ?? []).filter((item: any) => !item.reviewedAt).length;
 
   const navItems = [
     { label: "Overview", href: "/", icon: Home },
@@ -57,7 +59,12 @@ export function AdminSidebarContent({
       icon: MessageCircle,
     },
     { label: "Schedule", href: "/bookings", icon: CalendarDays },
-    { label: "Video Feedback", href: "/video-review", icon: PlaySquare },
+    {
+      label: "Video Feedback",
+      href: "/video-review",
+      badge: pendingVideoCount > 0 ? String(pendingVideoCount) : undefined,
+      icon: PlaySquare,
+    },
     { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
     { label: "Physio Referrals", href: "/physio-referrals", icon: Stethoscope },
     { label: "Exercise Library", href: "/exercise-library", icon: BadgeCheck },

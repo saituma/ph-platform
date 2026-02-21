@@ -197,3 +197,149 @@ h6 {
     @apply bg-background text-foreground;
   }
 }
+
+.fc {
+  --fc-border-color: hsl(var(--border));
+  --fc-page-bg-color: transparent;
+  --fc-today-bg-color: hsl(var(--accent) / 0.12);
+  --fc-neutral-bg-color: hsl(var(--secondary));
+  --fc-neutral-text-color: hsl(var(--muted-foreground));
+  --fc-event-bg-color: hsl(var(--primary));
+  --fc-event-text-color: hsl(var(--primary-foreground));
+  --fc-event-border-color: transparent;
+  --fc-button-bg-color: hsl(var(--secondary));
+  --fc-button-border-color: hsl(var(--border));
+  --fc-button-text-color: hsl(var(--foreground));
+  --fc-button-hover-bg-color: hsl(var(--secondary) / 0.7);
+  --fc-button-hover-border-color: hsl(var(--border));
+  --fc-button-active-bg-color: hsl(var(--primary));
+  --fc-button-active-border-color: hsl(var(--primary));
+  --fc-button-active-text-color: hsl(var(--primary-foreground));
+  font-family: var(--font-sans);
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.fc .fc-button {
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  padding: 0.4rem 0.7rem;
+  box-shadow: none;
+}
+
+.fc .fc-daygrid-day-number,
+.fc .fc-col-header-cell-cushion {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+.fc .fc-daygrid-event {
+  border-radius: 0.5rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.75rem;
+}
+
+.fc .fc-event-title {
+  font-weight: 600;
+}
+
+.fc .fc-event,
+.fc .fc-event * ,
+.fc .fc-daygrid-event,
+.fc .fc-timegrid-event {
+  cursor: pointer !important;
+}
+
+.fc .fc-selected-day {
+  background: hsl(var(--accent) / 0.15);
+}
+
+.fc .fc-timegrid-axis,
+.fc .fc-timegrid-slot-label {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.fc .fc-timegrid-slot {
+  height: 2.5rem;
+}
+
+.fc .fc-timegrid-event {
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.75rem;
+}
+
+.fc .fc-timegrid-event .fc-event-title {
+  font-weight: 600;
+}
+
+.fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 1rem;
+  gap: 0.5rem;
+}
+
+.fc .fc-toolbar-chunk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .fc .fc-toolbar.fc-header-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .fc .fc-toolbar-chunk {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .fc {
+    width: 100%;
+    max-width: 100%;
+  }
+  .fc table,
+  .fc .fc-scrollgrid,
+  .fc .fc-view-harness,
+  .fc .fc-view-harness-active {
+    width: 100% !important;
+  }
+  .fc .fc-toolbar-chunk:last-child {
+    display: none;
+  }
+  .fc .fc-toolbar-chunk {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .fc .fc-button {
+    width: 100%;
+    justify-content: center;
+  }
+  .fc .fc-col-header-cell-cushion,
+  .fc .fc-daygrid-day-number {
+    font-size: 0.65rem;
+  }
+  .fc .fc-timegrid-slot {
+    height: 2.1rem;
+  }
+  .fc .fc-daygrid-event {
+    font-size: 0.65rem;
+  }
+}

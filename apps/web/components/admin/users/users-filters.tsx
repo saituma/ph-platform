@@ -5,9 +5,11 @@ import { Select } from "../../ui/select";
 type UsersFiltersProps = {
   chips: string[];
   onChipSelect: (chip: string) => void;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
 };
 
-export function UsersFilters({ chips, onChipSelect }: UsersFiltersProps) {
+export function UsersFilters({ chips, onChipSelect, searchValue, onSearchChange }: UsersFiltersProps) {
   return (
     <div className="space-y-3">
       <div className="flex gap-2 overflow-auto md:hidden">
@@ -24,7 +26,12 @@ export function UsersFilters({ chips, onChipSelect }: UsersFiltersProps) {
         ))}
       </div>
       <div className="hidden flex-wrap gap-2 md:flex">
-        <Input placeholder="Search users" className="h-10 w-64" />
+        <Input
+          placeholder="Search users"
+          className="h-10 w-64"
+          value={searchValue}
+          onChange={(event) => onSearchChange(event.target.value)}
+        />
         <Select className="w-40">
           <option>All tiers</option>
           <option>Program</option>

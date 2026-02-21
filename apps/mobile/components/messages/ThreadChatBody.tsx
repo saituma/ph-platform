@@ -3,7 +3,6 @@ import { ChatMessage } from "@/constants/messages";
 import React from "react";
 import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MessageBubble } from "./MessageBubble";
@@ -63,7 +62,7 @@ export function ThreadChatBody({
   const isGroup = thread.id.startsWith("group:");
   const hasInitialScrolled = React.useRef<string | null>(null);
   const listRef = React.useRef<FlatList<ChatMessage> | null>(null);
-  const isFocused = useIsFocused();
+  const isFocused = true;
   const insets = useSafeAreaInsets();
   
   // Rest of the component (truncated for brevity in planning, but I'll write the full replacement)
@@ -71,23 +70,24 @@ export function ThreadChatBody({
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : "padding"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 96 : insets.bottom + 72}
+      keyboardVerticalOffset={0}
     >
       <FlatList
         ref={(node) => {
           listRef.current = node;
         }}
         className="flex-1"
+        style={{ backgroundColor: colors.background }}
         data={messages}
         keyExtractor={(message) => String(message.id)}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         contentContainerStyle={{
           paddingHorizontal: 16,
-          paddingTop: 12,
-          paddingBottom: 24,
+          paddingTop: 8,
+          paddingBottom: 12,
           rowGap: 8,
         }}
         showsVerticalScrollIndicator={false}
@@ -103,9 +103,19 @@ export function ThreadChatBody({
                 <Text className="text-[10px] font-bold font-outfit text-accent ml-2 uppercase tracking-widest">Loading coaching history...</Text>
               </View>
             ) : null}
-            <View className="items-center my-6">
-              <View className="px-4 py-1.5 rounded-full bg-input border border-app/5 shadow-sm">
-                <Text className="text-[10px] font-bold font-clash text-secondary uppercase tracking-[2px]">
+            <View className="items-center my-4">
+              <View
+                className="px-3 py-1 rounded-full"
+                style={{
+                  backgroundColor: colors.backgroundSecondary,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text
+                  className="text-[10px] font-semibold font-outfit uppercase tracking-[1px]"
+                  style={{ color: colors.textSecondary }}
+                >
                   Today
                 </Text>
               </View>
@@ -149,7 +159,14 @@ export function ThreadChatBody({
         </View>
       ) : null}
 
-      <View className="px-4 pt-4 bg-app border-t border-app/5" style={{ paddingBottom: Math.max(12, insets.bottom) }}>
+      <View
+        className="px-3 pt-3 border-t"
+        style={{
+          backgroundColor: colors.background,
+          borderColor: colors.border,
+          paddingBottom: Math.max(10, insets.bottom),
+        }}
+      >
         {composerDisabled && disabledMessage ? (
           <View className="mb-3 rounded-2xl bg-warning/10 px-4 py-3 border border-warning/20">
             <Text className="text-[11px] font-medium font-outfit text-warning text-center">
@@ -160,37 +177,26 @@ export function ThreadChatBody({
         
         {pendingAttachment ? (
           <View className="mb-3 rounded-2xl bg-input p-3 border border-accent/20">
-            <View className="flex-row items-center justify-between mb-2">
-              <View className="flex-row items-center gap-2">
-                <Feather name="file" size={12} color={colors.accent} />
-                <Text className="text-[10px] font-bold font-outfit text-accent uppercase tracking-widest text-opacity-80">
-                  Ready to send
-                </Text>
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-3">
+                {pendingAttachment.isImage ? (
+                  <Image
+                    source={{ uri: pendingAttachment.uri }}
+                    className="w-12 h-12 rounded-xl border border-app/5"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="w-12 h-12 rounded-xl bg-accent/5 items-center justify-center border border-accent/10">
+                    <Feather name="file-text" size={20} color={colors.accent} />
+                  </View>
+                )}
+                <View className="h-10 w-10 rounded-full items-center justify-center bg-accent/10 border border-accent/20">
+                  <Feather name="check" size={16} color={colors.accent} />
+                </View>
               </View>
               <Pressable onPress={onRemovePendingAttachment} disabled={isUploadingAttachment}>
                 <Ionicons name="close-circle" size={20} color="#EF4444" />
               </Pressable>
-            </View>
-            <View className="flex-row items-center gap-3">
-              {pendingAttachment.isImage ? (
-                <Image
-                  source={{ uri: pendingAttachment.uri }}
-                  className="w-16 h-16 rounded-xl border border-app/5"
-                  resizeMode="cover"
-                />
-              ) : (
-                <View className="w-16 h-16 rounded-xl bg-accent/5 items-center justify-center border border-accent/10">
-                  <Feather name="file-text" size={24} color={colors.accent} />
-                </View>
-              )}
-              <View className="flex-1">
-                <Text className="text-sm font-outfit text-app font-medium" numberOfLines={1}>
-                  {pendingAttachment.fileName}
-                </Text>
-                <Text className="text-xs font-outfit text-secondary mt-0.5">
-                  {Math.max(1, Math.round(pendingAttachment.sizeBytes / 1024))} KB
-                </Text>
-              </View>
             </View>
             {isUploadingAttachment ? (
               <View className="mt-2 h-1 bg-accent/10 rounded-full overflow-hidden">
@@ -200,15 +206,19 @@ export function ThreadChatBody({
           </View>
         ) : null}
 
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center gap-2">
           <Pressable
             onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onOpenComposerMenu}
-            className="h-12 w-12 rounded-2xl items-center justify-center bg-input border border-app/5 shadow-sm active:opacity-80"
+            className="h-10 w-10 rounded-full items-center justify-center border shadow-sm active:opacity-80"
+            style={{ backgroundColor: colors.inputBackground, borderColor: colors.border }}
           >
             <Feather name="paperclip" size={20} color={colors.accent} />
           </Pressable>
 
-          <View className="flex-1 flex-row items-center h-12 bg-input rounded-2xl px-4 border border-app/5 shadow-sm">
+          <View
+            className="flex-1 flex-row items-center h-11 rounded-full px-4 border shadow-sm"
+            style={{ backgroundColor: colors.inputBackground, borderColor: colors.border }}
+          >
             <TextInput
               className="flex-1 text-sm font-outfit text-app"
               placeholder="Message your coach..."
@@ -222,9 +232,10 @@ export function ThreadChatBody({
             
             <Pressable
               onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onSend}
-              className={`h-9 w-9 rounded-xl items-center justify-center bg-accent shadow-sm ${
+              className={`h-9 w-9 rounded-full items-center justify-center shadow-sm ${
                 composerDisabled || isUploadingAttachment || (!draft.trim() && !pendingAttachment) ? "opacity-40" : "active:opacity-80"
               }`}
+              style={{ backgroundColor: colors.accent }}
             >
               <Feather name="arrow-up" size={18} color="#FFFFFF" />
             </Pressable>

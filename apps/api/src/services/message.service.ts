@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "../db";
-import { messageTable, userTable } from "../db/schema";
+import { messageReactionTable, messageTable, userTable } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { attachDirectMessageReactions } from "./reaction.service";
 
@@ -85,6 +85,7 @@ export async function sendMessage(input: {
   content: string;
   contentType: "text" | "image" | "video";
   mediaUrl?: string | null;
+  videoUploadId?: number | null;
 }) {
   const safeContent = input.content.trim() || "Attachment";
   const result = await db
@@ -95,6 +96,7 @@ export async function sendMessage(input: {
       content: safeContent,
       contentType: input.contentType,
       mediaUrl: input.mediaUrl ?? null,
+      videoUploadId: input.videoUploadId ?? null,
     })
     .returning();
 
@@ -116,4 +118,24 @@ export async function markThreadRead(userId: number) {
     .set({ read: true })
     .where(and(eq(messageTable.receiverId, userId), inArray(messageTable.senderId, adminIds)));
   return result.rowCount ?? 0;
+}
+
+export async function deleteDirectMessage(input: { messageId: number; userId: number }) {
+  const rows = await db.select().from(messageTable).where(eq(messageTable.id, input.messageId)).limit(1);
+  const message = rows[0];
+  if (!message) {
+    throw new Error("Message not found");
+  }
+  if (message.senderId !== input.userId) {
+    throw new Error("Forbidden");
+  }
+  await db.delete(messageReactionTable).where(eq(messageReactionTable.messageId, input.messageId));
+  await db.delete(messageTable).where(eq(messageTable.id, input.messageId));
+  const io = getSocketServer();
+  if (io) {
+    io.to(`user:${message.senderId}`).emit("message:deleted", { messageId: input.messageId });
+    io.to(`user:${message.receiverId}`).emit("message:deleted", { messageId: input.messageId });
+    io.to("admin:all").emit("message:deleted", { messageId: input.messageId });
+  }
+  return { deleted: true };
 }

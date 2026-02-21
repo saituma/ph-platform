@@ -44,6 +44,13 @@ type ServiceType = {
   isActive?: boolean | null;
 };
 
+type AvailabilityBlock = {
+  id: number;
+  serviceTypeId: number;
+  startsAt: string;
+  endsAt: string;
+};
+
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const EVENT_TITLE_BY_TYPE: Record<string, string> = {
@@ -83,6 +90,12 @@ export default function ScheduleScreen() {
   const [bookingMeetingLink, setBookingMeetingLink] = useState("");
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [availabilityBookings, setAvailabilityBookings] = useState<any[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<Date[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
+  const [hasAvailabilityBlocks, setHasAvailabilityBlocks] = useState(false);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -100,7 +113,7 @@ export default function ScheduleScreen() {
       const timeLabel = startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Booking confirmed",
+          title: "Booking requested",
           body: `${serviceName} • ${dateLabel} at ${timeLabel}`,
           sound: "default",
           channelId: "bookings",
@@ -191,6 +204,44 @@ export default function ScheduleScreen() {
     return null;
   }, [selectedService]);
 
+  const slotCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    availabilityBookings.forEach((booking) => {
+      if (!booking?.startsAt) return;
+      const key = new Date(booking.startsAt).toISOString();
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+    return map;
+  }, [availabilityBookings]);
+
+  const toTimeLabel = useCallback((date: Date) => {
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }, []);
+
+  const mergeDateAndTime = useCallback((date: Date, time: Date) => {
+    const next = new Date(date);
+    next.setHours(time.getHours(), time.getMinutes(), 0, 0);
+    return next;
+  }, []);
+
+  const buildSlots = useCallback(
+    (blocks: AvailabilityBlock[], durationMinutes: number, fixedTime?: string | null) => {
+      const durationMs = durationMinutes * 60 * 1000;
+      const slotMap = new Map<string, Date>();
+      blocks.forEach((block) => {
+        const start = new Date(block.startsAt);
+        const end = new Date(block.endsAt);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+        for (let cursor = new Date(start.getTime()); cursor.getTime() + durationMs <= end.getTime(); cursor = new Date(cursor.getTime() + durationMs)) {
+          if (fixedTime && toTimeLabel(cursor) !== fixedTime) continue;
+          slotMap.set(cursor.toISOString(), cursor);
+        }
+      });
+      return Array.from(slotMap.values()).sort((a, b) => a.getTime() - b.getTime());
+    },
+    [toTimeLabel],
+  );
+
   useEffect(() => {
     if (!bookingOpen || !token) return;
     let active = true;
@@ -241,6 +292,85 @@ export default function ScheduleScreen() {
     next.setHours(hours, minutes, 0, 0);
     setBookingTime(next);
   }, [fixedTimeLabel]);
+
+  useEffect(() => {
+    const next = mergeDateAndTime(bookingDate, bookingTime);
+    setBookingTime(next);
+  }, [bookingDate, mergeDateAndTime]);
+
+  useEffect(() => {
+    if (!bookingOpen || !token || !selectedService) return;
+    let active = true;
+    const start = new Date(bookingDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(bookingDate);
+    end.setHours(23, 59, 59, 999);
+    setAvailabilityLoading(true);
+    setAvailabilityError(null);
+    apiRequest<{ items: AvailabilityBlock[]; bookings?: any[] }>(
+      `/bookings/availability?serviceTypeId=${selectedService.id}&from=${encodeURIComponent(start.toISOString())}&to=${encodeURIComponent(end.toISOString())}`,
+      { token },
+    )
+      .then((data) => {
+        if (!active) return;
+        const blocks = data.items ?? [];
+        setHasAvailabilityBlocks(blocks.length > 0);
+        const bookingItems = data.bookings ?? [];
+        setAvailabilityBookings(bookingItems);
+        const slots = buildSlots(blocks, selectedService.durationMinutes, fixedTimeLabel);
+        setAvailableSlots(slots);
+        const capacity = selectedService.capacity ?? null;
+        const counts = new Map<string, number>();
+        bookingItems.forEach((booking) => {
+          if (!booking?.startsAt) return;
+          const key = new Date(booking.startsAt).toISOString();
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        });
+        setSelectedSlot((prev) => {
+          const isPrevValid = prev && slots.some((slot) => slot.toISOString() === prev.toISOString());
+          if (isPrevValid) {
+            if (!capacity) return prev;
+            const prevCount = counts.get(prev.toISOString()) ?? 0;
+            if (prevCount < capacity) return prev;
+          }
+          const firstAvailable = slots.find((slot) => {
+            if (!capacity) return true;
+            const count = counts.get(slot.toISOString()) ?? 0;
+            return count < capacity;
+          });
+          if (firstAvailable) return firstAvailable;
+          if (capacity) {
+            return mergeDateAndTime(bookingDate, bookingTime);
+          }
+          return null;
+        });
+      })
+      .catch((err) => {
+        if (!active) return;
+        setAvailabilityError(err.message ?? "Failed to load availability");
+        setAvailabilityBookings([]);
+        setAvailableSlots([]);
+        setSelectedSlot(null);
+        setHasAvailabilityBlocks(false);
+      })
+      .finally(() => {
+        if (!active) return;
+        setAvailabilityLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [bookingOpen, token, selectedService, bookingDate, fixedTimeLabel, buildSlots]);
+
+  useEffect(() => {
+    if (!selectedSlot) return;
+    setBookingTime(selectedSlot);
+  }, [selectedSlot]);
+
+  useEffect(() => {
+    if (!bookingOpen || !selectedService?.capacity || hasAvailabilityBlocks) return;
+    setSelectedSlot(mergeDateAndTime(bookingDate, bookingTime));
+  }, [bookingOpen, selectedService, bookingDate, bookingTime, hasAvailabilityBlocks, mergeDateAndTime]);
 
   useEffect(() => {
     if (!token) return;
@@ -424,6 +554,18 @@ export default function ScheduleScreen() {
               <Text className="text-sm font-outfit text-secondary mt-2 text-center">
                 Use the plus button to add a call or training session.
               </Text>
+              <Pressable
+                className="mt-4 rounded-full bg-accent px-5 py-2"
+                onPress={() => {
+                  setBookingOpen(true);
+                  setBookingConfirmed(false);
+                  setBookingError(null);
+                }}
+              >
+                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
+                  Book this day
+                </Text>
+              </Pressable>
               {eventsError ? (
                 <Text className="text-xs font-outfit text-red-400 mt-2">
                   {eventsError}
@@ -557,7 +699,7 @@ export default function ScheduleScreen() {
           >
             <View className="flex-row items-center justify-between">
               <Text className="text-lg font-clash text-app">
-                {bookingConfirmed ? "Booking Confirmed" : "New Booking"}
+                {bookingConfirmed ? "Booking Requested" : "New Booking"}
               </Text>
               <Pressable onPress={() => setBookingOpen(false)}>
                 <Feather name="x" size={20} className="text-secondary" />
@@ -567,15 +709,15 @@ export default function ScheduleScreen() {
             {bookingConfirmed ? (
               <>
                 <Text className="text-sm font-outfit text-secondary mt-2">
-                  Booking submitted for {bookingDate.toLocaleDateString([], { month: "short", day: "numeric" })} at{" "}
+                  Booking request sent for {bookingDate.toLocaleDateString([], { month: "short", day: "numeric" })} at{" "}
                   {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
                 </Text>
                 <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
                   <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Sent to admin
+                    Pending approval
                   </Text>
                   <Text className="text-sm font-outfit text-app mt-2">
-                    Your request is visible in the web bookings list.
+                    Your request is awaiting approval.
                   </Text>
                   {bookingLocation ? (
                     <Text className="text-xs font-outfit text-secondary mt-3">
@@ -641,6 +783,7 @@ export default function ScheduleScreen() {
                             }`}
                           >
                             {item.name}
+                            {item.capacity ? ` (${item.capacity} slots)` : ""}
                           </Text>
                         </Pressable>
                       );
@@ -669,21 +812,93 @@ export default function ScheduleScreen() {
                         if (fixedTimeLabel) return;
                         setShowTimePicker(true);
                       }}
-                      className="rounded-2xl border border-app/10 bg-input px-3 py-3"
+                      className={`rounded-2xl border border-app/10 bg-input px-3 py-3 ${
+                        fixedTimeLabel ? "opacity-70" : ""
+                      }`}
                     >
                       <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Start time
+                        Time
                       </Text>
                       <Text className="text-sm font-outfit text-app mt-1">
-                        {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {fixedTimeLabel
+                          ? `${fixedTimeLabel} (Fixed)`
+                          : bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </Text>
-                      {fixedTimeLabel ? (
-                        <Text className="text-xs font-outfit text-secondary mt-1">
-                          Fixed at {fixedTimeLabel}
-                        </Text>
-                      ) : null}
                     </Pressable>
                   </View>
+                </View>
+
+                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                    Available slots
+                  </Text>
+                  {availabilityLoading ? (
+                    <Text className="text-xs font-outfit text-secondary mt-3">
+                      Loading availability...
+                    </Text>
+                  ) : availabilityError ? (
+                    <Text className="text-xs font-outfit text-red-400 mt-3">
+                      {availabilityError}
+                    </Text>
+                  ) : fixedTimeLabel ? (
+                    availableSlots.length === 0 ? (
+                      selectedService?.capacity && !hasAvailabilityBlocks ? (
+                        <Text className="text-sm font-outfit text-secondary mt-3">
+                          No availability blocks set. You can still pick a time above.
+                        </Text>
+                      ) : (
+                        <Text className="text-sm font-outfit text-secondary mt-3">
+                          No slots available at {fixedTimeLabel} on this date.
+                        </Text>
+                      )
+                    ) : (
+                      <Text className="text-sm font-outfit text-secondary mt-3">
+                        Fixed time at {fixedTimeLabel}. You don’t need to pick a time.
+                      </Text>
+                    )
+                  ) : availableSlots.length === 0 ? (
+                    selectedService?.capacity && !hasAvailabilityBlocks ? (
+                      <Text className="text-sm font-outfit text-secondary mt-3">
+                        No availability blocks set. Pick a time above to request a slot.
+                      </Text>
+                    ) : (
+                      <Text className="text-sm font-outfit text-secondary mt-3">
+                        No slots available for this date.
+                      </Text>
+                    )
+                  ) : (
+                    <View className="mt-3 flex-row flex-wrap gap-2">
+                      {availableSlots.map((slot) => {
+                        const active = selectedSlot?.toISOString() === slot.toISOString();
+                        const capacity = selectedService?.capacity ?? null;
+                        const count = slotCounts.get(slot.toISOString()) ?? 0;
+                        const isFull = capacity ? count >= capacity : false;
+                        return (
+                          <Pressable
+                            key={slot.toISOString()}
+                            onPress={() => {
+                              if (isFull) return;
+                              setSelectedSlot(slot);
+                            }}
+                            className={`px-4 py-2 rounded-full border ${
+                              active ? "bg-accent" : "bg-secondary/10"
+                            } ${isFull ? "opacity-50" : ""}`}
+                            style={{ borderColor: colors.border }}
+                          >
+                            <Text
+                              className={`text-xs font-outfit uppercase tracking-[1.4px] ${
+                                active ? "text-white" : "text-secondary"
+                              }`}
+                            >
+                              {slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              {capacity ? ` ${count}/${capacity}` : ""}
+                              {isFull ? " Full" : ""}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
 
                 <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
@@ -726,15 +941,13 @@ export default function ScheduleScreen() {
                       setBookingError("Please select a booking type.");
                       return;
                     }
+                    if (!selectedSlot) {
+                      setBookingError("Please select a time slot.");
+                      return;
+                    }
                     setBookingError(null);
                     try {
-                      const startsAt = new Date(bookingDate);
-                      startsAt.setHours(
-                        bookingTime.getHours(),
-                        bookingTime.getMinutes(),
-                        0,
-                        0,
-                      );
+                      const startsAt = new Date(selectedSlot);
                       const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
                       await apiRequest("/bookings", {
                         method: "POST",
@@ -743,6 +956,7 @@ export default function ScheduleScreen() {
                           serviceTypeId: selectedService.id,
                           startsAt: startsAt.toISOString(),
                           endsAt: endsAt.toISOString(),
+                          timezoneOffsetMinutes: startsAt.getTimezoneOffset(),
                           location: bookingLocation || undefined,
                           meetingLink: bookingMeetingLink || undefined,
                         },
@@ -755,14 +969,14 @@ export default function ScheduleScreen() {
                       setBookingError(err.message ?? "Failed to submit booking");
                     }
                   }}
-                  disabled={!selectedService}
+                  disabled={!selectedService || !selectedSlot}
                   className={`mt-4 px-4 py-3 rounded-full ${
-                    selectedService ? "bg-accent" : "bg-secondary/20"
+                    selectedService && selectedSlot ? "bg-accent" : "bg-secondary/20"
                   }`}
                 >
                   <Text
                     className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                      selectedService ? "text-white" : "text-secondary"
+                      selectedService && selectedSlot ? "text-white" : "text-secondary"
                     }`}
                   >
                     Submit Booking
@@ -799,7 +1013,6 @@ export default function ScheduleScreen() {
                     ) : null}
                   </View>
                 ) : null}
-
                 {showTimePicker ? (
                   <View className="mt-3">
                     <DateTimePicker
@@ -825,6 +1038,7 @@ export default function ScheduleScreen() {
                     ) : null}
                   </View>
                 ) : null}
+
               </>
             )}
           </Pressable>

@@ -10,6 +10,7 @@ import {
   listMembers,
   sendGroupChatMessage,
   toggleGroupReaction,
+  deleteGroupChatMessage,
 } from "../controllers/chat.controller";
 
 const router = Router();
@@ -21,5 +22,6 @@ router.post("/chat/groups/:groupId/members", requireAuth, requireRole(["admin", 
 router.get("/chat/groups/:groupId/messages", requireAuth, listGroupChatMessages);
 router.post("/chat/groups/:groupId/messages", requireAuth, sendGroupChatMessage);
 router.put("/chat/groups/:groupId/messages/:messageId/reactions", requireAuth, toggleGroupReaction);
+router.delete("/chat/groups/:groupId/messages/:messageId", requireAuth, deleteGroupChatMessage);
 
 export default router;

@@ -29,6 +29,14 @@ export async function getTestimonialSubmissions() {
     .where(eq(contentTable.surface, "testimonial_submissions"));
 }
 
+export async function getAnnouncements() {
+  return db
+    .select()
+    .from(contentTable)
+    .where(eq(contentTable.surface, "announcements"))
+    .orderBy(desc(contentTable.updatedAt));
+}
+
 function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
@@ -177,6 +185,14 @@ export async function updateContentCategory(input: { id: number; category: strin
     .update(contentTable)
     .set({ category: input.category, updatedAt: new Date() })
     .where(eq(contentTable.id, input.id))
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function deleteContentItem(contentId: number) {
+  const result = await db
+    .delete(contentTable)
+    .where(eq(contentTable.id, contentId))
     .returning();
   return result[0] ?? null;
 }

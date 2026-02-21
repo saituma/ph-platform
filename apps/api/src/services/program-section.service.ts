@@ -48,6 +48,15 @@ export async function listProgramSectionContent(input: {
   return rows.filter((item) => matchesAgeList(item, input.age ?? null));
 }
 
+export async function getProgramSectionContentById(id: number) {
+  const rows = await db
+    .select()
+    .from(programSectionContentTable)
+    .where(eq(programSectionContentTable.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function createProgramSectionContent(input: {
   sectionType: (typeof sessionType.enumValues)[number];
   programTier?: (typeof ProgramType.enumValues)[number] | null;

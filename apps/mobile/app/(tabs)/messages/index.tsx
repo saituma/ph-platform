@@ -12,7 +12,6 @@ import { useRouter } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier } from "@/lib/planAccess";
 import { Text } from "@/components/ScaledText";
-import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "@/lib/api";
 import {
   setLatestSubscriptionRequest,
@@ -52,31 +51,29 @@ export default function MessagesScreen() {
     );
   }
 
-  useFocusEffect(
-    React.useCallback(() => {
-      if (!token) return;
-      (async () => {
-        try {
-          const status = await apiRequest<{
-            currentProgramTier?: string | null;
-            latestRequest?: {
-              status?: string | null;
-              paymentStatus?: string | null;
-              planTier?: string | null;
-              createdAt?: string | null;
-            } | null;
-          }>("/billing/status", {
-            token,
-            suppressStatusCodes: [401, 403, 404],
-          });
-          dispatch(setProgramTier(status?.currentProgramTier ?? null));
-          dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
-        } catch {
-          // no-op
-        }
-      })();
-    }, [dispatch, token]),
-  );
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const status = await apiRequest<{
+          currentProgramTier?: string | null;
+          latestRequest?: {
+            status?: string | null;
+            paymentStatus?: string | null;
+            planTier?: string | null;
+            createdAt?: string | null;
+          } | null;
+        }>("/billing/status", {
+          token,
+          suppressStatusCodes: [401, 403, 404],
+        });
+        dispatch(setProgramTier(status?.currentProgramTier ?? null));
+        dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
+      } catch {
+        // no-op
+      }
+    })();
+  }, [dispatch, token]);
 
   // ====================== LOCKED / UPGRADE STATE ======================
   if (!canMessage) {

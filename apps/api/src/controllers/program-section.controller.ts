@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ProgramType, sessionType } from "../db/schema";
 import {
   createProgramSectionContent,
+  getProgramSectionContentById,
   deleteProgramSectionContent,
   listProgramSectionContent,
   updateProgramSectionContent,
@@ -43,6 +44,15 @@ export async function listProgramSectionContentHandler(req: Request, res: Respon
     age: Number.isFinite(input.age) ? input.age : null,
   });
   return res.status(200).json({ items });
+}
+
+export async function getProgramSectionContentHandler(req: Request, res: Response) {
+  const id = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const item = await getProgramSectionContentById(id);
+  if (!item) {
+    return res.status(404).json({ error: "Content not found" });
+  }
+  return res.status(200).json({ item });
 }
 
 export async function createProgramSectionContentHandler(req: Request, res: Response) {
