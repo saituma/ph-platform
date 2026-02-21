@@ -1,12 +1,13 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Controller, Control, FieldErrors, UseFormSetValue } from "react-hook-form";
 import { Platform, Pressable, View } from "react-native";
 
 import { AthleteRegisterFormData, ConfigField } from "@/hooks/onboarding/useRegisterController";
 import { Text, TextInput } from "@/components/ScaledText";
+import { PROGRAM_TIERS } from "@/constants/Programs";
 
 type ColorSet = {
   app: string;
@@ -35,6 +36,10 @@ type RegisterFormFieldsProps = {
   onOpenDropdown: (type: "team" | "level") => void;
   onOpenTerms: () => void;
   onOpenPrivacy: () => void;
+  planPricingByTier: Record<string, { badge?: string; lines?: string[] }>;
+  onPayPlan: (tierKey: string, interval?: "monthly" | "yearly") => void;
+  payingTier: string | null;
+  isPaying: boolean;
 };
 
 function ErrorText({ text }: { text?: string }) {
@@ -61,8 +66,34 @@ export function RegisterFormFields({
   onOpenDropdown,
   onOpenTerms,
   onOpenPrivacy,
+  planPricingByTier,
+  onPayPlan,
+  payingTier,
+  isPaying,
 }: RegisterFormFieldsProps) {
   const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
+
+  const tierByKey = useMemo(() => {
+    const map = new Map<string, (typeof PROGRAM_TIERS)[number]>();
+    PROGRAM_TIERS.forEach((tier) => {
+      const key =
+        tier.id === "php"
+          ? "PHP"
+          : tier.id === "plus"
+            ? "PHP_Plus"
+            : "PHP_Premium";
+      map.set(key, tier);
+    });
+    return map;
+  }, []);
+
+  const normalizeProgramOption = (option: string) => {
+    const normalized = option.trim().toLowerCase();
+    if (normalized.includes("premium")) return "PHP_Premium";
+    if (normalized.includes("plus")) return "PHP_Plus";
+    if (normalized.includes("php")) return "PHP";
+    return null;
+  };
 
   const formatBirthDate = (date: Date) => {
     const year = date.getUTCFullYear();
@@ -353,19 +384,7 @@ export function RegisterFormFields({
         </View>
       ) : null}
 
-      {isVisible("desiredProgramType") ? (
-        <View className="flex-row flex-wrap gap-2">
-          {optionsFor("desiredProgramType").map((option) => (
-            <Pressable
-              key={option}
-              onPress={() => setValue("desiredProgramType", option)}
-              className={`px-4 py-2 rounded-full border ${programValue === option ? "border-accent bg-accent/10" : "border-app"}`}
-            >
-              <Text className="text-app font-outfit text-sm">{option}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+      {null}
 
       {customFields.map((field) => (
         <View key={field.id}>
