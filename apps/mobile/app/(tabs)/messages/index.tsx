@@ -131,7 +131,7 @@ export default function MessagesScreen() {
             </View>
 
             <TouchableOpacity
-              onPress={() => router.push("/plans")}
+              onPress={() => router.push("/programs")}
               className="w-full bg-accent py-4 rounded-2xl active:opacity-90 shadow-lg shadow-accent/20"
             >
               <Text className="text-white font-bold text-base text-center">

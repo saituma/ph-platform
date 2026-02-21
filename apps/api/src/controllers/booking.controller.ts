@@ -13,6 +13,8 @@ import {
 } from "../services/booking.service";
 import { getGuardianAndAthlete } from "../services/user.service";
 import { ProgramType } from "../db/schema";
+import { verifyBookingActionToken } from "../lib/booking-actions";
+import { updateBookingStatusAdmin } from "../services/admin.service";
 
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
@@ -149,4 +151,22 @@ export async function listBookings(req: Request, res: Response) {
   }
   const items = await listBookingsForUser(guardian.id);
   return res.status(200).json({ items });
+}
+
+export async function bookingAction(req: Request, res: Response) {
+  const parsed = z.string().min(1).safeParse(req.query.token);
+  if (!parsed.success) {
+    return res.status(400).send("Missing booking action token.");
+  }
+  const token = parsed.data;
+  const verified = verifyBookingActionToken(token);
+  if (!verified) {
+    return res.status(400).send("Invalid or expired booking action.");
+  }
+  const status = verified.action === "approve" ? "confirmed" : "declined";
+  const updated = await updateBookingStatusAdmin({ bookingId: verified.bookingId, status });
+  if (!updated) {
+    return res.status(404).send("Booking not found.");
+  }
+  return res.status(200).send(`Booking ${status}.`);
 }

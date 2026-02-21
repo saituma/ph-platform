@@ -890,9 +890,9 @@ export default function ScheduleScreen() {
                                 active ? "text-white" : "text-secondary"
                               }`}
                             >
-                              {slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              {capacity ? ` ${count}/${capacity}` : ""}
-                              {isFull ? " Full" : ""}
+                              {capacity
+                                ? `${Math.max(capacity - count, 0)} slots left`
+                                : "Available"}
                             </Text>
                           </Pressable>
                         );

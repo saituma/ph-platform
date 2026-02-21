@@ -12,6 +12,7 @@ import {
 } from "../db/schema";
 import { env } from "../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../lib/mailer";
+import { createBookingActionToken } from "../lib/booking-actions";
 
 type ServiceTypeKind =
   | "call"
@@ -205,24 +206,59 @@ export async function createBooking(input: {
     throw new Error("Service type not found");
   }
 
-  const normalizeTime = (value?: string | null) => (value ? value.trim().slice(0, 5) : null);
-  const startTimeUtc = normalizeTime(input.startsAt.toISOString().substring(11, 16)) ?? "";
-  const startTimeLocal =
-    normalizeTime(
-      `${String(input.startsAt.getHours()).padStart(2, "0")}:${String(input.startsAt.getMinutes()).padStart(2, "0")}`,
-    ) ?? "";
+  const formatTime = (value: Date, useUtc: boolean) => {
+    const hours = useUtc ? value.getUTCHours() : value.getHours();
+    const minutes = useUtc ? value.getUTCMinutes() : value.getMinutes();
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  };
+  const parseTimeToMinutes = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) return null;
+    const ampmMatch = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+    if (ampmMatch) {
+      let hour = Number(ampmMatch[1]);
+      const minute = Number(ampmMatch[2] ?? "00");
+      if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return null;
+      const period = ampmMatch[3];
+      if (hour === 12) hour = 0;
+      if (period === "pm") hour += 12;
+      return hour * 60 + minute;
+    }
+    const timeMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (!timeMatch) return null;
+    const hour = Number(timeMatch[1]);
+    const minute = Number(timeMatch[2]);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+    return hour * 60 + minute;
+  };
+
+  const startTimeUtc = formatTime(input.startsAt, true);
+  const startTimeLocal = formatTime(input.startsAt, false);
   const startTimeOffset = Number.isFinite(input.timezoneOffsetMinutes)
     ? (() => {
         const offsetMs = Number(input.timezoneOffsetMinutes) * 60 * 1000;
         const localDate = new Date(input.startsAt.getTime() - offsetMs);
-        const hours = String(localDate.getUTCHours()).padStart(2, "0");
-        const minutes = String(localDate.getUTCMinutes()).padStart(2, "0");
-        return `${hours}:${minutes}`;
+        return formatTime(localDate, true);
       })()
     : "";
-  const matchesFixed = (fixed: string) =>
-    fixed === startTimeUtc || fixed === startTimeLocal || (startTimeOffset ? fixed === startTimeOffset : false);
-  const fixedStartTime = normalizeTime(serviceType[0].fixedStartTime);
+  const startTimeOffsetInverse = Number.isFinite(input.timezoneOffsetMinutes)
+    ? (() => {
+        const offsetMs = Number(input.timezoneOffsetMinutes) * 60 * 1000;
+        const localDate = new Date(input.startsAt.getTime() + offsetMs);
+        return formatTime(localDate, true);
+      })()
+    : "";
+
+  const fixedStartTime = serviceType[0].fixedStartTime ?? null;
+  const matchesFixed = (fixed: string) => {
+    const fixedMinutes = parseTimeToMinutes(fixed);
+    if (fixedMinutes === null) return false;
+    const candidates = [startTimeUtc, startTimeLocal, startTimeOffset, startTimeOffsetInverse].filter(Boolean);
+    return candidates.some((time) => parseTimeToMinutes(time) === fixedMinutes);
+  };
   if (fixedStartTime) {
     if (!matchesFixed(fixedStartTime)) {
       throw new Error("Invalid start time");
@@ -277,6 +313,15 @@ export async function createBooking(input: {
     })
     .returning();
 
+  const bookingId = result[0]?.id;
+  const publicApiBase = env.publicApiBaseUrl ? env.publicApiBaseUrl.replace(/\/$/, "") : "";
+  const adminWebBase = env.adminWebUrl ? env.adminWebUrl.replace(/\/$/, "") : "";
+  const approveToken = bookingId ? createBookingActionToken({ bookingId, action: "approve" }) : null;
+  const declineToken = bookingId ? createBookingActionToken({ bookingId, action: "decline" }) : null;
+  const approveUrl = publicApiBase && approveToken ? `${publicApiBase}/api/public/booking-action?token=${approveToken}` : undefined;
+  const declineUrl = publicApiBase && declineToken ? `${publicApiBase}/api/public/booking-action?token=${declineToken}` : undefined;
+  const adminUrl = adminWebBase ? `${adminWebBase}/bookings` : undefined;
+
   const guardian = await db
     .select({ userId: guardianTable.userId })
     .from(guardianTable)
@@ -306,6 +351,7 @@ export async function createBooking(input: {
       try {
         await sendBookingRequestAdminEmail({
           to: admin.email,
+          bookingId: bookingId ?? 0,
           serviceName: serviceType[0].name,
           startsAt: input.startsAt,
           guardianName: user[0]?.name ?? undefined,
@@ -313,6 +359,9 @@ export async function createBooking(input: {
           athleteName: athlete[0]?.name ?? undefined,
           location: input.location ?? serviceType[0].defaultLocation ?? undefined,
           meetingLink: input.meetingLink ?? serviceType[0].defaultMeetingLink ?? undefined,
+          approveUrl,
+          declineUrl,
+          adminUrl,
         });
       } catch (error) {
         console.error("Failed to send booking request admin email", error);

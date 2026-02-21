@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { logout } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
+import { canAccessTier } from "@/lib/planAccess";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -23,9 +24,10 @@ export default function MoreScreen() {
   const { colors } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated } = useAppSelector((state) => state.user);
+  const { profile, isAuthenticated, programTier } = useAppSelector((state) => state.user);
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
+  const canAccessParentPlatform = canAccessTier(programTier ?? null, "PHP_Premium");
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -143,13 +145,15 @@ export default function MoreScreen() {
                     onPress={() => router.navigate("/permissions")}
                     accentColor={colors.accent}
                   />
-                  <MenuItem
-                    icon="book"
-                    label="Parent Platform"
-                    isLast={false}
-                    onPress={openParentPlatform}
-                    accentColor={colors.accent}
-                  />
+                  {canAccessParentPlatform ? (
+                    <MenuItem
+                      icon="book"
+                      label="Parent Platform"
+                      isLast={false}
+                      onPress={openParentPlatform}
+                      accentColor={colors.accent}
+                    />
+                  ) : null}
                   <MenuItem
                     icon="bell"
                     label="Notifications"
