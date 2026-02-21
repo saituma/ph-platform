@@ -73,10 +73,10 @@ export function ProgramDetailPanel({
     return selected?.age ?? null;
   }, [managedAthletes, athleteUserId]);
   const tabs = useMemo(() => {
-    let base = PROGRAM_TABS[programId];
     if (programId === "plus") {
-      base = phpPlusTabs ?? PROGRAM_TABS[programId];
+      return phpPlusTabs ?? [];
     }
+    let base = PROGRAM_TABS[programId];
     if (role === "Athlete") {
       base = base.filter(
         (tab) =>
@@ -113,29 +113,24 @@ export function ProgramDetailPanel({
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadPhpPlusTabs = useCallback(async () => {
     if (programId !== "plus") return;
-    let active = true;
-    const loadTabs = async () => {
-      try {
-        const response = await apiRequest<{ tabs?: string[] }>(
-          `/onboarding/php-plus-tabs?ts=${Date.now()}`,
-          { method: "GET", suppressLog: true },
-        );
-        if (!active) return;
-        if (Array.isArray(response.tabs)) {
-          setPhpPlusTabs(response.tabs.map((tab) => String(tab)));
-        }
-      } catch {
-        if (!active) return;
-        setPhpPlusTabs(null);
+    try {
+      const response = await apiRequest<{ tabs?: string[] }>(
+        `/onboarding/php-plus-tabs?ts=${Date.now()}`,
+        { method: "GET", suppressLog: true },
+      );
+      if (Array.isArray(response.tabs)) {
+        setPhpPlusTabs(response.tabs.map((tab) => String(tab)));
       }
-    };
-    void loadTabs();
-    return () => {
-      active = false;
-    };
+    } catch {
+      setPhpPlusTabs(null);
+    }
   }, [programId]);
+
+  useEffect(() => {
+    void loadPhpPlusTabs();
+  }, [loadPhpPlusTabs]);
 
   useEffect(() => {
     setActiveTab(tabs[0]);
@@ -256,7 +251,7 @@ export function ProgramDetailPanel({
   }, [activeTab, loadSectionContent]);
 
   const handlePageRefresh = async () => {
-    await loadSectionContent(activeTab);
+    await Promise.all([loadSectionContent(activeTab), loadPhpPlusTabs()]);
     setRefreshToken((prev) => prev + 1);
   };
 
