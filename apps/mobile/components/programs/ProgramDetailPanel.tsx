@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { MarkdownText } from "@/components/ui/MarkdownText";
 import { Modal, Pressable, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
@@ -128,6 +129,16 @@ export function ProgramDetailPanel({
   );
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+  const [expandedContent, setExpandedContent] = useState<Set<number>>(new Set());
+
+  const toggleContent = useCallback((id: number) => {
+    setExpandedContent((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const loadPhpPlusTabs = useCallback(async () => {
     if (programId !== "plus") return;
@@ -276,10 +287,7 @@ export function ProgramDetailPanel({
   };
 
   const handleTabDetail = (tab: string) => {
-    const path = `/programs/tab/${encodeURIComponent(tab)}`;
-    if (onNavigate) {
-      onNavigate(path);
-    }
+    // Intentionally left blank to avoid redirecting the whole page
   };
 
   const renderTrainingContent = () => {
@@ -328,52 +336,144 @@ export function ProgramDetailPanel({
         {visibleContent.map((item) => {
           const meta = (item.metadata ?? {}) as ExerciseMetadata;
           const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
+          const isExpanded = expandedContent.has(item.id);
           return (
-            <Pressable
+            <View
               key={`content-${item.id}`}
-              onPress={() => onNavigate?.(`/programs/content/${item.id}`)}
-              className="rounded-3xl bg-[#2F8F57] px-6 py-5 gap-3"
+              className="rounded-3xl bg-[#2F8F57] overflow-hidden"
               style={isDark ? Shadows.none : Shadows.md}
             >
-              <Text className="text-lg font-clash text-white font-bold">{item.title}</Text>
-              {hasExercise && (
-                <View className="flex-row flex-wrap gap-2">
-                  {meta.sets != null && (
-                    <View className="rounded-full bg-white/15 px-3 py-1">
-                      <Text className="text-[11px] font-outfit text-white">{meta.sets} sets</Text>
+              <Pressable
+                onPress={() => toggleContent(item.id)}
+                className="px-6 py-5 gap-3"
+              >
+                <Text className="text-lg font-clash text-white font-bold">{item.title}</Text>
+                {hasExercise && (
+                  <View className="flex-row flex-wrap gap-2">
+                    {meta.sets != null && (
+                      <View className="rounded-full bg-white/15 px-3 py-1">
+                        <Text className="text-[11px] font-outfit text-white">{meta.sets} sets</Text>
+                      </View>
+                    )}
+                    {meta.reps != null && (
+                      <View className="rounded-full bg-white/15 px-3 py-1">
+                        <Text className="text-[11px] font-outfit text-white">{meta.reps} reps</Text>
+                      </View>
+                    )}
+                    {meta.duration != null && (
+                      <View className="rounded-full bg-white/15 px-3 py-1">
+                        <Text className="text-[11px] font-outfit text-white">{meta.duration}s</Text>
+                      </View>
+                    )}
+                    {meta.restSeconds != null && (
+                      <View className="rounded-full bg-white/15 px-3 py-1">
+                        <Text className="text-[11px] font-outfit text-white">{meta.restSeconds}s rest</Text>
+                      </View>
+                    )}
+                    {meta.category && (
+                      <View className="rounded-full bg-white/25 px-3 py-1">
+                        <Text className="text-[11px] font-outfit text-white font-semibold">{meta.category}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                <View className="flex-row items-center justify-between mt-1">
+                  <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
+                    {isExpanded ? "Hide details" : "View inline"}
+                  </Text>
+                  <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
+                    <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color="#FFFFFF" />
+                  </View>
+                </View>
+
+                <Pressable 
+                  onPress={() => onNavigate?.(`/programs/content/${item.id}`)}
+                  className="flex-row items-center justify-between mt-3 pt-3 border-t border-white/10"
+                >
+                  <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
+                    Open full page
+                  </Text>
+                  <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
+                    <Feather name="arrow-right" size={14} color="#FFFFFF" />
+                  </View>
+                </Pressable>
+              </Pressable>
+
+              {isExpanded && (
+                <View className="px-6 pb-6 pt-2 gap-4 border-t border-white/10 mt-1">
+                  {item.body ? (
+                    <MarkdownText
+                      text={item.body}
+                      baseStyle={{ fontSize: 15, lineHeight: 24, color: "#FFFFFF" }}
+                      headingStyle={{ fontSize: 18, lineHeight: 26, color: "#FFFFFF", fontWeight: "700" }}
+                      subheadingStyle={{ fontSize: 16, lineHeight: 24, color: "#FFFFFF", fontWeight: "700" }}
+                      listItemStyle={{ paddingLeft: 6 }}
+                    />
+                  ) : null}
+
+                  {meta.cues ? (
+                     <View className="rounded-2xl bg-white/10 border border-white/10 p-4 gap-3">
+                       <View className="flex-row items-center gap-2">
+                         <View className="h-6 w-6 rounded-full bg-white/20 items-center justify-center">
+                           <Feather name="message-circle" size={12} color="#FFFFFF" />
+                         </View>
+                         <Text className="text-[10px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
+                           Coaching Cues
+                         </Text>
+                       </View>
+                       <Text className="text-[14px] font-outfit text-white leading-[22px]">{meta.cues}</Text>
+                     </View>
+                  ) : null}
+
+                  {(meta.progression || meta.regression) ? (
+                    <View className="flex-row gap-3">
+                      {meta.progression ? (
+                        <View className="flex-1 rounded-2xl bg-white/10 border border-white/10 p-4 gap-3">
+                          <View className="flex-row items-center gap-2">
+                            <View className="h-6 w-6 rounded-full bg-[#22C55E] items-center justify-center">
+                              <Feather name="trending-up" size={12} color="#FFFFFF" />
+                            </View>
+                            <Text className="text-[10px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
+                              Progression
+                            </Text>
+                          </View>
+                          <Text className="text-sm font-outfit text-white leading-relaxed">{meta.progression}</Text>
+                        </View>
+                      ) : null}
+                      {meta.regression ? (
+                        <View className="flex-1 rounded-2xl bg-white/10 border border-white/10 p-4 gap-3">
+                          <View className="flex-row items-center gap-2">
+                            <View className="h-6 w-6 rounded-full bg-[#F97316] items-center justify-center">
+                              <Feather name="trending-down" size={12} color="#FFFFFF" />
+                            </View>
+                            <Text className="text-[10px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
+                              Regression
+                            </Text>
+                          </View>
+                          <Text className="text-sm font-outfit text-white leading-relaxed">{meta.regression}</Text>
+                        </View>
+                      ) : null}
                     </View>
-                  )}
-                  {meta.reps != null && (
-                    <View className="rounded-full bg-white/15 px-3 py-1">
-                      <Text className="text-[11px] font-outfit text-white">{meta.reps} reps</Text>
-                    </View>
-                  )}
-                  {meta.duration != null && (
-                    <View className="rounded-full bg-white/15 px-3 py-1">
-                      <Text className="text-[11px] font-outfit text-white">{meta.duration}s</Text>
-                    </View>
-                  )}
-                  {meta.restSeconds != null && (
-                    <View className="rounded-full bg-white/15 px-3 py-1">
-                      <Text className="text-[11px] font-outfit text-white">{meta.restSeconds}s rest</Text>
-                    </View>
-                  )}
-                  {meta.category && (
-                    <View className="rounded-full bg-white/25 px-3 py-1">
-                      <Text className="text-[11px] font-outfit text-white font-semibold">{meta.category}</Text>
-                    </View>
-                  )}
+                  ) : null}
+
+                  {item.videoUrl ? (
+                    <Pressable
+                      onPress={() => handleVideoPress(item.videoUrl!)}
+                      className="rounded-2xl bg-black/10 px-5 py-4 flex-row items-center gap-3 mt-1"
+                    >
+                      <View className="h-10 w-10 rounded-full bg-white/20 items-center justify-center">
+                        <Feather name="play" size={16} color="#FFFFFF" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-sm font-outfit text-white font-semibold">Watch Video</Text>
+                        <Text className="text-[11px] font-outfit text-white/70 mt-0.5" numberOfLines={1}>{item.videoUrl}</Text>
+                      </View>
+                      <Feather name="external-link" size={16} color="#FFFFFF" />
+                    </Pressable>
+                  ) : null}
                 </View>
               )}
-              <View className="flex-row items-center justify-between">
-                <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
-                  View details
-                </Text>
-                <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
-                  <Feather name="chevron-right" size={14} color="#FFFFFF" />
-                </View>
-              </View>
-            </Pressable>
+            </View>
           );
         })}
       </View>
@@ -564,8 +664,15 @@ export function ProgramDetailPanel({
                       <Pressable
                         key={item.id}
                         onPress={() => {
-                          setActiveTab(item.tab);
-                          setSearchQuery("");
+                          if (item.id.startsWith("content-")) {
+                            setActiveTab(item.tab);
+                            setSearchQuery("");
+                            const contentId = parseInt(item.id.replace("content-", ""), 10);
+                            setExpandedContent((prev) => new Set(prev).add(contentId));
+                          } else {
+                            setActiveTab(item.tab);
+                            setSearchQuery("");
+                          }
                         }}
                         className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-white/5 px-3 py-3"
                       >

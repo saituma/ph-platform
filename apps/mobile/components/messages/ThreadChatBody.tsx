@@ -66,8 +66,20 @@ export function ThreadChatBody({
   const isFocused = true;
   const insets = useSafeAreaInsets();
   
-  // Rest of the component (truncated for brevity in planning, but I'll write the full replacement)
-  // ... (Lines 66-194 skip) ...
+  React.useEffect(() => {
+    if (messages.length > 0) {
+      if (hasInitialScrolled.current !== thread.id) {
+        setTimeout(() => {
+          listRef.current?.scrollToEnd({ animated: false });
+          hasInitialScrolled.current = thread.id;
+        }, 300);
+      } else {
+        setTimeout(() => {
+          listRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    }
+  }, [messages, thread.id]);
 
   return (
     <KeyboardAvoidingView

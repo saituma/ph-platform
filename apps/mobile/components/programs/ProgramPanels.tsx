@@ -654,11 +654,8 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     if (!token) return;
     try {
       setLoadingResponses(true);
-      const effectiveUserId = role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
-      const headers =
-        role === "Athlete" && athleteUserId
-          ? { "X-Acting-User-Id": String(athleteUserId) }
-          : undefined;
+      const effectiveUserId = athleteUserId ? Number(athleteUserId) : Number(profile.id);
+      const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
       const data = await apiRequest<{ messages: any[] }>("/messages", { token, headers, suppressLog: true });
       const items = (data.messages ?? [])
         .filter(
@@ -703,25 +700,48 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     return d.toLocaleDateString();
   };
 
-  const handlePickVideo = async () => {
+  const pickVideo = async (source: "library" | "camera") => {
     if (!token) return;
     setStatus(null);
     const mediaTypes =
       (ImagePicker as any).MediaType?.Videos
         ? [(ImagePicker as any).MediaType.Videos]
         : (ImagePicker as any).MediaTypeOptions?.Videos;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes,
-    });
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-
-    const asset = result.assets[0];
-    const uri = asset.uri;
-    const fileName = uri.split("/").pop() ?? `upload-${Date.now()}.mp4`;
-    const contentType = asset.mimeType || "video/mp4";
-    const maxSizeBytes = 200 * 1024 * 1024;
-
     try {
+      if (source === "camera") {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setStatus("Camera permission is required to record video.");
+          return;
+        }
+      } else {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          setStatus("Media library permission is required to upload video.");
+          return;
+        }
+      }
+
+      const result =
+        source === "camera"
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes,
+              quality: 0.9,
+              allowsEditing: false,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes,
+              quality: 0.9,
+              allowsEditing: false,
+            });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const fileName = uri.split("/").pop() ?? `upload-${Date.now()}.mp4`;
+      const contentType = asset.mimeType || "video/mp4";
+      const maxSizeBytes = 200 * 1024 * 1024;
+
       const blob = await (await fetch(uri)).blob();
       const sizeBytes = blob.size;
       if (!sizeBytes || sizeBytes > maxSizeBytes) {
@@ -732,6 +752,14 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     } catch (error: any) {
       setStatus(error?.message ?? "Upload failed.");
     }
+  };
+
+  const handlePickVideo = async () => {
+    await pickVideo("library");
+  };
+
+  const handleRecordVideo = async () => {
+    await pickVideo("camera");
   };
 
   const handleSubmitVideo = async () => {
@@ -830,22 +858,30 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
       ) : null}
       <View className="mt-4 flex-row gap-3">
         <TouchableOpacity
-          onPress={handlePickVideo}
+          onPress={handleRecordVideo}
           disabled={uploading}
           className="flex-1 rounded-2xl bg-secondary/10 px-4 py-3 flex-row items-center justify-center gap-2"
         >
           <Feather name="video" size={16} color="#0F172A" />
-          <Text className="text-app text-sm font-outfit">Choose Video</Text>
+          <Text className="text-app text-sm font-outfit">Record Video</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={handleSubmitVideo}
-          disabled={uploading || !selectedVideo}
-          className={`flex-1 rounded-2xl px-4 py-3 flex-row items-center justify-center gap-2 ${uploading || !selectedVideo ? "bg-accent/40" : "bg-accent"}`}
+          onPress={handlePickVideo}
+          disabled={uploading}
+          className="flex-1 rounded-2xl bg-secondary/10 px-4 py-3 flex-row items-center justify-center gap-2"
         >
-          <Feather name="send" size={16} color="white" />
-          <Text className="text-white text-sm font-outfit">{uploading ? "Uploading..." : "Send to Coach"}</Text>
+          <Feather name="upload" size={16} color="#0F172A" />
+          <Text className="text-app text-sm font-outfit">Upload Video</Text>
         </TouchableOpacity>
       </View>
+      <TouchableOpacity
+        onPress={handleSubmitVideo}
+        disabled={uploading || !selectedVideo}
+        className={`mt-3 rounded-2xl px-4 py-3 flex-row items-center justify-center gap-2 ${uploading || !selectedVideo ? "bg-accent/40" : "bg-accent"}`}
+      >
+        <Feather name="send" size={16} color="white" />
+        <Text className="text-white text-sm font-outfit">{uploading ? "Uploading..." : "Send to Coach"}</Text>
+      </TouchableOpacity>
 
       <View 
         className="mt-6 rounded-2xl bg-card p-4"

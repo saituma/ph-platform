@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { messageReactionTable, messageTable, userTable } from "../db/schema";
@@ -16,7 +16,14 @@ export async function getCoachUser() {
         eq(userTable.isBlocked, false)
       )
     )
-    .orderBy(desc(userTable.updatedAt));
+    .orderBy(
+      desc(sql`${userTable.role} = 'coach'`),
+      desc(sql`length(trim(coalesce(${userTable.profilePicture}, ''))) > 0`),
+      desc(
+        sql`lower(trim(coalesce(${userTable.name}, ''))) not in ('admin', 'administrator')`
+      ),
+      desc(userTable.updatedAt)
+    );
   return users[0] ?? null;
 }
 
@@ -86,6 +93,7 @@ export async function sendMessage(input: {
   contentType: "text" | "image" | "video";
   mediaUrl?: string | null;
   videoUploadId?: number | null;
+  clientId?: string | null;
 }) {
   const safeContent = input.content.trim() || "Attachment";
   const result = await db
@@ -103,9 +111,10 @@ export async function sendMessage(input: {
   const message = result[0];
   const io = getSocketServer();
   if (io) {
-    io.to(`user:${input.senderId}`).emit("message:new", message);
-    io.to(`user:${input.receiverId}`).emit("message:new", message);
-    io.to("admin:all").emit("message:new", message);
+    const enriched = input.clientId ? { ...message, clientId: input.clientId } : message;
+    io.to(`user:${input.senderId}`).emit("message:new", enriched);
+    io.to(`user:${input.receiverId}`).emit("message:new", enriched);
+    io.to("admin:all").emit("message:new", enriched);
   }
   return message;
 }

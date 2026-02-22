@@ -29,6 +29,7 @@ export default function MoreScreen() {
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
   const canAccessParentPlatform = canAccessTier(programTier ?? null, "PHP_Premium");
+  const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -58,17 +59,17 @@ export default function MoreScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         <View className="px-6 pt-6 pb-8 bg-card rounded-b-[40px] mb-6" style={isDark ? Shadows.none : Shadows.md}>
-          <View className="flex-row items-center justify-between mb-8">
-            <View className="flex-row items-center gap-3">
+          <View className="flex-row items-center justify-between mb-8 mx-4">
+            <View className="flex-row items-center gap-3 flex-1 mr-4 overflow-hidden">
               <View className="h-6 w-1.5 rounded-full bg-accent" />
-              <Text className="text-4xl font-clash text-app tracking-tight">
+              <Text className="text-4xl font-clash text-app tracking-tight" numberOfLines={1}>
                 Settings
               </Text>
             </View>
             <ThemeToggle />
           </View>
 
-          {isLoading ? (
+        {isLoading ? (
             <View className="flex-row items-center gap-5 mb-8">
               <Skeleton circle width={64} height={64} />
               <View className="flex-1 gap-2">
@@ -150,6 +151,15 @@ export default function MoreScreen() {
                       label="Parent Platform"
                       isLast={false}
                       onPress={openParentPlatform}
+                      accentColor={colors.accent}
+                    />
+                  ) : null}
+                  {canUploadVideo ? (
+                    <MenuItem
+                      icon="video"
+                      label="Upload Training Video"
+                      isLast={false}
+                      onPress={() => router.navigate("/video-upload")}
                       accentColor={colors.accent}
                     />
                   ) : null}
