@@ -65,6 +65,7 @@ export function ThreadChatBody({
   const listRef = React.useRef<FlatList<ChatMessage> | null>(null);
   const isFocused = true;
   const insets = useSafeAreaInsets();
+  const isNearBottomRef = React.useRef(true);
   
   React.useEffect(() => {
     if (messages.length > 0) {
@@ -111,6 +112,17 @@ export function ThreadChatBody({
         keyExtractor={keyExtractor}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        onScroll={(event) => {
+          const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+          const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+          isNearBottomRef.current = distanceFromBottom < 60;
+        }}
+        onContentSizeChange={() => {
+          if (hasInitialScrolled.current !== thread.id || isNearBottomRef.current) {
+            listRef.current?.scrollToEnd({ animated: hasInitialScrolled.current === thread.id });
+            hasInitialScrolled.current = thread.id;
+          }
+        }}
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 8,

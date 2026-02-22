@@ -14,6 +14,8 @@ export default function ForgotScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
   const { colors } = useAppTheme();
+  const normalizedEmail = email.trim().toLowerCase();
+  const isEmailValid = /^\S+@\S+\.\S+$/.test(normalizedEmail);
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -60,21 +62,30 @@ export default function ForgotScreen() {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            autoCorrect={false}
           />
         </View>
 
         <Pressable
           onPress={async () => {
             setFormError(null);
+            if (!normalizedEmail) {
+              setFormError("Please enter your email.");
+              return;
+            }
+            if (!isEmailValid) {
+              setFormError("Enter a valid email address.");
+              return;
+            }
             setIsSubmitting(true);
             try {
               await apiRequest("/auth/forgot", {
                 method: "POST",
-                body: { email },
+                body: { email: normalizedEmail },
               });
               router.push({
                 pathname: "/(auth)/reset-password",
-                params: { email },
+                params: { email: normalizedEmail },
               });
             } catch (err: any) {
               setFormError(err?.message ?? "Failed to send code");
@@ -82,8 +93,8 @@ export default function ForgotScreen() {
               setIsSubmitting(false);
             }
           }}
-          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
-          disabled={isSubmitting}
+          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting || !normalizedEmail ? "opacity-70" : ""}`}
+          disabled={isSubmitting || !normalizedEmail}
         >
           <Text className="text-white font-bold text-lg font-outfit">
             {isSubmitting ? "Sending..." : "Send OTP"}

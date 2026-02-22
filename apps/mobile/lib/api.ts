@@ -29,14 +29,12 @@ const AUTH_TOKEN_KEY = "authToken";
 const AUTH_REFRESH_KEY = "authRefreshToken";
 let refreshInFlight: Promise<string | null> | null = null;
 
-const buildFallbackBaseUrl = (baseUrl: string) => {
+const normalizeBaseUrls = (baseUrl: string) => {
   const trimmed = baseUrl.replace(/\/+$/, "");
-  // If base URL ends with /api, fall back to the root base.
-  if (trimmed.endsWith("/api")) {
-    return trimmed.replace(/\/api$/, "");
-  }
-  // If base URL lacks /api, try /api as a fallback.
-  return `${trimmed}/api`;
+  const hasApiSuffix = trimmed.endsWith("/api");
+  const withApi = hasApiSuffix ? trimmed : `${trimmed}/api`;
+  const withoutApi = hasApiSuffix ? trimmed.replace(/\/api$/, "") : trimmed;
+  return { withApi, withoutApi };
 };
 
 const extractErrorMessage = (text: string, payload: any) => {
@@ -111,13 +109,11 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     throw new Error("API base URL not configured");
   }
 
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
-  const apiBaseUrl = normalizedBaseUrl.endsWith("/api")
-    ? normalizedBaseUrl
-    : `${normalizedBaseUrl}/api`;
+  const { withApi, withoutApi } = normalizeBaseUrls(baseUrl);
+  const apiBaseUrl = withApi;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${apiBaseUrl}${normalizedPath}`;
-  const fallbackBaseUrl = buildFallbackBaseUrl(normalizedBaseUrl);
+  const fallbackBaseUrl = withoutApi !== withApi ? withoutApi : null;
   const fallbackUrl = fallbackBaseUrl ? `${fallbackBaseUrl}${normalizedPath}` : null;
 
 

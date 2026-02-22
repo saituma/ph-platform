@@ -130,23 +130,11 @@ export default function MessagesScreen() {
               ))}
             </View>
 
-            <TouchableOpacity
-              onPress={() => router.push("/programs")}
-              className="w-full bg-accent py-4 rounded-2xl active:opacity-90 shadow-lg shadow-accent/20"
-            >
-              <Text className="text-white font-bold text-base text-center">
-                Upgrade to Unlock
+            <View className="w-full bg-warning/10 py-4 rounded-2xl border border-warning/20">
+              <Text className="text-[13px] font-semibold text-warning text-center">
+                This feature is for Premium plan users only.
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push("/programs")}
-              className="mt-6"
-            >
-              <Text className="text-sm font-semibold text-accent/80">
-                Compare Plan Features →
-              </Text>
-            </TouchableOpacity>
+            </View>
           </View>
         </View>
       </SafeAreaView>

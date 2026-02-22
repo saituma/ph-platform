@@ -50,6 +50,7 @@ export default function ProgramsScreen() {
     setPickerOpen(false);
   }, []);
 
+
   const getDiscountCopy = useCallback((plan?: any | null) => {
     if (!plan?.discountValue || !plan?.discountType) return null;
     const value = String(plan.discountValue).trim();
