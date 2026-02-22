@@ -320,7 +320,7 @@ export async function createBooking(input: {
   const declineToken = bookingId ? createBookingActionToken({ bookingId, action: "decline" }) : null;
   const approveUrl = publicApiBase && approveToken ? `${publicApiBase}/api/public/booking-action?token=${approveToken}` : undefined;
   const declineUrl = publicApiBase && declineToken ? `${publicApiBase}/api/public/booking-action?token=${declineToken}` : undefined;
-  const adminUrl = adminWebBase ? `${adminWebBase}/bookings` : undefined;
+  const adminUrl = adminWebBase && bookingId ? `${adminWebBase}/bookings/${bookingId}` : undefined;
 
   const guardian = await db
     .select({ userId: guardianTable.userId })

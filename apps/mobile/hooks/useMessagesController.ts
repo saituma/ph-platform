@@ -392,6 +392,7 @@ export function useMessagesController() {
     async (payload: { text?: string; mediaUrl?: string; contentType?: "text" | "image" | "video" }) => {
       const trimmed = payload.text?.trim() ?? "";
       if ((!trimmed && !payload.mediaUrl) || !currentThread || !token) return;
+      const socket = socketRef.current;
 
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));
@@ -412,16 +413,26 @@ export function useMessagesController() {
           },
         ]);
 
-        await apiRequest(`/chat/groups/${groupId}/messages`, {
-          method: "POST",
-          token,
-          body: {
+        if (socket?.connected) {
+          socket.emit("group:send", {
+            groupId,
             content: trimmed || "Attachment",
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
-          },
-        });
-        await loadGroupMessages(groupId);
+            actingUserId: actingUserId ?? undefined,
+            clientId,
+          });
+        } else {
+          await apiRequest(`/chat/groups/${groupId}/messages`, {
+            method: "POST",
+            token,
+            body: {
+              content: trimmed || "Attachment",
+              contentType: payload.contentType ?? "text",
+              mediaUrl: payload.mediaUrl,
+            },
+          });
+        }
         return;
       }
 
@@ -442,20 +453,30 @@ export function useMessagesController() {
         },
       ]);
 
-      await apiRequest("/messages", {
-        method: "POST",
-        token,
-        headers: actingHeaders,
-        body: {
+      if (socket?.connected) {
+        socket.emit("message:send", {
+          toUserId,
           content: trimmed || "Attachment",
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
+          actingUserId: actingUserId ?? undefined,
           clientId,
-        },
-      });
-      await loadMessages();
+        });
+      } else {
+        await apiRequest("/messages", {
+          method: "POST",
+          token,
+          headers: actingHeaders,
+          body: {
+            content: trimmed || "Attachment",
+            contentType: payload.contentType ?? "text",
+            mediaUrl: payload.mediaUrl,
+            clientId,
+          },
+        });
+      }
     },
-    [actingUserId, currentThread, loadGroupMessages, loadMessages, profile.name, token]
+    [actingUserId, currentThread, profile.name, token]
   );
 
   const handleToggleReaction = useCallback(
@@ -680,7 +701,7 @@ export function useMessagesController() {
     }
   }, [currentThread, isUploadingAttachment, token]);
 
-  useMessagesRealtime({
+  const socketRef = useMessagesRealtime({
     token,
     role,
     athleteUserId: actingUserId ?? undefined,
