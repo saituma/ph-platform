@@ -64,7 +64,9 @@ export function useMessagesController() {
       if (!a.pinned && b.pinned) return 1;
       if (a.premium && !b.premium) return -1;
       if (!a.premium && b.premium) return 1;
-      return 0;
+      const tA = a.updatedAtMs ?? 0;
+      const tB = b.updatedAtMs ?? 0;
+      return tB - tA;
     });
   }, [threads]);
 
@@ -106,6 +108,7 @@ export function useMessagesController() {
         unread: 0,
         lastSeen: "Active",
         responseTime: "Group updates",
+        updatedAtMs: 0,
       }));
 
       if (!data.coach) {
@@ -115,7 +118,7 @@ export function useMessagesController() {
       }
 
       const coach = data.coach;
-      const coachName = coach.name ?? coach.email ?? "Coach";
+      const coachName = coach.name || "Coach";
       const isPremium = programTier === "PHP_Premium";
       const thread = {
         id: String(coach.id),
@@ -125,6 +128,9 @@ export function useMessagesController() {
         time: data.messages?.[data.messages.length - 1]?.createdAt
           ? new Date(data.messages[data.messages.length - 1].createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
+        updatedAtMs: data.messages?.[data.messages.length - 1]?.createdAt
+          ? new Date(data.messages[data.messages.length - 1].createdAt).getTime()
+          : 0,
         pinned: false,
         premium: isPremium,
         unread: data.messages?.filter((msg: any) => !msg.read && Number(msg.senderId) !== effectiveUserId).length ?? 0,
@@ -198,6 +204,22 @@ export function useMessagesController() {
           const remaining = prev.filter((msg) => msg.threadId !== `group:${groupId}`);
           return [...remaining, ...mappedMessages];
         });
+        
+        if (mappedMessages.length > 0) {
+          const lastMsg = mappedMessages[mappedMessages.length - 1];
+          setThreads((prev) => 
+            prev.map(t => 
+              t.id === `group:${groupId}` 
+                ? { 
+                    ...t, 
+                    preview: lastMsg.text, 
+                    time: lastMsg.time, 
+                    updatedAtMs: Date.now() 
+                  } 
+                : t
+            )
+          );
+        }
       } catch (error) {
         console.warn("Failed to load group messages", error);
       } finally {

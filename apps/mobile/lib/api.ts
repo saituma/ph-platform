@@ -120,14 +120,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const fallbackBaseUrl = buildFallbackBaseUrl(normalizedBaseUrl);
   const fallbackUrl = fallbackBaseUrl ? `${fallbackBaseUrl}${normalizedPath}` : null;
 
-  if (__DEV__) {
-    console.warn("API base URL", {
-      baseUrl,
-      apiBaseUrl,
-      normalizedPath,
-      url,
-    });
-  }
+
 
   let resolvedToken =
     options.token !== undefined ? options.token : store.getState().user.token;
