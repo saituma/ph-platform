@@ -47,6 +47,10 @@ export function MessageBubble({
     return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
   }, [message.mediaUrl]);
 
+  const videoSource = React.useMemo(() => {
+    return message.mediaUrl ? { uri: message.mediaUrl } : undefined;
+  }, [message.mediaUrl]);
+
   React.useEffect(() => {
     return () => {
       audioSound?.unloadAsync();
@@ -145,7 +149,7 @@ export function MessageBubble({
           <Pressable onPress={() => setMediaOpen(true)} className="mb-2">
             <View>
               <Video
-                source={{ uri: message.mediaUrl }}
+                source={videoSource}
                 useNativeControls={false}
                 resizeMode={ResizeMode.COVER}
                 style={{ width: "100%", height: 200, borderRadius: 10 }}
@@ -277,7 +281,7 @@ export function MessageBubble({
                   />
                 ) : (
                   <Video
-                    source={{ uri: message.mediaUrl }}
+                    source={videoSource}
                     useNativeControls
                     resizeMode={ResizeMode.CONTAIN}
                     style={{

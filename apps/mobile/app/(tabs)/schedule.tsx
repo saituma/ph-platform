@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { InteractionManager, Modal, Platform, Pressable, View } from "react-native";
+import { InteractionManager, Modal, Platform, Pressable, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -104,6 +104,7 @@ export default function ScheduleScreen() {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const hasUserSelectedService = useRef(false);
   const [calendarMonth, setCalendarMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1),
@@ -509,13 +510,13 @@ export default function ScheduleScreen() {
                   key={cell.key}
                   onPress={() => setSelectedCalendarDate(cell.key)}
                   className={`h-12 items-center justify-center rounded-2xl ${
-                    isSelected ? "bg-accent/20" : ""
+                    isSelected ? "bg-accent" : ""
                   }`}
                   style={{ width: `${100 / 7}%` }}
                 >
                   <Text
                     className={`text-sm font-outfit ${
-                      isToday ? "text-accent" : "text-app"
+                      isSelected ? "text-white font-bold" : (isToday ? "text-accent" : "text-app")
                     }`}
                   >
                     {cell.date.getDate()}
@@ -912,9 +913,6 @@ export default function ScheduleScreen() {
                 </View>
 
                 <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Available slots
-                  </Text>
                   {availabilityLoading ? (
                     <Text className="text-xs font-outfit text-secondary mt-3">
                       Loading availability...
@@ -1021,6 +1019,7 @@ export default function ScheduleScreen() {
 
                 <Pressable
                   onPress={async () => {
+                    if (isSubmitting) return;
                     if (!selectedService) {
                       setBookingError("Please select a booking type.");
                       return;
@@ -1030,6 +1029,7 @@ export default function ScheduleScreen() {
                       return;
                     }
                     setBookingError(null);
+                    setIsSubmitting(true);
                     try {
                       const startsAt = new Date(selectedSlot);
                       const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
@@ -1051,19 +1051,22 @@ export default function ScheduleScreen() {
                       await notifyBookingConfirmed(selectedService.name ?? "Booking", startsAt);
                     } catch (err: any) {
                       setBookingError(err.message ?? "Failed to submit booking");
+                    } finally {
+                      setIsSubmitting(false);
                     }
                   }}
-                  disabled={!selectedService || !selectedSlot}
-                  className={`mt-4 px-4 py-3 rounded-full ${
+                  disabled={!selectedService || !selectedSlot || isSubmitting}
+                  className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
                     selectedService && selectedSlot ? "bg-accent" : "bg-secondary/20"
                   }`}
                 >
+                  {isSubmitting ? <ActivityIndicator size="small" color="#ffffff" /> : null}
                   <Text
                     className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
                       selectedService && selectedSlot ? "text-white" : "text-secondary"
                     }`}
                   >
-                    Submit Booking
+                    {isSubmitting ? "Submitting..." : "Submit Booking"}
                   </Text>
                 </Pressable>
                 {bookingError ? (

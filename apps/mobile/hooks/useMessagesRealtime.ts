@@ -32,7 +32,7 @@ export function useMessagesRealtime({
   setTypingStatus,
 }: UseMessagesRealtimeParams) {
   const socketRef = useRef<Socket | null>(null);
-  const typingRef = useRef<{ active: boolean; timer?: NodeJS.Timeout | null }>({ active: false, timer: null });
+  const typingRef = useRef<{ active: boolean; timer?: ReturnType<typeof setTimeout> | null }>({ active: false, timer: null });
   const currentThreadId = currentThread?.id ?? null;
 
   useEffect(() => {
@@ -43,8 +43,8 @@ export function useMessagesRealtime({
 
     const socket: Socket = io(socketUrl, {
       auth: { token },
-      // Allow polling fallback for proxies (Fly) and Expo Go.
-      transports: ["websocket", "polling"],
+      // Start with polling to prevent Firefox SSL handshake warnings, then upgrade to WS
+      transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionAttempts: 5,
       timeout: 10000,
@@ -100,6 +100,7 @@ export function useMessagesRealtime({
                 ...t,
                 preview: message.text,
                 time: message.time,
+                updatedAtMs: payload.createdAt ? new Date(payload.createdAt).getTime() : Date.now(),
                 unread: isIncoming && !isActiveThread ? (t.unread ?? 0) + 1 : t.unread ?? 0,
               }
             : t
@@ -120,7 +121,6 @@ export function useMessagesRealtime({
             body: notificationBody,
             sound: "default",
             categoryIdentifier: "messages",
-            channelId: "messages",
             data: { threadId: String(threadIdFromMessage) },
           },
           trigger: null,
@@ -165,6 +165,7 @@ export function useMessagesRealtime({
                 ...t,
                 preview: message.text,
                 time: message.time,
+                updatedAtMs: payload.createdAt ? new Date(payload.createdAt).getTime() : Date.now(),
                 unread:
                   payload.senderId !== effectiveUserId && currentThreadId !== `group:${groupId}`
                     ? (t.unread ?? 0) + 1
@@ -183,7 +184,6 @@ export function useMessagesRealtime({
             body: payload.content ?? "You received a new group message",
             sound: "default",
             categoryIdentifier: "messages",
-            channelId: "messages",
             data: { threadId: `group:${groupId}` },
           },
           trigger: null,

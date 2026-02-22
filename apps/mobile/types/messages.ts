@@ -12,6 +12,7 @@ export type MessageThread = {
   avatarUrl?: string | null;
   lastSeen?: string;
   responseTime?: string;
+  updatedAtMs?: number;
 };
 
 export type TypingStatus = Record<string, { name: string; isTyping: boolean }>;
