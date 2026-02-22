@@ -83,8 +83,8 @@ export default function AthleteStatsScreen() {
           athleteList.find((item) => item.id === data.guardian?.activeAthleteId) ??
           athleteList[0] ??
           null;
-        if (activeAthlete?.id) {
-          dispatch(setAthleteUserId(activeAthlete.id));
+        if (activeAthlete?.userId || activeAthlete?.id) {
+          dispatch(setAthleteUserId(activeAthlete.userId ?? activeAthlete.id ?? null));
         }
       }
     } catch {
@@ -394,8 +394,8 @@ export default function AthleteStatsScreen() {
                       <TouchableOpacity
                         key={athlete.id ?? athlete.name ?? Math.random()}
                         onPress={async () => {
-                          if (athlete.id) {
-                            dispatch(setAthleteUserId(athlete.id));
+                          if (athlete.userId || athlete.id) {
+                            dispatch(setAthleteUserId(athlete.userId ?? athlete.id ?? null));
                             try {
                               await apiRequest("/onboarding/select-athlete", {
                                 token,

@@ -51,7 +51,7 @@ export function useMessagesRealtime({
     });
     socketRef.current = socket;
 
-    if (role === "Athlete" && athleteUserId) {
+    if (athleteUserId) {
       socket.emit("acting:join", { actingUserId: athleteUserId });
     }
 
@@ -59,7 +59,7 @@ export function useMessagesRealtime({
       if (!payload?.id) return;
       const senderId = Number(payload.senderId);
       const receiverId = Number(payload.receiverId);
-      const effectiveUserId = role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profileId);
+      const effectiveUserId = athleteUserId ? Number(athleteUserId) : Number(profileId);
       const threadIdFromMessage = String(senderId === effectiveUserId ? receiverId : senderId);
       const message: ChatMessage = {
         id: String(payload.id),
@@ -131,7 +131,7 @@ export function useMessagesRealtime({
     socket.on("group:message", async (payload: any) => {
       if (!payload?.id || !payload?.groupId) return;
       const groupId = Number(payload.groupId);
-      const effectiveUserId = role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profileId);
+      const effectiveUserId = athleteUserId ? Number(athleteUserId) : Number(profileId);
       const message: ChatMessage = {
         id: `group-${payload.id}`,
         threadId: `group:${groupId}`,

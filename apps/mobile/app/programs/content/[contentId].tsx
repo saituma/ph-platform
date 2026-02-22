@@ -10,6 +10,8 @@ import { MarkdownText } from "@/components/ui/MarkdownText";
 import { VideoPlayer, isYoutubeUrl, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 
 type ExerciseMetadata = {
   sets?: number | null;
@@ -48,15 +50,17 @@ function isGoogleDriveUrl(url: string): boolean {
 }
 
 function ExternalLinkButton({ url, label }: { url: string; label: string }) {
+  const { isDark } = useAppTheme();
   return (
     <TouchableOpacity
       onPress={() => Linking.openURL(url).catch(() => undefined)}
-      className="rounded-2xl bg-accent/15 px-5 py-4 flex-row items-center gap-3"
+      className="rounded-2xl bg-white/10 px-5 py-4 flex-row items-center gap-3"
+      style={isDark ? Shadows.none : Shadows.sm}
     >
-      <Feather name="external-link" size={18} color="#2F8F57" />
+      <Feather name="external-link" size={18} color="#FFFFFF" />
       <View className="flex-1">
         <Text className="text-sm font-outfit text-white font-semibold">{label}</Text>
-        <Text className="text-[11px] font-outfit text-white/60 mt-0.5" numberOfLines={1}>{url}</Text>
+        <Text className="text-[11px] font-outfit text-white/80 mt-0.5" numberOfLines={1}>{url}</Text>
       </View>
       <Feather name="chevron-right" size={16} color="#94A3B8" />
     </TouchableOpacity>
@@ -92,55 +96,49 @@ export default function ProgramContentDetailScreen() {
   const { contentId } = useLocalSearchParams<{ contentId: string }>();
   const router = useRouter();
   const { token } = useAppSelector((state) => state.user);
+  const { isDark, colors } = useAppTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<ContentItem | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      if (!token || !contentId) {
-        if (active) {
-          setIsLoading(false);
-          setError("Content not available.");
-        }
+  const load = React.useCallback(async () => {
+    if (!token || !contentId) {
+      setIsLoading(false);
+      setError("Content not available.");
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const data = await apiRequest<{ item?: any }>(`/program-section-content/${contentId}`, { token });
+      if (!data.item) {
+        setItem(null);
+        setError("Content not found.");
         return;
       }
-      try {
-        setIsLoading(true);
-        const data = await apiRequest<{ item?: any }>(`/program-section-content/${contentId}`, { token });
-        if (!active) return;
-        if (!data.item) {
-          setItem(null);
-          setError("Content not found.");
-          return;
-        }
-        setItem({
-          title: data.item.title ?? "Program Content",
-          body: data.item.body ?? "",
-          videoUrl: data.item.videoUrl ?? null,
-          metadata: data.item.metadata ?? null,
-        });
-        setError(null);
-      } catch (err: any) {
-        if (!active) return;
-        setError(err?.message ?? "Failed to load content.");
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
+      setItem({
+        title: data.item.title ?? "Program Content",
+        body: data.item.body ?? "",
+        videoUrl: data.item.videoUrl ?? null,
+        metadata: data.item.metadata ?? null,
+      });
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to load content.");
+    } finally {
+      setIsLoading(false);
+    }
   }, [contentId, token]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const meta = (item?.metadata ?? {}) as ExerciseMetadata;
   const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ThemedScrollView onRefresh={load} contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="px-6 pt-6">
           <View className="flex-row items-center justify-between mb-6">
             <Pressable
@@ -153,18 +151,18 @@ export default function ProgramContentDetailScreen() {
           </View>
 
           {isLoading ? (
-            <View className="rounded-3xl bg-[#1F6F45] px-6 py-6 shadow-sm items-center">
-              <ActivityIndicator color="#2F8F57" />
+            <View className="rounded-3xl bg-[#2F8F57] px-6 py-6 items-center" style={isDark ? Shadows.none : Shadows.sm}>
+              <ActivityIndicator color="#FFFFFF" />
               <Text className="text-sm font-outfit text-white mt-2">Loading content...</Text>
             </View>
           ) : error ? (
-            <View className="rounded-3xl bg-[#1F6F45] px-6 py-6 shadow-sm">
+            <View className="rounded-3xl bg-[#2F8F57] px-6 py-6" style={isDark ? Shadows.none : Shadows.sm}>
               <Text className="text-sm font-outfit text-white text-center">{error}</Text>
             </View>
           ) : item ? (
             <View className="gap-4">
               {/* Main content card */}
-              <View className="rounded-3xl bg-[#1F6F45] px-6 py-6 shadow-sm gap-4">
+              <View className="rounded-3xl bg-[#2F8F57] px-6 py-6 gap-4" style={isDark ? Shadows.none : Shadows.sm}>
                 <Text className="text-2xl font-clash text-white font-bold">{item.title}</Text>
 
                 {/* Exercise metadata badges */}
@@ -172,32 +170,32 @@ export default function ProgramContentDetailScreen() {
                   <View className="flex-row flex-wrap gap-2">
                     {meta.sets != null && (
                       <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-xs font-outfit text-white">{meta.sets} sets</Text>
+                        <Text className="text-[11px] font-outfit text-white">{meta.sets} sets</Text>
                       </View>
                     )}
                     {meta.reps != null && (
                       <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-xs font-outfit text-white">{meta.reps} reps</Text>
+                        <Text className="text-[11px] font-outfit text-white">{meta.reps} reps</Text>
                       </View>
                     )}
                     {meta.duration != null && (
                       <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-xs font-outfit text-white">{meta.duration}s duration</Text>
+                        <Text className="text-[11px] font-outfit text-white">{meta.duration}s duration</Text>
                       </View>
                     )}
                     {meta.restSeconds != null && (
                       <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-xs font-outfit text-white">{meta.restSeconds}s rest</Text>
+                        <Text className="text-[11px] font-outfit text-white">{meta.restSeconds}s rest</Text>
                       </View>
                     )}
                     {meta.category && (
                       <View className="rounded-full bg-white/25 px-3 py-1.5">
-                        <Text className="text-xs font-outfit text-white font-semibold">{meta.category}</Text>
+                        <Text className="text-[11px] font-outfit text-white font-semibold">{meta.category}</Text>
                       </View>
                     )}
                     {meta.equipment && (
                       <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-xs font-outfit text-white">🏋️ {meta.equipment}</Text>
+                        <Text className="text-[11px] font-outfit text-white">🏋️ {meta.equipment}</Text>
                       </View>
                     )}
                   </View>
@@ -217,40 +215,46 @@ export default function ProgramContentDetailScreen() {
 
               {/* Coaching Cues */}
               {meta.cues ? (
-                <View className="rounded-3xl bg-[#1B5E3A] px-6 py-5 shadow-sm gap-2">
+                <View className="rounded-3xl bg-[#2F8F57] px-6 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
                   <View className="flex-row items-center gap-2">
-                    <Feather name="message-circle" size={14} color="#FFFFFF" />
-                    <Text className="text-xs font-outfit text-white/70 uppercase tracking-[1.5px] font-semibold">
+                    <View className="h-8 w-8 rounded-full bg-white/20 items-center justify-center">
+                      <Feather name="message-circle" size={14} color="#FFFFFF" />
+                    </View>
+                    <Text className="text-[12px] font-outfit text-white uppercase tracking-[2px] font-bold">
                       Coaching Cues
                     </Text>
                   </View>
-                  <Text className="text-sm font-outfit text-white leading-relaxed">{meta.cues}</Text>
+                  <Text className="text-[15px] font-outfit text-white leading-[24px]">{meta.cues}</Text>
                 </View>
               ) : null}
 
               {/* Progression / Regression */}
               {(meta.progression || meta.regression) ? (
-                <View className="flex-row gap-3">
+                <View className="flex-row gap-4">
                   {meta.progression ? (
-                    <View className="flex-1 rounded-3xl bg-[#22C55E]/15 px-5 py-4 gap-2">
-                      <View className="flex-row items-center gap-1.5">
-                        <Feather name="trending-up" size={12} color="#22C55E" />
-                        <Text className="text-[10px] font-outfit text-[#22C55E] uppercase tracking-[1.5px] font-semibold">
+                    <View className="flex-1 rounded-3xl bg-[#22C55E] px-5 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
+                      <View className="flex-row items-center gap-2">
+                        <View className="h-8 w-8 rounded-full bg-white/30 items-center justify-center">
+                          <Feather name="trending-up" size={14} color="#FFFFFF" />
+                        </View>
+                        <Text className="text-[11px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
                           Progression
                         </Text>
                       </View>
-                      <Text className="text-sm font-outfit text-white leading-relaxed">{meta.progression}</Text>
+                      <Text className="text-[14px] font-outfit text-white leading-relaxed">{meta.progression}</Text>
                     </View>
                   ) : null}
                   {meta.regression ? (
-                    <View className="flex-1 rounded-3xl bg-[#F97316]/15 px-5 py-4 gap-2">
-                      <View className="flex-row items-center gap-1.5">
-                        <Feather name="trending-down" size={12} color="#F97316" />
-                        <Text className="text-[10px] font-outfit text-[#F97316] uppercase tracking-[1.5px] font-semibold">
+                    <View className="flex-1 rounded-3xl bg-[#F97316] px-5 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
+                      <View className="flex-row items-center gap-2">
+                        <View className="h-8 w-8 rounded-full bg-white/30 items-center justify-center">
+                          <Feather name="trending-down" size={14} color="#FFFFFF" />
+                        </View>
+                        <Text className="text-[11px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
                           Regression
                         </Text>
                       </View>
-                      <Text className="text-sm font-outfit text-white leading-relaxed">{meta.regression}</Text>
+                      <Text className="text-[14px] font-outfit text-white leading-relaxed">{meta.regression}</Text>
                     </View>
                   ) : null}
                 </View>

@@ -18,6 +18,7 @@ const sendSchema = z
     contentType: z.enum(["text", "image", "video"]).default("text"),
     mediaUrl: z.string().url().optional(),
     videoUploadId: z.number().int().min(1).optional(),
+    clientId: z.string().trim().min(1).optional(),
   })
   .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
     message: "Message content or mediaUrl is required",
@@ -60,6 +61,7 @@ export async function sendMessageToCoach(req: Request, res: Response) {
     contentType: input.contentType,
     mediaUrl: input.mediaUrl,
     videoUploadId: input.videoUploadId,
+    clientId: input.clientId,
   });
   return res.status(201).json({ message });
 }
