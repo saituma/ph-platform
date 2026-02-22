@@ -24,10 +24,10 @@ export function Skeleton({
   circle,
 }: SkeletonProps) {
   const { colors } = useAppTheme();
-  const opacity = useSharedValue(0.3);
+  const opacity = useSharedValue(0.2);
 
   useEffect(() => {
-    opacity.value = withRepeat(withTiming(0.7, { duration: 800 }), -1, true);
+    opacity.value = withRepeat(withTiming(0.55, { duration: 900 }), -1, true);
   }, [opacity]);
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -43,7 +43,7 @@ export function Skeleton({
           width: width as any,
           height: height as any,
           borderRadius: circle ? 999 : borderRadius,
-          backgroundColor: colors.backgroundSecondary,
+          backgroundColor: colors.card,
         },
         animatedStyle,
         style,

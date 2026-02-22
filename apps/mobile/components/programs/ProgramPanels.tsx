@@ -9,9 +9,13 @@ import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
+import { useRole } from "@/context/RoleContext";
 
 export function PhysioReferralPanel({ discount }: { discount?: string }) {
   const { token } = useAppSelector((state) => state.user);
+  const { isDark } = useAppTheme();
   const [loading, setLoading] = useState(false);
   const [referral, setReferral] = useState<{ referalLink?: string | null; discountPercent?: number | null } | null>(
     null,
@@ -45,12 +49,15 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
     : "A referral link will appear here once your coach activates it.";
 
   return (
-    <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+    <View 
+      className="rounded-3xl bg-card px-6 py-5"
+      style={isDark ? Shadows.none : Shadows.md}
+    >
       <Text className="text-lg font-clash text-app font-bold mb-2">Physio Referral</Text>
       <Text className="text-sm font-outfit text-secondary leading-relaxed">
         Access our trusted physio partners for injuries and recovery support.
       </Text>
-      <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
+      <View className="mt-4 rounded-2xl bg-secondary/5 px-4 py-3">
         <Text className="text-sm font-outfit text-secondary">
           {resolvedDiscount ? `Discount: ${resolvedDiscount}` : "Standard referral (no discount)."}
         </Text>
@@ -78,8 +85,12 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
 }
 
 export function ParentEducationPanel({ onOpen }: { onOpen: () => void }) {
+  const { isDark } = useAppTheme();
   return (
-    <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+    <View 
+      className="rounded-3xl bg-card px-6 py-5"
+      style={isDark ? Shadows.none : Shadows.md}
+    >
       <Text className="text-lg font-clash text-app font-bold mb-2">Parent Education Hub</Text>
       <Text className="text-sm font-outfit text-secondary leading-relaxed">
         Explore curated courses on growth, recovery, nutrition, and mindset.
@@ -92,8 +103,12 @@ export function ParentEducationPanel({ onOpen }: { onOpen: () => void }) {
 }
 
 export function BookingsPanel({ onOpen }: { onOpen: () => void }) {
+  const { isDark } = useAppTheme();
   return (
-    <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+    <View 
+      className="rounded-3xl bg-card px-6 py-5"
+      style={isDark ? Shadows.none : Shadows.md}
+    >
       <Text className="text-lg font-clash text-app font-bold mb-2">Bookings</Text>
       <Text className="text-sm font-outfit text-secondary leading-relaxed">
         Book one-to-one sessions, lift lab visits, or role model meetings.
@@ -107,6 +122,7 @@ export function BookingsPanel({ onOpen }: { onOpen: () => void }) {
 
 export function FoodDiaryPanel() {
   const { token } = useAppSelector((state) => state.user);
+  const { isDark } = useAppTheme();
   const [entry, setEntry] = useState("");
   const [meals, setMeals] = useState({
     breakfast: "",
@@ -317,14 +333,17 @@ export function FoodDiaryPanel() {
 
   return (
     <View className="gap-4">
-      <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+      <View 
+        className="rounded-3xl bg-card px-6 py-5"
+        style={isDark ? Shadows.none : Shadows.md}
+      >
         <Text className="text-lg font-clash text-app font-bold mb-2">Food Diary</Text>
         <Text className="text-sm font-outfit text-secondary leading-relaxed">
           Log meals and snacks to support training and recovery.
         </Text>
         <TouchableOpacity
           onPress={() => setDatePickerOpen(true)}
-          className="mt-4 flex-row items-center justify-between rounded-2xl border border-app/10 bg-white/5 px-4 py-3"
+          className="mt-4 flex-row items-center justify-between rounded-2xl bg-secondary/5 px-4 py-3"
         >
           <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
             Entry Date
@@ -355,12 +374,12 @@ export function FoodDiaryPanel() {
           placeholderTextColor="#9CA3AF"
           multiline
           maxLength={500}
-          className="mt-2 rounded-2xl border border-app/10 bg-white/5 px-4 py-3 text-sm font-outfit text-app"
+          className="mt-2 rounded-2xl bg-secondary/5 px-4 py-3 text-sm font-outfit text-app"
           style={{ minHeight: 90 }}
         />
         <View className="mt-4 gap-3">
           {(["breakfast", "lunch", "dinner", "snacks"] as const).map((meal) => (
-            <View key={meal} className="rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
+            <View key={meal} className="rounded-2xl bg-secondary/5 px-4 py-3">
               <View className="flex-row items-center justify-between">
                 <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                   {meal}
@@ -377,7 +396,7 @@ export function FoodDiaryPanel() {
             </View>
           ))}
         </View>
-        <View className="mt-4 rounded-2xl border border-app/10 bg-white/5 px-4 py-3">
+        <View className="mt-4 rounded-2xl bg-secondary/5 px-4 py-3">
           <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
             Photo Preview
           </Text>
@@ -427,18 +446,18 @@ export function FoodDiaryPanel() {
         </View>
         <View className="mt-4 gap-3">
           <View className="flex-row gap-3">
-            <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full border border-app px-4 py-3">
+            <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full bg-secondary/10 px-4 py-3">
               <Text className="text-app text-sm font-outfit text-center">
                 {photo ? "Change Photo" : "Add Photo"}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleTakePhoto} className="flex-1 rounded-full border border-app px-4 py-3">
+            <TouchableOpacity onPress={handleTakePhoto} className="flex-1 rounded-full bg-secondary/10 px-4 py-3">
               <Text className="text-app text-sm font-outfit text-center">Take Photo</Text>
             </TouchableOpacity>
             {photo ? (
               <TouchableOpacity
                 onPress={() => setPhoto(null)}
-                className="rounded-full border border-app/30 px-4 py-3"
+                className="rounded-full bg-secondary/10 px-4 py-3"
               >
                 <Text className="text-app text-sm font-outfit text-center">Remove</Text>
               </TouchableOpacity>
@@ -501,7 +520,11 @@ export function FoodDiaryPanel() {
       ) : entries.length ? (
         <View className="gap-3">
           {entries.map((item) => (
-            <View key={item.id} className="rounded-3xl border border-app/10 bg-input px-5 py-4">
+            <View 
+              key={item.id} 
+              className="rounded-3xl bg-card px-5 py-4"
+              style={isDark ? Shadows.none : Shadows.sm}
+            >
               <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
                 {formatDate(item.date)}
               </Text>
@@ -545,7 +568,9 @@ export function FoodDiaryPanel() {
 }
 
 export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }) {
-  const { token, profile, role, athleteUserId } = useAppSelector((state) => state.user);
+  const { token, profile, athleteUserId } = useAppSelector((state) => state.user);
+  const { role } = useRole();
+  const { isDark } = useAppTheme();
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -717,7 +742,10 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
   };
 
   return (
-    <View className="rounded-3xl border border-app/15 bg-input px-5 py-5">
+    <View 
+      className="rounded-3xl bg-card px-5 py-5"
+      style={isDark ? Shadows.none : Shadows.md}
+    >
       <View className="flex-row items-center justify-between">
         <Text className="text-lg font-clash text-app font-bold">Video Upload</Text>
         <View className="rounded-full border border-app/20 bg-white/10 px-3 py-1">
@@ -737,7 +765,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
         style={{ minHeight: 88 }}
       />
       {selectedVideo ? (
-        <View className="mt-4 rounded-2xl border border-accent/30 bg-accent/10 p-3">
+        <View className="mt-4 rounded-2xl bg-accent/10 p-3">
           <Text className="text-sm font-outfit text-app mb-2">Preview before send</Text>
           <Video
             source={{ uri: selectedVideo.uri }}
@@ -759,7 +787,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
         <TouchableOpacity
           onPress={handlePickVideo}
           disabled={uploading}
-          className="flex-1 rounded-2xl border border-app/20 bg-white/10 px-4 py-3 flex-row items-center justify-center gap-2"
+          className="flex-1 rounded-2xl bg-secondary/10 px-4 py-3 flex-row items-center justify-center gap-2"
         >
           <Feather name="video" size={16} color="#0F172A" />
           <Text className="text-app text-sm font-outfit">Choose Video</Text>
@@ -774,7 +802,10 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
         </TouchableOpacity>
       </View>
 
-      <View className="mt-6 rounded-2xl border border-app/15 bg-white/5 p-4">
+      <View 
+        className="mt-6 rounded-2xl bg-card p-4"
+        style={isDark ? Shadows.none : Shadows.sm}
+      >
         <View className="mb-1 flex-row items-center justify-between">
           <Text className="text-lg font-clash text-app font-bold">Your Uploaded Videos</Text>
           <TouchableOpacity
@@ -822,7 +853,11 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                 ) : (
                   <View className="gap-4">
                     {awaitingVideos.map((item) => (
-                      <View key={`awaiting-${item.id}`} className="rounded-2xl border border-app/15 bg-input p-3">
+                      <View 
+                        key={`awaiting-${item.id}`} 
+                        className="rounded-2xl bg-card p-3"
+                        style={isDark ? Shadows.none : Shadows.sm}
+                      >
                         <Video
                           source={{ uri: item.videoUrl }}
                           useNativeControls
@@ -881,7 +916,11 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                 ) : (
                   <View className="gap-4">
                     {reviewedVideos.map((item) => (
-                      <View key={`reviewed-${item.id}`} className="rounded-2xl border border-app/15 bg-input p-3">
+                      <View 
+                        key={`reviewed-${item.id}`} 
+                        className="rounded-2xl bg-card p-3"
+                        style={isDark ? Shadows.none : Shadows.sm}
+                      >
                         <Video
                           source={{ uri: item.videoUrl }}
                           useNativeControls

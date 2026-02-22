@@ -227,6 +227,7 @@ export const programSectionContentTable = pgTable("program_section_contents", {
   title: varchar({ length: 255 }).notNull(),
   body: text().notNull(),
   videoUrl: varchar({ length: 500 }),
+  metadata: jsonb(),
   order: integer().notNull().default(1),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),

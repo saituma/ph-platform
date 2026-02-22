@@ -37,7 +37,7 @@ describe("content controller", () => {
 
     await listParentContent(req, res);
 
-    expect(getParentPlatformContent).toHaveBeenCalledWith(9);
+    expect(getParentPlatformContent).toHaveBeenCalledWith(9, undefined);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ items: [{ id: 2 }] });
   });

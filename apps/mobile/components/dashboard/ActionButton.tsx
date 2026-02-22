@@ -2,6 +2,7 @@ import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
 import { Pressable, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 import { Text } from "@/components/ScaledText";
 
 interface ActionButtonProps {
@@ -30,15 +31,11 @@ export function ActionButton({
       <Pressable
         onPress={onPress}
         disabled={disabled}
-        className={`w-full flex-row items-center justify-center p-5 rounded-[24px] ${color} ${disabled ? "opacity-50" : ""}`}
+        className={`w-full flex-row items-center justify-center p-5 rounded-[20px] ${color} ${disabled ? "opacity-50" : ""}`}
         style={({ pressed }) => ({
-          transform: [{ scale: pressed ? 0.98 : 1 }],
-          opacity: pressed ? 0.92 : 1,
-          shadowColor: "#0F172A",
-          shadowOpacity: isDark ? 0 : 0.12,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: isDark ? 0 : 6,
+          transform: [{ scale: pressed ? 0.97 : 1 }],
+          opacity: pressed ? 0.9 : 1,
+          ...(isDark ? Shadows.none : Shadows.md),
         })}
       >
         <Feather
@@ -60,8 +57,8 @@ export function ActionButton({
       disabled={disabled}
       className={`flex-1 items-center gap-2 ${disabled ? "opacity-50" : ""}`}
       style={({ pressed }) => ({
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-        opacity: pressed ? 0.92 : 1,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
+        opacity: pressed ? 0.9 : 1,
       })}
     >
       <View

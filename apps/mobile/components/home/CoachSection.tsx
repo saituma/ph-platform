@@ -1,5 +1,7 @@
 import React from "react";
 import { Image, Linking, TouchableOpacity, View } from "react-native";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 
@@ -16,11 +18,15 @@ export function CoachSection({
   heroImageUrl,
   introVideoUrl,
 }: CoachSectionProps) {
+  const { isDark } = useAppTheme();
   return (
     <View className="gap-6">
-      <View className="bg-input p-6 rounded-[40px] border border-app shadow-sm overflow-hidden">
+      <View 
+        className="bg-card p-6 rounded-[40px] overflow-hidden"
+        style={isDark ? Shadows.none : Shadows.md}
+      >
         <View className="flex-row items-center gap-4 mb-6">
-          <View className="w-20 h-20 rounded-3xl bg-secondary border border-app overflow-hidden items-center justify-center">
+          <View className="w-20 h-20 rounded-3xl bg-secondary overflow-hidden items-center justify-center">
             {heroImageUrl ? (
               <Image
                 source={{ uri: heroImageUrl }}

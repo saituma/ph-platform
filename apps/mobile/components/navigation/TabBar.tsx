@@ -38,10 +38,10 @@ interface TabItemProps {
   isDark: boolean;
 }
 
-const RING_SIZE = 42;
-const HOME_RING_SIZE = 54;
+const PILL_SIZE = 40;
+const HOME_PILL_SIZE = 48;
 const ICON_SIZE = 20;
-const HOME_ICON_SIZE = 24;
+const HOME_ICON_SIZE = 22;
 
 const TabItem = React.memo(
   ({
@@ -54,54 +54,54 @@ const TabItem = React.memo(
     isDark,
   }: TabItemProps) => {
     const isHome = tab.key === "index";
-    const ringSize = isHome ? HOME_RING_SIZE : RING_SIZE;
+    const pillSize = isHome ? HOME_PILL_SIZE : PILL_SIZE;
     const iconSize = isHome ? HOME_ICON_SIZE : ICON_SIZE;
 
-    // Animated ring border color: active = bright, inactive = subtle
-    const ringStyle = useAnimatedStyle(() => {
-      const activeBorder = "#22c55e";
-      const inactiveBorder = isDark
-        ? "rgba(255,255,255,0.18)"
-        : "rgba(0,0,0,0.15)";
+    // Animated pill background: active = soft fill, inactive = transparent
+    const pillStyle = useAnimatedStyle(() => {
+      const activeBg = isDark
+        ? "rgba(34, 197, 94, 0.15)"
+        : "rgba(34, 197, 94, 0.1)";
+      const inactiveBg = "transparent";
 
       if (!scrollOffset) {
         const active = index === activeIndex;
         return {
-          borderColor: active ? activeBorder : inactiveBorder,
-          transform: [{ scale: active ? 1.08 : 1 }],
+          backgroundColor: active ? activeBg : inactiveBg,
+          transform: [{ scale: active ? 1.05 : 1 }],
         };
       }
 
       const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
-      const borderColor = interpolateColor(
+      const bgColor = interpolateColor(
         distance,
         [0, 1],
-        [activeBorder, inactiveBorder],
+        [activeBg, inactiveBg],
       );
       const scale = interpolate(
         distance,
         [0, 1],
-        [1.08, 1],
+        [1.05, 1],
         Extrapolate.CLAMP,
       );
 
-      return { borderColor, transform: [{ scale }] };
+      return { backgroundColor: bgColor, transform: [{ scale }] };
     }, [scrollOffset, index, activeIndex, isDark]);
 
     // Icon color animation
     const activeColor = colors.tint;
-    const inactiveColor = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)";
+    const inactiveColor = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)";
 
     const iconColorStyle = useAnimatedStyle(() => {
       if (!scrollOffset) {
-        return { opacity: index === activeIndex ? 1 : 0.55 };
+        return { opacity: index === activeIndex ? 1 : 0.5 };
       }
 
       const distance = Math.abs(scrollOffset.value - index);
       const opacity = interpolate(
         distance,
         [0, 0.5, 1],
-        [1, 0.7, 0.55],
+        [1, 0.65, 0.5],
         Extrapolate.CLAMP,
       );
       return { opacity };
@@ -109,14 +109,14 @@ const TabItem = React.memo(
 
     const iconScaleStyle = useAnimatedStyle(() => {
       if (!scrollOffset) {
-        return { transform: [{ scale: index === activeIndex ? 1.15 : 1 }] };
+        return { transform: [{ scale: index === activeIndex ? 1.12 : 1 }] };
       }
 
       const distance = Math.abs(scrollOffset.value - index);
       const scale = interpolate(
         distance,
         [0, 1],
-        [1.15, 1],
+        [1.12, 1],
         Extrapolate.CLAMP,
       );
       return { transform: [{ scale }] };
@@ -182,22 +182,21 @@ const TabItem = React.memo(
           alignItems: "center",
           justifyContent: "center",
           paddingVertical: 4,
-          opacity: pressed ? 0.85 : 1,
-          transform: [{ scale: pressed ? 0.95 : 1 }],
+          opacity: pressed ? 0.8 : 1,
+          transform: [{ scale: pressed ? 0.92 : 1 }],
         })}
       >
-        {/* Circular ring container */}
+        {/* Soft filled pill — no border */}
         <Animated.View
           style={[
             {
-              width: ringSize,
-              height: ringSize,
-              borderRadius: ringSize / 2,
-              borderWidth: 1.5,
+              width: pillSize,
+              height: pillSize,
+              borderRadius: pillSize / 2,
               alignItems: "center",
               justifyContent: "center",
             },
-            ringStyle,
+            pillStyle,
           ]}
         >
           <Animated.View
@@ -307,21 +306,21 @@ export function TabBar({
           alignSelf: "center",
           height: barHeight,
           backgroundColor: isDark
-            ? "rgba(16, 16, 18, 0.92)"
-            : "rgba(255, 255, 255, 0.95)",
+            ? "rgba(15, 17, 21, 0.92)"
+            : "rgba(255, 255, 255, 0.96)",
           borderRadius: 32,
-          borderWidth: isDark ? 0.5 : 1,
+          borderWidth: isDark ? 0 : 0.5,
           borderColor: isDark
-            ? "rgba(255, 255, 255, 0.06)"
-            : "rgba(0, 0, 0, 0.06)",
+            ? "transparent"
+            : "rgba(0, 0, 0, 0.04)",
           justifyContent: "space-evenly",
           alignItems: "center",
           paddingHorizontal: 4,
           shadowColor: "#000",
-          shadowOpacity: isDark ? 0.35 : 0.12,
-          shadowRadius: 20,
+          shadowOpacity: isDark ? 0.4 : 0.1,
+          shadowRadius: 24,
           shadowOffset: { width: 0, height: 10 },
-          elevation: isDark ? 12 : 10,
+          elevation: isDark ? 12 : 8,
         }}
       >
         {visibleTabs.map(({ tab, index }) => (

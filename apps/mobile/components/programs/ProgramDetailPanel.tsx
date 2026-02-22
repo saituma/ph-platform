@@ -11,6 +11,7 @@ import {
   PhysioReferralPanel,
   VideoUploadPanel,
 } from "@/components/programs/ProgramPanels";
+import { Shadows } from "@/constants/theme";
 import {
   PROGRAM_TABS,
   TRAINING_TABS,
@@ -26,6 +27,7 @@ import {
   programIdToTier,
   tierRank,
 } from "@/lib/planAccess";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -43,12 +45,25 @@ type ProgramDetailPanelProps = {
   onNavigate?: (path: string) => void;
 };
 
+type ExerciseMetadata = {
+  sets?: number | null;
+  reps?: number | null;
+  duration?: number | null;
+  restSeconds?: number | null;
+  cues?: string | null;
+  progression?: string | null;
+  regression?: string | null;
+  category?: string | null;
+  equipment?: string | null;
+};
+
 type ProgramSectionContent = {
   id: number;
   sectionType: string;
   title: string;
   body: string;
   videoUrl?: string | null;
+  metadata?: ExerciseMetadata | null;
   order?: number | null;
   updatedAt?: string | null;
 };
@@ -62,6 +77,7 @@ export function ProgramDetailPanel({
   const { programTier, token, athleteUserId, managedAthletes } = useAppSelector(
     (state) => state.user,
   );
+  const { isDark } = useAppTheme();
   const { role } = useRole();
   const { isSectionHidden } = useAgeExperience();
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
@@ -275,7 +291,10 @@ export function ProgramDetailPanel({
 
     if (visibleContent.length === 0) {
       return (
-        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+        <View 
+          className="rounded-3xl bg-card px-6 py-5"
+          style={isDark ? Shadows.none : Shadows.md}
+        >
           <Text className="text-sm font-outfit text-secondary text-center">
             {searchQuery.trim()
               ? "No matching content found."
@@ -287,36 +306,76 @@ export function ProgramDetailPanel({
     return (
       <View className="gap-4">
         {showContentLoading ? (
-          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+          <View 
+            className="rounded-3xl bg-card px-6 py-5"
+            style={isDark ? Shadows.none : Shadows.md}
+          >
             <Text className="text-sm font-outfit text-secondary text-center">
               Loading section content...
             </Text>
           </View>
         ) : null}
         {showContentError ? (
-          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+          <View 
+            className="rounded-3xl bg-card px-6 py-5"
+            style={isDark ? Shadows.none : Shadows.md}
+          >
             <Text className="text-sm font-outfit text-secondary text-center">
               {showContentError}
             </Text>
           </View>
         ) : null}
-        {visibleContent.map((item) => (
-          <Pressable
-            key={`content-${item.id}`}
-            onPress={() => onNavigate?.(`/programs/content/${item.id}`)}
-            className="rounded-3xl border border-[#2F8F57]/40 bg-[#2F8F57] px-6 py-5 gap-3"
-          >
-            <Text className="text-lg font-clash text-white font-bold">{item.title}</Text>
-            <View className="flex-row items-center justify-between">
-              <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
-                View details
-              </Text>
-              <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
-                <Feather name="chevron-right" size={14} color="#FFFFFF" />
+        {visibleContent.map((item) => {
+          const meta = (item.metadata ?? {}) as ExerciseMetadata;
+          const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
+          return (
+            <Pressable
+              key={`content-${item.id}`}
+              onPress={() => onNavigate?.(`/programs/content/${item.id}`)}
+              className="rounded-3xl bg-[#2F8F57] px-6 py-5 gap-3"
+              style={isDark ? Shadows.none : Shadows.md}
+            >
+              <Text className="text-lg font-clash text-white font-bold">{item.title}</Text>
+              {hasExercise && (
+                <View className="flex-row flex-wrap gap-2">
+                  {meta.sets != null && (
+                    <View className="rounded-full bg-white/15 px-3 py-1">
+                      <Text className="text-[11px] font-outfit text-white">{meta.sets} sets</Text>
+                    </View>
+                  )}
+                  {meta.reps != null && (
+                    <View className="rounded-full bg-white/15 px-3 py-1">
+                      <Text className="text-[11px] font-outfit text-white">{meta.reps} reps</Text>
+                    </View>
+                  )}
+                  {meta.duration != null && (
+                    <View className="rounded-full bg-white/15 px-3 py-1">
+                      <Text className="text-[11px] font-outfit text-white">{meta.duration}s</Text>
+                    </View>
+                  )}
+                  {meta.restSeconds != null && (
+                    <View className="rounded-full bg-white/15 px-3 py-1">
+                      <Text className="text-[11px] font-outfit text-white">{meta.restSeconds}s rest</Text>
+                    </View>
+                  )}
+                  {meta.category && (
+                    <View className="rounded-full bg-white/25 px-3 py-1">
+                      <Text className="text-[11px] font-outfit text-white font-semibold">{meta.category}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
+                  View details
+                </Text>
+                <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
+                  <Feather name="chevron-right" size={14} color="#FFFFFF" />
+                </View>
               </View>
-            </View>
-          </Pressable>
-        ))}
+            </Pressable>
+          );
+        })}
       </View>
     );
   };
@@ -332,7 +391,10 @@ export function ProgramDetailPanel({
         ? "This program is available on a higher tier."
         : "Once your plan is active, your full program will appear here.";
       return (
-        <View className="rounded-3xl border border-app/10 bg-input px-6 py-5 gap-3">
+        <View 
+          className="rounded-3xl bg-card px-6 py-5 gap-3"
+          style={isDark ? Shadows.none : Shadows.md}
+        >
           <View className="flex-row items-center gap-2">
             <Feather name="lock" size={16} color="#94A3B8" />
             <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
@@ -348,7 +410,10 @@ export function ProgramDetailPanel({
       const tier = PROGRAM_TIERS.find((item) => item.id === programId);
       return (
         <View className="gap-4">
-          <View className="rounded-3xl border border-[#2F8F57]/40 bg-[#2F8F57] px-6 py-5 gap-3">
+          <View 
+            className="rounded-3xl bg-[#2F8F57] px-6 py-5 gap-3"
+            style={isDark ? Shadows.none : Shadows.md}
+          >
             <Text className="text-lg font-clash text-white font-bold">Program Features</Text>
             {tier?.features?.map((feature, index) => (
               <View
@@ -386,7 +451,10 @@ export function ProgramDetailPanel({
     if (activeTab === "Nutrition & Food Diaries" || activeTab === "Submit Diary") {
       if (role !== "Guardian") {
         return (
-          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+          <View 
+            className="rounded-3xl bg-card px-6 py-5"
+            style={isDark ? Shadows.none : Shadows.md}
+          >
             <Text className="text-sm font-outfit text-secondary text-center">
               Food diaries are managed by guardians.
             </Text>
@@ -399,7 +467,10 @@ export function ProgramDetailPanel({
     if (activeTab === "Video Upload") {
       if (role !== "Athlete") {
         return (
-          <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+          <View 
+            className="rounded-3xl bg-card px-6 py-5"
+            style={isDark ? Shadows.none : Shadows.md}
+          >
             <Text className="text-sm font-outfit text-secondary text-center">
               Video uploads are available for athletes.
             </Text>
@@ -410,7 +481,10 @@ export function ProgramDetailPanel({
     }
 
     return (
-      <View className="rounded-3xl border border-app/10 bg-input px-6 py-5">
+      <View 
+        className="rounded-3xl bg-card px-6 py-5"
+        style={isDark ? Shadows.none : Shadows.md}
+      >
         <Text className="text-sm font-outfit text-secondary text-center">
           Content coming soon.
         </Text>
@@ -458,7 +532,10 @@ export function ProgramDetailPanel({
 
         {searchQuery.trim().length > 0 ? (
           <View className="px-6 mb-6">
-            <View className="rounded-3xl border border-app/10 bg-input px-4 py-4">
+            <View 
+              className="rounded-3xl bg-card px-4 py-4"
+              style={isDark ? Shadows.none : Shadows.md}
+            >
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-xs font-outfit uppercase tracking-[1.6px] text-secondary">
                   Suggestions

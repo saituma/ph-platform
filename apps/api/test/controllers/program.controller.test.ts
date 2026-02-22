@@ -1,12 +1,12 @@
 jest.mock("../../src/services/program.service", () => ({
   getProgramCards: jest.fn(),
-  getProgramById: jest.fn(),
+  getProgramByIdForUser: jest.fn(),
   getProgramSessions: jest.fn(),
   getExerciseLibrary: jest.fn(),
 }));
 
 import { listPrograms, getProgram, getProgramSessionsById, listProgramExercises } from "../../src/controllers/program.controller";
-import { getExerciseLibrary, getProgramCards, getProgramById, getProgramSessions } from "../../src/services/program.service";
+import { getExerciseLibrary, getProgramCards, getProgramByIdForUser, getProgramSessions } from "../../src/services/program.service";
 
 function createRes() {
   const res: any = {};
@@ -33,8 +33,8 @@ describe("program controller", () => {
   });
 
   it("returns 404 when program missing", async () => {
-    (getProgramById as jest.Mock).mockResolvedValue(null);
-    const req = { params: { programId: "99" } } as any;
+    (getProgramByIdForUser as jest.Mock).mockResolvedValue(null);
+    const req = { user: { id: 2 }, params: { programId: "99" } } as any;
     const res = createRes();
 
     await getProgram(req, res);
@@ -44,8 +44,9 @@ describe("program controller", () => {
   });
 
   it("returns sessions for program", async () => {
+    (getProgramByIdForUser as jest.Mock).mockResolvedValue({ id: 1 });
     (getProgramSessions as jest.Mock).mockResolvedValue([{ id: 1 }]);
-    const req = { params: { programId: "1" } } as any;
+    const req = { user: { id: 2 }, params: { programId: "1" } } as any;
     const res = createRes();
 
     await getProgramSessionsById(req, res);

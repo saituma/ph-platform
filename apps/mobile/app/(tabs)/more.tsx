@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
+import { Shadows } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { Image, TouchableOpacity, View } from "react-native";
@@ -21,7 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 export default function MoreScreen() {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { profile, isAuthenticated, programTier } = useAppSelector((state) => state.user);
@@ -56,7 +57,7 @@ export default function MoreScreen() {
         onRefresh={handleRefresh}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <View className="px-6 pt-6 pb-8 bg-input rounded-b-[40px] shadow-sm mb-6">
+        <View className="px-6 pt-6 pb-8 bg-card rounded-b-[40px] mb-6" style={isDark ? Shadows.none : Shadows.md}>
           <View className="flex-row items-center justify-between mb-8">
             <View className="flex-row items-center gap-3">
               <View className="h-6 w-1.5 rounded-full bg-accent" />
@@ -80,14 +81,14 @@ export default function MoreScreen() {
           ) : (
             <View className="flex-row items-center gap-5 mb-8">
               {profile.avatar ? (
-                <View className="h-16 w-16 rounded-full overflow-hidden border border-app shadow-sm relative">
+                <View className="h-16 w-16 rounded-full overflow-hidden relative" style={isDark ? Shadows.none : Shadows.sm}>
                   <Image source={{ uri: profile.avatar }} style={{ width: 64, height: 64 }} />
-                  <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white" />
+                  <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full" />
                 </View>
               ) : (
-                <View className="h-16 w-16 bg-secondary rounded-full items-center justify-center border border-app shadow-sm relative">
+                <View className="h-16 w-16 bg-card rounded-full items-center justify-center relative" style={isDark ? Shadows.none : Shadows.sm}>
                   <Feather name="user" size={28} color={colors.accent} />
-                  <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full border-2 border-white" />
+                  <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full" />
                 </View>
               )}
               <View>
@@ -130,7 +131,7 @@ export default function MoreScreen() {
                     Account
                   </Text>
                 </View>
-                <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app">
+                <View className="bg-card rounded-3xl overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
                   <MenuItem
                     icon="user"
                     label="Profile Information"
@@ -178,7 +179,7 @@ export default function MoreScreen() {
                     Support & About
                   </Text>
                 </View>
-                <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app">
+                <View className="bg-card rounded-3xl overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
                   <MenuItem
                     icon="star"
                     label="Submit Testimonial"
@@ -217,7 +218,7 @@ export default function MoreScreen() {
                     Legal
                   </Text>
                 </View>
-                <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app">
+                <View className="bg-card rounded-3xl overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
                   <MenuItem
                     icon="file-text"
                     label="Terms of Service"
@@ -275,7 +276,7 @@ function MenuItem({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`flex-row items-center px-6 py-5 bg-input active:bg-secondary ${!isLast ? "border-b border-app" : ""}`}
+      className={`flex-row items-center px-6 py-5 bg-card active:bg-secondary ${!isLast ? "border-b border-separator" : ""}`}
     >
       <View className="w-12 h-12 items-center justify-center bg-accent/10 rounded-full mr-4">
         <Feather name={icon} size={22} color={accentColor} />
