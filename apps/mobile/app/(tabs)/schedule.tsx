@@ -973,9 +973,10 @@ export default function ScheduleScreen() {
                                 active ? "text-white" : "text-secondary"
                               }`}
                             >
+                              {toTimeLabel(slot)}
                               {capacity
-                                ? `${Math.max(capacity - count, 0)} slots left`
-                                : "Available"}
+                                ? ` · ${Math.max(capacity - count, 0)} left`
+                                : ""}
                             </Text>
                           </Pressable>
                         );

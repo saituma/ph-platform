@@ -129,19 +129,33 @@ export async function createBookingForUser(req: Request, res: Response) {
     return res.status(400).json({ error: "Onboarding incomplete" });
   }
 
-  const booking = await createBooking({
-    athleteId: athlete.id,
-    guardianId: guardian.id,
-    serviceTypeId: input.serviceTypeId,
-    startsAt: new Date(input.startsAt),
-    endsAt: new Date(input.endsAt),
-    createdBy: req.user!.id,
-    location: input.location,
-    meetingLink: input.meetingLink,
-    timezoneOffsetMinutes: input.timezoneOffsetMinutes,
-  });
+  try {
+    const booking = await createBooking({
+      athleteId: athlete.id,
+      guardianId: guardian.id,
+      serviceTypeId: input.serviceTypeId,
+      startsAt: new Date(input.startsAt),
+      endsAt: new Date(input.endsAt),
+      createdBy: req.user!.id,
+      location: input.location,
+      meetingLink: input.meetingLink,
+      timezoneOffsetMinutes: input.timezoneOffsetMinutes,
+    });
 
-  return res.status(201).json({ booking });
+    return res.status(201).json({ booking });
+  } catch (error: any) {
+    const knownErrors = [
+      "Invalid start time",
+      "Capacity reached",
+      "Service type not found",
+      "Selected time is not available",
+      "Role model calls must be fixed at 13:00",
+    ];
+    if (knownErrors.includes(error?.message)) {
+      return res.status(400).json({ error: error.message });
+    }
+    throw error;
+  }
 }
 
 export async function listBookings(req: Request, res: Response) {
