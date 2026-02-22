@@ -15,8 +15,8 @@ export function IntroVideoSection({ introVideoUrl }: IntroVideoSectionProps) {
   const isYoutube = isYoutubeUrl(introVideoUrl);
 
   return (
-    <View className="py-2 px-4">
-      <View className="flex-row justify-between items-end mb-6 px-2">
+    <View className="py-2">
+      <View className="flex-row justify-between items-end mb-6">
         <View>
           <Text className="text-2xl font-bold font-clash text-app tracking-tight">
             Intro Video
@@ -27,7 +27,7 @@ export function IntroVideoSection({ introVideoUrl }: IntroVideoSectionProps) {
         </View>
       </View>
 
-      <View className="items-center">
+      <View className="items-center w-full">
         <View
           className="w-full overflow-hidden rounded-[32px] bg-input"
           style={isDark ? Shadows.none : Shadows.md}

@@ -627,6 +627,8 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
   const [coachResponses, setCoachResponses] = useState<
     { id: string; mediaUrl: string; text?: string; createdAt?: string | null; videoUploadId?: number }[]
   >([]);
+  const previousVideoItemsRef = useRef<{ id: number; feedback?: string | null }[]>([]);
+  const previousCoachResponsesRef = useRef<string[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<{
     uri: string;
     fileName: string;
@@ -634,21 +636,53 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     sizeBytes: number;
   } | null>(null);
 
+  const scheduleLocalNotification = useCallback(
+    async (title: string, body: string, data?: Record<string, string>) => {
+      const Notifications = await getNotifications();
+      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: "default",
+          data,
+        },
+        trigger: null,
+      });
+    },
+    []
+  );
+
   const loadVideos = useCallback(async () => {
     if (!token) return;
     try {
       setLoadingVideos(true);
+      const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
       const data = await apiRequest<{ items: { id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }[] }>(
         "/videos",
-        { token, suppressLog: true }
+        { token, headers, suppressLog: true }
       );
-      setVideoItems(data.items ?? []);
+      const items = data.items ?? [];
+      setVideoItems(items);
+
+      const previousById = new Map(previousVideoItemsRef.current.map((item) => [item.id, item]));
+      const newlyReviewed = items.filter(
+        (item) => item?.id && item?.feedback && previousById.has(item.id) && !previousById.get(item.id)?.feedback
+      );
+      if (newlyReviewed.length) {
+        await scheduleLocalNotification(
+          "Coach feedback",
+          "Your video review has new feedback.",
+          { type: "video-feedback" }
+        );
+      }
+      previousVideoItemsRef.current = items.map((item) => ({ id: item.id, feedback: item.feedback ?? null }));
     } catch {
       // keep upload flow resilient if history fetch fails
     } finally {
       setLoadingVideos(false);
     }
-  }, [token]);
+  }, [athleteUserId, scheduleLocalNotification, token]);
 
   const loadCoachResponses = useCallback(async () => {
     if (!token) return;
@@ -673,12 +707,23 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
           videoUploadId: msg.videoUploadId ?? undefined,
         }));
       setCoachResponses(items);
+
+      const previousIds = new Set(previousCoachResponsesRef.current);
+      const newItems = items.filter((item) => item?.id && !previousIds.has(item.id));
+      if (newItems.length) {
+        await scheduleLocalNotification(
+          "Coach response video",
+          "Your coach sent a response video.",
+          { type: "coach-response-video" }
+        );
+      }
+      previousCoachResponsesRef.current = items.map((item) => item.id);
     } catch {
       // avoid blocking the main upload flow if messages fail
     } finally {
       setLoadingResponses(false);
     }
-  }, [athleteUserId, profile.id, role, token]);
+  }, [athleteUserId, profile.id, role, scheduleLocalNotification, token]);
 
   useEffect(() => {
     void loadVideos();
@@ -799,6 +844,11 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                 token,
                 body: { videoUrl: presign.publicUrl, notes: notes.trim() || undefined },
               });
+              await scheduleLocalNotification(
+                "Video uploaded",
+                "Your video was submitted for coach review.",
+                { type: "video-upload" }
+              );
               setStatus("Video submitted for coach review.");
               setNotes("");
               setSelectedVideo(null);
