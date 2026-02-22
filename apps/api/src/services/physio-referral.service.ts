@@ -21,6 +21,7 @@ export async function listPhysioReferrals() {
       programTier: physioRefferalsTable.programTier,
       referalLink: physioRefferalsTable.referalLink,
       discountPercent: physioRefferalsTable.discountPercent,
+      metadata: physioRefferalsTable.metadata,
       createdAt: physioRefferalsTable.createdAt,
       athleteName: athleteTable.name,
     })
@@ -34,6 +35,7 @@ export async function createPhysioReferral(input: {
   programTier?: (typeof athleteTable.$inferSelect)["currentProgramTier"] | null;
   referalLink: string;
   discountPercent?: number | null;
+  metadata?: Record<string, unknown> | null;
   createdBy: number;
 }) {
   const result = await db
@@ -43,6 +45,7 @@ export async function createPhysioReferral(input: {
       programTier: input.programTier ?? null,
       referalLink: input.referalLink,
       discountPercent: input.discountPercent ?? null,
+      metadata: input.metadata ?? null,
       createdBy: input.createdBy,
     })
     .returning();
@@ -54,15 +57,19 @@ export async function updatePhysioReferral(input: {
   referalLink?: string | null;
   discountPercent?: number | null;
   programTier?: (typeof athleteTable.$inferSelect)["currentProgramTier"] | null;
+  metadata?: Record<string, unknown> | null;
 }) {
+  const setValues: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+  if (input.referalLink !== undefined) setValues.referalLink = input.referalLink;
+  if (input.discountPercent !== undefined) setValues.discountPercent = input.discountPercent;
+  if (input.programTier !== undefined) setValues.programTier = input.programTier;
+  if (input.metadata !== undefined) setValues.metadata = input.metadata;
+
   const result = await db
     .update(physioRefferalsTable)
-    .set({
-      referalLink: input.referalLink ?? undefined,
-      discountPercent: input.discountPercent ?? undefined,
-      programTier: input.programTier ?? undefined,
-      updatedAt: new Date(),
-    })
+    .set(setValues)
     .where(eq(physioRefferalsTable.id, input.id))
     .returning();
   return result[0] ?? null;
