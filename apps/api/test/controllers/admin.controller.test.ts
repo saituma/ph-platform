@@ -83,6 +83,8 @@ describe("admin controller", () => {
       name: "Program",
       type: "PHP",
       description: undefined,
+      minAge: null,
+      maxAge: null,
       createdBy: 4,
     });
     expect(res.status).toHaveBeenCalledWith(201);

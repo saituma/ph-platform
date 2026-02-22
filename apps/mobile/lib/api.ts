@@ -11,7 +11,19 @@ type ApiRequestOptions = {
   suppressLog?: boolean;
   suppressStatusCodes?: number[];
   skipAuthRefresh?: boolean;
+  skipCache?: boolean;
 };
+
+const apiCache = new Map<string, { data: any; expiry: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export function clearApiCache() {
+  apiCache.clear();
+}
+
+export function prefetchApi<T>(path: string, options: ApiRequestOptions = {}): void {
+  apiRequest<T>(path, { ...options, suppressLog: true }).catch(() => {});
+}
 
 const AUTH_TOKEN_KEY = "authToken";
 const AUTH_REFRESH_KEY = "authRefreshToken";
@@ -141,6 +153,16 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
 
+  const method = options.method ?? "GET";
+  const cacheKey = `${resolvedToken || 'anon'}:${url}`;
+
+  if (method === "GET" && !options.skipCache) {
+    const cached = apiCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data as T;
+    }
+  }
+
   const performRequest = async (authToken?: string | null) => {
     let res: Response;
     try {
@@ -217,5 +239,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     console.warn("API invalid response", { url: requestUrl, status: res.status, text });
     throw new Error("Invalid response from server");
   }
+  
+  if (method === "GET" && !options.skipCache) {
+    apiCache.set(cacheKey, { data: payload, expiry: Date.now() + CACHE_TTL_MS });
+  }
+
   return payload as T;
 }

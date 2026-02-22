@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import React from "react";
 import { Linking, Pressable, View } from "react-native";
@@ -28,7 +29,8 @@ export function IntroVideoSection({ introVideoUrl }: IntroVideoSectionProps) {
 
       <View className="items-center">
         <View
-          className="w-full overflow-hidden rounded-[32px] border border-app/10 bg-input"
+          className="w-full overflow-hidden rounded-[32px] bg-input"
+          style={isDark ? Shadows.none : Shadows.md}
         >
           {isYoutube ? (
             <View className="p-4">

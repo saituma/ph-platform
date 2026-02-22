@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
@@ -44,18 +45,28 @@ export function ThemeToggle() {
     <Pressable
       onPress={toggleColorScheme}
       disabled={isSwitching}
-      className="w-12 h-12 items-center justify-center bg-secondary rounded-full border border-app shadow-sm relative overflow-hidden"
+      style={({ pressed }) => ({
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: isDark ? colors.card : colors.backgroundSecondary,
+        overflow: "hidden",
+        transform: [{ scale: pressed ? 0.93 : 1 }],
+        ...(isDark ? Shadows.none : Shadows.sm),
+      })}
     >
       {isSwitching ? (
-        <View className="absolute">
+        <View style={{ position: "absolute" }}>
           <ActivityIndicator size="small" color={colors.themeToggleIcon} />
         </View>
       ) : null}
       <Animated.View style={[sunStyle, { position: "absolute" }]}>
-        <Feather name="sun" size={24} color={colors.themeToggleIcon} />
+        <Feather name="sun" size={22} color={colors.themeToggleIcon} />
       </Animated.View>
       <Animated.View style={[moonStyle, { position: "absolute" }]}>
-        <Feather name="moon" size={24} color={colors.accent} />
+        <Feather name="moon" size={22} color={colors.accent} />
       </Animated.View>
     </Pressable>
   );

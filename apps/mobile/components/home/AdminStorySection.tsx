@@ -2,6 +2,8 @@ import React from "react";
 import { Image, View } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 
 type AdminStorySectionProps = {
   story?: string | null;
@@ -9,6 +11,7 @@ type AdminStorySectionProps = {
 };
 
 export function AdminStorySection({ story, photoUrl }: AdminStorySectionProps) {
+  const { isDark } = useAppTheme();
   const photo = photoUrl?.trim() || "";
   const storyText = story?.trim() || "";
 
@@ -31,7 +34,10 @@ export function AdminStorySection({ story, photoUrl }: AdminStorySectionProps) {
 
       {photo ? (
         <View className="px-6">
-          <View className="w-full overflow-hidden rounded-[32px] border border-app bg-secondary">
+          <View 
+            className="w-full overflow-hidden rounded-[32px] bg-secondary"
+            style={isDark ? Shadows.none : Shadows.lg}
+          >
             <Image
               source={{ uri: photo }}
               resizeMode="cover"
@@ -42,7 +48,10 @@ export function AdminStorySection({ story, photoUrl }: AdminStorySectionProps) {
       ) : null}
 
       {storyText ? (
-        <View className="mx-6 bg-input border border-app rounded-[32px] p-6">
+        <View 
+          className="mx-6 bg-card rounded-[32px] p-6"
+          style={isDark ? Shadows.none : Shadows.md}
+        >
           <MarkdownText
             text={storyText}
             baseStyle={{ fontSize: 14, lineHeight: 22, color: "#64748B" }}

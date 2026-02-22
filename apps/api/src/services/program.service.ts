@@ -5,11 +5,13 @@ import {
   athleteTable,
   enrollmentTable,
   exerciseTable,
+  guardianTable,
   programTable,
   sessionExerciseTable,
   sessionTable,
 } from "../db/schema";
 import { calculateAge, normalizeDate } from "../lib/age";
+import { getAthleteForUser } from "./user.service";
 
 function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
   if (!row) return null;
@@ -21,17 +23,19 @@ function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | un
 }
 
 function matchesAgeRange(item: { minAge?: number | null; maxAge?: number | null }, age: number | null) {
-  if (age === null) return true;
-  if (item.minAge !== null && item.minAge !== undefined && age < item.minAge) return false;
-  if (item.maxAge !== null && item.maxAge !== undefined && age > item.maxAge) return false;
+  const hasMin = item.minAge !== null && item.minAge !== undefined;
+  const hasMax = item.maxAge !== null && item.maxAge !== undefined;
+  if (!hasMin && !hasMax) return true;
+  if (age === null || age === undefined) return false;
+  if (hasMin && age < item.minAge!) return false;
+  if (hasMax && age > item.maxAge!) return false;
   return true;
 }
 
 export async function getProgramCards(userId: number) {
-  const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
-  const athleteId = athlete[0]?.id;
-  const age = resolveAgeFromAthlete(athlete[0]);
-
+  const athlete = await getAthleteForUser(userId);
+  const athleteId = athlete?.id ?? null;
+  const age = resolveAgeFromAthlete(athlete);
   const enrollments = athleteId
     ? await db.select().from(enrollmentTable).where(eq(enrollmentTable.athleteId, athleteId))
     : [];
@@ -63,8 +67,9 @@ export async function getProgramById(programId: number) {
 export async function getProgramByIdForUser(userId: number, programId: number) {
   const program = await getProgramById(programId);
   if (!program) return null;
-  const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
-  const age = resolveAgeFromAthlete(athlete[0]);
+
+  const athlete = await getAthleteForUser(userId);
+  const age = resolveAgeFromAthlete(athlete);
   if (!matchesAgeRange(program, age)) return null;
   return program;
 }
