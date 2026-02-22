@@ -1,4 +1,6 @@
 import { Feather } from "@/components/ui/theme-icons";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 import React from "react";
 import { View } from "react-native";
 import { Text } from "@/components/ScaledText";
@@ -20,10 +22,14 @@ export function StatCard({
   icon,
   color = "bg-accent",
 }: StatCardProps) {
+  const { isDark } = useAppTheme();
   const iconColorClass = color.replace("bg-", "text-");
 
   return (
-    <View className="bg-input p-4 rounded-3xl border border-app shadow-sm flex-1 min-w-[100px] relative overflow-hidden">
+    <View
+      className="bg-card p-4 rounded-[20px] flex-1 min-w-[100px] relative overflow-hidden"
+      style={isDark ? Shadows.none : Shadows.sm}
+    >
       <View className="flex-row justify-between items-start mb-2">
         <View className={`${color}/10 p-2 rounded-xl`}>
           {icon && <Feather name={icon} size={16} className={iconColorClass} />}

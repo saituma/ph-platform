@@ -1,6 +1,7 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@/components/ui/theme-icons";
+import { Shadows } from "@/constants/theme";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
@@ -67,7 +68,7 @@ const EVENT_TITLE_BY_TYPE: Record<string, string> = {
 export default function ScheduleScreen() {
   const router = useRouter();
   const { role } = useRole();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
   if (isSectionHidden("schedule")) {
@@ -544,14 +545,14 @@ export default function ScheduleScreen() {
           </View>
 
           {eventsLoading ? (
-            <View className="rounded-3xl border p-6 bg-input items-center">
+            <View className="rounded-3xl p-6 bg-card" style={isDark ? Shadows.none : Shadows.sm}>
               <Feather name="loader" size={20} className="text-secondary" />
               <Text className="text-base font-clash text-app mt-3">
                 Loading schedule
               </Text>
             </View>
           ) : dayEvents.length === 0 ? (
-            <View className="rounded-3xl border p-6 bg-input items-center">
+            <View className="rounded-3xl p-6 bg-card items-center" style={isDark ? Shadows.none : Shadows.sm}>
               <Feather name="calendar" size={20} className="text-secondary" />
               <Text className="text-base font-clash text-app mt-3">
                 No events scheduled
@@ -583,7 +584,8 @@ export default function ScheduleScreen() {
                 <Pressable
                   key={event.id}
                   onPress={() => setSelectedEvent(event)}
-                  className="rounded-2xl border p-4 bg-input"
+                  className="rounded-[20px] p-4 bg-card"
+                  style={isDark ? Shadows.none : Shadows.sm}
                 >
                   <View className="flex-row items-center justify-between">
                     <Text className="text-base font-clash text-app">
@@ -667,7 +669,7 @@ export default function ScheduleScreen() {
                   </Text>
                 ) : null}
 
-                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                <View className="mt-4 rounded-[20px] p-4 bg-card" style={isDark ? Shadows.none : Shadows.sm}>
                   <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                     Notes
                   </Text>
@@ -716,7 +718,7 @@ export default function ScheduleScreen() {
                     <Feather name="x" size={20} className="text-secondary" />
                   </Pressable>
                 </View>
-                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10 gap-2">
+                <View className="mt-4 rounded-[20px] p-4 bg-card gap-2" style={isDark ? Shadows.none : Shadows.sm}>
                   <Text className="text-sm font-outfit text-app">{selectedEvent?.title}</Text>
                   <Text className="text-xs font-outfit text-secondary">
                     {selectedEvent?.timeStart} - {selectedEvent?.timeEnd}

@@ -9,12 +9,25 @@ import { getSessionTypesForTab } from "@/constants/program-details";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 
+type ExerciseMetadata = {
+  sets?: number | null;
+  reps?: number | null;
+  duration?: number | null;
+  restSeconds?: number | null;
+  cues?: string | null;
+  progression?: string | null;
+  regression?: string | null;
+  category?: string | null;
+  equipment?: string | null;
+};
+
 type ProgramSectionContent = {
   id: number;
   sectionType: string;
   title: string;
   body: string;
   videoUrl?: string | null;
+  metadata?: ExerciseMetadata | null;
   order?: number | null;
   updatedAt?: string | null;
 };
@@ -118,20 +131,53 @@ export default function ProgramTabDetailScreen() {
           </View>
         ) : (
           <View className="mt-6 gap-4">
-            {items.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() => router.push(`/programs/content/${item.id}`)}
-                className="rounded-3xl bg-input px-4 py-4 shadow-sm"
-              >
-                <Text className="text-base font-clash text-app font-bold">
-                  {item.title}
-                </Text>
-                <Text className="text-xs font-outfit text-secondary mt-2">
-                  Tap to view details and videos.
-                </Text>
-              </Pressable>
-            ))}
+            {items.map((item) => {
+              const meta = (item.metadata ?? {}) as ExerciseMetadata;
+              const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push(`/programs/content/${item.id}`)}
+                  className="rounded-3xl bg-input px-4 py-4 shadow-sm gap-2"
+                >
+                  <Text className="text-base font-clash text-app font-bold">
+                    {item.title}
+                  </Text>
+                  {hasExercise && (
+                    <View className="flex-row flex-wrap gap-1.5">
+                      {meta.sets != null && (
+                        <View className="rounded-full bg-accent/20 px-2.5 py-0.5">
+                          <Text className="text-[10px] font-outfit text-accent">{meta.sets} sets</Text>
+                        </View>
+                      )}
+                      {meta.reps != null && (
+                        <View className="rounded-full bg-accent/20 px-2.5 py-0.5">
+                          <Text className="text-[10px] font-outfit text-accent">{meta.reps} reps</Text>
+                        </View>
+                      )}
+                      {meta.duration != null && (
+                        <View className="rounded-full bg-accent/20 px-2.5 py-0.5">
+                          <Text className="text-[10px] font-outfit text-accent">{meta.duration}s</Text>
+                        </View>
+                      )}
+                      {meta.restSeconds != null && (
+                        <View className="rounded-full bg-accent/20 px-2.5 py-0.5">
+                          <Text className="text-[10px] font-outfit text-accent">{meta.restSeconds}s rest</Text>
+                        </View>
+                      )}
+                      {meta.category && (
+                        <View className="rounded-full bg-accent/30 px-2.5 py-0.5">
+                          <Text className="text-[10px] font-outfit text-accent font-semibold">{meta.category}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  <Text className="text-xs font-outfit text-secondary mt-1">
+                    Tap to view details{item.videoUrl ? ' and video' : ''}.
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
       </View>

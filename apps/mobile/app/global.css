@@ -6,6 +6,9 @@
   --color-bg: #ffffff;
   --color-bg-secondary: #f0fdf4;
   --color-bg-input: #ffffff;
+  --color-card: #ffffff;
+  --color-card-elevated: #f8faf9;
+  --color-separator: rgba(0, 0, 0, 0.06);
 
   --color-text: #052e16;
   --color-text-secondary: #4b5563;
@@ -26,9 +29,12 @@
 }
 
 .dark {
-  --color-bg: #0a0a0b;
-  --color-bg-secondary: #111827;
-  --color-bg-input: #111827;
+  --color-bg: #0F1115;
+  --color-bg-secondary: #1A1D27;
+  --color-bg-input: #1A1D27;
+  --color-card: #181B23;
+  --color-card-elevated: #1F2330;
+  --color-separator: rgba(255, 255, 255, 0.06);
 
   --color-text: #f8fafc;
   --color-text-secondary: #94a3b8;
@@ -37,7 +43,7 @@
   --color-accent: #22c55e;
   --color-accent-light: #064e3b;
 
-  --color-border: #1f2937;
+  --color-border: #232830;
   --color-icon: #94a3b8;
 
   --color-success: #10b981;
@@ -47,6 +53,8 @@
   --color-danger: #ef4444;
   --color-danger-soft: #450a0a;
 }
+
+/* ── Semantic background utilities ── */
 
 .bg-app {
   background-color: var(--color-bg);
@@ -60,6 +68,14 @@
   background-color: var(--color-bg-input);
 }
 
+.bg-card {
+  background-color: var(--color-card);
+}
+
+.bg-card-elevated {
+  background-color: var(--color-card-elevated);
+}
+
 .bg-accent {
   background-color: var(--color-accent);
 }
@@ -67,6 +83,8 @@
 .bg-accent-light {
   background-color: var(--color-accent-light);
 }
+
+/* ── Semantic text utilities ── */
 
 .text-app {
   color: var(--color-text);
@@ -84,13 +102,21 @@
   color: var(--color-accent);
 }
 
+/* ── Semantic border/separator utilities ── */
+
 .border-app {
   border-color: var(--color-border);
+}
+
+.border-separator {
+  border-color: var(--color-separator);
 }
 
 .icon-color {
   color: var(--color-icon);
 }
+
+/* ── Status utilities ── */
 
 .bg-success {
   background-color: var(--color-success);

@@ -5,6 +5,7 @@ import { ActivityIndicator, Image, Pressable, View } from "react-native";
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 
 type InboxScreenProps = {
@@ -35,7 +36,7 @@ export function InboxScreen({
   onOpenThread,
   textSecondaryColor,
 }: InboxScreenProps) {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
 
   return (
     <ThemedScrollView
@@ -73,7 +74,8 @@ export function InboxScreen({
                 <Pressable
                   key={thread.id}
                   onPress={() => onOpenThread(thread)}
-                  className="bg-input rounded-3xl p-5 active:opacity-95 border border-black/5 dark:border-app/10"
+                  className="bg-card rounded-3xl p-5 active:opacity-95"
+                  style={isDark ? Shadows.none : Shadows.md}
                 >
                   <View className="flex-row items-start gap-4">
                     {/* Avatar */}
@@ -93,7 +95,7 @@ export function InboxScreen({
 
                       {/* Unread badge */}
                       {thread.unread > 0 && (
-                        <View className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 rounded-full items-center justify-center border-4 border-app">
+                        <View className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 rounded-full items-center justify-center">
                           <Text className="text-white text-[9px] font-bold font-outfit">
                             {typeof thread.unread === "number" &&
                             thread.unread > 9
