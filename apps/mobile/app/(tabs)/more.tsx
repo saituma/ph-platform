@@ -65,9 +65,7 @@ export default function MoreScreen() {
                 Settings
               </Text>
             </View>
-            <View>
-              <ThemeToggle />
-            </View>
+            <ThemeToggle />
           </View>
 
           {isLoading ? (
@@ -152,6 +150,15 @@ export default function MoreScreen() {
                       label="Parent Platform"
                       isLast={false}
                       onPress={openParentPlatform}
+                      accentColor={colors.accent}
+                    />
+                  ) : null}
+                  {canAccessTier(programTier ?? null, "PHP_Plus") ? (
+                    <MenuItem
+                      icon="activity"
+                      label="Physio Referral"
+                      isLast={false}
+                      onPress={() => router.push("/physio-referral")}
                       accentColor={colors.accent}
                     />
                   ) : null}

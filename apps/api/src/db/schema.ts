@@ -415,6 +415,7 @@ export const physioRefferalsTable = pgTable("physio_refferals", {
   programTier: ProgramType(),
   referalLink: varchar({ length: 500 }),
   discountPercent: integer(),
+  metadata: jsonb(),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
