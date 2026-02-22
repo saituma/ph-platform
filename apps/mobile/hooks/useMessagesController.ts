@@ -7,7 +7,7 @@ import { useMessagesRealtime } from "@/hooks/useMessagesRealtime";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getNotifications } from "@/lib/notifications";
 import * as ImagePicker from "expo-image-picker";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, Platform } from "react-native";
 
 type PendingAttachment = {
@@ -26,21 +26,10 @@ export function useMessagesController() {
   const threadId = thread || id;
   const token = useAppSelector((state) => state.user.token);
   const profile = useAppSelector((state) => state.user.profile);
-  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
-  const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const programTier = useAppSelector((state) => state.user.programTier);
   const { role } = useRole();
-  const actingUserId = useMemo(() => {
-    if (!athleteUserId) return null;
-    const match = managedAthletes.find(
-      (athlete) => athlete.userId === athleteUserId || athlete.id === athleteUserId
-    );
-    if (match?.userId) return match.userId;
-    if (managedAthletes.length === 0) return athleteUserId;
-    return null;
-  }, [athleteUserId, managedAthletes]);
-  const actingHeaders = actingUserId ? { "X-Acting-User-Id": String(actingUserId) } : undefined;
-  const effectiveUserId = actingUserId ? Number(actingUserId) : Number(profile.id);
+  const actingUserId = null;
+  const actingHeaders = undefined;
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -52,6 +41,7 @@ export function useMessagesController() {
   const [typingStatus, setTypingStatus] = useState<TypingStatus>({});
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [draft, setDraft] = useState("");
+  const draftRef = useRef("");
   const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(null);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
@@ -91,7 +81,6 @@ export function useMessagesController() {
           coach?: { id: number; name: string; role?: string; profilePicture?: string | null };
         }>("/messages", {
           token,
-          headers: actingHeaders,
           skipCache: true,
         }),
         apiRequest<{ groups: any[] }>("/chat/groups", { token, skipCache: true }),
@@ -118,6 +107,7 @@ export function useMessagesController() {
       }
 
       const coach = data.coach;
+      const selfId = String(profile.id ?? "");
       const coachName = coach.name || "Coach";
       const isPremium = programTier === "PHP_Premium";
       const thread = {
@@ -133,7 +123,7 @@ export function useMessagesController() {
           : 0,
         pinned: false,
         premium: isPremium,
-        unread: data.messages?.filter((msg: any) => !msg.read && Number(msg.senderId) !== effectiveUserId).length ?? 0,
+        unread: data.messages?.filter((msg: any) => !msg.read && String(msg.senderId) !== selfId).length ?? 0,
         lastSeen: "Active",
         responseTime: isPremium ? "Priority response window" : "Standard response window",
         avatarUrl: coach.profilePicture ?? null,
@@ -142,7 +132,7 @@ export function useMessagesController() {
       const mappedMessages = (data.messages ?? []).map((msg: any) => ({
         id: String(msg.id),
         threadId: String(coach.id),
-        from: Number(msg.senderId) === effectiveUserId ? "user" : "coach",
+        from: String(msg.senderId) === selfId ? "user" : "coach",
         text: msg.content,
         contentType: msg.contentType ?? "text",
         mediaUrl: msg.mediaUrl ?? undefined,
@@ -150,7 +140,7 @@ export function useMessagesController() {
         time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
         status: msg.read ? "read" : "sent",
         reactions: msg.reactions ?? [],
-        authorAvatar: Number(msg.senderId) === effectiveUserId ? null : coach.profilePicture ?? null,
+        authorAvatar: String(msg.senderId) === selfId ? null : coach.profilePicture ?? null,
       })) as ChatMessage[];
 
       setThreads([thread, ...groupThreads]);
@@ -160,7 +150,7 @@ export function useMessagesController() {
     } finally {
       setIsLoading(false);
     }
-  }, [actingUserId, profile.id, programTier, token]);
+  }, [profile.id, programTier, token]);
 
   const loadGroupMessages = useCallback(
     async (groupId: number) => {
@@ -183,11 +173,12 @@ export function useMessagesController() {
         );
         setGroupMembers((prev) => ({ ...prev, [groupId]: memberMap }));
 
+        const selfId = String(profile.id ?? "");
         const mappedMessages = (data.messages ?? []).map((msg: any) => ({
           id: `group-${msg.id}`,
           threadId: `group:${groupId}`,
           from:
-            msg.senderId === effectiveUserId
+            String(msg.senderId) === selfId
               ? "user"
               : "coach",
           text: msg.content,
@@ -226,7 +217,7 @@ export function useMessagesController() {
         setIsThreadLoading(false);
       }
     },
-    [actingUserId, profile.id, token]
+    [profile.id, token]
   );
 
   const sendReplyToThread = useCallback(
@@ -251,7 +242,7 @@ export function useMessagesController() {
         await loadMessages();
       }
     },
-    [actingUserId, loadGroupMessages, loadMessages, token]
+    [loadGroupMessages, loadMessages, token]
   );
 
   const clearThread = useCallback(() => {
@@ -300,7 +291,7 @@ export function useMessagesController() {
     } catch (error) {
       console.warn("Failed to mark messages read", error);
     }
-  }, [actingUserId, currentThread, token]);
+  }, [currentThread, token]);
 
   const markDirectThreadReadById = useCallback(
     async (threadId: string) => {
@@ -324,7 +315,7 @@ export function useMessagesController() {
         console.warn("Failed to mark messages read", error);
       }
     },
-    [actingUserId, token]
+    [token]
   );
 
   useEffect(() => {
@@ -435,13 +426,25 @@ export function useMessagesController() {
           },
         ]);
 
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === `group:${groupId}`
+              ? {
+                  ...t,
+                  preview: trimmed || "Attachment",
+                  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  updatedAtMs: Date.now(),
+                }
+              : t
+          )
+        );
+
         if (socket?.connected) {
           socket.emit("group:send", {
             groupId,
             content: trimmed || "Attachment",
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
-            actingUserId: actingUserId ?? undefined,
             clientId,
           });
         } else {
@@ -475,13 +478,25 @@ export function useMessagesController() {
         },
       ]);
 
+      setThreads((prev) =>
+        prev.map((t) =>
+          t.id === String(toUserId)
+            ? {
+                ...t,
+                preview: trimmed || "Attachment",
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                updatedAtMs: Date.now(),
+              }
+            : t
+        )
+      );
+
       if (socket?.connected) {
         socket.emit("message:send", {
           toUserId,
           content: trimmed || "Attachment",
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
-          actingUserId: actingUserId ?? undefined,
           clientId,
         });
       } else {
@@ -498,7 +513,7 @@ export function useMessagesController() {
         });
       }
     },
-    [actingUserId, currentThread, profile.name, token]
+    [currentThread, profile.name, token]
   );
 
   const handleToggleReaction = useCallback(
@@ -530,7 +545,7 @@ export function useMessagesController() {
         setReactionTarget(null);
       }
     },
-    [actingUserId, token]
+    [token]
   );
 
   const handleDeleteMessage = useCallback(
@@ -559,11 +574,16 @@ export function useMessagesController() {
         console.warn("Failed to delete message", error);
       }
     },
-    [actingUserId, token]
+    [token]
   );
 
+  const setDraftValue = useCallback((value: string) => {
+    draftRef.current = value;
+    setDraft(value);
+  }, []);
+
   const handleSend = useCallback(async () => {
-    const trimmed = draft.trim();
+    const trimmed = draftRef.current.trim();
     if (!trimmed && !pendingAttachment) return;
     try {
       let upload: { mediaUrl: string; contentType: "text" | "image" | "video" } | null = null;
@@ -576,14 +596,14 @@ export function useMessagesController() {
         contentType: upload?.contentType ?? "text",
         mediaUrl: upload?.mediaUrl,
       });
-      setDraft("");
+      setDraftValue("");
       setPendingAttachment(null);
     } catch (error) {
       console.warn("Failed to send message", error);
     } finally {
       setIsUploadingAttachment(false);
     }
-  }, [draft, pendingAttachment, sendMessagePayload, uploadAttachment]);
+  }, [pendingAttachment, sendMessagePayload, uploadAttachment, setDraftValue]);
 
   const handleAttachImage = useCallback(async () => {
     if (!currentThread || !token || isUploadingAttachment) return;
@@ -726,7 +746,6 @@ export function useMessagesController() {
   const socketRef = useMessagesRealtime({
     token,
     role,
-    athleteUserId: actingUserId ?? undefined,
     profileId: Number(profile.id),
     draft,
     currentThread,
@@ -760,6 +779,23 @@ export function useMessagesController() {
   }, [currentThread, loadGroupMessages]);
 
   useEffect(() => {
+    if (!currentThread) return;
+    const interval = setInterval(() => {
+      const socket = socketRef.current;
+      if (socket?.connected) return;
+      if (currentThread.id.startsWith("group:")) {
+        const groupId = Number(currentThread.id.replace("group:", ""));
+        if (Number.isFinite(groupId)) {
+          loadGroupMessages(groupId);
+        }
+      } else {
+        loadMessages();
+      }
+    }, 12000);
+    return () => clearInterval(interval);
+  }, [currentThread, loadGroupMessages, loadMessages]);
+
+  useEffect(() => {
     setPendingAttachment(null);
   }, [currentThread?.id]);
 
@@ -791,7 +827,7 @@ export function useMessagesController() {
     isUploadingAttachment,
     pendingAttachment,
     openingThreadId,
-    setDraft,
+    setDraft: setDraftValue,
     setReactionTarget,
     setComposerMenuOpen,
     setPendingAttachment,

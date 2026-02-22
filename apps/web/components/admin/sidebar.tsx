@@ -27,7 +27,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Select } from "../ui/select";
-import { useGetThreadsQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
+import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
 
 type SidebarContentProps = {
   currentPath: string;
@@ -40,11 +40,17 @@ export function AdminSidebarContent({
 }: SidebarContentProps) {
   const [premiumWindowOpen, setPremiumWindowOpen] = useState(false);
   const { data: threadsData } = useGetThreadsQuery();
+  const { data: usersData } = useGetUsersQuery();
   const { data: videosData } = useGetVideoUploadsQuery();
-  const unreadCount = (threadsData?.threads ?? []).reduce(
-    (sum: number, thread: any) => sum + (thread.unread ?? 0),
-    0
+  const guardianIds = new Set(
+    (usersData?.users ?? [])
+      .filter((user: any) => user?.role === "guardian")
+      .map((user: any) => user.id)
   );
+  const unreadCount = (threadsData?.threads ?? []).reduce((sum: number, thread: any) => {
+    if (guardianIds.size > 0 && !guardianIds.has(thread.userId)) return sum;
+    return sum + (thread.unread ?? 0);
+  }, 0);
   const pendingVideoCount = (videosData?.items ?? []).filter((item: any) => !item.reviewedAt).length;
 
   const navItems = [
