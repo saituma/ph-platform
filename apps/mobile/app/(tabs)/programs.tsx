@@ -321,7 +321,7 @@ export default function ProgramsScreen() {
               programId={selectedTierId}
               showBack
               onBack={() => setSelectedTierId(null)}
-              onNavigate={(path) => router.push(path)}
+              onNavigate={(path) => router.push(path as any)}
               planDetails={plan}
               pricing={pricing}
               onApply={handleApply}

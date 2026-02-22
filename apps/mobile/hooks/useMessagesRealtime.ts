@@ -43,8 +43,8 @@ export function useMessagesRealtime({
 
     const socket: Socket = io(socketUrl, {
       auth: { token },
-      // Start with polling to prevent Firefox SSL handshake warnings, then upgrade to WS
-      transports: ["polling", "websocket"],
+      // React Native requires websocket first, as XHR polling can timeout on the bridge
+      transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 5,
       timeout: 10000,
