@@ -154,7 +154,7 @@ export default function PhysioReferralScreen() {
                   {meta.specialty && (
                     <View>
                       <Text className="text-xs font-outfit text-secondary mb-1">Specialty</Text>
-                      <Text className="text-sm font-outfit text-white">{meta.specialty}</Text>
+                      <Text className="text-sm font-outfit text-app">{meta.specialty}</Text>
                     </View>
                   )}
 
@@ -163,13 +163,13 @@ export default function PhysioReferralScreen() {
                       {meta.phone && (
                         <View className="flex-1 rounded-2xl bg-secondary/10 p-4">
                           <Feather name="phone" size={16} color="#94A3B8" className="mb-2" />
-                          <Text className="text-xs font-outfit text-white" selectable>{meta.phone}</Text>
+                          <Text className="text-xs font-outfit text-app" selectable>{meta.phone}</Text>
                         </View>
                       )}
                       {meta.email && (
                         <View className="flex-1 rounded-2xl bg-secondary/10 p-4">
                           <Feather name="mail" size={16} color="#94A3B8" className="mb-2" />
-                          <Text className="text-xs font-outfit text-white" selectable numberOfLines={1}>{meta.email}</Text>
+                          <Text className="text-xs font-outfit text-app" selectable numberOfLines={1}>{meta.email}</Text>
                         </View>
                       )}
                     </View>
@@ -180,7 +180,7 @@ export default function PhysioReferralScreen() {
                       <Text className="text-xs font-outfit text-secondary mb-1">Location</Text>
                       <View className="flex-row items-center gap-2">
                         <Feather name="map-pin" size={14} color="#2F8F57" />
-                        <Text className="text-sm font-outfit text-white flex-1">{meta.location}</Text>
+                        <Text className="text-sm font-outfit text-app flex-1">{meta.location}</Text>
                       </View>
                     </View>
                   )}
@@ -191,7 +191,7 @@ export default function PhysioReferralScreen() {
                         <Feather name="info" size={14} color="#2F8F57" />
                         <Text className="text-xs font-outfit text-[#2F8F57] uppercase tracking-wider font-bold">Coach Notes</Text>
                       </View>
-                      <Text className="text-sm font-outfit text-white/90 leading-relaxed">{meta.notes}</Text>
+                      <Text className="text-sm font-outfit text-app leading-relaxed">{meta.notes}</Text>
                     </View>
                   )}
                 </View>

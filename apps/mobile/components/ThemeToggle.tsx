@@ -52,7 +52,7 @@ export function ThemeToggle() {
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: isDark ? colors.card : colors.backgroundSecondary,
-        overflow: "hidden",
+        overflow: "visible",
         transform: [{ scale: pressed ? 0.93 : 1 }],
         ...(isDark ? Shadows.none : Shadows.sm),
       })}
@@ -62,10 +62,10 @@ export function ThemeToggle() {
           <ActivityIndicator size="small" color={colors.themeToggleIcon} />
         </View>
       ) : null}
-      <Animated.View style={[sunStyle, { position: "absolute" }]}>
+      <Animated.View style={[sunStyle, { position: "absolute", alignItems: "center", justifyContent: "center" }]}>
         <Feather name="sun" size={22} color={colors.themeToggleIcon} />
       </Animated.View>
-      <Animated.View style={[moonStyle, { position: "absolute" }]}>
+      <Animated.View style={[moonStyle, { position: "absolute", alignItems: "center", justifyContent: "center" }]}>
         <Feather name="moon" size={22} color={colors.accent} />
       </Animated.View>
     </Pressable>
