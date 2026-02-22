@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Camera, Loader2, User } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -16,6 +16,7 @@ import {
   useUpdateAdminPreferencesMutation,
   useUpdateAdminProfileMutation,
   useChangePasswordMutation,
+  useCreateMediaUploadUrlMutation,
 } from "../../lib/apiSlice";
 
 export default function SettingsPage() {
@@ -30,9 +31,13 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState({
     name: "",
     email: "",
+    profilePicture: "",
     title: "",
     bio: "",
   });
+
+  const [createUploadUrl] = useCreateMediaUploadUrlMutation();
+  const [isUploading, setIsUploading] = useState(false);
 
   const [preferences, setPreferences] = useState({
     timezone: "America/Chicago",
@@ -54,6 +59,7 @@ export default function SettingsPage() {
     setProfile({
       name: data.user.name ?? "",
       email: data.user.email ?? "",
+      profilePicture: data.user.profilePicture ?? "",
       title: data.settings.title ?? "",
       bio: data.settings.bio ?? "",
     });
@@ -63,20 +69,51 @@ export default function SettingsPage() {
     });
   }, [data]);
 
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = async (overrides?: any) => {
     setProfileMessage(null);
     try {
       await updateProfile({
-        name: profile.name.trim(),
-        email: profile.email.trim(),
-        title: profile.title?.trim() || null,
-        bio: profile.bio?.trim() || null,
+        name: overrides?.name ?? profile.name.trim(),
+        email: overrides?.email ?? profile.email.trim(),
+        profilePicture: overrides?.profilePicture ?? (profile.profilePicture || null),
+        title: overrides?.title ?? (profile.title?.trim() || null),
+        bio: overrides?.bio ?? (profile.bio?.trim() || null),
       }).unwrap();
       setProfileMessage({ type: "success", text: "Profile updated." });
       setTimeout(() => setProfileMessage(null), 2000);
     } catch (error: any) {
       const message = error?.data?.error || "Failed to update profile.";
       setProfileMessage({ type: "error", text: message });
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const { uploadUrl, publicUrl } = await createUploadUrl({
+        folder: "profile-pictures",
+        fileName: `${Date.now()}-${file.name}`,
+        contentType: file.type,
+        sizeBytes: file.size,
+      }).unwrap();
+
+      await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      setProfile((prev) => ({ ...prev, profilePicture: publicUrl }));
+      await handleSaveProfile({ profilePicture: publicUrl });
+    } catch (error) {
+      setProfileMessage({ type: "error", text: "Failed to upload image." });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -144,7 +181,42 @@ export default function SettingsPage() {
             <CardHeader>
               <SectionHeader title="Profile" description="Basic public profile details." />
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
+              <div className="mb-4 flex flex-col items-center gap-4">
+                <div className="group relative h-24 w-24 overflow-hidden rounded-full border-2 border-primary/20 bg-secondary/20 transition-all hover:border-primary/40">
+                  {profile.profilePicture ? (
+                    <img
+                      src={profile.profilePicture}
+                      alt="Profile"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      <User className="h-10 w-10 text-primary/40" />
+                    </div>
+                  )}
+                  {isUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <Loader2 className="h-6 w-6 animate-spin text-white" />
+                    </div>
+                  )}
+                  <label className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/20 group-hover:opacity-100">
+                    <Camera className="h-6 w-6 text-white" />
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+                    />
+                  </label>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-foreground">Profile Photo</p>
+                  <p className="text-xs text-muted-foreground">Click image to upload</p>
+                </div>
+              </div>
+
               {profileMessage ? (
                 <div
                   className={
@@ -180,7 +252,7 @@ export default function SettingsPage() {
                 value={profile.bio}
                 onChange={(event) => setProfile({ ...profile, bio: event.target.value })}
               />
-              <Button onClick={handleSaveProfile} disabled={isSavingProfile || isLoading}>
+              <Button onClick={() => handleSaveProfile()} disabled={isSavingProfile || isLoading}>
                 {isSavingProfile ? "Saving..." : "Save Profile"}
               </Button>
             </CardContent>

@@ -546,7 +546,7 @@ export async function sendAdminMessage(req: Request, res: Response) {
         userId,
         type: "video_response",
         content,
-        link: "/(tabs)/programs",
+        link: "/video-upload",
       });
     } catch (error) {
       console.error("Failed to store response video notification", error);
@@ -559,7 +559,7 @@ export async function sendAdminMessage(req: Request, res: Response) {
           userId,
           title: "Coach response video",
           body: content,
-          link: "/(tabs)/programs",
+          link: "/video-upload",
         }),
       }).catch((error) => {
         console.error("Failed to send push notification", error);

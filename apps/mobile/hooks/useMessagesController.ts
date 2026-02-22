@@ -27,8 +27,20 @@ export function useMessagesController() {
   const token = useAppSelector((state) => state.user.token);
   const profile = useAppSelector((state) => state.user.profile);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+  const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const programTier = useAppSelector((state) => state.user.programTier);
   const { role } = useRole();
+  const actingUserId = useMemo(() => {
+    if (!athleteUserId) return null;
+    const match = managedAthletes.find(
+      (athlete) => athlete.userId === athleteUserId || athlete.id === athleteUserId
+    );
+    if (match?.userId) return match.userId;
+    if (managedAthletes.length === 0) return athleteUserId;
+    return null;
+  }, [athleteUserId, managedAthletes]);
+  const actingHeaders = actingUserId ? { "X-Acting-User-Id": String(actingUserId) } : undefined;
+  const effectiveUserId = actingUserId ? Number(actingUserId) : Number(profile.id);
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -71,8 +83,6 @@ export function useMessagesController() {
     if (!token) return;
     setIsLoading(true);
     try {
-      const effectiveUserId = role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
-      const actingHeaders = role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
       const [data, groupsData] = await Promise.all([
         apiRequest<{
           messages: any[];
@@ -80,8 +90,9 @@ export function useMessagesController() {
         }>("/messages", {
           token,
           headers: actingHeaders,
+          skipCache: true,
         }),
-        apiRequest<{ groups: any[] }>("/chat/groups", { token }),
+        apiRequest<{ groups: any[] }>("/chat/groups", { token, skipCache: true }),
       ]);
 
       const groupThreads = (groupsData.groups ?? []).map((group) => ({
@@ -104,10 +115,11 @@ export function useMessagesController() {
       }
 
       const coach = data.coach;
+      const coachName = coach.name ?? coach.email ?? "Coach";
       const isPremium = programTier === "PHP_Premium";
       const thread = {
         id: String(coach.id),
-        name: coach.name,
+        name: coachName,
         role: coach.role ?? "Coach",
         preview: data.messages?.[data.messages.length - 1]?.content ?? "Start the conversation",
         time: data.messages?.[data.messages.length - 1]?.createdAt
@@ -142,7 +154,7 @@ export function useMessagesController() {
     } finally {
       setIsLoading(false);
     }
-  }, [athleteUserId, profile.id, role, token]);
+  }, [actingUserId, profile.id, programTier, token]);
 
   const loadGroupMessages = useCallback(
     async (groupId: number) => {
@@ -169,8 +181,7 @@ export function useMessagesController() {
           id: `group-${msg.id}`,
           threadId: `group:${groupId}`,
           from:
-            msg.senderId ===
-            (role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id))
+            msg.senderId === effectiveUserId
               ? "user"
               : "coach",
           text: msg.content,
@@ -193,7 +204,7 @@ export function useMessagesController() {
         setIsThreadLoading(false);
       }
     },
-    [athleteUserId, profile.id, role, token]
+    [actingUserId, profile.id, token]
   );
 
   const sendReplyToThread = useCallback(
@@ -212,13 +223,13 @@ export function useMessagesController() {
         await apiRequest("/messages", {
           method: "POST",
           token,
-          headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
+          headers: actingHeaders,
           body: { content: text.trim() },
         });
         await loadMessages();
       }
     },
-    [athleteUserId, loadGroupMessages, loadMessages, role, token]
+    [actingUserId, loadGroupMessages, loadMessages, token]
   );
 
   const clearThread = useCallback(() => {
@@ -254,7 +265,7 @@ export function useMessagesController() {
       await apiRequest("/messages/read", {
         method: "POST",
         token,
-        headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
+        headers: actingHeaders,
       });
       setThreads((prev) =>
         prev.map((thread) => (thread.id === currentThread.id ? { ...thread, unread: 0 } : thread))
@@ -267,7 +278,7 @@ export function useMessagesController() {
     } catch (error) {
       console.warn("Failed to mark messages read", error);
     }
-  }, [athleteUserId, currentThread, role, token]);
+  }, [actingUserId, currentThread, token]);
 
   const markDirectThreadReadById = useCallback(
     async (threadId: string) => {
@@ -277,7 +288,7 @@ export function useMessagesController() {
         await apiRequest("/messages/read", {
           method: "POST",
           token,
-          headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
+          headers: actingHeaders,
         });
         setThreads((prev) =>
           prev.map((thread) => (thread.id === threadId ? { ...thread, unread: 0 } : thread))
@@ -291,7 +302,7 @@ export function useMessagesController() {
         console.warn("Failed to mark messages read", error);
       }
     },
-    [athleteUserId, role, token]
+    [actingUserId, token]
   );
 
   useEffect(() => {
@@ -434,16 +445,17 @@ export function useMessagesController() {
       await apiRequest("/messages", {
         method: "POST",
         token,
-        headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
+        headers: actingHeaders,
         body: {
           content: trimmed || "Attachment",
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
+          clientId,
         },
       });
       await loadMessages();
     },
-    [athleteUserId, currentThread, loadGroupMessages, loadMessages, profile.name, role, token]
+    [actingUserId, currentThread, loadGroupMessages, loadMessages, profile.name, token]
   );
 
   const handleToggleReaction = useCallback(
@@ -465,7 +477,7 @@ export function useMessagesController() {
           await apiRequest(`/messages/${messageId}/reactions`, {
             method: "PUT",
             token,
-            headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
+            headers: actingHeaders,
             body: { emoji },
           });
         }
@@ -475,7 +487,7 @@ export function useMessagesController() {
         setReactionTarget(null);
       }
     },
-    [athleteUserId, role, token]
+    [actingUserId, token]
   );
 
   const handleDeleteMessage = useCallback(
@@ -496,7 +508,7 @@ export function useMessagesController() {
           await apiRequest(`/messages/${messageId}`, {
             method: "DELETE",
             token,
-            headers: role === "Athlete" && athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined,
+            headers: actingHeaders,
           });
         }
         setMessages((prev) => prev.filter((item) => item.id !== message.id));
@@ -504,7 +516,7 @@ export function useMessagesController() {
         console.warn("Failed to delete message", error);
       }
     },
-    [athleteUserId, role, token]
+    [actingUserId, token]
   );
 
   const handleSend = useCallback(async () => {
@@ -671,7 +683,7 @@ export function useMessagesController() {
   useMessagesRealtime({
     token,
     role,
-    athleteUserId,
+    athleteUserId: actingUserId ?? undefined,
     profileId: Number(profile.id),
     draft,
     currentThread,
