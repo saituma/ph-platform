@@ -3,7 +3,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text, TextInput } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -17,7 +17,7 @@ export default function SubmitTestimonialScreen() {
   const { token } = useAppSelector((state) => state.user);
   const [quote, setQuote] = useState("");
   const [rating, setRating] = useState(5);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoMeta, setPhotoMeta] = useState<{ uri: string; fileName: string; mimeType: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -34,11 +34,11 @@ export default function SubmitTestimonialScreen() {
     return () => clearTimeout(timer);
   }, [isSubmitted, router]);
 
-  const uploadPhoto = async (uri: string) => {
+  const uploadPhoto = async (payload: { uri: string; fileName: string; mimeType: string }) => {
     if (!token) throw new Error("Authentication required");
-    const fileName = uri.split("/").pop() ?? `testimonial-${Date.now()}.jpg`;
-    const contentType = "image/jpeg";
-    const blob = await (await fetch(uri)).blob();
+    const fileName = payload.fileName || payload.uri.split("/").pop() || `testimonial-${Date.now()}.jpg`;
+    const contentType = payload.mimeType || "image/jpeg";
+    const blob = await (await fetch(payload.uri)).blob();
     const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
       method: "POST",
       token,
@@ -71,7 +71,11 @@ export default function SubmitTestimonialScreen() {
       aspect: [3, 4],
     });
     if (result.canceled || !result.assets?.[0]?.uri) return;
-    setPhotoUri(result.assets[0].uri);
+    const asset = result.assets[0];
+    const uri = asset.uri;
+    const fileName = asset.fileName || uri.split("/").pop() || `testimonial-${Date.now()}.jpg`;
+    const mimeType = asset.mimeType || "image/jpeg";
+    setPhotoMeta({ uri, fileName, mimeType });
   };
 
   const handleSubmit = async () => {
@@ -80,8 +84,8 @@ export default function SubmitTestimonialScreen() {
     setError(null);
     try {
       let mediaUrl: string | undefined;
-      if (photoUri) {
-        mediaUrl = await uploadPhoto(photoUri);
+      if (photoMeta) {
+        mediaUrl = await uploadPhoto(photoMeta);
       }
       await apiRequest("/content/testimonials/submit", {
         method: "POST",
@@ -175,8 +179,8 @@ export default function SubmitTestimonialScreen() {
               <View className="bg-input border border-app rounded-2xl p-4 mb-6 flex-row items-center gap-1">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <TouchableOpacity key={i} onPress={() => setRating(i)} className="p-1">
-                    <Feather
-                      name="star"
+                    <Ionicons
+                      name={i <= rating ? "star" : "star-outline"}
                       size={28}
                       color={i <= rating ? "#F59E0B" : colors.textSecondary}
                       style={i <= rating ? { opacity: 1 } : { opacity: 0.25 }}
@@ -194,13 +198,13 @@ export default function SubmitTestimonialScreen() {
                   className="flex-row items-center justify-between"
                 >
                   <Text className="text-sm font-outfit text-app">
-                    {photoUri ? "Replace Photo" : "Upload Photo"}
+                    {photoMeta ? "Replace Photo" : "Upload Photo"}
                   </Text>
                   <Feather name="upload" size={18} color={colors.accent} />
                 </TouchableOpacity>
-                {photoUri ? (
+                {photoMeta ? (
                   <View className="mt-4 w-40 aspect-[3/4] rounded-2xl overflow-hidden border border-app">
-                    <Image source={{ uri: photoUri }} style={{ width: "100%", height: "100%" }} />
+                    <Image source={{ uri: photoMeta.uri }} style={{ width: "100%", height: "100%" }} />
                   </View>
                 ) : null}
               </View>

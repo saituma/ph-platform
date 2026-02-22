@@ -21,7 +21,7 @@ export function AdminStorySection({ story, photoUrl }: AdminStorySectionProps) {
 
   return (
     <View className="gap-4">
-      <View className="flex-row justify-between items-end px-6">
+      <View className="flex-row justify-between items-end">
         <View>
           <Text className="text-2xl font-bold font-clash text-app tracking-tight">
             Coach Story
@@ -33,23 +33,21 @@ export function AdminStorySection({ story, photoUrl }: AdminStorySectionProps) {
       </View>
 
       {photo ? (
-        <View className="px-6">
-          <View 
-            className="w-full overflow-hidden rounded-[32px] bg-secondary"
-            style={isDark ? Shadows.none : Shadows.lg}
-          >
-            <Image
-              source={{ uri: photo }}
-              resizeMode="cover"
-              style={{ width: "100%", aspectRatio: 4 / 5 }}
-            />
-          </View>
+        <View 
+          className="w-full overflow-hidden rounded-[32px] bg-secondary"
+          style={isDark ? Shadows.none : Shadows.lg}
+        >
+          <Image
+            source={{ uri: photo }}
+            resizeMode="cover"
+            style={{ width: "100%", aspectRatio: 4 / 3 }}
+          />
         </View>
       ) : null}
 
       {storyText ? (
         <View 
-          className="mx-6 bg-card rounded-[32px] p-6"
+          className="bg-card rounded-[32px] p-6"
           style={isDark ? Shadows.none : Shadows.md}
         >
           <MarkdownText

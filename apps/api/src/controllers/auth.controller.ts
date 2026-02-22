@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
   confirmForgotPassword,
+  confirmForgotPasswordLocal,
   confirmSignUp,
   changePassword,
   confirmLocal,
@@ -14,6 +15,7 @@ import {
   signUpUser,
   registerLocal,
   startForgotPassword,
+  startForgotPasswordLocal,
 } from "../services/auth.service";
 import { updateUserProfile } from "../services/user.service";
 import { env } from "../config/env";
@@ -131,12 +133,20 @@ export async function refreshToken(req: Request, res: Response) {
 
 export async function startPasswordReset(req: Request, res: Response) {
   const input = forgotSchema.parse(req.body);
+  if (env.authMode === "local") {
+    await startForgotPasswordLocal(input);
+    return res.status(200).json({ ok: true });
+  }
   const response = await startForgotPassword(input);
   return res.status(200).json({ ok: true, codeDelivery: response.CodeDeliveryDetails });
 }
 
 export async function confirmPasswordReset(req: Request, res: Response) {
   const input = forgotConfirmSchema.parse(req.body);
+  if (env.authMode === "local") {
+    await confirmForgotPasswordLocal(input);
+    return res.status(200).json({ ok: true });
+  }
   await confirmForgotPassword(input);
   return res.status(200).json({ ok: true });
 }

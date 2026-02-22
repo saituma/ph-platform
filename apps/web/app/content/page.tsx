@@ -12,9 +12,7 @@ import {
   useApproveTestimonialSubmissionMutation,
   useRejectTestimonialSubmissionMutation,
   useCreateContentMutation,
-  useDeleteContentMutation,
   useGetHomeContentQuery,
-  useGetAnnouncementsQuery,
   useGetTestimonialSubmissionsQuery,
   useUpdateContentMutation,
 } from "../../lib/apiSlice";
@@ -22,11 +20,9 @@ import {
 export default function ContentPage() {
   const [createContent, { isLoading }] = useCreateContentMutation();
   const [updateContent] = useUpdateContentMutation();
-  const [deleteContent] = useDeleteContentMutation();
   const [approveSubmission] = useApproveTestimonialSubmissionMutation();
   const [rejectSubmission] = useRejectTestimonialSubmissionMutation();
   const { data: homeData, refetch: refetchHome } = useGetHomeContentQuery();
-  const { data: announcementsData } = useGetAnnouncementsQuery();
   const { data: testimonialSubmissionsData, refetch: refetchSubmissions } =
     useGetTestimonialSubmissionsQuery(undefined, { refetchOnMountOrArgChange: true });
   const [activeDialog, setActiveDialog] = useState<ContentDialog>(null);
@@ -169,47 +165,6 @@ export default function ContentPage() {
                   setError("Failed to save intro video");
                 }
               }}
-              onPublishAnnouncement={async (data) => {
-                setError(null);
-                const payload = {
-                  title: data.title,
-                  content: data.body.slice(0, 140),
-                  type: "article",
-                  body: data.body,
-                  surface: "announcements",
-                };
-                try {
-                  await createContent(payload).unwrap();
-                  setActiveDialog("home");
-                } catch (err) {
-                  setError("Failed to publish announcement");
-                }
-              }}
-              onUpdateAnnouncement={async (data) => {
-                setError(null);
-                const payload = {
-                  title: data.title,
-                  content: data.body.slice(0, 140),
-                  type: "article",
-                  body: data.body,
-                };
-                try {
-                  await updateContent({ id: data.id, data: payload }).unwrap();
-                  setActiveDialog("home");
-                } catch (err) {
-                  setError("Failed to update announcement");
-                }
-              }}
-              onDeleteAnnouncement={async (data) => {
-                setError(null);
-                try {
-                  await deleteContent({ id: data.id }).unwrap();
-                  setActiveDialog("home");
-                } catch (err) {
-                  setError("Failed to delete announcement");
-                }
-              }}
-              announcements={announcementsData?.items ?? []}
               testimonialSubmissions={testimonialSubmissionsData?.items ?? []}
               onApproveTestimonial={async (submissionId) => {
                 setError(null);
