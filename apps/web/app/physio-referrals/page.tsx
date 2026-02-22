@@ -9,6 +9,7 @@ import { EmptyState } from "../../components/admin/empty-state";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
+import { Textarea } from "../../components/ui/textarea";
 import {
   useCreatePhysioReferralMutation,
   useDeletePhysioReferralMutation,
@@ -18,6 +19,16 @@ import {
 } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
+type PhysioMetadata = {
+  physioName?: string | null;
+  clinicName?: string | null;
+  location?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  specialty?: string | null;
+  notes?: string | null;
+};
+
 type ReferralItem = {
   id: number;
   athleteId: number;
@@ -25,6 +36,7 @@ type ReferralItem = {
   programTier?: string | null;
   referalLink?: string | null;
   discountPercent?: number | null;
+  metadata?: PhysioMetadata | null;
   createdAt?: string | null;
 };
 
@@ -36,6 +48,8 @@ export default function PhysioReferralsPage() {
   const [createReferral, { isLoading: creating }] = useCreatePhysioReferralMutation();
   const [updateReferral] = useUpdatePhysioReferralMutation();
   const [deleteReferral] = useDeletePhysioReferralMutation();
+
+  // Create form state
   const [athleteId, setAthleteId] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
   const [athleteLabel, setAthleteLabel] = useState<string | null>(null);
@@ -44,11 +58,28 @@ export default function PhysioReferralsPage() {
   const [discountPercent, setDiscountPercent] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Physio metadata
+  const [physioName, setPhysioName] = useState("");
+  const [clinicName, setClinicName] = useState("");
+  const [location, setLocation] = useState("");
+  const [phone, setPhone] = useState("");
+  const [emailField, setEmailField] = useState("");
+  const [specialty, setSpecialty] = useState("");
+  const [notes, setNotes] = useState("");
+
   const entries: ReferralItem[] = useMemo(() => data?.items ?? [], [data]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTier, setEditTier] = useState("PHP");
   const [editLink, setEditLink] = useState("");
   const [editDiscount, setEditDiscount] = useState("");
+  const [editPhysioName, setEditPhysioName] = useState("");
+  const [editClinicName, setEditClinicName] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editSpecialty, setEditSpecialty] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
   const athleteOptions = useMemo(() => {
     const users = usersData?.users ?? [];
     return users
@@ -58,6 +89,7 @@ export default function PhysioReferralsPage() {
         label: `${user.athleteName ?? "Athlete"} (Guardian: ${user.name ?? user.email ?? "Unknown"})`,
       }));
   }, [usersData]);
+
   const filteredAthletes = useMemo(() => {
     if (athleteId) return [];
     if (!athleteSearch.trim()) return athleteOptions.slice(0, 6);
@@ -66,6 +98,45 @@ export default function PhysioReferralsPage() {
       .filter((option) => option.label.toLowerCase().includes(needle))
       .slice(0, 6);
   }, [athleteOptions, athleteSearch]);
+
+  const resetCreateForm = () => {
+    setAthleteId("");
+    setAthleteSearch("");
+    setAthleteLabel(null);
+    setReferalLink("");
+    setDiscountPercent("");
+    setPhysioName("");
+    setClinicName("");
+    setLocation("");
+    setPhone("");
+    setEmailField("");
+    setSpecialty("");
+    setNotes("");
+  };
+
+  const buildMetadata = (): PhysioMetadata | null => {
+    const meta: PhysioMetadata = {};
+    if (physioName.trim()) meta.physioName = physioName.trim();
+    if (clinicName.trim()) meta.clinicName = clinicName.trim();
+    if (location.trim()) meta.location = location.trim();
+    if (phone.trim()) meta.phone = phone.trim();
+    if (emailField.trim()) meta.email = emailField.trim();
+    if (specialty.trim()) meta.specialty = specialty.trim();
+    if (notes.trim()) meta.notes = notes.trim();
+    return Object.keys(meta).length > 0 ? meta : null;
+  };
+
+  const buildEditMetadata = (): PhysioMetadata | null => {
+    const meta: PhysioMetadata = {};
+    if (editPhysioName.trim()) meta.physioName = editPhysioName.trim();
+    if (editClinicName.trim()) meta.clinicName = editClinicName.trim();
+    if (editLocation.trim()) meta.location = editLocation.trim();
+    if (editPhone.trim()) meta.phone = editPhone.trim();
+    if (editEmail.trim()) meta.email = editEmail.trim();
+    if (editSpecialty.trim()) meta.specialty = editSpecialty.trim();
+    if (editNotes.trim()) meta.notes = editNotes.trim();
+    return Object.keys(meta).length > 0 ? meta : null;
+  };
 
   const handleCreate = async () => {
     setError(null);
@@ -79,13 +150,10 @@ export default function PhysioReferralsPage() {
         programTier,
         referalLink,
         discountPercent: discountPercent ? Number(discountPercent) : undefined,
+        metadata: buildMetadata(),
       }).unwrap();
-      setAthleteId("");
-      setAthleteSearch("");
-      setAthleteLabel(null);
-      setReferalLink("");
-      setDiscountPercent("");
-      toast.success("Referral saved", "The athlete now has a physio referral link.");
+      resetCreateForm();
+      toast.success("Referral saved", "The athlete now has a physio referral link and will be notified.");
     } catch (err: any) {
       if (err?.status === 409 || err?.data?.error === "Referral already exists for this athlete") {
         setError("This athlete already has a referral. Edit the existing one instead.");
@@ -104,6 +172,14 @@ export default function PhysioReferralsPage() {
     setEditDiscount(
       typeof entry.discountPercent === "number" ? String(entry.discountPercent) : ""
     );
+    const meta = (entry.metadata ?? {}) as PhysioMetadata;
+    setEditPhysioName(meta.physioName ?? "");
+    setEditClinicName(meta.clinicName ?? "");
+    setEditLocation(meta.location ?? "");
+    setEditPhone(meta.phone ?? "");
+    setEditEmail(meta.email ?? "");
+    setEditSpecialty(meta.specialty ?? "");
+    setEditNotes(meta.notes ?? "");
   };
 
   const saveEdit = async (id: number) => {
@@ -115,6 +191,7 @@ export default function PhysioReferralsPage() {
           programTier: editTier,
           referalLink: editLink,
           discountPercent: editDiscount ? Number(editDiscount) : null,
+          metadata: buildEditMetadata(),
         },
       }).unwrap();
       setEditingId(null);
@@ -145,11 +222,11 @@ export default function PhysioReferralsPage() {
   };
 
   return (
-    <AdminShell title="Physio Referrals" subtitle="Assign referral links and discounts per athlete.">
+    <AdminShell title="Physio Referrals" subtitle="Assign referral links, physio details, and discounts per athlete.">
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <Card>
           <CardHeader>
-            <SectionHeader title="Create Referral" description="Add a new athlete referral." />
+            <SectionHeader title="Create Referral" description="Add a new athlete referral with physio details." />
           </CardHeader>
           <CardContent className="space-y-4">
             {error ? (
@@ -157,7 +234,10 @@ export default function PhysioReferralsPage() {
                 {error}
               </div>
             ) : null}
+
+            {/* Athlete Search */}
             <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Athlete</label>
               <Input
                 value={athleteSearch}
                 onChange={(event) => setAthleteSearch(event.target.value)}
@@ -169,11 +249,7 @@ export default function PhysioReferralsPage() {
                   <button
                     type="button"
                     className="rounded-full border border-border px-2 py-0.5 text-[11px] text-foreground hover:bg-secondary/40"
-                    onClick={() => {
-                      setAthleteId("");
-                      setAthleteLabel(null);
-                      setAthleteSearch("");
-                    }}
+                    onClick={() => { setAthleteId(""); setAthleteLabel(null); setAthleteSearch(""); }}
                   >
                     Clear
                   </button>
@@ -185,11 +261,7 @@ export default function PhysioReferralsPage() {
                     key={option.athleteId}
                     type="button"
                     className="rounded-2xl border border-border px-3 py-2 text-left text-xs text-foreground hover:bg-secondary/40"
-                    onClick={() => {
-                      setAthleteId(String(option.athleteId));
-                      setAthleteLabel(option.label);
-                      setAthleteSearch(option.label);
-                    }}
+                    onClick={() => { setAthleteId(String(option.athleteId)); setAthleteLabel(option.label); setAthleteSearch(option.label); }}
                   >
                     {option.label}
                   </button>
@@ -201,26 +273,61 @@ export default function PhysioReferralsPage() {
                 </p>
               ) : null}
             </div>
-            <Select value={programTier} onChange={(event) => setProgramTier(event.target.value)}>
-              {TIERS.map((tier) => (
-                <option key={tier} value={tier}>
-                  {tier}
-                </option>
-              ))}
-            </Select>
-            <Input
-              value={referalLink}
-              onChange={(event) => setReferalLink(event.target.value)}
-              placeholder="https://physio-provider.com"
-            />
-            <Input
-              value={discountPercent}
-              onChange={(event) => setDiscountPercent(event.target.value)}
-              placeholder="Discount % (optional)"
-              type="number"
-            />
-            <Button onClick={handleCreate} disabled={creating}>
-              {creating ? "Saving..." : "Save Referral"}
+
+            {/* Tier & Link */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program Tier</label>
+                <Select value={programTier} onChange={(event) => setProgramTier(event.target.value)}>
+                  {TIERS.map((tier) => (
+                    <option key={tier} value={tier}>{tier}</option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Discount %</label>
+                <Input
+                  value={discountPercent}
+                  onChange={(event) => setDiscountPercent(event.target.value)}
+                  placeholder="Optional"
+                  type="number"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referral Link</label>
+              <Input
+                value={referalLink}
+                onChange={(event) => setReferalLink(event.target.value)}
+                placeholder="https://physio-provider.com/booking"
+              />
+            </div>
+
+            {/* Physio Metadata */}
+            <div className="rounded-2xl border border-border bg-secondary/20 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Physio Details</p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input placeholder="Physio Name" value={physioName} onChange={(e) => setPhysioName(e.target.value)} />
+                <Input placeholder="Clinic Name" value={clinicName} onChange={(e) => setClinicName(e.target.value)} />
+              </div>
+              <Input placeholder="Location / Address" value={location} onChange={(e) => setLocation(e.target.value)} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <Input placeholder="Email" value={emailField} onChange={(e) => setEmailField(e.target.value)} />
+              </div>
+              <Input placeholder="Specialty (e.g. Sports Physio, ACL Rehab)" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+              <Textarea
+                className="min-h-[80px]"
+                placeholder="Additional notes for the athlete..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+
+            <Button onClick={handleCreate} disabled={creating} className="w-full">
+              {creating ? "Saving..." : "Save Referral & Notify Athlete"}
             </Button>
           </CardContent>
         </Card>
@@ -238,87 +345,134 @@ export default function PhysioReferralsPage() {
               <EmptyState title="No referrals yet" description="Create your first physio referral." />
             ) : (
               <div className="space-y-3">
-                {entries.map((entry) => (
-                  <div key={entry.id} className="rounded-3xl border border-border bg-secondary/20 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-xs uppercase tracking-[2px] text-muted-foreground">
-                          {formatDate(entry.createdAt)}
-                        </p>
-                        <p className="text-lg font-semibold text-foreground">
-                          {entry.athleteName ?? `Athlete #${entry.athleteId}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Tier: {entry.programTier ?? "PHP"}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {entry.referalLink ? (
-                          <a
-                            href={entry.referalLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground"
+                {entries.map((entry) => {
+                  const meta = (entry.metadata ?? {}) as PhysioMetadata;
+                  const hasMeta = !!(meta.physioName || meta.clinicName || meta.location || meta.phone || meta.specialty);
+
+                  return (
+                    <div key={entry.id} className="rounded-3xl border border-border bg-secondary/20 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <p className="text-xs uppercase tracking-[2px] text-muted-foreground">
+                            {formatDate(entry.createdAt)}
+                          </p>
+                          <p className="text-lg font-semibold text-foreground">
+                            {entry.athleteName ?? `Athlete #${entry.athleteId}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Tier: {entry.programTier ?? "PHP"}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {entry.referalLink ? (
+                            <a
+                              href={entry.referalLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-full border border-border px-3 py-2 text-xs text-foreground"
+                            >
+                              Open Link
+                            </a>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
+                            onClick={() => startEdit(entry)}
                           >
-                            Open Link
-                          </a>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
-                          onClick={() => startEdit(entry)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-full border border-red-500/40 px-3 py-2 text-xs text-red-200 hover:bg-red-500/10"
-                          onClick={() => handleDelete(entry.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    {editingId === entry.id ? (
-                      <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                        <Select value={editTier} onChange={(event) => setEditTier(event.target.value)}>
-                          {TIERS.map((tier) => (
-                            <option key={tier} value={tier}>
-                              {tier}
-                            </option>
-                          ))}
-                        </Select>
-                        <Input
-                          value={editLink}
-                          onChange={(event) => setEditLink(event.target.value)}
-                          placeholder="Referral link"
-                        />
-                        <Input
-                          value={editDiscount}
-                          onChange={(event) => setEditDiscount(event.target.value)}
-                          placeholder="Discount %"
-                          type="number"
-                        />
-                        <div className="col-span-full flex flex-wrap gap-2">
-                          <Button onClick={() => saveEdit(entry.id)}>Save</Button>
-                          <Button variant="outline" onClick={() => setEditingId(null)}>
-                            Cancel
-                          </Button>
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-full border border-red-500/40 px-3 py-2 text-xs text-red-200 hover:bg-red-500/10"
+                            onClick={() => handleDelete(entry.id)}
+                          >
+                            Delete
+                          </button>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        {typeof entry.discountPercent === "number" ? (
-                          <p className="mt-3 text-sm text-foreground">
-                            Discount: {entry.discountPercent}%
-                          </p>
-                        ) : (
-                          <p className="mt-3 text-xs text-muted-foreground">No discount set.</p>
-                        )}
-                      </>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Physio metadata display */}
+                      {hasMeta && editingId !== entry.id && (
+                        <div className="mt-3 rounded-2xl bg-secondary/30 px-4 py-3 space-y-1">
+                          {meta.physioName && (
+                            <p className="text-sm text-foreground font-medium">{meta.physioName}</p>
+                          )}
+                          {meta.clinicName && (
+                            <p className="text-xs text-muted-foreground">{meta.clinicName}</p>
+                          )}
+                          <div className="flex flex-wrap gap-3 mt-1">
+                            {meta.location && (
+                              <span className="text-xs text-muted-foreground">📍 {meta.location}</span>
+                            )}
+                            {meta.phone && (
+                              <span className="text-xs text-muted-foreground">📞 {meta.phone}</span>
+                            )}
+                            {meta.email && (
+                              <span className="text-xs text-muted-foreground">✉️ {meta.email}</span>
+                            )}
+                          </div>
+                          {meta.specialty && (
+                            <p className="text-xs text-primary mt-1">Specialty: {meta.specialty}</p>
+                          )}
+                          {meta.notes && (
+                            <p className="text-xs text-muted-foreground mt-1 italic">{meta.notes}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {editingId === entry.id ? (
+                        <div className="mt-4 space-y-3">
+                          <div className="grid gap-3 lg:grid-cols-3">
+                            <Select value={editTier} onChange={(event) => setEditTier(event.target.value)}>
+                              {TIERS.map((tier) => (
+                                <option key={tier} value={tier}>{tier}</option>
+                              ))}
+                            </Select>
+                            <Input
+                              value={editLink}
+                              onChange={(event) => setEditLink(event.target.value)}
+                              placeholder="Referral link"
+                            />
+                            <Input
+                              value={editDiscount}
+                              onChange={(event) => setEditDiscount(event.target.value)}
+                              placeholder="Discount %"
+                              type="number"
+                            />
+                          </div>
+                          <div className="rounded-2xl border border-border bg-secondary/20 p-3 space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Physio Details</p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <Input placeholder="Physio Name" value={editPhysioName} onChange={(e) => setEditPhysioName(e.target.value)} />
+                              <Input placeholder="Clinic Name" value={editClinicName} onChange={(e) => setEditClinicName(e.target.value)} />
+                            </div>
+                            <Input placeholder="Location" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} />
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <Input placeholder="Phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                              <Input placeholder="Email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                            </div>
+                            <Input placeholder="Specialty" value={editSpecialty} onChange={(e) => setEditSpecialty(e.target.value)} />
+                            <Textarea className="min-h-[60px]" placeholder="Notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button onClick={() => saveEdit(entry.id)}>Save</Button>
+                            <Button variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {typeof entry.discountPercent === "number" ? (
+                            <p className="mt-3 text-sm text-foreground">
+                              Discount: {entry.discountPercent}%
+                            </p>
+                          ) : !hasMeta ? (
+                            <p className="mt-3 text-xs text-muted-foreground">No discount set.</p>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
