@@ -83,6 +83,10 @@ export const apiSlice = createApi({
       query: () => "/admin/bookings",
       providesTags: ["Bookings"],
     }),
+    getBookingById: builder.query<{ booking: any }, number>({
+      query: (bookingId) => `/admin/bookings/${bookingId}`,
+      providesTags: ["Bookings"],
+    }),
     getUserBookings: builder.query<{ items: any[] }, void>({
       query: () => "/bookings",
       providesTags: ["Bookings"],
@@ -535,6 +539,7 @@ export const {
   useBlockUserMutation,
   useDeleteUserMutation,
   useGetBookingsQuery,
+  useGetBookingByIdQuery,
   useGetUserBookingsQuery,
   useUpdateBookingStatusMutation,
   useCreateAdminBookingMutation,

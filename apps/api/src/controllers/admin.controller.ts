@@ -14,6 +14,7 @@ import {
   getUserOnboarding,
   listExercises,
   listBookingsAdmin,
+  getBookingByIdAdmin,
   listMessageThreadsAdmin,
   listThreadMessagesAdmin,
   listVideoUploadsAdmin,
@@ -429,6 +430,15 @@ export async function deleteSessionExerciseItem(req: Request, res: Response) {
 export async function listBookings(req: Request, res: Response) {
   const bookings = await listBookingsAdmin();
   return res.status(200).json({ bookings });
+}
+
+export async function getBooking(req: Request, res: Response) {
+  const bookingId = z.coerce.number().int().min(1).parse(req.params.bookingId);
+  const booking = await getBookingByIdAdmin(bookingId);
+  if (!booking) {
+    return res.status(404).json({ error: "Booking not found" });
+  }
+  return res.status(200).json({ booking });
 }
 
 export async function createBookingAdmin(req: Request, res: Response) {
