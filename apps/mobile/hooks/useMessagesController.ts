@@ -435,6 +435,19 @@ export function useMessagesController() {
           },
         ]);
 
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === `group:${groupId}`
+              ? {
+                  ...t,
+                  preview: trimmed || "Attachment",
+                  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  updatedAtMs: Date.now(),
+                }
+              : t
+          )
+        );
+
         if (socket?.connected) {
           socket.emit("group:send", {
             groupId,
@@ -474,6 +487,19 @@ export function useMessagesController() {
           clientId,
         },
       ]);
+
+      setThreads((prev) =>
+        prev.map((t) =>
+          t.id === String(toUserId)
+            ? {
+                ...t,
+                preview: trimmed || "Attachment",
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                updatedAtMs: Date.now(),
+              }
+            : t
+        )
+      );
 
       if (socket?.connected) {
         socket.emit("message:send", {

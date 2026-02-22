@@ -418,7 +418,7 @@ export default function MessagingPage() {
 
   const filteredThreads = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    let result = threads.filter((thread) => thread.role === "guardian");
+    let result = threads.filter((thread) => thread.role !== "admin" && thread.role !== "coach");
     if (activeFilter === "Unread") result = result.filter((thread) => (thread.unread ?? 0) > 0);
     if (activeFilter === "Premium") result = result.filter((thread) => thread.premium);
     result = result.map((thread) => ({
