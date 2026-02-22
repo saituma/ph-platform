@@ -81,6 +81,20 @@ export function ThreadChatBody({
     }
   }, [messages, thread.id]);
 
+  const keyExtractor = React.useCallback((message: ChatMessage) => String(message.id), []);
+  const renderItem = React.useCallback(
+    ({ item }: { item: ChatMessage }) => (
+      <MessageBubble
+        message={item}
+        threadName={thread.name}
+        isGroup={isGroup}
+        onLongPress={onLongPressMessage}
+        onReactionPress={onReactionPress}
+      />
+    ),
+    [isGroup, onLongPressMessage, onReactionPress, thread.name]
+  );
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -94,7 +108,7 @@ export function ThreadChatBody({
         className="flex-1"
         style={{ backgroundColor: colors.background }}
         data={messages}
-        keyExtractor={(message) => String(message.id)}
+        keyExtractor={keyExtractor}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         contentContainerStyle={{
@@ -153,15 +167,7 @@ export function ThreadChatBody({
             </View>
           )
         }
-        renderItem={({ item }) => (
-          <MessageBubble
-            message={item}
-            threadName={thread.name}
-            isGroup={isGroup}
-            onLongPress={onLongPressMessage}
-            onReactionPress={onReactionPress}
-          />
-        )}
+        renderItem={renderItem}
       />
 
       {typing?.isTyping ? (

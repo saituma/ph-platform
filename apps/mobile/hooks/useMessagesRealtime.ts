@@ -7,7 +7,6 @@ import { getNotifications } from "@/lib/notifications";
 type UseMessagesRealtimeParams = {
   token: string | null | undefined;
   role: string;
-  athleteUserId: number | null | undefined;
   profileId: number;
   draft: string;
   currentThread: MessageThread | null;
@@ -21,7 +20,6 @@ type UseMessagesRealtimeParams = {
 export function useMessagesRealtime({
   token,
   role,
-  athleteUserId,
   profileId,
   draft,
   currentThread,
@@ -33,7 +31,24 @@ export function useMessagesRealtime({
 }: UseMessagesRealtimeParams) {
   const socketRef = useRef<Socket | null>(null);
   const typingRef = useRef<{ active: boolean; timer?: ReturnType<typeof setTimeout> | null }>({ active: false, timer: null });
-  const currentThreadId = currentThread?.id ?? null;
+
+  // --- Stable refs so socket handlers always see latest values ---
+  const profileIdRef = useRef(profileId);
+  const currentThreadIdRef = useRef<string | null>(currentThread?.id ?? null);
+  const groupMembersRef = useRef(groupMembers);
+  const loadMessagesRef = useRef(loadMessages);
+  const setMessagesRef = useRef(setMessages);
+  const setThreadsRef = useRef(setThreads);
+  const setTypingStatusRef = useRef(setTypingStatus);
+
+  // Keep refs in sync
+  useEffect(() => { profileIdRef.current = profileId; }, [profileId]);
+  useEffect(() => { currentThreadIdRef.current = currentThread?.id ?? null; }, [currentThread?.id]);
+  useEffect(() => { groupMembersRef.current = groupMembers; }, [groupMembers]);
+  useEffect(() => { loadMessagesRef.current = loadMessages; }, [loadMessages]);
+  useEffect(() => { setMessagesRef.current = setMessages; }, [setMessages]);
+  useEffect(() => { setThreadsRef.current = setThreads; }, [setThreads]);
+  useEffect(() => { setTypingStatusRef.current = setTypingStatus; }, [setTypingStatus]);
 
   useEffect(() => {
     if (!token) return;
@@ -51,20 +66,18 @@ export function useMessagesRealtime({
     });
     socketRef.current = socket;
 
-    if (athleteUserId) {
-      socket.emit("acting:join", { actingUserId: athleteUserId });
-    }
-
     socket.on("message:new", async (payload: any) => {
       if (!payload?.id) return;
       const senderId = Number(payload.senderId);
       const receiverId = Number(payload.receiverId);
-      const effectiveUserId = athleteUserId ? Number(athleteUserId) : Number(profileId);
-      const threadIdFromMessage = String(senderId === effectiveUserId ? receiverId : senderId);
+      const currentProfileId = profileIdRef.current;
+      const selfId = String(currentProfileId ?? "");
+      const threadIdFromMessage = String(String(senderId) === selfId ? receiverId : senderId);
+      const currentThreadId = currentThreadIdRef.current;
       const message: ChatMessage = {
         id: String(payload.id),
         threadId: threadIdFromMessage,
-        from: senderId === effectiveUserId ? "user" : "coach",
+        from: String(senderId) === selfId ? "user" : "coach",
         text: payload.content,
         contentType: payload.contentType ?? "text",
         mediaUrl: payload.mediaUrl ?? undefined,
@@ -77,7 +90,7 @@ export function useMessagesRealtime({
         reactions: payload.reactions ?? [],
       };
 
-      setMessages((prev) => {
+      setMessagesRef.current((prev) => {
         if (prev.some((m) => m.id === message.id)) return prev;
         if (message.clientId) {
           const withoutTemp = prev.filter((m) => m.clientId !== message.clientId);
@@ -86,13 +99,13 @@ export function useMessagesRealtime({
         return [...prev, message];
       });
 
-      setThreads((prev) => {
+      setThreadsRef.current((prev) => {
         const existing = prev.find((t) => t.id === threadIdFromMessage);
         if (!existing) {
-          loadMessages();
+          loadMessagesRef.current();
           return prev;
         }
-        const isIncoming = senderId !== effectiveUserId;
+        const isIncoming = String(senderId) !== selfId;
         const isActiveThread = currentThreadId === threadIdFromMessage;
         return prev.map((t) =>
           t.id === threadIdFromMessage
@@ -107,7 +120,7 @@ export function useMessagesRealtime({
         );
       });
 
-      if (senderId !== effectiveUserId) {
+      if (String(senderId) !== selfId) {
         const Notifications = await getNotifications();
         if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
         const isResponseVideo = payload.contentType === "video" && Number.isFinite(payload.videoUploadId);
@@ -131,11 +144,14 @@ export function useMessagesRealtime({
     socket.on("group:message", async (payload: any) => {
       if (!payload?.id || !payload?.groupId) return;
       const groupId = Number(payload.groupId);
-      const effectiveUserId = athleteUserId ? Number(athleteUserId) : Number(profileId);
+      const currentProfileId = profileIdRef.current;
+      const currentGroupMembers = groupMembersRef.current;
+      const currentThreadId = currentThreadIdRef.current;
+      const selfId = String(currentProfileId ?? "");
       const message: ChatMessage = {
         id: `group-${payload.id}`,
         threadId: `group:${groupId}`,
-        from: payload.senderId === effectiveUserId ? "user" : "coach",
+        from: String(payload.senderId) === selfId ? "user" : "coach",
         text: payload.content,
         contentType: payload.contentType ?? "text",
         mediaUrl: payload.mediaUrl ?? undefined,
@@ -143,13 +159,13 @@ export function useMessagesRealtime({
           ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
         status: "sent",
-        authorName: groupMembers[groupId]?.[payload.senderId]?.name,
-        authorAvatar: groupMembers[groupId]?.[payload.senderId]?.avatar ?? null,
+        authorName: currentGroupMembers[groupId]?.[payload.senderId]?.name,
+        authorAvatar: currentGroupMembers[groupId]?.[payload.senderId]?.avatar ?? null,
         clientId: payload.clientId,
         reactions: payload.reactions ?? [],
       };
 
-      setMessages((prev) => {
+      setMessagesRef.current((prev) => {
         if (prev.some((m) => m.id === message.id)) return prev;
         if (message.clientId) {
           const withoutTemp = prev.filter((m) => m.clientId !== message.clientId);
@@ -158,7 +174,7 @@ export function useMessagesRealtime({
         return [...prev, message];
       });
 
-      setThreads((prev) =>
+      setThreadsRef.current((prev) =>
         prev.map((t) =>
           t.id === `group:${groupId}`
             ? {
@@ -167,7 +183,7 @@ export function useMessagesRealtime({
                 time: message.time,
                 updatedAtMs: payload.createdAt ? new Date(payload.createdAt).getTime() : Date.now(),
                 unread:
-                  payload.senderId !== effectiveUserId && currentThreadId !== `group:${groupId}`
+                  String(payload.senderId) !== selfId && currentThreadId !== `group:${groupId}`
                     ? (t.unread ?? 0) + 1
                     : t.unread ?? 0,
               }
@@ -175,7 +191,7 @@ export function useMessagesRealtime({
         )
       );
 
-      if (payload.senderId !== effectiveUserId) {
+      if (String(payload.senderId) !== selfId) {
         const Notifications = await getNotifications();
         if (!Notifications) return;
         Notifications.scheduleNotificationAsync({
@@ -200,7 +216,7 @@ export function useMessagesRealtime({
             : payload.fromUserId
             ? `user:${payload.fromUserId}`
             : "direct";
-        setTypingStatus((prev) => ({
+        setTypingStatusRef.current((prev) => ({
           ...prev,
           [key]: { name: payload.name, isTyping: payload.isTyping },
         }));
@@ -209,39 +225,41 @@ export function useMessagesRealtime({
 
     socket.on("message:reaction", (payload: { messageId: number; reactions: ChatMessage["reactions"] }) => {
       const id = String(payload.messageId);
-      setMessages((prev) =>
+      setMessagesRef.current((prev) =>
         prev.map((message) => (message.id === id ? { ...message, reactions: payload.reactions ?? [] } : message))
       );
     });
 
     socket.on("group:reaction", (payload: { messageId: number; reactions: ChatMessage["reactions"] }) => {
       const id = `group-${payload.messageId}`;
-      setMessages((prev) =>
+      setMessagesRef.current((prev) =>
         prev.map((message) => (message.id === id ? { ...message, reactions: payload.reactions ?? [] } : message))
       );
     });
 
     socket.on("message:deleted", (payload: { messageId: number }) => {
       const id = String(payload.messageId);
-      setMessages((prev) => prev.filter((message) => message.id !== id));
-      setThreads((prev) =>
-        prev.map((thread) =>
+      setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
+      setThreadsRef.current((prev) => {
+        const currentThreadId = currentThreadIdRef.current;
+        return prev.map((thread) =>
           thread.id === currentThreadId ? { ...thread, preview: thread.preview, time: thread.time } : thread
-        )
-      );
-      loadMessages();
+        );
+      });
+      loadMessagesRef.current();
     });
 
     socket.on("group:message:deleted", (payload: { messageId: number }) => {
       const id = `group-${payload.messageId}`;
-      setMessages((prev) => prev.filter((message) => message.id !== id));
+      setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
     });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [athleteUserId, currentThreadId, groupMembers, loadMessages, profileId, role, setMessages, setThreads, setTypingStatus, token]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     const socket = socketRef.current;
