@@ -1011,7 +1011,7 @@ export async function listMessageThreadsAdmin(coachId: number) {
   const messages = await db
     .select()
     .from(messageTable)
-    .where(or(eq(messageTable.senderId, coachId), eq(messageTable.receiverId, coachId)));
+    .where(or(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, adminIds)));
 
   const threads = new Map<number, { lastMessage: typeof messages[number]; unread: number }>();
   for (const msg of messages) {
@@ -1020,7 +1020,7 @@ export async function listMessageThreadsAdmin(coachId: number) {
     }
     const otherId = adminSet.has(msg.senderId) ? msg.receiverId : msg.senderId;
     const current = threads.get(otherId);
-    const isUnread = msg.receiverId === coachId && !msg.read;
+    const isUnread = !adminSet.has(msg.senderId) && !msg.read;
     if (!current || new Date(msg.createdAt) > new Date(current.lastMessage.createdAt)) {
       threads.set(otherId, { lastMessage: msg, unread: (current?.unread ?? 0) + (isUnread ? 1 : 0) });
     } else if (isUnread) {

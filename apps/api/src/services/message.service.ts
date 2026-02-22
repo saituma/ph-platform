@@ -17,7 +17,6 @@ export async function getCoachUser() {
       )
     )
     .orderBy(
-      desc(sql`${userTable.role} = 'coach'`),
       desc(sql`length(trim(coalesce(${userTable.profilePicture}, ''))) > 0`),
       desc(
         sql`lower(trim(coalesce(${userTable.name}, ''))) not in ('admin', 'administrator')`
