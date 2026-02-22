@@ -9,7 +9,19 @@ import {
   listPhysioReferrals,
   updatePhysioReferral,
 } from "../services/physio-referral.service";
-import { ProgramType } from "../db/schema";
+import { ProgramType, notificationTable, athleteTable } from "../db/schema";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
+
+const physioMetadataSchema = z.object({
+  physioName: z.string().optional().nullable(),
+  clinicName: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  email: z.string().optional().nullable(),
+  specialty: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+}).optional().nullable();
 
 const createPhysioSchema = z.object({
   athleteId: z.coerce.number().int().min(1),
@@ -21,6 +33,7 @@ const createPhysioSchema = z.object({
       message: "Invalid URL format",
     }),
   discountPercent: z.number().int().min(0).max(100).optional().nullable(),
+  metadata: physioMetadataSchema,
 });
 
 const updatePhysioSchema = z.object({
@@ -33,7 +46,26 @@ const updatePhysioSchema = z.object({
     .optional(),
   programTier: z.enum(ProgramType.enumValues).optional().nullable(),
   discountPercent: z.number().int().min(0).max(100).optional().nullable(),
+  metadata: physioMetadataSchema,
 });
+
+async function createNotificationForAthlete(athleteId: number, content: string, link?: string) {
+  try {
+    // Find the user associated with this athlete
+    const athletes = await db.select().from(athleteTable).where(eq(athleteTable.id, athleteId)).limit(1);
+    const athlete = athletes[0];
+    if (!athlete?.userId) return;
+
+    await db.insert(notificationTable).values({
+      userId: athlete.userId,
+      type: "physio_referral",
+      content,
+      link: link ?? null,
+    });
+  } catch {
+    // Don't fail the referral creation if notification fails
+  }
+}
 
 export async function getPhysioReferral(req: Request, res: Response) {
   if (!req.user) {
@@ -66,8 +98,17 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     programTier: input.programTier ?? null,
     referalLink: input.referalLink,
     discountPercent: input.discountPercent ?? null,
+    metadata: input.metadata ?? null,
     createdBy: req.user.id,
   });
+
+  // Send notification to the athlete
+  const physioName = (input.metadata as any)?.physioName;
+  const notifContent = physioName
+    ? `You have a new physio referral from ${physioName}. Tap to view.`
+    : "You have a new physio referral. Tap to view.";
+  await createNotificationForAthlete(input.athleteId, notifContent, input.referalLink);
+
   return res.status(201).json({ item });
 }
 
@@ -79,6 +120,7 @@ export async function updatePhysioReferralAdmin(req: Request, res: Response) {
     referalLink: input.referalLink === "" ? null : input.referalLink ?? undefined,
     discountPercent: input.discountPercent ?? undefined,
     programTier: input.programTier ?? undefined,
+    metadata: input.metadata ?? undefined,
   });
   if (!updated) {
     return res.status(404).json({ error: "Referral not found" });
