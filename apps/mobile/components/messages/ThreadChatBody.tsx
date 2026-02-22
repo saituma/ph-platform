@@ -9,6 +9,7 @@ import { MessageBubble } from "./MessageBubble";
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 
 type ThreadChatBodyProps = {
   thread: MessageThread;
@@ -56,7 +57,7 @@ export function ThreadChatBody({
   onRemovePendingAttachment,
   isUploadingAttachment = false,
 }: ThreadChatBodyProps) {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
   const typing = typingStatus[typingKey];
   const isGroup = thread.id.startsWith("group:");
@@ -108,8 +109,6 @@ export function ThreadChatBody({
                 className="px-3 py-1 rounded-full"
                 style={{
                   backgroundColor: colors.backgroundSecondary,
-                  borderWidth: 1,
-                  borderColor: colors.border,
                 }}
               >
                 <Text
@@ -126,7 +125,7 @@ export function ThreadChatBody({
           isThreadLoading || isLoading ? (
             <View className="gap-4">
               {[1, 2, 3].map((item) => (
-                <View key={item} className={`rounded-2xl bg-input p-4 border border-app/5 ${item % 2 === 0 ? "mr-12" : "ml-12"}`}>
+                <View key={item} className={`rounded-2xl bg-card p-4 ${item % 2 === 0 ? "mr-12" : "ml-12"}`}>
                   <View className="h-3 w-3/4 rounded-full bg-secondary/10" />
                   <View className="h-3 w-full rounded-full bg-secondary/10 mt-2.5" />
                 </View>
@@ -134,7 +133,7 @@ export function ThreadChatBody({
             </View>
           ) : (
             <View className="items-center py-10">
-              <View className="w-16 h-16 bg-input rounded-full items-center justify-center mb-4 border border-app/5">
+              <View className="w-16 h-16 bg-card rounded-full items-center justify-center mb-4">
                 <Feather name="message-square" size={24} color={colors.accent} />
               </View>
               <Text className="text-base font-clash font-bold text-app">No messages yet</Text>
@@ -160,15 +159,14 @@ export function ThreadChatBody({
       ) : null}
 
       <View
-        className="px-3 pt-3 border-t"
+        className="px-3 pt-3"
         style={{
           backgroundColor: colors.background,
-          borderColor: colors.border,
           paddingBottom: Math.max(10, insets.bottom),
         }}
       >
         {composerDisabled && disabledMessage ? (
-          <View className="mb-3 rounded-2xl bg-warning/10 px-4 py-3 border border-warning/20">
+          <View className="mb-3 rounded-2xl bg-warning/10 px-4 py-3">
             <Text className="text-[11px] font-medium font-outfit text-warning text-center">
               {disabledMessage}
             </Text>
@@ -176,21 +174,21 @@ export function ThreadChatBody({
         ) : null}
         
         {pendingAttachment ? (
-          <View className="mb-3 rounded-2xl bg-input p-3 border border-accent/20">
+          <View className="mb-3 rounded-2xl bg-card p-3" style={isDark ? Shadows.none : Shadows.sm}>
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3">
                 {pendingAttachment.isImage ? (
                   <Image
                     source={{ uri: pendingAttachment.uri }}
-                    className="w-12 h-12 rounded-xl border border-app/5"
+                    className="w-12 h-12 rounded-xl"
                     resizeMode="cover"
                   />
                 ) : (
-                  <View className="w-12 h-12 rounded-xl bg-accent/5 items-center justify-center border border-accent/10">
+                  <View className="w-12 h-12 rounded-xl bg-accent/5 items-center justify-center">
                     <Feather name="file-text" size={20} color={colors.accent} />
                   </View>
                 )}
-                <View className="h-10 w-10 rounded-full items-center justify-center bg-accent/10 border border-accent/20">
+                <View className="h-10 w-10 rounded-full items-center justify-center bg-accent/10">
                   <Feather name="check" size={16} color={colors.accent} />
                 </View>
               </View>
@@ -209,15 +207,15 @@ export function ThreadChatBody({
         <View className="flex-row items-center gap-2">
           <Pressable
             onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onOpenComposerMenu}
-            className="h-10 w-10 rounded-full items-center justify-center border shadow-sm active:opacity-80"
-            style={{ backgroundColor: colors.inputBackground, borderColor: colors.border }}
+            className="h-10 w-10 rounded-full items-center justify-center shadow-sm active:opacity-80 bg-card"
+            style={isDark ? Shadows.none : Shadows.sm}
           >
             <Feather name="paperclip" size={20} color={colors.accent} />
           </Pressable>
 
           <View
-            className="flex-1 flex-row items-center h-11 rounded-full px-4 border shadow-sm"
-            style={{ backgroundColor: colors.inputBackground, borderColor: colors.border }}
+            className="flex-1 flex-row items-center h-11 rounded-full px-4 shadow-sm bg-card"
+            style={isDark ? Shadows.none : Shadows.sm}
           >
             <TextInput
               className="flex-1 text-sm font-outfit text-app"

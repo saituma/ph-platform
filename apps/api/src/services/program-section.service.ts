@@ -64,6 +64,7 @@ export async function createProgramSectionContent(input: {
   title: string;
   body: string;
   videoUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
   order?: number | null;
   createdBy: number;
 }) {
@@ -79,6 +80,7 @@ export async function createProgramSectionContent(input: {
       title: input.title,
       body: input.body,
       videoUrl: input.videoUrl ?? null,
+      metadata: input.metadata ?? null,
       order: input.order ?? 1,
       createdBy: input.createdBy,
     })
@@ -95,6 +97,7 @@ export async function updateProgramSectionContent(input: {
   title: string;
   body: string;
   videoUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
   order?: number | null;
 }) {
   const ageList = Array.isArray(input.ageList)
@@ -109,6 +112,7 @@ export async function updateProgramSectionContent(input: {
       title: input.title,
       body: input.body,
       videoUrl: input.videoUrl ?? null,
+      metadata: input.metadata ?? null,
       order: input.order ?? 1,
       updatedAt: new Date(),
     })

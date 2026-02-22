@@ -232,7 +232,7 @@ function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false, animation: "none" }} />
+      <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       <AppLockGate />
       <SafeNavigationLayer />

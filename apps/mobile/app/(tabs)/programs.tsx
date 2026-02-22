@@ -11,6 +11,7 @@ import {
   setLatestSubscriptionRequest,
   setProgramTier,
 } from "@/store/slices/userSlice";
+import { Shadows } from "@/constants/theme";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
@@ -18,11 +19,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { buildPlanPricing, PlanPricing } from "@/lib/billing";
 import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
 import { useRouter } from "expo-router";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 export default function ProgramsScreen() {
   const dispatch = useAppDispatch();
   const { width } = useWindowDimensions();
   const router = useRouter();
+  const { isDark } = useAppTheme();
   const {
     token,
     programTier,
@@ -385,7 +388,8 @@ export default function ProgramsScreen() {
             return (
               <Pressable
                 key={tier.id}
-                className="rounded-[28px] overflow-hidden bg-input border border-app shadow-sm"
+                className="rounded-[28px] overflow-hidden bg-card"
+                style={isDark ? Shadows.none : Shadows.md}
               >
                 {/* Card Header */}
                 <View className={`${tier.color} p-5 rounded-b-[20px]`}>
@@ -532,7 +536,8 @@ export default function ProgramsScreen() {
       >
         <Pressable className="flex-1 bg-black/50 items-center justify-center px-6" onPress={closePaymentPicker}>
           <Pressable
-            className="w-full rounded-3xl border border-app/20 bg-input p-5"
+            className="w-full rounded-3xl bg-card p-5"
+            style={isDark ? Shadows.none : Shadows.lg}
             onPress={(event) => event.stopPropagation()}
           >
             <Text className="text-lg font-clash text-app font-bold">Choose billing</Text>

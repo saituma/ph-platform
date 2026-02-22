@@ -5,7 +5,8 @@ import { IntroVideoSection } from "@/components/home/IntroVideoSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { apiRequest } from "@/lib/api";
+import { Shadows } from "@/constants/theme";
+import { apiRequest, prefetchApi } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -46,7 +47,7 @@ type HomeContentPayload = {
 };
 
 export default function HomeScreen() {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { profile, token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
@@ -204,7 +205,7 @@ export default function HomeScreen() {
       }
     >
       <View className="mb-10">
-        <View className="relative bg-input border border-app rounded-[32px] p-6 overflow-hidden">
+        <View className="relative bg-card rounded-[32px] p-6 overflow-hidden" style={isDark ? Shadows.none : Shadows.md}>
           <View
             style={{
               position: "absolute",
@@ -261,7 +262,7 @@ export default function HomeScreen() {
               )}
             </View>
 
-            <View className="h-14 w-14 bg-secondary rounded-[22px] border-2 border-app shadow-lg items-center justify-center relative overflow-hidden">
+            <View className="h-14 w-14 bg-card rounded-[22px] items-center justify-center relative overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
               {showSkeleton ? (
                 <Skeleton width={56} height={56} circle />
               ) : profile?.avatar ? (
@@ -273,7 +274,7 @@ export default function HomeScreen() {
               ) : (
                 <Feather name="user" size={24} className="text-app" />
               )}
-              <View className="absolute bottom-0 right-0 h-4 w-4 bg-success rounded-full border-2 border-app" />
+              <View className="absolute bottom-0 right-0 h-4 w-4 bg-success rounded-full" />
             </View>
           </View>
         </View>
@@ -309,7 +310,7 @@ export default function HomeScreen() {
 
           <GuardianDashboard />
 
-          <View className="mt-12 gap-12">
+          <View className="mt-16 gap-16">
             <View>
               <AnnouncementsSection items={announcements ?? null} />
             </View>

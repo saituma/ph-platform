@@ -77,7 +77,7 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
 
         <View className="items-center px-6">
           <View
-            className="w-full bg-input p-8 rounded-[40px] border border-app/10 shadow-xl"
+            className="w-full bg-card p-8 rounded-[40px] shadow-xl"
             style={{
               shadowColor: "#0F172A",
               shadowOffset: { width: 0, height: 10 },
@@ -97,7 +97,7 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
               {"\u201D"}
             </Text>
 
-            <View className="flex-row justify-between items-center border-t border-app/5 pt-6">
+            <View className="flex-row justify-between items-center border-t border-separator pt-6">
               <View>
                 <Text className="font-bold font-clash text-app text-lg tracking-tight">
                   {item.name}
@@ -107,7 +107,7 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
                 </Text>
               </View>
               {photo ? (
-                <View className="w-24 h-24 rounded-full overflow-hidden border border-app bg-secondary/10">
+                <View className="w-24 h-24 rounded-full overflow-hidden bg-secondary/10">
                   <Image
                     source={{ uri: photo }}
                     resizeMode="cover"
@@ -174,7 +174,7 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
             {"\u201D"}
           </Text>
 
-          <View className="flex-row justify-between items-center border-t border-app/5 pt-6">
+          <View className="flex-row justify-between items-center border-t border-separator pt-6">
             <View>
               <Text className="font-bold font-clash text-app text-lg tracking-tight">
                 {item.name}
@@ -184,7 +184,7 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
               </Text>
             </View>
             {photo ? (
-              <View className="w-24 h-24 rounded-full overflow-hidden border border-app bg-secondary/10">
+              <View className="w-24 h-24 rounded-full overflow-hidden bg-secondary/10">
                 <Image
                   source={{ uri: photo }}
                   resizeMode="cover"
