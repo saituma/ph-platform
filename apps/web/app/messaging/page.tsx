@@ -256,6 +256,10 @@ export default function MessagingPage() {
         markThreadRead({ userId: selectedUserId! }).unwrap().catch(() => undefined);
         setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
       }
+
+      // Explicitly refetch RTK query messages in the background to keep cache hot
+      refetchMessages();
+
       // Update thread preview/unread optimistically
       refetchThreads();
 

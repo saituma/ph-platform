@@ -43,10 +43,9 @@ export function MessageBubble({
 
   const isAudioMessage = React.useMemo(() => {
     if (!message.mediaUrl) return false;
-    if (message.contentType === "audio") return true;
     const lower = message.mediaUrl.toLowerCase();
     return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
-  }, [message.contentType, message.mediaUrl]);
+  }, [message.mediaUrl]);
 
   React.useEffect(() => {
     return () => {
@@ -152,11 +151,16 @@ export function MessageBubble({
                 style={{ width: "100%", height: 200, borderRadius: 10 }}
                 onLoad={(status) => {
                   if (!status?.isLoaded) return;
-                  const naturalSize = "naturalSize" in status ? status.naturalSize : null;
+                  const naturalSize = "naturalSize" in status ? (status as any).naturalSize : null;
                   const width = typeof naturalSize?.width === "number" ? naturalSize.width : 0;
                   const height = typeof naturalSize?.height === "number" ? naturalSize.height : 0;
                   const durationMs = typeof status.durationMillis === "number" ? status.durationMillis : 0;
-                  setVideoMeta({ width, height, durationMs });
+                  setVideoMeta((prev) => {
+                    if (prev && prev.width === width && prev.height === height && prev.durationMs === durationMs) {
+                      return prev;
+                    }
+                    return { width, height, durationMs };
+                  });
                 }}
               />
               <View
