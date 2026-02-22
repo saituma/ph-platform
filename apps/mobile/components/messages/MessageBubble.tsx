@@ -14,17 +14,17 @@ type MessageBubbleProps = {
   onReactionPress: (message: ChatMessage, emoji: string) => void;
 };
 
-export function MessageBubble({
+function MessageBubbleBase({
   message,
   onLongPress,
   onReactionPress,
 }: MessageBubbleProps) {
   const { colors, isDark } = useAppTheme();
   const isUser = message.from === "user";
-  const bubbleUser = isDark ? "#056162" : "#DCF8C6";
-  const bubbleOther = isDark ? "#1F2C34" : "#FFFFFF";
+  const bubbleUser = isDark ? "#004E43" : "#DCF8C6";
+  const bubbleOther = isDark ? "#1F2C34" : "#F3F4F6";
   const textColor = isDark ? "#E9EDEF" : "#111B21";
-  const timeColor = isDark ? "#8696A0" : "#667781";
+  const timeColor = isDark ? "#A2ADB7" : "#667781";
   const { width, height } = useWindowDimensions();
   const [imageSize, setImageSize] = React.useState<{ width: number; height: number } | null>(null);
   const [videoMeta, setVideoMeta] = React.useState<{ width: number; height: number; durationMs: number } | null>(null);
@@ -90,29 +90,37 @@ export function MessageBubble({
   };
 
   return (
-    <View className={`flex-row ${isUser ? "justify-end" : "justify-start"} mb-1`}>
-      <Pressable
-        onLongPress={() => onLongPress(message)}
-        delayLongPress={260}
-        className="shadow-sm"
-        style={[
-          { 
-            maxWidth: "82%",
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            borderRadius: 12,
-            backgroundColor: isUser ? bubbleUser : bubbleOther,
-          },
-          !isUser && {
-            borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
-            borderBottomLeftRadius: 4,
-          },
-          isUser && {
-            borderBottomRightRadius: 4,
-          },
-        ]}
+    <View className="mb-2">
+      <View
+        style={{
+          maxWidth: "86%",
+          alignSelf: isUser ? "flex-end" : "flex-start",
+        }}
       >
+        <Pressable
+          onLongPress={() => onLongPress(message)}
+          delayLongPress={260}
+          className="shadow-sm"
+          style={[
+            {
+              paddingHorizontal: 14,
+              paddingTop: 10,
+              paddingBottom: 8,
+              borderRadius: 16,
+              backgroundColor: isUser ? bubbleUser : bubbleOther,
+            },
+            !isUser && {
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+              borderTopLeftRadius: 6,
+              borderBottomLeftRadius: 4,
+            },
+            isUser && {
+              borderTopRightRadius: 6,
+              borderBottomRightRadius: 4,
+            },
+          ]}
+        >
         {message.mediaUrl && message.contentType === "image" ? (
           <Pressable onPress={() => setMediaOpen(true)} className="mb-2">
             <Image
@@ -314,26 +322,58 @@ export function MessageBubble({
           </View>
         </View>
 
-        {message.reactions?.length ? (
-          <View className="flex-row flex-wrap gap-1.5 mt-2">
-            {message.reactions.map((reaction) => (
-              <Pressable
-                key={`${message.id}-${reaction.emoji}`}
-                className="rounded-full border px-2 py-0.5"
-                style={{
-                  borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
-                }}
-                onPress={() => onReactionPress(message, reaction.emoji)}
-              >
-                <Text className="text-[10px] font-bold font-outfit" style={{ color: textColor }}>
-                  {reaction.emoji} {reaction.count}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-      </Pressable>
+          {message.reactions?.length ? (
+            <View className="flex-row flex-wrap gap-1.5 mt-2">
+              {message.reactions.map((reaction) => (
+                <Pressable
+                  key={`${message.id}-${reaction.emoji}`}
+                  className="rounded-full border px-2 py-0.5"
+                  style={{
+                    borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+                  }}
+                  onPress={() => onReactionPress(message, reaction.emoji)}
+                >
+                  <Text className="text-[10px] font-bold font-outfit" style={{ color: textColor }}>
+                    {reaction.emoji} {reaction.count}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </Pressable>
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            bottom: 6,
+            ...(isUser ? { right: -4 } : { left: -4 }),
+            width: 10,
+            height: 10,
+            backgroundColor: isUser ? bubbleUser : bubbleOther,
+            transform: [{ rotate: "45deg" }],
+            borderBottomLeftRadius: isUser ? 2 : 0,
+            borderTopRightRadius: isUser ? 0 : 2,
+            borderWidth: !isUser && !isDark ? 1 : 0,
+            borderColor: !isUser && !isDark ? "rgba(0,0,0,0.06)" : "transparent",
+          }}
+        />
+      </View>
     </View>
   );
 }
+
+const areMessageBubblesEqual = (prev: MessageBubbleProps, next: MessageBubbleProps) => {
+  if (prev.message.id !== next.message.id) return false;
+  if (prev.message.text !== next.message.text) return false;
+  if (prev.message.time !== next.message.time) return false;
+  if (prev.message.status !== next.message.status) return false;
+  if (prev.message.mediaUrl !== next.message.mediaUrl) return false;
+  if (prev.message.contentType !== next.message.contentType) return false;
+  const prevReactions = prev.message.reactions?.length ?? 0;
+  const nextReactions = next.message.reactions?.length ?? 0;
+  if (prevReactions !== nextReactions) return false;
+  return true;
+};
+
+export const MessageBubble = React.memo(MessageBubbleBase, areMessageBubblesEqual);

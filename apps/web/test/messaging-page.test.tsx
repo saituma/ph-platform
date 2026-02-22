@@ -45,6 +45,8 @@ jest.mock("@/lib/apiSlice", () => ({
   useToggleMessageReactionMutation: jest.fn(),
   useToggleChatGroupMessageReactionMutation: jest.fn(),
   useMarkThreadReadMutation: jest.fn(),
+  useDeleteMessageMutation: jest.fn(),
+  useDeleteGroupMessageMutation: jest.fn(),
 }));
 
 const apiSlice = jest.requireMock("@/lib/apiSlice");
@@ -72,6 +74,8 @@ describe("messaging page", () => {
     apiSlice.useToggleMessageReactionMutation.mockReturnValue([jest.fn()]);
     apiSlice.useToggleChatGroupMessageReactionMutation.mockReturnValue([jest.fn()]);
     apiSlice.useMarkThreadReadMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
+    apiSlice.useDeleteMessageMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
+    apiSlice.useDeleteGroupMessageMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
   });
 
   it("renders direct inbox by default", () => {
