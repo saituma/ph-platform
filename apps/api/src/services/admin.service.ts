@@ -1028,7 +1028,12 @@ export async function listMessageThreadsAdmin(coachId: number) {
     }
   }
 
-  const userIds = Array.from(threads.keys());
+  const userIds = Array.from(threads.keys()).sort((a, b) => {
+    const timeA = new Date(threads.get(a)!.lastMessage.createdAt).getTime();
+    const timeB = new Date(threads.get(b)!.lastMessage.createdAt).getTime();
+    return timeB - timeA;
+  });
+  
   const users = userIds.length
     ? await db.select().from(userTable).where(inArray(userTable.id, userIds))
     : [];
