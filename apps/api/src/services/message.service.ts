@@ -111,9 +111,12 @@ export async function sendMessage(input: {
   const io = getSocketServer();
   if (io) {
     const enriched = input.clientId ? { ...message, clientId: input.clientId } : message;
+    console.log(`[Socket] Emitting message:new for ID ${message.id} to rooms: user:${input.senderId}, user:${input.receiverId}, admin:all`);
     io.to(`user:${input.senderId}`).emit("message:new", enriched);
     io.to(`user:${input.receiverId}`).emit("message:new", enriched);
     io.to("admin:all").emit("message:new", enriched);
+  } else {
+    console.warn("[Socket] Failed to emit message:new - IO server NOT initialized");
   }
   return message;
 }

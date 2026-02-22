@@ -7,7 +7,7 @@ export function startServer() {
   const app = createApp();
   const server = http.createServer(app);
   initSocket(server);
-  server.listen(env.port, () => {
-    console.log(`Server is running on port ${env.port}`);
+  server.listen(env.port, "0.0.0.0", () => {
+    console.log(`Server is running on port ${env.port} and binding to 0.0.0.0`);
   });
 }

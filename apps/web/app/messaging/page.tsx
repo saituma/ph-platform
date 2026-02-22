@@ -94,6 +94,15 @@ export default function MessagingPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const lastNotifiedRef = useRef<number | null>(null);
 
+  // --- Stable refs so socket handlers always see latest values ---
+  const selectedUserIdRef = useRef(selectedUserId);
+  const selectedGroupIdRef = useRef(selectedGroupId);
+  const selectedThreadNameRef = useRef<string | null>(null);
+  const refetchThreadsRef = useRef(refetchThreads);
+  const refetchMessagesRef = useRef<() => void>(() => {});
+  const markThreadReadRef = useRef(markThreadRead);
+  const playNotificationSoundRef = useRef(playNotificationSound);
+
   const threads = useMemo<ThreadItem[]>(() => {
     const source = threadsData?.threads ?? [];
     const users = usersData?.users ?? [];
@@ -152,6 +161,14 @@ export default function MessagingPage() {
   );
   const selectedThreadName = selectedThread?.name ?? null;
 
+  // Keep refs in sync with latest values
+  useEffect(() => { selectedUserIdRef.current = selectedUserId; }, [selectedUserId]);
+  useEffect(() => { selectedGroupIdRef.current = selectedGroupId; }, [selectedGroupId]);
+  useEffect(() => { selectedThreadNameRef.current = selectedThreadName; }, [selectedThreadName]);
+  useEffect(() => { refetchThreadsRef.current = refetchThreads; }, [refetchThreads]);
+  useEffect(() => { markThreadReadRef.current = markThreadRead; }, [markThreadRead]);
+  useEffect(() => { playNotificationSoundRef.current = playNotificationSound; }, [playNotificationSound]);
+
   useEffect(() => {
     if (!selectedUserId) return;
     markThreadRead({ userId: selectedUserId })
@@ -186,6 +203,10 @@ export default function MessagingPage() {
   );
   const { data: groupMembersData } = useGetChatGroupMembersQuery(selectedGroupId ?? skipToken);
 
+  // Keep refetchMessages ref in sync (changes when selectedUserId changes the query)
+  useEffect(() => { refetchMessagesRef.current = refetchMessages; }, [refetchMessages]);
+
+  // --- Stable socket connection: connect once, never reconnect on state changes ---
   useEffect(() => {
     if (typeof window === "undefined") return;
     if ("Notification" in window && Notification.permission === "default") {
@@ -222,52 +243,63 @@ export default function MessagingPage() {
     });
     socketRef.current = socket;
 
+    socket.on("connect", () => {
+      console.log("[Socket] Connected:", socket.id);
+    });
+    socket.on("disconnect", (reason) => {
+      console.warn("[Socket] Disconnected:", reason);
+    });
+    socket.on("reconnect", (attempt: number) => {
+      console.log("[Socket] Reconnected after", attempt, "attempts");
+    });
+
     socket.on("message:new", (payload: any) => {
+      console.log("[Socket] Received message:new event:", payload);
       if (!payload?.id) return;
       if (lastNotifiedRef.current === payload.id) return;
       lastNotifiedRef.current = payload.id;
       const senderId = Number(payload.senderId);
       const receiverId = Number(payload.receiverId);
-      const isActiveThread = selectedUserId && (senderId === selectedUserId || receiverId === selectedUserId);
+      const currentUserId = selectedUserIdRef.current;
+      const currentThreadName = selectedThreadNameRef.current;
+      const isActiveThread = currentUserId != null && (senderId === currentUserId || receiverId === currentUserId);
+      console.log("[Socket] Is active thread?", isActiveThread, "for user ID:", currentUserId);
 
-      // Optimistic insert into local realtime messages
-      const newMsg: MessageItem = {
-        id: String(payload.id),
-        author: senderId === selectedUserId ? (selectedThreadName ?? "User") : "Coach",
-        time: payload.createdAt
-          ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        text: payload.content ?? "",
-        mediaUrl: payload.mediaUrl ?? null,
-        contentType: payload.contentType ?? "text",
-        reactions: [],
-        status: "delivered",
-      };
+      // Optimistic insert into local realtime messages — ALWAYS insert for active thread
       if (isActiveThread) {
+        const newMsg: MessageItem = {
+          id: String(payload.id),
+          author: senderId === currentUserId ? (currentThreadName ?? "User") : "Coach",
+          time: payload.createdAt
+            ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: payload.content ?? "",
+          mediaUrl: payload.mediaUrl ?? null,
+          contentType: payload.contentType ?? "text",
+          reactions: [],
+          status: "delivered",
+        };
         setRealtimeDirectMessages((prev) => {
           if (prev.some((m) => m.id === newMsg.id)) return prev;
-          // Replace optimistic client message if clientId matches
           if (payload.clientId) {
             const withoutTemp = prev.filter((m) => m.id !== payload.clientId);
             return [...withoutTemp, newMsg];
           }
           return [...prev, newMsg];
         });
-        markThreadRead({ userId: selectedUserId! }).unwrap().catch(() => undefined);
+        markThreadReadRef.current({ userId: currentUserId! }).unwrap().catch(() => undefined);
         setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
       }
 
-      // Explicitly refetch RTK query messages in the background to keep cache hot
-      refetchMessages();
-
-      // Update thread preview/unread optimistically
-      refetchThreads();
+      // Refetch in background — wrapped in try/catch so ETIMEDOUT doesn't break anything
+      try { refetchMessagesRef.current(); } catch { /* ignore timeout */ }
+      try { refetchThreadsRef.current(); } catch { /* ignore timeout */ }
 
       if (!isActiveThread) {
         const isResponseVideo = payload.contentType === "video" && Number.isFinite(payload.videoUploadId);
         const toastTitle = isResponseVideo ? "Coach response video" : "New message";
         const toastBody = isResponseVideo ? "A coach response video is ready." : payload.content ?? "You received a new message";
-        playNotificationSound();
+        playNotificationSoundRef.current();
         if ("Notification" in window && Notification.permission === "granted") {
           new Notification(toastTitle, { body: toastBody });
         }
@@ -280,7 +312,8 @@ export default function MessagingPage() {
       if (lastNotifiedRef.current === payload.id) return;
       lastNotifiedRef.current = payload.id;
       const groupId = Number(payload.groupId);
-      const isActiveGroup = selectedGroupId && groupId === selectedGroupId;
+      const currentGroupId = selectedGroupIdRef.current;
+      const isActiveGroup = currentGroupId != null && groupId === currentGroupId;
 
       if (isActiveGroup) {
         const newMsg: MessageItem = {
@@ -305,7 +338,7 @@ export default function MessagingPage() {
         });
         setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
       } else {
-        playNotificationSound();
+        playNotificationSoundRef.current();
         if ("Notification" in window && Notification.permission === "granted") {
           new Notification("New group message", { body: payload.content ?? "You received a group message" });
         }
@@ -334,7 +367,7 @@ export default function MessagingPage() {
       if (!payload?.messageId) return;
       const id = String(payload.messageId);
       setRealtimeDirectMessages((prev) => prev.filter((m) => m.id !== id));
-      refetchThreads();
+      refetchThreadsRef.current();
     });
     socket.on("group:message:deleted", (payload: { messageId: number }) => {
       if (!payload?.messageId) return;
@@ -353,13 +386,22 @@ export default function MessagingPage() {
       }));
     });
     socket.on("connect_error", (error) => {
-      console.warn("Messaging socket connection failed", error.message);
+      console.warn("[Socket] Connection error:", error.message);
     });
+
+    // Polling fallback: refetch every 15s in case socket events are missed
+    const pollInterval = setInterval(() => {
+      try { refetchMessagesRef.current(); } catch { /* ignore */ }
+      try { refetchThreadsRef.current(); } catch { /* ignore */ }
+    }, 15_000);
+
     return () => {
+      clearInterval(pollInterval);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [markThreadRead, playNotificationSound, refetchThreads, selectedGroupId, selectedThreadName, selectedUserId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const messages = useMemo<MessageItem[]>(() => {
     if (!selectedThread) return [];
@@ -418,7 +460,7 @@ export default function MessagingPage() {
 
   const filteredThreads = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    let result = threads.filter((thread) => thread.role === "guardian");
+    let result = threads.filter((thread) => thread.role !== "admin" && thread.role !== "coach");
     if (activeFilter === "Unread") result = result.filter((thread) => (thread.unread ?? 0) > 0);
     if (activeFilter === "Premium") result = result.filter((thread) => thread.premium);
     result = result.map((thread) => ({

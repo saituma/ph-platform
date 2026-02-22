@@ -66,6 +66,7 @@ export function initSocket(server: HttpServer) {
     const userId = socket.data.userId as number;
     socket.join(`user:${userId}`);
     if (["admin", "coach", "superAdmin"].includes(socket.data.role as string)) {
+      console.log(`[Socket] User ${userId} (${socket.data.role}) joined admin:all`);
       socket.join("admin:all");
     }
     onlineUsers.add(userId);
@@ -100,18 +101,11 @@ export function initSocket(server: HttpServer) {
         content?: string;
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
-        actingUserId?: number;
         clientId?: string;
       }) => {
       const content = payload?.content?.trim() ?? "";
       if (!payload?.toUserId || (!content && !payload.mediaUrl)) return;
-      let senderId = (socket.data.actingUserId as number | null) ?? userId;
-      if (payload.actingUserId && payload.actingUserId !== senderId) {
-        const { athlete } = await getGuardianAndAthlete(userId);
-        if (athlete?.userId === payload.actingUserId) {
-          senderId = payload.actingUserId;
-        }
-      }
+      const senderId = userId;
       const message = await createDirectMessage({
         senderId,
         receiverId: payload.toUserId,
@@ -132,20 +126,13 @@ export function initSocket(server: HttpServer) {
         content?: string;
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
-        actingUserId?: number;
         clientId?: string;
       }) => {
       const content = payload?.content?.trim() ?? "";
       if (!payload?.groupId || (!content && !payload.mediaUrl)) return;
       const allowed = await isGroupMember(payload.groupId, userId);
       if (!allowed) return;
-      let senderId = (socket.data.actingUserId as number | null) ?? userId;
-      if (payload.actingUserId && payload.actingUserId !== senderId) {
-        const { athlete } = await getGuardianAndAthlete(userId);
-        if (athlete?.userId === payload.actingUserId) {
-          senderId = payload.actingUserId;
-        }
-      }
+      const senderId = userId;
       const message = await createGroupMessage({
         groupId: payload.groupId,
         senderId,
