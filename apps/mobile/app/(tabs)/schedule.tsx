@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { InteractionManager, Modal, Platform, Pressable, View, ActivityIndicator } from "react-native";
+import { InteractionManager, Modal, Platform, Pressable, ScrollView, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -779,191 +779,90 @@ export default function ScheduleScreen() {
           <Pressable
             onPress={(event) => event.stopPropagation()}
             className="rounded-t-[28px] p-6"
-            style={{ backgroundColor: colors.background }}
+            style={{ backgroundColor: colors.background, maxHeight: "85%" }}
           >
-            <View className="flex-row items-center justify-between">
-              <Text className="text-lg font-clash text-app">
-                {bookingConfirmed ? "Booking Requested" : "New Booking"}
-              </Text>
-              <Pressable onPress={() => setBookingOpen(false)}>
-                <Feather name="x" size={20} className="text-secondary" />
-              </Pressable>
-            </View>
-
-            {bookingConfirmed ? (
-              <>
-                <Text className="text-sm font-outfit text-secondary mt-2">
-                  Booking request sent for {bookingDate.toLocaleDateString([], { month: "short", day: "numeric" })} at{" "}
-                  {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
+              <View className="flex-row items-center justify-between">
+                <Text className="text-lg font-clash text-app">
+                  {bookingConfirmed ? "Booking Requested" : "New Booking"}
                 </Text>
-                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Pending approval
+                <Pressable onPress={() => setBookingOpen(false)}>
+                  <Feather name="x" size={20} className="text-secondary" />
+                </Pressable>
+              </View>
+
+              {bookingConfirmed ? (
+                <>
+                  <Text className="text-sm font-outfit text-secondary mt-2">
+                    Booking request sent for {bookingDate.toLocaleDateString([], { month: "short", day: "numeric" })} at{" "}
+                    {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
                   </Text>
-                  <Text className="text-sm font-outfit text-app mt-2">
-                    Your request is awaiting approval.
+                  <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                      Pending approval
+                    </Text>
+                    <Text className="text-sm font-outfit text-app mt-2">
+                      Your request is awaiting approval.
+                    </Text>
+                    {bookingLocation ? (
+                      <Text className="text-xs font-outfit text-secondary mt-3">
+                        Location: {bookingLocation}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    onPress={() => setBookingOpen(false)}
+                    className="mt-4 px-4 py-3 rounded-full bg-accent"
+                  >
+                    <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
+                      Done
+                    </Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text className="text-sm font-outfit text-secondary mt-2">
+                    Fill this out so the admin understands the request clearly.
                   </Text>
-                  {bookingLocation ? (
+
+                  {servicesLoading ? (
                     <Text className="text-xs font-outfit text-secondary mt-3">
-                      Location: {bookingLocation}
+                      Loading services...
                     </Text>
                   ) : null}
-                </View>
-                <Pressable
-                  onPress={() => setBookingOpen(false)}
-                  className="mt-4 px-4 py-3 rounded-full bg-accent"
-                >
-                  <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                    Done
-                  </Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <Text className="text-sm font-outfit text-secondary mt-2">
-                  Fill this out so the admin understands the request clearly.
-                </Text>
-
-                {servicesLoading ? (
-                  <Text className="text-xs font-outfit text-secondary mt-3">
-                    Loading services...
-                  </Text>
-                ) : null}
-                {servicesError ? (
-                  <Text className="text-xs font-outfit text-red-400 mt-3">
-                    {servicesError}
-                  </Text>
-                ) : null}
-
-                {activeServices.length === 0 ? (
-                  <View className="mt-4 rounded-2xl border border-dashed border-app/20 p-4">
-                    <Text className="text-sm font-outfit text-secondary">
-                      No booking types are available right now.
-                    </Text>
-                  </View>
-                ) : (
-                  <View className="mt-4 flex-row flex-wrap gap-2">
-                    {activeServices.map((item) => {
-                      const active = selectedServiceId === item.id;
-                      return (
-                        <Pressable
-                          key={item.id}
-                          onPress={() => {
-                            hasUserSelectedService.current = true;
-                            if (item.id) {
-                              setSelectedServiceId(item.id);
-                              setBookingLocation(item.defaultLocation ?? "");
-                              setBookingMeetingLink(item.defaultMeetingLink ?? "");
-                            }
-                          }}
-                          className={`px-4 py-2 rounded-full border ${
-                            active ? "bg-accent" : "bg-secondary/10"
-                          }`}
-                          style={{ borderColor: colors.border }}
-                        >
-                          <Text
-                            className={`text-xs font-outfit uppercase tracking-[1.4px] ${
-                              active ? "text-white" : "text-secondary"
-                            }`}
-                          >
-                            {item.name}
-                            {item.capacity ? ` (${item.capacity} slots)` : ""}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
-
-                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Date & Time
-                  </Text>
-                  <View className="mt-3 gap-2">
-                    <Pressable
-                      onPress={() => setShowDatePicker(true)}
-                      className="rounded-2xl border border-app/10 bg-input px-3 py-3"
-                    >
-                      <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Date
-                      </Text>
-                      <Text className="text-sm font-outfit text-app mt-1">
-                        {bookingDate.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => {
-                        if (fixedTimeLabel) return;
-                        setShowTimePicker(true);
-                      }}
-                      className={`rounded-2xl border border-app/10 bg-input px-3 py-3 ${
-                        fixedTimeLabel ? "opacity-70" : ""
-                      }`}
-                    >
-                      <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Time
-                      </Text>
-                      <Text className="text-sm font-outfit text-app mt-1">
-                        {fixedTimeLabel
-                          ? `${fixedTimeLabel} (Fixed)`
-                          : bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
-                  {availabilityLoading ? (
-                    <Text className="text-xs font-outfit text-secondary mt-3">
-                      Loading availability...
-                    </Text>
-                  ) : availabilityError ? (
+                  {servicesError ? (
                     <Text className="text-xs font-outfit text-red-400 mt-3">
-                      {availabilityError}
+                      {servicesError}
                     </Text>
-                  ) : fixedTimeLabel ? (
-                    availableSlots.length === 0 ? (
-                      selectedService?.capacity && !hasAvailabilityBlocks ? (
-                        <Text className="text-sm font-outfit text-secondary mt-3">
-                          No availability blocks set. You can still pick a time above.
-                        </Text>
-                      ) : (
-                        <Text className="text-sm font-outfit text-secondary mt-3">
-                          No slots available at {fixedTimeLabel} on this date.
-                        </Text>
-                      )
-                    ) : (
-                      <Text className="text-sm font-outfit text-secondary mt-3">
-                        Fixed time at {fixedTimeLabel}. You don’t need to pick a time.
+                  ) : null}
+
+                  {activeServices.length === 0 ? (
+                    <View className="mt-4 rounded-2xl border border-dashed border-app/20 p-4">
+                      <Text className="text-sm font-outfit text-secondary">
+                        No booking types are available right now.
                       </Text>
-                    )
-                  ) : availableSlots.length === 0 ? (
-                    selectedService?.capacity && !hasAvailabilityBlocks ? (
-                      <Text className="text-sm font-outfit text-secondary mt-3">
-                        No availability blocks set. Pick a time above to request a slot.
-                      </Text>
-                    ) : (
-                      <Text className="text-sm font-outfit text-secondary mt-3">
-                        No slots available for this date.
-                      </Text>
-                    )
+                    </View>
                   ) : (
-                    <View className="mt-3 flex-row flex-wrap gap-2">
-                      {availableSlots.map((slot) => {
-                        const active = selectedSlot?.toISOString() === slot.toISOString();
-                        const capacity = selectedService?.capacity ?? null;
-                        const count = slotCounts.get(slot.toISOString()) ?? 0;
-                        const isFull = capacity ? count >= capacity : false;
+                    <View className="mt-4 flex-row flex-wrap gap-2">
+                      {activeServices.map((item) => {
+                        const active = selectedServiceId === item.id;
                         return (
                           <Pressable
-                            key={slot.toISOString()}
+                            key={item.id}
                             onPress={() => {
-                              if (isFull) return;
-                              setSelectedSlot(slot);
+                              hasUserSelectedService.current = true;
+                              if (item.id) {
+                                setSelectedServiceId(item.id);
+                                setBookingLocation(item.defaultLocation ?? "");
+                                setBookingMeetingLink(item.defaultMeetingLink ?? "");
+                              }
                             }}
                             className={`px-4 py-2 rounded-full border ${
                               active ? "bg-accent" : "bg-secondary/10"
-                            } ${isFull ? "opacity-50" : ""}`}
+                            }`}
                             style={{ borderColor: colors.border }}
                           >
                             <Text
@@ -971,163 +870,269 @@ export default function ScheduleScreen() {
                                 active ? "text-white" : "text-secondary"
                               }`}
                             >
-                              {toTimeLabel(slot)}
-                              {capacity
-                                ? ` · ${Math.max(capacity - count, 0)} left`
-                                : ""}
+                              {item.name}
+                              {item.capacity ? ` (${item.capacity} slots)` : ""}
                             </Text>
                           </Pressable>
                         );
                       })}
                     </View>
                   )}
-                </View>
 
-                <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Details (optional)
-                  </Text>
-                  <View className="mt-3 gap-2">
-                    <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
-                      <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Location
-                      </Text>
-                      <TextInput
-                        value={bookingLocation}
-                        onChangeText={setBookingLocation}
-                        placeholder="Add location"
-                        placeholderTextColor={colors.mutedForeground}
-                        className="text-sm font-outfit text-app mt-1"
-                      />
-                    </View>
-                    <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
-                      <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Meeting link
-                      </Text>
-                      <TextInput
-                        value={bookingMeetingLink}
-                        onChangeText={setBookingMeetingLink}
-                        placeholder="Add link (Zoom, Meet, etc.)"
-                        placeholderTextColor={colors.mutedForeground}
-                        className="text-sm font-outfit text-app mt-1"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
+                  <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                      Date & Time
+                    </Text>
+                    <View className="mt-3 gap-2">
+                      <Pressable
+                        onPress={() => setShowDatePicker(true)}
+                        className="rounded-2xl border border-app/10 bg-input px-3 py-3"
+                      >
+                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
+                          Date
+                        </Text>
+                        <Text className="text-sm font-outfit text-app mt-1">
+                          {bookingDate.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          if (fixedTimeLabel) return;
+                          setShowTimePicker(true);
+                        }}
+                        className={`rounded-2xl border border-app/10 bg-input px-3 py-3 ${
+                          fixedTimeLabel ? "opacity-70" : ""
+                        }`}
+                      >
+                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
+                          Time
+                        </Text>
+                        <Text className="text-sm font-outfit text-app mt-1">
+                          {fixedTimeLabel
+                            ? `${fixedTimeLabel} (Fixed)`
+                            : bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </Text>
+                      </Pressable>
                     </View>
                   </View>
-                </View>
 
-                <Pressable
-                  onPress={async () => {
-                    if (isSubmitting) return;
-                    if (!selectedService) {
-                      setBookingError("Please select a booking type.");
-                      return;
-                    }
-                    if (!selectedSlot) {
-                      setBookingError("Please select a time slot.");
-                      return;
-                    }
-                    setBookingError(null);
-                    setIsSubmitting(true);
-                    try {
-                      const startsAt = new Date(selectedSlot);
-                      const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
-                      await apiRequest("/bookings", {
-                        method: "POST",
-                        token,
-                        body: {
-                          serviceTypeId: selectedService.id,
-                          startsAt: startsAt.toISOString(),
-                          endsAt: endsAt.toISOString(),
-                          timezoneOffsetMinutes: startsAt.getTimezoneOffset(),
-                          location: bookingLocation || undefined,
-                          meetingLink: bookingMeetingLink || undefined,
-                        },
-                      });
-                      const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
-                      setEvents(mapBookingsToEvents(refreshed.items ?? []));
-                      setBookingConfirmed(true);
-                      await notifyBookingConfirmed(selectedService.name ?? "Booking", startsAt);
-                    } catch (err: any) {
-                      setBookingError(err.message ?? "Failed to submit booking");
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                  disabled={!selectedService || !selectedSlot || isSubmitting}
-                  className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
-                    selectedService && selectedSlot ? "bg-accent" : "bg-secondary/20"
-                  }`}
-                >
-                  {isSubmitting ? <ActivityIndicator size="small" color="#ffffff" /> : null}
-                  <Text
-                    className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                      selectedService && selectedSlot ? "text-white" : "text-secondary"
+                  <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                    {availabilityLoading ? (
+                      <Text className="text-xs font-outfit text-secondary mt-3">
+                        Loading availability...
+                      </Text>
+                    ) : availabilityError ? (
+                      <Text className="text-xs font-outfit text-red-400 mt-3">
+                        {availabilityError}
+                      </Text>
+                    ) : fixedTimeLabel ? (
+                      availableSlots.length === 0 ? (
+                        selectedService?.capacity && !hasAvailabilityBlocks ? (
+                          <Text className="text-sm font-outfit text-secondary mt-3">
+                            No availability blocks set. You can still pick a time above.
+                          </Text>
+                        ) : (
+                          <Text className="text-sm font-outfit text-secondary mt-3">
+                            No slots available at {fixedTimeLabel} on this date.
+                          </Text>
+                        )
+                      ) : (
+                        <Text className="text-sm font-outfit text-secondary mt-3">
+                          Fixed time at {fixedTimeLabel}. You don’t need to pick a time.
+                        </Text>
+                      )
+                    ) : availableSlots.length === 0 ? (
+                      selectedService?.capacity && !hasAvailabilityBlocks ? (
+                        <Text className="text-sm font-outfit text-secondary mt-3">
+                          No availability blocks set. Pick a time above to request a slot.
+                        </Text>
+                      ) : (
+                        <Text className="text-sm font-outfit text-secondary mt-3">
+                          No slots available for this date.
+                        </Text>
+                      )
+                    ) : (
+                      <View className="mt-3 flex-row flex-wrap gap-2">
+                        {availableSlots.map((slot) => {
+                          const active = selectedSlot?.toISOString() === slot.toISOString();
+                          const capacity = selectedService?.capacity ?? null;
+                          const count = slotCounts.get(slot.toISOString()) ?? 0;
+                          const isFull = capacity ? count >= capacity : false;
+                          return (
+                            <Pressable
+                              key={slot.toISOString()}
+                              onPress={() => {
+                                if (isFull) return;
+                                setSelectedSlot(slot);
+                              }}
+                              className={`px-4 py-2 rounded-full border ${
+                                active ? "bg-accent" : "bg-secondary/10"
+                              } ${isFull ? "opacity-50" : ""}`}
+                              style={{ borderColor: colors.border }}
+                            >
+                              <Text
+                                className={`text-xs font-outfit uppercase tracking-[1.4px] ${
+                                  active ? "text-white" : "text-secondary"
+                                }`}
+                              >
+                                {toTimeLabel(slot)}
+                                {capacity
+                                  ? ` · ${Math.max(capacity - count, 0)} left`
+                                  : ""}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+
+                  <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                      Details (optional)
+                    </Text>
+                    <View className="mt-3 gap-2">
+                      <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
+                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
+                          Location
+                        </Text>
+                        <TextInput
+                          value={bookingLocation}
+                          onChangeText={setBookingLocation}
+                          placeholder="Add location"
+                          placeholderTextColor={colors.mutedForeground}
+                          className="text-sm font-outfit text-app mt-1"
+                        />
+                      </View>
+                      <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
+                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
+                          Meeting link
+                        </Text>
+                        <TextInput
+                          value={bookingMeetingLink}
+                          onChangeText={setBookingMeetingLink}
+                          placeholder="Add link (Zoom, Meet, etc.)"
+                          placeholderTextColor={colors.mutedForeground}
+                          className="text-sm font-outfit text-app mt-1"
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                      </View>
+                    </View>
+                  </View>
+
+                  <Pressable
+                    onPress={async () => {
+                      if (isSubmitting) return;
+                      if (!selectedService) {
+                        setBookingError("Please select a booking type.");
+                        return;
+                      }
+                      if (!selectedSlot) {
+                        setBookingError("Please select a time slot.");
+                        return;
+                      }
+                      setBookingError(null);
+                      setIsSubmitting(true);
+                      try {
+                        const startsAt = new Date(selectedSlot);
+                        const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
+                        await apiRequest("/bookings", {
+                          method: "POST",
+                          token,
+                          body: {
+                            serviceTypeId: selectedService.id,
+                            startsAt: startsAt.toISOString(),
+                            endsAt: endsAt.toISOString(),
+                            timezoneOffsetMinutes: startsAt.getTimezoneOffset(),
+                            location: bookingLocation || undefined,
+                            meetingLink: bookingMeetingLink || undefined,
+                          },
+                        });
+                        const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
+                        setEvents(mapBookingsToEvents(refreshed.items ?? []));
+                        setBookingConfirmed(true);
+                        await notifyBookingConfirmed(selectedService.name ?? "Booking", startsAt);
+                      } catch (err: any) {
+                        setBookingError(err.message ?? "Failed to submit booking");
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    }}
+                    disabled={!selectedService || !selectedSlot || isSubmitting}
+                    className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
+                      selectedService && selectedSlot ? "bg-accent" : "bg-secondary/20"
                     }`}
                   >
-                    {isSubmitting ? "Submitting..." : "Submit Booking"}
-                  </Text>
-                </Pressable>
-                {bookingError ? (
-                  <Text className="text-xs font-outfit text-red-400 mt-3">
-                    {bookingError}
-                  </Text>
-                ) : null}
+                    {isSubmitting ? <ActivityIndicator size="small" color="#ffffff" /> : null}
+                    <Text
+                      className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
+                        selectedService && selectedSlot ? "text-white" : "text-secondary"
+                      }`}
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit Booking"}
+                    </Text>
+                  </Pressable>
+                  {bookingError ? (
+                    <Text className="text-xs font-outfit text-red-400 mt-3">
+                      {bookingError}
+                    </Text>
+                  ) : null}
 
-                {showDatePicker ? (
-                  <View className="mt-3">
-                    <DateTimePicker
-                      value={bookingDate}
-                      mode="date"
-                      display={Platform.OS === "ios" ? "spinner" : "default"}
-                      onChange={(event, date) => {
-                        if (Platform.OS !== "ios") {
-                          setShowDatePicker(false);
-                        }
-                        if (event.type === "dismissed") return;
-                        if (!date) return;
-                        setBookingDate(date);
-                      }}
-                    />
-                    {Platform.OS === "ios" ? (
-                      <Pressable
-                        onPress={() => setShowDatePicker(false)}
-                        className="mt-2 self-end rounded-full border border-app px-4 py-2"
-                      >
-                        <Text className="text-app font-outfit text-xs">Done</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ) : null}
-                {showTimePicker ? (
-                  <View className="mt-3">
-                    <DateTimePicker
-                      value={bookingTime}
-                      mode="time"
-                      display={Platform.OS === "ios" ? "spinner" : "default"}
-                      onChange={(event, date) => {
-                        if (Platform.OS !== "ios") {
-                          setShowTimePicker(false);
-                        }
-                        if (event.type === "dismissed") return;
-                        if (!date) return;
-                        setBookingTime(date);
-                      }}
-                    />
-                    {Platform.OS === "ios" ? (
-                      <Pressable
-                        onPress={() => setShowTimePicker(false)}
-                        className="mt-2 self-end rounded-full border border-app px-4 py-2"
-                      >
-                        <Text className="text-app font-outfit text-xs">Done</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ) : null}
+                  {showDatePicker ? (
+                    <View className="mt-3">
+                      <DateTimePicker
+                        value={bookingDate}
+                        mode="date"
+                        display={Platform.OS === "ios" ? "spinner" : "default"}
+                        onChange={(event, date) => {
+                          if (Platform.OS !== "ios") {
+                            setShowDatePicker(false);
+                          }
+                          if (event.type === "dismissed") return;
+                          if (!date) return;
+                          setBookingDate(date);
+                        }}
+                      />
+                      {Platform.OS === "ios" ? (
+                        <Pressable
+                          onPress={() => setShowDatePicker(false)}
+                          className="mt-2 self-end rounded-full border border-app px-4 py-2"
+                        >
+                          <Text className="text-app font-outfit text-xs">Done</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  {showTimePicker ? (
+                    <View className="mt-3">
+                      <DateTimePicker
+                        value={bookingTime}
+                        mode="time"
+                        display={Platform.OS === "ios" ? "spinner" : "default"}
+                        onChange={(event, date) => {
+                          if (Platform.OS !== "ios") {
+                            setShowTimePicker(false);
+                          }
+                          if (event.type === "dismissed") return;
+                          if (!date) return;
+                          setBookingTime(date);
+                        }}
+                      />
+                      {Platform.OS === "ios" ? (
+                        <Pressable
+                          onPress={() => setShowTimePicker(false)}
+                          className="mt-2 self-end rounded-full border border-app px-4 py-2"
+                        >
+                          <Text className="text-app font-outfit text-xs">Done</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
 
-              </>
-            )}
+                </>
+              )}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>

@@ -179,6 +179,75 @@ export async function confirmForgotPassword(input: {
   }
 }
 
+export async function startForgotPasswordLocal(input: { email: string }) {
+  const users = await db
+    .select()
+    .from(userTable)
+    .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .limit(1);
+  const user = users[0];
+  if (!user) {
+    throw { status: 404, message: "User not found." };
+  }
+  if (!user.emailVerified) {
+    throw { status: 403, message: "User is not confirmed. Please verify your email." };
+  }
+  const otp = generateOtp();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await db
+    .update(userTable)
+    .set({
+      verificationCode: otp,
+      verificationExpiresAt: expiresAt,
+      verificationAttempts: 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, user.id));
+  await sendOtpEmail({ to: input.email, code: otp });
+  return { ok: true };
+}
+
+export async function confirmForgotPasswordLocal(input: { email: string; code: string; password: string }) {
+  const users = await db
+    .select()
+    .from(userTable)
+    .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .limit(1);
+  const user = users[0];
+  if (!user) {
+    throw { status: 404, message: "User not found." };
+  }
+  if (!user.emailVerified) {
+    throw { status: 403, message: "User is not confirmed. Please verify your email." };
+  }
+  if (!user.verificationCode || !user.verificationExpiresAt) {
+    throw { status: 400, message: "Verification code not found." };
+  }
+  if (new Date(user.verificationExpiresAt) < new Date()) {
+    throw { status: 400, message: "Verification code expired." };
+  }
+  if (user.verificationCode !== input.code) {
+    await db
+      .update(userTable)
+      .set({ verificationAttempts: (user.verificationAttempts ?? 0) + 1, updatedAt: new Date() })
+      .where(eq(userTable.id, user.id));
+    throw { status: 400, message: "Invalid verification code." };
+  }
+  const { hash, salt } = hashPassword(input.password);
+  await db
+    .update(userTable)
+    .set({
+      passwordHash: hash,
+      passwordSalt: salt,
+      verificationCode: null,
+      verificationExpiresAt: null,
+      verificationAttempts: 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, user.id));
+  return { ok: true };
+}
+
 export async function changePassword(input: {
   accessToken: string;
   previousPassword: string;

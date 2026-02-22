@@ -1,6 +1,5 @@
 import { GuardianDashboard } from "@/components/dashboard/GuardianDashboard";
 import { AdminStorySection } from "@/components/home/AdminStorySection";
-import { AnnouncementsSection, type AnnouncementItem } from "@/components/home/AnnouncementsSection";
 import { IntroVideoSection } from "@/components/home/IntroVideoSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
@@ -53,7 +52,6 @@ export default function HomeScreen() {
   const { isSectionHidden } = useAgeExperience();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
-  const [announcements, setAnnouncements] = useState<AnnouncementItem[] | null>(null);
   const [homeContentError, setHomeContentError] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const isMountedRef = useRef(true);
@@ -84,9 +82,8 @@ export default function HomeScreen() {
       setIsInitialLoading(true);
     }
     try {
-      const [data, announcementsData] = await Promise.all([
+      const [data] = await Promise.all([
         apiRequest<{ items?: any[] }>(`/content/home?ts=${Date.now()}`, { token }),
-        apiRequest<{ items?: any[] }>(`/content/announcements?ts=${Date.now()}`, { token }),
       ]);
       const item = (data.items ?? [])[0];
       if (!item) {
@@ -138,21 +135,6 @@ export default function HomeScreen() {
           adminStory: body.adminStory ?? null,
           professionalPhoto,
         });
-      }
-      if (isMountedRef.current) {
-        const items = (announcementsData.items ?? []) as AnnouncementItem[];
-        setAnnouncements(
-          items.length
-            ? items.map((entry) => ({
-                id: String((entry as any).id ?? entry.title ?? Math.random()),
-                title: entry.title ?? null,
-                body: (entry as any).body ?? null,
-                content: entry.content ?? null,
-                createdAt: (entry as any).createdAt ?? null,
-                updatedAt: (entry as any).updatedAt ?? null,
-              }))
-            : null
-        );
       }
       setHomeContentError(null);
     } catch (err: any) {
@@ -311,9 +293,6 @@ export default function HomeScreen() {
           <GuardianDashboard />
 
           <View className="mt-16 gap-16">
-            <View>
-              <AnnouncementsSection items={announcements ?? null} />
-            </View>
             <View>
               <AdminStorySection
                 story={homeContent?.adminStory}

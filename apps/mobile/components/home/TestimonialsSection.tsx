@@ -4,6 +4,7 @@ import { FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, View, useWind
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
+import { Ionicons } from "@expo/vector-icons";
 
 const AUTO_SCROLL_INTERVAL = 5000;
 
@@ -272,9 +273,9 @@ function StarRating({ rating, size = 16 }: { rating: number; size?: number }) {
   return (
     <View className="flex-row gap-1">
       {[1, 2, 3, 4, 5].map((i) => (
-        <Feather
+        <Ionicons
           key={i}
-          name="star"
+          name={i <= rating ? "star" : "star-outline"}
           size={size}
           color={i <= rating ? "#F59E0B" : colors.textSecondary}
           style={i <= rating ? { opacity: 1 } : { opacity: 0.25 }}
