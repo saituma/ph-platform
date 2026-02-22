@@ -38,6 +38,7 @@ import {
   postPhpPlusTabsAdmin,
   deletePhpPlusTabsAdmin,
   createBookingAdmin,
+  getBooking,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -60,6 +61,7 @@ router.post("/admin/php-plus-tabs", postPhpPlusTabsAdmin);
 router.delete("/admin/php-plus-tabs", deletePhpPlusTabsAdmin);
 router.get("/admin/bookings", listBookings);
 router.post("/admin/bookings", createBookingAdmin);
+router.get("/admin/bookings/:bookingId", getBooking);
 router.patch("/admin/bookings/:bookingId", updateBookingStatus);
 router.get("/admin/availability", listAvailability);
 router.get("/admin/videos", listVideosAdmin);

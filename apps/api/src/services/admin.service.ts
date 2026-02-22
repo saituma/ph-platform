@@ -775,6 +775,56 @@ export async function listBookingsAdmin() {
   return rows;
 }
 
+export async function getBookingByIdAdmin(bookingId: number) {
+  const [row] = await db
+    .select({
+      id: bookingTable.id,
+      startsAt: bookingTable.startsAt,
+      endTime: bookingTable.endTime,
+      type: bookingTable.type,
+      status: bookingTable.status,
+      location: bookingTable.location,
+      meetingLink: bookingTable.meetingLink,
+      serviceTypeId: bookingTable.serviceTypeId,
+      serviceName: serviceTypeTable.name,
+      serviceCapacity: serviceTypeTable.capacity,
+      athleteName: athleteTable.name,
+      guardianName: userTable.name,
+      guardianEmail: userTable.email,
+      createdAt: bookingTable.createdAt,
+    })
+    .from(bookingTable)
+    .leftJoin(serviceTypeTable, eq(bookingTable.serviceTypeId, serviceTypeTable.id))
+    .leftJoin(athleteTable, eq(bookingTable.athleteId, athleteTable.id))
+    .leftJoin(guardianTable, eq(bookingTable.guardianId, guardianTable.id))
+    .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
+    .where(eq(bookingTable.id, bookingId))
+    .limit(1);
+
+  if (!row) return null;
+
+  let slotsUsed = 0;
+  if (row.serviceCapacity && row.serviceTypeId && row.startsAt) {
+    const booked = await db
+      .select({ id: bookingTable.id })
+      .from(bookingTable)
+      .where(
+        and(
+          eq(bookingTable.serviceTypeId, row.serviceTypeId),
+          eq(bookingTable.startsAt, row.startsAt),
+          inArray(bookingTable.status, ["pending", "confirmed"]),
+        ),
+      );
+    slotsUsed = booked.length;
+  }
+
+  return {
+    ...row,
+    slotsUsed,
+    slotsTotal: row.serviceCapacity ?? null,
+  };
+}
+
 export async function updateBookingStatusAdmin(input: {
   bookingId: number;
   status: "pending" | "confirmed" | "declined" | "cancelled";

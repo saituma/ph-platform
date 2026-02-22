@@ -75,6 +75,8 @@ export default function MessagingPage() {
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [typingMap, setTypingMap] = useState<Record<string, { name: string; isTyping: boolean }>>({});
   const [mobileView, setMobileView] = useState<"inbox" | "conversation">("inbox");
+  const [realtimeDirectMessages, setRealtimeDirectMessages] = useState<MessageItem[]>([]);
+  const [realtimeGroupMessages, setRealtimeGroupMessages] = useState<MessageItem[]>([]);
   const socketRef = useRef<Socket | null>(null);
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
@@ -213,22 +215,14 @@ export default function MessagingPage() {
       auth: accessToken ? { token: accessToken } : undefined,
       transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       timeout: 10000,
     });
     socketRef.current = socket;
-    const handleIncoming = () => {
-      refetchThreads();
-      refetchGroups();
-      if (selectedUserId) {
-        refetchMessages();
-      }
-      if (selectedGroupId) {
-        refetchGroupMessages();
-      }
-    };
+
     socket.on("message:new", (payload: any) => {
-      handleIncoming();
       if (!payload?.id) return;
       if (lastNotifiedRef.current === payload.id) return;
       lastNotifiedRef.current = payload.id;
@@ -236,54 +230,114 @@ export default function MessagingPage() {
       const receiverId = Number(payload.receiverId);
       const isActiveThread = selectedUserId && (senderId === selectedUserId || receiverId === selectedUserId);
 
+      // Optimistic insert into local realtime messages
+      const newMsg: MessageItem = {
+        id: String(payload.id),
+        author: senderId === selectedUserId ? (selectedThreadName ?? "User") : "Coach",
+        time: payload.createdAt
+          ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        text: payload.content ?? "",
+        mediaUrl: payload.mediaUrl ?? null,
+        contentType: payload.contentType ?? "text",
+        reactions: [],
+        status: "delivered",
+      };
       if (isActiveThread) {
-        markThreadRead({ userId: selectedUserId! })
-          .unwrap()
-          .then(() => {
-            refetchThreads();
-            refetchMessages();
-          })
-          .catch(() => undefined);
+        setRealtimeDirectMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          // Replace optimistic client message if clientId matches
+          if (payload.clientId) {
+            const withoutTemp = prev.filter((m) => m.id !== payload.clientId);
+            return [...withoutTemp, newMsg];
+          }
+          return [...prev, newMsg];
+        });
+        markThreadRead({ userId: selectedUserId! }).unwrap().catch(() => undefined);
         setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
-        return;
       }
+      // Update thread preview/unread optimistically
+      refetchThreads();
 
-      const isResponseVideo = payload.contentType === "video" && Number.isFinite(payload.videoUploadId);
-      const toastTitle = isResponseVideo ? "Coach response video" : "New message";
-      const toastBody = isResponseVideo ? "A coach response video is ready." : payload.content ?? "You received a new message";
-      playNotificationSound();
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification(toastTitle, { body: toastBody });
+      if (!isActiveThread) {
+        const isResponseVideo = payload.contentType === "video" && Number.isFinite(payload.videoUploadId);
+        const toastTitle = isResponseVideo ? "Coach response video" : "New message";
+        const toastBody = isResponseVideo ? "A coach response video is ready." : payload.content ?? "You received a new message";
+        playNotificationSound();
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification(toastTitle, { body: toastBody });
+        }
+        toast.info(toastTitle, toastBody);
       }
-      toast.info(toastTitle, toastBody);
     });
+
     socket.on("group:message", (payload: any) => {
-      handleIncoming();
       if (!payload?.id) return;
       if (lastNotifiedRef.current === payload.id) return;
       lastNotifiedRef.current = payload.id;
-      const isActiveGroup = selectedGroupId && Number(payload.groupId) === selectedGroupId;
+      const groupId = Number(payload.groupId);
+      const isActiveGroup = selectedGroupId && groupId === selectedGroupId;
+
       if (isActiveGroup) {
+        const newMsg: MessageItem = {
+          id: `group-${payload.id}`,
+          author: payload.senderName ?? `User ${payload.senderId}`,
+          time: payload.createdAt
+            ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: payload.content ?? "",
+          mediaUrl: payload.mediaUrl ?? null,
+          contentType: payload.contentType ?? "text",
+          reactions: [],
+          status: "delivered",
+        };
+        setRealtimeGroupMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          if (payload.clientId) {
+            const withoutTemp = prev.filter((m) => m.id !== payload.clientId);
+            return [...withoutTemp, newMsg];
+          }
+          return [...prev, newMsg];
+        });
         setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
-        return;
+      } else {
+        playNotificationSound();
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("New group message", { body: payload.content ?? "You received a group message" });
+        }
+        toast.info("New group message", payload.content ?? "You received a group message");
       }
-      playNotificationSound();
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("New group message", { body: payload.content ?? "You received a group message" });
-      }
-      toast.info("New group message", payload.content ?? "You received a group message");
     });
-    socket.on("message:reaction", handleIncoming);
-    socket.on("group:reaction", handleIncoming);
+
+    socket.on("message:reaction", (payload: { messageId: number; reactions: any[] }) => {
+      if (!payload?.messageId) return;
+      const id = String(payload.messageId);
+      const mapped = (payload.reactions ?? []).map((r: any) => ({ emoji: r.emoji, count: r.count, reactedByMe: false }));
+      setRealtimeDirectMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, reactions: mapped } : m))
+      );
+    });
+    socket.on("group:reaction", (payload: { messageId: number; reactions: any[] }) => {
+      if (!payload?.messageId) return;
+      const id = `group-${payload.messageId}`;
+      const mapped = (payload.reactions ?? []).map((r: any) => ({ emoji: r.emoji, count: r.count, reactedByMe: false }));
+      setRealtimeGroupMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, reactions: mapped } : m))
+      );
+    });
+
     socket.on("message:deleted", (payload: { messageId: number }) => {
       if (!payload?.messageId) return;
-      refetchMessages();
+      const id = String(payload.messageId);
+      setRealtimeDirectMessages((prev) => prev.filter((m) => m.id !== id));
       refetchThreads();
     });
     socket.on("group:message:deleted", (payload: { messageId: number }) => {
       if (!payload?.messageId) return;
-      refetchGroupMessages();
+      const id = `group-${payload.messageId}`;
+      setRealtimeGroupMessages((prev) => prev.filter((m) => m.id !== id));
     });
+
     socket.on("presence:update", (payload: number[]) => {
       setOnlineUsers(Array.isArray(payload) ? payload : []);
     });
@@ -301,12 +355,12 @@ export default function MessagingPage() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [playNotificationSound, refetchGroups, refetchGroupMessages, refetchMessages, refetchThreads, selectedGroupId, selectedUserId]);
+  }, [markThreadRead, playNotificationSound, refetchThreads, selectedGroupId, selectedThreadName, selectedUserId]);
 
   const messages = useMemo<MessageItem[]>(() => {
     if (!selectedThread) return [];
     const source = messagesData?.messages ?? [];
-    return source.map((msg: any) => ({
+    const base = source.map((msg: any) => ({
       id: String(msg.id),
       author: msg.senderId === selectedUserId ? (selectedThreadName ?? selectedThread.name) : "Coach",
       time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
@@ -319,15 +373,27 @@ export default function MessagingPage() {
         reactedByMe: false,
       })),
       status: msg.read ? "read" : "delivered",
-    }));
-  }, [messagesData, selectedThread, selectedThreadName, selectedUserId]);
+    })) as MessageItem[];
+    // Merge realtime messages that are not already in the base
+    const baseIds = new Set(base.map((m) => m.id));
+    const extras = realtimeDirectMessages.filter((m) => !baseIds.has(m.id));
+    return [...base, ...extras];
+  }, [messagesData, realtimeDirectMessages, selectedThread, selectedThreadName, selectedUserId]);
+
+  // Clear realtime overlay when switching threads
+  useEffect(() => {
+    setRealtimeDirectMessages([]);
+  }, [selectedUserId]);
+  useEffect(() => {
+    setRealtimeGroupMessages([]);
+  }, [selectedGroupId]);
 
   const groupMessages = useMemo<MessageItem[]>(() => {
     if (!selectedGroupId) return [];
     const members = groupMembersData?.members ?? [];
     const lookup = new Map<number, string>(members.map((m: any) => [m.userId, m.name || m.email]));
     const source = groupMessagesData?.messages ?? [];
-    return source.map((msg: any) => ({
+    const base = source.map((msg: any) => ({
       id: `group-${msg.id}`,
       author: lookup.get(msg.senderId) ?? `User ${msg.senderId}`,
       time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
@@ -340,8 +406,11 @@ export default function MessagingPage() {
         reactedByMe: false,
       })),
       status: "delivered",
-    }));
-  }, [groupMembersData, groupMessagesData, selectedGroupId]);
+    })) as MessageItem[];
+    const baseIds = new Set(base.map((m) => m.id));
+    const extras = realtimeGroupMessages.filter((m) => !baseIds.has(m.id));
+    return [...base, ...extras];
+  }, [groupMembersData, groupMessagesData, realtimeGroupMessages, selectedGroupId]);
 
   const filteredThreads = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -561,35 +630,85 @@ export default function MessagingPage() {
               }
             }
             const content = trimmed || mediaPayload?.fallbackContent || "";
+            if (!content && !mediaPayload) return;
+            const socket = socketRef.current;
 
             if (inboxMode === "group") {
-              if (!selectedGroupId || isSendingGroup) return;
-              try {
-                await sendGroupMessage({
+              if (!selectedGroupId) return;
+              const clientId = `client-${Date.now()}`;
+              // Optimistic insert
+              setRealtimeGroupMessages((prev) => [
+                ...prev,
+                {
+                  id: clientId,
+                  author: "Coach",
+                  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  text: content,
+                  mediaUrl: mediaPayload?.mediaUrl ?? null,
+                  contentType: mediaPayload?.contentType ?? "text",
+                  reactions: [],
+                  status: "sent",
+                },
+              ]);
+              setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
+              if (socket?.connected) {
+                socket.emit("group:send", {
                   groupId: selectedGroupId,
                   content,
                   contentType: mediaPayload?.contentType ?? "text",
                   mediaUrl: mediaPayload?.mediaUrl,
-                }).unwrap();
-                refetchGroupMessages();
-                toast.success("Message sent", "Group updated.");
-              } catch (err: any) {
-                toast.error("Send failed", err?.data?.error || "Please try again.");
+                  clientId,
+                });
+              } else {
+                try {
+                  await sendGroupMessage({
+                    groupId: selectedGroupId,
+                    content,
+                    contentType: mediaPayload?.contentType ?? "text",
+                    mediaUrl: mediaPayload?.mediaUrl,
+                  }).unwrap();
+                } catch (err: any) {
+                  toast.error("Send failed", err?.data?.error || "Please try again.");
+                }
               }
               return;
             }
-            if (!selectedUserId || isSending) return;
-            try {
-              await sendMessage({
-                userId: selectedUserId,
+            if (!selectedUserId) return;
+            const clientId = `client-${Date.now()}`;
+            // Optimistic insert
+            setRealtimeDirectMessages((prev) => [
+              ...prev,
+              {
+                id: clientId,
+                author: "Coach",
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                text: content,
+                mediaUrl: mediaPayload?.mediaUrl ?? null,
+                contentType: mediaPayload?.contentType ?? "text",
+                reactions: [],
+                status: "sent",
+              },
+            ]);
+            setTimeout(() => window.dispatchEvent(new CustomEvent("messages:scroll")), 0);
+            if (socket?.connected) {
+              socket.emit("message:send", {
+                toUserId: selectedUserId,
                 content,
                 contentType: mediaPayload?.contentType ?? "text",
                 mediaUrl: mediaPayload?.mediaUrl,
-              }).unwrap();
-              refetchMessages();
-              toast.success("Message sent", "The athlete will be notified.");
-            } catch (err: any) {
-              toast.error("Send failed", err?.data?.error || "Please try again.");
+                clientId,
+              });
+            } else {
+              try {
+                await sendMessage({
+                  userId: selectedUserId,
+                  content,
+                  contentType: mediaPayload?.contentType ?? "text",
+                  mediaUrl: mediaPayload?.mediaUrl,
+                }).unwrap();
+              } catch (err: any) {
+                toast.error("Send failed", err?.data?.error || "Please try again.");
+              }
             }
           }}
           onReact={async (messageId, emoji) => {
