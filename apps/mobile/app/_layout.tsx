@@ -124,6 +124,11 @@ export default function RootLayout() {
             importance: Notifications.AndroidImportance.DEFAULT,
             sound: "default",
           });
+          await Notifications.setNotificationChannelAsync("birthday", {
+            name: "Birthday",
+            importance: Notifications.AndroidImportance.HIGH,
+            sound: "default",
+          });
         }
       }
 

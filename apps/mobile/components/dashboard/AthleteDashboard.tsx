@@ -1,15 +1,16 @@
 import { Feather } from "@/components/ui/theme-icons";
 import { useRefreshContext, usePullToRefresh } from "@/context/RefreshContext";
 import { apiRequest } from "@/lib/api";
+import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
 import { Text } from "@/components/ScaledText";
-
 export function AthleteDashboard() {
   const { isLoading, setIsLoading } = useRefreshContext();
   const { token } = useAppSelector((state) => state.user);
   const [athlete, setAthlete] = useState<any | null>(null);
+  const birthdayNotified = useRef(false);
 
   const loadAthlete = useCallback(async () => {
     if (!token) return;
@@ -35,6 +36,28 @@ export function AthleteDashboard() {
   }, [loadAthlete]);
 
   usePullToRefresh(loadAthlete);
+
+  // Fire a local push notification once per session on the athlete's birthday
+  useEffect(() => {
+    if (!athlete?.isBirthday || birthdayNotified.current) return;
+    birthdayNotified.current = true;
+    (async () => {
+      const Notifications = await getNotifications();
+      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "🎂 Happy Birthday!",
+          body: athlete?.name
+            ? `Happy Birthday, ${athlete.name}! New training content has been unlocked for your age.`
+            : "Happy Birthday! New training content has been unlocked for your age.",
+          sound: "default",
+          channelId: "birthday",
+          data: { type: "birthday" },
+        },
+        trigger: null,
+      });
+    })();
+  }, [athlete]);
 
   const extraResponses = athlete?.extraResponses ?? {};
   const level = typeof extraResponses === "object" && extraResponses !== null ? extraResponses.level : null;
