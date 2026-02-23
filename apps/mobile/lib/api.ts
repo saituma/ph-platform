@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { store } from "@/store";
 import { setCredentials } from "@/store/slices/userSlice";
@@ -13,12 +14,36 @@ type ApiRequestOptions = {
   skipAuthRefresh?: boolean;
   skipCache?: boolean;
 };
-
 const apiCache = new Map<string, { data: any; expiry: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const ASYNC_CACHE_KEY = "ph_api_cache_v1";
+
+let cacheHydrationPromise: Promise<void> | null = AsyncStorage.getItem(ASYNC_CACHE_KEY)
+  .then((stored: string | null) => {
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const now = Date.now();
+        for (const [key, value] of Object.entries(parsed)) {
+          if ((value as any).expiry > now) {
+            apiCache.set(key, value as any);
+          }
+        }
+      } catch {
+        // ignore parsing errors
+      }
+    }
+  })
+  .catch(() => {});
+
+function persistCache() {
+  const obj = Object.fromEntries(apiCache.entries());
+  AsyncStorage.setItem(ASYNC_CACHE_KEY, JSON.stringify(obj)).catch(() => {});
+}
 
 export function clearApiCache() {
   apiCache.clear();
+  AsyncStorage.removeItem(ASYNC_CACHE_KEY).catch(() => {});
 }
 
 export function prefetchApi<T>(path: string, options: ApiRequestOptions = {}): void {
@@ -146,6 +171,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const cacheKey = `${resolvedToken || 'anon'}:${url}`;
 
   if (method === "GET" && !options.skipCache) {
+    if (cacheHydrationPromise) {
+      await cacheHydrationPromise;
+      cacheHydrationPromise = null;
+    }
     const cached = apiCache.get(cacheKey);
     if (cached && cached.expiry > Date.now()) {
       return cached.data as T;
@@ -186,7 +215,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     !options.skipAuthRefresh &&
     normalizedPath !== "/auth/refresh";
   if (shouldTryRefresh) {
-    const refreshedToken = await refreshAuthToken(normalizedBaseUrl);
+    const refreshedToken = await refreshAuthToken(apiBaseUrl);
     if (refreshedToken) {
       ({ res, requestUrl, text } = await performRequest(refreshedToken));
     }
@@ -231,6 +260,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   
   if (method === "GET" && !options.skipCache) {
     apiCache.set(cacheKey, { data: payload, expiry: Date.now() + CACHE_TTL_MS });
+    persistCache();
   }
 
   return payload as T;
