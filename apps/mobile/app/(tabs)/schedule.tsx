@@ -71,9 +71,6 @@ export default function ScheduleScreen() {
   const { colors, isDark } = useAppTheme();
   const { token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
-  if (isSectionHidden("schedule")) {
-    return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
-  }
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
     today.getDate()
@@ -406,6 +403,11 @@ export default function ScheduleScreen() {
       task?.cancel?.();
     };
   }, [token, role, mapBookingsToEvents]);
+
+  // Age gate check — placed after all hooks to avoid rules-of-hooks violation
+  if (isSectionHidden("schedule")) {
+    return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-app">

@@ -222,56 +222,6 @@ export default function ParentSchedulePage() {
             />
           </div>
 
-          <div className="rounded-2xl border border-border bg-secondary/40 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Available slots</p>
-            {availabilityLoading ? (
-              <p className="mt-2 text-sm text-muted-foreground">Loading availability...</p>
-            ) : fixedTimeLabel ? (
-              availableSlots.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  No slots available at {fixedTimeLabel} on this date.
-                </p>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Fixed time at {fixedTimeLabel}. You don’t need to pick a time.
-                </p>
-              )
-            ) : availableSlots.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                No slots available for the selected date.
-              </p>
-            ) : (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {availableSlots.map((slot) => {
-                  const active = selectedSlot?.toISOString() === slot.toISOString();
-                  const capacity = selectedService?.capacity ?? null;
-                  const count = bookingCounts.get(slot.toISOString()) ?? 0;
-                  const isFull = capacity ? count >= capacity : false;
-                  return (
-                    <Button
-                      key={slot.toISOString()}
-                      variant={active ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        if (isFull) return;
-                        setSelectedSlot(slot);
-                      }}
-                      disabled={isFull}
-                    >
-                      {slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      {capacity ? ` ${count}/${capacity}` : ""}
-                      {isFull ? " Full" : ""}
-                    </Button>
-                  );
-                })}
-              </div>
-            )}
-            {fixedTimeLabel ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Fixed start time at {fixedTimeLabel}.
-              </p>
-            ) : null}
-          </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <Input
