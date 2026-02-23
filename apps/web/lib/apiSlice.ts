@@ -1,10 +1,41 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from "@reduxjs/toolkit/query";
+
+const rawBaseQuery = fetchBaseQuery({ baseUrl: "/api/backend" });
+
+/**
+ * Wrapper that silently refreshes the access token on 401,
+ * then retries the original request. Redirects to /login if
+ * the refresh itself fails.
+ */
+const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
+  args,
+  api,
+  extraOptions
+) => {
+  let result = await rawBaseQuery(args, api, extraOptions);
+
+  if (result.error && result.error.status === 401) {
+    // Try to silently refresh the access token
+    const refreshResult = await fetch("/api/auth/refresh", { method: "POST" });
+
+    if (refreshResult.ok) {
+      // Retry the original request with the new token
+      result = await rawBaseQuery(args, api, extraOptions);
+    } else {
+      // Refresh failed — session is truly expired
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
+  }
+
+  return result;
+};
 
 export const apiSlice = createApi({
   reducerPath: "api",
-  baseQuery: fetchBaseQuery({
-    baseUrl: "/api/backend",
-  }),
+  baseQuery: baseQueryWithReauth,
   tagTypes: [
     "Users",
     "Bookings",
