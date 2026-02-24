@@ -28,6 +28,8 @@ type OnboardingConfig = {
   coachMessage?: string;
   defaultProgramTier?: string;
   phpPlusProgramTabs?: string[];
+  termsVersion?: string;
+  privacyVersion?: string;
 };
 
 const optionalText = () =>
@@ -108,9 +110,9 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
     const hasBirthDate = fields.some((field) => field.id === "birthDate");
     return fields.map((field) => {
       if (field.id === "age" && !hasBirthDate) {
-        return { ...field, id: "birthDate", label: field.label || "Birth Date", type: "date" };
+        return { ...field, id: "birthDate", label: field.label || "Birth Date", type: "date" as FieldType } as ConfigField;
       }
-      return field;
+      return field as ConfigField;
     });
   }, [config?.fields]);
 
@@ -203,32 +205,8 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
   }, [loadConfig]);
 
   useEffect(() => {
-    let active = true;
-    const loadLegal = async () => {
-      if (!token) return;
-      try {
-        const response = await apiRequest<{ items?: any[] }>("/content/legal", { token, suppressStatusCodes: [401, 403] });
-        if (!active) return;
-        const items = response.items ?? [];
-        const findLegal = (key: "terms" | "privacy") =>
-          items.find((item: any) => String(item.category ?? "").toLowerCase() === key) ||
-          items.find((item: any) => String(item.title ?? "").toLowerCase().includes(key));
-        const terms = findLegal("terms");
-        const privacy = findLegal("privacy");
-        setLegalVersions({
-          terms: String(terms?.content ?? "1.0"),
-          privacy: String(privacy?.content ?? "1.0"),
-        });
-      } catch {
-        if (!active) return;
-        setLegalVersions(null);
-      }
-    };
-    loadLegal();
-    return () => {
-      active = false;
-    };
-  }, [token]);
+    loadConfig();
+  }, [loadConfig]);
 
   useEffect(() => {
     const options = levelOptionsForTeam(teamValue);
@@ -344,8 +322,8 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
             parentPhone,
             relationToAthlete: relation,
             desiredProgramType: programTier,
-            termsVersion: legalVersions?.terms ?? "1.0",
-            privacyVersion: legalVersions?.privacy ?? "1.0",
+            termsVersion: config?.termsVersion ?? "1.0",
+            privacyVersion: config?.privacyVersion ?? "1.0",
             appVersion: Constants.expoConfig?.version ?? "mobile-unknown",
             extraResponses,
             createNew: createNewAthlete,
@@ -366,7 +344,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
         setIsSubmitting(false);
       }
     },
-    [config?.defaultProgramTier, config?.fields, createNewAthlete, dispatch, legalVersions, profile.email, router, setRole, token]
+    [config, createNewAthlete, dispatch, profile.email, router, setRole, token]
   );
 
   const onSubmit = handleSubmit(submit, (invalid) => {

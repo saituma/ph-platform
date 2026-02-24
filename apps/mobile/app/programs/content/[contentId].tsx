@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ActivityIndicator, Linking, Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
@@ -95,13 +95,26 @@ function MediaSection({ url, title }: { url: string; title?: string }) {
 export default function ProgramContentDetailScreen() {
   const { contentId } = useLocalSearchParams<{ contentId: string }>();
   const router = useRouter();
-  const { token } = useAppSelector((state) => state.user);
+  const { token, programTier } = useAppSelector((state) => state.user);
   const { isDark, colors } = useAppTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<ContentItem | null>(null);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
 
-  const load = React.useCallback(async () => {
+  const loadAiInsight = useCallback(async () => {
+    if (!token || programTier !== "PHP_Premium" || !contentId) return;
+    try {
+      const response = await apiRequest<{ insight: string }>(`/content/${contentId}/ai-insight`, { token });
+      if (response.insight) {
+        setAiInsight(response.insight);
+      }
+    } catch {
+      // ignore
+    }
+  }, [token, programTier, contentId]);
+
+  const load = useCallback(async () => {
     if (!token || !contentId) {
       setIsLoading(false);
       setError("Content not available.");
@@ -122,12 +135,13 @@ export default function ProgramContentDetailScreen() {
         metadata: data.item.metadata ?? null,
       });
       setError(null);
+      void loadAiInsight();
     } catch (err: any) {
       setError(err?.message ?? "Failed to load content.");
     } finally {
       setIsLoading(false);
     }
-  }, [contentId, token]);
+  }, [contentId, token, loadAiInsight]);
 
   useEffect(() => {
     void load();
@@ -245,31 +259,48 @@ export default function ProgramContentDetailScreen() {
                     </View>
                   ) : null}
                   {meta.regression ? (
-                    <View className="flex-1 rounded-3xl bg-[#F97316] px-5 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
-                      <View className="flex-row items-center gap-2">
-                        <View className="h-8 w-8 rounded-full bg-white/30 items-center justify-center">
-                          <Feather name="trending-down" size={14} color="#FFFFFF" />
-                        </View>
-                        <Text className="text-[11px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
-                          Regression
-                        </Text>
-                      </View>
-                      <Text className="text-[14px] font-outfit text-white leading-relaxed">{meta.regression}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
+                     <View className="flex-1 rounded-3xl bg-[#F97316] px-5 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
+                       <View className="flex-row items-center gap-2">
+                         <View className="h-8 w-8 rounded-full bg-white/30 items-center justify-center">
+                           <Feather name="trending-down" size={14} color="#FFFFFF" />
+                         </View>
+                         <Text className="text-[11px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
+                           Regression
+                         </Text>
+                       </View>
+                       <Text className="text-[14px] font-outfit text-white leading-relaxed">{meta.regression}</Text>
+                     </View>
+                   ) : null}
+                 </View>
+               ) : null}
+ 
+               {/* Media */}
+               {item.videoUrl ? (
+                 <View className="mt-1">
+                   <MediaSection url={item.videoUrl} title={item.title} />
+                 </View>
+               ) : null}
 
-              {/* Media */}
-              {item.videoUrl ? (
-                <View className="mt-1">
-                  <MediaSection url={item.videoUrl} title={item.title} />
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-        </View>
-      </ThemedScrollView>
-    </SafeAreaView>
-  );
-}
+               {aiInsight && (
+                 <View className="rounded-3xl bg-purple-600/10 border border-purple-600/20 px-6 py-5 gap-3 mt-1" style={isDark ? Shadows.none : Shadows.sm}>
+                   <View className="flex-row items-center gap-2">
+                     <View className="h-8 w-8 rounded-full bg-white/5 items-center justify-center">
+                       <Ionicons name="sparkles" size={16} color="#9333EA" />
+                     </View>
+                     <Text className="text-[12px] font-outfit text-purple-600 uppercase tracking-[2px] font-bold">
+                       AI Content Insights
+                     </Text>
+                   </View>
+                   <MarkdownText
+                     text={aiInsight}
+                     baseStyle={{ fontSize: 14, lineHeight: 22, color: isDark ? "#E9D5FF" : "#6B21A8" }}
+                   />
+                 </View>
+               )}
+             </View>
+           ) : null}
+         </View>
+       </ThemedScrollView>
+     </SafeAreaView>
+   );
+ }

@@ -18,6 +18,7 @@ const sendSchema = z
     mediaUrl: z.string().url().optional(),
     videoUploadId: z.number().int().min(1).optional(),
     clientId: z.string().trim().min(1).optional(),
+    receiverId: z.number().int().optional(),
   })
   .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
     message: "Message content or mediaUrl is required",
@@ -32,20 +33,48 @@ export async function listMessages(req: Request, res: Response) {
   const messages = await listThread(userId);
   const lastCoach = await getLastAdminContact(userId);
   const coach = lastCoach ?? (await getCoachUser());
-  return res.status(200).json({ messages, coach });
+  
+  const { isUserPremium } = await import("../services/message.service");
+  const premium = await isUserPremium(userId);
+
+  const coaches = [];
+  if (coach) coaches.push(coach);
+  
+  if (premium) {
+    const { ensureAiCoachUser } = await import("../services/ai.service");
+    const aiCoachId = await ensureAiCoachUser();
+    // Only add AI coach if it's not already the same as the regular coach
+    if (!coach || coach.id !== aiCoachId) {
+      coaches.push({
+        id: aiCoachId,
+        name: "AI Coach",
+        role: "AI Assistant",
+        profilePicture: null,
+        isAi: true
+      });
+    }
+  }
+
+  return res.status(200).json({ messages, coaches, coach: coaches[0] ?? null });
 }
 
 export async function sendMessageToCoach(req: Request, res: Response) {
   const input = sendSchema.parse(req.body);
   const userId = req.user!.id;
-  const lastCoach = await getLastAdminContact(userId);
-  const coach = lastCoach ?? (await getCoachUser());
-  if (!coach) {
-    return res.status(400).json({ error: "Coach not available" });
+  
+  let receiverId = input.receiverId;
+  if (!receiverId) {
+    const lastCoach = await getLastAdminContact(userId);
+    const coach = lastCoach ?? (await getCoachUser());
+    if (!coach) {
+      return res.status(400).json({ error: "Coach not available" });
+    }
+    receiverId = coach.id;
   }
+
   const message = await sendMessage({
     senderId: userId,
-    receiverId: coach.id,
+    receiverId: receiverId,
     content: input.content,
     contentType: input.contentType,
     mediaUrl: input.mediaUrl,

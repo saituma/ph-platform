@@ -93,6 +93,7 @@ export default function PlansScreen() {
       }>("/billing/status", {
         token,
         suppressStatusCodes: [401, 403, 404],
+        skipCache: true,
       });
       const nextRequestStatus = status?.latestRequest?.status ?? null;
       const nextTier =

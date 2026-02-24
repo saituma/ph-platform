@@ -112,6 +112,7 @@ export function AuthPersist() {
             }>("/billing/status", {
               token: storedToken,
               suppressStatusCodes: [401, 403, 404],
+              skipCache: true,
             });
             dispatch(setProgramTier(status?.currentProgramTier ?? null));
             dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
@@ -190,6 +191,7 @@ export function AuthPersist() {
         }>("/billing/status", {
           token,
           suppressStatusCodes: [401, 403, 404],
+          skipCache: true,
         });
         if (!active) return;
 

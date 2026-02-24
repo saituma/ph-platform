@@ -13,6 +13,7 @@ export type MessageThread = {
   lastSeen?: string;
   responseTime?: string;
   updatedAtMs?: number;
+  isAi?: boolean;
 };
 
 export type TypingStatus = Record<string, { name: string; isTyping: boolean }>;

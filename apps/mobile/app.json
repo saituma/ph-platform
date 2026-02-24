@@ -11,8 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We use your location to show coaches where athletes are located."
-      }
+        "NSLocationWhenInUseUsageDescription": "We use your location to show coaches where athletes are located.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.clientreachai.phperformance"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.php.app",
+      "package": "com.clientreachai.phperformance",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
