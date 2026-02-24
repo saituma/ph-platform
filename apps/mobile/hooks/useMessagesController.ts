@@ -52,11 +52,7 @@ export function useMessagesController() {
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
-      // 1. AI Assistant always at the top
-      if (a.isAi && !b.isAi) return -1;
-      if (!a.isAi && b.isAi) return 1;
-      
-      // 2. Pinned items next
+      // 1. Pinned items first
       if (!!a.pinned && !b.pinned) return -1;
       if (!a.pinned && !!b.pinned) return 1;
       
@@ -120,27 +116,29 @@ export function useMessagesController() {
       const selfId = String(profile.id ?? "");
       const isPremium = programTier === "PHP_Premium";
 
-      const coachThreads = (data.coaches ?? (data.coach ? [data.coach] : [])).map((c: any) => {
+      const coachThreads = (data.coaches ?? (data.coach ? [data.coach] : []))
+        .filter((c: any) => !c.isAi)
+        .map((c: any) => {
         const lastMsg = (data.messages ?? [])
           .filter((m: any) => String(m.senderId) === String(c.id) || String(m.receiverId) === String(c.id))
           .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
         return {
           id: String(c.id),
-          name: c.isAi ? `✨ ${c.name}` : c.name,
-          role: c.role ?? (c.isAi ? "AI Assistant" : "Coach"),
+          name: c.name,
+          role: c.role ?? "Coach",
           preview: lastMsg ? lastMsg.content : "Start the conversation",
           time: lastMsg?.createdAt
             ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : "",
           updatedAtMs: lastMsg?.createdAt ? new Date(lastMsg.createdAt).getTime() : 0,
           pinned: false,
-          premium: c.isAi || isPremium,
+          premium: isPremium,
           unread: (data.messages ?? []).filter((msg: any) => !msg.read && String(msg.senderId) === String(c.id)).length ?? 0,
           lastSeen: "Active",
-          responseTime: c.isAi ? "Responds instantly" : (isPremium ? "Priority response window" : "Standard response window"),
+          responseTime: isPremium ? "Priority response window" : "Standard response window",
           avatarUrl: c.profilePicture ?? null,
-          isAi: !!c.isAi,
+          isAi: false,
         };
       });
 

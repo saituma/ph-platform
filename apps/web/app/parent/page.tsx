@@ -53,6 +53,7 @@ export default function ParentDashboardPage() {
   const [privacyVersion, setPrivacyVersion] = useState("1.0");
 
   const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [newDocLabel, setNewDocLabel] = useState("");
   const [newFieldType, setNewFieldType] = useState<FieldType>("text");
   const [newFieldRequired, setNewFieldRequired] = useState(true);
   const [newFieldOption, setNewFieldOption] = useState("");
@@ -322,17 +323,29 @@ export default function ParentDashboardPage() {
               newFieldType={newFieldType}
               newFieldRequired={newFieldRequired}
               newFieldOption={newFieldOption}
+              newTeamOption={newTeamOption}
+              editTeamOption={editTeamOption}
+              selectedTeam={selectedTeam}
               onSetNewFieldLabel={setNewFieldLabel}
               onSetNewFieldType={setNewFieldType}
               onSetNewFieldRequired={setNewFieldRequired}
               onSetNewFieldOption={setNewFieldOption}
+              onSetNewTeamOption={setNewTeamOption}
+              onSetEditTeamOption={setEditTeamOption}
+              onSetSelectedTeam={setSelectedTeam}
               onUpdateFields={setFields}
-              onAddField={handleAddField}
+              onHandleAddField={handleAddField}
+              onHandleAddTeamLevel={handleAddTeamLevel}
               onOpenTeamModal={handleOpenTeamModal}
             />
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-6">
-                <DocumentsCard docs={docs} onUpdateDocs={setDocs} />
+                <DocumentsCard 
+                  docs={docs} 
+                  newDocLabel={newDocLabel} 
+                  onSetNewDocLabel={setNewDocLabel} 
+                  onSetDocs={setDocs} 
+                />
                 <MessagesCard 
                   welcomeMessage={welcomeMessage}
                   coachMessage={coachMessage}
