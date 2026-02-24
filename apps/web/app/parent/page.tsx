@@ -53,7 +53,6 @@ export default function ParentDashboardPage() {
   const [privacyVersion, setPrivacyVersion] = useState("1.0");
 
   const [newFieldLabel, setNewFieldLabel] = useState("");
-  const [newDocLabel, setNewDocLabel] = useState("");
   const [newFieldType, setNewFieldType] = useState<FieldType>("text");
   const [newFieldRequired, setNewFieldRequired] = useState(true);
   const [newFieldOption, setNewFieldOption] = useState("");
@@ -340,12 +339,7 @@ export default function ParentDashboardPage() {
             />
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-6">
-                <DocumentsCard 
-                  docs={docs} 
-                  newDocLabel={newDocLabel} 
-                  onSetNewDocLabel={setNewDocLabel} 
-                  onSetDocs={setDocs} 
-                />
+                <DocumentsCard docs={docs} onUpdateDocs={setDocs} />
                 <MessagesCard 
                   welcomeMessage={welcomeMessage}
                   coachMessage={coachMessage}
