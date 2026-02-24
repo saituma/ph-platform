@@ -144,6 +144,8 @@ export const onboardingConfigTable = pgTable("onboarding_configs", {
   approvalWorkflow: varchar({ length: 50 }).notNull().default("manual"),
   notes: varchar({ length: 1000 }),
   phpPlusProgramTabs: jsonb(),
+  termsVersion: varchar({ length: 50 }).notNull().default("1.0"),
+  privacyVersion: varchar({ length: 50 }).notNull().default("1.0"),
   createdBy: integer().references(() => userTable.id),
   updatedBy: integer().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),

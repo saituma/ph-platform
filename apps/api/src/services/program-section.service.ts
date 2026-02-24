@@ -24,6 +24,7 @@ export async function listProgramSectionContent(input: {
   sectionType?: (typeof sessionType.enumValues)[number];
   programTier?: (typeof ProgramType.enumValues)[number] | null;
   age?: number | null;
+  bypassAgeFilter?: boolean;
 }) {
   const filters = [] as ReturnType<typeof eq>[];
   if (input.sectionType) {
@@ -45,6 +46,9 @@ export async function listProgramSectionContent(input: {
         .orderBy(programSectionContentTable.order, desc(programSectionContentTable.updatedAt));
 
   const rows = await query;
+  if (input.bypassAgeFilter) {
+    return rows;
+  }
   return rows.filter((item) => matchesAgeList(item, input.age ?? null));
 }
 

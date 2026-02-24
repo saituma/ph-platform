@@ -84,6 +84,8 @@ const defaultPublicConfig = {
     "Submit Diary",
     "Bookings",
   ],
+  termsVersion: "1.0",
+  privacyVersion: "1.0",
 };
 
 const PHP_PLUS_TABS = new Set(defaultPublicConfig.phpPlusProgramTabs);
@@ -112,11 +114,15 @@ async function ensureOnboardingConfigTable() {
       "createdBy" integer REFERENCES "users"("id"),
       "updatedBy" integer REFERENCES "users"("id"),
       "createdAt" timestamp DEFAULT now() NOT NULL,
-      "updatedAt" timestamp DEFAULT now() NOT NULL
+      "updatedAt" timestamp DEFAULT now() NOT NULL,
+      "termsVersion" varchar(50) DEFAULT '1.0' NOT NULL,
+      "privacyVersion" varchar(50) DEFAULT '1.0' NOT NULL
     )
   `);
   await db.execute(sql`
-    ALTER TABLE "onboarding_configs" ADD COLUMN IF NOT EXISTS "phpPlusProgramTabs" jsonb
+    ALTER TABLE "onboarding_configs" ADD COLUMN IF NOT EXISTS "phpPlusProgramTabs" jsonb,
+    ADD COLUMN IF NOT EXISTS "termsVersion" varchar(50) DEFAULT '1.0' NOT NULL,
+    ADD COLUMN IF NOT EXISTS "privacyVersion" varchar(50) DEFAULT '1.0' NOT NULL
   `);
   await db.execute(sql`
     ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "extraResponses" jsonb
@@ -442,6 +448,8 @@ export async function getPublicOnboardingConfig() {
       approvalWorkflow: defaultPublicConfig.approvalWorkflow,
       notes: defaultPublicConfig.notes,
       phpPlusProgramTabs: defaultPublicConfig.phpPlusProgramTabs,
+      termsVersion: defaultPublicConfig.termsVersion,
+      privacyVersion: defaultPublicConfig.privacyVersion,
     } as any)
     .returning();
 

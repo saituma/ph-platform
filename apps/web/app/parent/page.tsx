@@ -11,6 +11,11 @@ import {
   useUpdateOnboardingConfigMutation,
   useUpdatePhpPlusTabsMutation,
 } from "../../lib/apiSlice";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { FormFieldsCard } from "../../components/parent/config/form-fields-card";
+import { DocumentsCard } from "../../components/parent/config/documents-card";
+import { MessagesCard } from "../../components/parent/config/messages-card";
+import { SettingsCard } from "../../components/parent/config/settings-card";
 import { CompletedOnboardingCard } from "../../components/parent/config/completed-onboarding-card";
 import { TeamLevelsDialog } from "../../components/parent/config/team-levels-dialog";
 import { documentRequirements, FieldConfig, FieldType, initialFields, DocumentConfig } from "../../components/parent/config/types";
@@ -18,7 +23,6 @@ import { ParentCoursesCard } from "../../components/parent/config/parent-courses
 import { CollapsibleSection } from "../../components/parent/config/collapsible-section";
 import { BillingSection } from "../../components/parent/config/billing-section";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 
 const PREMIUM_PROGRAM_TABS = [
   "Program",
@@ -45,8 +49,11 @@ export default function ParentDashboardPage() {
   const [notes, setNotes] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [coachMessage, setCoachMessage] = useState("");
+  const [termsVersion, setTermsVersion] = useState("1.0");
+  const [privacyVersion, setPrivacyVersion] = useState("1.0");
 
   const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [newDocLabel, setNewDocLabel] = useState("");
   const [newFieldType, setNewFieldType] = useState<FieldType>("text");
   const [newFieldRequired, setNewFieldRequired] = useState(true);
   const [newFieldOption, setNewFieldOption] = useState("");
@@ -66,7 +73,7 @@ export default function ParentDashboardPage() {
 
   const completedGuardians = useMemo(() => {
     const users = usersData?.users ?? [];
-    return users.filter((user) => user.onboardingCompleted);
+    return users.filter((user) => user.onboardingCompleted && user.role === "guardian");
   }, [usersData]);
 
   const selectedGuardian = completedGuardians.find((user) => user.id === selectedUserId);
@@ -214,6 +221,8 @@ export default function ParentDashboardPage() {
     setNotes(String(config.notes ?? ""));
     setWelcomeMessage(String(config.welcomeMessage ?? ""));
     setCoachMessage(String(config.coachMessage ?? ""));
+    setTermsVersion(String(config.termsVersion ?? "1.0"));
+    setPrivacyVersion(String(config.privacyVersion ?? "1.0"));
     const rawPlusTabs = Array.isArray(config.phpPlusProgramTabs) ? config.phpPlusProgramTabs : [];
     const normalizedPlusTabs = rawPlusTabs
       .map((tab) => String(tab))
@@ -244,6 +253,8 @@ export default function ParentDashboardPage() {
       approvalWorkflow,
       notes,
       phpPlusProgramTabs,
+      termsVersion,
+      privacyVersion,
     };
   };
 
@@ -297,6 +308,63 @@ export default function ParentDashboardPage() {
       <div className="space-y-4">
         <CollapsibleSection id="parent-content" title="Parent Education Content" openSection={openSection} onToggle={setOpenSection}>
           <ParentCoursesCard />
+        </CollapsibleSection>
+
+        <CollapsibleSection id="onboarding-config" title="Onboarding Form Configuration" openSection={openSection} onToggle={setOpenSection}>
+          <div className="flex justify-end mb-4">
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Configuration"}
+            </Button>
+          </div>
+          <div className="space-y-6">
+            <FormFieldsCard 
+              fields={fields}
+              newFieldLabel={newFieldLabel}
+              newFieldType={newFieldType}
+              newFieldRequired={newFieldRequired}
+              newFieldOption={newFieldOption}
+              newTeamOption={newTeamOption}
+              editTeamOption={editTeamOption}
+              selectedTeam={selectedTeam}
+              onSetNewFieldLabel={setNewFieldLabel}
+              onSetNewFieldType={setNewFieldType}
+              onSetNewFieldRequired={setNewFieldRequired}
+              onSetNewFieldOption={setNewFieldOption}
+              onSetNewTeamOption={setNewTeamOption}
+              onSetEditTeamOption={setEditTeamOption}
+              onSetSelectedTeam={setSelectedTeam}
+              onUpdateFields={setFields}
+              onHandleAddField={handleAddField}
+              onHandleAddTeamLevel={handleAddTeamLevel}
+              onOpenTeamModal={handleOpenTeamModal}
+            />
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-6">
+                <DocumentsCard 
+                  docs={docs} 
+                  newDocLabel={newDocLabel} 
+                  onSetNewDocLabel={setNewDocLabel} 
+                  onSetDocs={setDocs} 
+                />
+                <MessagesCard 
+                  welcomeMessage={welcomeMessage}
+                  coachMessage={coachMessage}
+                  onSetWelcomeMessage={setWelcomeMessage}
+                  onSetCoachMessage={setCoachMessage}
+                />
+              </div>
+              <SettingsCard 
+                approvalWorkflow={approvalWorkflow}
+                notes={notes}
+                termsVersion={termsVersion}
+                privacyVersion={privacyVersion}
+                onSetApprovalWorkflow={setApprovalWorkflow}
+                onSetNotes={setNotes}
+                onSetTermsVersion={setTermsVersion}
+                onSetPrivacyVersion={setPrivacyVersion}
+              />
+            </div>
+          </div>
         </CollapsibleSection>
 
         <CollapsibleSection id="php-plus-programs" title="PHP Plus Programs" openSection={openSection} onToggle={setOpenSection}>

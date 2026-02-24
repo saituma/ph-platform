@@ -21,10 +21,13 @@ type InboxScreenProps = {
   textSecondaryColor: string;
 };
 
-function getInitials(name: string) {
+function getInitials(name?: string | null) {
+  if (!name || typeof name !== "string") return "";
   const parts = name.trim().split(" ");
   if (parts.length === 1) return parts[0]?.[0] ?? "";
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  const firstInit = parts[0][0] ?? "";
+  const lastInit = parts[parts.length - 1][0] ?? "";
+  return `${firstInit}${lastInit}`.toUpperCase();
 }
 
 export function InboxScreen({
