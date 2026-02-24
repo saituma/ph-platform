@@ -141,7 +141,7 @@ export function VideoPlayer({
   }, [uri]);
 
   const source = useMemo(() => ({ uri }), [uri]);
-  const videoStyle = useMemo(() => ({ width: "100%", height: 220 as const }), []);
+  const videoStyle = useMemo(() => ({ width: "100%" as any, height: 220 as const }), []);
 
   const handlePlaybackStatusUpdate = useCallback((newStatus: AVPlaybackStatus) => {
     setStatus(newStatus);

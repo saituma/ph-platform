@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { ActivityIndicator, Linking, Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
@@ -100,20 +100,6 @@ export default function ProgramContentDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<ContentItem | null>(null);
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
-
-  const loadAiInsight = useCallback(async () => {
-    if (!token || programTier !== "PHP_Premium" || !contentId) return;
-    try {
-      const response = await apiRequest<{ insight: string }>(`/content/${contentId}/ai-insight`, { token });
-      if (response.insight) {
-        setAiInsight(response.insight);
-      }
-    } catch {
-      // ignore
-    }
-  }, [token, programTier, contentId]);
-
   const load = useCallback(async () => {
     if (!token || !contentId) {
       setIsLoading(false);
@@ -135,13 +121,12 @@ export default function ProgramContentDetailScreen() {
         metadata: data.item.metadata ?? null,
       });
       setError(null);
-      void loadAiInsight();
     } catch (err: any) {
       setError(err?.message ?? "Failed to load content.");
     } finally {
       setIsLoading(false);
     }
-  }, [contentId, token, loadAiInsight]);
+  }, [contentId, token]);
 
   useEffect(() => {
     void load();
@@ -281,22 +266,7 @@ export default function ProgramContentDetailScreen() {
                  </View>
                ) : null}
 
-               {aiInsight && (
-                 <View className="rounded-3xl bg-purple-600/10 border border-purple-600/20 px-6 py-5 gap-3 mt-1" style={isDark ? Shadows.none : Shadows.sm}>
-                   <View className="flex-row items-center gap-2">
-                     <View className="h-8 w-8 rounded-full bg-white/5 items-center justify-center">
-                       <Ionicons name="sparkles" size={16} color="#9333EA" />
-                     </View>
-                     <Text className="text-[12px] font-outfit text-purple-600 uppercase tracking-[2px] font-bold">
-                       AI Content Insights
-                     </Text>
-                   </View>
-                   <MarkdownText
-                     text={aiInsight}
-                     baseStyle={{ fontSize: 14, lineHeight: 22, color: isDark ? "#E9D5FF" : "#6B21A8" }}
-                   />
-                 </View>
-               )}
+
              </View>
            ) : null}
          </View>

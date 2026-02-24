@@ -127,8 +127,8 @@ export function VoiceRecorderModal({ open, onClose, onRecorded }: VoiceRecorderM
 
   const useRecording = async () => {
     if (!recordedUri) return;
-    const info = await FileSystem.getInfoAsync(recordedUri, { size: true });
-    const sizeBytes = info.size ?? 0;
+    const info = await FileSystem.getInfoAsync(recordedUri);
+    const sizeBytes = (info as any).size ?? 0;
     const extension = recordedUri.split(".").pop()?.toLowerCase() ?? "m4a";
     const mimeType =
       extension === "m4a"

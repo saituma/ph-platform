@@ -49,7 +49,7 @@ export default function RegisterScreen() {
     watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema as any),
     defaultValues: {
       name: "",
       email: "",

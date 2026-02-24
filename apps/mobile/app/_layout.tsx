@@ -51,6 +51,8 @@ getNotifications().then((Notifications) => {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
     }),
   });
 });
@@ -209,7 +211,7 @@ export default function RootLayout() {
                                 merchantIdentifier="merchant.ph.performance"
                               >
                                 <AuthPersist />
-                                <AppShell colorScheme={colorScheme} />
+                                <AppShell colorScheme={colorScheme ?? "light"} />
                               </StripeProvider>
                             </GlobalRefreshLayout>
                           </RefreshProvider>
