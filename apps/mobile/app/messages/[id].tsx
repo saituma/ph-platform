@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { ChatMessage } from "@/constants/messages";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
@@ -46,13 +47,39 @@ export default function ThreadScreen() {
   } = useMessagesController();
   const [voiceRecorderOpen, setVoiceRecorderOpen] = React.useState(false);
 
-  const handleLockedPress = () => {
+  const handleLockedPress = React.useCallback(() => {
     Alert.alert(
       "Messaging locked",
       "Messaging is available on PHP Premium plans.",
       [{ text: "OK" }],
     );
-  };
+  }, []);
+
+  const handleLongPressMessage = React.useCallback((message: ChatMessage) => {
+    const isOwn = message.from === "user";
+    if (isOwn) {
+      Alert.alert("Message options", "Choose an action", [
+        {
+          text: "React",
+          onPress: () => {
+            setReactionTarget(message);
+          },
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => handleDeleteMessage(message),
+        },
+        { text: "Cancel", style: "cancel" },
+      ]);
+      return;
+    }
+    setReactionTarget(message);
+  }, [handleDeleteMessage, setReactionTarget]);
+
+  const handleRemovePendingAttachment = React.useCallback(() => {
+    setPendingAttachment(null);
+  }, [setPendingAttachment]);
 
   if (!currentThread) {
     return (
@@ -76,31 +103,11 @@ export default function ThreadScreen() {
         onDraftChange={setDraft}
         onSend={handleSend}
         onOpenComposerMenu={() => setComposerMenuOpen(true)}
-        onLongPressMessage={(message) => {
-          const isOwn = message.from === "user";
-          if (isOwn) {
-            Alert.alert("Message options", "Choose an action", [
-              {
-                text: "React",
-                onPress: () => {
-                  setReactionTarget(message);
-                },
-              },
-              {
-                text: "Delete",
-                style: "destructive",
-                onPress: () => handleDeleteMessage(message),
-              },
-              { text: "Cancel", style: "cancel" },
-            ]);
-            return;
-          }
-          setReactionTarget(message);
-        }}
+        onLongPressMessage={handleLongPressMessage}
         onReactionPress={handleToggleReaction}
         composerDisabled={!canMessage}
         pendingAttachment={pendingAttachment}
-        onRemovePendingAttachment={() => setPendingAttachment(null)}
+        onRemovePendingAttachment={handleRemovePendingAttachment}
         isUploadingAttachment={isUploadingAttachment}
         disabledMessage={
           !canMessage

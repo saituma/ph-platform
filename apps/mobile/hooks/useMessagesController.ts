@@ -4,6 +4,7 @@ import { useRole } from "@/context/RoleContext";
 import { useAppSelector } from "@/store/hooks";
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { useMessagesRealtime } from "@/hooks/useMessagesRealtime";
+import { useSocket } from "@/context/SocketContext";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getNotifications } from "@/lib/notifications";
 import * as ImagePicker from "expo-image-picker";
@@ -86,7 +87,7 @@ export function useMessagesController() {
         apiRequest<{
           messages: any[];
           coach?: { id: number; name: string; role?: string; profilePicture?: string | null };
-          coaches?: { id: number; name: string; role?: string; profilePicture?: string | null; isAi?: boolean }[];
+          coaches?: { id: number; name: string; role: string; profilePicture?: string | null; isAi?: boolean }[];
         }>("/messages", {
           token,
           headers: actingHeaders,
@@ -435,7 +436,6 @@ export function useMessagesController() {
     async (payload: { text?: string; mediaUrl?: string; contentType?: "text" | "image" | "video" }) => {
       const trimmed = payload.text?.trim() ?? "";
       if ((!trimmed && !payload.mediaUrl) || !currentThread || !token) return;
-      const socket = socketRef.current;
 
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));
@@ -771,15 +771,15 @@ export function useMessagesController() {
       });
     } catch (error) {
       console.warn("Failed to attach file", error);
-    } finally {
       setComposerMenuOpen(false);
     }
   }, [currentThread, isUploadingAttachment, token]);
 
-  const socketRef = useMessagesRealtime({
+  const { socket, setActiveThreadId } = useSocket();
+  useMessagesRealtime({
     token,
     role,
-    profileId: Number(profile.id),
+    profileId: Number(profile.id ?? 0),
     draft,
     currentThread,
     groupMembers,
@@ -788,6 +788,11 @@ export function useMessagesController() {
     setThreads,
     setTypingStatus,
   });
+
+  useEffect(() => {
+    setActiveThreadId(currentThread?.id ?? null);
+    return () => setActiveThreadId(null);
+  }, [currentThread?.id, setActiveThreadId]);
 
   useEffect(() => {
     if (activeThread) {
@@ -814,7 +819,6 @@ export function useMessagesController() {
   useEffect(() => {
     if (!currentThread) return;
     const interval = setInterval(() => {
-      const socket = socketRef.current;
       if (socket?.connected) return;
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));

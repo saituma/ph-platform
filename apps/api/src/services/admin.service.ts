@@ -1124,7 +1124,7 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
   const result = await db
     .update(messageTable)
     .set({ read: true })
-    .where(and(eq(messageTable.receiverId, coachId), eq(messageTable.senderId, userId), eq(messageTable.read, false)));
+    .where(and(inArray(messageTable.receiverId, adminIds), eq(messageTable.senderId, userId), eq(messageTable.read, false)));
 
   return result.rowCount ?? 0;
 }

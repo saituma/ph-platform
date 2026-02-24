@@ -42,6 +42,7 @@ export function AuthPersist() {
   const lastSavedToken = useRef<string | null>(null);
   const lastSavedRefreshToken = useRef<string | null>(null);
   const lastBillingSnapshot = useRef<{ tier: string | null; requestStatus: string | null } | null>(null);
+  const lastPushToken = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -229,8 +230,45 @@ export function AuthPersist() {
       }
     };
 
+    const syncPushToken = async () => {
+      try {
+        const Notifications = await getNotifications();
+        if (!Notifications || typeof Notifications.getExpoPushTokenAsync !== "function") return;
+
+        const perm = await Notifications.getPermissionsAsync();
+        if (perm.status !== "granted") {
+          // You might not want to auto-request here if you have a dedicated permissions screen
+          // but for messaging engagement, we usually want to ensure it's requested.
+          const req = await Notifications.requestPermissionsAsync();
+          if (req.status !== "granted") return;
+        }
+
+        const Constants = await import("expo-constants");
+        const anyConstants = Constants as any;
+        const projectId =
+          anyConstants?.default?.expoConfig?.extra?.eas?.projectId ??
+          anyConstants?.expoConfig?.extra?.eas?.projectId;
+
+        const expoToken = await Notifications.getExpoPushTokenAsync({ projectId });
+        const tokenStr = expoToken.data;
+
+        if (tokenStr === lastPushToken.current) return;
+
+        await apiRequest("/users/push-token", {
+          method: "POST",
+          body: { token: tokenStr },
+          token,
+          suppressStatusCodes: [401, 403],
+        });
+        lastPushToken.current = tokenStr;
+      } catch (error) {
+        if (__DEV__) console.warn("[PushTokenSync] Failed:", error);
+      }
+    };
+
     void syncBillingStatus(false);
     void syncProfile();
+    void syncPushToken();
     initialized = true;
     const interval = setInterval(() => {
       void syncBillingStatus(initialized);

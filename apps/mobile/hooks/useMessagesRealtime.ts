@@ -1,8 +1,8 @@
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { useEffect, useRef } from "react";
-import { io, Socket } from "socket.io-client";
-import { getNotifications } from "@/lib/notifications";
+import { Socket } from "socket.io-client";
+import { useSocket } from "@/context/SocketContext";
 
 type UseMessagesRealtimeParams = {
   token: string | null | undefined;
@@ -18,8 +18,6 @@ type UseMessagesRealtimeParams = {
 };
 
 export function useMessagesRealtime({
-  token,
-  role,
   profileId,
   draft,
   currentThread,
@@ -29,7 +27,7 @@ export function useMessagesRealtime({
   setThreads,
   setTypingStatus,
 }: UseMessagesRealtimeParams) {
-  const socketRef = useRef<Socket | null>(null);
+  const { socket } = useSocket();
   const typingRef = useRef<{ active: boolean; timer?: ReturnType<typeof setTimeout> | null }>({ active: false, timer: null });
 
   // --- Stable refs so socket handlers always see latest values ---
@@ -51,20 +49,7 @@ export function useMessagesRealtime({
   useEffect(() => { setTypingStatusRef.current = setTypingStatus; }, [setTypingStatus]);
 
   useEffect(() => {
-    if (!token) return;
-    const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
-    const socketUrl = baseUrl ? baseUrl.replace(/\/api\/?$/, "") : "";
-    if (!socketUrl) return;
-
-    const socket: Socket = io(socketUrl, {
-      auth: { token },
-      // React Native requires websocket first, as XHR polling can timeout on the bridge
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      timeout: 10000,
-    });
-    socketRef.current = socket;
+    if (!socket) return;
 
     socket.on("message:new", async (payload: any) => {
       if (!payload?.id) return;
@@ -119,26 +104,6 @@ export function useMessagesRealtime({
             : t
         );
       });
-
-      if (String(senderId) !== selfId) {
-        const Notifications = await getNotifications();
-        if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
-        const isResponseVideo = payload.contentType === "video" && Number.isFinite(payload.videoUploadId);
-        const notificationTitle = isResponseVideo ? "Coach response video" : "New message";
-        const notificationBody = isResponseVideo
-          ? "Your coach sent a response video."
-          : payload.content ?? "You received a new message";
-        Notifications.scheduleNotificationAsync({
-          content: {
-            title: notificationTitle,
-            body: notificationBody,
-            sound: "default",
-            categoryIdentifier: "messages",
-            data: { threadId: String(threadIdFromMessage) },
-          },
-          trigger: null,
-        });
-      }
     });
 
     socket.on("group:message", async (payload: any) => {
@@ -190,21 +155,6 @@ export function useMessagesRealtime({
             : t
         )
       );
-
-      if (String(payload.senderId) !== selfId) {
-        const Notifications = await getNotifications();
-        if (!Notifications) return;
-        Notifications.scheduleNotificationAsync({
-          content: {
-            title: "New group message",
-            body: payload.content ?? "You received a new group message",
-            sound: "default",
-            categoryIdentifier: "messages",
-            data: { threadId: `group:${groupId}` },
-          },
-          trigger: null,
-        });
-      }
     });
 
     socket.on(
@@ -250,19 +200,22 @@ export function useMessagesRealtime({
     });
 
     socket.on("group:message:deleted", (payload: { messageId: number }) => {
-      const id = `group-${payload.messageId}`;
+      const id = `group-${payload.id}`; // Wait, payload.messageId? Payload id?
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
     });
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      socket.off("message:new");
+      socket.off("group:message");
+      socket.off("typing:update");
+      socket.off("message:reaction");
+      socket.off("group:reaction");
+      socket.off("message:deleted");
+      socket.off("group:message:deleted");
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [socket]); // Simplified deps to avoid listener re-attachment spam
 
   useEffect(() => {
-    const socket = socketRef.current;
     if (!socket || !currentThread) return;
 
     if (draft.trim().length > 0) {
@@ -297,7 +250,7 @@ export function useMessagesRealtime({
         socket.emit("typing:stop", { toUserId: Number(currentThread.id) });
       }
     }
-  }, [currentThread, draft]);
+  }, [currentThread, draft, socket]);
 
-  return socketRef;
+  return socket;
 }

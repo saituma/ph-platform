@@ -87,7 +87,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
     setError,
     clearErrors,
   } = useForm<AthleteRegisterFormData>({
-    resolver: zodResolver(athleteRegisterSchema),
+    resolver: zodResolver(athleteRegisterSchema as any),
     defaultValues: {
       name: "",
       birthDate: "",

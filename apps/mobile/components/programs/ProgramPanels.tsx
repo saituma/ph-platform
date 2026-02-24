@@ -12,6 +12,7 @@ import { Text, TextInput } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { useRole } from "@/context/RoleContext";
+import { useSocket } from "@/context/SocketContext";
 
 export function PhysioReferralPanel({ discount }: { discount?: string }) {
   const { token } = useAppSelector((state) => state.user);
@@ -724,6 +725,23 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
       setLoadingResponses(false);
     }
   }, [athleteUserId, profile.id, role, scheduleLocalNotification, token]);
+
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleVideoReviewed = (updatedUpload: any) => {
+      setVideoItems((prev) => 
+        prev.map((item) => item.id === updatedUpload.id ? { ...item, ...updatedUpload } : item)
+      );
+    };
+
+    socket.on("video:reviewed", handleVideoReviewed);
+    return () => {
+      socket.off("video:reviewed", handleVideoReviewed);
+    };
+  }, [socket]);
 
   useEffect(() => {
     void loadVideos();

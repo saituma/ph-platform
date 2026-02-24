@@ -16,7 +16,7 @@ export default function ProgramDetailScreen() {
         programId={programId}
         showBack
         onBack={() => router.back()}
-        onNavigate={(path) => router.push(path)}
+        onNavigate={(path) => router.push(path as any)}
       />
     </SafeAreaView>
   );

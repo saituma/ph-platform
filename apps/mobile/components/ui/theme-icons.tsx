@@ -17,7 +17,7 @@ function interopIcon(IconSet: any, name: string) {
     cssInterop(Component, {
       nativeStyleToProp: {
         color: true,
-      },
+      } as any,
     });
   } catch {
     // Swallow nativewind interop errors to avoid noisy console warnings.

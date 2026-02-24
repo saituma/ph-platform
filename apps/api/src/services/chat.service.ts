@@ -1,4 +1,5 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
+import { sendPushNotification } from "./push.service";
 
 import { db } from "../db";
 import { sql } from "drizzle-orm";
@@ -12,6 +13,7 @@ import {
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { attachGroupMessageReactions } from "./reaction.service";
+import { env } from "../config/env";
 
 export async function createDirectMessage(input: {
   senderId: number;
@@ -170,6 +172,45 @@ export async function createGroupMessage(input: {
     })
     .returning();
   const message = result[0];
+
+  // Push notifications
+  try {
+    const members = await db
+      .select({
+        id: userTable.id,
+        expoPushToken: userTable.expoPushToken,
+      })
+      .from(chatGroupMemberTable)
+      .innerJoin(userTable, eq(chatGroupMemberTable.userId, userTable.id))
+      .where(and(eq(chatGroupMemberTable.groupId, input.groupId), ne(userTable.id, input.senderId)));
+
+    const sender = await db
+      .select({ name: userTable.name })
+      .from(userTable)
+      .where(eq(userTable.id, input.senderId))
+      .limit(1);
+
+    const group = await db
+      .select({ name: chatGroupTable.name })
+      .from(chatGroupTable)
+      .where(eq(chatGroupTable.id, input.groupId))
+      .limit(1);
+
+    const title = `${sender[0]?.name ?? "User"} in ${group[0]?.name ?? "Group"}`;
+    const body = safeContent;
+
+    for (const member of members) {
+      if (member.expoPushToken) {
+        await sendPushNotification(member.id, title, body, {
+          threadId: `group:${input.groupId}`,
+          url: "/(tabs)/schedule",
+        });
+      }
+    }
+  } catch (error) {
+    console.error("[Push] Group notification error:", error);
+  }
+
   const io = getSocketServer();
   if (io) {
     io.to(`group:${input.groupId}`).emit("group:message", { ...message, reactions: [] });

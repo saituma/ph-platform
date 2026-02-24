@@ -5,6 +5,7 @@ import { athleteTable, messageReactionTable, messageTable, userTable } from "../
 import { env } from "../config/env";
 import { getSocketServer } from "../socket-hub";
 import { attachDirectMessageReactions } from "./reaction.service";
+import { sendPushNotification } from "./push.service";
 
 const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
 
@@ -189,29 +190,20 @@ export async function sendMessage(input: {
   }
 
   // Send push notification to receiver (skip for AI coach)
-  if (env.pushWebhookUrl && aiCoachId === null) {
+  if (aiCoachId === null) {
     try {
-      const receiver = await db
-        .select({ name: userTable.name })
-        .from(userTable)
-        .where(eq(userTable.id, resolvedReceiverId))
-        .limit(1);
-
       const sender = await db
         .select({ name: userTable.name })
         .from(userTable)
         .where(eq(userTable.id, input.senderId))
         .limit(1);
+        
+      const title = `New message from ${sender[0]?.name ?? "Coach"}`;
+      const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
 
-      await fetch(env.pushWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: resolvedReceiverId,
-          title: `New message from ${sender[0]?.name ?? "Coach"}`,
-          body: input.contentType === "text" ? input.content : `Sent a ${input.contentType}`,
-          link: "/messages",
-        }),
+      await sendPushNotification(resolvedReceiverId, title, body, {
+        threadId: String(input.senderId),
+        url: "/messages",
       });
     } catch (error) {
       console.error("[Push] Failed to send message push notification:", error);
