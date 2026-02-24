@@ -87,7 +87,7 @@ export function useMessagesController() {
         apiRequest<{
           messages: any[];
           coach?: { id: number; name: string; role?: string; profilePicture?: string | null };
-          coaches?: { id: number; name: string; role?: string; profilePicture?: string | null; isAi?: boolean }[];
+          coaches?: { id: number; name: string; role: string; profilePicture?: string | null; isAi?: boolean }[];
         }>("/messages", {
           token,
           headers: actingHeaders,

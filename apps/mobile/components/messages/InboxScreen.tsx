@@ -30,7 +30,7 @@ function getInitials(name?: string | null) {
   return `${firstInit}${lastInit}`.toUpperCase();
 }
 
-export function InboxScreen({
+function InboxScreenBase({
   threads,
   typingStatus,
   isLoading,
@@ -238,3 +238,4 @@ export function InboxScreen({
     </ThemedScrollView>
   );
 }
+export const InboxScreen = React.memo(InboxScreenBase);

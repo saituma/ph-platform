@@ -37,7 +37,7 @@ type ThreadChatBodyProps = {
   isUploadingAttachment?: boolean;
 };
 
-export function ThreadChatBody({
+function ThreadChatBodyBase({
   thread,
   messages,
   draft,
@@ -67,33 +67,18 @@ export function ThreadChatBody({
   const insets = useSafeAreaInsets();
   const isNearBottomRef = React.useRef(true);
   
-  React.useEffect(() => {
-    if (messages.length > 0) {
-      if (hasInitialScrolled.current !== thread.id) {
-        setTimeout(() => {
-          listRef.current?.scrollToEnd({ animated: false });
-          hasInitialScrolled.current = thread.id;
-        }, 300);
-      } else {
-        setTimeout(() => {
-          listRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
-    }
-  }, [messages, thread.id]);
+  const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
 
   const keyExtractor = React.useCallback((message: ChatMessage) => String(message.id), []);
   const renderItem = React.useCallback(
     ({ item }: { item: ChatMessage }) => (
       <MessageBubble
         message={item}
-        threadName={thread.name}
-        isGroup={isGroup}
         onLongPress={onLongPressMessage}
         onReactionPress={onReactionPress}
       />
     ),
-    [isGroup, onLongPressMessage, onReactionPress, thread.name]
+    [onLongPressMessage, onReactionPress]
   );
 
   return (
@@ -106,22 +91,16 @@ export function ThreadChatBody({
         ref={(node) => {
           listRef.current = node;
         }}
+        inverted
         className="flex-1"
         style={{ backgroundColor: colors.background }}
-        data={messages}
+        data={reversedMessages}
         keyExtractor={keyExtractor}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         onScroll={(event) => {
-          const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-          const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-          isNearBottomRef.current = distanceFromBottom < 60;
-        }}
-        onContentSizeChange={() => {
-          if (hasInitialScrolled.current !== thread.id || isNearBottomRef.current) {
-            listRef.current?.scrollToEnd({ animated: hasInitialScrolled.current === thread.id });
-            hasInitialScrolled.current = thread.id;
-          }
+          const { contentOffset } = event.nativeEvent;
+          isNearBottomRef.current = contentOffset.y < 60;
         }}
         contentContainerStyle={{
           paddingHorizontal: 16,
@@ -130,11 +109,11 @@ export function ThreadChatBody({
           rowGap: 8,
         }}
         showsVerticalScrollIndicator={false}
-        initialNumToRender={16}
-        windowSize={7}
-        maxToRenderPerBatch={12}
+        initialNumToRender={8}
+        windowSize={5}
+        maxToRenderPerBatch={10}
         removeClippedSubviews
-        ListHeaderComponent={
+        ListFooterComponent={
           <>
             {isThreadLoading || isLoading ? (
               <View className="mb-4 rounded-2xl bg-accent/5 border border-accent/5 px-4 py-3 flex-row items-center justify-center">
@@ -273,3 +252,4 @@ export function ThreadChatBody({
     </KeyboardAvoidingView>
   );
 }
+export const ThreadChatBody = React.memo(ThreadChatBodyBase);
