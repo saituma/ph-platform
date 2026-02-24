@@ -62,6 +62,18 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       sub: user.cognitoSub,
       profilePicture: user.profilePicture ?? null,
     };
+
+    const actingUserId = req.headers["x-acting-user-id"];
+    if (actingUserId && user.role === "guardian") {
+      const { listGuardianAthletes } = await import("../services/user.service");
+      const { athletes } = await listGuardianAthletes(user.id);
+      const managed = athletes.find((a) => String(a.userId) === String(actingUserId));
+      if (managed && managed.userId) {
+        req.user.id = Number(managed.userId);
+        // We keep the original role (guardian) but change the ID so they access athlete data.
+      }
+    }
+
     next();
   } catch (err) {
     console.error("Auth failed", err);

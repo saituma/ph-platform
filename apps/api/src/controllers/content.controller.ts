@@ -12,12 +12,13 @@ import {
   updateContent,
   getContentById,
   getContentByIdAdmin,
-  listParentCourses,
   getParentCourseById,
+  listParentCourses,
   createParentCourse,
   updateParentCourse,
   getTestimonialSubmissions,
   updateContentCategory,
+  getParentCourseAiInsight,
 } from "../services/content.service";
 import { ProgramType, contentType } from "../db/schema";
 import { getAthleteForUser } from "../services/user.service";
@@ -394,4 +395,31 @@ export async function updateParentCourseHandler(req: Request, res: Response) {
     return res.status(404).json({ error: "Course not found" });
   }
   return res.status(200).json({ item });
+}
+
+export async function getParentCourseAiInsightController(req: Request, res: Response) {
+  const courseId = z.coerce.number().int().min(1).parse(req.params.courseId);
+  try {
+    const insight = await getParentCourseAiInsight(courseId);
+    return res.status(200).json({ insight });
+  } catch (error) {
+    console.error("[Content Controller] Error getting parent course insight:", error);
+    return res.status(500).json({ error: "Failed to generate AI insight" });
+  }
+}
+
+export async function getContentAiInsightController(req: Request, res: Response) {
+  const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
+  
+  // Extract age if provided for better AI context (e.g., U14, U16)
+  const ageQuery = req.query.age ? String(req.query.age) : null;
+  
+  try {
+    const { getContentAiInsight } = await import("../services/content.service");
+    const insight = await getContentAiInsight(contentId, ageQuery);
+    return res.status(200).json({ insight });
+  } catch (error) {
+    console.error("[Content Controller] Error getting content AI insight:", error);
+    return res.status(500).json({ error: "Failed to generate AI insight" });
+  }
 }

@@ -1,9 +1,12 @@
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 
 import { db } from "../db";
-import { messageReactionTable, messageTable, userTable } from "../db/schema";
+import { athleteTable, messageReactionTable, messageTable, userTable } from "../db/schema";
+import { env } from "../config/env";
 import { getSocketServer } from "../socket-hub";
 import { attachDirectMessageReactions } from "./reaction.service";
+
+const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
 
 export async function getCoachUser() {
   const users = await db
@@ -13,7 +16,8 @@ export async function getCoachUser() {
       and(
         or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
         eq(userTable.isDeleted, false),
-        eq(userTable.isBlocked, false)
+        eq(userTable.isBlocked, false),
+        ne(userTable.email, AI_COACH_EMAIL)
       )
     )
     .orderBy(
@@ -51,14 +55,22 @@ export async function getAdminCoachIds() {
 
 export async function getLastAdminContact(userId: number) {
   const adminIds = await getAdminCoachIds();
-  if (!adminIds.length) return null;
+  // Exclude AI Coach from "last admin contact" — it has its own thread
+  const aiCoachRows = await db
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(eq(userTable.email, AI_COACH_EMAIL))
+    .limit(1);
+  const aiCoachId = aiCoachRows[0]?.id;
+  const humanAdminIds = aiCoachId ? adminIds.filter((id) => id !== aiCoachId) : adminIds;
+  if (!humanAdminIds.length) return null;
   const messages = await db
     .select()
     .from(messageTable)
     .where(
       or(
-        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, adminIds)),
-        and(inArray(messageTable.senderId, adminIds), eq(messageTable.receiverId, userId))
+        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, humanAdminIds)),
+        and(inArray(messageTable.senderId, humanAdminIds), eq(messageTable.receiverId, userId))
       )
     )
     .orderBy(desc(messageTable.createdAt))
@@ -77,8 +89,8 @@ export async function listThread(userId: number) {
     .from(messageTable)
     .where(
       or(
-        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, adminIds)),
-        and(inArray(messageTable.senderId, adminIds), eq(messageTable.receiverId, userId))
+        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, [...adminIds, -1])),
+        and(inArray(messageTable.senderId, [...adminIds, -1]), eq(messageTable.receiverId, userId))
       )
     )
     .orderBy(messageTable.createdAt);
@@ -95,11 +107,34 @@ export async function sendMessage(input: {
   clientId?: string | null;
 }) {
   const safeContent = input.content.trim() || "Attachment";
+
+  // Detect if message is to AI Coach (virtual ID: -1 or real AI coach user ID)
+  let resolvedReceiverId = input.receiverId;
+  let aiCoachId: number | null = null;
+  
+  if (input.receiverId === -1) {
+    // Legacy virtual ID path
+    const { ensureAiCoachUser } = await import("./ai.service");
+    aiCoachId = await ensureAiCoachUser();
+    resolvedReceiverId = aiCoachId;
+  } else {
+    // Check if the receiver is the AI coach user by email
+    const aiCoachEmail = "ai-coach@football-performance.ai";
+    const [aiUser] = await db
+      .select({ id: userTable.id })
+      .from(userTable)
+      .where(eq(userTable.email, aiCoachEmail))
+      .limit(1);
+    if (aiUser && aiUser.id === input.receiverId) {
+      aiCoachId = aiUser.id;
+    }
+  }
+
   const result = await db
     .insert(messageTable)
     .values({
       senderId: input.senderId,
-      receiverId: input.receiverId,
+      receiverId: resolvedReceiverId,
       content: safeContent,
       contentType: input.contentType,
       mediaUrl: input.mediaUrl ?? null,
@@ -108,15 +143,94 @@ export async function sendMessage(input: {
     .returning();
 
   const message = result[0];
+
+  // If message is to AI Coach, generate and send AI response
+  if (aiCoachId !== null) {
+    const { generateAiCoachResponse } = await import("./ai.service");
+    
+    // Fetch recent history for context (last 5 messages)
+    const historyRows = await db
+      .select({ role: sql<string>`case when ${messageTable.senderId} = ${input.senderId} then 'user' else 'assistant' end`.as("role"), content: messageTable.content })
+      .from(messageTable)
+      .where(
+        or(
+          and(eq(messageTable.senderId, input.senderId), eq(messageTable.receiverId, aiCoachId)),
+          and(eq(messageTable.senderId, aiCoachId), eq(messageTable.receiverId, input.senderId))
+        )
+      )
+      .orderBy(desc(messageTable.createdAt))
+      .limit(5);
+    
+    const history = historyRows.reverse().map(h => ({ 
+      role: h.role as "user" | "assistant", 
+      content: h.content 
+    }));
+
+    const aiResponse = await generateAiCoachResponse(input.content, history);
+    
+    // Save AI response to DB
+    const aiResult = await db
+      .insert(messageTable)
+      .values({
+        senderId: aiCoachId,
+        receiverId: input.senderId,
+        content: aiResponse,
+        contentType: "text",
+      })
+      .returning();
+    
+    const aiMessage = aiResult[0];
+    
+    // Emit AI response via socket
+    const io = getSocketServer();
+    if (io) {
+      io.to(`user:${input.senderId}`).emit("message:new", aiMessage);
+    }
+  }
+
+  // Send push notification to receiver (skip for AI coach)
+  if (env.pushWebhookUrl && aiCoachId === null) {
+    try {
+      const receiver = await db
+        .select({ name: userTable.name })
+        .from(userTable)
+        .where(eq(userTable.id, resolvedReceiverId))
+        .limit(1);
+
+      const sender = await db
+        .select({ name: userTable.name })
+        .from(userTable)
+        .where(eq(userTable.id, input.senderId))
+        .limit(1);
+
+      await fetch(env.pushWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: resolvedReceiverId,
+          title: `New message from ${sender[0]?.name ?? "Coach"}`,
+          body: input.contentType === "text" ? input.content : `Sent a ${input.contentType}`,
+          link: "/messages",
+        }),
+      });
+    } catch (error) {
+      console.error("[Push] Failed to send message push notification:", error);
+    }
+  }
+
   const io = getSocketServer();
-  if (io) {
+  if (io && aiCoachId === null) {
     const enriched = input.clientId ? { ...message, clientId: input.clientId } : message;
-    console.log(`[Socket] Emitting message:new for ID ${message.id} to rooms: user:${input.senderId}, user:${input.receiverId}, admin:all`);
+    console.log(`[Socket] Emitting message:new for ID ${message.id} to rooms: user:${input.senderId}, user:${resolvedReceiverId}, admin:all`);
     io.to(`user:${input.senderId}`).emit("message:new", enriched);
-    io.to(`user:${input.receiverId}`).emit("message:new", enriched);
+    io.to(`user:${resolvedReceiverId}`).emit("message:new", enriched);
     io.to("admin:all").emit("message:new", enriched);
-  } else {
+  } else if (!io) {
     console.warn("[Socket] Failed to emit message:new - IO server NOT initialized");
+  } else if (aiCoachId !== null) {
+    // Only emit user's message back to user for AI coach thread
+    const enriched = input.clientId ? { ...message, clientId: input.clientId } : message;
+    io!.to(`user:${input.senderId}`).emit("message:new", enriched);
   }
   return message;
 }
@@ -149,4 +263,10 @@ export async function deleteDirectMessage(input: { messageId: number; userId: nu
     io.to("admin:all").emit("message:deleted", { messageId: input.messageId });
   }
   return { deleted: true };
+}
+
+export async function isUserPremium(userId: number): Promise<boolean> {
+  const { getAthleteForUser } = await import("./user.service");
+  const athlete = await getAthleteForUser(userId);
+  return athlete?.currentProgramTier === "PHP_Premium";
 }

@@ -202,6 +202,28 @@ export async function getContentByIdAdmin(contentId: number) {
   return items[0] ?? null;
 }
 
+export async function getContentAiInsight(contentId: number, ageGroup?: string | null) {
+  const item = await db
+    .select()
+    .from(contentTable)
+    .where(eq(contentTable.id, contentId))
+    .limit(1);
+
+  if (!item[0]) return null;
+
+  const { generateContentSummary } = await import("./ai.service");
+  
+  // Combine title and body for context
+  const contentText = [
+    item[0].title,
+    item[0].body
+  ].filter(Boolean).join("\n\n");
+
+  if (!contentText) return null;
+
+  return generateContentSummary(item[0].title, contentText, ageGroup ?? undefined);
+}
+
 type ParentCourseModule = {
   id: string;
   title: string;
@@ -331,4 +353,23 @@ export async function updateParentCourse(input: {
     .returning();
 
   return result[0] ?? null;
+}
+
+export async function getParentCourseAiInsight(courseId: number) {
+  const course = await db
+    .select()
+    .from(parentCourseTable)
+    .where(eq(parentCourseTable.id, courseId))
+    .limit(1);
+
+  if (!course[0]) return null;
+
+  const modules = (course[0].modules as any[]) || [];
+
+  const context = `Course Title: ${course[0].title}\nSummary: ${course[0].summary}\nModules:\n${modules
+    .map((m) => `- ${m.title}: ${m.content?.slice(0, 100)}...`)
+    .join("\n")}`;
+
+  const { generateParentEducationalInsight } = await import("./ai.service");
+  return await generateParentEducationalInsight(context);
 }

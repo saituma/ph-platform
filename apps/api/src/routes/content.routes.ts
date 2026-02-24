@@ -12,14 +12,16 @@ import {
   updateContentItem,
   getContentItem,
   deleteContent,
-  listParentCoursesHandler,
-  getParentCourseHandler,
-  createParentCourseHandler,
-  updateParentCourseHandler,
   submitTestimonial,
   listTestimonialSubmissions,
   approveTestimonialSubmission,
   rejectTestimonialSubmission,
+  listParentCoursesHandler,
+  getParentCourseHandler,
+  createParentCourseHandler,
+  updateParentCourseHandler,
+  getParentCourseAiInsightController,
+  getContentAiInsightController,
 } from "../controllers/content.controller";
 
 const router = Router();
@@ -50,7 +52,9 @@ router.post(
 );
 router.get("/content/parent-courses", requireAuth, listParentCoursesHandler);
 router.get("/content/parent-courses/:courseId", requireAuth, getParentCourseHandler);
+router.get("/content/parent-courses/:courseId/ai-insight", requireAuth, getParentCourseAiInsightController);
 router.get("/content/:contentId", requireAuth, getContentItem);
+router.get("/content/:contentId/ai-insight", requireAuth, getContentAiInsightController);
 router.post("/content", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createContentItem);
 router.put("/content/:contentId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateContentItem);
 router.delete("/content/:contentId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteContent);

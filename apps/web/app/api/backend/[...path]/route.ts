@@ -24,6 +24,7 @@ async function forward(req: NextRequest) {
       ...(forwardedAuth ? { Authorization: forwardedAuth } : {}),
     },
     body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.text(),
+    cache: "no-store",
   });
 
   const data = await res.text();

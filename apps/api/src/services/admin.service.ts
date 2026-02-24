@@ -384,7 +384,19 @@ export async function listUsers() {
       athleteId: athleteTable.id,
       athleteName: athleteTable.name,
       programTier: athleteTable.currentProgramTier,
-      onboardingCompleted: athleteTable.onboardingCompleted,
+      onboardingCompleted: sql<boolean>`
+        coalesce(
+          ${athleteTable.onboardingCompleted},
+          (
+            SELECT EXISTS (
+              SELECT 1 FROM ${athleteTable} as a
+              WHERE a."guardianId" = ${guardianTable.id}
+              AND a."onboardingCompleted" = true
+            )
+          ),
+          false
+        )
+      `.as("onboarding_completed"),
       guardianProgramTier: guardianTable.currentProgramTier,
     })
     .from(userTable)
