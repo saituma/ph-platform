@@ -46,9 +46,15 @@ export async function savePushToken(req: Request, res: Response) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const { token } = pushTokenSchema.parse(req.body);
-  await db
+  console.log(`[PushToken] Attempting to save token for user ${req.user.id}: ${token.slice(0, 10)}...`);
+  
+  const result = await db
     .update(userTable)
     .set({ expoPushToken: token, updatedAt: new Date() })
-    .where(eq(userTable.id, req.user.id));
+    .where(eq(userTable.id, req.user.id))
+    .returning();
+
+  console.log(`[PushToken] Update successful for user ${req.user.id}. Rows updated: ${result.length}`);
+  
   return res.status(200).json({ success: true });
 }
