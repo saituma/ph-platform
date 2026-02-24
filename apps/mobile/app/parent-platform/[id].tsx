@@ -15,7 +15,6 @@ import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { useRole } from "@/context/RoleContext";
-import { Ionicons } from "@expo/vector-icons";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 
 type ParentCourseModule = {
@@ -50,7 +49,6 @@ export default function ParentCourseDetail() {
   const { role } = useRole();
   const cached = Number.isFinite(Number(idValue)) ? getParentContentCache(Number(idValue)) : null;
   const [item, setItem] = useState<ParentCourseItem | null>(cached as ParentCourseItem | null);
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(!cached);
 
   const isAthlete = role === "Athlete";
@@ -77,15 +75,9 @@ export default function ParentCourseDetail() {
     (async () => {
       if (!token || !idValue) return;
       try {
-        const [data, insightData] = await Promise.all([
-          apiRequest<{ item: ParentCourseItem }>(`/content/parent-courses/${idValue}`, { token }),
-          programTier === "PHP_Premium" 
-            ? apiRequest<{ insight: string }>(`/content/parent-courses/${idValue}/ai-insight`, { token })
-            : Promise.resolve({ insight: null })
-        ]);
+        const data = await apiRequest<{ item: ParentCourseItem }>(`/content/parent-courses/${idValue}`, { token });
         if (mounted) {
           setItem(data.item ?? null);
-          setAiInsight(insightData.insight ?? null);
         }
       } catch {
         if (mounted) setItem(null);
@@ -224,27 +216,7 @@ export default function ParentCourseDetail() {
               ) : null}
             </View>
 
-            {aiInsight && (
-              <View className="rounded-3xl bg-white/5 border border-white/10 p-6 gap-4">
-                <View className="flex-row items-center gap-2">
-                  <View className="h-7 w-7 rounded-full bg-purple-500/20 items-center justify-center">
-                    <Ionicons name="sparkles" size={14} color="#A855F7" />
-                  </View>
-                  <Text className="text-[11px] font-outfit text-white/60 uppercase tracking-[2px] font-bold">
-                    AI Content Insights
-                  </Text>
-                </View>
-                <MarkdownText
-                  text={aiInsight}
-                  baseStyle={{
-                    fontSize: 14,
-                    lineHeight: 22,
-                    color: colors.textSecondary,
-                    fontFamily: "Outfit_400Regular",
-                  }}
-                />
-              </View>
-            )}
+
 
             {isLocked ? (
               <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">

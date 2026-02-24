@@ -5,6 +5,7 @@ import { athleteTable, messageReactionTable, messageTable, userTable } from "../
 import { env } from "../config/env";
 import { getSocketServer } from "../socket-hub";
 import { attachDirectMessageReactions } from "./reaction.service";
+import { Expo } from "expo-server-sdk";
 
 const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
 
@@ -189,10 +190,10 @@ export async function sendMessage(input: {
   }
 
   // Send push notification to receiver (skip for AI coach)
-  if (env.pushWebhookUrl && aiCoachId === null) {
+  if (aiCoachId === null) {
     try {
       const receiver = await db
-        .select({ name: userTable.name })
+        .select({ name: userTable.name, expoPushToken: userTable.expoPushToken })
         .from(userTable)
         .where(eq(userTable.id, resolvedReceiverId))
         .limit(1);
@@ -202,17 +203,34 @@ export async function sendMessage(input: {
         .from(userTable)
         .where(eq(userTable.id, input.senderId))
         .limit(1);
+        
+      const title = `New message from ${sender[0]?.name ?? "Coach"}`;
+      const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
 
-      await fetch(env.pushWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: resolvedReceiverId,
-          title: `New message from ${sender[0]?.name ?? "Coach"}`,
-          body: input.contentType === "text" ? input.content : `Sent a ${input.contentType}`,
-          link: "/messages",
-        }),
-      });
+      if (env.pushWebhookUrl) {
+        await fetch(env.pushWebhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: resolvedReceiverId,
+            title,
+            body,
+            link: "/messages",
+          }),
+        });
+      }
+      
+      const pushToken = receiver[0]?.expoPushToken;
+      if (pushToken && Expo.isExpoPushToken(pushToken)) {
+        const expo = new Expo({ accessToken: env.expoAccessToken });
+        await expo.sendPushNotificationsAsync([{
+          to: pushToken,
+          title,
+          body,
+          data: { threadId: String(input.senderId), url: "/(tabs)/schedule" }, // we map this to correct thread in app layer if needed
+          sound: "default"
+        }]);
+      }
     } catch (error) {
       console.error("[Push] Failed to send message push notification:", error);
     }

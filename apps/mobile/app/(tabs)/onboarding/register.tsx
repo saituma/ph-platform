@@ -53,7 +53,7 @@ export default function RegisterScreen() {
     openDropdown,
     onSubmit,
     dropdownState,
-  } = useRegisterController({ router, mode: params?.mode });
+  } = useRegisterController({ router: router as any, mode: params?.mode });
 
   const [planByTier, setPlanByTier] = React.useState<Record<string, any>>({});
   const [planPricingByTier, setPlanPricingByTier] = React.useState<Record<string, any>>({});
@@ -206,7 +206,7 @@ export default function RegisterScreen() {
         <RegisterFormFields
           control={control}
           errors={errors}
-          colors={colors}
+          colors={colors as any}
           isVisible={isVisible}
           labelFor={labelFor}
           optionsFor={optionsFor}

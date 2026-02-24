@@ -98,29 +98,9 @@ export default function AthleteStatsScreen() {
     athleteUserIdRef.current = athleteUserId;
   }, [athleteUserId]);
 
-  useEffect(() => {
-    let mounted = true;
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (!mounted) return;
-      void loadAthletes();
-    });
-    return () => {
-      mounted = false;
-      task?.cancel?.();
-    };
-  }, [loadAthletes]);
 
-  useEffect(() => {
-    let active = true;
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (!active) return;
-      void loadStats();
-    });
-    return () => {
-      active = false;
-      task?.cancel?.();
-    };
-  }, [loadStats]);
+
+
 
   const selectedAthlete =
     managedAthletes.find(
@@ -272,6 +252,30 @@ export default function AthleteStatsScreen() {
       setIsStatsLoading(false);
     }
   }, [selectedAthlete, token]);
+
+  useEffect(() => {
+    let mounted = true;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (!mounted) return;
+      void loadAthletes();
+    });
+    return () => {
+      mounted = false;
+      task?.cancel?.();
+    };
+  }, [loadAthletes]);
+
+  useEffect(() => {
+    let active = true;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (!active) return;
+      void loadStats();
+    });
+    return () => {
+      active = false;
+      task?.cancel?.();
+    };
+  }, [loadStats]);
 
   if (isSectionHidden("parentPlatform")) {
     return (

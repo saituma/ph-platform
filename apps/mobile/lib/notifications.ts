@@ -1,7 +1,8 @@
 export async function getNotifications() {
   try {
     const Constants = await import("expo-constants");
-    const ownership = Constants?.default?.appOwnership ?? Constants?.appOwnership;
+    const anyConstants = Constants as any;
+    const ownership = anyConstants?.default?.appOwnership ?? anyConstants?.appOwnership;
     if (ownership === "expo") {
       // Expo Go does not support remote push notifications.
       return null;
