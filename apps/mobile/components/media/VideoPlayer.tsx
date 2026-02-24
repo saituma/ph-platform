@@ -140,24 +140,35 @@ export function VideoPlayer({
     }
   }, [uri]);
 
+  const source = useMemo(() => ({ uri }), [uri]);
+  const videoStyle = useMemo(() => ({ width: "100%", height: 220 as const }), []);
+
+  const handlePlaybackStatusUpdate = useCallback((newStatus: AVPlaybackStatus) => {
+    setStatus(newStatus);
+  }, []);
+
+  const handleLoadStart = useCallback(() => setIsLoading(true), []);
+  const handleReadyForDisplay = useCallback(() => setIsLoading(false), []);
+  const handleError = useCallback((err: string) => {
+    setError("Unable to play video. Tap to open.");
+    setIsLoading(false);
+  }, []);
+
   return (
     <View className="overflow-hidden rounded-2xl border border-app/10 bg-black">
       <Video
         ref={videoRef}
-        source={{ uri }}
+        source={source}
         resizeMode={ResizeMode.COVER}
         shouldPlay={autoPlay}
         isMuted={isMuted}
         isLooping={isLooping}
-        onLoadStart={() => setIsLoading(true)}
-        onReadyForDisplay={() => setIsLoading(false)}
-        onError={(err) => {
-          setError("Unable to play video. Tap to open.");
-          setIsLoading(false);
-        }}
-        onPlaybackStatusUpdate={setStatus}
+        onLoadStart={handleLoadStart}
+        onReadyForDisplay={handleReadyForDisplay}
+        onError={handleError}
+        onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
         useNativeControls={false}
-        style={{ width: "100%", height: 220 }}
+        style={videoStyle}
       />
       <View className="absolute inset-0 items-center justify-center">
         {isLoading ? (

@@ -174,21 +174,7 @@ export function InboxScreen({
                           )}
                         </View>
 
-                        {thread.isAi ? (
-                          <View className="flex-col items-end gap-1">
-                            <View className="bg-purple-600 px-1.5 py-0.5 rounded shadow-sm flex-row items-center gap-1">
-                              <Ionicons name="sparkles" size={8} color="white" />
-                              <Text className="text-[7px] font-bold text-white uppercase tracking-tighter">
-                                AI COACH
-                              </Text>
-                            </View>
-                            <View className="bg-purple-600/90 px-1.5 py-0.5 rounded shadow-sm">
-                              <Text className="text-[7px] font-bold text-white uppercase tracking-tighter">
-                                Responds Instantly
-                              </Text>
-                            </View>
-                          </View>
-                        ) : thread.premium && (
+                        {thread.premium && (
                           <View className="flex-col items-end gap-1">
                             <View className="bg-[#2F8F57] px-1.5 py-0.5 rounded shadow-sm">
                               <Text className="text-[7px] font-bold text-white uppercase tracking-tighter">
