@@ -103,6 +103,7 @@ export default function LoginScreen() {
         }>("/billing/status", {
           token,
           suppressStatusCodes: [401, 403, 404],
+          skipCache: true,
         });
         dispatch(setProgramTier(status?.currentProgramTier ?? null));
         dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));

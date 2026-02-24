@@ -24,12 +24,14 @@ export function useMessagesController() {
   const router = useRouter();
   const { thread, id } = useLocalSearchParams<{ thread?: string; id?: string }>();
   const threadId = thread || id;
-  const token = useAppSelector((state) => state.user.token);
-  const profile = useAppSelector((state) => state.user.profile);
-  const programTier = useAppSelector((state) => state.user.programTier);
+  const { token, profile, programTier, athleteUserId } = useAppSelector((state) => state.user);
   const { role } = useRole();
-  const actingUserId = null;
-  const actingHeaders = undefined;
+  const actingHeaders = useMemo(() => {
+    if (role === "Athlete" && athleteUserId) {
+      return { "X-Acting-User-Id": String(athleteUserId) };
+    }
+    return undefined;
+  }, [role, athleteUserId]);
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -50,10 +52,19 @@ export function useMessagesController() {
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      if (a.premium && !b.premium) return -1;
-      if (!a.premium && b.premium) return 1;
+      // 1. AI Assistant always at the top
+      if (a.isAi && !b.isAi) return -1;
+      if (!a.isAi && b.isAi) return 1;
+      
+      // 2. Pinned items next
+      if (!!a.pinned && !b.pinned) return -1;
+      if (!a.pinned && !!b.pinned) return 1;
+      
+      // 3. Premium threads
+      if (!!a.premium && !b.premium) return -1;
+      if (!a.premium && !!b.premium) return 1;
+      
+      // 4. Most recent message
       const tA = a.updatedAtMs ?? 0;
       const tB = b.updatedAtMs ?? 0;
       return tB - tA;
@@ -79,11 +90,17 @@ export function useMessagesController() {
         apiRequest<{
           messages: any[];
           coach?: { id: number; name: string; role?: string; profilePicture?: string | null };
+          coaches?: { id: number; name: string; role?: string; profilePicture?: string | null; isAi?: boolean }[];
         }>("/messages", {
           token,
+          headers: actingHeaders,
           skipCache: true,
         }),
-        apiRequest<{ groups: any[] }>("/chat/groups", { token, skipCache: true }),
+        apiRequest<{ groups: any[] }>("/chat/groups", { 
+          token, 
+          headers: actingHeaders,
+          skipCache: true 
+        }),
       ]);
 
       const groupThreads = (groupsData.groups ?? []).map((group) => ({
@@ -100,57 +117,61 @@ export function useMessagesController() {
         updatedAtMs: 0,
       }));
 
-      if (!data.coach) {
-        setThreads(groupThreads);
-        setMessages([]);
-        return;
-      }
-
-      const coach = data.coach;
       const selfId = String(profile.id ?? "");
-      const coachName = coach.name || "Coach";
       const isPremium = programTier === "PHP_Premium";
-      const thread = {
-        id: String(coach.id),
-        name: coachName,
-        role: coach.role ?? "Coach",
-        preview: data.messages?.[data.messages.length - 1]?.content ?? "Start the conversation",
-        time: data.messages?.[data.messages.length - 1]?.createdAt
-          ? new Date(data.messages[data.messages.length - 1].createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          : "",
-        updatedAtMs: data.messages?.[data.messages.length - 1]?.createdAt
-          ? new Date(data.messages[data.messages.length - 1].createdAt).getTime()
-          : 0,
-        pinned: false,
-        premium: isPremium,
-        unread: data.messages?.filter((msg: any) => !msg.read && String(msg.senderId) !== selfId).length ?? 0,
-        lastSeen: "Active",
-        responseTime: isPremium ? "Priority response window" : "Standard response window",
-        avatarUrl: coach.profilePicture ?? null,
-      };
 
-      const mappedMessages = (data.messages ?? []).map((msg: any) => ({
-        id: String(msg.id),
-        threadId: String(coach.id),
-        from: String(msg.senderId) === selfId ? "user" : "coach",
-        text: msg.content,
-        contentType: msg.contentType ?? "text",
-        mediaUrl: msg.mediaUrl ?? undefined,
-        videoUploadId: msg.videoUploadId ?? undefined,
-        time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-        status: msg.read ? "read" : "sent",
-        reactions: msg.reactions ?? [],
-        authorAvatar: String(msg.senderId) === selfId ? null : coach.profilePicture ?? null,
-      })) as ChatMessage[];
+      const coachThreads = (data.coaches ?? (data.coach ? [data.coach] : [])).map((c: any) => {
+        const lastMsg = (data.messages ?? [])
+          .filter((m: any) => String(m.senderId) === String(c.id) || String(m.receiverId) === String(c.id))
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
-      setThreads([thread, ...groupThreads]);
+        return {
+          id: String(c.id),
+          name: c.isAi ? `✨ ${c.name}` : c.name,
+          role: c.role ?? (c.isAi ? "AI Assistant" : "Coach"),
+          preview: lastMsg ? lastMsg.content : "Start the conversation",
+          time: lastMsg?.createdAt
+            ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "",
+          updatedAtMs: lastMsg?.createdAt ? new Date(lastMsg.createdAt).getTime() : 0,
+          pinned: false,
+          premium: c.isAi || isPremium,
+          unread: (data.messages ?? []).filter((msg: any) => !msg.read && String(msg.senderId) === String(c.id)).length ?? 0,
+          lastSeen: "Active",
+          responseTime: c.isAi ? "Responds instantly" : (isPremium ? "Priority response window" : "Standard response window"),
+          avatarUrl: c.profilePicture ?? null,
+          isAi: !!c.isAi,
+        };
+      });
+
+      const mappedMessages = (data.messages ?? []).map((msg: any) => {
+        const otherId = String(msg.senderId) === selfId ? String(msg.receiverId) : String(msg.senderId);
+        const otherCoach = (data.coaches ?? (data.coach ? [data.coach] : [])).find((c: any) => String(c.id) === otherId);
+
+        return {
+          id: String(msg.id),
+          threadId: otherId,
+          from: String(msg.senderId) === selfId ? "user" : "coach",
+          text: msg.content,
+          contentType: msg.contentType ?? "text",
+          mediaUrl: msg.mediaUrl ?? undefined,
+          videoUploadId: msg.videoUploadId ?? undefined,
+          time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+          status: msg.read ? "read" : "sent",
+          reactions: msg.reactions ?? [],
+          authorAvatar: String(msg.senderId) === selfId ? null : (otherCoach?.profilePicture ?? null),
+        };
+      }) as ChatMessage[];
+
+      const sortedThreads = [...coachThreads, ...groupThreads].sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+      setThreads(sortedThreads);
       setMessages(mappedMessages);
     } catch (error) {
       console.warn("Failed to load messages", error);
     } finally {
       setIsLoading(false);
     }
-  }, [profile.id, programTier, token]);
+  }, [profile.id, programTier, token, actingHeaders]);
 
   const loadGroupMessages = useCallback(
     async (groupId: number) => {
@@ -158,8 +179,14 @@ export function useMessagesController() {
       setIsThreadLoading(true);
       try {
         const [data, membersData] = await Promise.all([
-          apiRequest<{ messages: any[] }>(`/chat/groups/${groupId}/messages`, { token }),
-          apiRequest<{ members: any[] }>(`/chat/groups/${groupId}/members`, { token }),
+          apiRequest<{ messages: any[] }>(`/chat/groups/${groupId}/messages`, { 
+            token,
+            headers: actingHeaders 
+          }),
+          apiRequest<{ members: any[] }>(`/chat/groups/${groupId}/members`, { 
+            token,
+            headers: actingHeaders 
+          }),
         ]);
         const memberMap = membersData.members.reduce<Record<number, { name: string; avatar?: string | null }>>(
           (acc, member) => {
@@ -229,6 +256,7 @@ export function useMessagesController() {
         await apiRequest(`/chat/groups/${groupId}/messages`, {
           method: "POST",
           token,
+          headers: actingHeaders,
           body: { content: text.trim() },
         });
         await loadGroupMessages(groupId);
@@ -237,7 +265,10 @@ export function useMessagesController() {
           method: "POST",
           token,
           headers: actingHeaders,
-          body: { content: text.trim() },
+          body: { 
+            content: text.trim(),
+            receiverId: isNaN(Number(threadId)) ? undefined : Number(threadId)
+          },
         });
         await loadMessages();
       }
@@ -370,6 +401,7 @@ export function useMessagesController() {
       const presign = await apiRequest<{ uploadUrl: string; publicUrl: string; key: string }>("/media/presign", {
         method: "POST",
         token,
+        headers: actingHeaders,
         body: {
           folder,
           fileName: input.fileName,
@@ -446,11 +478,13 @@ export function useMessagesController() {
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
             clientId,
+            actingUserId: actingHeaders ? actingHeaders["X-Acting-User-Id"] : undefined,
           });
         } else {
           await apiRequest(`/chat/groups/${groupId}/messages`, {
             method: "POST",
             token,
+            headers: actingHeaders,
             body: {
               content: trimmed || "Attachment",
               contentType: payload.contentType ?? "text",
@@ -498,6 +532,7 @@ export function useMessagesController() {
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
           clientId,
+          actingUserId: actingHeaders ? actingHeaders["X-Acting-User-Id"] : undefined,
         });
       } else {
         await apiRequest("/messages", {

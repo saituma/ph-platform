@@ -4,7 +4,8 @@ import { Server as SocketIOServer } from "socket.io";
 import { env } from "./config/env";
 import { verifyAccessToken } from "./lib/jwt";
 import { getUserByCognitoSub, getUserById, getGuardianAndAthlete } from "./services/user.service";
-import { createDirectMessage, createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
+import { createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
+import { sendMessage } from "./services/message.service";
 import { setSocketServer } from "./socket-hub";
 
 type AuthPayload = {
@@ -102,21 +103,28 @@ export function initSocket(server: HttpServer) {
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
         clientId?: string;
+        actingUserId?: number;
       }) => {
       const content = payload?.content?.trim() ?? "";
       if (!payload?.toUserId || (!content && !payload.mediaUrl)) return;
-      const senderId = userId;
-      const message = await createDirectMessage({
+      const senderId = (payload.actingUserId ? Number(payload.actingUserId) : null) || (socket.data.actingUserId as number | null) || userId;
+      
+      // Safety check: ensure the actual user is allowed to act as this athlete
+      if (senderId !== userId) {
+        const { athlete } = await getGuardianAndAthlete(userId);
+        if (!athlete || athlete.userId !== senderId) {
+          return; // Not authorized to act as this user
+        }
+      }
+
+      await sendMessage({
         senderId,
         receiverId: payload.toUserId,
         content: content || "Attachment",
         contentType: payload.contentType ?? "text",
         mediaUrl: payload.mediaUrl,
+        clientId: payload.clientId,
       });
-      const enriched = { ...message, clientId: payload.clientId };
-      io.to(`user:${senderId}`).emit("message:new", enriched);
-      io.to(`user:${payload.toUserId}`).emit("message:new", enriched);
-      io.to("admin:all").emit("message:new", enriched);
     });
 
     socket.on(
@@ -127,12 +135,22 @@ export function initSocket(server: HttpServer) {
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
         clientId?: string;
+        actingUserId?: number;
       }) => {
       const content = payload?.content?.trim() ?? "";
       if (!payload?.groupId || (!content && !payload.mediaUrl)) return;
       const allowed = await isGroupMember(payload.groupId, userId);
       if (!allowed) return;
-      const senderId = userId;
+      const senderId = (payload.actingUserId ? Number(payload.actingUserId) : null) || (socket.data.actingUserId as number | null) || userId;
+
+      // Safety check
+      if (senderId !== userId) {
+        const { athlete } = await getGuardianAndAthlete(userId);
+        if (!athlete || athlete.userId !== senderId) {
+          return;
+        }
+      }
+
       const message = await createGroupMessage({
         groupId: payload.groupId,
         senderId,

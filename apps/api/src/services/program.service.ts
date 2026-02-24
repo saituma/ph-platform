@@ -106,3 +106,13 @@ export async function getProgramSessions(programId: number) {
 export async function getExerciseLibrary() {
   return db.select().from(exerciseTable).orderBy(desc(exerciseTable.updatedAt));
 }
+
+export async function getProgramAiInsight(programId: number) {
+  const program = await getProgramById(programId);
+  if (!program) return null;
+
+  const { generateContentSummary } = await import("./ai.service");
+  const ageGroup = program.minAge || program.maxAge ? `U${program.maxAge ?? program.minAge}` : "All Ages";
+  
+  return generateContentSummary(program.name, program.description || "", ageGroup);
+}

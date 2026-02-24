@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import { getExerciseLibrary, getProgramByIdForUser, getProgramCards, getProgramSessions } from "../services/program.service";
+import { getExerciseLibrary, getProgramAiInsight, getProgramByIdForUser, getProgramCards, getProgramSessions } from "../services/program.service";
 
 const programIdSchema = z.coerce.number().int().min(1);
 
@@ -32,4 +32,20 @@ export async function getProgramSessionsById(req: Request, res: Response) {
 export async function listProgramExercises(_req: Request, res: Response) {
   const exercises = await getExerciseLibrary();
   return res.status(200).json({ exercises });
+}
+
+export async function getProgramAiInsightController(req: Request, res: Response) {
+  const programId = programIdSchema.parse(req.params.programId);
+  const insight = await getProgramAiInsight(programId);
+  return res.status(200).json({ insight });
+}
+
+export async function getActiveProgramAiInsightController(req: Request, res: Response) {
+  const cards = await getProgramCards(req.user!.id);
+  const active = cards.find((c) => c.status === "active");
+  if (!active || !active.programId) {
+    return res.status(404).json({ error: "No active program found" });
+  }
+  const insight = await getProgramAiInsight(active.programId);
+  return res.status(200).json({ insight });
 }

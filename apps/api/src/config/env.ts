@@ -53,4 +53,5 @@ export const env = {
   publicApiBaseUrl: process.env.PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL ?? "",
   adminWebUrl: process.env.ADMIN_WEB_URL ?? "",
   bookingActionSecret: process.env.BOOKING_ACTION_SECRET ?? process.env.LOCAL_JWT_SECRET ?? "local-dev-secret",
+  openaiApiKey: process.env.OPEN_AI_API_KEY ?? "",
 };

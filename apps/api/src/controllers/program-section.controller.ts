@@ -67,7 +67,11 @@ export async function listProgramSectionContentHandler(req: Request, res: Respon
   let age = Number.isFinite(input.age) ? input.age! : null;
   
   // If age not provided in query, try to resolve it from the user (athlete or guardian's active athlete)
-  if (age === null && req.user) {
+  // HOWEVER: If user is admin/coach/superAdmin, we WANT them to see everything in the admin lib by default.
+  // The mobile app (athlete/guardian) will either pass age or it will be resolved here.
+  const isAdmin = req.user && ["admin", "superAdmin", "coach"].includes(req.user.role);
+
+  if (!isAdmin && age === null && req.user) {
     const athlete = await getAthleteForUser(req.user.id);
     age = resolveAgeFromAthlete(athlete);
   }
@@ -76,6 +80,7 @@ export async function listProgramSectionContentHandler(req: Request, res: Respon
     sectionType: input.sectionType,
     programTier: input.programTier ?? null,
     age: age,
+    bypassAgeFilter: isAdmin,
   });
   return res.status(200).json({ items });
 }
