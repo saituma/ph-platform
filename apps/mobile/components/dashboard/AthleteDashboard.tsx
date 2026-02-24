@@ -51,7 +51,7 @@ export function AthleteDashboard() {
             ? `Happy Birthday, ${athlete.name}! New training content has been unlocked for your age.`
             : "Happy Birthday! New training content has been unlocked for your age.",
           sound: "default",
-          channelId: "birthday",
+          ...({ channelId: "birthday" } as any),
           data: { type: "birthday" },
         },
         trigger: null,

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { Modal, Pressable, TouchableOpacity, View } from "react-native";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
@@ -44,6 +44,10 @@ type ProgramDetailPanelProps = {
   showBack?: boolean;
   onBack?: () => void;
   onNavigate?: (path: string) => void;
+  planDetails?: any;
+  pricing?: any;
+  onApply?: (tierId: any, interval?: any) => Promise<void>;
+  latestSubscriptionRequest?: any;
 };
 
 type ExerciseMetadata = {
@@ -130,23 +134,7 @@ export function ProgramDetailPanel({
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   const [expandedContent, setExpandedContent] = useState<Set<number>>(new Set());
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
 
-  const loadAiInsight = useCallback(async () => {
-    if (!token || programTier !== "PHP_Premium") return;
-    try {
-      const response = await apiRequest<{ insight: string }>("/programs/active-insight", { token });
-      if (response.insight) {
-        setAiInsight(response.insight);
-      }
-    } catch {
-      // ignore
-    }
-  }, [token, programTier]);
-
-  useEffect(() => {
-    void loadAiInsight();
-  }, [loadAiInsight]);
 
   const toggleContent = useCallback((id: number) => {
     setExpandedContent((prev) => {
@@ -489,22 +477,7 @@ export function ProgramDetailPanel({
                     </Pressable>
                   ) : null}
 
-                  {aiInsight && (
-                    <View className="rounded-2xl bg-white/10 border border-white/10 p-4 gap-3 mt-2">
-                       <View className="flex-row items-center gap-2">
-                         <View className="h-6 w-6 rounded-full bg-white/20 items-center justify-center">
-                           <Ionicons name="sparkles" size={12} color="#FFFFFF" />
-                         </View>
-                         <Text className="text-[10px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
-                           AI Content Insights
-                         </Text>
-                       </View>
-                       <MarkdownText
-                         text={aiInsight}
-                         baseStyle={{ fontSize: 13, lineHeight: 20, color: "#FFFFFF" }}
-                       />
-                     </View>
-                  )}
+
                 </View>
               )}
             </View>
@@ -544,23 +517,7 @@ export function ProgramDetailPanel({
       const tier = PROGRAM_TIERS.find((item) => item.id === programId);
       return (
         <View className="gap-4">
-          {aiInsight && (
-            <View 
-              className="rounded-3xl bg-purple-600/10 border border-purple-600/20 px-6 py-5 gap-3"
-              style={isDark ? Shadows.none : Shadows.md}
-            >
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="sparkles" size={16} color="#9333EA" />
-                <Text className="text-xs font-outfit text-purple-600 uppercase tracking-[1.2px] font-bold">
-                  AI Content Summary
-                </Text>
-              </View>
-              <MarkdownText
-                text={aiInsight}
-                baseStyle={{ fontSize: 14, lineHeight: 22, color: isDark ? "#E9D5FF" : "#6B21A8" }}
-              />
-            </View>
-          )}
+
           <View 
             className="rounded-3xl bg-[#2F8F57] px-6 py-5 gap-3"
             style={isDark ? Shadows.none : Shadows.md}

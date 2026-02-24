@@ -63,6 +63,7 @@ export const userTable = pgTable("users", {
   isBlocked: boolean().notNull().default(false),
   isDeleted: boolean().notNull().default(false),
   tokenVersion: integer().notNull().default(0),
+  expoPushToken: varchar({ length: 255 }),
 
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),

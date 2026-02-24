@@ -22,6 +22,7 @@ import { useAppTheme } from "./theme/AppThemeProvider";
 import { FontScaleProvider } from "@/context/FontScaleContext";
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
+import { SocketProvider } from "@/context/SocketContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,6 +52,8 @@ getNotifications().then((Notifications) => {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
     }),
   });
 });
@@ -199,23 +202,25 @@ export default function RootLayout() {
               <TabVisibilityProvider>
                 <RoleProvider>
                   <AppLockProvider>
-                    <AppThemeProvider>
-                      <FontScaleProvider>
-                        <AgeExperienceProvider>
-                          <RefreshProvider>
-                            <GlobalRefreshLayout>
-                              <StripeProvider
-                                publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                                merchantIdentifier="merchant.ph.performance"
-                              >
-                                <AuthPersist />
-                                <AppShell colorScheme={colorScheme} />
-                              </StripeProvider>
-                            </GlobalRefreshLayout>
-                          </RefreshProvider>
-                        </AgeExperienceProvider>
-                      </FontScaleProvider>
-                    </AppThemeProvider>
+                    <SocketProvider>
+                      <AppThemeProvider>
+                        <FontScaleProvider>
+                          <AgeExperienceProvider>
+                            <RefreshProvider>
+                              <GlobalRefreshLayout>
+                                <StripeProvider
+                                  publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                                  merchantIdentifier="merchant.ph.performance"
+                                >
+                                  <AuthPersist />
+                                  <AppShell colorScheme={colorScheme ?? "light"} />
+                                </StripeProvider>
+                              </GlobalRefreshLayout>
+                            </RefreshProvider>
+                          </AgeExperienceProvider>
+                        </FontScaleProvider>
+                      </AppThemeProvider>
+                    </SocketProvider>
                   </AppLockProvider>
                 </RoleProvider>
               </TabVisibilityProvider>

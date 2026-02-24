@@ -39,7 +39,6 @@ function Harness() {
   useMessagesRealtime({
     token: "token",
     role: "Guardian",
-    athleteUserId: null,
     profileId: 1,
     draft: "",
     currentThread: null,

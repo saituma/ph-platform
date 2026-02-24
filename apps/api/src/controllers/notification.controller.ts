@@ -3,7 +3,7 @@ import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { notificationTable } from "../db/schema";
+import { notificationTable, userTable } from "../db/schema";
 
 export async function listNotifications(req: Request, res: Response) {
   if (!req.user) {
@@ -35,4 +35,26 @@ export async function markNotificationRead(req: Request, res: Response) {
     return res.status(404).json({ error: "Notification not found" });
   }
   return res.status(200).json({ item: updated[0] });
+}
+
+const pushTokenSchema = z.object({
+  token: z.string().min(1),
+});
+
+export async function savePushToken(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const { token } = pushTokenSchema.parse(req.body);
+  console.log(`[PushToken] Attempting to save token for user ${req.user.id}: ${token.slice(0, 10)}...`);
+  
+  const result = await db
+    .update(userTable)
+    .set({ expoPushToken: token, updatedAt: new Date() })
+    .where(eq(userTable.id, req.user.id))
+    .returning();
+
+  console.log(`[PushToken] Update successful for user ${req.user.id}. Rows updated: ${result.length}`);
+  
+  return res.status(200).json({ success: true });
 }

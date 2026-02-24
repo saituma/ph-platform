@@ -318,7 +318,7 @@ export default function ProgramsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
         <NavigationIndependentTree>
-          <NavigationContainer independent>
+          <NavigationContainer>
             <ProgramDetailPanel
               programId={selectedTierId}
               showBack

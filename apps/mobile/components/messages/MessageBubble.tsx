@@ -8,8 +8,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 type MessageBubbleProps = {
   message: ChatMessage;
-  threadName: string;
-  isGroup: boolean;
   onLongPress: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
 };
@@ -370,9 +368,17 @@ const areMessageBubblesEqual = (prev: MessageBubbleProps, next: MessageBubblePro
   if (prev.message.status !== next.message.status) return false;
   if (prev.message.mediaUrl !== next.message.mediaUrl) return false;
   if (prev.message.contentType !== next.message.contentType) return false;
-  const prevReactions = prev.message.reactions?.length ?? 0;
-  const nextReactions = next.message.reactions?.length ?? 0;
-  if (prevReactions !== nextReactions) return false;
+  
+  // Compare reactions properly
+  const prevReactions = prev.message.reactions || [];
+  const nextReactions = next.message.reactions || [];
+  if (prevReactions.length !== nextReactions.length) return false;
+  
+  for (let i = 0; i < prevReactions.length; i++) {
+    if (prevReactions[i].emoji !== nextReactions[i].emoji) return false;
+    if (prevReactions[i].count !== nextReactions[i].count) return false;
+  }
+
   return true;
 };
 
