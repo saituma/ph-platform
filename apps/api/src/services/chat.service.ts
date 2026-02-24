@@ -1,5 +1,5 @@
 import { and, eq, ne } from "drizzle-orm";
-import { Expo } from "expo-server-sdk";
+import { sendPushNotification } from "./push.service";
 
 import { db } from "../db";
 import { sql } from "drizzle-orm";
@@ -199,22 +199,13 @@ export async function createGroupMessage(input: {
     const title = `${sender[0]?.name ?? "User"} in ${group[0]?.name ?? "Group"}`;
     const body = safeContent;
 
-    const pushMessages = [];
     for (const member of members) {
-      if (member.expoPushToken && Expo.isExpoPushToken(member.expoPushToken)) {
-        pushMessages.push({
-          to: member.expoPushToken,
-          title,
-          body,
-          data: { threadId: `group:${input.groupId}`, url: "/(tabs)/schedule" },
-          sound: "default",
+      if (member.expoPushToken) {
+        await sendPushNotification(member.id, title, body, {
+          threadId: `group:${input.groupId}`,
+          url: "/(tabs)/schedule",
         });
       }
-    }
-
-    if (pushMessages.length > 0) {
-      const expo = new Expo({ accessToken: env.expoAccessToken });
-      await expo.sendPushNotificationsAsync(pushMessages as any);
     }
   } catch (error) {
     console.error("[Push] Group notification error:", error);

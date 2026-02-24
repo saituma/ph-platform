@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
 import {
   BadgeCheck,
   BookOpen,
@@ -39,9 +40,57 @@ export function AdminSidebarContent({
   collapsed = false,
 }: SidebarContentProps) {
   const [premiumWindowOpen, setPremiumWindowOpen] = useState(false);
-  const { data: threadsData } = useGetThreadsQuery();
+  const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
-  const { data: videosData } = useGetVideoUploadsQuery();
+  const { data: videosData, refetch: refetchVideos } = useGetVideoUploadsQuery();
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
+    const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+    const localDevHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const fallbackLocalUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
+    const socketUrl = socketEnvUrl
+      ? socketEnvUrl.replace(/\/api\/?$/, "")
+      : localDevHost
+      ? fallbackLocalUrl
+      : apiEnvUrl
+      ? apiEnvUrl.replace(/\/api\/?$/, "")
+      : fallbackLocalUrl;
+
+    const accessToken = typeof document !== "undefined"
+      ? document.cookie
+          .split(";")
+          .map((part) => part.trim())
+          .find((part) => part.startsWith("accessTokenClient="))
+          ?.split("=")[1] ?? ""
+      : "";
+
+    const socket: Socket = io(socketUrl, {
+      auth: accessToken ? { token: accessToken } : undefined,
+      transports: ["polling", "websocket"],
+      reconnection: true,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => console.log("[Sidebar Socket] Connected"));
+
+    const handleRefresh = () => {
+      refetchVideos();
+      refetchThreads();
+    };
+
+    socket.on("video:new", handleRefresh);
+    socket.on("video:reviewed", handleRefresh);
+    socket.on("message:new", () => refetchThreads());
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [refetchThreads, refetchVideos]);
   const guardianIds = new Set(
     (usersData?.users ?? [])
       .filter((user: any) => user?.role === "guardian")
