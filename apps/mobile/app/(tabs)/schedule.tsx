@@ -13,7 +13,6 @@ import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useRouter } from "expo-router";
 
 type ScheduleEvent = {
   id: string;
@@ -66,7 +65,6 @@ const EVENT_TITLE_BY_TYPE: Record<string, string> = {
 };
 
 export default function ScheduleScreen() {
-  const router = useRouter();
   const { role } = useRole();
   const { colors, isDark } = useAppTheme();
   const { token } = useAppSelector((state) => state.user);
@@ -335,7 +333,7 @@ export default function ScheduleScreen() {
               </Text>
             </View>
             <Pressable
-              className="rounded-full bg-secondary/10 border border-app/10 px-4 py-2"
+              className="h-11 rounded-full bg-accent px-4 justify-center"
               onPress={() => {
                 setBookingOpen(true);
                 setBookingConfirmed(false);
@@ -343,8 +341,8 @@ export default function ScheduleScreen() {
               }}
             >
               <View className="flex-row items-center gap-2">
-                <Feather name="plus" size={16} className="text-secondary" />
-                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                <Feather name="plus" size={16} className="text-white" />
+                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
                   Add booking
                 </Text>
               </View>
@@ -353,18 +351,23 @@ export default function ScheduleScreen() {
         </View>
 
         <View className="px-6 pb-4">
-          <View className="flex-row items-center justify-between">
+          <View className="mb-3 flex-row items-center gap-3">
+            <View className="h-5 w-1.5 rounded-full bg-accent" />
+            <Text className="text-xl font-clash text-app">Booking Calendar</Text>
+          </View>
+          <View className="rounded-3xl border border-app/10 bg-card px-4 py-4" style={isDark ? Shadows.none : Shadows.sm}>
+            <View className="flex-row items-center justify-between">
             <Pressable
               onPress={() => {
                 setCalendarMonth(
                   new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1),
                 );
               }}
-              className="h-9 w-9 items-center justify-center rounded-full bg-secondary/10 border border-app/10"
+              className="h-11 w-11 items-center justify-center rounded-full bg-secondary/15 border border-app/20"
             >
-              <Feather name="chevron-left" size={18} className="text-secondary" />
+              <Feather name="chevron-left" size={20} className="text-app" />
             </Pressable>
-            <Text className="text-base font-outfit text-app">
+            <Text className="text-lg font-clash text-app">
               {MONTH_LABELS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
             </Text>
             <Pressable
@@ -373,9 +376,9 @@ export default function ScheduleScreen() {
                   new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1),
                 );
               }}
-              className="h-9 w-9 items-center justify-center rounded-full bg-secondary/10 border border-app/10"
+              className="h-11 w-11 items-center justify-center rounded-full bg-secondary/15 border border-app/20"
             >
-              <Feather name="chevron-right" size={18} className="text-secondary" />
+              <Feather name="chevron-right" size={20} className="text-app" />
             </Pressable>
           </View>
 
@@ -421,11 +424,12 @@ export default function ScheduleScreen() {
                     {cell.date.getDate()}
                   </Text>
                   {hasEvents ? (
-                    <View className="mt-1 h-1.5 w-1.5 rounded-full bg-accent" />
+                    <View className={`mt-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-accent"}`} />
                   ) : null}
                 </Pressable>
               );
             })}
+          </View>
           </View>
         </View>
 

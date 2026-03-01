@@ -3,13 +3,13 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
 import { useCallback, useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { resetLocationConsent, sendDailyLocation } from "@/lib/location";
+import { getNotifications } from "@/lib/notifications";
 
 type PermissionStatus = "granted" | "denied" | "undetermined";
 
@@ -22,12 +22,20 @@ export default function PermissionsScreen() {
   const { token } = useAppSelector((state) => state.user);
   const [locationStatus, setLocationStatus] = useState<PermissionStatus>("undetermined");
   const [notificationStatus, setNotificationStatus] = useState<PermissionStatus>("undetermined");
+  const [notificationsSupported, setNotificationsSupported] = useState(true);
 
   const refreshStatuses = useCallback(async () => {
     const location = await Location.getForegroundPermissionsAsync();
-    const notifications = await Notifications.getPermissionsAsync();
     setLocationStatus(location.status);
-    setNotificationStatus(notifications.status);
+    const notifications = await getNotifications();
+    if (!notifications) {
+      setNotificationsSupported(false);
+      setNotificationStatus("undetermined");
+      return;
+    }
+    setNotificationsSupported(true);
+    const permissionStatus = await notifications.getPermissionsAsync();
+    setNotificationStatus(permissionStatus.status);
   }, []);
 
   useEffect(() => {
@@ -44,7 +52,14 @@ export default function PermissionsScreen() {
   };
 
   const requestNotifications = async () => {
-    const result = await Notifications.requestPermissionsAsync();
+    const notifications = await getNotifications();
+    if (!notifications) {
+      setNotificationsSupported(false);
+      await Linking.openURL("https://docs.expo.dev/develop/development-builds/introduction/");
+      return;
+    }
+    setNotificationsSupported(true);
+    const result = await notifications.requestPermissionsAsync();
     setNotificationStatus(result.status);
   };
 
@@ -90,7 +105,11 @@ export default function PermissionsScreen() {
           <PermissionCard
             icon="bell"
             title="Notifications"
-            description="Get alerts for messages and updates."
+            description={
+              notificationsSupported
+                ? "Get alerts for messages and updates."
+                : "Push notifications need a development build (not Expo Go)."
+            }
             status={notificationStatus}
             onRequest={requestNotifications}
             onRevoke={() => Linking.openSettings()}

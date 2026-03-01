@@ -90,7 +90,8 @@ const TabItem = React.memo(
 
     // Icon color animation
     const activeColor = colors.tint;
-    const inactiveColor = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)";
+    // UI polish: keep inactive icons legible without using harsh pure-black tones.
+    const inactiveColor = isDark ? "rgba(248,250,252,0.52)" : colors.textSecondary;
 
     const iconColorStyle = useAnimatedStyle(() => {
       if (!scrollOffset) {
@@ -312,12 +313,13 @@ export function TabBar({
           borderWidth: isDark ? 0 : 0.5,
           borderColor: isDark
             ? "transparent"
-            : "rgba(0, 0, 0, 0.04)",
+            : "rgba(15, 23, 42, 0.08)",
           justifyContent: "space-evenly",
           alignItems: "center",
           paddingHorizontal: 4,
-          shadowColor: "#000",
-          shadowOpacity: isDark ? 0.4 : 0.1,
+          // UI polish: avoid pure-black shadow and reduce dark-mode heaviness.
+          shadowColor: "#0F172A",
+          shadowOpacity: isDark ? 0.22 : 0.1,
           shadowRadius: 24,
           shadowOffset: { width: 0, height: 10 },
           elevation: isDark ? 12 : 8,

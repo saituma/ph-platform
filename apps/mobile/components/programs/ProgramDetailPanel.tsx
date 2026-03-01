@@ -89,7 +89,10 @@ export function ProgramDetailPanel({
   const activeAthleteAge = useMemo(() => {
     if (!managedAthletes.length) return null;
     const selected =
-      managedAthletes.find((athlete) => athlete.id === athleteUserId) ??
+      managedAthletes.find(
+        (athlete) =>
+          athlete.id === athleteUserId || athlete.userId === athleteUserId,
+      ) ??
       managedAthletes[0];
     return selected?.age ?? null;
   }, [managedAthletes, athleteUserId]);

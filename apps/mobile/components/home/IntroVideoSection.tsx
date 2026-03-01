@@ -2,15 +2,16 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import React from "react";
-import { Linking, Pressable, View } from "react-native";
+import { View } from "react-native";
 import { Text } from "@/components/ScaledText";
 
 type IntroVideoSectionProps = {
   introVideoUrl?: string | null;
+  posterUrl?: string | null;
 };
 
-export function IntroVideoSection({ introVideoUrl }: IntroVideoSectionProps) {
-  const { colors, isDark } = useAppTheme();
+export function IntroVideoSection({ introVideoUrl, posterUrl }: IntroVideoSectionProps) {
+  const { isDark } = useAppTheme();
   if (!introVideoUrl) return null;
   const isYoutube = isYoutubeUrl(introVideoUrl);
 
@@ -33,11 +34,18 @@ export function IntroVideoSection({ introVideoUrl }: IntroVideoSectionProps) {
           style={isDark ? Shadows.none : Shadows.md}
         >
           {isYoutube ? (
-            <View className="p-4">
-              <YouTubeEmbed url={introVideoUrl} />
-            </View>
+            <YouTubeEmbed url={introVideoUrl} />
           ) : (
-            <VideoPlayer uri={introVideoUrl} title="Intro Video" autoPlay initialMuted isLooping />
+            // UI polish: poster-first playback with custom controls for a more professional intro experience.
+            <VideoPlayer
+              uri={introVideoUrl}
+              title="Intro Video"
+              posterUri={posterUrl ?? null}
+              autoPlay={false}
+              initialMuted={false}
+              isLooping
+              useVideoResolution
+            />
           )}
         </View>
       </View>

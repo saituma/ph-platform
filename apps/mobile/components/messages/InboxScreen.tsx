@@ -53,14 +53,15 @@ function InboxScreenBase({
             [1, 2, 3].map((item) => (
               <View
                 key={`skeleton-${item}`}
-                className="bg-input rounded-3xl p-5 border border-gray-100 dark:border-gray-800"
+                // UI polish: semantic neutrals keep skeleton contrast consistent across themes.
+                className="bg-input rounded-3xl p-5 border border-app/10"
               >
                 <View className="flex-row items-center">
-                  <View className="h-14 w-14 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+                  <View className="h-14 w-14 rounded-2xl bg-secondary" />
                   <View className="flex-1 ml-4 space-y-2.5">
-                    <View className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full w-4/5" />
-                    <View className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-1/2" />
-                    <View className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-full" />
+                    <View className="h-4 bg-secondary rounded-full w-4/5" />
+                    <View className="h-3 bg-secondary rounded-full w-1/2" />
+                    <View className="h-3 bg-secondary rounded-full w-full" />
                   </View>
                 </View>
               </View>
@@ -199,7 +200,7 @@ function InboxScreenBase({
           ) : (
             /* Empty State */
             <View className="py-20 items-center">
-              <View className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full items-center justify-center mb-6">
+              <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center mb-6 border border-app/10">
                 <Feather
                   name="message-circle"
                   size={42}
@@ -219,9 +220,9 @@ function InboxScreenBase({
 
       {/* Urgent Help Card */}
       {threads.length > 0 && (
-        <View className="mx-12 mt-8 mb-10 bg-[#1F6F45] rounded-3xl p-6">
+        <View className="mx-6 mt-8 mb-10 bg-[#1F6F45] rounded-3xl p-6 border border-emerald-800/30">
           <View className="flex-row items-center gap-4">
-            <View className="w-12 h-12 bg-white/15 rounded-2xl items-center justify-center shadow-lg shadow-black/10">
+            <View className="w-12 h-12 bg-white/15 rounded-2xl items-center justify-center border border-white/20">
               <Feather name="help-circle" size={24} color="white" />
             </View>
             <View className="flex-1">

@@ -51,6 +51,10 @@ export function useMessagesRealtime({
   useEffect(() => {
     if (!socket) return;
 
+    const bumpThreadToTop = (threads: MessageThread[], nextThread: MessageThread) => {
+      return [nextThread, ...threads.filter((thread) => thread.id !== nextThread.id)];
+    };
+
     socket.on("message:new", async (payload: any) => {
       if (!payload?.id) return;
       const senderId = Number(payload.senderId);
@@ -85,24 +89,40 @@ export function useMessagesRealtime({
       });
 
       setThreadsRef.current((prev) => {
-        const existing = prev.find((t) => t.id === threadIdFromMessage);
-        if (!existing) {
-          loadMessagesRef.current();
-          return prev;
-        }
         const isIncoming = String(senderId) !== selfId;
         const isActiveThread = currentThreadId === threadIdFromMessage;
-        return prev.map((t) =>
-          t.id === threadIdFromMessage
-            ? {
-                ...t,
-                preview: message.text,
-                time: message.time,
-                updatedAtMs: payload.createdAt ? new Date(payload.createdAt).getTime() : Date.now(),
-                unread: isIncoming && !isActiveThread ? (t.unread ?? 0) + 1 : t.unread ?? 0,
-              }
-            : t
-        );
+        const updatedAtMs = payload.createdAt ? new Date(payload.createdAt).getTime() : Date.now();
+        const existing = prev.find((thread) => thread.id === threadIdFromMessage);
+        if (existing) {
+          const nextThread = {
+            ...existing,
+            preview: message.text,
+            time: message.time,
+            updatedAtMs,
+            unread: isIncoming && !isActiveThread ? (existing.unread ?? 0) + 1 : existing.unread ?? 0,
+          };
+          return bumpThreadToTop(prev, nextThread);
+        }
+
+        const fallbackName =
+          String(senderId) === selfId
+            ? payload.receiverName ?? "Coach"
+            : payload.senderName ?? "Coach";
+        const createdThread: MessageThread = {
+          id: threadIdFromMessage,
+          name: fallbackName,
+          role: payload.senderRole ?? "Coach",
+          preview: message.text,
+          time: message.time,
+          pinned: false,
+          premium: false,
+          unread: isIncoming && !isActiveThread ? 1 : 0,
+          updatedAtMs,
+          lastSeen: "Active",
+          responseTime: "Replies soon",
+          avatarUrl: payload.senderAvatar ?? null,
+        };
+        return [createdThread, ...prev];
       });
     });
 
@@ -139,22 +159,39 @@ export function useMessagesRealtime({
         return [...prev, message];
       });
 
-      setThreadsRef.current((prev) =>
-        prev.map((t) =>
-          t.id === `group:${groupId}`
-            ? {
-                ...t,
-                preview: message.text,
-                time: message.time,
-                updatedAtMs: payload.createdAt ? new Date(payload.createdAt).getTime() : Date.now(),
-                unread:
-                  String(payload.senderId) !== selfId && currentThreadId !== `group:${groupId}`
-                    ? (t.unread ?? 0) + 1
-                    : t.unread ?? 0,
-              }
-            : t
-        )
-      );
+      setThreadsRef.current((prev) => {
+        const groupThreadId = `group:${groupId}`;
+        const updatedAtMs = payload.createdAt ? new Date(payload.createdAt).getTime() : Date.now();
+        const existing = prev.find((thread) => thread.id === groupThreadId);
+        const isIncoming = String(payload.senderId) !== selfId;
+        const isActive = currentThreadId === groupThreadId;
+
+        if (existing) {
+          const nextThread = {
+            ...existing,
+            preview: message.text,
+            time: message.time,
+            updatedAtMs,
+            unread: isIncoming && !isActive ? (existing.unread ?? 0) + 1 : existing.unread ?? 0,
+          };
+          return bumpThreadToTop(prev, nextThread);
+        }
+
+        const createdThread: MessageThread = {
+          id: groupThreadId,
+          name: payload.groupName ?? "Group Chat",
+          role: "Group",
+          preview: message.text,
+          time: message.time,
+          pinned: false,
+          premium: false,
+          unread: isIncoming && !isActive ? 1 : 0,
+          updatedAtMs,
+          lastSeen: "Active",
+          responseTime: "Group updates",
+        };
+        return [createdThread, ...prev];
+      });
     });
 
     socket.on(
@@ -200,7 +237,7 @@ export function useMessagesRealtime({
     });
 
     socket.on("group:message:deleted", (payload: { messageId: number }) => {
-      const id = `group-${payload.id}`; // Wait, payload.messageId? Payload id?
+      const id = `group-${payload.messageId}`;
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
     });
 

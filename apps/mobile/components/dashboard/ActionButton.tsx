@@ -31,11 +31,12 @@ export function ActionButton({
       <Pressable
         onPress={onPress}
         disabled={disabled}
-        className={`w-full flex-row items-center justify-center p-5 rounded-[20px] ${color} ${disabled ? "opacity-50" : ""}`}
+        // UI polish: fixed 56px target, softer edges, and subtle border for clearer button hierarchy.
+        className={`w-full h-14 flex-row items-center justify-center px-5 rounded-2xl border border-app/10 ${color} ${disabled ? "opacity-55" : ""}`}
         style={({ pressed }) => ({
-          transform: [{ scale: pressed ? 0.97 : 1 }],
-          opacity: pressed ? 0.9 : 1,
-          ...(isDark ? Shadows.none : Shadows.md),
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+          opacity: pressed ? 0.95 : 1,
+          ...(isDark || disabled ? Shadows.none : Shadows.md),
         })}
       >
         <Feather
@@ -55,14 +56,15 @@ export function ActionButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className={`flex-1 items-center gap-2 ${disabled ? "opacity-50" : ""}`}
+      className={`flex-1 items-center gap-2 ${disabled ? "opacity-55" : ""}`}
       style={({ pressed }) => ({
-        transform: [{ scale: pressed ? 0.97 : 1 }],
-        opacity: pressed ? 0.9 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+        opacity: pressed ? 0.95 : 1,
       })}
     >
       <View
-        className={`w-14 h-14 ${color} rounded-2xl items-center justify-center`}
+        // UI polish: preserve 44+ tap target and avoid hard-edged icon tiles.
+        className={`w-14 h-14 ${color} rounded-2xl border border-app/10 items-center justify-center`}
       >
         <Feather
           name={icon}

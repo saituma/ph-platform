@@ -1,7 +1,7 @@
 import React from "react";
 import { Modal, Pressable, View } from "react-native";
-import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
+import { createAudioPlayer, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
@@ -14,18 +14,35 @@ type VoiceRecorderModalProps = {
 
 export function VoiceRecorderModal({ open, onClose, onRecorded }: VoiceRecorderModalProps) {
   const { colors } = useAppTheme();
-  const [recording, setRecording] = React.useState<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 200);
+  const [recording, setRecording] = React.useState<any | null>(null);
   const [isRecording, setIsRecording] = React.useState(false);
   const [recordedUri, setRecordedUri] = React.useState<string | null>(null);
-  const [sound, setSound] = React.useState<Audio.Sound | null>(null);
+  const [sound, setSound] = React.useState<any | null>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [durationMs, setDurationMs] = React.useState(0);
   const [positionMs, setPositionMs] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
+  const soundStatusSubscriptionRef = React.useRef<any | null>(null);
+
+  React.useEffect(() => {
+    setIsRecording(Boolean(recorderState?.isRecording));
+    if (recorderState?.isRecording) {
+      setPositionMs(recorderState.durationMillis ?? 0);
+    }
+  }, [recorderState?.durationMillis, recorderState?.isRecording]);
+
+  React.useEffect(() => {
+    if (!recordedUri && !recorderState?.isRecording && recorderState?.url) {
+      setRecordedUri(recorderState.url);
+    }
+  }, [recordedUri, recorderState?.isRecording, recorderState?.url]);
 
   React.useEffect(() => {
     return () => {
-      sound?.unloadAsync();
+      soundStatusSubscriptionRef.current?.remove?.();
+      sound?.remove?.();
     };
   }, [sound]);
 
@@ -37,17 +54,19 @@ export function VoiceRecorderModal({ open, onClose, onRecorded }: VoiceRecorderM
     setDurationMs(0);
     setPositionMs(0);
     setError(null);
-    sound?.unloadAsync();
+    soundStatusSubscriptionRef.current?.remove?.();
+    sound?.remove?.();
+    soundStatusSubscriptionRef.current = null;
     setSound(null);
   }, [sound]);
 
   const handleClose = React.useCallback(() => {
-    if (recording) {
-      recording.stopAndUnloadAsync().catch(() => {});
+    if (recording || recorderState?.isRecording) {
+      recorder.stop().catch(() => {});
     }
     resetState();
     onClose();
-  }, [onClose, recording, resetState]);
+  }, [onClose, recorder, recorderState?.isRecording, recording, resetState]);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.max(0, Math.round(ms / 1000));
@@ -59,20 +78,21 @@ export function VoiceRecorderModal({ open, onClose, onRecorded }: VoiceRecorderM
   const startRecording = async () => {
     try {
       setError(null);
-      const permission = await Audio.requestPermissionsAsync();
+      const permission = await requestRecordingPermissionsAsync();
       if (!permission.granted) {
         setError("Microphone permission is required.");
         return;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(newRecording);
+      await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
+      recorder.record();
+      setRecording(recorder);
       setIsRecording(true);
+      setRecordedUri(null);
+      setPositionMs(0);
     } catch (err) {
       console.warn("Failed to start recording", err);
       setError("Unable to start recording.");
@@ -81,13 +101,20 @@ export function VoiceRecorderModal({ open, onClose, onRecorded }: VoiceRecorderM
 
   const stopRecording = async () => {
     try {
-      if (!recording) return;
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      if (!recording && !recorderState?.isRecording) return;
+      await recorder.stop();
+      const status = recorder.getStatus();
+      const uri = status?.url ?? recorderState?.url ?? null;
       setRecording(null);
       setIsRecording(false);
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
       if (!uri) return;
       setRecordedUri(uri);
+      setDurationMs(status?.durationMillis ?? 0);
+      setPositionMs(0);
     } catch (err) {
       console.warn("Failed to stop recording", err);
       setError("Unable to stop recording.");
@@ -97,27 +124,25 @@ export function VoiceRecorderModal({ open, onClose, onRecorded }: VoiceRecorderM
   const togglePlayback = async () => {
     try {
       if (!recordedUri) return;
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
       if (!sound) {
-        const { sound: newSound, status } = await Audio.Sound.createAsync(
-          { uri: recordedUri },
-          { shouldPlay: true }
-        );
-        newSound.setOnPlaybackStatusUpdate((playbackStatus) => {
-          if (!playbackStatus.isLoaded) return;
-          setIsPlaying(playbackStatus.isPlaying);
-          setDurationMs(playbackStatus.durationMillis ?? 0);
-          setPositionMs(playbackStatus.positionMillis ?? 0);
+        const player = createAudioPlayer({ uri: recordedUri });
+        soundStatusSubscriptionRef.current = player.addListener?.("playbackStatusUpdate", (status: any) => {
+          setIsPlaying(Boolean(status?.playing));
+          setDurationMs(Math.round(Math.max(0, Number(status?.duration ?? 0)) * 1000));
+          setPositionMs(Math.round(Math.max(0, Number(status?.currentTime ?? 0)) * 1000));
         });
-        setSound(newSound);
-        setIsPlaying((status as any).isPlaying ?? true);
+        setSound(player);
+        player.play();
         return;
       }
-      const status = await sound.getStatusAsync();
-      if (!status.isLoaded) return;
-      if (status.isPlaying) {
-        await sound.pauseAsync();
+      if (sound.playing) {
+        sound.pause();
       } else {
-        await sound.playAsync();
+        sound.play();
       }
     } catch (err) {
       console.warn("Failed to play recording", err);
