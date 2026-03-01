@@ -17,8 +17,8 @@ export const Colors = {
     inputBackground: '#ffffff',
     card: '#ffffff',
     cardElevated: '#f8faf9',
-    separator: 'rgba(0, 0, 0, 0.06)',
-    border: '#e5e7eb',
+    separator: 'rgba(0, 0, 0, 0.08)',
+    border: 'rgba(0, 0, 0, 0.10)',
     tint: tintColorLight,
     accent: '#22c55e',
     accentLight: '#f0fdf4',
@@ -42,8 +42,8 @@ export const Colors = {
     inputBackground: '#1A1D27',
     card: '#181B23', // Card surface — subtle lift from background
     cardElevated: '#1F2330', // Higher-elevation card
-    separator: 'rgba(255, 255, 255, 0.06)',
-    border: '#232830',
+    separator: 'rgba(255, 255, 255, 0.08)',
+    border: 'rgba(255, 255, 255, 0.12)',
     tint: tintColorDark,
     accent: '#22c55e',
     accentLight: '#064e3b',
@@ -54,10 +54,10 @@ export const Colors = {
     danger: '#ef4444',
     dangerSoft: '#450a0a',
     icon: '#94a3b8',
-    tabIconDefault: '#4b5563',
+    tabIconDefault: '#64748b',
     tabIconSelected: tintColorDark,
     themeToggleIcon: '#22c55e', // Consistent emerald green
-    placeholder: '#4b5563',
+    placeholder: '#64748b',
   },
 };
 

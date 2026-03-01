@@ -9,6 +9,7 @@ import {
 import Animated from "react-native-reanimated";
 import { cssInterop } from "nativewind";
 import { useFontScale } from "@/context/FontScaleContext";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 const InteropText = cssInterop(RNText, { className: "style" });
 const InteropTextInput = cssInterop(RNTextInput, { className: "style" });
@@ -41,10 +42,20 @@ export function Text(props: TextProps & { className?: string }) {
 
 export function TextInput(props: TextInputProps & { className?: string }) {
   const { fontScale } = useFontScale();
-  const { style, ...rest } = props;
+  const { colors } = useAppTheme();
+  const { style, selectionColor, cursorColor, placeholderTextColor, ...rest } = props;
   const scaledStyle = scaleStyle(style, fontScale);
 
-  return <InteropTextInput {...rest} style={scaledStyle} />;
+  // UI polish: provide consistent focus/caret contrast unless a screen overrides it.
+  return (
+    <InteropTextInput
+      {...rest}
+      selectionColor={selectionColor ?? colors.accent}
+      cursorColor={cursorColor ?? colors.accent}
+      placeholderTextColor={placeholderTextColor ?? colors.placeholder}
+      style={scaledStyle}
+    />
+  );
 }
 
 export function AnimatedText(props: TextProps & { className?: string }) {

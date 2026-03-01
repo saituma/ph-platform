@@ -27,6 +27,10 @@ export function useMessagesController() {
   const threadId = thread || id;
   const { token, profile, programTier, athleteUserId } = useAppSelector((state) => state.user);
   const { role } = useRole();
+  const effectiveProfileId = useMemo(() => {
+    if (role === "Athlete" && athleteUserId) return Number(athleteUserId);
+    return Number(profile.id ?? 0);
+  }, [athleteUserId, profile.id, role]);
   const actingHeaders = useMemo(() => {
     if (role === "Athlete" && athleteUserId) {
       return { "X-Acting-User-Id": String(athleteUserId) };
@@ -114,7 +118,7 @@ export function useMessagesController() {
         updatedAtMs: 0,
       }));
 
-      const selfId = String(profile.id ?? "");
+      const selfId = String(effectiveProfileId ?? "");
       const isPremium = programTier === "PHP_Premium";
 
       const coachThreads = (data.coaches ?? (data.coach ? [data.coach] : []))
@@ -170,7 +174,7 @@ export function useMessagesController() {
     } finally {
       setIsLoading(false);
     }
-  }, [profile.id, programTier, token, actingHeaders]);
+  }, [effectiveProfileId, programTier, token, actingHeaders]);
 
   const loadGroupMessages = useCallback(
     async (groupId: number) => {
@@ -199,7 +203,7 @@ export function useMessagesController() {
         );
         setGroupMembers((prev) => ({ ...prev, [groupId]: memberMap }));
 
-        const selfId = String(profile.id ?? "");
+        const selfId = String(effectiveProfileId ?? "");
         const mappedMessages = (data.messages ?? []).map((msg: any) => ({
           id: `group-${msg.id}`,
           threadId: `group:${groupId}`,
@@ -243,7 +247,7 @@ export function useMessagesController() {
         setIsThreadLoading(false);
       }
     },
-    [profile.id, token]
+    [effectiveProfileId, token]
   );
 
   const sendReplyToThread = useCallback(
@@ -376,14 +380,18 @@ export function useMessagesController() {
           }
         }
         const thread = threads.find((item) => item.id === threadId);
-        if (thread) openThread(thread);
+        if (thread) {
+          openThread(thread);
+          return;
+        }
+        router.push(`/messages/${threadId}`);
       });
     });
 
     return () => {
       subscription?.remove();
     };
-  }, [markDirectThreadReadById, openThread, sendReplyToThread, threads]);
+  }, [markDirectThreadReadById, openThread, router, sendReplyToThread, threads]);
 
   const uploadAttachment = useCallback(
     async (input: {
@@ -779,7 +787,7 @@ export function useMessagesController() {
   useMessagesRealtime({
     token,
     role,
-    profileId: Number(profile.id ?? 0),
+    profileId: effectiveProfileId,
     draft,
     currentThread,
     groupMembers,

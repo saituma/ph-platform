@@ -286,7 +286,10 @@ export default function HomeScreen() {
         <>
           {homeContent?.introVideoUrl ? (
             <View className="mb-6">
-              <IntroVideoSection introVideoUrl={homeContent.introVideoUrl} />
+              <IntroVideoSection
+                introVideoUrl={homeContent.introVideoUrl}
+                posterUrl={homeContent.heroImageUrl ?? null}
+              />
             </View>
           ) : null}
 

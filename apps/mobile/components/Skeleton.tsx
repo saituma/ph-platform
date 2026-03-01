@@ -23,12 +23,13 @@ export function Skeleton({
   style,
   circle,
 }: SkeletonProps) {
-  const { colors } = useAppTheme();
-  const opacity = useSharedValue(0.2);
+  const { colors, isDark } = useAppTheme();
+  const opacity = useSharedValue(isDark ? 0.24 : 0.35);
 
   useEffect(() => {
-    opacity.value = withRepeat(withTiming(0.55, { duration: 900 }), -1, true);
-  }, [opacity]);
+    // UI polish: gentler pulse range for less visual noise while loading.
+    opacity.value = withRepeat(withTiming(isDark ? 0.48 : 0.7, { duration: 900 }), -1, true);
+  }, [isDark, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -43,7 +44,7 @@ export function Skeleton({
           width: width as any,
           height: height as any,
           borderRadius: circle ? 999 : borderRadius,
-          backgroundColor: colors.card,
+          backgroundColor: isDark ? colors.backgroundSecondary : colors.cardElevated,
         },
         animatedStyle,
         style,

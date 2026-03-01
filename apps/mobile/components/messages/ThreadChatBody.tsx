@@ -1,7 +1,7 @@
 import { Feather } from "@/components/ui/theme-icons";
 import { ChatMessage } from "@/constants/messages";
 import React from "react";
-import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { ActivityIndicator, Animated, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -60,14 +60,62 @@ function ThreadChatBodyBase({
   const { colors, isDark } = useAppTheme();
   const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
   const typing = typingStatus[typingKey];
-  const isGroup = thread.id.startsWith("group:");
   const hasInitialScrolled = React.useRef<string | null>(null);
   const listRef = React.useRef<FlatList<ChatMessage> | null>(null);
-  const isFocused = true;
   const insets = useSafeAreaInsets();
   const isNearBottomRef = React.useRef(true);
+  const latestMessageIdRef = React.useRef<string | null>(null);
+  const hintScale = React.useRef(new Animated.Value(1)).current;
+  const [newIncomingCount, setNewIncomingCount] = React.useState(0);
   
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
+  const latestMessage = React.useMemo(() => messages[messages.length - 1] ?? null, [messages]);
+
+  React.useEffect(() => {
+    if (hasInitialScrolled.current === thread.id) return;
+    hasInitialScrolled.current = thread.id;
+    setNewIncomingCount(0);
+    latestMessageIdRef.current = latestMessage?.id ?? null;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    });
+  }, [latestMessage?.id, thread.id]);
+
+  React.useEffect(() => {
+    if (!latestMessage) return;
+    const prevId = latestMessageIdRef.current;
+    if (!prevId) {
+      latestMessageIdRef.current = latestMessage.id;
+      return;
+    }
+    if (prevId === latestMessage.id) return;
+    latestMessageIdRef.current = latestMessage.id;
+
+    const isIncoming = latestMessage.from !== "user";
+    if (isNearBottomRef.current) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      });
+      setNewIncomingCount(0);
+      return;
+    }
+
+    if (isIncoming) {
+      setNewIncomingCount((count) => Math.min(count + 1, 99));
+      Animated.sequence([
+        Animated.timing(hintScale, {
+          toValue: 1.08,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(hintScale, {
+          toValue: 1,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [hintScale, latestMessage]);
 
   const keyExtractor = React.useCallback((message: ChatMessage) => String(message.id), []);
   const renderItem = React.useCallback(
@@ -101,6 +149,14 @@ function ThreadChatBodyBase({
         onScroll={(event) => {
           const { contentOffset } = event.nativeEvent;
           isNearBottomRef.current = contentOffset.y < 60;
+          if (isNearBottomRef.current && newIncomingCount > 0) {
+            setNewIncomingCount(0);
+          }
+        }}
+        onContentSizeChange={() => {
+          if (isNearBottomRef.current) {
+            listRef.current?.scrollToOffset({ offset: 0, animated: false });
+          }
         }}
         contentContainerStyle={{
           paddingHorizontal: 16,
@@ -160,6 +216,27 @@ function ThreadChatBodyBase({
         }
         renderItem={renderItem}
       />
+
+      {newIncomingCount > 0 ? (
+        <View className="px-6 pb-2">
+          <Animated.View style={{ transform: [{ scale: hintScale }] }}>
+            <Pressable
+              onPress={() => {
+                listRef.current?.scrollToOffset({ offset: 0, animated: true });
+                isNearBottomRef.current = true;
+                setNewIncomingCount(0);
+              }}
+              className="self-center rounded-full bg-accent px-4 py-2 flex-row items-center gap-2"
+              style={isDark ? Shadows.none : Shadows.sm}
+            >
+              <Feather name="arrow-down" size={14} color="#fff" />
+              <Text className="text-xs font-outfit font-semibold text-white">
+                {newIncomingCount > 1 ? `${newIncomingCount} new messages` : "New message"}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      ) : null}
 
       {typing?.isTyping ? (
         <View className="px-6 pb-2">

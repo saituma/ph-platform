@@ -56,7 +56,8 @@ export default function MoreScreen() {
     <SafeAreaView className="flex-1 bg-app">
       <ThemedScrollView
         onRefresh={handleRefresh}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        // UI polish: extra safe bottom spacing prevents cramped last actions near tab bar.
+        contentContainerStyle={{ paddingBottom: 56 }}
       >
         <View className="px-6 pt-6 pb-8 bg-card rounded-b-[40px] mb-6" style={isDark ? Shadows.none : Shadows.md}>
           <View className="flex-row items-center justify-between mb-8 mx-4">
@@ -259,7 +260,8 @@ export default function MoreScreen() {
               label="Logout"
               icon="log-out"
               color="bg-red-600"
-              iconColor="text-black"
+              // UI polish: keep destructive action icon high-contrast on dark red.
+              iconColor="text-white"
               onPress={() => {
                 dispatch(logout());
                 router.replace("/(auth)/login");
@@ -268,7 +270,7 @@ export default function MoreScreen() {
             />
           </View>
 
-          <Text className="text-center text-gray-300 font-outfit text-xs mt-2 mb-6">
+          <Text className="text-center text-muted font-outfit text-xs mt-2 mb-6">
             Version 1.0.0 (Build 124)
           </Text>
         </Animated.View>
@@ -293,7 +295,7 @@ function MenuItem({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`flex-row items-center px-6 py-5 bg-card active:bg-secondary ${!isLast ? "border-b border-separator" : ""}`}
+      className={`flex-row items-center px-6 py-5 bg-card active:bg-secondary/80 ${!isLast ? "border-b border-separator" : ""}`}
     >
       <View className="w-12 h-12 items-center justify-center bg-accent/10 rounded-full mr-4">
         <Feather name={icon} size={22} color={accentColor} />

@@ -1,6 +1,8 @@
 import { SwipeableTabLayout, TabConfig } from "@/components/navigation";
 import { useRole } from "@/context/RoleContext";
+import { useSocket } from "@/context/SocketContext";
 import { apiRequest } from "@/lib/api";
+import { getNotifications } from "@/lib/notifications";
 import { Redirect, Slot, usePathname, useRouter, useSegments } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Platform } from "react-native";
@@ -48,6 +50,7 @@ export default function TabLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
+  const { socket } = useSocket();
   const pendingNavToken = useRef(0);
   const [messagesUnread, setMessagesUnread] = useState(0);
 
@@ -101,6 +104,53 @@ export default function TabLayout() {
       task?.cancel?.();
     };
   }, [athleteUserId, isAuthenticated, profile.id, programTier, role, token, pathname]);
+
+  useEffect(() => {
+    if (!socket || !token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) return;
+
+    const effectiveUserId =
+      role === "Athlete" && athleteUserId ? String(athleteUserId) : String(profile.id ?? "");
+    const currentThreadFromPath = pathname.startsWith("/messages/")
+      ? decodeURIComponent(pathname.replace("/messages/", "").split("/")[0] || "")
+      : null;
+
+    const handleDirectMessage = (payload: any) => {
+      const senderId = String(payload?.senderId ?? "");
+      const receiverId = String(payload?.receiverId ?? "");
+      if (!senderId || !receiverId || senderId === effectiveUserId) return;
+      const threadId = senderId === effectiveUserId ? receiverId : senderId;
+      if (currentThreadFromPath && threadId === currentThreadFromPath) return;
+      setMessagesUnread((prev) => prev + 1);
+    };
+
+    const handleGroupMessage = (payload: any) => {
+      const senderId = String(payload?.senderId ?? "");
+      const groupId = payload?.groupId;
+      if (!groupId || senderId === effectiveUserId) return;
+      const threadId = `group:${groupId}`;
+      if (currentThreadFromPath && threadId === currentThreadFromPath) return;
+      setMessagesUnread((prev) => prev + 1);
+    };
+
+    socket.on("message:new", handleDirectMessage);
+    socket.on("group:message", handleGroupMessage);
+    return () => {
+      socket.off("message:new", handleDirectMessage);
+      socket.off("group:message", handleGroupMessage);
+    };
+  }, [athleteUserId, isAuthenticated, pathname, profile.id, programTier, role, socket, token]);
+
+  useEffect(() => {
+    if (!pathname.startsWith("/messages/")) return;
+    setMessagesUnread(0);
+  }, [pathname]);
+
+  useEffect(() => {
+    getNotifications().then((Notifications) => {
+      if (!Notifications || typeof Notifications.setBadgeCountAsync !== "function") return;
+      Notifications.setBadgeCountAsync(Math.max(0, messagesUnread)).catch(() => null);
+    });
+  }, [messagesUnread]);
 
   const visibleTabs = useMemo(() => {
     return TAB_ROUTES.map((tab) => {

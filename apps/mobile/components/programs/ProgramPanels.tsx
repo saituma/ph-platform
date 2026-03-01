@@ -3,7 +3,6 @@ import { ActivityIndicator, Alert, Image, Linking, RefreshControl, ScrollView, T
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { ResizeMode, Video } from "expo-av";
 
 import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
@@ -13,6 +12,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { useRole } from "@/context/RoleContext";
 import { useSocket } from "@/context/SocketContext";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
 
 export function PhysioReferralPanel({ discount }: { discount?: string }) {
   const { token } = useAppSelector((state) => state.user);
@@ -908,12 +908,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
       {selectedVideo ? (
         <View className="mt-4 rounded-2xl bg-accent/10 p-3">
           <Text className="text-sm font-outfit text-app mb-2">Preview before send</Text>
-          <Video
-            source={{ uri: selectedVideo.uri }}
-            useNativeControls
-            resizeMode={ResizeMode.COVER}
-            style={{ width: "100%", height: 180, borderRadius: 12 }}
-          />
+          <VideoPlayer uri={selectedVideo.uri} height={180} />
           <Text className="text-sm font-outfit text-secondary mt-2" numberOfLines={1}>
             {selectedVideo.fileName}
           </Text>
@@ -1007,12 +1002,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                         className="rounded-2xl bg-card p-3"
                         style={isDark ? Shadows.none : Shadows.sm}
                       >
-                        <Video
-                          source={{ uri: item.videoUrl }}
-                          useNativeControls
-                          resizeMode={ResizeMode.COVER}
-                          style={{ width: "100%", height: 170, borderRadius: 10 }}
-                        />
+                        <VideoPlayer uri={item.videoUrl} height={170} />
                         <View className="mt-2 flex-row items-center justify-between">
                           <Text className="text-xs font-outfit text-secondary">Upload #{item.id}</Text>
                           {formatDate(item.createdAt) ? (
@@ -1034,12 +1024,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                               })
                               .map((response) => (
                                 <View key={`awaiting-response-${item.id}-${response.id}`} className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-2">
-                                  <Video
-                                    source={{ uri: response.mediaUrl }}
-                                    useNativeControls
-                                    resizeMode={ResizeMode.COVER}
-                                    style={{ width: "100%", height: 160, borderRadius: 10 }}
-                                  />
+                                  <VideoPlayer uri={response.mediaUrl} height={160} />
                                   {response.text ? (
                                     <Text className="text-xs font-outfit text-secondary mt-2">{response.text}</Text>
                                   ) : null}
@@ -1070,12 +1055,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                         className="rounded-2xl bg-card p-3"
                         style={isDark ? Shadows.none : Shadows.sm}
                       >
-                        <Video
-                          source={{ uri: item.videoUrl }}
-                          useNativeControls
-                          resizeMode={ResizeMode.COVER}
-                          style={{ width: "100%", height: 170, borderRadius: 10 }}
-                        />
+                        <VideoPlayer uri={item.videoUrl} height={170} />
                         <View className="mt-2 flex-row items-center justify-between">
                           <Text className="text-xs font-outfit text-secondary">Upload #{item.id}</Text>
                           {formatDate(item.createdAt) ? (
@@ -1101,12 +1081,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
                               })
                               .map((response) => (
                                 <View key={`reviewed-response-${item.id}-${response.id}`} className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-2">
-                                  <Video
-                                    source={{ uri: response.mediaUrl }}
-                                    useNativeControls
-                                    resizeMode={ResizeMode.COVER}
-                                    style={{ width: "100%", height: 160, borderRadius: 10 }}
-                                  />
+                                  <VideoPlayer uri={response.mediaUrl} height={160} />
                                   {response.text ? (
                                     <Text className="text-xs font-outfit text-secondary mt-2">{response.text}</Text>
                                   ) : null}

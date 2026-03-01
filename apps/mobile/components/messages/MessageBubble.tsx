@@ -2,7 +2,8 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ChatMessage } from "@/constants/messages";
 import React from "react";
 import { Image, Linking, Modal, Pressable, View, useWindowDimensions } from "react-native";
-import { Audio, ResizeMode, Video } from "expo-av";
+import { VideoView, useVideoPlayer } from "expo-video";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { Text } from "@/components/ScaledText";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -11,6 +12,55 @@ type MessageBubbleProps = {
   onLongPress: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
 };
+
+function MessageVideoSurface({
+  uri,
+  height,
+  contentFit = "cover",
+  nativeControls = false,
+  muted = true,
+  onDurationMs,
+}: {
+  uri: string;
+  height: number;
+  contentFit?: "cover" | "contain";
+  nativeControls?: boolean;
+  muted?: boolean;
+  onDurationMs?: (durationMs: number) => void;
+}) {
+  const player = useVideoPlayer({ uri }, (instance) => {
+    instance.loop = false;
+    instance.muted = muted;
+  });
+
+  React.useEffect(() => {
+    if (!nativeControls) {
+      (player as any)?.pause?.();
+    }
+  }, [nativeControls, player]);
+
+  React.useEffect(() => {
+    if (!onDurationMs) return;
+    const interval = setInterval(() => {
+      const durationSec = Number((player as any)?.duration ?? 0);
+      if (durationSec > 0) {
+        onDurationMs(Math.round(durationSec * 1000));
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [onDurationMs, player]);
+
+  return (
+    <VideoView
+      player={player}
+      nativeControls={nativeControls}
+      contentFit={contentFit}
+      fullscreenOptions={{ enable: true }}
+      allowsPictureInPicture
+      style={{ width: "100%", height, borderRadius: 10 }}
+    />
+  );
+}
 
 function MessageBubbleBase({
   message,
@@ -25,12 +75,13 @@ function MessageBubbleBase({
   const timeColor = isDark ? "#A2ADB7" : "#667781";
   const { width, height } = useWindowDimensions();
   const [imageSize, setImageSize] = React.useState<{ width: number; height: number } | null>(null);
-  const [videoMeta, setVideoMeta] = React.useState<{ width: number; height: number; durationMs: number } | null>(null);
+  const [videoMeta, setVideoMeta] = React.useState<{ durationMs: number } | null>(null);
   const [mediaOpen, setMediaOpen] = React.useState(false);
-  const [audioSound, setAudioSound] = React.useState<Audio.Sound | null>(null);
+  const [audioSound, setAudioSound] = React.useState<any | null>(null);
   const [audioPlaying, setAudioPlaying] = React.useState(false);
   const [audioDuration, setAudioDuration] = React.useState(0);
   const [audioPosition, setAudioPosition] = React.useState(0);
+  const audioStatusSubscriptionRef = React.useRef<any | null>(null);
 
   const formatDuration = React.useCallback((ms: number) => {
     const totalSeconds = Math.max(0, Math.round(ms / 1000));
@@ -45,42 +96,41 @@ function MessageBubbleBase({
     return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
   }, [message.mediaUrl]);
 
-  const videoSource = React.useMemo(() => {
-    return message.mediaUrl ? { uri: message.mediaUrl } : undefined;
-  }, [message.mediaUrl]);
-
   React.useEffect(() => {
     return () => {
-      audioSound?.unloadAsync();
+      audioStatusSubscriptionRef.current?.remove?.();
+      audioSound?.remove?.();
     };
   }, [audioSound]);
 
   const toggleAudio = async () => {
     if (!message.mediaUrl) return;
     try {
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        allowsRecording: false,
+      });
       if (!audioSound) {
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: message.mediaUrl },
-          { shouldPlay: true }
-        );
-        sound.setOnPlaybackStatusUpdate((status) => {
-          if (!status.isLoaded) return;
-          setAudioPlaying(status.isPlaying);
-          setAudioDuration(status.durationMillis ?? 0);
-          setAudioPosition(status.positionMillis ?? 0);
-          if (status.didJustFinish) {
+        const player = createAudioPlayer({ uri: message.mediaUrl });
+        audioStatusSubscriptionRef.current = player.addListener?.("playbackStatusUpdate", (status: any) => {
+          const nextDuration = Number(status?.duration ?? 0);
+          const nextPosition = Number(status?.currentTime ?? 0);
+          const didJustFinish = Boolean(status?.didJustFinish);
+          setAudioPlaying(Boolean(status?.playing));
+          setAudioDuration(Math.round(Math.max(0, nextDuration) * 1000));
+          setAudioPosition(Math.round(Math.max(0, nextPosition) * 1000));
+          if (didJustFinish) {
             setAudioPlaying(false);
           }
         });
-        setAudioSound(sound);
+        setAudioSound(player);
+        player.play();
         return;
       }
-      const status = await audioSound.getStatusAsync();
-      if (!status.isLoaded) return;
-      if (status.isPlaying) {
-        await audioSound.pauseAsync();
+      if (audioSound.playing) {
+        audioSound.pause();
       } else {
-        await audioSound.playAsync();
+        audioSound.play();
       }
     } catch (error) {
       console.warn("Failed to play audio", error);
@@ -154,24 +204,12 @@ function MessageBubbleBase({
         {message.mediaUrl && message.contentType === "video" ? (
           <Pressable onPress={() => setMediaOpen(true)} className="mb-2">
             <View>
-              <Video
-                source={videoSource}
-                useNativeControls={false}
-                resizeMode={ResizeMode.COVER}
-                style={{ width: "100%", height: 200, borderRadius: 10 }}
-                onLoad={(status) => {
-                  if (!status?.isLoaded) return;
-                  const naturalSize = "naturalSize" in status ? (status as any).naturalSize : null;
-                  const width = typeof naturalSize?.width === "number" ? naturalSize.width : 0;
-                  const height = typeof naturalSize?.height === "number" ? naturalSize.height : 0;
-                  const durationMs = typeof status.durationMillis === "number" ? status.durationMillis : 0;
-                  setVideoMeta((prev) => {
-                    if (prev && prev.width === width && prev.height === height && prev.durationMs === durationMs) {
-                      return prev;
-                    }
-                    return { width, height, durationMs };
-                  });
-                }}
+              <MessageVideoSurface
+                uri={message.mediaUrl}
+                height={200}
+                onDurationMs={(durationMs) =>
+                  setVideoMeta((prev) => (prev?.durationMs === durationMs ? prev : { durationMs }))
+                }
               />
               <View
                 style={{
@@ -194,7 +232,7 @@ function MessageBubbleBase({
                   <Ionicons name="play" size={22} color="#FFFFFF" />
                 </View>
               </View>
-              {videoMeta ? (
+              {videoMeta?.durationMs ? (
                 <View
                   style={{
                     position: "absolute",
@@ -208,7 +246,6 @@ function MessageBubbleBase({
                 >
                   <Text className="text-[10px] font-semibold font-outfit text-white">
                     {formatDuration(videoMeta.durationMs)}
-                    {videoMeta.width && videoMeta.height ? ` · ${videoMeta.width}×${videoMeta.height}` : ""}
                   </Text>
                 </View>
               ) : null}
@@ -286,15 +323,20 @@ function MessageBubbleBase({
                     }}
                   />
                 ) : (
-                  <Video
-                    source={videoSource}
-                    useNativeControls
-                    resizeMode={ResizeMode.CONTAIN}
+                  <View
                     style={{
                       width: Math.min(width - 24, 420),
                       height: Math.min(height - 140, 600),
                     }}
-                  />
+                  >
+                    <MessageVideoSurface
+                      uri={message.mediaUrl}
+                      height={Math.min(height - 140, 600)}
+                      contentFit="contain"
+                      nativeControls
+                      muted={false}
+                    />
+                  </View>
                 )}
               </View>
             </View>

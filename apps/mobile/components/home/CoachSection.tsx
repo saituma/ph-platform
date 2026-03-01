@@ -64,7 +64,11 @@ export function CoachSection({
         ) : null}
       </View>
 
-      <View className="bg-slate-950 rounded-[40px] overflow-hidden shadow-xl aspect-video relative border-4 border-slate-900">
+      <View
+        // UI polish: replace heavy dark border with subtle semantic border + softer elevation.
+        className="bg-card-elevated rounded-[40px] overflow-hidden aspect-video relative border border-app/20"
+        style={isDark ? Shadows.none : Shadows.md}
+      >
         <View className="absolute inset-0 bg-black/40 items-center justify-center z-10">
           {introVideoUrl ? (
             <>
@@ -87,7 +91,7 @@ export function CoachSection({
           )}
         </View>
 
-        <View className="flex-1 bg-secondary opacity-50" />
+        <View className="flex-1 bg-secondary opacity-70" />
       </View>
     </View>
   );

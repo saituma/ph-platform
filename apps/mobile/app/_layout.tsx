@@ -6,7 +6,7 @@ import { AuthPersist } from "@/store/AuthPersist";
 import { useAppSelector } from "@/store/hooks";
 import { DarkTheme, DefaultTheme, NavigationContainerRefContext, NavigationContext } from "@react-navigation/native";
 import { StripeProvider } from "@stripe/stripe-react-native";
-import { SplashScreen, Stack } from "expo-router";
+import { SplashScreen, Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "nativewind";
 import React, { useEffect, useMemo, useState } from "react";
@@ -51,7 +51,7 @@ getNotifications().then((Notifications) => {
     handleNotification: async () => ({
       shouldShowAlert: true,
       shouldPlaySound: true,
-      shouldSetBadge: false,
+      shouldSetBadge: true,
       shouldShowBanner: true,
       shouldShowList: true,
     }),
@@ -235,6 +235,54 @@ export default function RootLayout() {
 function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
   const { colors } = useAppTheme();
   const hydrated = useAppSelector((state) => state.user.hydrated);
+  const router = useRouter();
+  const lastHandledNotificationRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    let sub: { remove: () => void } | null = null;
+    const handleNotificationResponse = (response: any) => {
+      const identifier = response?.notification?.request?.identifier;
+      if (identifier && identifier === lastHandledNotificationRef.current) return;
+      if (identifier) lastHandledNotificationRef.current = identifier;
+
+      const data = response?.notification?.request?.content?.data as
+        | { threadId?: string; type?: string; screen?: string }
+        | undefined;
+      const threadId = data?.threadId;
+      if (threadId) {
+        router.push(`/messages/${String(threadId)}`);
+        return;
+      }
+      if (data?.type === "booking" || data?.screen === "schedule") {
+        router.push("/(tabs)/schedule");
+        return;
+      }
+      if (data?.screen === "messages") {
+        router.push("/(tabs)/messages");
+        return;
+      }
+      if (data?.screen === "plans") {
+        router.push("/plans");
+      }
+    };
+
+    getNotifications().then(async (Notifications) => {
+      if (!Notifications) return;
+      if (typeof Notifications.addNotificationResponseReceivedListener === "function") {
+        sub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+      }
+      if (typeof Notifications.getLastNotificationResponseAsync === "function") {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (response) {
+          handleNotificationResponse(response);
+        }
+      }
+    });
+
+    return () => {
+      sub?.remove();
+    };
+  }, [router]);
 
   if (!hydrated) {
     return <View style={{ flex: 1, backgroundColor: colors.background }} />;
