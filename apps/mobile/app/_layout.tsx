@@ -263,6 +263,10 @@ function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
       }
       if (data?.screen === "plans") {
         router.push("/plans");
+        return;
+      }
+      if (data?.screen === "physio-referral" || data?.type === "physio-referral") {
+        router.push("/physio-referral");
       }
     };
 
