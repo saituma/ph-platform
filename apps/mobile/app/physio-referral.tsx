@@ -8,6 +8,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
+import { useSocket } from "@/context/SocketContext";
 
 type PhysioMetadata = {
   physioName?: string | null;
@@ -28,6 +29,7 @@ type ReferralData = {
 export default function PhysioReferralScreen() {
   const router = useRouter();
   const { token } = useAppSelector((state) => state.user);
+  const { socket } = useSocket();
   const [loading, setLoading] = useState(true);
   const [referral, setReferral] = useState<ReferralData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,22 @@ export default function PhysioReferralScreen() {
   useEffect(() => {
     void loadReferral();
   }, [loadReferral]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleReferralChange = () => {
+      void loadReferral();
+    };
+
+    socket.on("physio:referral:updated", handleReferralChange);
+    socket.on("physio:referral:deleted", handleReferralChange);
+
+    return () => {
+      socket.off("physio:referral:updated", handleReferralChange);
+      socket.off("physio:referral:deleted", handleReferralChange);
+    };
+  }, [loadReferral, socket]);
 
   const meta = referral?.metadata ?? {};
   const hasMeta = !!(meta.physioName || meta.clinicName || meta.location || meta.phone || meta.email || meta.specialty || meta.notes);

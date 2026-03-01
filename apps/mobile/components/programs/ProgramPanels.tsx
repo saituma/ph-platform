@@ -17,6 +17,7 @@ import { VideoPlayer } from "@/components/media/VideoPlayer";
 export function PhysioReferralPanel({ discount }: { discount?: string }) {
   const { token } = useAppSelector((state) => state.user);
   const { isDark } = useAppTheme();
+  const { socket } = useSocket();
   const [loading, setLoading] = useState(false);
   const [referral, setReferral] = useState<{
     referalLink?: string | null;
@@ -48,6 +49,22 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
   useEffect(() => {
     void loadReferral();
   }, [loadReferral]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleReferralChange = () => {
+      void loadReferral();
+    };
+
+    socket.on("physio:referral:updated", handleReferralChange);
+    socket.on("physio:referral:deleted", handleReferralChange);
+
+    return () => {
+      socket.off("physio:referral:updated", handleReferralChange);
+      socket.off("physio:referral:deleted", handleReferralChange);
+    };
+  }, [loadReferral, socket]);
 
   const resolvedDiscount = referral?.discountPercent
     ? `${referral.discountPercent}%`
