@@ -26,7 +26,6 @@ import {
   canAccessTier,
   normalizeProgramTier,
   programIdToTier,
-  tierRank,
 } from "@/lib/planAccess";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { apiRequest } from "@/lib/api";
@@ -78,14 +77,24 @@ export function ProgramDetailPanel({
   showBack = false,
   onBack,
   onNavigate,
+  planDetails,
+  pricing,
 }: ProgramDetailPanelProps) {
   const { programTier, token, athleteUserId, managedAthletes } = useAppSelector(
     (state) => state.user,
   );
-  const { isDark } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { role } = useRole();
   const { isSectionHidden } = useAgeExperience();
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
+  const currentAthlete = useMemo(() => {
+    if (!managedAthletes.length) return null;
+    return (
+      managedAthletes.find(
+        (athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId,
+      ) ?? managedAthletes[0]
+    );
+  }, [athleteUserId, managedAthletes]);
   const activeAthleteAge = useMemo(() => {
     if (!managedAthletes.length) return null;
     const selected =
@@ -137,6 +146,20 @@ export function ProgramDetailPanel({
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   const [expandedContent, setExpandedContent] = useState<Set<number>>(new Set());
+  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
+  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
+  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
+  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const headerAthleteName = currentAthlete?.name ?? (role === "Athlete" ? "You" : "Assigned athlete");
+  const athleteMeta = [
+    activeAthleteAge ? `${activeAthleteAge} yrs` : null,
+    currentAthlete?.level || null,
+    currentAthlete?.team || null,
+    currentAthlete?.trainingPerWeek ? `${currentAthlete.trainingPerWeek}x weekly` : null,
+  ].filter(Boolean);
+  const currentTierLabel = normalizeProgramTier(programTier)?.replace("PHP_", "").replace("_", " ") || "Starter";
+  const planSubtitle = planDetails?.description ?? PROGRAM_TIERS.find((item) => item.id === programId)?.description;
+  const priceHighlights = pricing?.entries?.slice(0, 2) ?? [];
 
 
   const toggleContent = useCallback((id: number) => {
@@ -467,7 +490,8 @@ export function ProgramDetailPanel({
                   {item.videoUrl ? (
                     <Pressable
                       onPress={() => handleVideoPress(item.videoUrl!)}
-                      className="rounded-2xl bg-black/10 px-5 py-4 flex-row items-center gap-3 mt-1"
+                      className="rounded-2xl px-5 py-4 flex-row items-center gap-3 mt-1"
+                      style={{ backgroundColor: mutedSurface }}
                     >
                       <View className="h-10 w-10 rounded-full bg-white/20 items-center justify-center">
                         <Feather name="play" size={16} color="#FFFFFF" />
@@ -506,7 +530,7 @@ export function ProgramDetailPanel({
           style={isDark ? Shadows.none : Shadows.md}
         >
           <View className="flex-row items-center gap-2">
-            <Feather name="lock" size={16} color="#94A3B8" />
+            <Feather name="lock" size={16} color={colors.accent} />
             <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
               Pending Access
             </Text>
@@ -522,19 +546,24 @@ export function ProgramDetailPanel({
         <View className="gap-4">
 
           <View 
-            className="rounded-3xl bg-[#2F8F57] px-6 py-5 gap-3"
-            style={isDark ? Shadows.none : Shadows.md}
+            className="rounded-[28px] px-6 py-5 gap-3"
+            style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
           >
-            <Text className="text-lg font-clash text-white font-bold">Program Features</Text>
+            <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+                Program features
+              </Text>
+            </View>
+            <Text className="text-lg font-clash text-app font-bold">Program Features</Text>
             {tier?.features?.map((feature, index) => (
               <View
                 key={`${tier.id}-feature-${index}`}
                 className="flex-row items-center gap-3"
               >
-                <View className="h-5 w-5 rounded-full bg-white/15 items-center justify-center">
-                  <Feather name="check" size={10} color="#FFFFFF" />
+                <View className="h-5 w-5 rounded-full items-center justify-center" style={{ backgroundColor: accentSurface }}>
+                  <Feather name="check" size={10} color={colors.accent} />
                 </View>
-                <Text className="text-sm font-outfit text-white flex-1">
+                <Text className="text-sm font-outfit text-app flex-1">
                   {feature}
                 </Text>
               </View>
@@ -610,26 +639,81 @@ export function ProgramDetailPanel({
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         <View className="px-6 pt-6">
-          <View className="flex-row items-center justify-between mb-6">
-            {showBack ? (
-              <TouchableOpacity
-                onPress={() => (onBack ? onBack() : undefined)}
-                className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-              >
-                <Feather name="arrow-left" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-            ) : (
-              <View className="w-10" />
-            )}
-            <Text className="text-xl font-clash text-app font-bold">
+          <View
+            className="overflow-hidden rounded-[30px] border px-5 py-5 mb-6"
+            style={{
+              backgroundColor: surfaceColor,
+              borderColor: borderSoft,
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: accentSurface }} />
+            <View className="absolute -bottom-10 left-10 h-24 w-24 rounded-full" style={{ backgroundColor: mutedSurface }} />
+
+            <View className="flex-row items-center justify-between mb-4">
+              {showBack ? (
+                <TouchableOpacity
+                  onPress={() => (onBack ? onBack() : undefined)}
+                  className="h-11 w-11 items-center justify-center rounded-[18px]"
+                  style={{ backgroundColor: mutedSurface }}
+                >
+                  <Feather name="arrow-left" size={20} color={colors.accent} />
+                </TouchableOpacity>
+              ) : (
+                <View className="w-11" />
+              )}
+              <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+                  {currentTierLabel}
+                </Text>
+              </View>
+              <View className="w-11" />
+            </View>
+
+            <Text className="text-[28px] font-clash text-app font-bold">
               {PROGRAM_TITLES[programId]}
             </Text>
-            <View className="w-10" />
-          </View>
+            {planSubtitle ? (
+              <Text className="text-sm font-outfit text-secondary mt-2 leading-6">
+                {planSubtitle}
+              </Text>
+            ) : null}
 
-          <Text className="text-sm font-outfit text-secondary mb-4">
-            Select a tab to view your program sessions and resources.
-          </Text>
+            <View className="mt-4 flex-row flex-wrap gap-2">
+              <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
+                <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
+                  Athlete detail: {headerAthleteName}
+                </Text>
+              </View>
+              {athleteMeta.map((item) => (
+                <View key={item} className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
+                  <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                    {item}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {priceHighlights.length ? (
+              <View className="mt-4 flex-row gap-3">
+                {priceHighlights.map((entry: any) => (
+                  <View key={entry.label} className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: mutedSurface }}>
+                    <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
+                      {entry.label}
+                    </Text>
+                    <Text className="mt-2 text-lg font-clash text-app" numberOfLines={1}>
+                      {entry.discounted ?? entry.original}
+                    </Text>
+                    {entry.discounted ? (
+                      <Text className="text-xs font-outfit text-secondary mt-1 line-through">
+                        {entry.original}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
         </View>
 
         <ProgramTabBar
@@ -644,22 +728,22 @@ export function ProgramDetailPanel({
         {searchQuery.trim().length > 0 ? (
           <View className="px-6 mb-6">
             <View 
-              className="rounded-3xl bg-card px-4 py-4"
-              style={isDark ? Shadows.none : Shadows.md}
+              className="rounded-[28px] px-4 py-4"
+              style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
             >
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-xs font-outfit uppercase tracking-[1.6px] text-secondary">
                   Suggestions
                 </Text>
-                <View className="px-2.5 py-1 rounded-full bg-[#2F8F57]/10">
-                  <Text className="text-[10px] font-outfit text-[#2F8F57]">
+                <View className="px-2.5 py-1 rounded-full" style={{ backgroundColor: accentSurface }}>
+                  <Text className="text-[10px] font-outfit" style={{ color: colors.accent }}>
                     {searchSuggestions.length} result
                     {searchSuggestions.length === 1 ? "" : "s"}
                   </Text>
                 </View>
               </View>
               {searchSuggestions.length === 0 ? (
-                <View className="rounded-2xl border border-dashed border-app/20 bg-white/40 dark:bg-white/5 px-3 py-3">
+                <View className="rounded-2xl border border-dashed px-3 py-3" style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}>
                   <Text className="text-sm font-outfit text-secondary">
                     No matching sections found.
                   </Text>
@@ -685,7 +769,8 @@ export function ProgramDetailPanel({
                             setSearchQuery("");
                           }
                         }}
-                        className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-white/5 px-3 py-3"
+                        className="rounded-2xl border px-3 py-3"
+                        style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}
                       >
                         <View className="flex-row items-center gap-3">
                           <View
@@ -731,17 +816,18 @@ export function ProgramDetailPanel({
         animationType="slide"
         onRequestClose={() => setActiveVideoUrl(null)}
       >
-        <View className="flex-1 bg-black/80 justify-end">
-          <View className="bg-app rounded-t-3xl p-4 pb-8">
+        <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}>
+          <View className="rounded-t-3xl p-4 pb-8" style={{ backgroundColor: surfaceColor }}>
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-lg font-clash text-app font-bold">
                 Exercise Video
               </Text>
               <TouchableOpacity
                 onPress={() => setActiveVideoUrl(null)}
-                className="h-10 w-10 rounded-full bg-secondary items-center justify-center"
+                className="h-10 w-10 rounded-full items-center justify-center"
+                style={{ backgroundColor: mutedSurface }}
               >
-                <Feather name="x" size={20} color="#94A3B8" />
+                <Feather name="x" size={20} color={colors.accent} />
               </TouchableOpacity>
             </View>
             {activeVideoUrl ? <VideoPlayer uri={activeVideoUrl} /> : null}

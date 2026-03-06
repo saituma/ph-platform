@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
+  Platform,
   Text as RNText,
   TextInput as RNTextInput,
   type TextInputProps,
@@ -35,7 +36,7 @@ const scaleStyle = (style: any, scale: number): any => {
 export function Text(props: TextProps & { className?: string }) {
   const { fontScale } = useFontScale();
   const { style, ...rest } = props;
-  const scaledStyle = scaleStyle(style, fontScale);
+  const scaledStyle = useMemo(() => scaleStyle(style, fontScale), [fontScale, style]);
 
   return <InteropText {...rest} style={scaledStyle} />;
 }
@@ -43,13 +44,28 @@ export function Text(props: TextProps & { className?: string }) {
 export function TextInput(props: TextInputProps & { className?: string }) {
   const { fontScale } = useFontScale();
   const { colors } = useAppTheme();
-  const { style, selectionColor, cursorColor, placeholderTextColor, ...rest } = props;
-  const scaledStyle = scaleStyle(style, fontScale);
+  const {
+    style,
+    selectionColor,
+    cursorColor,
+    placeholderTextColor,
+    autoCorrect,
+    spellCheck,
+    smartInsertDelete,
+    ...rest
+  } = props;
+  const scaledStyle = useMemo(() => scaleStyle(style, fontScale), [fontScale, style]);
+  const shouldStabilizeControlledIosInput = Platform.OS === "ios" && props.value !== undefined;
 
-  // UI polish: provide consistent focus/caret contrast unless a screen overrides it.
+  // iOS controlled inputs can drop characters or move the cursor when predictive text
+  // rewrites the buffer mid-update. We default to safer typing behavior app-wide while
+  // still allowing individual screens to opt back in explicitly.
   return (
     <InteropTextInput
       {...rest}
+      autoCorrect={autoCorrect ?? !shouldStabilizeControlledIosInput}
+      spellCheck={spellCheck ?? !shouldStabilizeControlledIosInput}
+      smartInsertDelete={smartInsertDelete ?? !shouldStabilizeControlledIosInput}
       selectionColor={selectionColor ?? colors.accent}
       cursorColor={cursorColor ?? colors.accent}
       placeholderTextColor={placeholderTextColor ?? colors.placeholder}
@@ -61,7 +77,7 @@ export function TextInput(props: TextInputProps & { className?: string }) {
 export function AnimatedText(props: TextProps & { className?: string }) {
   const { fontScale } = useFontScale();
   const { style, ...rest } = props;
-  const scaledStyle = scaleStyle(style, fontScale);
+  const scaledStyle = useMemo(() => scaleStyle(style, fontScale), [fontScale, style]);
 
   return <AnimatedInteropText {...rest} style={scaledStyle} />;
 }

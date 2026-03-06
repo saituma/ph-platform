@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -95,8 +95,10 @@ function MediaSection({ url, title }: { url: string; title?: string }) {
 export default function ProgramContentDetailScreen() {
   const { contentId } = useLocalSearchParams<{ contentId: string }>();
   const router = useRouter();
-  const { token, programTier } = useAppSelector((state) => state.user);
+  const { token } = useAppSelector((state) => state.user);
   const { isDark, colors } = useAppTheme();
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+  const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<ContentItem | null>(null);
@@ -134,19 +136,65 @@ export default function ProgramContentDetailScreen() {
 
   const meta = (item?.metadata ?? {}) as ExerciseMetadata;
   const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
+  const activeAthlete = useMemo(() => {
+    if (!managedAthletes.length) return null;
+    return managedAthletes.find((athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId) ?? managedAthletes[0];
+  }, [athleteUserId, managedAthletes]);
+  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
+  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
+  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
+  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView onRefresh={load} contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="px-6 pt-6">
-          <View className="flex-row items-center justify-between mb-6">
-            <Pressable
-              onPress={() => router.back()}
-              className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-            >
-              <Feather name="arrow-left" size={20} color="#94A3B8" />
-            </Pressable>
-            <View className="w-10" />
+          <View
+            className="overflow-hidden rounded-[30px] border px-5 py-5 mb-6"
+            style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.md) }}
+          >
+            <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: accentSurface }} />
+            <View className="flex-row items-center justify-between mb-4">
+              <Pressable
+                onPress={() => router.back()}
+                className="h-11 w-11 items-center justify-center rounded-[18px]"
+                style={{ backgroundColor: mutedSurface }}
+              >
+                <Feather name="arrow-left" size={20} color={colors.accent} />
+              </Pressable>
+              <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+                  Content detail
+                </Text>
+              </View>
+            </View>
+
+            <Text className="text-[26px] font-clash text-app font-bold">
+              {item?.title ?? "Program Content"}
+            </Text>
+            <View className="mt-4 flex-row flex-wrap gap-2">
+              {activeAthlete?.name ? (
+                <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
+                  <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
+                    Athlete: {activeAthlete.name}
+                  </Text>
+                </View>
+              ) : null}
+              {activeAthlete?.age ? (
+                <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
+                  <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                    {activeAthlete.age} yrs
+                  </Text>
+                </View>
+              ) : null}
+              {meta.category ? (
+                <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
+                  <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                    {meta.category}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
 
           {isLoading ? (
@@ -161,40 +209,40 @@ export default function ProgramContentDetailScreen() {
           ) : item ? (
             <View className="gap-4">
               {/* Main content card */}
-              <View className="rounded-3xl bg-[#2F8F57] px-6 py-6 gap-4" style={isDark ? Shadows.none : Shadows.sm}>
-                <Text className="text-2xl font-clash text-white font-bold">{item.title}</Text>
+              <View className="rounded-[28px] px-6 py-6 gap-4" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
+                <Text className="text-2xl font-clash text-app font-bold">Overview</Text>
 
                 {/* Exercise metadata badges */}
                 {hasExercise && (
                   <View className="flex-row flex-wrap gap-2">
                     {meta.sets != null && (
-                      <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-[11px] font-outfit text-white">{meta.sets} sets</Text>
+                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+                        <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>{meta.sets} sets</Text>
                       </View>
                     )}
                     {meta.reps != null && (
-                      <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-[11px] font-outfit text-white">{meta.reps} reps</Text>
+                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+                        <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>{meta.reps} reps</Text>
                       </View>
                     )}
                     {meta.duration != null && (
-                      <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-[11px] font-outfit text-white">{meta.duration}s duration</Text>
+                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+                        <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>{meta.duration}s duration</Text>
                       </View>
                     )}
                     {meta.restSeconds != null && (
-                      <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-[11px] font-outfit text-white">{meta.restSeconds}s rest</Text>
+                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+                        <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>{meta.restSeconds}s rest</Text>
                       </View>
                     )}
                     {meta.category && (
-                      <View className="rounded-full bg-white/25 px-3 py-1.5">
-                        <Text className="text-[11px] font-outfit text-white font-semibold">{meta.category}</Text>
+                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                        <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>{meta.category}</Text>
                       </View>
                     )}
                     {meta.equipment && (
-                      <View className="rounded-full bg-white/15 px-3 py-1.5">
-                        <Text className="text-[11px] font-outfit text-white">🏋️ {meta.equipment}</Text>
+                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                        <Text className="text-[11px] font-outfit" style={{ color: colors.text }}>🏋️ {meta.equipment}</Text>
                       </View>
                     )}
                   </View>
@@ -204,9 +252,9 @@ export default function ProgramContentDetailScreen() {
                 {item.body ? (
                   <MarkdownText
                     text={item.body}
-                    baseStyle={{ fontSize: 15, lineHeight: 24, color: "#FFFFFF" }}
-                    headingStyle={{ fontSize: 18, lineHeight: 26, color: "#FFFFFF", fontWeight: "700" }}
-                    subheadingStyle={{ fontSize: 16, lineHeight: 24, color: "#FFFFFF", fontWeight: "700" }}
+                    baseStyle={{ fontSize: 15, lineHeight: 24, color: colors.text }}
+                    headingStyle={{ fontSize: 18, lineHeight: 26, color: colors.text, fontWeight: "700" }}
+                    subheadingStyle={{ fontSize: 16, lineHeight: 24, color: colors.text, fontWeight: "700" }}
                     listItemStyle={{ paddingLeft: 6 }}
                   />
                 ) : null}
