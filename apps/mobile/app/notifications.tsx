@@ -1,4 +1,5 @@
 import { ActionButton } from "@/components/dashboard/ActionButton";
+import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -56,18 +57,11 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <View className="px-6 py-4 flex-row items-center justify-between border-b border-app">
-        <TouchableOpacity
-          onPress={() => router.navigate("/(tabs)/more")}
-          className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-        >
-          <Feather name="arrow-left" size={20} className="text-app" />
-        </TouchableOpacity>
-        <Text className="text-xl font-clash text-app font-bold">
-          Notifications
-        </Text>
-        <View className="w-10" />
-      </View>
+      <MoreStackHeader
+        title="Notifications"
+        subtitle="Choose how fast you hear about new messages, schedule changes, and account updates."
+        badge="Alerts"
+      />
 
       <ThemedScrollView
         onRefresh={async () => {

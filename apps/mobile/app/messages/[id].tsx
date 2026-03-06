@@ -9,12 +9,10 @@ import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
 import { Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { canAccessTier } from "@/lib/planAccess";
 
 export default function ThreadScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useAppTheme();
   const programTier = useAppSelector((state) => state.user.programTier);
   const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");

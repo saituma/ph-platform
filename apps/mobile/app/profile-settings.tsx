@@ -1,4 +1,5 @@
 import { ActionButton } from "@/components/dashboard/ActionButton";
+import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -20,7 +21,7 @@ import { AgeGate } from "@/components/AgeGate";
 export default function ProfileSettingsScreen() {
   const router = useRouter();
   const { role } = useRole();
-  const { isDark, colors } = useAppTheme();
+  const { isDark } = useAppTheme();
   const { isLoading } = useRefreshContext();
   const { profile, token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
@@ -44,7 +45,7 @@ export default function ProfileSettingsScreen() {
       profilePicture?: string | null;
     }[]
   >([]);
-  const [managedAthlete, setManagedAthlete] = useState<{
+  const [, setManagedAthlete] = useState<{
     id?: number;
     name?: string | null;
     age?: number | null;
@@ -57,10 +58,6 @@ export default function ProfileSettingsScreen() {
     extraResponses?: string | null;
     profilePicture?: string | null;
   } | null>(null);
-
-  if (isSectionHidden("settings")) {
-    return <AgeGate title="Settings locked" message="Settings are restricted for this age." />;
-  }
 
   const [name, setName] = useState(profile.name ?? "");
   const [email, setEmail] = useState(profile.email ?? "");
@@ -116,6 +113,10 @@ export default function ProfileSettingsScreen() {
       active = false;
     };
   }, [role, token]);
+
+  if (isSectionHidden("settings")) {
+    return <AgeGate title="Settings locked" message="Settings are restricted for this age." />;
+  }
 
   const handleRefresh = async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -184,18 +185,11 @@ export default function ProfileSettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <View className="px-6 py-4 bg-input border-b border-app flex-row items-center justify-between">
-        <TouchableOpacity
-          onPress={() => router.navigate("/(tabs)/more")}
-          className="w-10 h-10 items-center justify-center bg-secondary rounded-full"
-        >
-          <Feather name="arrow-left" size={20} className="text-app" />
-        </TouchableOpacity>
-        <Text className="text-lg font-bold font-clash text-app">
-          Profile Information
-        </Text>
-        <View className="w-10" />
-      </View>
+      <MoreStackHeader
+        title="Profile Information"
+        subtitle="Fine-tune identity details, update your avatar, and keep your account polished."
+        badge="Profile"
+      />
 
       <ThemedScrollView
         onRefresh={handleRefresh}

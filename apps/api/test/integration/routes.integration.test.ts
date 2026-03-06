@@ -312,7 +312,7 @@ describe("integration: routes (real DB/Stripe)", () => {
         team: "Test Team",
         trainingPerWeek: 3,
         injuries: "None",
-        growthNotes: "Notes",
+        growthNotes: null,
         performanceGoals: "Goals",
         equipmentAccess: "Yes",
         parentEmail: testUsers.get(ctx.guardianUserId!)!.email,

@@ -1,3 +1,4 @@
+import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -20,18 +21,11 @@ export default function VideoUploadScreen() {
   if (!canUploadVideo) {
     return (
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <View className="px-6 py-4 flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => router.navigate("/(tabs)/more")}
-            className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-          >
-            <Feather name="arrow-left" size={20} className="text-app" />
-          </TouchableOpacity>
-          <Text className="text-xl font-clash text-app font-bold">
-            Video Upload
-          </Text>
-          <View className="w-10" />
-        </View>
+        <MoreStackHeader
+          title="Video Upload"
+          subtitle="Send training clips for review and keep technique feedback flowing in one premium workflow."
+          badge="Premium"
+        />
 
         <View className="flex-1 items-center justify-center px-6 pb-12">
           <View className="items-center max-w-[340px]">
@@ -67,18 +61,11 @@ export default function VideoUploadScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <View className="px-6 py-4 flex-row items-center justify-between">
-        <TouchableOpacity
-          onPress={() => router.navigate("/(tabs)/more")}
-          className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-        >
-          <Feather name="arrow-left" size={20} className="text-app" />
-        </TouchableOpacity>
-        <Text className="text-xl font-clash text-app font-bold">
-          Video Upload
-        </Text>
-        <View className="w-10" />
-      </View>
+      <MoreStackHeader
+        title="Video Upload"
+        subtitle="Drop in your best reps, movement clips, or match footage for faster coach review."
+        badge="Premium"
+      />
 
       <ThemedScrollView
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 48 }}

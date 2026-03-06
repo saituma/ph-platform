@@ -6,6 +6,7 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { Text } from "@/components/ScaledText";
 import { Ionicons } from "@expo/vector-icons";
+import { Shadows } from "@/constants/theme";
 
 type MessageBubbleProps = {
   message: ChatMessage;
@@ -69,10 +70,17 @@ function MessageBubbleBase({
 }: MessageBubbleProps) {
   const { colors, isDark } = useAppTheme();
   const isUser = message.from === "user";
-  const bubbleUser = isDark ? "#004E43" : "#DCF8C6";
-  const bubbleOther = isDark ? "#1F2C34" : "#F3F4F6";
-  const textColor = isDark ? "#E9EDEF" : "#111B21";
-  const timeColor = isDark ? "#A2ADB7" : "#667781";
+  const bubbleUser = isDark ? "#166534" : "#DCFCE7";
+  const bubbleOther = isDark ? "#191E27" : "#FFFFFF";
+  const bubbleBorder = isUser
+    ? isDark
+      ? "rgba(255,255,255,0.06)"
+      : "rgba(34,197,94,0.22)"
+    : isDark
+      ? "rgba(255,255,255,0.08)"
+      : "rgba(15,23,42,0.06)";
+  const textColor = isDark ? "#F8FAFC" : "#111827";
+  const timeColor = isDark ? "#94A3B8" : "#64748B";
   const { width, height } = useWindowDimensions();
   const [imageSize, setImageSize] = React.useState<{ width: number; height: number } | null>(null);
   const [videoMeta, setVideoMeta] = React.useState<{ durationMs: number } | null>(null);
@@ -138,42 +146,52 @@ function MessageBubbleBase({
   };
 
   return (
-    <View className="mb-2">
+    <View className="mb-3">
       <View
         style={{
           maxWidth: "86%",
           alignSelf: isUser ? "flex-end" : "flex-start",
         }}
       >
+        {!isUser && message.authorName ? (
+          <Text className="mb-1 ml-3 text-[11px] font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+            {message.authorName}
+          </Text>
+        ) : null}
         <Pressable
           onLongPress={() => onLongPress(message)}
           delayLongPress={260}
-          className="shadow-sm"
+          className="overflow-hidden"
           style={[
             {
               paddingHorizontal: 14,
               paddingTop: 10,
               paddingBottom: 8,
-              borderRadius: 16,
+              borderRadius: 22,
               backgroundColor: isUser ? bubbleUser : bubbleOther,
+              borderWidth: 1,
+              borderColor: bubbleBorder,
+              ...(isDark ? Shadows.none : Shadows.sm),
             },
             !isUser && {
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
-              borderTopLeftRadius: 6,
-              borderBottomLeftRadius: 4,
+              borderTopLeftRadius: 10,
+              borderBottomLeftRadius: 8,
             },
             isUser && {
-              borderTopRightRadius: 6,
-              borderBottomRightRadius: 4,
+              borderTopRightRadius: 10,
+              borderBottomRightRadius: 8,
             },
           ]}
         >
+        <View
+          className="absolute -right-6 -top-6 h-16 w-16 rounded-full"
+          style={{ backgroundColor: isUser ? "rgba(255,255,255,0.08)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(34,197,94,0.05)" }}
+        />
         {message.mediaUrl && message.contentType === "image" ? (
           <Pressable onPress={() => setMediaOpen(true)} className="mb-2">
             <Image
               source={{ uri: message.mediaUrl }}
-              style={{ width: "100%", height: 200, borderRadius: 10 }}
+              style={{ width: "100%", height: 200, borderRadius: 16 }}
               resizeMode="cover"
               onLoad={(event) => {
                 const source = event.nativeEvent?.source;
@@ -255,8 +273,8 @@ function MessageBubbleBase({
         {isAudioMessage ? (
           <Pressable
             onPress={toggleAudio}
-            className="mb-2 rounded-xl px-3 py-2"
-            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }}
+            className="mb-2 rounded-2xl px-3 py-3"
+            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)" }}
           >
             <View className="flex-row items-center gap-3">
               <View className="h-9 w-9 rounded-full items-center justify-center bg-app/10">
@@ -282,12 +300,15 @@ function MessageBubbleBase({
         {message.mediaUrl && message.contentType !== "image" && message.contentType !== "video" && !isAudioMessage ? (
           <Pressable
             onPress={() => Linking.openURL(message.mediaUrl!)}
-            className="mb-2 rounded-lg px-3 py-2"
-            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }}
+            className="mb-2 rounded-2xl px-3 py-3"
+            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)" }}
           >
-            <Text className="text-sm font-outfit" style={{ color: textColor }}>
-              Open attachment
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="attach" size={16} color={colors.accent} />
+              <Text className="text-sm font-outfit font-semibold" style={{ color: textColor }}>
+                Open attachment
+              </Text>
+            </View>
           </Pressable>
         ) : null}
 
@@ -344,11 +365,13 @@ function MessageBubbleBase({
         ) : null}
         
         <View className="flex-row items-end flex-wrap gap-x-3 gap-y-1">
-          <Text className="text-[15px] font-outfit leading-relaxed flex-shrink-1" style={{ color: textColor }}>
-            {message.text}
-          </Text>
-          
-          <View className="flex-row items-center ml-auto">
+          {message.text ? (
+            <Text className="text-[15px] font-outfit leading-relaxed flex-shrink-1" style={{ color: textColor }}>
+              {message.text}
+            </Text>
+          ) : null}
+
+          <View className="flex-row items-center ml-auto rounded-full px-2 py-1" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.55)" }}>
             <Text className="text-[10px] font-outfit mt-1" style={{ color: timeColor }}>
               {message.time}
             </Text>
@@ -363,14 +386,14 @@ function MessageBubbleBase({
         </View>
 
           {message.reactions?.length ? (
-            <View className="flex-row flex-wrap gap-1.5 mt-2">
+            <View className="flex-row flex-wrap gap-1.5 mt-3">
               {message.reactions.map((reaction) => (
                 <Pressable
                   key={`${message.id}-${reaction.emoji}`}
-                  className="rounded-full border px-2 py-0.5"
+                  className="rounded-full border px-2.5 py-1"
                   style={{
-                    borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+                    borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
                   }}
                   onPress={() => onReactionPress(message, reaction.emoji)}
                 >
@@ -394,8 +417,8 @@ function MessageBubbleBase({
             transform: [{ rotate: "45deg" }],
             borderBottomLeftRadius: isUser ? 2 : 0,
             borderTopRightRadius: isUser ? 0 : 2,
-            borderWidth: !isUser && !isDark ? 1 : 0,
-            borderColor: !isUser && !isDark ? "rgba(0,0,0,0.06)" : "transparent",
+            borderWidth: 1,
+            borderColor: bubbleBorder,
           }}
         />
       </View>

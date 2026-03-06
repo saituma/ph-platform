@@ -1,4 +1,5 @@
 import { ActionButton } from "@/components/dashboard/ActionButton";
+import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text, TextInput } from "@/components/ScaledText";
@@ -106,18 +107,12 @@ export default function SubmitTestimonialScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <View className="px-6 py-4 flex-row items-center justify-between border-b border-app">
-        <TouchableOpacity
-          onPress={() => router.replace("/(tabs)/more")}
-          className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-        >
-          <Feather name="arrow-left" size={20} className="text-app" />
-        </TouchableOpacity>
-        <Text className="text-xl font-clash text-app font-bold">
-          Submit Testimonial
-        </Text>
-        <View className="w-10" />
-      </View>
+      <MoreStackHeader
+        title="Submit Testimonial"
+        subtitle="Share your progress story and help future athletes feel the value of the platform."
+        badge="Community"
+        onBack={() => router.replace("/(tabs)/more")}
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}

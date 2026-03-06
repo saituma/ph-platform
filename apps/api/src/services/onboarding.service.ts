@@ -416,6 +416,9 @@ function normalizeConfigFields(fields: any[] | null | undefined) {
     if (field?.id === "age" && !hasBirthDate) {
       return { ...field, id: "birthDate", label: field.label || "Birth Date", type: "date" };
     }
+    if (field?.id === "growthNotes") {
+      return { ...field, required: false };
+    }
     return field;
   });
 }

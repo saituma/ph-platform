@@ -11,27 +11,65 @@ type ThreadHeaderProps = {
   onBack: () => void;
 };
 
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+}
+
 export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
   const { colors, isDark } = useAppTheme();
-  const headerBg = colors.backgroundSecondary;
-  const headerBorder = colors.border;
-  const headerText = colors.text;
-  const headerSubText = colors.textSecondary;
-  const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+  const headerBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
+  const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.85)";
+  const cardBg = isDark ? "#161B24" : "#F6FFF8";
+  const mutedPill = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)";
+  const summaryLabel = thread.id.startsWith("group:")
+    ? "Team conversation"
+    : thread.premium
+      ? "Priority coaching"
+      : "Private coaching";
+  const statusLine = thread.lastSeen ?? thread.responseTime ?? "Usually replies within a day";
 
   return (
-    <View className="px-5 py-4 border-b" style={{ backgroundColor: headerBg, borderColor: headerBorder }}>
-      <View className="flex-row items-center">
-        <Pressable
-          onPress={onBack}
-          className="h-9 w-9 rounded-full items-center justify-center active:opacity-80"
-        >
-          <Feather name="chevron-left" size={22} color={headerText} />
-        </Pressable>
+    <View className="px-4 pb-3 pt-3" style={{ backgroundColor: colors.background }}>
+      <View
+        className="overflow-hidden rounded-[28px] border px-4 pb-4 pt-4"
+        style={{ backgroundColor: cardBg, borderColor: headerBorder }}
+      >
+        <View
+          className="absolute -right-8 -top-8 h-28 w-28 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.10)" }}
+        />
+        <View
+          className="absolute -bottom-10 left-12 h-24 w-24 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(34,197,94,0.06)" }}
+        />
 
-        <View className="flex-row items-center gap-3 ml-1 flex-1">
+        <View className="flex-row items-center justify-between">
+          <Pressable
+            onPress={onBack}
+            className="h-11 w-11 rounded-2xl items-center justify-center active:opacity-80"
+            style={{ backgroundColor: mutedPill }}
+          >
+            <Feather name="chevron-left" size={20} color={colors.text} />
+          </Pressable>
+
+          <View
+            className="rounded-full px-3 py-1.5"
+            style={{ backgroundColor: mutedPill }}
+          >
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.6px]" style={{ color: colors.accent }}>
+              {summaryLabel}
+            </Text>
+          </View>
+        </View>
+
+        <View className="mt-4 flex-row items-center gap-4">
           {thread.avatarUrl ? (
-            <View className="h-9 w-9 rounded-full overflow-hidden border" style={{ borderColor: headerBorder }}>
+            <View className="h-16 w-16 rounded-[22px] overflow-hidden border-2" style={{ borderColor: headerBorder }}>
               <Image
                 source={{ uri: thread.avatarUrl }}
                 className="h-full w-full"
@@ -39,23 +77,63 @@ export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
               />
             </View>
           ) : (
-            <View className="h-9 w-9 rounded-full items-center justify-center border" style={{ backgroundColor: avatarBg, borderColor: headerBorder }}>
-              <Text className="font-clash text-base font-bold" style={{ color: headerText }}>
-                {thread.name.charAt(0)}
+            <View
+              className="h-16 w-16 rounded-[22px] items-center justify-center border-2"
+              style={{ backgroundColor: avatarBg, borderColor: headerBorder }}
+            >
+              <Text className="font-clash text-xl font-bold" style={{ color: colors.text }}>
+                {getInitials(thread.name)}
               </Text>
             </View>
           )}
+
           <View className="flex-1">
-            <Text className="font-clash text-[16px] font-bold" numberOfLines={1} style={{ color: headerText }}>
-              {thread.name}
+            <View className="flex-row items-center gap-2">
+              <Text className="font-clash text-[21px] font-bold flex-1" numberOfLines={1} style={{ color: colors.text }}>
+                {thread.name}
+              </Text>
+              <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors.accent }} />
+            </View>
+            <Text className="mt-1 text-sm font-outfit" numberOfLines={1} style={{ color: colors.textSecondary }}>
+              {thread.role}
             </Text>
-            <Text className="text-[11px] font-outfit" numberOfLines={1} style={{ color: headerSubText }}>
-              {thread.responseTime ?? "Typically replies quickly"}
+            <Text className="mt-2 text-[12px] font-outfit font-medium" numberOfLines={1} style={{ color: colors.text }}>
+              {statusLine}
             </Text>
           </View>
         </View>
 
-        <View className="h-9 w-9" />
+        <View className="mt-4 flex-row flex-wrap gap-2">
+          <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedPill }}>
+            <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+              {thread.role}
+            </Text>
+          </View>
+
+          {thread.responseTime ? (
+            <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedPill }}>
+              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                {thread.responseTime}
+              </Text>
+            </View>
+          ) : null}
+
+          {thread.premium ? (
+            <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.accent }}>
+              <Text className="text-[11px] font-outfit font-bold text-white">
+                Priority
+              </Text>
+            </View>
+          ) : null}
+
+          {thread.pinned ? (
+            <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedPill }}>
+              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                Pinned thread
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
     </View>
   );

@@ -1,3 +1,4 @@
+import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -75,17 +76,14 @@ export default function PhysioReferralScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }} onRefresh={loadReferral}>
-        <View className="px-6 pt-6">
-          <View className="flex-row items-center justify-between mb-8">
-            <Pressable
-              onPress={() => router.back()}
-              className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-            >
-              <Feather name="arrow-left" size={20} color="#94A3B8" />
-            </Pressable>
-            <Text className="text-xl font-clash text-white font-bold">Physio Referral</Text>
-            <View className="w-10" />
-          </View>
+        <MoreStackHeader
+          title="Physio Referral"
+          subtitle="Access your rehab partner, clinic details, and referral perks in a more premium surface."
+          badge="Recovery"
+          onBack={() => router.back()}
+        />
+
+        <View className="px-6 pt-2">
 
           {loading ? (
             <View className="rounded-3xl bg-card px-6 py-10 items-center justify-center">
