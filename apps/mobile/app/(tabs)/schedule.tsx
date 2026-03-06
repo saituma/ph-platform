@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { InteractionManager, Modal, Platform, Pressable, ScrollView, View, ActivityIndicator } from "react-native";
+import { ActivityIndicator, InteractionManager, Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -44,13 +44,6 @@ type ServiceType = {
   defaultMeetingLink?: string | null;
   programTier?: string | null;
   isActive?: boolean | null;
-};
-
-type AvailabilityBlock = {
-  id: number;
-  serviceTypeId: number;
-  startsAt: string;
-  endsAt: string;
 };
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -90,10 +83,6 @@ export default function ScheduleScreen() {
   const [bookingMeetingLink, setBookingMeetingLink] = useState("");
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
-  const [availabilityLoading, setAvailabilityLoading] = useState(false);
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-  const [availabilityBookings, setAvailabilityBookings] = useState<any[]>([]);
-  const [hasAvailabilityBlocks, setHasAvailabilityBlocks] = useState(false);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -205,6 +194,47 @@ export default function ScheduleScreen() {
     return null;
   }, [selectedService]);
 
+  const selectedDateLabel = useMemo(
+    () => selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }),
+    [selectedDate],
+  );
+  const monthLabel = `${MONTH_LABELS[calendarMonth.getMonth()]} ${calendarMonth.getFullYear()}`;
+  const nextEvent = dayEvents[0] ?? null;
+  const overlayColor = isDark ? "rgba(34,197,94,0.16)" : "rgba(15,23,42,0.18)";
+  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
+  const mutedSurface = isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.82)";
+  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
+  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const errorColor = isDark ? "#FCA5A5" : colors.danger;
+
+  const getEventTone = useCallback(
+    (type: ScheduleEvent["type"]) => {
+      if (type === "call") {
+        return {
+          icon: "phone",
+          label: "Call",
+          pillBg: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.85)",
+          iconBg: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.05)",
+        };
+      }
+      if (type === "recovery") {
+        return {
+          icon: "heart",
+          label: "Recovery",
+          pillBg: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.85)",
+          iconBg: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.05)",
+        };
+      }
+      return {
+        icon: "activity",
+        label: "Training",
+        pillBg: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.85)",
+        iconBg: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.05)",
+      };
+    },
+    [isDark],
+  );
+
 
 
   const mergeDateAndTime = useCallback((date: Date, time: Date) => {
@@ -212,6 +242,31 @@ export default function ScheduleScreen() {
     next.setHours(time.getHours(), time.getMinutes(), 0, 0);
     return next;
   }, []);
+
+  const changeCalendarMonth = useCallback(
+    (offset: number) => {
+      setCalendarMonth((current) => {
+        const nextMonth = new Date(current.getFullYear(), current.getMonth() + offset, 1);
+        const preferredDay = selectedDate.getDate();
+        const maxDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+        const nextSelectedDate = new Date(
+          nextMonth.getFullYear(),
+          nextMonth.getMonth(),
+          Math.min(preferredDay, maxDay),
+        );
+        const nextKey = `${nextSelectedDate.getFullYear()}-${String(nextSelectedDate.getMonth() + 1).padStart(2, "0")}-${String(nextSelectedDate.getDate()).padStart(2, "0")}`;
+        setSelectedCalendarDate(nextKey);
+        return nextMonth;
+      });
+    },
+    [selectedDate],
+  );
+
+  const handleSelectCalendarDate = useCallback((dateKey: string) => {
+    setSelectedCalendarDate(dateKey);
+    const nextDate = parseDateKey(dateKey);
+    setCalendarMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+  }, [parseDateKey]);
 
   useEffect(() => {
     if (!bookingOpen || !token) return;
@@ -259,14 +314,20 @@ export default function ScheduleScreen() {
     if (!fixedTimeLabel) return;
     const [hours, minutes] = fixedTimeLabel.split(":").map((value) => Number(value));
     if (Number.isNaN(hours) || Number.isNaN(minutes)) return;
-    const next = new Date(bookingTime);
-    next.setHours(hours, minutes, 0, 0);
-    setBookingTime(next);
+    setBookingTime((current) => {
+      if (current.getHours() === hours && current.getMinutes() === minutes) return current;
+      const next = new Date(current);
+      next.setHours(hours, minutes, 0, 0);
+      return next;
+    });
   }, [fixedTimeLabel]);
 
   useEffect(() => {
-    const next = mergeDateAndTime(bookingDate, bookingTime);
-    setBookingTime(next);
+    setBookingTime((current) => {
+      const next = mergeDateAndTime(bookingDate, current);
+      if (current.getTime() === next.getTime()) return current;
+      return next;
+    });
   }, [bookingDate, mergeDateAndTime]);
 
 
@@ -323,30 +384,74 @@ export default function ScheduleScreen() {
         contentContainerStyle={{ paddingBottom: 28 }}
       >
         <View className="px-6 pt-6 pb-4">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="text-3xl font-clash text-app">
-                {role === "Guardian" ? "Family Schedule" : "My Schedule"}
-              </Text>
-              <Text className="text-secondary font-outfit text-sm mt-1">
-                {selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
-              </Text>
-            </View>
-            <Pressable
-              className="h-11 rounded-full bg-accent px-4 justify-center"
-              onPress={() => {
-                setBookingOpen(true);
-                setBookingConfirmed(false);
-                setBookingError(null);
-              }}
-            >
-              <View className="flex-row items-center gap-2">
-                <Feather name="plus" size={16} className="text-white" />
-                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
-                  Add booking
+          <View
+            className="overflow-hidden rounded-[30px] border px-5 py-5"
+            style={{
+              backgroundColor: surfaceColor,
+              borderColor: borderSoft,
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            <View
+              className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
+              style={{ backgroundColor: accentSurface }}
+            />
+            <View
+              className="absolute -bottom-10 left-10 h-24 w-24 rounded-full"
+              style={{ backgroundColor: mutedSurface }}
+            />
+
+            <View className="flex-row items-start justify-between gap-4">
+              <View className="flex-1">
+                <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+                    {role === "Guardian" ? "Family planner" : "Training planner"}
+                  </Text>
+                </View>
+                <Text className="mt-3 text-3xl font-clash text-app">
+                  {role === "Guardian" ? "Family Schedule" : "My Schedule"}
+                </Text>
+                <Text className="text-secondary font-outfit text-sm mt-2">
+                  {selectedDateLabel}
                 </Text>
               </View>
-            </Pressable>
+
+              <Pressable
+                className="rounded-[20px] bg-accent px-4 py-3 justify-center"
+                onPress={() => {
+                  setBookingOpen(true);
+                  setBookingConfirmed(false);
+                  setBookingError(null);
+                }}
+                style={isDark ? Shadows.none : Shadows.sm}
+              >
+                <View className="flex-row items-center gap-2">
+                  <Feather name="plus" size={16} color="#FFFFFF" />
+                  <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
+                    Add booking
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+
+            <View className="mt-4 flex-row gap-3">
+              <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: mutedSurface }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
+                  Today
+                </Text>
+                <Text className="mt-2 text-lg font-clash text-app">
+                  {dayEvents.length} planned
+                </Text>
+              </View>
+              <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: mutedSurface }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
+                  Next up
+                </Text>
+                <Text className="mt-2 text-lg font-clash text-app" numberOfLines={1}>
+                  {nextEvent ? nextEvent.timeStart : "Open day"}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -355,31 +460,42 @@ export default function ScheduleScreen() {
             <View className="h-5 w-1.5 rounded-full bg-accent" />
             <Text className="text-xl font-clash text-app">Booking Calendar</Text>
           </View>
-          <View className="rounded-3xl border border-app/10 bg-card px-4 py-4" style={isDark ? Shadows.none : Shadows.sm}>
+          <View className="rounded-[28px] border px-4 py-4" style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}>
             <View className="flex-row items-center justify-between">
-            <Pressable
-              onPress={() => {
-                setCalendarMonth(
-                  new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1),
-                );
-              }}
-              className="h-11 w-11 items-center justify-center rounded-full bg-secondary/15 border border-app/20"
+            <TouchableOpacity
+              onPress={() => changeCalendarMonth(-1)}
+              activeOpacity={0.8}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              className="h-11 w-11 items-center justify-center rounded-[18px]"
+              style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft, zIndex: 2 }}
             >
-              <Feather name="chevron-left" size={20} className="text-app" />
-            </Pressable>
+              <Feather name="chevron-left" size={20} color={colors.accent} />
+            </TouchableOpacity>
             <Text className="text-lg font-clash text-app">
-              {MONTH_LABELS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+              {monthLabel}
             </Text>
-            <Pressable
-              onPress={() => {
-                setCalendarMonth(
-                  new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1),
-                );
-              }}
-              className="h-11 w-11 items-center justify-center rounded-full bg-secondary/15 border border-app/20"
+            <TouchableOpacity
+              onPress={() => changeCalendarMonth(1)}
+              activeOpacity={0.8}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              className="h-11 w-11 items-center justify-center rounded-[18px]"
+              style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft, zIndex: 2 }}
             >
-              <Feather name="chevron-right" size={20} className="text-app" />
-            </Pressable>
+              <Feather name="chevron-right" size={20} color={colors.accent} />
+            </TouchableOpacity>
+          </View>
+
+          <View className="mt-4 flex-row gap-2">
+            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+                {events.length} total bookings
+              </Text>
+            </View>
+            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
+                Tap a day to focus
+              </Text>
+            </View>
           </View>
 
           <View className="mt-4 flex-row justify-between px-1">
@@ -410,21 +526,27 @@ export default function ScheduleScreen() {
               return (
                 <Pressable
                   key={cell.key}
-                  onPress={() => setSelectedCalendarDate(cell.key)}
-                  className={`h-12 items-center justify-center rounded-2xl ${
-                    isSelected ? "bg-accent" : ""
-                  }`}
-                  style={{ width: `${100 / 7}%` }}
+                  onPress={() => handleSelectCalendarDate(cell.key)}
+                  className="h-14 items-center justify-center rounded-[18px]"
+                  style={{
+                    width: `${100 / 7}%`,
+                    backgroundColor: isSelected
+                      ? colors.accent
+                      : isToday
+                        ? accentSurface
+                        : "transparent",
+                    borderWidth: isSelected || isToday ? 1 : 0,
+                    borderColor: isSelected ? colors.accent : borderSoft,
+                  }}
                 >
                   <Text
-                    className={`text-sm font-outfit ${
-                      isSelected ? "text-white font-bold" : (isToday ? "text-accent" : "text-app")
-                    }`}
+                    className={`text-sm font-outfit ${isSelected ? "text-white font-bold" : isToday ? "font-bold" : "text-app"}`}
+                    style={!isSelected && isToday ? { color: colors.accent } : undefined}
                   >
                     {cell.date.getDate()}
                   </Text>
                   {hasEvents ? (
-                    <View className={`mt-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-accent"}`} />
+                    <View className="mt-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: isSelected ? "#FFFFFF" : colors.accent }} />
                   ) : null}
                 </Pressable>
               );
@@ -438,10 +560,10 @@ export default function ScheduleScreen() {
             <View>
               <Text className="text-lg font-clash text-app">Schedule</Text>
               <Text className="text-xs font-outfit text-secondary mt-1">
-                {selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
+                {selectedDateLabel}
               </Text>
             </View>
-            <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
+            <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}>
               <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.4px]">
                 {dayEvents.length} events
               </Text>
@@ -449,15 +571,19 @@ export default function ScheduleScreen() {
           </View>
 
           {eventsLoading ? (
-            <View className="rounded-3xl p-6 bg-card" style={isDark ? Shadows.none : Shadows.sm}>
-              <Feather name="loader" size={20} className="text-secondary" />
+            <View className="rounded-[28px] p-6" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
+              <View className="h-12 w-12 rounded-[18px] items-center justify-center" style={{ backgroundColor: accentSurface }}>
+                <ActivityIndicator size="small" color={colors.accent} />
+              </View>
               <Text className="text-base font-clash text-app mt-3">
                 Loading schedule
               </Text>
             </View>
           ) : dayEvents.length === 0 ? (
-            <View className="rounded-3xl p-6 bg-card items-center" style={isDark ? Shadows.none : Shadows.sm}>
-              <Feather name="calendar" size={20} className="text-secondary" />
+            <View className="rounded-[28px] p-6 items-center" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
+              <View className="h-16 w-16 rounded-[22px] items-center justify-center" style={{ backgroundColor: accentSurface }}>
+                <Feather name="calendar" size={24} color={colors.accent} />
+              </View>
               <Text className="text-base font-clash text-app mt-3">
                 No events scheduled
               </Text>
@@ -484,40 +610,60 @@ export default function ScheduleScreen() {
             </View>
           ) : (
             <View className="gap-3">
-              {dayEvents.map((event) => (
-                <Pressable
-                  key={event.id}
-                  onPress={() => setSelectedEvent(event)}
-                  className="rounded-[20px] p-4 bg-card"
-                  style={isDark ? Shadows.none : Shadows.sm}
-                >
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-base font-clash text-app">
-                      {event.title}
-                    </Text>
-                    <Text className="text-xs font-outfit text-secondary">
-                      {event.timeStart}
-                    </Text>
-                  </View>
-                  <Text className="text-sm font-outfit text-secondary mt-1">
-                    {event.timeStart} - {event.timeEnd}
-                  </Text>
-                  <View className="flex-row items-center gap-2 mt-3">
-                    <Feather name="map-pin" size={12} className="text-secondary" />
-                    <Text className="text-xs font-outfit text-secondary">
-                      {event.location}
-                    </Text>
-                  </View>
-                  {event.status === "pending" ? (
-                    <Text className="text-xs font-outfit text-secondary mt-2">
-                      Pending approval
-                    </Text>
-                  ) : null}
-                  <Text className="text-xs font-outfit text-secondary mt-3">
-                    Athlete: {event.athlete}
-                  </Text>
-                </Pressable>
-              ))}
+              {dayEvents.map((event) => {
+                const tone = getEventTone(event.type);
+                return (
+                  <Pressable
+                    key={event.id}
+                    onPress={() => setSelectedEvent(event)}
+                    className="rounded-[24px] p-4"
+                    style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}
+                  >
+                    <View className="flex-row items-start gap-3">
+                      <View className="h-12 w-12 rounded-[18px] items-center justify-center" style={{ backgroundColor: tone.iconBg }}>
+                        <Feather name={tone.icon as any} size={18} color={colors.accent} />
+                      </View>
+
+                      <View className="flex-1">
+                        <View className="flex-row items-center justify-between gap-3">
+                          <Text className="text-base font-clash text-app flex-1">
+                            {event.title}
+                          </Text>
+                          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: tone.pillBg }}>
+                            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                              {tone.label}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text className="text-sm font-outfit text-secondary mt-1">
+                          {event.timeStart} - {event.timeEnd}
+                        </Text>
+
+                        <View className="mt-3 flex-row flex-wrap gap-2">
+                          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                            <Text className="text-[11px] font-outfit" style={{ color: colors.text }}>
+                              {event.location}
+                            </Text>
+                          </View>
+                          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                            <Text className="text-[11px] font-outfit" style={{ color: colors.text }}>
+                              {event.athlete}
+                            </Text>
+                          </View>
+                          {event.status === "pending" ? (
+                            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+                              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
+                                Pending approval
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
         </View>
@@ -533,7 +679,8 @@ export default function ScheduleScreen() {
         }}
       >
         <Pressable
-          className="flex-1 bg-black/40 justify-end"
+          className="flex-1 justify-end"
+          style={{ backgroundColor: overlayColor }}
           onPress={() => {
             setSelectedEvent(null);
             setShowDetails(false);
@@ -541,8 +688,8 @@ export default function ScheduleScreen() {
         >
           <Pressable
             onPress={(event) => event.stopPropagation()}
-            className="rounded-t-[28px] p-6"
-            style={{ backgroundColor: colors.background }}
+            className="rounded-t-[30px] p-6"
+            style={{ backgroundColor: surfaceColor }}
           >
             {!showDetails ? (
               <>
@@ -573,7 +720,7 @@ export default function ScheduleScreen() {
                   </Text>
                 ) : null}
 
-                <View className="mt-4 rounded-[20px] p-4 bg-card" style={isDark ? Shadows.none : Shadows.sm}>
+                <View className="mt-4 rounded-[22px] p-4" style={{ backgroundColor: mutedSurface, ...(isDark ? Shadows.none : Shadows.sm) }}>
                   <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                     Notes
                   </Text>
@@ -592,7 +739,8 @@ export default function ScheduleScreen() {
                     </Text>
                   </Pressable>
                   <Pressable
-                    className="flex-1 px-4 py-3 rounded-full border border-app/10 bg-secondary/10"
+                    className="flex-1 px-4 py-3 rounded-full"
+                    style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
                     onPress={() => {
                       if (selectedEvent) {
                         const eventDate = new Date(selectedEvent.startsAt);
@@ -622,7 +770,7 @@ export default function ScheduleScreen() {
                     <Feather name="x" size={20} className="text-secondary" />
                   </Pressable>
                 </View>
-                <View className="mt-4 rounded-[20px] p-4 bg-card gap-2" style={isDark ? Shadows.none : Shadows.sm}>
+                <View className="mt-4 rounded-[22px] p-4 gap-2" style={{ backgroundColor: mutedSurface, ...(isDark ? Shadows.none : Shadows.sm) }}>
                   <Text className="text-sm font-outfit text-app">{selectedEvent?.title}</Text>
                   <Text className="text-xs font-outfit text-secondary">
                     {selectedEvent?.timeStart} - {selectedEvent?.timeEnd}
@@ -644,7 +792,8 @@ export default function ScheduleScreen() {
                 </View>
                 <View className="mt-4 flex-row items-center gap-3">
                   <Pressable
-                    className="flex-1 px-4 py-3 rounded-full border border-app/10 bg-secondary/10"
+                    className="flex-1 px-4 py-3 rounded-full"
+                    style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
                     onPress={() => setShowDetails(false)}
                   >
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
@@ -676,13 +825,14 @@ export default function ScheduleScreen() {
         onRequestClose={() => setBookingOpen(false)}
       >
         <Pressable
-          className="flex-1 bg-black/40 justify-end"
+          className="flex-1 justify-end"
+          style={{ backgroundColor: overlayColor }}
           onPress={() => setBookingOpen(false)}
         >
           <Pressable
             onPress={(event) => event.stopPropagation()}
-            className="rounded-t-[28px] p-6"
-            style={{ backgroundColor: colors.background, maxHeight: "85%" }}
+            className="rounded-t-[30px] p-6"
+            style={{ backgroundColor: surfaceColor, maxHeight: "85%" }}
           >
             <ScrollView
               showsVerticalScrollIndicator={false}
@@ -703,7 +853,7 @@ export default function ScheduleScreen() {
                     Booking request sent for {bookingDate.toLocaleDateString([], { month: "short", day: "numeric" })} at{" "}
                     {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
                   </Text>
-                  <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                  <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                       Pending approval
                     </Text>
@@ -737,13 +887,13 @@ export default function ScheduleScreen() {
                     </Text>
                   ) : null}
                   {servicesError ? (
-                    <Text className="text-xs font-outfit text-red-400 mt-3">
+                    <Text className="text-xs font-outfit mt-3" style={{ color: errorColor }}>
                       {servicesError}
                     </Text>
                   ) : null}
 
                   {activeServices.length === 0 ? (
-                    <View className="mt-4 rounded-2xl border border-dashed border-app/20 p-4">
+                    <View className="mt-4 rounded-[22px] border border-dashed p-4" style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}>
                       <Text className="text-sm font-outfit text-secondary">
                         No booking types are available right now.
                       </Text>
@@ -763,10 +913,11 @@ export default function ScheduleScreen() {
                                 setBookingMeetingLink(item.defaultMeetingLink ?? "");
                               }
                             }}
-                            className={`px-4 py-2 rounded-full border ${
-                              active ? "bg-accent" : "bg-secondary/10"
-                            }`}
-                            style={{ borderColor: colors.border }}
+                            className="px-4 py-2 rounded-full border"
+                            style={{
+                              backgroundColor: active ? colors.accent : mutedSurface,
+                              borderColor: active ? colors.accent : borderSoft,
+                            }}
                           >
                             <Text
                               className={`text-xs font-outfit uppercase tracking-[1.4px] ${
@@ -782,14 +933,15 @@ export default function ScheduleScreen() {
                     </View>
                   )}
 
-                  <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                  <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                       Date & Time
                     </Text>
                     <View className="mt-3 gap-2">
                       <Pressable
                         onPress={() => setShowDatePicker(true)}
-                        className="rounded-2xl border border-app/10 bg-input px-3 py-3"
+                        className="rounded-2xl border px-3 py-3"
+                        style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
                       >
                         <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                           Date
@@ -803,9 +955,8 @@ export default function ScheduleScreen() {
                           if (fixedTimeLabel) return;
                           setShowTimePicker(true);
                         }}
-                        className={`rounded-2xl border border-app/10 bg-input px-3 py-3 ${
-                          fixedTimeLabel ? "opacity-70" : ""
-                        }`}
+                        className={`rounded-2xl border px-3 py-3 ${fixedTimeLabel ? "opacity-70" : ""}`}
+                        style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
                       >
                         <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                           Time
@@ -821,12 +972,12 @@ export default function ScheduleScreen() {
 
 
 
-                  <View className="mt-4 rounded-2xl border p-4 bg-secondary/10 border-app/10">
+                  <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                       Details (optional)
                     </Text>
                     <View className="mt-3 gap-2">
-                      <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
+                      <View className="rounded-2xl border px-3 py-2" style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}>
                         <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                           Location
                         </Text>
@@ -838,7 +989,7 @@ export default function ScheduleScreen() {
                           className="text-sm font-outfit text-app mt-1"
                         />
                       </View>
-                      <View className="rounded-2xl border border-app/10 bg-input px-3 py-2">
+                      <View className="rounded-2xl border px-3 py-2" style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}>
                         <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
                           Meeting link
                         </Text>
@@ -908,7 +1059,7 @@ export default function ScheduleScreen() {
                     </Text>
                   </Pressable>
                   {bookingError ? (
-                    <Text className="text-xs font-outfit text-red-400 mt-3">
+                    <Text className="text-xs font-outfit mt-3" style={{ color: errorColor }}>
                       {bookingError}
                     </Text>
                   ) : null}

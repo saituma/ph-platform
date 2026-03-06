@@ -20,7 +20,7 @@ const onboardingSchema = z.object({
   team: z.string().min(1),
   trainingPerWeek: z.number().int().min(0),
   injuries: z.unknown().optional(),
-  growthNotes: z.string().optional(),
+  growthNotes: z.string().optional().nullable(),
   performanceGoals: z.string().optional(),
   equipmentAccess: z.string().optional(),
   parentEmail: z.string().email(),

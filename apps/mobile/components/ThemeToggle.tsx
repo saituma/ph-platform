@@ -2,7 +2,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleProp, View, ViewStyle } from "react-native";
 import Animated, {
     interpolate,
     useAnimatedStyle,
@@ -10,7 +10,17 @@ import Animated, {
     withSpring,
 } from "react-native-reanimated";
 
-export function ThemeToggle() {
+type ThemeToggleProps = {
+  size?: number;
+  iconSize?: number;
+  style?: StyleProp<ViewStyle>;
+};
+
+export function ThemeToggle({
+  size = 48,
+  iconSize = 22,
+  style,
+}: ThemeToggleProps = {}) {
   const { isDark, toggleColorScheme, colors, isSwitching } = useAppTheme();
   const transition = useSharedValue(isDark ? 1 : 0);
 
@@ -46,15 +56,16 @@ export function ThemeToggle() {
       onPress={toggleColorScheme}
       disabled={isSwitching}
       style={({ pressed }) => ({
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: isDark ? colors.card : colors.backgroundSecondary,
         overflow: "visible",
         transform: [{ scale: pressed ? 0.93 : 1 }],
         ...(isDark ? Shadows.none : Shadows.sm),
+        ...(Array.isArray(style) ? Object.assign({}, ...style) : ((style as ViewStyle) ?? {})),
       })}
     >
       {isSwitching ? (
@@ -63,10 +74,10 @@ export function ThemeToggle() {
         </View>
       ) : null}
       <Animated.View style={[sunStyle, { position: "absolute", alignItems: "center", justifyContent: "center" }]}>
-        <Feather name="sun" size={22} color={colors.themeToggleIcon} />
+        <Feather name="sun" size={iconSize} color={colors.themeToggleIcon} />
       </Animated.View>
       <Animated.View style={[moonStyle, { position: "absolute", alignItems: "center", justifyContent: "center" }]}>
-        <Feather name="moon" size={22} color={colors.accent} />
+        <Feather name="moon" size={iconSize} color={colors.accent} />
       </Animated.View>
     </Pressable>
   );

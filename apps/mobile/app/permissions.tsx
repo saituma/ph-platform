@@ -1,3 +1,4 @@
+import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { Feather } from "@/components/ui/theme-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -66,29 +67,12 @@ export default function PermissionsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app">
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-        <View className="px-6 pt-6 pb-8 bg-input rounded-b-[40px] shadow-sm mb-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center gap-3">
-              <Pressable
-                onPress={() => router.replace("/(tabs)/more")}
-                className="h-10 w-10 items-center justify-center rounded-2xl bg-secondary/60"
-                style={({ pressed }) => ({
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                  opacity: pressed ? 0.92 : 1,
-                })}
-              >
-                <Feather name="chevron-left" size={22} color={colors.accent} />
-              </Pressable>
-              <View className="h-6 w-1.5 rounded-full bg-accent" />
-              <Text className="text-4xl font-clash text-app tracking-tight">
-                Permissions
-              </Text>
-            </View>
-          </View>
-          <Text className="text-sm font-outfit text-secondary">
-            Control the permissions needed for location check-ins and updates.
-          </Text>
-        </View>
+        <MoreStackHeader
+          title="Permissions"
+          subtitle="Control location and notification access with clearer status and less friction."
+          badge="Access"
+          onBack={() => router.replace("/(tabs)/more")}
+        />
 
         <View className="px-6 gap-6">
           <PermissionCard

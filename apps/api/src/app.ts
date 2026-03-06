@@ -4,11 +4,13 @@ import cors from "cors";
 import routes from "./routes";
 import { stripeWebhook } from "./controllers/billing.controller";
 import { errorHandler } from "./middlewares/error";
+import { requestLogger } from "./middlewares/request-logger";
 
 export function createApp() {
   const app = express();
 
   app.use(cors());
+  app.use(requestLogger);
   app.post("/api/billing/webhook", express.raw({ type: "application/json" }), stripeWebhook);
   app.use(express.json());
 

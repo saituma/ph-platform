@@ -251,6 +251,7 @@ describe("API routes", () => {
         age: 12,
         team: "Team",
         trainingPerWeek: 3,
+        growthNotes: null,
         parentEmail: "parent@example.com",
         desiredProgramType: "PHP",
         termsVersion: "v1",

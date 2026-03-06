@@ -1,12 +1,12 @@
 import { ActionButton } from "@/components/dashboard/ActionButton";
+import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
-import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
+import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import { Text } from "@/components/ScaledText";
@@ -105,18 +105,12 @@ export default function TermsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <View className="px-6 py-4 flex-row items-center justify-between border-b border-app">
-        <TouchableOpacity
-          onPress={handleBack}
-          className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-        >
-          <Feather name="arrow-left" size={20} className="text-app" />
-        </TouchableOpacity>
-        <Text className="text-xl font-clash text-app font-bold">
-          Terms of Service
-        </Text>
-        <View className="w-10" />
-      </View>
+      <MoreStackHeader
+        title="Terms of Service"
+        subtitle="Review the product terms, responsibilities, and feature rules in one easy-to-scan legal surface."
+        badge="Legal"
+        onBack={handleBack}
+      />
 
       <ThemedScrollView
         onRefresh={async () => {
