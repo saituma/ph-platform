@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   },
   cardDark: {
     borderColor: "rgba(226, 232, 240, 0.12)",
-    backgroundColor: "rgba(14, 20, 14, 0.85)",
+    backgroundColor: "#162018",
   },
   label: {
     fontSize: 11,
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   searchFieldDark: {
     borderColor: "rgba(226, 232, 240, 0.16)",
-    backgroundColor: "rgba(10, 14, 10, 0.98)",
+    backgroundColor: "#1B261D",
   },
   searchInput: {
     fontSize: 14,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   clearButtonDark: {
     borderColor: "rgba(226, 232, 240, 0.16)",
-    backgroundColor: "rgba(148, 163, 184, 0.12)",
+    backgroundColor: "rgba(34, 197, 94, 0.14)",
   },
   clearText: {
     fontSize: 12,
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(148, 163, 184, 0.16)",
   },
   tabIdleDark: {
-    backgroundColor: "rgba(20, 28, 20, 0.9)",
+    backgroundColor: "#1B261D",
     borderColor: "rgba(226, 232, 240, 0.12)",
   },
   tabInner: {

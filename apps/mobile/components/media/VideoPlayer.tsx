@@ -4,6 +4,7 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { WebView } from "react-native-webview";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 const normalizeUrl = (url: string) => {
   const trimmed = String(url ?? "").trim();
@@ -102,7 +103,17 @@ export const isYoutubeUrl = (url?: string) => {
   return /youtube\.com|youtu\.be/i.test(normalized);
 };
 
-export function YouTubeEmbed({ url }: { url: string }) {
+const getResolutionLabel = (width: number, height: number) => {
+  const maxSide = Math.max(width, height);
+  if (maxSide >= 3840) return "4K";
+  if (maxSide >= 1920) return "FHD";
+  if (maxSide >= 1280) return "HD";
+  if (maxSide >= 854) return "SD";
+  return "Video";
+};
+
+export function YouTubeEmbed({ url, immersive = false }: { url: string; immersive?: boolean }) {
+  const { colors, isDark } = useAppTheme();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const videoId = useMemo(() => getYoutubeId(url), [url]);
   const watchUrls = useMemo(() => {
@@ -162,6 +173,13 @@ export function YouTubeEmbed({ url }: { url: string }) {
   }, [resolvedAspectRatio, screenHeight, screenWidth]);
 
   const isFullscreenRotated = fullscreenRotation % 180 !== 0;
+  const videoQualityLabel = useMemo(() => {
+    if (!videoAspectRatio) return "Adaptive";
+    return resolvedAspectRatio >= 1.7 ? "Widescreen" : "Portrait";
+  }, [resolvedAspectRatio, videoAspectRatio]);
+  const panelColor = immersive ? "transparent" : isDark ? colors.cardElevated : "#F7FFF9";
+  const chromeColor = isDark ? "rgba(12,28,18,0.82)" : "rgba(255,255,255,0.88)";
+  const overlayColor = isDark ? "rgba(16,33,22,0.72)" : "rgba(15,23,42,0.22)";
 
   const tryNextSource = useCallback(() => {
     if (sourceIndex < watchUrls.length - 1) {
@@ -284,9 +302,12 @@ export function YouTubeEmbed({ url }: { url: string }) {
   };
 
   return (
-    <View className="overflow-hidden rounded-2xl border border-app/10 bg-card-elevated w-full">
+    <View
+      className={`overflow-hidden border border-app/10 w-full ${immersive ? "rounded-none" : "rounded-[24px]"}`}
+      style={{ backgroundColor: panelColor, borderWidth: immersive ? 0 : 1 }}
+    >
       <View
-        className="overflow-hidden bg-card-elevated w-full"
+        className="overflow-hidden w-full"
         style={{ height: resolvedHeight }}
         onLayout={onPlayerLayout}
       >
@@ -330,23 +351,42 @@ export function YouTubeEmbed({ url }: { url: string }) {
                   setWebError(true);
                 }
               }}
-              style={{ flex: 1, backgroundColor: "black" }}
+              style={{ flex: 1, backgroundColor: panelColor }}
             />
             {isWebLoading ? (
-              <View className="absolute inset-0 items-center justify-center bg-black/40">
-                <View className="rounded-full bg-black/65 px-4 py-2 flex-row items-center gap-2">
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                  <Text className="text-xs font-outfit text-white">Loading video…</Text>
+              <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: overlayColor }}>
+                <View className="rounded-full px-4 py-2 flex-row items-center gap-2" style={{ backgroundColor: chromeColor }}>
+                  <ActivityIndicator color={colors.accent} size="small" />
+                  <Text className="text-xs font-outfit" style={{ color: colors.text }}>Loading video…</Text>
+                </View>
+              </View>
+            ) : null}
+            {!immersive ? (
+              <View className="absolute top-3 left-3 flex-row items-center gap-2">
+                <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                    {videoQualityLabel}
+                  </Text>
+                </View>
+                <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
+                  <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
+                    Best available quality
+                  </Text>
                 </View>
               </View>
             ) : null}
             <Pressable
               onPress={handleOpenYoutube}
-              className="absolute top-3 right-3 h-9 w-9 rounded-full bg-black/60 items-center justify-center border border-white/15"
-              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+              className="absolute top-3 right-3 h-11 w-11 rounded-full items-center justify-center border"
+              style={({ pressed }) => ({
+                backgroundColor: chromeColor,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+                opacity: pressed ? 0.85 : 1,
+                transform: [{ scale: pressed ? 0.96 : 1 }],
+              })}
               accessibilityLabel="Open in YouTube"
             >
-              <Feather name="external-link" size={14} color="#FFFFFF" />
+              <Feather name="external-link" size={17} color={colors.accent} />
             </Pressable>
             <Pressable
               onPress={() => {
@@ -354,27 +394,36 @@ export function YouTubeEmbed({ url }: { url: string }) {
                 setIsFullscreenLoading(true);
                 setIsFullscreenOpen(true);
               }}
-              className="absolute bottom-3 right-3 h-9 w-9 rounded-full bg-black/60 items-center justify-center border border-white/15"
-              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+              className="absolute bottom-3 right-3 h-11 w-11 rounded-full items-center justify-center border"
+              style={({ pressed }) => ({
+                backgroundColor: chromeColor,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+                opacity: pressed ? 0.85 : 1,
+                transform: [{ scale: pressed ? 0.96 : 1 }],
+              })}
               accessibilityLabel="Open fullscreen"
             >
-              <Feather name="maximize" size={14} color="#FFFFFF" />
+              <Feather name="maximize" size={17} color={colors.accent} />
             </Pressable>
           </>
         ) : (
           <View className="flex-1 items-center justify-center px-4">
-            <View className="h-10 w-10 rounded-full bg-white/10 items-center justify-center mb-3">
-              <Feather name="alert-triangle" size={18} color="#FFFFFF" />
+            <View className="h-10 w-10 rounded-full items-center justify-center mb-3" style={{ backgroundColor: chromeColor }}>
+              <Feather name="alert-triangle" size={18} color={colors.accent} />
             </View>
-            <Text className="text-sm font-outfit text-white text-center mb-3">
+            <Text className="text-sm font-outfit text-center mb-3" style={{ color: colors.text }}>
               Unable to play this video in-app.
             </Text>
             <Pressable
               onPress={handleOpenYoutube}
-              className="rounded-full bg-white/15 px-4 py-2 border border-white/20"
-              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+              className="rounded-full px-4 py-2 border"
+              style={({ pressed }) => ({
+                backgroundColor: chromeColor,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+                opacity: pressed ? 0.85 : 1,
+              })}
             >
-              <Text className="text-xs font-outfit text-white">Open in YouTube</Text>
+              <Text className="text-xs font-outfit" style={{ color: colors.accent }}>Open in YouTube</Text>
             </Pressable>
           </View>
         )}
@@ -387,7 +436,7 @@ export function YouTubeEmbed({ url }: { url: string }) {
         onRequestClose={() => setIsFullscreenOpen(false)}
         supportedOrientations={["portrait", "landscape"]}
       >
-        <View className="flex-1 bg-black items-center justify-center">
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: isDark ? "#102116" : colors.background }}>
           {activeUrl ? (
             <View
               style={
@@ -435,33 +484,43 @@ export function YouTubeEmbed({ url }: { url: string }) {
                     setIsFullscreenLoading(false);
                   }
                 }}
-                style={{ flex: 1, backgroundColor: "black" }}
+                style={{ flex: 1, backgroundColor: isDark ? "#102116" : colors.background }}
               />
             </View>
           ) : null}
           {isFullscreenLoading ? (
-            <View className="absolute inset-0 items-center justify-center bg-black/40">
-              <View className="rounded-full bg-black/65 px-4 py-2 flex-row items-center gap-2">
-                <ActivityIndicator color="#FFFFFF" size="small" />
-                <Text className="text-xs font-outfit text-white">Loading video…</Text>
+            <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: overlayColor }}>
+              <View className="rounded-full px-4 py-2 flex-row items-center gap-2" style={{ backgroundColor: chromeColor }}>
+                <ActivityIndicator color={colors.accent} size="small" />
+                <Text className="text-xs font-outfit" style={{ color: colors.text }}>Loading video…</Text>
               </View>
             </View>
           ) : null}
           <Pressable
             onPress={() => setFullscreenRotation((prev) => (prev + 90) % 360)}
-            className="absolute top-12 left-4 h-10 w-10 rounded-full bg-black/60 items-center justify-center border border-white/20"
-            style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+            className="absolute top-12 left-4 h-12 w-12 rounded-full items-center justify-center border"
+            style={({ pressed }) => ({
+              backgroundColor: chromeColor,
+              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+              opacity: pressed ? 0.85 : 1,
+              transform: [{ scale: pressed ? 0.96 : 1 }],
+            })}
             accessibilityLabel="Rotate fullscreen video"
           >
-            <Feather name="rotate-cw" size={18} color="#FFFFFF" />
+            <Feather name="rotate-cw" size={20} color={colors.accent} />
           </Pressable>
           <Pressable
             onPress={() => setIsFullscreenOpen(false)}
-            className="absolute top-12 right-4 h-10 w-10 rounded-full bg-black/60 items-center justify-center border border-white/20"
-            style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+            className="absolute top-12 right-4 h-12 w-12 rounded-full items-center justify-center border"
+            style={({ pressed }) => ({
+              backgroundColor: chromeColor,
+              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+              opacity: pressed ? 0.85 : 1,
+              transform: [{ scale: pressed ? 0.96 : 1 }],
+            })}
             accessibilityLabel="Close fullscreen"
           >
-            <Feather name="x" size={18} color="#FFFFFF" />
+            <Feather name="x" size={20} color={colors.accent} />
           </Pressable>
         </View>
       </Modal>
@@ -477,7 +536,8 @@ export function VideoPlayer({
   isLooping = false,
   posterUri,
   height = 220,
-  useVideoResolution = false,
+  useVideoResolution = true,
+  immersive = false,
 }: {
   uri: string;
   title?: string;
@@ -487,7 +547,9 @@ export function VideoPlayer({
   posterUri?: string | null;
   height?: number;
   useVideoResolution?: boolean;
+  immersive?: boolean;
 }) {
+  const { colors, isDark } = useAppTheme();
   const videoViewRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const hasFadeInRef = useRef(false);
@@ -507,7 +569,27 @@ export function VideoPlayer({
   const [hasPlaybackRequest, setHasPlaybackRequest] = useState(autoPlay);
   const [containerWidth, setContainerWidth] = useState(0);
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
+  const [videoResolution, setVideoResolution] = useState<{ width: number; height: number } | null>(null);
   const normalizedUri = useMemo(() => normalizeUrl(uri), [uri]);
+  const chromeColor = isDark ? "rgba(12,28,18,0.82)" : "rgba(255,255,255,0.9)";
+  const overlayColor = isDark ? "rgba(16,33,22,0.64)" : "rgba(15,23,42,0.18)";
+  const frameBackground = immersive ? (isDark ? "#09110c" : "#08140d") : colors.cardElevated;
+  const frameBorderColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(5,46,22,0.08)";
+  const controlSurfaceColor = immersive
+    ? isDark
+      ? "rgba(6,16,10,0.84)"
+      : "rgba(255,255,255,0.92)"
+    : chromeColor;
+  const heroBadgeColor = isDark ? "rgba(12,28,18,0.74)" : "rgba(255,255,255,0.86)";
+  const qualityLabel = useMemo(() => {
+    if (!videoResolution) return "Adaptive";
+    return `${getResolutionLabel(videoResolution.width, videoResolution.height)} · ${videoResolution.width}×${videoResolution.height}`;
+  }, [videoResolution]);
+  const fitMode = useMemo(() => {
+    if (useVideoResolution) return "contain" as const;
+    if (videoAspectRatio && videoAspectRatio < 1) return "contain" as const;
+    return "cover" as const;
+  }, [useVideoResolution, videoAspectRatio]);
   const triggerFadeIn = useCallback(() => {
     if (hasFadeInRef.current) return;
     hasFadeInRef.current = true;
@@ -551,6 +633,7 @@ export function VideoPlayer({
     pendingPlayRef.current = false;
     resolutionRatioRef.current = null;
     setVideoAspectRatio(null);
+    setVideoResolution(null);
   }, [autoPlay, fadeAnim, normalizedUri]);
 
   useEffect(() => {
@@ -636,6 +719,11 @@ export function VideoPlayer({
       const trackWidth = Number(activeTrack?.size?.width ?? 0);
       const trackHeight = Number(activeTrack?.size?.height ?? 0);
       if (trackWidth > 0 && trackHeight > 0) {
+        setVideoResolution((prev) =>
+          prev?.width === trackWidth && prev?.height === trackHeight
+            ? prev
+            : { width: trackWidth, height: trackHeight },
+        );
         const ratio = trackWidth / trackHeight;
         if (Number.isFinite(ratio) && ratio > 0.2 && ratio < 5) {
           const previousRatio = resolutionRatioRef.current ?? 0;
@@ -750,20 +838,85 @@ export function VideoPlayer({
 
   return (
     <View
-      className="overflow-hidden rounded-2xl border border-app/10 bg-card-elevated"
+      className={`overflow-hidden border border-app/10 bg-card-elevated ${immersive ? "rounded-none" : "rounded-[24px]"}`}
+      style={{ backgroundColor: frameBackground, borderColor: frameBorderColor, borderWidth: immersive ? 0 : 1 }}
       onLayout={useVideoResolution ? onContainerLayout : undefined}
     >
+      {immersive ? (
+        <>
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: -48,
+              right: -32,
+              width: 160,
+              height: 160,
+              borderRadius: 999,
+              backgroundColor: colors.accent,
+              opacity: isDark ? 0.18 : 0.14,
+              zIndex: 0,
+            }}
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              bottom: -60,
+              left: -24,
+              width: 170,
+              height: 170,
+              borderRadius: 999,
+              backgroundColor: colors.accentLight,
+              opacity: isDark ? 0.22 : 0.8,
+              zIndex: 0,
+            }}
+          />
+        </>
+      ) : null}
+
       <Animated.View style={{ opacity: fadeAnim }}>
         <VideoView
           ref={videoViewRef}
           player={player}
           style={{ width: "100%" as any, height: resolvedHeight }}
           nativeControls={false}
-          contentFit="cover"
+          contentFit={fitMode}
           fullscreenOptions={{ enable: true }}
           allowsPictureInPicture
         />
       </Animated.View>
+
+      <View className="absolute top-3 left-3 flex-row items-center gap-2">
+        {immersive ? (
+          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: heroBadgeColor }}>
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+              Intro film
+            </Text>
+          </View>
+        ) : null}
+        {!immersive ? (
+          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+              {qualityLabel}
+            </Text>
+          </View>
+        ) : null}
+        {!immersive && useVideoResolution ? (
+          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
+            <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
+              Full frame
+            </Text>
+          </View>
+        ) : null}
+        {immersive ? (
+          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: heroBadgeColor }}>
+            <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
+              Fullscreen ready
+            </Text>
+          </View>
+        ) : null}
+      </View>
 
       {showPoster ? (
         <Pressable onPress={togglePlayback} className="absolute inset-0">
@@ -772,11 +925,68 @@ export function VideoPlayer({
           ) : (
             <View className="flex-1 items-center justify-center bg-secondary/40" />
           )}
-          <View className="absolute inset-0 items-center justify-center bg-black/25">
-            <View className="h-16 w-16 items-center justify-center rounded-full bg-black/55">
-              <Feather name="play" size={28} color="#fff" />
+
+          <View
+            pointerEvents="none"
+            className="absolute inset-0"
+            style={{ backgroundColor: immersive ? "rgba(4,12,8,0.3)" : overlayColor }}
+          />
+
+          {immersive ? (
+            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
+              <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
+                Coach welcome
+              </Text>
             </View>
+          ) : null}
+
+          <View className="absolute inset-0 items-center justify-center">
+            {immersive ? (
+              <View className="items-center gap-4">
+                <View
+                  className="h-24 w-24 items-center justify-center rounded-full border"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.14)",
+                    borderColor: "rgba(255,255,255,0.22)",
+                  }}
+                >
+                  <View
+                    className="h-16 w-16 items-center justify-center rounded-full"
+                    style={{ backgroundColor: controlSurfaceColor }}
+                  >
+                    <Feather name="play" size={30} color={colors.accent} style={{ marginLeft: 3 }} />
+                  </View>
+                </View>
+                <View className="items-center">
+                  <Text className="text-lg font-clash font-bold text-white">Watch the welcome</Text>
+                  <Text className="mt-1 text-xs font-outfit uppercase tracking-[2px] text-white/80">
+                    Tap to start the intro experience
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View className="h-20 w-20 items-center justify-center rounded-full" style={{ backgroundColor: chromeColor }}>
+                <Feather name="play" size={34} color="#fff" />
+              </View>
+            )}
           </View>
+
+          {immersive ? (
+            <View className="absolute bottom-5 left-5 right-5 flex-row items-center justify-between rounded-[22px] border px-4 py-3"
+              style={{
+                backgroundColor: "rgba(6,16,10,0.66)",
+                borderColor: "rgba(255,255,255,0.12)",
+              }}
+            >
+              <View className="flex-1 pr-4">
+                <Text className="text-sm font-outfit font-semibold text-white">A polished first look</Text>
+                <Text className="mt-1 text-xs font-outfit leading-5 text-white/75">
+                  Personal, clean, and built to feel premium from the first second.
+                </Text>
+              </View>
+              <Feather name="star" size={18} color="#fff" />
+            </View>
+          ) : null}
         </Pressable>
       ) : null}
 
@@ -784,10 +994,10 @@ export function VideoPlayer({
         <Pressable className="absolute inset-0" onPress={togglePlayback}>
           <View className="flex-1 items-center justify-center">
             {isLoading || isBuffering ? (
-              <View className="rounded-full bg-black/55 px-4 py-2">
+              <View className="rounded-full px-4 py-2" style={{ backgroundColor: chromeColor }}>
                 <View className="flex-row items-center gap-2">
-                  <ActivityIndicator color="#fff" />
-                  <Text className="text-xs font-outfit text-white">
+                  <ActivityIndicator color={colors.accent} />
+                  <Text className="text-xs font-outfit" style={{ color: colors.text }}>
                     {isLoading ? "Loading video..." : "Buffering..."}
                   </Text>
                 </View>
@@ -802,98 +1012,129 @@ export function VideoPlayer({
           {error ? (
             <Pressable
               onPress={() => Linking.openURL(normalizedUri).catch(() => undefined)}
-              className="rounded-full bg-black/60 px-4 py-2"
+              className="rounded-full px-4 py-2"
               style={({ pressed }) => ({
+                backgroundColor: chromeColor,
                 opacity: pressed ? 0.9 : 1,
                 transform: [{ scale: pressed ? 0.98 : 1 }],
               })}
             >
-              <Text className="text-white text-sm font-outfit">{error}</Text>
+              <Text className="text-sm font-outfit" style={{ color: colors.text }}>{error}</Text>
             </Pressable>
           ) : (
             <Pressable
               onPress={togglePlayback}
-              className="h-14 w-14 items-center justify-center rounded-full bg-black/55"
+              className={`items-center justify-center rounded-full ${immersive ? "h-20 w-20 border" : "h-16 w-16"}`}
               accessibilityLabel={isPlaying ? "Pause video" : "Play video"}
               style={({ pressed }) => ({
+                backgroundColor: controlSurfaceColor,
+                borderColor: immersive ? "rgba(255,255,255,0.14)" : "transparent",
                 opacity: pressed ? 0.9 : 1,
                 transform: [{ scale: pressed ? 0.96 : 1 }],
               })}
             >
-              <Feather name={isPlaying ? "pause" : "play"} size={24} color="#fff" />
+              <Feather name={isPlaying ? "pause" : "play"} size={immersive ? 30 : 28} color={colors.accent} />
             </Pressable>
           )}
         </View>
       ) : null}
 
       {!showPoster ? (
-        <View className="absolute bottom-0 left-0 right-0 bg-black/65 px-3 py-2">
-          <View className="mb-2 h-1.5 w-full rounded-full bg-white/25">
+        <View
+          className={`absolute left-0 right-0 px-4 ${immersive ? "bottom-4" : "bottom-0 py-3"}`}
+          style={
+            immersive
+              ? undefined
+              : { backgroundColor: controlSurfaceColor }
+          }
+        >
+          <View
+            className={`${immersive ? "rounded-[24px] border px-4 py-4" : ""}`}
+            style={
+              immersive
+                ? {
+                    backgroundColor: "rgba(6,16,10,0.7)",
+                    borderColor: "rgba(255,255,255,0.12)",
+                  }
+                : undefined
+            }
+          >
+          <View className="mb-3 flex-row items-center justify-between">
+            {immersive ? (
+              <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.6px] text-white">
+                  {isPlaying ? "Now playing" : "Ready to play"}
+                </Text>
+              </View>
+            ) : <View />}
+            <Text className="text-xs font-outfit" style={{ color: immersive ? "rgba(255,255,255,0.82)" : colors.text }}>
+              {formatTime(positionSec)} / {formatTime(durationSec)}
+            </Text>
+          </View>
+          <View className="mb-3 h-1.5 w-full rounded-full" style={{ backgroundColor: immersive ? "rgba(255,255,255,0.16)" : isDark ? "rgba(255,255,255,0.18)" : "rgba(15,23,42,0.12)" }}>
             <View
-              className="h-1.5 rounded-full bg-white"
-              style={{ width: `${Math.round(progress * 100)}%` }}
+              className="h-1.5 rounded-full"
+              style={{ backgroundColor: colors.accent, width: `${Math.round(progress * 100)}%` }}
             />
           </View>
           <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3">
+            <View className="flex-row items-center gap-4">
               <Pressable
                 onPress={() => seekBy(-10)}
                 accessibilityLabel="Rewind 10 seconds"
-                hitSlop={8}
+                hitSlop={10}
                 style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
               >
-                <Feather name="rotate-ccw" size={16} color="#fff" />
+                <Feather name="rotate-ccw" size={20} color={immersive ? "#fff" : colors.accent} />
               </Pressable>
               <Pressable
                 onPress={togglePlayback}
                 accessibilityLabel={isPlaying ? "Pause video" : "Play video"}
-                hitSlop={8}
+                hitSlop={10}
                 style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
               >
-                <Feather name={isPlaying ? "pause-circle" : "play-circle"} size={18} color="#fff" />
+                <Feather name={isPlaying ? "pause-circle" : "play-circle"} size={26} color={immersive ? "#fff" : colors.accent} />
               </Pressable>
               <Pressable
                 onPress={() => seekBy(10)}
                 accessibilityLabel="Forward 10 seconds"
-                hitSlop={8}
+                hitSlop={10}
                 style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
               >
-                <Feather name="rotate-cw" size={16} color="#fff" />
+                <Feather name="rotate-cw" size={20} color={immersive ? "#fff" : colors.accent} />
               </Pressable>
               <Pressable
                 onPress={toggleMute}
                 accessibilityLabel={isMuted ? "Unmute video" : "Mute video"}
-                hitSlop={8}
+                hitSlop={10}
                 style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
               >
-                <Feather name={isMuted ? "volume-x" : "volume-2"} size={16} color="#fff" />
+                <Feather name={isMuted ? "volume-x" : "volume-2"} size={20} color={immersive ? "#fff" : colors.accent} />
               </Pressable>
               <Pressable
                 onPress={openFullscreen}
                 accessibilityLabel="Open fullscreen"
-                hitSlop={8}
+                hitSlop={10}
                 style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
               >
-                <Feather name="maximize" size={16} color="#fff" />
+                <Feather name="maximize" size={20} color={immersive ? "#fff" : colors.accent} />
               </Pressable>
             </View>
-            <Text className="text-[0.6875rem] font-outfit text-white">
-              {formatTime(positionSec)} / {formatTime(durationSec)}
-            </Text>
+          </View>
           </View>
         </View>
       ) : null}
 
-      {title ? (
-        <View className="absolute top-3 left-3 rounded-full bg-black/65 px-3 py-1">
-          <Text className="text-xs font-outfit text-white">{title}</Text>
+      {title && !immersive ? (
+        <View className="absolute top-3 right-3 rounded-full px-3 py-1" style={{ backgroundColor: chromeColor, maxWidth: "58%" }}>
+          <Text className="text-xs font-outfit" style={{ color: colors.text }} numberOfLines={1}>{title}</Text>
         </View>
       ) : null}
 
       {showPoster ? (
-        <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-2">
-          <Text className="text-xs font-outfit text-white/90">
-            Tap to play
+        <View className="absolute bottom-0 left-0 right-0 px-3 py-2" style={{ backgroundColor: chromeColor }}>
+          <Text className="text-xs font-outfit" style={{ color: colors.text }}>
+            {immersive ? "Tap to begin the intro" : "Tap to play"}
           </Text>
         </View>
       ) : null}
