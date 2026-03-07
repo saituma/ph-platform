@@ -185,7 +185,7 @@ export function BookingsPanel({ onOpen }: { onOpen: () => void }) {
 
 export function FoodDiaryPanel() {
   const { token } = useAppSelector((state) => state.user);
-  const { isDark } = useAppTheme();
+  const { isDark, colors } = useAppTheme();
   const [entry, setEntry] = useState("");
   const [meals, setMeals] = useState({
     breakfast: "",
@@ -394,24 +394,76 @@ export function FoodDiaryPanel() {
       }));
   };
 
+  const filledMealsCount = Object.values(meals).filter((value) => value.trim()).length;
+  const reviewedEntriesCount = entries.filter((item) => Boolean(item.feedback)).length;
+  const pendingEntriesCount = entries.filter((item) => !item.feedback).length;
+  const hasDraft = entry.trim().length > 0 || filledMealsCount > 0;
+  const mealPlaceholders: Record<keyof typeof meals, string> = {
+    breakfast: "What was eaten, how much, and timing before training if relevant.",
+    lunch: "Add key foods, fluids, and anything that affected energy.",
+    dinner: "Log the main meal and any recovery focus after training.",
+    snacks: "Include shakes, fruit, bars, or small snacks through the day.",
+  };
+
   return (
     <View className="gap-4">
-      <View 
-        className="rounded-3xl bg-card px-6 py-5"
-        style={isDark ? Shadows.none : Shadows.md}
+      <View
+        className="overflow-hidden rounded-3xl border px-6 py-5"
+        style={{
+          backgroundColor: isDark ? colors.card : "#F7FFF9",
+          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+          ...(isDark ? Shadows.none : Shadows.md),
+        }}
       >
-        <Text className="text-lg font-clash text-app font-bold mb-2">Food Diary</Text>
-        <Text className="text-sm font-outfit text-secondary leading-relaxed">
-          Log meals and snacks to support training and recovery.
-        </Text>
+        <View
+          className="absolute -right-10 -top-8 h-24 w-24 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.10)" }}
+        />
+        <View
+          className="absolute -bottom-10 left-10 h-24 w-24 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)" }}
+        />
+
+        <View className="mb-5">
+          <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.82)" }}>
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+              Guardian check-in
+            </Text>
+          </View>
+          <Text className="mt-3 text-2xl font-clash text-app font-bold">Submit Diary</Text>
+          <Text className="mt-2 text-sm font-outfit text-secondary leading-6">
+            Log meals, add recovery context, and give your coach a clearer picture of fuelling habits across the week.
+          </Text>
+        </View>
+
+        <View className="flex-row gap-3">
+          <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-secondary mb-2">Draft meals</Text>
+            <Text className="font-clash text-2xl text-app">{filledMealsCount}</Text>
+            <Text className="text-sm font-outfit text-secondary mt-1">Meal sections filled in this entry</Text>
+          </View>
+          <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-secondary mb-2">Coach replies</Text>
+            <Text className="font-clash text-2xl text-app">{reviewedEntriesCount}</Text>
+            <Text className="text-sm font-outfit text-secondary mt-1">Entries with feedback received</Text>
+          </View>
+        </View>
+
         <TouchableOpacity
           onPress={() => setDatePickerOpen(true)}
-          className="mt-4 flex-row items-center justify-between rounded-2xl bg-secondary/5 px-4 py-3"
+          className="mt-5 flex-row items-center justify-between rounded-2xl border px-4 py-3"
+          style={{
+            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+          }}
         >
-          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-            Entry Date
-          </Text>
-          <Text className="text-sm font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
+          <View>
+            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+              Entry Date
+            </Text>
+            <Text className="mt-1 text-sm font-outfit text-app">{entryDate.toLocaleDateString()}</Text>
+          </View>
+          <Feather name="calendar" size={18} color={colors.accent} />
         </TouchableOpacity>
         {datePickerOpen ? (
           <DateTimePicker
@@ -426,43 +478,95 @@ export function FoodDiaryPanel() {
             }}
           />
         ) : null}
-        <View className="mt-4 flex-row items-center justify-between">
-          <Text className="text-sm font-outfit text-secondary">Notes (optional)</Text>
-          <Text className="text-sm font-outfit text-secondary">{entry.trim().length}/500</Text>
+        <View className="mt-5 rounded-[24px] border p-4" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)", backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)" }}>
+          <View className="mb-3 flex-row items-center gap-3">
+            <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : colors.accentLight }}>
+              <Feather name="edit-3" size={18} color={colors.accent} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-bold font-outfit text-app">Daily notes</Text>
+              <Text className="text-xs font-outfit text-secondary mt-1">Add appetite, hydration, recovery, or anything that affected fuelling.</Text>
+            </View>
+            <Text className="text-sm font-outfit text-secondary">{entry.trim().length}/500</Text>
+          </View>
+          <TextInput
+            value={entry}
+            onChangeText={setEntry}
+            placeholder="How did fuelling go today? Include appetite, hydration, energy, or what felt different."
+            placeholderTextColor={colors.placeholder}
+            multiline
+            maxLength={500}
+            className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+            style={{ minHeight: 100, backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.86)" }}
+          />
         </View>
-        <TextInput
-          value={entry}
-          onChangeText={setEntry}
-          placeholder="Breakfast, lunch, snacks..."
-          placeholderTextColor="#9CA3AF"
-          multiline
-          maxLength={500}
-          className="mt-2 rounded-2xl bg-secondary/5 px-4 py-3 text-sm font-outfit text-app"
-          style={{ minHeight: 90 }}
-        />
+
         <View className="mt-4 gap-3">
           {(["breakfast", "lunch", "dinner", "snacks"] as const).map((meal) => (
-            <View key={meal} className="rounded-2xl bg-secondary/5 px-4 py-3">
+            <View
+              key={meal}
+              className="rounded-[24px] border px-4 py-4"
+              style={{
+                backgroundColor: colors.card,
+                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                ...(isDark ? Shadows.none : Shadows.sm),
+              }}
+            >
               <View className="flex-row items-center justify-between">
-                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                  {meal}
-                </Text>
-                <Text className="text-xs font-outfit text-secondary">Optional</Text>
+                <View className="flex-row items-center gap-3">
+                  <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.accentLight }}>
+                    <Feather
+                      name={meal === "breakfast" ? "sunrise" : meal === "lunch" ? "sun" : meal === "dinner" ? "moon" : "coffee"}
+                      size={17}
+                      color={colors.accent}
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                      {meal}
+                    </Text>
+                    <Text className="text-sm font-outfit text-app mt-0.5">
+                      {meals[meal].trim() ? "Added" : "Optional"}
+                    </Text>
+                  </View>
+                </View>
+                {meals[meal].trim() ? (
+                  <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}>
+                    <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.accent }}>
+                      logged
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <TextInput
                 value={meals[meal]}
                 onChangeText={(value) => setMeals((prev) => ({ ...prev, [meal]: value }))}
-                placeholder={`Add ${meal}`}
-                placeholderTextColor="#9CA3AF"
-                className="mt-2 text-sm font-outfit text-app"
+                placeholder={mealPlaceholders[meal]}
+                placeholderTextColor={colors.placeholder}
+                multiline
+                className="mt-3 rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+                style={{ minHeight: 72, backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)" }}
               />
             </View>
           ))}
         </View>
-        <View className="mt-4 rounded-2xl bg-secondary/5 px-4 py-3">
-          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-            Photo Preview
-          </Text>
+
+        <View className="mt-4 rounded-[24px] border px-4 py-4" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)", backgroundColor: colors.card, ...(isDark ? Shadows.none : Shadows.sm) }}>
+          <View className="flex-row items-center justify-between gap-3 mb-3">
+            <View>
+              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                Photo Preview
+              </Text>
+              <Text className="text-sm font-outfit text-app mt-1">
+                Optional meal photo for extra context.
+              </Text>
+            </View>
+            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                {photo ? "Attached" : "Optional"}
+              </Text>
+            </View>
+          </View>
           {photo ? (
             <View className="mt-2">
               <Image
@@ -480,10 +584,9 @@ export function FoodDiaryPanel() {
                 }}
                 onLoadEnd={() => setPhotoPreviewLoading(false)}
                 onError={(event) => {
-                  const message =
-                    event?.nativeEvent?.error
-                      ? String(event.nativeEvent.error)
-                      : "Failed to load preview.";
+                  const message = event?.nativeEvent?.error
+                    ? String(event.nativeEvent.error)
+                    : "Failed to load preview.";
                   setPhotoError(message);
                 }}
               />
@@ -507,44 +610,68 @@ export function FoodDiaryPanel() {
             <Text className="mt-2 text-xs font-outfit text-red-300">{photoError}</Text>
           ) : null}
         </View>
+
         <View className="mt-4 gap-3">
           <View className="flex-row gap-3">
-            <TouchableOpacity onPress={handlePickPhoto} className="flex-1 rounded-full bg-secondary/10 px-4 py-3">
+            <TouchableOpacity
+              onPress={handlePickPhoto}
+              className="flex-1 rounded-2xl px-4 py-3"
+              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" }}
+            >
               <Text className="text-app text-sm font-outfit text-center">
                 {photo ? "Change Photo" : "Add Photo"}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleTakePhoto} className="flex-1 rounded-full bg-secondary/10 px-4 py-3">
+            <TouchableOpacity
+              onPress={handleTakePhoto}
+              className="flex-1 rounded-2xl px-4 py-3"
+              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" }}
+            >
               <Text className="text-app text-sm font-outfit text-center">Take Photo</Text>
             </TouchableOpacity>
             {photo ? (
               <TouchableOpacity
                 onPress={() => setPhoto(null)}
-                className="rounded-full bg-secondary/10 px-4 py-3"
+                className="rounded-2xl px-4 py-3"
+                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" }}
               >
                 <Text className="text-app text-sm font-outfit text-center">Remove</Text>
               </TouchableOpacity>
             ) : null}
           </View>
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))}
-            className={`rounded-full px-4 py-3 ${
-              saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
-                ? "bg-secondary/20"
-                : "bg-accent"
-            }`}
-          >
-            <Text
-              className={`text-sm font-outfit text-center ${
-                saving || (!entry.trim() && !Object.values(meals).some((value) => value.trim()))
-                  ? "text-secondary"
-                  : "text-white"
-              }`}
+
+          <View className="rounded-[24px] border p-4" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)", backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)" }}>
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                Ready to send
+              </Text>
+              <Text className="text-xs font-outfit text-secondary">
+                {hasDraft ? "Draft in progress" : "Add details to start"}
+              </Text>
+            </View>
+            <View className="mb-4 flex-row gap-3">
+              <View className="flex-1 rounded-2xl px-3 py-3" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.84)" }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px] text-secondary">Meals</Text>
+                <Text className="font-clash text-xl text-app mt-1">{filledMealsCount}/4</Text>
+              </View>
+              <View className="flex-1 rounded-2xl px-3 py-3" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.84)" }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px] text-secondary">Photo</Text>
+                <Text className="font-clash text-xl text-app mt-1">{photo ? "Yes" : "No"}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={saving || !hasDraft}
+              className={`rounded-2xl px-4 py-4 ${saving || !hasDraft ? "bg-accent/40" : "bg-accent"}`}
             >
-              {saving ? "Saving..." : "Save Entry"}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                className={`text-center text-sm font-outfit font-bold ${saving || !hasDraft ? "text-white/90" : "text-white"}`}
+              >
+                {saving ? "Saving..." : "Save Entry"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
         {status ? (
           <View
@@ -578,6 +705,17 @@ export function FoodDiaryPanel() {
         </TouchableOpacity>
       </View>
 
+      <View className="flex-row gap-3">
+        <View className="flex-1 rounded-[22px] border px-4 py-4" style={{ backgroundColor: colors.card, borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)", ...(isDark ? Shadows.none : Shadows.sm) }}>
+          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-secondary mb-2">Awaiting review</Text>
+          <Text className="font-clash text-2xl text-app">{pendingEntriesCount}</Text>
+        </View>
+        <View className="flex-1 rounded-[22px] border px-4 py-4" style={{ backgroundColor: colors.card, borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)", ...(isDark ? Shadows.none : Shadows.sm) }}>
+          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-secondary mb-2">Reviewed</Text>
+          <Text className="font-clash text-2xl text-app">{reviewedEntriesCount}</Text>
+        </View>
+      </View>
+
       {loadingEntries ? (
         <Text className="text-sm font-outfit text-secondary">Loading entries...</Text>
       ) : entries.length ? (
@@ -588,9 +726,16 @@ export function FoodDiaryPanel() {
               className="rounded-3xl bg-card px-5 py-4"
               style={isDark ? Shadows.none : Shadows.sm}
             >
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
-                {formatDate(item.date)}
-              </Text>
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
+                  {formatDate(item.date)}
+                </Text>
+                <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: item.feedback ? (isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)") : (isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)") }}>
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: item.feedback ? colors.accent : colors.textSecondary }}>
+                    {item.feedback ? "Reviewed" : "Pending"}
+                  </Text>
+                </View>
+              </View>
               {formatMeals(item.meals).length ? (
                 <View className="mt-2 gap-2">
                   {formatMeals(item.meals).map((meal) => (
@@ -633,7 +778,7 @@ export function FoodDiaryPanel() {
 export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }) {
   const { token, profile, athleteUserId } = useAppSelector((state) => state.user);
   const { role } = useRole();
-  const { isDark } = useAppTheme();
+  const { isDark, colors } = useAppTheme();
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -779,6 +924,11 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     if (Number.isNaN(d.getTime())) return null;
     return d.toLocaleDateString();
   };
+  const formatBytes = (value: number) => {
+    if (!value) return "0 MB";
+    if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+    return `${(value / (1024 * 1024)).toFixed(value >= 100 * 1024 * 1024 ? 0 : 1)} MB`;
+  };
 
   const pickVideo = async (source: "library" | "camera") => {
     if (!token) return;
@@ -910,23 +1060,79 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
           <Text className="text-xs font-outfit text-secondary uppercase tracking-[1px]">Coach Review</Text>
         </View>
       </View>
-      <Text className="text-sm font-outfit text-secondary mt-2">
-        Share training clips and receive detailed coach feedback.
+      <Text className="text-sm font-outfit text-secondary mt-2 leading-6">
+        Share one focused training clip, explain what you want reviewed, and keep all coach feedback in one place.
       </Text>
+
+      <View className="mt-4 rounded-[24px] border p-4" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)", backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)" }}>
+        <View className="mb-3 flex-row items-center gap-3">
+          <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : colors.accentLight }}>
+            <Feather name="target" size={18} color={colors.accent} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-bold font-outfit text-app">Best results come from one clear focus</Text>
+            <Text className="text-xs font-outfit text-secondary mt-1">Example: squat depth, sprint start, landing mechanics, or a single drill.</Text>
+          </View>
+        </View>
+        <View className="flex-row flex-wrap gap-2">
+          {[
+            "Full movement in frame",
+            "Good light",
+            "One coaching question",
+            "Under 200MB",
+          ].map((tip) => (
+            <View
+              key={tip}
+              className="rounded-full border px-3 py-2"
+              style={{
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.82)",
+                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              }}
+            >
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                {tip}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
       <TextInput
         value={notes}
         onChangeText={setNotes}
-        placeholder="Optional notes for your coach"
-        placeholderTextColor="#9CA3AF"
+        placeholder="What do you want your coach to assess? Mention the athlete, drill, or exact movement issue."
+        placeholderTextColor={colors.placeholder}
         multiline
         className="mt-4 rounded-2xl border border-app/15 bg-white/10 px-4 py-3 text-sm font-outfit text-app"
         style={{ minHeight: 88 }}
       />
       {selectedVideo ? (
-        <View className="mt-4 rounded-2xl bg-accent/10 p-3">
-          <Text className="text-sm font-outfit text-app mb-2">Preview before send</Text>
+        <View className="mt-4 rounded-[24px] border p-3" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.24)" }}>
+          <View className="mb-3 flex-row items-center justify-between gap-3">
+            <View>
+              <Text className="text-sm font-outfit text-app mb-1">Preview before send</Text>
+              <Text className="text-xs font-outfit text-secondary">Check framing and confirm the right clip is selected.</Text>
+            </View>
+            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.accent }}>
+                Ready
+              </Text>
+            </View>
+          </View>
           <VideoPlayer uri={selectedVideo.uri} height={180} />
-          <Text className="text-sm font-outfit text-secondary mt-2" numberOfLines={1}>
+          <View className="mt-3 flex-row flex-wrap gap-2">
+            <View className="rounded-full border px-3 py-2" style={{ borderColor: "rgba(34,197,94,0.24)", backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.82)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                {formatBytes(selectedVideo.sizeBytes)}
+              </Text>
+            </View>
+            <View className="rounded-full border px-3 py-2" style={{ borderColor: "rgba(34,197,94,0.24)", backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.82)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                {selectedVideo.contentType.replace("video/", "")}
+              </Text>
+            </View>
+          </View>
+          <Text className="text-sm font-outfit text-secondary mt-3" numberOfLines={1}>
             {selectedVideo.fileName}
           </Text>
         </View>
@@ -940,17 +1146,19 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
         <TouchableOpacity
           onPress={handleRecordVideo}
           disabled={uploading}
-          className="flex-1 rounded-2xl bg-secondary/10 px-4 py-3 flex-row items-center justify-center gap-2"
+          className="flex-1 rounded-2xl px-4 py-3 flex-row items-center justify-center gap-2"
+          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" }}
         >
-          <Feather name="video" size={16} color="#0F172A" />
+          <Feather name="video" size={16} color={colors.text} />
           <Text className="text-app text-sm font-outfit">Record Video</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handlePickVideo}
           disabled={uploading}
-          className="flex-1 rounded-2xl bg-secondary/10 px-4 py-3 flex-row items-center justify-center gap-2"
+          className="flex-1 rounded-2xl px-4 py-3 flex-row items-center justify-center gap-2"
+          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" }}
         >
-          <Feather name="upload" size={16} color="#0F172A" />
+          <Feather name="upload" size={16} color={colors.text} />
           <Text className="text-app text-sm font-outfit">Upload Video</Text>
         </TouchableOpacity>
       </View>
@@ -977,8 +1185,8 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
             <Text className="text-xs font-outfit text-app">{loadingVideos ? "Refreshing..." : "Refresh"}</Text>
           </TouchableOpacity>
         </View>
-        <Text className="text-sm font-outfit text-secondary mb-3">
-          Pull down inside this section to refresh. Shows videos uploaded from this account only.
+        <Text className="text-sm font-outfit text-secondary mb-3 leading-6">
+          Track what is awaiting review, what already has feedback, and any response videos sent back by your coach.
         </Text>
         <ScrollView
           style={{ maxHeight: 520 }}
