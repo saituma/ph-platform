@@ -12,6 +12,31 @@ import React from "react";
 import { TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const HOW_IT_WORKS = [
+  {
+    title: "Choose the right clip",
+    body: "Record one clear rep, drill, or movement pattern you want your coach to review.",
+    icon: "video",
+  },
+  {
+    title: "Add coaching context",
+    body: "Mention what feels off, what changed, or the exact cue you want feedback on.",
+    icon: "message-square",
+  },
+  {
+    title: "Review and apply",
+    body: "Once your coach responds, use the notes and response video to guide your next session.",
+    icon: "check-circle",
+  },
+];
+
+const READINESS_TIPS = [
+  "Keep the full movement in frame.",
+  "Use good light and a steady angle.",
+  "Send one clear focus point per clip.",
+  "Keep the file under 200MB.",
+];
+
 export default function VideoUploadScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
@@ -28,26 +53,60 @@ export default function VideoUploadScreen() {
         />
 
         <View className="flex-1 items-center justify-center px-6 pb-12">
-          <View className="items-center max-w-[340px]">
-            <View className="mb-8 h-20 w-20 rounded-3xl bg-accent/10 items-center justify-center border border-accent/20">
-              <Feather name="video" size={28} className="text-accent" />
+          <View
+            className="w-full max-w-[360px] overflow-hidden rounded-[32px] border px-6 py-8"
+            style={{
+              backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            <View
+              className="absolute -right-10 -top-10 h-28 w-28 rounded-full"
+              style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.12)" }}
+            />
+            <View className="items-center">
+              <View className="mb-6 h-20 w-20 rounded-3xl bg-accent/10 items-center justify-center border border-accent/20">
+                <Feather name="video" size={28} color={colors.accent} />
+              </View>
+              <View className="mb-4 rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.8)" }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+                  Premium feature
+                </Text>
+              </View>
             </View>
             <Text className="text-3xl font-clash font-bold text-app text-center mb-3">
               Video Upload Locked
             </Text>
-            <Text className="text-[15px] font-outfit text-center text-secondary leading-relaxed max-w-[280px] mb-8">
-              Video review is available for PHP Premium members only.
+            <Text className="text-[15px] font-outfit text-center text-secondary leading-relaxed mb-6">
+              Coach video review is available for PHP Premium members who want detailed technique feedback and follow-up guidance.
             </Text>
 
-            <View className="w-full rounded-2xl bg-warning/10 px-4 py-3 mb-6">
+            <View className="w-full rounded-2xl bg-warning/10 px-4 py-3 mb-6 border border-warning/20">
               <Text className="text-[12px] font-semibold text-warning text-center">
-                This feature is for Premium plan users only.
+                Upgrade to unlock clip uploads, coach review, and response videos.
               </Text>
+            </View>
+
+            <View className="mb-6 gap-3">
+              {[
+                "Upload movement clips directly from the app",
+                "Add notes so your coach knows what to assess",
+                "Receive written feedback and response videos",
+              ].map((item) => (
+                <View key={item} className="flex-row items-start gap-3">
+                  <View className="mt-1 h-5 w-5 rounded-full items-center justify-center bg-accent/10">
+                    <Feather name="check" size={12} color={colors.accent} />
+                  </View>
+                  <Text className="flex-1 text-sm font-outfit text-app leading-6">{item}</Text>
+                </View>
+              ))}
             </View>
 
             <TouchableOpacity
               onPress={() => router.push("/plans")}
-              className="w-full bg-accent py-4 rounded-2xl active:opacity-90 shadow-lg shadow-accent/20"
+              className="w-full bg-accent py-4 rounded-2xl active:opacity-90"
+              style={isDark ? Shadows.none : Shadows.md}
             >
               <Text className="text-white font-bold text-base text-center">
                 View Premium Plans
@@ -71,8 +130,11 @@ export default function VideoUploadScreen() {
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 48 }}
       >
         <View
-          className="relative rounded-[28px] bg-card p-6 overflow-hidden mb-6"
-          style={isDark ? Shadows.none : Shadows.md}
+          className="relative rounded-[30px] bg-card p-6 overflow-hidden mb-6 border"
+          style={{
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+            ...(isDark ? Shadows.none : Shadows.md),
+          }}
         >
           <View
             style={{
@@ -108,9 +170,57 @@ export default function VideoUploadScreen() {
           <Text className="text-3xl font-clash text-app mb-2">
             Coach Video Review
           </Text>
-          <Text className="text-base font-outfit text-secondary">
-            Upload a training clip and get focused feedback from your coach.
+          <Text className="text-base font-outfit text-secondary leading-6">
+            Upload a training clip, add context, and get clearer feedback on movement quality, technique, and next-step adjustments.
           </Text>
+
+          <View className="mt-5 flex-row gap-3">
+            <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary mb-2">
+                Best for
+              </Text>
+              <Text className="font-clash text-lg text-app mb-1">Form review</Text>
+              <Text className="text-sm font-outfit text-secondary leading-5">Lifting mechanics, drills, sprint work, and match clips.</Text>
+            </View>
+            <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary mb-2">
+                Typical flow
+              </Text>
+              <Text className="font-clash text-lg text-app mb-1">Upload → Review</Text>
+              <Text className="text-sm font-outfit text-secondary leading-5">Send one focused clip and check back for notes or a response video.</Text>
+            </View>
+          </View>
+        </View>
+
+        <View
+          className="mb-6 rounded-[28px] border p-5"
+          style={{
+            backgroundColor: colors.card,
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+            ...(isDark ? Shadows.none : Shadows.sm),
+          }}
+        >
+          <View className="flex-row items-center gap-3 mb-4">
+            <View className="h-5 w-1.5 rounded-full bg-accent" />
+            <Text className="text-lg font-clash text-app">Before you upload</Text>
+          </View>
+
+          <View className="flex-row flex-wrap gap-2">
+            {READINESS_TIPS.map((tip) => (
+              <View
+                key={tip}
+                className="rounded-full border px-3 py-2"
+                style={{
+                  backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                }}
+              >
+                <Text className="text-xs font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                  {tip}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         <View className="mb-6">
@@ -121,22 +231,31 @@ export default function VideoUploadScreen() {
             </Text>
           </View>
           <View className="gap-3">
-            {[
-              { title: "Upload your clip", body: "Choose a training video to review." },
-              { title: "Add quick notes", body: "Tell your coach what you want feedback on." },
-              { title: "Get your review", body: "Receive actionable notes and next steps." },
-            ].map((item) => (
+            {HOW_IT_WORKS.map((item, index) => (
               <View
                 key={item.title}
-                className="rounded-2xl bg-card px-4 py-3"
-                style={isDark ? Shadows.none : Shadows.sm}
+                className="rounded-[24px] bg-card px-4 py-4 border"
+                style={{
+                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                  ...(isDark ? Shadows.none : Shadows.sm),
+                }}
               >
-                <Text className="text-sm font-bold font-outfit text-app">
-                  {item.title}
-                </Text>
-                <Text className="text-[12px] font-outfit text-secondary mt-1">
-                  {item.body}
-                </Text>
+                <View className="flex-row items-start gap-3">
+                  <View className="h-11 w-11 rounded-2xl items-center justify-center" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.accentLight }}>
+                    <Feather name={item.icon as any} size={18} color={colors.accent} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary mb-1">
+                      Step {index + 1}
+                    </Text>
+                    <Text className="text-sm font-bold font-outfit text-app">
+                      {item.title}
+                    </Text>
+                    <Text className="text-[12px] font-outfit text-secondary mt-1 leading-5">
+                      {item.body}
+                    </Text>
+                  </View>
+                </View>
               </View>
             ))}
           </View>

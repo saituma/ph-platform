@@ -1,17 +1,20 @@
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { AgeGate } from "@/components/AgeGate";
+import { MoreStackHeader } from "@/components/more/MoreStackHeader";
+import { Text, TextInput } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { useRole } from "@/context/RoleContext";
+import { Shadows } from "@/constants/theme";
+import { apiRequest } from "@/lib/api";
+import { setParentContentCache } from "@/lib/parentContentCache";
+import { canAccessTier, tierRank } from "@/lib/planAccess";
+import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Image, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { apiRequest } from "@/lib/api";
-import { useAppSelector } from "@/store/hooks";
-import { useRouter } from "expo-router";
-import { useRole } from "@/context/RoleContext";
-import { setParentContentCache } from "@/lib/parentContentCache";
-import { canAccessTier, tierRank } from "@/lib/planAccess";
-import { Text } from "@/components/ScaledText";
-import { useAgeExperience } from "@/context/AgeExperienceContext";
-import { AgeGate } from "@/components/AgeGate";
 
 const CATEGORIES = [
   { id: "growth", title: "Growth and maturation", icon: "book-open", color: "bg-emerald-500" },
@@ -49,8 +52,10 @@ export default function ParentPlatformScreen() {
   const { token, programTier } = useAppSelector((state) => state.user);
   const router = useRouter();
   const { isSectionHidden } = useAgeExperience();
+  const { colors, isDark } = useAppTheme();
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const isAthlete = role === "Athlete";
   const platformTitle = isAthlete ? "Athlete Platform" : "Parent Education Platform";
@@ -85,40 +90,81 @@ export default function ParentPlatformScreen() {
         setIsLoading(false);
       }
     }
-  }, [isAthlete, token]);
+  }, [token]);
 
   useEffect(() => {
-    fetchCourses();
+    void fetchCourses();
   }, [fetchCourses]);
+
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return items;
+
+    return items.filter((item) => {
+      const haystack = [
+        item.title,
+        item.summary,
+        item.description ?? "",
+        item.category ?? "",
+        item.programTier ?? "",
+        item.modules?.map((module) => module.title).join(" ") ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [items, searchQuery]);
 
   const grouped = useMemo(() => {
     return CATEGORIES.map((category) => ({
       ...category,
-      items: items.filter((item) => item.category === category.title),
+      items: filteredItems.filter((item) => item.category === category.title),
     }));
-  }, [items]);
+  }, [filteredItems]);
+
   const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
   const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium");
   const visibleGroups = isAthlete ? [] : grouped.filter((cat) => cat.items.length > 0);
-  const visibleItems = isAthlete ? items : [];
+  const visibleItems = isAthlete ? filteredItems : [];
+  const previewCount = filteredItems.filter((item) => item.isPreview).length;
+  const lockedCount = filteredItems.filter((item) => !canAccessTier(programTier, item.programTier ?? null) && !item.isPreview).length;
+  const featuredItems = filteredItems.slice(0, 3);
 
+  const openCourse = (item: ParentCourseItem, upgradeMessage: string) => {
+    const canAccess = canAccessTier(programTier, item.programTier ?? null);
+    const isPreview = Boolean(item.isPreview);
+    const isLocked = !canAccess && !isPreview;
+
+    if (isLocked) {
+      Alert.alert("Upgrade required", upgradeMessage, [
+        { text: "View Plans", onPress: () => router.push("/plans") },
+        { text: "Not now", style: "cancel" },
+      ]);
+      return;
+    }
+
+    setParentContentCache({
+      id: Number(item.id),
+      title: item.title,
+      summary: item.summary,
+      description: item.description ?? null,
+      coverImage: item.coverImage ?? null,
+      category: item.category ?? null,
+      programTier: item.programTier ?? null,
+      modules: item.modules ?? [],
+      isPreview: item.isPreview ?? false,
+    });
+    router.push(`/parent-platform/${item.id}`);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <View className="px-6 pt-6 pb-4 border-b border-app">
-        <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => router.replace("/(tabs)/more")}
-            className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
-          >
-            <Feather name="arrow-left" size={20} color="#6B7280" />
-          </TouchableOpacity>
-          <Text className="text-xl font-clash text-app font-bold">
-            {platformTitle}
-          </Text>
-          <View className="w-10" />
-        </View>
-      </View>
+      <MoreStackHeader
+        title={platformTitle}
+        subtitle={isAthlete ? "Age-aware lessons, recovery guidance, and training education built around your stage." : "Support your athlete with practical education, planning insight, and expert parent guidance."}
+        badge={isAthlete ? "Athlete" : "Parents"}
+      />
 
       <ThemedScrollView
         onRefresh={async () => {
@@ -128,128 +174,195 @@ export default function ParentPlatformScreen() {
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
-          paddingBottom: 40,
+          paddingBottom: 56,
         }}
       >
-        <View className="mb-8">
-          <View className="flex-row items-start justify-between gap-4">
-            <View className="flex-1">
-              <Text className="text-base font-outfit text-secondary leading-relaxed">
-                {platformSubtitle}
+        <View
+          className="mb-8 overflow-hidden rounded-[30px] border p-5"
+          style={{
+            backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+            ...(isDark ? Shadows.none : Shadows.md),
+          }}
+        >
+          <View className="absolute -right-10 -top-8 h-24 w-24 rounded-full" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.10)" }} />
+          <View className="absolute -bottom-10 left-10 h-24 w-24 rounded-full" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)" }} />
+
+          <View className="mb-5">
+            <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.82)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+                {isAthlete ? "Age-aware education" : "Family support library"}
               </Text>
             </View>
+            <Text className="mt-3 text-3xl font-clash text-app">{isAthlete ? "Learn what supports your next stage" : "Give your athlete better support at home"}</Text>
+            <Text className="mt-3 text-base font-outfit text-secondary leading-relaxed">{platformSubtitle}</Text>
           </View>
+
+          <View className="flex-row items-center rounded-2xl border border-app bg-input px-4 py-3">
+            <Feather name="search" size={18} color={colors.textSecondary} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={isAthlete ? "Search recovery, confidence, sleep..." : "Search nutrition, recovery, mindset..."}
+              placeholderTextColor={colors.placeholder}
+              className="ml-3 flex-1 font-outfit text-app"
+            />
+            {searchQuery ? (
+              <TouchableOpacity
+                onPress={() => setSearchQuery("")}
+                className="h-8 w-8 items-center justify-center rounded-full"
+                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}
+              >
+                <Feather name="x" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          <View className="mt-5 flex-row gap-3">
+            <MetricCard title="Courses" value={String(filteredItems.length)} caption="Available to browse now" isDark={isDark} />
+            <MetricCard title="Previews" value={String(previewCount)} caption="Open without upgrading" isDark={isDark} />
+          </View>
+
           {isAthlete ? (
             <View className="mt-4 rounded-2xl border border-app/10 bg-secondary/10 px-4 py-3">
               <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
                 Age-Based Content
               </Text>
               <Text className="text-sm font-outfit text-secondary mt-1">
-                Content updates automatically as you grow, so next year&apos;s training
-                guidance will unlock when your age increases.
+                Content updates automatically as you grow, so next year&apos;s training guidance will unlock when your age increases.
               </Text>
             </View>
           ) : null}
         </View>
 
-        {!hasParentProgramAccess ? (
-          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
-            <View className="flex-row items-center gap-2 mb-2">
-              <Feather name="lock" size={16} color="#6B7280" />
-              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
-                Locked
-              </Text>
+        {featuredItems.length > 0 && hasParentProgramAccess ? (
+          <>
+            <SectionLabel label="Recommended now" />
+            <View className="mb-8 gap-3">
+              {featuredItems.map((item) => {
+                const canAccess = canAccessTier(programTier, item.programTier ?? null);
+                const isPreview = Boolean(item.isPreview);
+                const isLocked = !canAccess && !isPreview;
+
+                return (
+                  <FeatureCard
+                    key={`featured-${item.id}`}
+                    item={item}
+                    isLocked={isLocked}
+                    onPress={() => openCourse(item, `${isAthlete ? "Athlete" : "Parent"} education is included with PHP Plus and Premium plans.`)}
+                    colors={colors}
+                    isDark={isDark}
+                  />
+                );
+              })}
             </View>
-            <Text className="text-xl font-clash text-app mb-2">
-              Upgrade to unlock {isAthlete ? "Athlete" : "Parent"} Program
-            </Text>
+          </>
+        ) : null}
+
+        {!hasParentProgramAccess ? (
+          <View
+            className="rounded-[30px] border p-5"
+            style={{
+              backgroundColor: isDark ? colors.card : "rgba(15,23,42,0.03)",
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            <View className="mb-4 flex-row items-center gap-3">
+              <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.accentLight }}>
+                <Feather name="lock" size={18} color={colors.accent} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">Locked library</Text>
+                <Text className="text-lg font-clash text-app">Upgrade to unlock {isAthlete ? "Athlete" : "Parent"} education</Text>
+              </View>
+            </View>
+
             <Text className="text-sm font-outfit text-secondary leading-relaxed">
               {isAthlete
                 ? "Athlete education is available on PHP Plus and PHP Premium plans."
                 : "Parent education is available on PHP Plus and PHP Premium plans."}
             </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/plans")}
-              className="mt-4 rounded-full bg-accent px-4 py-3"
-            >
-              <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
+
+            <View className="mt-4 gap-3">
+              {[
+                "Expert articles and guided learning modules",
+                "Preview and full-course access across key topics",
+                "More practical support for training, recovery, and confidence",
+              ].map((benefit) => (
+                <View key={benefit} className="flex-row items-start gap-3">
+                  <View className="mt-1 h-5 w-5 items-center justify-center rounded-full" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)" }}>
+                    <Feather name="check" size={12} color={colors.accent} />
+                  </View>
+                  <Text className="flex-1 text-sm font-outfit text-app leading-6">{benefit}</Text>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity onPress={() => router.push("/plans")} className="mt-5 rounded-2xl bg-accent px-4 py-4">
+              <Text className="text-center text-sm font-outfit font-bold text-white">View Plans</Text>
             </TouchableOpacity>
           </View>
         ) : isLoading ? (
           <View className="gap-3">
             {[1, 2, 3].map((item) => (
-              <View key={item} className="rounded-3xl border border-app/10 bg-input px-4 py-3">
+              <View key={item} className="rounded-3xl border border-app/10 bg-input px-4 py-4">
                 <View className="h-4 w-32 rounded-full bg-secondary/20" />
-                <View className="h-3 w-full rounded-full bg-secondary/20 mt-2" />
-                <View className="h-3 w-2/3 rounded-full bg-secondary/20 mt-2" />
+                <View className="mt-3 h-3 w-full rounded-full bg-secondary/20" />
+                <View className="mt-3 h-3 w-2/3 rounded-full bg-secondary/20" />
               </View>
             ))}
           </View>
         ) : (
-          <View className="gap-6">
+          <View className="gap-8">
+            {!isAthlete ? (
+              <>
+                <SectionLabel label="Browse by topic" />
+                <View className="flex-row flex-wrap justify-between gap-y-3">
+                  {grouped.map((category) => (
+                    <View
+                      key={category.id}
+                      className="w-[48%] rounded-[24px] border p-4"
+                      style={{
+                        backgroundColor: colors.card,
+                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                        ...(isDark ? Shadows.none : Shadows.sm),
+                      }}
+                    >
+                      <View className={`${category.color} mb-3 h-10 w-10 rounded-2xl items-center justify-center`}>
+                        <Feather name={category.icon as any} size={18} color="white" />
+                      </View>
+                      <Text className="mb-1 font-clash text-base text-app">{category.title}</Text>
+                      <Text className="text-sm font-outfit text-secondary">{category.items.length} item{category.items.length === 1 ? "" : "s"}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
             {isAthlete ? (
               <View className="gap-3">
+                <SectionLabel label="Your learning library" />
                 {visibleItems.map((item) => {
                   const canAccess = canAccessTier(programTier, item.programTier ?? null);
                   const isPreview = Boolean(item.isPreview);
                   const isLocked = !canAccess && !isPreview;
                   return (
-                    <TouchableOpacity
+                    <CourseCard
                       key={item.id}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        if (isLocked) {
-                          Alert.alert(
-                            "Upgrade required",
-                            "Athlete education is included with PHP Plus and Premium plans.",
-                            [
-                              { text: "View Plans", onPress: () => router.push("/plans") },
-                              { text: "Not now", style: "cancel" },
-                            ]
-                          );
-                          return;
-                        }
-                        setParentContentCache({
-                          id: Number(item.id),
-                          title: item.title,
-                          summary: item.summary,
-                          description: item.description ?? null,
-                          coverImage: item.coverImage ?? null,
-                          category: item.category ?? null,
-                          programTier: item.programTier ?? null,
-                          modules: item.modules ?? [],
-                          isPreview: item.isPreview ?? false,
-                        });
-                        router.push(`/parent-platform/${item.id}`);
-                      }}
-                      className={`bg-input border border-app rounded-[24px] p-5 shadow-sm ${
-                        isLocked ? "opacity-60" : ""
-                      }`}
-                    >
-                      <View className="flex-row items-center justify-between">
-                        <Text className="font-outfit font-bold text-app text-base">{item.title}</Text>
-                        {isLocked ? (
-                          <View className="px-2 py-1 rounded-full bg-secondary/10 border border-app/10">
-                            <Text className="text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                              Locked
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <Text className="text-xs font-outfit text-secondary mt-1 uppercase">
-                        {item.modules?.length ?? 0} modules{item.isPreview ? " • Preview" : ""}
-                      </Text>
-                      <Text className="text-sm font-outfit text-secondary mt-3" numberOfLines={3}>
-                        {item.summary}
-                      </Text>
-                    </TouchableOpacity>
+                      item={item}
+                      isLocked={isLocked}
+                      onPress={() => openCourse(item, "Athlete education is included with PHP Plus and Premium plans.")}
+                      colors={colors}
+                      isDark={isDark}
+                    />
                   );
                 })}
               </View>
             ) : (
               visibleGroups.map((cat) => (
                 <View key={cat.id}>
-                  <View className="flex-row items-center justify-between mb-3">
+                  <View className="mb-3 flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2">
                       <View className={`${cat.color} h-9 w-9 rounded-2xl items-center justify-center`}>
                         <Feather name={cat.icon as any} size={18} color="white" />
@@ -260,85 +373,147 @@ export default function ParentPlatformScreen() {
                   </View>
 
                   <View className="gap-3">
-                    {cat.items.length ? (
-                      cat.items.map((item) => {
-                        const canAccess = canAccessTier(programTier, item.programTier ?? null);
-                        const isPreview = Boolean(item.isPreview);
-                        const isLocked = !canAccess && !isPreview;
-                        return (
-                          <TouchableOpacity
-                            key={item.id}
-                            activeOpacity={0.7}
-                            onPress={() => {
-                              if (isLocked) {
-                                Alert.alert(
-                                  "Upgrade required",
-                                  "Parent education is included with PHP Plus and Premium plans.",
-                                  [
-                                    { text: "View Plans", onPress: () => router.push("/plans") },
-                                    { text: "Not now", style: "cancel" },
-                                  ]
-                                );
-                                return;
-                              }
-                              setParentContentCache({
-                                id: Number(item.id),
-                                title: item.title,
-                                summary: item.summary,
-                                description: item.description ?? null,
-                                coverImage: item.coverImage ?? null,
-                                category: item.category ?? null,
-                                programTier: item.programTier ?? null,
-                                modules: item.modules ?? [],
-                                isPreview: item.isPreview ?? false,
-                              });
-                              router.push(`/parent-platform/${item.id}`);
-                            }}
-                            className={`bg-input border border-app rounded-[24px] p-5 shadow-sm ${
-                              isLocked ? "opacity-60" : ""
-                            }`}
-                          >
-                            <View className="flex-row items-center justify-between">
-                              <Text className="font-outfit font-bold text-app text-base">{item.title}</Text>
-                              {isLocked ? (
-                                <View className="px-2 py-1 rounded-full bg-secondary/10 border border-app/10">
-                                  <Text className="text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                                    Locked
-                                  </Text>
-                                </View>
-                              ) : null}
-                            </View>
-                            <Text className="text-xs font-outfit text-secondary mt-1 uppercase">
-                              {item.modules?.length ?? 0} modules{item.isPreview ? " • Preview" : ""}
-                            </Text>
-                            <Text className="text-sm font-outfit text-secondary mt-3" numberOfLines={3}>
-                              {item.summary}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })
-                    ) : null}
+                    {cat.items.map((item) => {
+                      const canAccess = canAccessTier(programTier, item.programTier ?? null);
+                      const isPreview = Boolean(item.isPreview);
+                      const isLocked = !canAccess && !isPreview;
+                      return (
+                        <CourseCard
+                          key={item.id}
+                          item={item}
+                          isLocked={isLocked}
+                          onPress={() => openCourse(item, "Parent education is included with PHP Plus and Premium plans.")}
+                          colors={colors}
+                          isDark={isDark}
+                        />
+                      );
+                    })}
                   </View>
                 </View>
               ))
             )}
+
+            {filteredItems.length === 0 ? (
+              <View className="rounded-[28px] border border-dashed border-app/20 p-5">
+                <Text className="mb-2 font-clash text-xl text-app">No matching courses</Text>
+                <Text className="text-sm font-outfit leading-6 text-secondary">
+                  Try a broader term like recovery, nutrition, sleep, growth, or confidence.
+                </Text>
+              </View>
+            ) : null}
           </View>
         )}
 
-        <View className="mt-8 bg-accent/10 rounded-3xl p-6 border border-accent/20">
-          <View className="flex-row items-center mb-2">
-            <Feather name="info" size={20} color="#10B981" />
-            <Text className="text-accent font-bold font-clash text-lg">
-              Full Access
-            </Text>
+        <View className="mt-8 rounded-[30px] border p-6" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.20)", ...(isDark ? Shadows.none : Shadows.sm) }}>
+          <View className="mb-3 flex-row items-center justify-between gap-3">
+            <View className="flex-row items-center gap-3">
+              <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.82)" }}>
+                <Feather name="info" size={20} color={colors.accent} />
+              </View>
+              <View>
+                <Text className="font-clash text-lg font-bold text-accent">Full Access</Text>
+                <Text className="text-sm font-outfit text-secondary">More support across every topic</Text>
+              </View>
+            </View>
+            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.82)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                {hasPremiumAccess ? "Premium" : `${lockedCount} locked`}
+              </Text>
+            </View>
           </View>
-          <Text className="text-app font-outfit text-sm leading-relaxed">
-            PHP Plus and Premium members receive exclusive articles and video
-            guides in every category.
+          <Text className="text-sm font-outfit leading-relaxed text-app">
+            PHP Plus and Premium members receive exclusive articles, video guides, and deeper education in every category.
           </Text>
         </View>
       </ThemedScrollView>
-
     </SafeAreaView>
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <Text className="mb-4 ml-2 text-xs font-outfit font-bold uppercase tracking-wider text-secondary">{label}</Text>;
+}
+
+function MetricCard({ title, value, caption, isDark }: { title: string; value: string; caption: string; isDark: boolean }) {
+  return (
+    <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
+      <Text className="mb-2 text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">{title}</Text>
+      <Text className="mb-1 font-clash text-2xl text-app">{value}</Text>
+      <Text className="text-sm font-outfit text-secondary leading-5">{caption}</Text>
+    </View>
+  );
+}
+
+function FeatureCard({ item, isLocked, onPress, colors, isDark }: { item: ParentCourseItem; isLocked: boolean; onPress: () => void; colors: ReturnType<typeof useAppTheme>["colors"]; isDark: boolean; }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      className={`overflow-hidden rounded-[28px] border p-5 ${isLocked ? "opacity-70" : ""}`}
+      style={{
+        backgroundColor: colors.card,
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+        ...(isDark ? Shadows.none : Shadows.sm),
+      }}
+    >
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <View className="mb-2 self-start rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)" }}>
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+              {item.category ?? "Course"}
+            </Text>
+          </View>
+          <Text className="mb-2 font-clash text-xl text-app">{item.title}</Text>
+          <Text className="text-sm font-outfit text-secondary leading-6" numberOfLines={3}>{item.summary}</Text>
+        </View>
+        {item.coverImage ? <Image source={{ uri: item.coverImage }} className="h-20 w-20 rounded-[20px]" resizeMode="cover" /> : null}
+      </View>
+
+      <View className="mt-4 flex-row items-center justify-between">
+        <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.1px]">
+          {item.modules?.length ?? 0} modules{item.isPreview ? " • Preview" : ""}
+        </Text>
+        <View className="flex-row items-center gap-2">
+          {isLocked ? (
+            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)" }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px] text-secondary">Locked</Text>
+            </View>
+          ) : null}
+          <Feather name="arrow-right" size={16} color={colors.accent} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function CourseCard({ item, isLocked, onPress, colors, isDark }: { item: ParentCourseItem; isLocked: boolean; onPress: () => void; colors: ReturnType<typeof useAppTheme>["colors"]; isDark: boolean; }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      className={`rounded-[26px] border p-5 ${isLocked ? "opacity-70" : ""}`}
+      style={{
+        backgroundColor: colors.card,
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+        ...(isDark ? Shadows.none : Shadows.sm),
+      }}
+    >
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <Text className="font-outfit text-base font-bold text-app">{item.title}</Text>
+          <Text className="mt-1 text-xs font-outfit uppercase tracking-[1.1px] text-secondary">
+            {item.modules?.length ?? 0} modules{item.isPreview ? " • Preview" : ""}
+          </Text>
+        </View>
+        {isLocked ? (
+          <View className="rounded-full border border-app/10 bg-secondary/10 px-2 py-1">
+            <Text className="text-[10px] font-outfit uppercase tracking-[1.2px] text-secondary">Locked</Text>
+          </View>
+        ) : (
+          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+        )}
+      </View>
+      <Text className="mt-3 text-sm font-outfit text-secondary leading-6" numberOfLines={3}>{item.summary}</Text>
+    </TouchableOpacity>
   );
 }
