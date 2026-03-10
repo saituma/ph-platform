@@ -44,6 +44,7 @@ export default function ThreadScreen() {
     handleDeleteMessage,
   } = useMessagesController();
   const [voiceRecorderOpen, setVoiceRecorderOpen] = React.useState(false);
+  const [isHoldingVoiceRecord, setIsHoldingVoiceRecord] = React.useState(false);
 
   const handleLockedPress = React.useCallback(() => {
     Alert.alert(
@@ -101,6 +102,14 @@ export default function ThreadScreen() {
         onDraftChange={setDraft}
         onSend={handleSend}
         onOpenComposerMenu={() => setComposerMenuOpen(true)}
+        onOpenVoiceRecorder={() => setVoiceRecorderOpen(true)}
+        onVoiceHoldStart={() => {
+          setVoiceRecorderOpen(true);
+          setIsHoldingVoiceRecord(true);
+        }}
+        onVoiceHoldEnd={() => {
+          setIsHoldingVoiceRecord(false);
+        }}
         onLongPressMessage={handleLongPressMessage}
         onReactionPress={handleToggleReaction}
         composerDisabled={!canMessage}
@@ -135,7 +144,11 @@ export default function ThreadScreen() {
       />
       <VoiceRecorderModal
         open={voiceRecorderOpen}
-        onClose={() => setVoiceRecorderOpen(false)}
+        holdToRecordActive={isHoldingVoiceRecord}
+        onClose={() => {
+          setVoiceRecorderOpen(false);
+          setIsHoldingVoiceRecord(false);
+        }}
         onRecorded={(payload) => {
           setPendingAttachment({
             uri: payload.uri,

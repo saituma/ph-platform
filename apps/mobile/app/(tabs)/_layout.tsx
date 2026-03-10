@@ -1,7 +1,7 @@
 import { SwipeableTabLayout, TabConfig } from "@/components/navigation";
 import { useRole } from "@/context/RoleContext";
 import { useSocket } from "@/context/SocketContext";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, prefetchApi } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
 import { Redirect, Slot, usePathname, useRouter, useSegments } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -53,6 +53,7 @@ export default function TabLayout() {
   const { socket } = useSocket();
   const pendingNavToken = useRef(0);
   const [messagesUnread, setMessagesUnread] = useState(0);
+  const lastPrefetchAt = useRef(0);
 
   const isOnboarding =
     segments.some((segment) => segment === "onboarding") ||
@@ -104,6 +105,30 @@ export default function TabLayout() {
       task?.cancel?.();
     };
   }, [athleteUserId, isAuthenticated, profile.id, programTier, role, token, pathname]);
+
+  useEffect(() => {
+    if (!token || !isAuthenticated) return;
+    const now = Date.now();
+    if (now - lastPrefetchAt.current < 60_000) return;
+    lastPrefetchAt.current = now;
+
+    const headers =
+      role === "Athlete" && athleteUserId
+        ? { "X-Acting-User-Id": String(athleteUserId) }
+        : undefined;
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      prefetchApi("/content/home", { token });
+      prefetchApi("/bookings", { token });
+      prefetchApi("/bookings/services", { token });
+      prefetchApi("/public/plans");
+      if (canAccessTier(programTier ?? null, "PHP_Premium")) {
+        prefetchApi("/messages", { token, headers });
+      }
+    });
+
+    return () => task?.cancel?.();
+  }, [athleteUserId, isAuthenticated, programTier, role, token]);
 
   useEffect(() => {
     if (!socket || !token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) return;
