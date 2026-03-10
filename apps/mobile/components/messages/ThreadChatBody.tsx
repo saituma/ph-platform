@@ -22,6 +22,9 @@ type ThreadChatBodyProps = {
   onDraftChange: (value: string) => void;
   onSend: () => void | Promise<void>;
   onOpenComposerMenu: () => void;
+  onOpenVoiceRecorder: () => void;
+  onVoiceHoldStart: () => void;
+  onVoiceHoldEnd: () => void;
   onLongPressMessage: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
   composerDisabled?: boolean;
@@ -43,6 +46,12 @@ function formatFileSize(sizeBytes: number) {
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function getThreadTone(thread: MessageThread) {
+  if (thread.id.startsWith("group:")) return "Group thread";
+  if (thread.premium) return "Priority chat";
+  return "Direct chat";
+}
+
 function ThreadChatBodyBase({
   thread,
   messages,
@@ -54,6 +63,9 @@ function ThreadChatBodyBase({
   onDraftChange,
   onSend,
   onOpenComposerMenu,
+  onOpenVoiceRecorder,
+  onVoiceHoldStart,
+  onVoiceHoldEnd,
   onLongPressMessage,
   onReactionPress,
   composerDisabled = false,
@@ -79,16 +91,52 @@ function ThreadChatBodyBase({
   const isGroupThread = thread.id.startsWith("group:");
   const hasComposerContent = draft.trim().length > 0 || Boolean(pendingAttachment);
   const canSend = !composerDisabled && !isUploadingAttachment && hasComposerContent;
+  const composerBusy = composerDisabled || isUploadingAttachment;
   const composerPlaceholder = isGroupThread
-    ? "Share an update with the group..."
-    : "Write your coach an update...";
-  const introTitle = isGroupThread ? "Team conversation" : "Private coaching space";
+    ? "Message the group"
+    : "Type a message";
+  const introTitle = isGroupThread ? "Keep everyone in sync" : "Focused coaching chat";
   const introSubtitle = isGroupThread
-    ? "Drop updates, clips, and questions in one focused thread."
-    : "Keep training notes, feedback, and media in one clean flow.";
+    ? "Share updates, clips, and questions without losing the thread."
+    : "Send quick check-ins, clips, and feedback in one calm conversation.";
   const attachmentMeta = pendingAttachment
     ? `${pendingAttachment.isImage ? "Image" : "Attachment"} • ${formatFileSize(pendingAttachment.sizeBytes)}`
     : null;
+  const threadTone = getThreadTone(thread);
+  const threadStatus = typing?.isTyping
+    ? `${typing.name} is typing...`
+    : thread.lastSeen ?? thread.responseTime ?? "Replies stay in this thread";
+  const primaryActionIcon = hasComposerContent ? "arrow-up" : "mic";
+  const primaryActionLabel = hasComposerContent ? "Send" : "Voice";
+  const voiceHoldTriggeredRef = React.useRef(false);
+  const composerSurfaceColor = isDark ? colors.cardElevated : "#FFFFFF";
+  const composerFieldColor = isDark ? "rgba(255,255,255,0.05)" : "#F8FAFC";
+  const composerButtonColor = isDark ? "rgba(255,255,255,0.05)" : colors.backgroundSecondary;
+  const micButtonColor = canSend || !composerDisabled
+    ? colors.accent
+    : isDark
+      ? "rgba(255,255,255,0.1)"
+      : "rgba(15,23,42,0.08)";
+
+  const handlePrimaryAction = React.useCallback(() => {
+    if (composerDisabled) {
+      onDisabledPress?.();
+      return;
+    }
+    if (isUploadingAttachment) return;
+    if (hasComposerContent) {
+      onSend();
+      return;
+    }
+    onOpenVoiceRecorder();
+  }, [
+    composerDisabled,
+    hasComposerContent,
+    isUploadingAttachment,
+    onDisabledPress,
+    onOpenVoiceRecorder,
+    onSend,
+  ]);
 
   React.useEffect(() => {
     if (hasInitialScrolled.current === thread.id) return;
@@ -147,6 +195,205 @@ function ThreadChatBodyBase({
     ),
     [onLongPressMessage, onReactionPress]
   );
+  const contentContainerStyle = React.useMemo(
+    () => ({
+      paddingHorizontal: 16,
+      paddingTop: 14,
+      paddingBottom: 18,
+      rowGap: 10,
+    }),
+    []
+  );
+  const handleListScroll = React.useCallback(
+    (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+      const { contentOffset } = event.nativeEvent;
+      isNearBottomRef.current = contentOffset.y < 60;
+      if (isNearBottomRef.current && newIncomingCount > 0) {
+        setNewIncomingCount(0);
+      }
+    },
+    [newIncomingCount]
+  );
+  const listFooterComponent = React.useMemo(
+    () => (
+      <>
+        {isThreadLoading || isLoading ? (
+          <View
+            className="mb-4 rounded-[24px] border px-4 py-3 flex-row items-center justify-center"
+            style={{
+              backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "rgba(34,197,94,0.06)",
+              borderColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)",
+            }}
+          >
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text className="text-[10px] font-bold font-outfit text-accent ml-2 uppercase tracking-widest">Loading coaching history...</Text>
+          </View>
+        ) : null}
+
+        <View
+          className="mb-4 overflow-hidden rounded-[28px] border px-4 py-4"
+          style={{
+            backgroundColor: isDark ? colors.cardElevated : "#F8FFFA",
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+          }}
+        >
+          <View
+            className="absolute -right-10 -top-8 h-24 w-24 rounded-full"
+            style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
+          />
+          <View className="flex-row items-start gap-3">
+            <View
+              className="h-12 w-12 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)" }}
+            >
+              <Feather name={isGroupThread ? "users" : "message-circle"} size={20} color={colors.accent} />
+            </View>
+
+            <View className="flex-1">
+              <Text className="font-clash text-[18px] font-bold" style={{ color: colors.text }}>
+                {introTitle}
+              </Text>
+              <Text className="mt-1 text-[13px] leading-5 font-outfit" style={{ color: colors.textSecondary }}>
+                {introSubtitle}
+              </Text>
+              <View className="mt-3 self-start rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                  {threadStatus}
+                </Text>
+              </View>
+            </View>
+
+            {thread.premium ? (
+              <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: colors.accent }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-white">
+                  Premium
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View className="mt-4 flex-row flex-wrap gap-2">
+            <View
+              className="rounded-full px-3 py-2"
+              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
+            >
+              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                {threadTone}
+              </Text>
+            </View>
+            <View
+              className="rounded-full px-3 py-2"
+              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
+            >
+              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                {thread.responseTime ?? "Fast replies"}
+              </Text>
+            </View>
+            <View
+              className="rounded-full px-3 py-2"
+              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
+            >
+              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                {messages.length > 0 ? `${messages.length} updates` : "Fresh thread"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View className="items-center my-1">
+          <View
+            className="px-4 py-1.5 rounded-full border"
+            style={{
+              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.72)",
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+            }}
+          >
+            <Text
+              className="text-[10px] font-semibold font-outfit uppercase tracking-[1.2px]"
+              style={{ color: colors.textSecondary }}
+            >
+              Latest messages
+            </Text>
+          </View>
+        </View>
+      </>
+    ),
+    [
+      colors.accent,
+      colors.cardElevated,
+      colors.text,
+      colors.textSecondary,
+      introSubtitle,
+      introTitle,
+      isDark,
+      isGroupThread,
+      isLoading,
+      isThreadLoading,
+      messages.length,
+      thread.premium,
+      thread.responseTime,
+      threadStatus,
+      threadTone,
+    ]
+  );
+  const listEmptyComponent = React.useMemo(
+    () =>
+      isThreadLoading || isLoading ? (
+        <View className="gap-4 pt-4">
+          {[1, 2, 3].map((item) => (
+            <View
+              key={item}
+              className={`rounded-[24px] border px-4 py-4 ${item % 2 === 0 ? "mr-12" : "ml-12"}`}
+              style={{
+                backgroundColor: colors.card,
+                borderColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
+              }}
+            >
+              <View className="h-3 w-3/4 rounded-full bg-secondary/10" />
+              <View className="h-3 w-full rounded-full bg-secondary/10 mt-2.5" />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View className="items-center py-12 px-5">
+          <View
+            className="h-24 w-24 rounded-[28px] items-center justify-center mb-5"
+            style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
+          >
+            <View
+              className="h-16 w-16 rounded-[22px] items-center justify-center"
+              style={{ backgroundColor: colors.card }}
+            >
+              <Feather name="message-square" size={28} color={colors.accent} />
+            </View>
+          </View>
+          <Text className="text-[22px] font-clash font-bold text-center" style={{ color: colors.text }}>
+            Kick off the thread
+          </Text>
+          <Text className="text-sm leading-6 font-outfit text-center mt-2 max-w-[280px]" style={{ color: colors.textSecondary }}>
+            Share your workout notes, ask for form feedback, or send a quick check-in to keep the coaching loop moving.
+          </Text>
+          <View className="mt-5 flex-row flex-wrap justify-center gap-2">
+            {[
+              "Session recap",
+              "Technique question",
+              "Progress update",
+            ].map((item) => (
+              <View
+                key={item}
+                className="rounded-full px-3 py-2"
+                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
+              >
+                <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                  {item}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ),
+    [colors.accent, colors.card, colors.text, colors.textSecondary, isDark, isLoading, isThreadLoading]
+  );
 
   return (
     <KeyboardAvoidingView
@@ -156,12 +403,12 @@ function ThreadChatBodyBase({
     >
       <View className="flex-1 overflow-hidden" style={{ backgroundColor: colors.background }}>
         <View
-          className="absolute -left-12 top-4 h-40 w-40 rounded-full"
-          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "rgba(34,197,94,0.09)" }}
+          className="absolute -left-10 top-10 h-32 w-32 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.06)" : "rgba(34,197,94,0.07)" }}
         />
         <View
-          className="absolute -right-10 top-28 h-32 w-32 rounded-full"
-          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.04)" }}
+          className="absolute -right-12 top-24 h-28 w-28 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.035)" }}
         />
 
         <FlatList
@@ -175,183 +422,20 @@ function ThreadChatBodyBase({
           keyExtractor={keyExtractor}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          onScroll={(event) => {
-            const { contentOffset } = event.nativeEvent;
-            isNearBottomRef.current = contentOffset.y < 60;
-            if (isNearBottomRef.current && newIncomingCount > 0) {
-              setNewIncomingCount(0);
-            }
-          }}
+          onScroll={handleListScroll}
           onContentSizeChange={() => {
             if (isNearBottomRef.current) {
               listRef.current?.scrollToOffset({ offset: 0, animated: false });
             }
           }}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 14,
-            paddingBottom: 18,
-            rowGap: 10,
-          }}
+          contentContainerStyle={contentContainerStyle}
           showsVerticalScrollIndicator={false}
           initialNumToRender={8}
           windowSize={5}
           maxToRenderPerBatch={10}
           removeClippedSubviews
-          ListFooterComponent={
-            <>
-              {isThreadLoading || isLoading ? (
-                <View
-                  className="mb-4 rounded-[24px] border px-4 py-3 flex-row items-center justify-center"
-                  style={{
-                    backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "rgba(34,197,94,0.06)",
-                    borderColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)",
-                  }}
-                >
-                  <ActivityIndicator size="small" color={colors.accent} />
-                  <Text className="text-[10px] font-bold font-outfit text-accent ml-2 uppercase tracking-widest">Loading coaching history...</Text>
-                </View>
-              ) : null}
-
-              <View
-                className="mb-4 overflow-hidden rounded-[28px] border px-4 py-4"
-                style={{
-                  backgroundColor: isDark ? colors.cardElevated : "#F8FFFA",
-                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                }}
-              >
-                <View
-                  className="absolute -right-10 -top-8 h-24 w-24 rounded-full"
-                  style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
-                />
-                <View className="flex-row items-start gap-3">
-                  <View
-                    className="h-12 w-12 rounded-2xl items-center justify-center"
-                    style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)" }}
-                  >
-                    <Feather name={isGroupThread ? "users" : "shield"} size={20} color={colors.accent} />
-                  </View>
-
-                  <View className="flex-1">
-                    <Text className="font-clash text-[18px] font-bold" style={{ color: colors.text }}>
-                      {introTitle}
-                    </Text>
-                    <Text className="mt-1 text-[13px] leading-5 font-outfit" style={{ color: colors.textSecondary }}>
-                      {introSubtitle}
-                    </Text>
-                  </View>
-
-                  {thread.premium ? (
-                    <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: colors.accent }}>
-                      <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-white">
-                        Premium
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View className="mt-4 flex-row flex-wrap gap-2">
-                  <View
-                    className="rounded-full px-3 py-2"
-                    style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
-                  >
-                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                      {thread.role}
-                    </Text>
-                  </View>
-                  <View
-                    className="rounded-full px-3 py-2"
-                    style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
-                  >
-                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                      {thread.responseTime ?? "Fast replies"}
-                    </Text>
-                  </View>
-                  <View
-                    className="rounded-full px-3 py-2"
-                    style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
-                  >
-                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                      {messages.length > 0 ? `${messages.length} updates` : "Fresh thread"}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <View className="items-center my-1">
-                <View
-                  className="px-4 py-1.5 rounded-full border"
-                  style={{
-                    backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.72)",
-                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                  }}
-                >
-                  <Text
-                    className="text-[10px] font-semibold font-outfit uppercase tracking-[1.2px]"
-                    style={{ color: colors.textSecondary }}
-                  >
-                    Today
-                  </Text>
-                </View>
-              </View>
-            </>
-          }
-          ListEmptyComponent={
-            isThreadLoading || isLoading ? (
-              <View className="gap-4 pt-4">
-                {[1, 2, 3].map((item) => (
-                  <View
-                    key={item}
-                    className={`rounded-[24px] border px-4 py-4 ${item % 2 === 0 ? "mr-12" : "ml-12"}`}
-                    style={{
-                      backgroundColor: colors.card,
-                      borderColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-                    }}
-                  >
-                    <View className="h-3 w-3/4 rounded-full bg-secondary/10" />
-                    <View className="h-3 w-full rounded-full bg-secondary/10 mt-2.5" />
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View className="items-center py-12 px-5">
-                <View
-                  className="h-24 w-24 rounded-[28px] items-center justify-center mb-5"
-                  style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
-                >
-                  <View
-                    className="h-16 w-16 rounded-[22px] items-center justify-center"
-                    style={{ backgroundColor: colors.card }}
-                  >
-                    <Feather name="message-square" size={28} color={colors.accent} />
-                  </View>
-                </View>
-                <Text className="text-[22px] font-clash font-bold text-center" style={{ color: colors.text }}>
-                  Kick off the thread
-                </Text>
-                <Text className="text-sm leading-6 font-outfit text-center mt-2 max-w-[280px]" style={{ color: colors.textSecondary }}>
-                  Share your workout notes, ask for form feedback, or send a quick check-in to keep the coaching loop moving.
-                </Text>
-                <View className="mt-5 flex-row flex-wrap justify-center gap-2">
-                  {[
-                    "Session recap",
-                    "Technique question",
-                    "Progress update",
-                  ].map((item) => (
-                    <View
-                      key={item}
-                      className="rounded-full px-3 py-2"
-                      style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
-                    >
-                      <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                        {item}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )
-          }
+          ListFooterComponent={listFooterComponent}
+          ListEmptyComponent={listEmptyComponent}
           renderItem={renderItem}
         />
       </View>
@@ -428,18 +512,39 @@ function ThreadChatBodyBase({
         ) : null}
 
         <View
-          className="rounded-[28px] border px-3 py-3"
+          className="rounded-[32px] border px-3 pb-3 pt-3"
           style={{
-            backgroundColor: colors.card,
+            backgroundColor: composerSurfaceColor,
             borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.md),
+            ...(isDark ? Shadows.none : Shadows.lg),
           }}
         >
+          <View className="mb-3 flex-row items-center justify-between px-2">
+            <View className="flex-row items-center gap-2 flex-1">
+              <View className="h-2 w-2 rounded-full" style={{ backgroundColor: typing?.isTyping ? colors.accent : colors.textSecondary }} />
+              <Text
+                className="text-[11px] font-outfit font-semibold flex-1"
+                numberOfLines={1}
+                style={{ color: colors.textSecondary }}
+              >
+                {threadStatus}
+              </Text>
+            </View>
+            <View
+              className="rounded-full px-2.5 py-1"
+              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)" }}
+            >
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.accent }}>
+                {threadTone}
+              </Text>
+            </View>
+          </View>
+
           {pendingAttachment ? (
             <View
-              className="mb-3 rounded-[22px] border p-3"
+              className="mb-3 rounded-[24px] border p-3"
               style={{
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : colors.backgroundSecondary,
+                backgroundColor: composerFieldColor,
                 borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
               }}
             >
@@ -448,12 +553,12 @@ function ThreadChatBodyBase({
                   {pendingAttachment.isImage ? (
                     <Image
                       source={{ uri: pendingAttachment.uri }}
-                      className="w-14 h-14 rounded-2xl"
+                      className="w-14 h-14 rounded-[18px]"
                       resizeMode="cover"
                     />
                   ) : (
                     <View
-                      className="w-14 h-14 rounded-2xl items-center justify-center"
+                      className="w-14 h-14 rounded-[18px] items-center justify-center"
                       style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
                     >
                       <Feather name="file-text" size={22} color={colors.accent} />
@@ -498,45 +603,95 @@ function ThreadChatBodyBase({
           <View className="flex-row items-end gap-3">
             <Pressable
               onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onOpenComposerMenu}
-              className="h-12 w-12 rounded-2xl items-center justify-center active:opacity-80"
+              className="h-12 w-12 rounded-full items-center justify-center active:opacity-80"
               style={{
-                backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.backgroundSecondary,
+                backgroundColor: composerButtonColor,
               }}
             >
-              <Feather name="paperclip" size={20} color={colors.accent} />
+              <Feather name="plus" size={20} color={colors.accent} />
             </Pressable>
 
             <View
-              className="flex-1 rounded-[24px] border px-4 py-3"
+              className="flex-1 rounded-[28px] border px-4 py-3"
               style={{
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : colors.backgroundSecondary,
+                backgroundColor: composerFieldColor,
                 borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
               }}
             >
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.textSecondary }}>
-                Message
-              </Text>
+              {!draft.trim() ? (
+                <View className="mb-2 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}>
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                    {hasComposerContent ? "Caption" : "Message"}
+                  </Text>
+                </View>
+              ) : null}
               <TextInput
-                className="mt-1 text-sm font-outfit text-app"
+                className="text-sm font-outfit text-app"
                 placeholder={composerPlaceholder}
                 placeholderTextColor={textSecondaryColor}
                 value={draft}
                 onChangeText={onDraftChange}
                 multiline
-                style={{ minHeight: 22, maxHeight: 110 }}
+                style={{ minHeight: 26, maxHeight: 110 }}
                 editable={!composerDisabled && !isUploadingAttachment}
               />
             </View>
 
             <Pressable
-              onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onSend}
-              className={`h-12 w-12 rounded-2xl items-center justify-center ${
-                canSend ? "active:opacity-80" : "opacity-40"
+              onPress={() => {
+                if (voiceHoldTriggeredRef.current) {
+                  voiceHoldTriggeredRef.current = false;
+                  return;
+                }
+                handlePrimaryAction();
+              }}
+              onLongPress={
+                hasComposerContent || composerBusy
+                  ? undefined
+                  : () => {
+                      voiceHoldTriggeredRef.current = true;
+                      onVoiceHoldStart();
+                    }
+              }
+              onPressOut={
+                hasComposerContent || composerBusy
+                  ? undefined
+                  : () => {
+                      if (voiceHoldTriggeredRef.current) {
+                        onVoiceHoldEnd();
+                      }
+                    }
+              }
+              delayLongPress={180}
+              className={`h-12 w-12 rounded-full items-center justify-center ${
+                !composerBusy ? "active:opacity-80" : "opacity-40"
               }`}
-              style={{ backgroundColor: colors.accent }}
+              style={{ backgroundColor: micButtonColor }}
             >
-              <Feather name="arrow-up" size={18} color="#FFFFFF" />
+              <Feather name={primaryActionIcon} size={18} color="#FFFFFF" />
             </Pressable>
+          </View>
+
+          <View className="mt-2 flex-row items-center justify-between px-2">
+            <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
+              {pendingAttachment
+                ? "Add an optional caption, then send."
+                : hasComposerContent
+                ? "Ready to send."
+                : "Tap + for media, or hold the mic to record."}
+            </Text>
+            {!hasComposerContent ? (
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="mic-outline" size={12} color={colors.accent} />
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                  Hold to talk
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                {primaryActionLabel}
+              </Text>
+            )}
           </View>
         </View>
       </View>

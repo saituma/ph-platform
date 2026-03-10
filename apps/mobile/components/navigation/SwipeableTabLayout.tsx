@@ -38,6 +38,7 @@ export function SwipeableTabLayout({
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [PagerView, setPagerView] = useState<any>(null);
+  const [visitedIndices, setVisitedIndices] = useState<number[]>([initialIndex]);
 
   const scrollOffset = useSharedValue(initialIndex);
 
@@ -79,6 +80,7 @@ export function SwipeableTabLayout({
     if (isUserSwipingRef.current || isSyncingRef.current) return;
 
     setActiveIndex(initialIndex);
+    setVisitedIndices((prev) => (prev.includes(initialIndex) ? prev : [...prev, initialIndex]));
     lastSelectedIndex.current = initialIndex;
     lastNotifiedIndex.current = initialIndex;
 
@@ -119,6 +121,7 @@ export function SwipeableTabLayout({
       const index = e.nativeEvent.position;
       lastSelectedIndex.current = index;
       setActiveIndex(index);
+      setVisitedIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
 
       if (lastNotifiedIndex.current !== index) {
         lastNotifiedIndex.current = index;
@@ -158,6 +161,7 @@ export function SwipeableTabLayout({
     }
     pagerRef.current?.setPage(index);
     setActiveIndex(index);
+    setVisitedIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
     lastSelectedIndex.current = index;
 
     if (Platform.OS === "web") {
@@ -175,13 +179,14 @@ export function SwipeableTabLayout({
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {
       const key = tabs[index]?.key ?? `page-${index}`;
+      const shouldRenderChild = index === activeIndex || visitedIndices.includes(index);
       return (
         <View key={key} style={styles.page}>
-          {child}
+          {shouldRenderChild ? child : null}
         </View>
       );
     });
-  }, [childrenArray, tabs]);
+  }, [activeIndex, childrenArray, tabs, visitedIndices]);
 
   if (Platform.OS === "web" || !PagerView) {
     return (
@@ -213,7 +218,7 @@ export function SwipeableTabLayout({
         onPageScrollStateChanged={handlePageScrollStateChanged}
         scrollEnabled={isTabBarVisible}
         overdrag={false}
-        offscreenPageLimit={Math.min(4, Math.max(1, tabs.length - 1))}
+        offscreenPageLimit={1}
       >
         {pagerChildren}
       </PagerView>

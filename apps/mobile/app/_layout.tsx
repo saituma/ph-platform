@@ -8,6 +8,7 @@ import { DarkTheme, DefaultTheme, NavigationContainerRefContext, NavigationConte
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { SplashScreen, Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useColorScheme } from "nativewind";
 import React, { useEffect, useMemo, useState } from "react";
 import { LogBox, Platform, View } from "react-native";
@@ -106,6 +107,26 @@ export default function RootLayout() {
     }
     prepare();
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (!__DEV__ || Platform.OS === "web") return;
+    let isActive = true;
+    (async () => {
+      try {
+        await activateKeepAwakeAsync();
+      } catch (err) {
+        const message = typeof err === "string" ? err : (err as any)?.message;
+        if (message && message.toLowerCase().includes("keep awake")) return;
+        console.warn("Failed to activate keep awake", err);
+      }
+    })();
+    return () => {
+      if (isActive) {
+        void deactivateKeepAwake();
+      }
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     async function configureNotifications() {

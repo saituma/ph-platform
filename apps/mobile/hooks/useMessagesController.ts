@@ -625,21 +625,27 @@ export function useMessagesController() {
 
   const handleSend = useCallback(async () => {
     const trimmed = draftRef.current.trim();
-    if (!trimmed && !pendingAttachment) return;
+    const attachmentToSend = pendingAttachment;
+    if (!trimmed && !attachmentToSend) return;
+
+    // Clear the composer immediately so sending feels instant.
+    setDraftValue("");
+    setPendingAttachment(null);
+
     try {
       let upload: { mediaUrl: string; contentType: "text" | "image" | "video" } | null = null;
-      if (pendingAttachment) {
+      if (attachmentToSend) {
         setIsUploadingAttachment(true);
-        upload = await uploadAttachment(pendingAttachment);
+        upload = await uploadAttachment(attachmentToSend);
       }
       await sendMessagePayload({
-        text: trimmed || (pendingAttachment ? pendingAttachment.fileName : ""),
+        text: trimmed || (attachmentToSend ? attachmentToSend.fileName : ""),
         contentType: upload?.contentType ?? "text",
         mediaUrl: upload?.mediaUrl,
       });
-      setDraftValue("");
-      setPendingAttachment(null);
     } catch (error) {
+      setDraftValue(trimmed);
+      setPendingAttachment(attachmentToSend);
       console.warn("Failed to send message", error);
     } finally {
       setIsUploadingAttachment(false);

@@ -13,21 +13,25 @@ type ApiRequestOptions = {
   suppressStatusCodes?: number[];
   skipAuthRefresh?: boolean;
   skipCache?: boolean;
+  forceRefresh?: boolean;
 };
-const apiCache = new Map<string, { data: any; expiry: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const ASYNC_CACHE_KEY = "ph_api_cache_v1";
+type ApiCacheEntry = { data: any; savedAt: number };
+const apiCache = new Map<string, ApiCacheEntry>();
+const ASYNC_CACHE_KEY = "ph_api_cache_v2";
 
 let cacheHydrationPromise: Promise<void> | null = AsyncStorage.getItem(ASYNC_CACHE_KEY)
   .then((stored: string | null) => {
     if (stored) {
       try {
-        const parsed = JSON.parse(stored);
+        const parsed = JSON.parse(stored) as Record<string, any>;
         const now = Date.now();
         for (const [key, value] of Object.entries(parsed)) {
-          if ((value as any).expiry > now) {
-            apiCache.set(key, value as any);
-          }
+          if (!value || typeof value !== "object") continue;
+          const legacyExpiry = typeof value.expiry === "number" ? value.expiry : null;
+          if (legacyExpiry !== null && legacyExpiry < now) continue;
+          const data = "data" in value ? value.data : value;
+          const savedAt = typeof value.savedAt === "number" ? value.savedAt : now;
+          apiCache.set(key, { data, savedAt });
         }
       } catch {
         // ignore parsing errors
@@ -47,7 +51,7 @@ export function clearApiCache() {
 }
 
 export function prefetchApi<T>(path: string, options: ApiRequestOptions = {}): void {
-  apiRequest<T>(path, { ...options, suppressLog: true }).catch(() => {});
+  apiRequest<T>(path, { ...options, suppressLog: true, forceRefresh: true }).catch(() => {});
 }
 
 const AUTH_TOKEN_KEY = "authToken";
@@ -168,15 +172,16 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     });
 
   const method = options.method ?? "GET";
-  const cacheKey = `${resolvedToken || 'anon'}:${url}`;
+  const cacheKey = `${resolvedToken || "anon"}:${url}`;
 
-  if (method === "GET" && !options.skipCache) {
+  const shouldReadCache = method === "GET" && !options.skipCache && !options.forceRefresh;
+  if (shouldReadCache) {
     if (cacheHydrationPromise) {
       await cacheHydrationPromise;
       cacheHydrationPromise = null;
     }
     const cached = apiCache.get(cacheKey);
-    if (cached && cached.expiry > Date.now()) {
+    if (cached) {
       return cached.data as T;
     }
   }
@@ -258,8 +263,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     throw new Error("Invalid response from server");
   }
   
-  if (method === "GET" && !options.skipCache) {
-    apiCache.set(cacheKey, { data: payload, expiry: Date.now() + CACHE_TTL_MS });
+  const shouldWriteCache = method === "GET" && !options.skipCache;
+  if (shouldWriteCache) {
+    apiCache.set(cacheKey, { data: payload, savedAt: Date.now() });
     persistCache();
   }
 

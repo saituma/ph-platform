@@ -373,7 +373,7 @@ export default function ScheduleScreen() {
           setEventsLoading(true);
           setEventsError(null);
           try {
-            const data = await apiRequest<{ items: any[] }>("/bookings", { token });
+            const data = await apiRequest<{ items: any[] }>("/bookings", { token, forceRefresh: true });
             setEvents(mapBookingsToEvents(data.items ?? []));
           } catch (err: any) {
             setEventsError(err.message ?? "Failed to load schedule");

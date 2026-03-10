@@ -22,30 +22,29 @@ function getInitials(name: string) {
 
 export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
   const { colors, isDark } = useAppTheme();
-  const headerBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
-  const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.85)";
-  const cardBg = isDark ? "#161B24" : "#F6FFF8";
-  const mutedPill = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)";
+  const headerBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)";
+  const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.10)";
+  const mutedPill = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.04)";
   const summaryLabel = thread.id.startsWith("group:")
-    ? "Team conversation"
+    ? "Group chat"
     : thread.premium
-      ? "Priority coaching"
-      : "Private coaching";
+      ? "Priority chat"
+      : "Direct chat";
   const statusLine = thread.lastSeen ?? thread.responseTime ?? "Usually replies within a day";
 
   return (
     <View className="px-4 pb-3 pt-3" style={{ backgroundColor: colors.background }}>
       <View
-        className="overflow-hidden rounded-[28px] border px-4 pb-4 pt-4"
-        style={{ backgroundColor: cardBg, borderColor: headerBorder }}
+        className="overflow-hidden rounded-[28px] border px-4 pb-4 pt-3.5"
+        style={{ backgroundColor: colors.card, borderColor: headerBorder }}
       >
         <View
-          className="absolute -right-8 -top-8 h-28 w-28 rounded-full"
-          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.10)" }}
+          className="absolute -right-8 -top-8 h-24 w-24 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)" }}
         />
         <View
-          className="absolute -bottom-10 left-12 h-24 w-24 rounded-full"
-          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(34,197,94,0.06)" }}
+          className="absolute -bottom-8 left-10 h-20 w-20 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.03)" }}
         />
 
         <View className="flex-row items-center justify-between">
@@ -121,7 +120,7 @@ export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
           {thread.premium ? (
             <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.accent }}>
               <Text className="text-[11px] font-outfit font-bold text-white">
-                Priority
+                Premium
               </Text>
             </View>
           ) : null}

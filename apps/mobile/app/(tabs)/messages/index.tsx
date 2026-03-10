@@ -1,14 +1,9 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { InboxScreen } from "@/components/messages/InboxScreen";
-import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
-import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
-import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { Alert, TouchableOpacity, View } from "react-native";
+import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier } from "@/lib/planAccess";
 import { Text } from "@/components/ScaledText";
@@ -20,13 +15,10 @@ import {
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { Ionicons } from "@expo/vector-icons";
-import { useTabVisibility } from "@/context/TabVisibilityContext";
-import { useEffect } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
-  const router = useRouter();
   const dispatch = useAppDispatch();
   const programTier = useAppSelector((state) => state.user.programTier);
   const token = useAppSelector((state) => state.user.token);
@@ -44,16 +36,7 @@ export default function MessagesScreen() {
 
   const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");
 
-  if (isSectionHidden("messages")) {
-    return (
-      <AgeGate
-        title="Messages locked"
-        message="Messaging is restricted for this age."
-      />
-    );
-  }
-
-  useEffect(() => {
+  React.useEffect(() => {
     if (!token) return;
     (async () => {
       try {
@@ -83,6 +66,15 @@ export default function MessagesScreen() {
       resetOpeningThread();
     }, [resetOpeningThread])
   );
+
+  if (isSectionHidden("messages")) {
+    return (
+      <AgeGate
+        title="Messages locked"
+        message="Messaging is restricted for this age."
+      />
+    );
+  }
 
   // ====================== LOCKED / UPGRADE STATE ======================
   if (!canMessage) {
@@ -145,17 +137,39 @@ export default function MessagesScreen() {
   // ====================== INBOX VIEW ======================
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      {/* Premium Header – matches ProgramsScreen style */}
-      <View className="px-6 pt-10 pb-6">
-        <View className="flex-row items-center gap-3 mb-1">
-          <View className="h-8 w-1.5 rounded-full bg-[#2F8F57]" />
-          <Text className="text-4xl font-clash font-bold tracking-tight text-[#0E1510] dark:text-[#F2F6F2]">
-            Messages
-          </Text>
+      <View className="px-6 pt-8 pb-5">
+        <View className="rounded-[28px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-4xl font-clash font-bold tracking-tight text-app">
+                Messages
+              </Text>
+              <Text className="mt-2 text-base font-outfit" style={{ color: colors.textSecondary }}>
+                Cleaner chat, faster replies, and a calmer mobile flow.
+              </Text>
+            </View>
+            <View className="h-12 w-12 rounded-2xl items-center justify-center" style={{ backgroundColor: colors.backgroundSecondary }}>
+              <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.accent} />
+            </View>
+          </View>
+          <View className="mt-4 flex-row flex-wrap gap-2">
+            <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.backgroundSecondary }}>
+              <Text className="text-[11px] font-outfit font-semibold text-app">
+                {sortedThreads.length} thread{sortedThreads.length === 1 ? "" : "s"}
+              </Text>
+            </View>
+            <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.backgroundSecondary }}>
+              <Text className="text-[11px] font-outfit font-semibold text-app">
+                Real-time updates
+              </Text>
+            </View>
+            <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.backgroundSecondary }}>
+              <Text className="text-[11px] font-outfit font-semibold text-app">
+                Media sharing
+              </Text>
+            </View>
+          </View>
         </View>
-        <Text className="text-base font-outfit text-secondary ml-5">
-          Direct coaching chat · Real-time support
-        </Text>
       </View>
 
       <InboxScreen

@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
-import { AppState } from "react-native";
+import { AppState, InteractionManager } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
 import {
   setCredentials,
@@ -13,7 +13,7 @@ import {
   updateProfile,
   setManagedAthletes,
 } from "./slices/userSlice";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, clearApiCache } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
 
 const STORAGE_KEYS = {
@@ -71,76 +71,6 @@ export function AuthPersist() {
           );
           lastSavedToken.current = storedToken;
           lastSavedRefreshToken.current = storedRefreshToken;
-          try {
-            const me = await apiRequest<{ user?: { name?: string | null; email?: string | null; profilePicture?: string | null } }>(
-              "/auth/me",
-              { token: storedToken, suppressStatusCodes: [401, 403] }
-            );
-            if (me.user) {
-              dispatch(
-                updateProfile({
-                  name: me.user.name ?? null,
-                  email: me.user.email ?? null,
-                  avatar: me.user.profilePicture ?? null,
-                })
-              );
-            }
-          } catch {
-            // no-op
-          }
-          try {
-            const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
-              "/onboarding",
-              { token: storedToken, suppressStatusCodes: [401, 403] }
-            );
-            dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
-            dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
-          } catch (error) {
-            if (isUnauthorizedError(error)) {
-              dispatch(setOnboardingCompleted(null));
-              dispatch(setAthleteUserId(null));
-            }
-          }
-          try {
-            const status = await apiRequest<{
-              currentProgramTier?: string | null;
-              latestRequest?: {
-                status?: string | null;
-                paymentStatus?: string | null;
-                planTier?: string | null;
-                createdAt?: string | null;
-              } | null;
-            }>("/billing/status", {
-              token: storedToken,
-              suppressStatusCodes: [401, 403, 404],
-              skipCache: true,
-            });
-            dispatch(setProgramTier(status?.currentProgramTier ?? null));
-            dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
-          } catch {
-            dispatch(setProgramTier(null));
-            dispatch(setLatestSubscriptionRequest(null));
-          }
-          try {
-            const data = await apiRequest<{
-              athletes?: {
-                id?: number;
-                userId?: number | null;
-                name?: string | null;
-                age?: number | null;
-                team?: string | null;
-                level?: string | null;
-                trainingPerWeek?: number | null;
-                profilePicture?: string | null;
-              }[];
-            }>("/onboarding/athletes", {
-              token: storedToken,
-              suppressStatusCodes: [401, 403, 404],
-            });
-            dispatch(setManagedAthletes(data.athletes ?? []));
-          } catch {
-            dispatch(setManagedAthletes([]));
-          }
         } else {
           dispatch(logout());
         }
@@ -176,6 +106,49 @@ export function AuthPersist() {
         );
       } catch {
         if (!active) return;
+      }
+    };
+
+    const syncOnboarding = async () => {
+      try {
+        const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
+          "/onboarding",
+          { token, suppressStatusCodes: [401, 403] }
+        );
+        if (!active) return;
+        dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
+        dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+      } catch (error) {
+        if (!active) return;
+        if (isUnauthorizedError(error)) {
+          dispatch(setOnboardingCompleted(null));
+          dispatch(setAthleteUserId(null));
+        }
+      }
+    };
+
+    const syncManagedAthletes = async () => {
+      try {
+        const data = await apiRequest<{
+          athletes?: {
+            id?: number;
+            userId?: number | null;
+            name?: string | null;
+            age?: number | null;
+            team?: string | null;
+            level?: string | null;
+            trainingPerWeek?: number | null;
+            profilePicture?: string | null;
+          }[];
+        }>("/onboarding/athletes", {
+          token,
+          suppressStatusCodes: [401, 403, 404],
+        });
+        if (!active) return;
+        dispatch(setManagedAthletes(data.athletes ?? []));
+      } catch {
+        if (!active) return;
+        dispatch(setManagedAthletes([]));
       }
     };
 
@@ -268,7 +241,11 @@ export function AuthPersist() {
 
     void syncBillingStatus(false);
     void syncProfile();
-    void syncPushToken();
+    void syncOnboarding();
+    void syncManagedAthletes();
+    const pushTask = InteractionManager.runAfterInteractions(() => {
+      void syncPushToken();
+    });
     initialized = true;
     const interval = setInterval(() => {
       void syncBillingStatus(initialized);
@@ -285,6 +262,7 @@ export function AuthPersist() {
       active = false;
       clearInterval(interval);
       appStateSub.remove();
+      pushTask?.cancel?.();
     };
   }, [dispatch, hydrated, isAuthenticated, token]);
 
@@ -316,6 +294,7 @@ export function AuthPersist() {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
         lastSavedToken.current = null;
         lastSavedRefreshToken.current = null;
+        clearApiCache();
         // navigation disabled outside router context
       }
     })();

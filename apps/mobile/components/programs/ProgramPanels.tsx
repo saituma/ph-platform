@@ -816,14 +816,14 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     []
   );
 
-  const loadVideos = useCallback(async () => {
+  const loadVideos = useCallback(async (forceRefresh = false) => {
     if (!token) return;
     try {
       setLoadingVideos(true);
       const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
       const data = await apiRequest<{ items: { id: number; videoUrl: string; notes?: string | null; createdAt?: string | null; feedback?: string | null }[] }>(
         "/videos",
-        { token, headers, suppressLog: true }
+        { token, headers, suppressLog: true, forceRefresh }
       );
       const items = data.items ?? [];
       setVideoItems(items);
@@ -847,13 +847,18 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
     }
   }, [athleteUserId, scheduleLocalNotification, token]);
 
-  const loadCoachResponses = useCallback(async () => {
+  const loadCoachResponses = useCallback(async (forceRefresh = false) => {
     if (!token) return;
     try {
       setLoadingResponses(true);
       const effectiveUserId = athleteUserId ? Number(athleteUserId) : Number(profile.id);
       const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
-      const data = await apiRequest<{ messages: any[] }>("/messages", { token, headers, suppressLog: true });
+      const data = await apiRequest<{ messages: any[] }>("/messages", {
+        token,
+        headers,
+        suppressLog: true,
+        forceRefresh,
+      });
       const items = (data.messages ?? [])
         .filter(
           (msg: any) =>
@@ -1178,7 +1183,7 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
         <View className="mb-1 flex-row items-center justify-between">
           <Text className="text-lg font-clash text-app font-bold">Your Uploaded Videos</Text>
           <TouchableOpacity
-            onPress={() => void loadVideos()}
+            onPress={() => void loadVideos(true)}
             disabled={loadingVideos}
             className="rounded-full border border-app/20 bg-white/10 px-3 py-1.5"
           >
@@ -1197,8 +1202,8 @@ export function VideoUploadPanel({ refreshToken = 0 }: { refreshToken?: number }
             <RefreshControl
               refreshing={loadingVideos || loadingResponses}
               onRefresh={() => {
-                void loadVideos();
-                void loadCoachResponses();
+                void loadVideos(true);
+                void loadCoachResponses(true);
               }}
             />
           }

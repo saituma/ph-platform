@@ -6,7 +6,6 @@ import { MessageThread, TypingStatus } from "@/types/messages";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
 
 type InboxScreenProps = {
   threads: MessageThread[];
@@ -40,6 +39,8 @@ function InboxScreenBase({
   textSecondaryColor,
 }: InboxScreenProps) {
   const { colors, isDark } = useAppTheme();
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const mutedPill = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.04)";
 
   return (
     <ThemedScrollView
@@ -53,15 +54,15 @@ function InboxScreenBase({
             [1, 2, 3].map((item) => (
               <View
                 key={`skeleton-${item}`}
-                // UI polish: semantic neutrals keep skeleton contrast consistent across themes.
-                className="bg-input rounded-3xl p-5 border border-app/10"
+                className="rounded-[28px] p-5 border"
+                style={{ backgroundColor: colors.card, borderColor: cardBorder }}
               >
                 <View className="flex-row items-center">
-                  <View className="h-14 w-14 rounded-2xl bg-secondary" />
+                  <View className="h-14 w-14 rounded-2xl" style={{ backgroundColor: colors.backgroundSecondary }} />
                   <View className="flex-1 ml-4 space-y-2.5">
-                    <View className="h-4 bg-secondary rounded-full w-4/5" />
-                    <View className="h-3 bg-secondary rounded-full w-1/2" />
-                    <View className="h-3 bg-secondary rounded-full w-full" />
+                    <View className="h-4 rounded-full w-4/5" style={{ backgroundColor: colors.backgroundSecondary }} />
+                    <View className="h-3 rounded-full w-1/2" style={{ backgroundColor: colors.backgroundSecondary }} />
+                    <View className="h-3 rounded-full w-full" style={{ backgroundColor: colors.backgroundSecondary }} />
                   </View>
                 </View>
               </View>
@@ -78,11 +79,14 @@ function InboxScreenBase({
                 <Pressable
                   key={thread.id}
                   onPress={() => onOpenThread(thread)}
-                  className="bg-card rounded-3xl p-5 active:opacity-95"
-                  style={isDark ? Shadows.none : Shadows.md}
+                  className="rounded-[28px] border p-4 active:opacity-95"
+                  style={{
+                    backgroundColor: colors.card,
+                    borderColor: cardBorder,
+                    ...(isDark ? Shadows.none : Shadows.md),
+                  }}
                 >
                   <View className="flex-row items-start gap-4">
-                    {/* Avatar */}
                     <View className="relative flex-shrink-0">
                       {thread.avatarUrl ? (
                         <Image
@@ -90,16 +94,18 @@ function InboxScreenBase({
                           className="h-14 w-14 rounded-2xl"
                         />
                       ) : (
-                        <View className="h-14 w-14 rounded-2xl bg-[#2F8F57]/10 dark:bg-[#2F8F57]/20 items-center justify-center">
-                          <Text className="font-clash text-[#2F8F57] text-2xl">
+                        <View
+                          className="h-14 w-14 rounded-2xl items-center justify-center"
+                          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)" }}
+                        >
+                          <Text className="font-clash text-2xl" style={{ color: colors.accent }}>
                             {getInitials(thread.name)}
                           </Text>
                         </View>
                       )}
 
-                      {/* Unread badge */}
                       {thread.unread > 0 && (
-                        <View className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 rounded-full items-center justify-center">
+                        <View className="absolute -top-1 -right-1 min-w-6 h-6 px-1 bg-accent rounded-full items-center justify-center">
                           <Text className="text-white text-[9px] font-bold font-outfit">
                             {typeof thread.unread === "number" &&
                             thread.unread > 9
@@ -110,7 +116,6 @@ function InboxScreenBase({
                       )}
                     </View>
 
-                    {/* Content */}
                     <View className="flex-1 pt-0.5">
                       <View className="flex-row justify-between items-start">
                         <View className="flex-1 pr-2">
@@ -121,7 +126,8 @@ function InboxScreenBase({
                             {thread.name}
                           </Text>
                           <Text
-                            className="text-sm font-outfit text-secondary mt-0.5"
+                            className="text-sm font-outfit mt-0.5"
+                            style={{ color: colors.textSecondary }}
                             numberOfLines={1}
                           >
                             {thread.role}
@@ -136,21 +142,24 @@ function InboxScreenBase({
                             />
                           ) : (
                             <View className="items-end gap-1.5">
-                              <Text className="text-[0.6875rem] font-bold font-outfit text-secondary/60">
+                              <Text className="text-[11px] font-bold font-outfit" style={{ color: colors.textSecondary }}>
                                 {thread.time}
                               </Text>
+                              {thread.unread > 0 ? (
+                                <View className="rounded-full px-2 py-1" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.10)" }}>
+                                  <Text className="text-[9px] font-bold font-outfit uppercase tracking-[1px]" style={{ color: colors.accent }}>
+                                    New
+                                  </Text>
+                                </View>
+                              ) : null}
                             </View>
                           )}
                         </View>
                       </View>
 
-                      {/* Preview / Typing */}
                       <Text
-                        className={`mt-2.5 text-sm leading-snug font-outfit ${
-                          typing?.isTyping
-                            ? "text-[#2F8F57] font-semibold"
-                            : "text-secondary"
-                        }`}
+                        className="mt-2.5 text-sm leading-snug font-outfit"
+                        style={{ color: typing?.isTyping ? colors.accent : colors.textSecondary }}
                         numberOfLines={1}
                       >
                         {typing?.isTyping
@@ -158,33 +167,37 @@ function InboxScreenBase({
                           : thread.preview}
                       </Text>
 
-                      {/* Badges & Status */}
                       <View className="flex-row items-end justify-between mt-4">
-                        <View className="flex-row items-center gap-2">
+                        <View className="flex-row items-center gap-2 flex-wrap">
                           {thread.pinned && (
-                            <View className="px-2.5 py-1 bg-amber-500/10 rounded-full flex-row items-center border border-amber-500/20">
+                            <View className="px-2.5 py-1 rounded-full flex-row items-center border" style={{ backgroundColor: isDark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.10)", borderColor: isDark ? "rgba(245,158,11,0.22)" : "rgba(245,158,11,0.18)" }}>
                               <Feather
                                 name="bookmark"
                                 size={11}
                                 color="#D97706"
                               />
-                              <Text className="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
-                                PINNED
+                              <Text className="ml-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: "#D97706" }}>
+                                Pinned
                               </Text>
                             </View>
                           )}
+                          <View className="px-2.5 py-1 rounded-full" style={{ backgroundColor: mutedPill }}>
+                            <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
+                              {thread.lastSeen ?? "Open thread"}
+                            </Text>
+                          </View>
                         </View>
 
                         {thread.premium && (
                           <View className="flex-col items-end gap-1">
-                            <View className="bg-[#2F8F57] px-1.5 py-0.5 rounded shadow-sm">
-                              <Text className="text-[7px] font-bold text-white uppercase tracking-tighter">
-                                PRIORITY
+                            <View className="px-2 py-1 rounded-full shadow-sm" style={{ backgroundColor: colors.accent }}>
+                              <Text className="text-[8px] font-bold text-white uppercase tracking-[1px]">
+                                Premium
                               </Text>
                             </View>
                             {thread.responseTime && (
-                              <View className="bg-[#2F8F57]/90 px-1.5 py-0.5 rounded shadow-sm">
-                                <Text className="text-[7px] font-bold text-white uppercase tracking-tighter">
+                              <View className="px-2 py-1 rounded-full shadow-sm" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)" }}>
+                                <Text className="text-[8px] font-bold uppercase tracking-[1px]" style={{ color: colors.accent }}>
                                   {thread.responseTime}
                                 </Text>
                               </View>
@@ -200,7 +213,7 @@ function InboxScreenBase({
           ) : (
             /* Empty State */
             <View className="py-20 items-center">
-              <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center mb-6 border border-app/10">
+              <View className="w-20 h-20 rounded-full items-center justify-center mb-6 border" style={{ backgroundColor: colors.backgroundSecondary, borderColor: cardBorder }}>
                 <Feather
                   name="message-circle"
                   size={42}
@@ -210,7 +223,7 @@ function InboxScreenBase({
               <Text className="text-2xl font-clash text-app mb-2">
                 No messages yet
               </Text>
-              <Text className="text-secondary text-center font-outfit max-w-[260px]">
+              <Text className="text-center font-outfit max-w-[260px]" style={{ color: colors.textSecondary }}>
                 Your coach conversations will appear here
               </Text>
             </View>
@@ -220,7 +233,7 @@ function InboxScreenBase({
 
       {/* Urgent Help Card */}
       {threads.length > 0 && (
-        <View className="mx-6 mt-8 mb-10 bg-[#1F6F45] rounded-3xl p-6 border border-emerald-800/30">
+        <View className="mx-6 mt-8 mb-10 rounded-[28px] p-6 border" style={{ backgroundColor: isDark ? "#123021" : "#14532D", borderColor: isDark ? "rgba(34,197,94,0.20)" : "rgba(20,83,45,0.18)" }}>
           <View className="flex-row items-center gap-4">
             <View className="w-12 h-12 bg-white/15 rounded-2xl items-center justify-center border border-white/20">
               <Feather name="help-circle" size={24} color="white" />

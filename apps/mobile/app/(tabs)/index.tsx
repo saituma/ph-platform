@@ -5,7 +5,7 @@ import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-import { apiRequest, prefetchApi } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -53,7 +53,7 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
   const [homeContentError, setHomeContentError] = useState<string | null>(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isLoadingContent, setIsLoadingContent] = useState(true);
   const isMountedRef = useRef(true);
   const lastLoadAtRef = useRef(0);
   const hasLoadedRef = useRef(false);
@@ -75,20 +75,19 @@ export default function HomeScreen() {
     };
   }, []);
 
-  const loadHomeContent = React.useCallback(async () => {
+  const loadHomeContent = React.useCallback(async (forceRefresh = false) => {
     if (!token) return;
-    const showSkeleton = !hasLoadedRef.current;
-    if (showSkeleton) {
-      setIsInitialLoading(true);
-    }
+    setIsLoadingContent(true);
     try {
       const [data] = await Promise.all([
-        apiRequest<{ items?: any[] }>(`/content/home?ts=${Date.now()}`, { token }),
+        apiRequest<{ items?: any[] }>("/content/home", { token, forceRefresh }),
       ]);
       const item = (data.items ?? [])[0];
       if (!item) {
         if (!isMountedRef.current) return;
-        setHomeContent(null);
+        if (!hasLoadedRef.current) {
+          setHomeContent(null);
+        }
       } else {
         let body: HomeContentPayload = {};
         if (item.body) {
@@ -141,8 +140,8 @@ export default function HomeScreen() {
       if (!isMountedRef.current) return;
       setHomeContentError(err?.message ?? "Failed to load home content");
     } finally {
-      if (isMountedRef.current && showSkeleton) {
-        setIsInitialLoading(false);
+      if (isMountedRef.current) {
+        setIsLoadingContent(false);
         hasLoadedRef.current = true;
       }
     }
@@ -162,7 +161,7 @@ export default function HomeScreen() {
     return scheduleLoad();
   }, [scheduleLoad]);
 
-  const showSkeleton = isInitialLoading && !homeContent && !homeContentError;
+  const showSkeleton = isLoadingContent && !homeContentError;
 
   return (
     <ScrollView
@@ -178,7 +177,7 @@ export default function HomeScreen() {
           refreshing={isRefreshing}
           onRefresh={() => {
             setIsRefreshing(true);
-            Promise.all([loadHomeContent()]).finally(() => {
+            Promise.all([loadHomeContent(true)]).finally(() => {
               setTimeout(() => setIsRefreshing(false), 400);
             });
           }}
@@ -265,6 +264,12 @@ export default function HomeScreen() {
       {homeContentError ? (
         <View className="mb-8 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
           <Text className="text-sm font-outfit text-red-400">{homeContentError}</Text>
+        </View>
+      ) : !showSkeleton && !homeContent ? (
+        <View className="mb-8 rounded-2xl border border-white/10 bg-card p-4">
+          <Text className="text-sm font-outfit text-secondary">
+            Home content will appear here once it is available.
+          </Text>
         </View>
       ) : null}
 

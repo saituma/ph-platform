@@ -14,6 +14,16 @@ type MessageBubbleProps = {
   onReactionPress: (message: ChatMessage, emoji: string) => void;
 };
 
+function getInitials(name?: string | null) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+}
+
 function MessageVideoSurface({
   uri,
   height,
@@ -70,16 +80,16 @@ function MessageBubbleBase({
 }: MessageBubbleProps) {
   const { colors, isDark } = useAppTheme();
   const isUser = message.from === "user";
-  const bubbleUser = isDark ? "#166534" : "#DCFCE7";
-  const bubbleOther = isDark ? "#191E27" : "#FFFFFF";
+  const bubbleUser = isDark ? "#14532D" : "#DCF8E6";
+  const bubbleOther = isDark ? colors.cardElevated : "#FFFFFF";
   const bubbleBorder = isUser
     ? isDark
       ? "rgba(255,255,255,0.06)"
-      : "rgba(34,197,94,0.22)"
+      : "rgba(34,197,94,0.18)"
     : isDark
       ? "rgba(255,255,255,0.08)"
-      : "rgba(15,23,42,0.06)";
-  const textColor = isDark ? "#F8FAFC" : "#111827";
+      : "rgba(15,23,42,0.05)";
+  const textColor = isDark ? "#F8FAFC" : "#0F172A";
   const timeColor = isDark ? "#94A3B8" : "#64748B";
   const { width, height } = useWindowDimensions();
   const [imageSize, setImageSize] = React.useState<{ width: number; height: number } | null>(null);
@@ -148,45 +158,64 @@ function MessageBubbleBase({
   return (
     <View className="mb-3">
       <View
-        style={{
-          maxWidth: "86%",
-          alignSelf: isUser ? "flex-end" : "flex-start",
-        }}
+        className={`flex-row items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}
+        style={{ alignSelf: isUser ? "flex-end" : "flex-start", maxWidth: "100%" }}
       >
-        {!isUser && message.authorName ? (
-          <Text className="mb-1 ml-3 text-[11px] font-outfit font-semibold" style={{ color: colors.textSecondary }}>
-            {message.authorName}
-          </Text>
+        {!isUser ? (
+          message.authorAvatar ? (
+            <Image source={{ uri: message.authorAvatar }} className="h-8 w-8 rounded-full" />
+          ) : (
+            <View
+              className="h-8 w-8 rounded-full items-center justify-center"
+              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.10)" }}
+            >
+              <Text className="text-[10px] font-outfit font-bold" style={{ color: colors.accent }}>
+                {getInitials(message.authorName)}
+              </Text>
+            </View>
+          )
         ) : null}
-        <Pressable
-          onLongPress={() => onLongPress(message)}
-          delayLongPress={260}
-          className="overflow-hidden"
-          style={[
-            {
-              paddingHorizontal: 14,
-              paddingTop: 10,
-              paddingBottom: 8,
-              borderRadius: 22,
-              backgroundColor: isUser ? bubbleUser : bubbleOther,
-              borderWidth: 1,
-              borderColor: bubbleBorder,
-              ...(isDark ? Shadows.none : Shadows.sm),
-            },
-            !isUser && {
-              borderTopLeftRadius: 10,
-              borderBottomLeftRadius: 8,
-            },
-            isUser && {
-              borderTopRightRadius: 10,
-              borderBottomRightRadius: 8,
-            },
-          ]}
-        >
+
         <View
-          className="absolute -right-6 -top-6 h-16 w-16 rounded-full"
-          style={{ backgroundColor: isUser ? "rgba(255,255,255,0.08)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(34,197,94,0.05)" }}
-        />
+          style={{
+            maxWidth: isUser ? "82%" : "80%",
+            alignSelf: isUser ? "flex-end" : "flex-start",
+          }}
+        >
+          {!isUser && message.authorName ? (
+            <Text className="mb-1 ml-3 text-[11px] font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+              {message.authorName}
+            </Text>
+          ) : null}
+          <Pressable
+            onLongPress={() => onLongPress(message)}
+            delayLongPress={260}
+            className="overflow-hidden"
+            style={[
+              {
+                paddingHorizontal: 14,
+                paddingTop: 10,
+                paddingBottom: 8,
+                borderRadius: 22,
+                backgroundColor: isUser ? bubbleUser : bubbleOther,
+                borderWidth: 1,
+                borderColor: bubbleBorder,
+                ...(isDark ? Shadows.none : Shadows.sm),
+              },
+              !isUser && {
+                borderTopLeftRadius: 8,
+                borderBottomLeftRadius: 8,
+              },
+              isUser && {
+                borderTopRightRadius: 8,
+                borderBottomRightRadius: 8,
+              },
+            ]}
+          >
+            <View
+              className="absolute -right-6 -top-6 h-16 w-16 rounded-full"
+              style={{ backgroundColor: isUser ? "rgba(255,255,255,0.08)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(34,197,94,0.05)" }}
+            />
         {message.mediaUrl && message.contentType === "image" ? (
           <Pressable onPress={() => setMediaOpen(true)} className="mb-2">
             <Image
@@ -404,23 +433,24 @@ function MessageBubbleBase({
               ))}
             </View>
           ) : null}
-        </Pressable>
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            bottom: 6,
-            ...(isUser ? { right: -4 } : { left: -4 }),
-            width: 10,
-            height: 10,
-            backgroundColor: isUser ? bubbleUser : bubbleOther,
-            transform: [{ rotate: "45deg" }],
-            borderBottomLeftRadius: isUser ? 2 : 0,
-            borderTopRightRadius: isUser ? 0 : 2,
-            borderWidth: 1,
-            borderColor: bubbleBorder,
-          }}
-        />
+          </Pressable>
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              bottom: 6,
+              ...(isUser ? { right: -4 } : { left: -4 }),
+              width: 10,
+              height: 10,
+              backgroundColor: isUser ? bubbleUser : bubbleOther,
+              transform: [{ rotate: "45deg" }],
+              borderBottomLeftRadius: isUser ? 2 : 0,
+              borderTopRightRadius: isUser ? 0 : 2,
+              borderWidth: 1,
+              borderColor: bubbleBorder,
+            }}
+          />
+        </View>
       </View>
     </View>
   );

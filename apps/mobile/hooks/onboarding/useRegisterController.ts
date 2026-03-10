@@ -188,10 +188,13 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
     return visibleFields.filter((field) => !known.has(field.id));
   }, [visibleFields]);
 
-  const loadConfig = useCallback(async (showSpinner = true) => {
+  const loadConfig = useCallback(async (showSpinner = true, forceRefresh = false) => {
     if (showSpinner) setConfigLoading(true);
     try {
-      const response = await apiRequest<{ config?: OnboardingConfig }>("/onboarding/config", { method: "GET" });
+      const response = await apiRequest<{ config?: OnboardingConfig }>("/onboarding/config", {
+        method: "GET",
+        forceRefresh,
+      });
       setConfig(response.config ?? null);
     } catch (error) {
       console.warn("Failed to load onboarding config", error);

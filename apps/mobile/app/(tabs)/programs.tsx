@@ -286,11 +286,10 @@ export default function ProgramsScreen() {
     refreshBillingStatus();
   }, [refreshBillingStatus, token]);
 
-  const loadPlans = useCallback(async () => {
-    const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
-    const plansRes = await fetch(`${baseUrl}/public/plans`);
-    if (!plansRes.ok) return;
-    const plansResponse: { plans: any[] } = await plansRes.json();
+  const loadPlans = useCallback(async (forceRefresh = false) => {
+    const plansResponse = await apiRequest<{ plans: any[] }>("/public/plans", {
+      forceRefresh,
+    });
     const map: Record<string, number> = {};
     const detailsMap: Record<string, any> = {};
     const pricingMap: Record<string, PlanPricing> = {};
@@ -320,7 +319,7 @@ export default function ProgramsScreen() {
     if (!token) return;
     try {
       setIsRefreshing(true);
-      await Promise.all([refreshBillingStatus(), loadPlans()]);
+      await Promise.all([refreshBillingStatus(), loadPlans(true)]);
     } finally {
       setIsRefreshing(false);
     }

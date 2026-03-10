@@ -185,7 +185,7 @@ export default function RegisterScreen() {
             refreshing={isRefreshing}
             onRefresh={async () => {
               setIsRefreshing(true);
-              await loadConfig(false);
+              await loadConfig(false, true);
               setIsRefreshing(false);
             }}
             tintColor={colors.textSecondary}
