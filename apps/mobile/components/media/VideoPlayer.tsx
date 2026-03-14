@@ -5,6 +5,7 @@ import { WebView } from "react-native-webview";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useVideoCache } from "@/hooks/useVideoCache";
 
 const normalizeUrl = (url: string) => {
   const trimmed = String(url ?? "").trim();
@@ -538,6 +539,7 @@ export function VideoPlayer({
   height = 220,
   useVideoResolution = true,
   immersive = false,
+  cinematic = false,
 }: {
   uri: string;
   title?: string;
@@ -548,12 +550,15 @@ export function VideoPlayer({
   height?: number;
   useVideoResolution?: boolean;
   immersive?: boolean;
+  cinematic?: boolean;
 }) {
   const { colors, isDark } = useAppTheme();
   const videoViewRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const controlsOpacity = useRef(new Animated.Value(1)).current;
   const hasFadeInRef = useRef(false);
   const pendingPlayRef = useRef(false);
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPositionRef = useRef(0);
@@ -568,9 +573,58 @@ export function VideoPlayer({
   const [durationSec, setDurationSec] = useState(0);
   const [hasPlaybackRequest, setHasPlaybackRequest] = useState(autoPlay);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [showControls, setShowControls] = useState(true);
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
   const [videoResolution, setVideoResolution] = useState<{ width: number; height: number } | null>(null);
   const normalizedUri = useMemo(() => normalizeUrl(uri), [uri]);
+  const isYoutube = useMemo(() => isYoutubeUrl(normalizedUri), [normalizedUri]);
+  const { cachedUri } = useVideoCache(isYoutube ? null : normalizedUri);
+  const finalVideoUri = cachedUri || normalizedUri;
+
+  const toggleControls = useCallback(() => {
+    const nextValue = !showControls;
+    setShowControls(nextValue);
+    Animated.timing(controlsOpacity, {
+      toValue: nextValue ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    if (nextValue) {
+      resetControlsTimer();
+    }
+  }, [showControls, controlsOpacity]);
+
+  const resetControlsTimer = useCallback(() => {
+    if (controlsTimerRef.current) {
+      clearTimeout(controlsTimerRef.current);
+    }
+    if (!showControls) {
+      setShowControls(true);
+      Animated.timing(controlsOpacity, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+    controlsTimerRef.current = setTimeout(() => {
+      setShowControls(false);
+      Animated.timing(controlsOpacity, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }).start();
+    }, 2500);
+  }, [showControls, controlsOpacity]);
+
+  useEffect(() => {
+    if (cinematic && isPlaying) {
+      resetControlsTimer();
+    }
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, [cinematic, isPlaying, resetControlsTimer]);
   const chromeColor = isDark ? "rgba(12,28,18,0.82)" : "rgba(255,255,255,0.9)";
   const overlayColor = isDark ? "rgba(16,33,22,0.64)" : "rgba(15,23,42,0.18)";
   const frameBackground = immersive ? (isDark ? "#09110c" : "#08140d") : colors.cardElevated;
@@ -586,10 +640,11 @@ export function VideoPlayer({
     return `${getResolutionLabel(videoResolution.width, videoResolution.height)} · ${videoResolution.width}×${videoResolution.height}`;
   }, [videoResolution]);
   const fitMode = useMemo(() => {
+    if (cinematic) return "cover" as const;
     if (useVideoResolution) return "contain" as const;
     if (videoAspectRatio && videoAspectRatio < 1) return "contain" as const;
     return "cover" as const;
-  }, [useVideoResolution, videoAspectRatio]);
+  }, [useVideoResolution, videoAspectRatio, cinematic]);
   const triggerFadeIn = useCallback(() => {
     if (hasFadeInRef.current) return;
     hasFadeInRef.current = true;
@@ -602,7 +657,7 @@ export function VideoPlayer({
     }).start();
   }, [fadeAnim]);
 
-  const source = useMemo(() => ({ uri: normalizedUri }), [normalizedUri]);
+  const source = useMemo(() => ({ uri: finalVideoUri }), [finalVideoUri]);
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = isLooping;
     instance.muted = initialMuted;
@@ -688,29 +743,41 @@ export function VideoPlayer({
 
   useEffect(() => {
     const statusSub = (player as any)?.addListener?.("statusChange", (payload: any) => {
-      if (payload?.error) {
-        setError("Unable to play video. Tap to open.");
-        setIsLoading(false);
-      }
-      const nextStatus = String(payload?.status ?? "");
-      if (nextStatus.toLowerCase().includes("ready")) {
-        triggerFadeIn();
-        if (pendingPlayRef.current) {
-          (player as any)?.play?.();
+      try {
+        if (!player) return;
+        if (payload?.error) {
+          setError("Unable to play video. Tap to open.");
+          setIsLoading(false);
         }
-      }
-      if (nextStatus.toLowerCase().includes("buffer")) {
-        setIsBuffering(true);
+        const nextStatus = String(payload?.status ?? "");
+        if (nextStatus.toLowerCase().includes("ready")) {
+          triggerFadeIn();
+          if (pendingPlayRef.current) {
+            try { (player as any)?.play?.(); } catch {}
+          }
+        }
+        if (nextStatus.toLowerCase().includes("buffer")) {
+          setIsBuffering(true);
+        }
+      } catch (e) {
+        console.debug('[VideoPlayer] statusChange listener failed:', e);
       }
     });
+
     const playingSub = (player as any)?.addListener?.("playingChange", (payload: any) => {
-      const nextPlaying = Boolean(payload?.isPlaying ?? (player as any)?.playing);
-      if (nextPlaying) {
-        pendingPlayRef.current = false;
-        triggerFadeIn();
+      try {
+        if (!player) return;
+        const nextPlaying = Boolean(payload?.isPlaying ?? (player as any)?.playing);
+        if (nextPlaying) {
+          pendingPlayRef.current = false;
+          triggerFadeIn();
+        }
+        setIsPlaying(nextPlaying);
+      } catch (e) {
+        console.debug('[VideoPlayer] playingChange listener failed:', e);
       }
-      setIsPlaying(nextPlaying);
     });
+
     return () => {
       statusSub?.remove?.();
       playingSub?.remove?.();
@@ -719,53 +786,63 @@ export function VideoPlayer({
 
   useEffect(() => {
     const ticker = setInterval(() => {
-      const nextDuration = Number((player as any)?.duration ?? 0);
-      const nextPosition = Number((player as any)?.currentTime ?? 0);
-      const nextPlaying = Boolean((player as any)?.playing);
-      if (Number.isFinite(nextDuration) && nextDuration > 0) {
-        setDurationSec(nextDuration);
-        triggerFadeIn();
-      }
-      if (Number.isFinite(nextPosition)) {
-        setPositionSec(nextPosition);
-        if (nextPosition > 0.01) {
+      try {
+        // Basic check to see if player is still likely valid
+        if (!player) return;
+
+        const nextDuration = Number((player as any)?.duration ?? 0);
+        const nextPosition = Number((player as any)?.currentTime ?? 0);
+        const nextPlaying = Boolean((player as any)?.playing);
+        
+        if (Number.isFinite(nextDuration) && nextDuration > 0) {
+          setDurationSec(nextDuration);
           triggerFadeIn();
         }
-      }
-      setIsPlaying(nextPlaying);
-      const activeTrack = (player as any)?.videoTrack ?? (player as any)?.availableVideoTracks?.[0];
-      const trackWidth = Number(activeTrack?.size?.width ?? 0);
-      const trackHeight = Number(activeTrack?.size?.height ?? 0);
-      if (trackWidth > 0 && trackHeight > 0) {
-        setVideoResolution((prev) =>
-          prev?.width === trackWidth && prev?.height === trackHeight
-            ? prev
-            : { width: trackWidth, height: trackHeight },
-        );
-        const ratio = trackWidth / trackHeight;
-        if (Number.isFinite(ratio) && ratio > 0.2 && ratio < 5) {
-          const previousRatio = resolutionRatioRef.current ?? 0;
-          if (Math.abs(previousRatio - ratio) > 0.01) {
-            resolutionRatioRef.current = ratio;
-            setVideoAspectRatio(ratio);
+        if (Number.isFinite(nextPosition)) {
+          setPositionSec(nextPosition);
+          if (nextPosition > 0.01) {
+            triggerFadeIn();
           }
         }
-      }
+        setIsPlaying(nextPlaying);
+        
+        const activeTrack = (player as any)?.videoTrack ?? (player as any)?.availableVideoTracks?.[0];
+        const trackWidth = Number(activeTrack?.size?.width ?? 0);
+        const trackHeight = Number(activeTrack?.size?.height ?? 0);
+        
+        if (trackWidth > 0 && trackHeight > 0) {
+          setVideoResolution((prev) =>
+            prev?.width === trackWidth && prev?.height === trackHeight
+              ? prev
+              : { width: trackWidth, height: trackHeight },
+          );
+          const ratio = trackWidth / trackHeight;
+          if (Number.isFinite(ratio) && ratio > 0.2 && ratio < 5) {
+            const previousRatio = resolutionRatioRef.current ?? 0;
+            if (Math.abs(previousRatio - ratio) > 0.01) {
+              resolutionRatioRef.current = ratio;
+              setVideoAspectRatio(ratio);
+            }
+          }
+        }
 
-      if (nextPlaying && nextDuration > 0) {
-        const delta = Math.abs(nextPosition - lastPositionRef.current);
-        if (delta < 0.01 && nextPosition < nextDuration - 0.35) {
-          stallMsRef.current += 250;
-          if (stallMsRef.current > 1000) setIsBuffering(true);
+        if (nextPlaying && nextDuration > 0) {
+          const delta = Math.abs(nextPosition - lastPositionRef.current);
+          if (delta < 0.01 && nextPosition < nextDuration - 0.35) {
+            stallMsRef.current += 250;
+            if (stallMsRef.current > 1000) setIsBuffering(true);
+          } else {
+            stallMsRef.current = 0;
+            setIsBuffering(false);
+          }
         } else {
           stallMsRef.current = 0;
           setIsBuffering(false);
         }
-      } else {
-        stallMsRef.current = 0;
-        setIsBuffering(false);
+        lastPositionRef.current = nextPosition;
+      } catch (e) {
+        // Silently handle cases where player is released before interval is cleared
       }
-      lastPositionRef.current = nextPosition;
     }, 250);
 
     return () => clearInterval(ticker);
@@ -776,12 +853,12 @@ export function VideoPlayer({
   }, []);
 
   const resolvedHeight = useMemo(() => {
-    if (!useVideoResolution || !containerWidth || !videoAspectRatio) {
-      return height;
+    if (!containerWidth || !videoAspectRatio) {
+      return height; // Fallback only if metadata is not yet available
     }
     const calculatedHeight = Math.round(containerWidth / videoAspectRatio);
-    return Math.max(180, Math.min(460, calculatedHeight));
-  }, [containerWidth, height, useVideoResolution, videoAspectRatio]);
+    return calculatedHeight;
+  }, [containerWidth, height, videoAspectRatio]);
 
   const progress = durationSec > 0 ? Math.min(1, Math.max(0, positionSec / durationSec)) : 0;
 
@@ -801,63 +878,79 @@ export function VideoPlayer({
     durationSec <= 0;
 
   const togglePlayback = useCallback(async () => {
-    if (error) {
-      Linking.openURL(normalizedUri).catch(() => undefined);
-      return;
-    }
-    if (showPoster) {
+    try {
+      if (!player) return;
+      if (error) {
+        Linking.openURL(normalizedUri).catch(() => undefined);
+        return;
+      }
+      if (showPoster) {
+        setHasPlaybackRequest(true);
+        pendingPlayRef.current = true;
+        (player as any)?.play?.();
+        if (playRetryTimeoutRef.current) {
+          clearTimeout(playRetryTimeoutRef.current);
+        }
+        playRetryTimeoutRef.current = setTimeout(() => {
+          if (pendingPlayRef.current) {
+            try { (player as any)?.play?.(); } catch {}
+          }
+        }, 350);
+        return;
+      }
+      if (isPlaying) {
+        pendingPlayRef.current = false;
+        (player as any)?.pause?.();
+        return;
+      }
       setHasPlaybackRequest(true);
       pendingPlayRef.current = true;
       (player as any)?.play?.();
-      if (playRetryTimeoutRef.current) {
-        clearTimeout(playRetryTimeoutRef.current);
-      }
-      playRetryTimeoutRef.current = setTimeout(() => {
-        if (pendingPlayRef.current) {
-          (player as any)?.play?.();
-        }
-      }, 350);
-      return;
+    } catch (e) {
+      console.warn('[VideoPlayer] togglePlayback failed:', e);
     }
-    if (isPlaying) {
-      pendingPlayRef.current = false;
-      (player as any)?.pause?.();
-      return;
-    }
-    setHasPlaybackRequest(true);
-    pendingPlayRef.current = true;
-    (player as any)?.play?.();
   }, [error, isPlaying, normalizedUri, player, showPoster]);
 
   const seekBy = useCallback((deltaSeconds: number) => {
-    if (!durationSec) {
-      return;
+    try {
+      if (!player || !durationSec) {
+        return;
+      }
+      const target = Math.max(0, Math.min(durationSec, positionSec + deltaSeconds));
+      (player as any).currentTime = target;
+    } catch (e) {
+      console.warn('[VideoPlayer] seekBy failed:', e);
     }
-    const target = Math.max(0, Math.min(durationSec, positionSec + deltaSeconds));
-    (player as any).currentTime = target;
   }, [durationSec, player, positionSec]);
 
   const toggleMute = useCallback(() => {
-    const next = !isMuted;
-    setIsMuted(next);
-    (player as any).muted = next;
+    try {
+      if (!player) return;
+      const next = !isMuted;
+      setIsMuted(next);
+      (player as any).muted = next;
+    } catch (e) {
+      console.warn('[VideoPlayer] toggleMute failed:', e);
+    }
   }, [isMuted, player]);
 
   const openFullscreen = useCallback(async () => {
     try {
+      if (!player) return;
       const entered = await videoViewRef.current?.enterFullscreen?.();
       if (entered === undefined) {
         Linking.openURL(normalizedUri).catch(() => undefined);
       }
-    } catch {
+    } catch (e) {
+      console.warn('[VideoPlayer] openFullscreen failed:', e);
       Linking.openURL(normalizedUri).catch(() => undefined);
     }
-  }, [normalizedUri]);
+  }, [normalizedUri, player]);
 
   return (
     <View
-      className={`overflow-hidden border border-app/10 bg-card-elevated ${immersive ? "rounded-none" : "rounded-[24px]"}`}
-      style={{ backgroundColor: frameBackground, borderColor: frameBorderColor, borderWidth: immersive ? 0 : 1 }}
+      className={`overflow-hidden border border-app/10 bg-card-elevated ${immersive || cinematic ? "rounded-none" : "rounded-[24px]"}`}
+      style={{ backgroundColor: cinematic ? "transparent" : frameBackground, borderColor: cinematic ? "transparent" : frameBorderColor, borderWidth: immersive || cinematic ? 0 : 1 }}
       onLayout={useVideoResolution ? onContainerLayout : undefined}
     >
       {immersive ? (
@@ -895,7 +988,7 @@ export function VideoPlayer({
 
       <Animated.View style={{ opacity: fadeAnim }}>
         <VideoView
-          key={normalizedUri}
+          key={finalVideoUri}
           ref={videoViewRef}
           player={player}
           style={{ width: "100%" as any, height: resolvedHeight }}
@@ -1010,7 +1103,7 @@ export function VideoPlayer({
       ) : null}
 
       {!showPoster ? (
-        <Pressable className="absolute inset-0" onPress={togglePlayback}>
+        <Pressable className="absolute inset-0" onPress={cinematic ? resetControlsTimer : togglePlayback}>
           <View className="flex-1 items-center justify-center">
             {isLoading || isBuffering ? (
               <View className="rounded-full px-4 py-2" style={{ backgroundColor: chromeColor }}>
@@ -1026,7 +1119,52 @@ export function VideoPlayer({
         </Pressable>
       ) : null}
 
-      {!showPoster ? (
+      {!showPoster && cinematic ? (
+        <Animated.View 
+          pointerEvents="box-none"
+          className="absolute inset-0 items-center justify-center"
+          style={{ opacity: controlsOpacity }}
+        >
+          <View className="flex-row items-center gap-12">
+            <Pressable
+              onPress={togglePlayback}
+              className="h-20 w-20 items-center justify-center rounded-full bg-black/30 border border-white/20"
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.7 : 1,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
+              })}
+            >
+              <Feather name={isPlaying ? "pause" : "play"} size={36} color="#fff" />
+            </Pressable>
+
+            <Pressable
+              onPress={toggleMute}
+              className="h-20 w-20 items-center justify-center rounded-full bg-black/30 border border-white/20"
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.7 : 1,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
+              })}
+            >
+              <Feather name={isMuted ? "volume-x" : "volume-2"} size={32} color="#fff" />
+            </Pressable>
+          </View>
+
+          {/* Subtle bottom vignette gradient placeholder (shadow) */}
+          <View 
+            pointerEvents="none"
+            className="absolute bottom-0 left-0 right-0 h-32"
+            style={{ 
+              backgroundColor: "transparent",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: -20 },
+              shadowOpacity: 0.4,
+              shadowRadius: 30,
+            }}
+          />
+        </Animated.View>
+      ) : null}
+
+      {!showPoster && !cinematic ? (
         <View className="absolute inset-0 items-center justify-center">
           {error ? (
             <Pressable
@@ -1058,7 +1196,7 @@ export function VideoPlayer({
         </View>
       ) : null}
 
-      {!showPoster ? (
+      {!showPoster && !cinematic ? (
         <View
           className={`absolute left-0 right-0 px-4 ${immersive ? "bottom-4" : "bottom-0 py-3"}`}
           style={

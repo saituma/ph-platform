@@ -1,6 +1,8 @@
 import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import React from "react";
-import { View, useWindowDimensions } from "react-native";
+import { View } from "react-native";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows } from "@/constants/theme";
 
 type IntroVideoSectionProps = {
   introVideoUrl?: string | null;
@@ -8,35 +10,29 @@ type IntroVideoSectionProps = {
 };
 
 export function IntroVideoSection({ introVideoUrl, posterUrl }: IntroVideoSectionProps) {
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { colors, isDark } = useAppTheme();
+  
   if (!introVideoUrl) return null;
   const isYoutube = isYoutubeUrl(introVideoUrl);
-  const playerHeight = Math.max(560, Math.min(760, Math.round(screenHeight * 0.82)));
 
   return (
-    <View className="items-center">
-      <View
-        className="overflow-hidden"
-        style={{
-          width: screenWidth,
-          minHeight: playerHeight,
-        }}
-      >
-        {isYoutube ? (
-          <YouTubeEmbed url={introVideoUrl} immersive />
-        ) : (
-          <VideoPlayer
-            uri={introVideoUrl}
-            posterUri={posterUrl ?? null}
-            autoPlay={false}
-            initialMuted={false}
-            isLooping
-            height={playerHeight}
-            useVideoResolution={false}
-            immersive
-          />
-        )}
-      </View>
+    <View 
+      className="overflow-hidden bg-black"
+    >
+      {isYoutube ? (
+        <YouTubeEmbed url={introVideoUrl} immersive={false} />
+      ) : (
+        <VideoPlayer
+          uri={introVideoUrl}
+          posterUri={posterUrl ?? null}
+          autoPlay={true}
+          initialMuted={false}
+          isLooping
+          useVideoResolution={true}
+          immersive={false}
+          cinematic={true}
+        />
+      )}
     </View>
   );
 }

@@ -291,7 +291,7 @@ export default function HomeScreen() {
         ) : (
           <>
             {homeContent?.introVideoUrl ? (
-              <View className="mb-6">
+              <View className="mb-14">
                 <IntroVideoSection
                   introVideoUrl={homeContent.introVideoUrl}
                   posterUrl={homeContent.heroImageUrl ?? null}
@@ -299,7 +299,9 @@ export default function HomeScreen() {
               </View>
             ) : null}
 
-            <GuardianDashboard />
+            <View className="mb-8">
+              <GuardianDashboard />
+            </View>
 
             <View className="mt-16 gap-16">
               <View>
