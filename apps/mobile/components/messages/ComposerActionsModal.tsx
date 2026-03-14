@@ -12,7 +12,6 @@ type ComposerActionsModalProps = {
   onAttachVideo: () => void;
   onTakePhoto: () => void;
   onRecordVideo: () => void;
-  onRecordVoice: () => void;
 };
 
 export function ComposerActionsModal({
@@ -23,7 +22,6 @@ export function ComposerActionsModal({
   onAttachVideo,
   onTakePhoto,
   onRecordVideo,
-  onRecordVoice,
 }: ComposerActionsModalProps) {
   const { colors } = useAppTheme();
   return (
@@ -67,13 +65,6 @@ export function ComposerActionsModal({
                 className="h-14 w-14 rounded-2xl border border-app/10 bg-input items-center justify-center"
               >
                 <Feather name="video" size={20} color={colors.accent} />
-              </Pressable>
-              <Pressable
-                onPress={onRecordVoice}
-                accessibilityLabel="Record voice"
-                className="h-14 w-14 rounded-2xl border border-app/10 bg-input items-center justify-center"
-              >
-                <Feather name="mic" size={20} color={colors.accent} />
               </Pressable>
             </View>
           </View>

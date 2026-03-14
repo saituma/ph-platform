@@ -22,9 +22,6 @@ type ThreadChatBodyProps = {
   onDraftChange: (value: string) => void;
   onSend: () => void | Promise<void>;
   onOpenComposerMenu: () => void;
-  onOpenVoiceRecorder: () => void;
-  onVoiceHoldStart: () => void;
-  onVoiceHoldEnd: () => void;
   onLongPressMessage: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
   composerDisabled?: boolean;
@@ -63,9 +60,6 @@ function ThreadChatBodyBase({
   onDraftChange,
   onSend,
   onOpenComposerMenu,
-  onOpenVoiceRecorder,
-  onVoiceHoldStart,
-  onVoiceHoldEnd,
   onLongPressMessage,
   onReactionPress,
   composerDisabled = false,
@@ -106,13 +100,11 @@ function ThreadChatBodyBase({
   const threadStatus = typing?.isTyping
     ? `${typing.name} is typing...`
     : thread.lastSeen ?? thread.responseTime ?? "Replies stay in this thread";
-  const primaryActionIcon = hasComposerContent ? "arrow-up" : "mic";
-  const primaryActionLabel = hasComposerContent ? "Send" : "Voice";
-  const voiceHoldTriggeredRef = React.useRef(false);
+  const primaryActionIcon = "arrow-up";
   const composerSurfaceColor = isDark ? colors.cardElevated : "#FFFFFF";
   const composerFieldColor = isDark ? "rgba(255,255,255,0.05)" : "#F8FAFC";
   const composerButtonColor = isDark ? "rgba(255,255,255,0.05)" : colors.backgroundSecondary;
-  const micButtonColor = canSend || !composerDisabled
+  const sendButtonColor = canSend
     ? colors.accent
     : isDark
       ? "rgba(255,255,255,0.1)"
@@ -123,18 +115,13 @@ function ThreadChatBodyBase({
       onDisabledPress?.();
       return;
     }
-    if (isUploadingAttachment) return;
-    if (hasComposerContent) {
-      onSend();
-      return;
-    }
-    onOpenVoiceRecorder();
+    if (isUploadingAttachment || !hasComposerContent) return;
+    onSend();
   }, [
     composerDisabled,
     hasComposerContent,
     isUploadingAttachment,
     onDisabledPress,
-    onOpenVoiceRecorder,
     onSend,
   ]);
 
@@ -639,34 +626,12 @@ function ThreadChatBodyBase({
 
             <Pressable
               onPress={() => {
-                if (voiceHoldTriggeredRef.current) {
-                  voiceHoldTriggeredRef.current = false;
-                  return;
-                }
                 handlePrimaryAction();
               }}
-              onLongPress={
-                hasComposerContent || composerBusy
-                  ? undefined
-                  : () => {
-                      voiceHoldTriggeredRef.current = true;
-                      onVoiceHoldStart();
-                    }
-              }
-              onPressOut={
-                hasComposerContent || composerBusy
-                  ? undefined
-                  : () => {
-                      if (voiceHoldTriggeredRef.current) {
-                        onVoiceHoldEnd();
-                      }
-                    }
-              }
-              delayLongPress={180}
               className={`h-12 w-12 rounded-full items-center justify-center ${
                 !composerBusy ? "active:opacity-80" : "opacity-40"
               }`}
-              style={{ backgroundColor: micButtonColor }}
+              style={{ backgroundColor: sendButtonColor }}
             >
               <Feather name={primaryActionIcon} size={18} color="#FFFFFF" />
             </Pressable>
@@ -678,20 +643,11 @@ function ThreadChatBodyBase({
                 ? "Add an optional caption, then send."
                 : hasComposerContent
                 ? "Ready to send."
-                : "Tap + for media, or hold the mic to record."}
+                : "Tap + for media."}
             </Text>
-            {!hasComposerContent ? (
-              <View className="flex-row items-center gap-1.5">
-                <Ionicons name="mic-outline" size={12} color={colors.accent} />
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                  Hold to talk
-                </Text>
-              </View>
-            ) : (
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                {primaryActionLabel}
-              </Text>
-            )}
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+              Send
+            </Text>
           </View>
         </View>
       </View>

@@ -9,6 +9,7 @@ import { notificationPopSound } from "@/lib/notification-pop";
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { InboxList } from "../../components/admin/messaging/inbox-list";
 import { GroupInboxPanel } from "../../components/admin/messaging/group-inbox-panel";
@@ -483,6 +484,7 @@ export default function MessagingPage() {
       Premium: guardianThreads.filter((thread) => thread.premium).length,
     };
   }, [threads]);
+  const inboxUnreadCount = filterCounts.Unread ?? 0;
 
   const filteredGroups = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -559,7 +561,17 @@ export default function MessagingPage() {
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Card className={`h-full lg:h-[calc(100vh-11rem)] ${mobileView === "conversation" ? "hidden lg:block" : ""}`}>
           <CardHeader>
-            <SectionHeader title="Inbox" description="Connect with every athlete and guardian." />
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
+                <p className="text-sm text-muted-foreground">
+                  Connect with every athlete and guardian.
+                </p>
+              </div>
+              {inboxMode === "direct" && inboxUnreadCount > 0 ? (
+                <Badge variant="primary">{inboxUnreadCount}</Badge>
+              ) : null}
+            </div>
           </CardHeader>
           <CardContent className="h-full overflow-visible lg:overflow-hidden">
             <div className="mb-4 flex flex-wrap items-center gap-2">
