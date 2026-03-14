@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogTitle } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
 import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
-import { Check, CheckCheck, Image as ImageIcon, Mic, Paperclip, Play, Send, Smile, Star, Video } from "lucide-react";
+import { Check, CheckCheck, Image as ImageIcon, Paperclip, Play, Send, Smile, Star, Video } from "lucide-react";
 
 type Message = {
   id: string;
@@ -12,14 +12,14 @@ type Message = {
   time: string;
   text: string;
   mediaUrl?: string | null;
-  contentType?: "text" | "image" | "video";
+  contentType?: "text" | "image" | "video" | "audio";
   reactions?: { emoji: string; count: number; reactedByMe?: boolean }[];
   status?: "sent" | "delivered" | "read";
 };
 
 export type ComposerAttachment = {
   file: File;
-  kind: "image" | "file" | "video" | "audio";
+  kind: "image" | "file" | "video";
 };
 
 type ConversationPanelProps = {
@@ -52,7 +52,7 @@ export function ConversationPanel({
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null);
   const [activeMedia, setActiveMedia] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const [recorderOpen, setRecorderOpen] = useState(false);
-  const [recordMode, setRecordMode] = useState<"audio" | "video" | null>(null);
+  const [recordMode, setRecordMode] = useState<"video" | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -104,7 +104,7 @@ export function ConversationPanel({
     }
   };
 
-  const openRecorder = (mode: "audio" | "video") => {
+  const openRecorder = (mode: "video") => {
     setRecordMode(mode);
     setRecorderOpen(true);
     setRecordError(null);
@@ -114,16 +114,13 @@ export function ConversationPanel({
     mediaChunksRef.current = [];
   };
 
-  const pickMimeType = (mode: "audio" | "video") => {
-    const options =
-      mode === "video"
-        ? [
-            "video/webm;codecs=vp9,opus",
-            "video/webm;codecs=vp8,opus",
-            "video/webm",
-            "video/mp4",
-          ]
-        : ["audio/webm;codecs=opus", "audio/webm", "audio/ogg", "audio/mp4"];
+  const pickMimeType = () => {
+    const options = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+      "video/mp4",
+    ];
     if (typeof MediaRecorder === "undefined") return undefined;
     return options.find((type) => MediaRecorder.isTypeSupported(type));
   };
@@ -142,27 +139,24 @@ export function ConversationPanel({
       setRecordedUrl(null);
       setRecordedBlob(null);
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: recordMode === "audio" ? { echoCancellation: true, noiseSuppression: true } : true,
-        video: recordMode === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } : false,
+        audio: true,
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
       });
       mediaStreamRef.current = stream;
-      if (recordMode === "video" && videoPreviewRef.current) {
+      if (videoPreviewRef.current) {
         videoPreviewRef.current.srcObject = stream;
         videoPreviewRef.current.muted = true;
         await videoPreviewRef.current.play().catch(() => {});
       }
-      const mimeType = pickMimeType(recordMode);
-      const bitrateConfig =
-        recordMode === "video"
-          ? { videoBitsPerSecond: 3_500_000, audioBitsPerSecond: 256_000 }
-          : { audioBitsPerSecond: 256_000 };
+      const mimeType = pickMimeType();
+      const bitrateConfig = { videoBitsPerSecond: 3_500_000, audioBitsPerSecond: 256_000 };
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType, ...bitrateConfig } : bitrateConfig);
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) mediaChunksRef.current.push(event.data);
       };
       recorder.onstop = () => {
-        const blobType = recorder.mimeType || (recordMode === "video" ? "video/webm" : "audio/webm");
+        const blobType = recorder.mimeType || "video/webm";
         const blob = new Blob(mediaChunksRef.current, { type: blobType });
         const url = URL.createObjectURL(blob);
         if (discardRecordingRef.current) {
@@ -197,16 +191,11 @@ export function ConversationPanel({
 
   const sendRecording = () => {
     if (!recordedBlob || !recordMode) return;
-    const mimeType = recordedBlob.type || (recordMode === "video" ? "video/webm" : "audio/webm");
+    const mimeType = recordedBlob.type || "video/webm";
     const extension = mimeType.includes("mp4")
       ? "mp4"
-      : mimeType.includes("ogg")
-      ? "ogg"
-      : mimeType.includes("mpeg")
-      ? "mpeg"
       : "webm";
-    const fileName =
-      recordMode === "video" ? `recording-${Date.now()}.${extension}` : `voice-${Date.now()}.${extension}`;
+    const fileName = `recording-${Date.now()}.${extension}`;
     const file = new File([recordedBlob], fileName, { type: mimeType });
     setAttachment({ file, kind: recordMode });
     closeRecorder();
@@ -235,6 +224,13 @@ export function ConversationPanel({
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages.length, name]);
+
+  const isAudioAttachment = (message: Message) => {
+    if (message.contentType === "audio") return true;
+    if (!message.mediaUrl) return false;
+    const lower = message.mediaUrl.toLowerCase();
+    return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
+  };
 
   if (!name) {
     return (
@@ -325,7 +321,7 @@ export function ConversationPanel({
                     </div>
                   </button>
                 ) : null}
-                {message.mediaUrl && message.contentType !== "image" && message.contentType !== "video" ? (
+                {message.mediaUrl && message.contentType !== "image" && message.contentType !== "video" && !isAudioAttachment(message) ? (
                   <a
                     href={message.mediaUrl}
                     target="_blank"
@@ -334,6 +330,11 @@ export function ConversationPanel({
                   >
                     Open attachment
                   </a>
+                ) : null}
+                {isAudioAttachment(message) ? (
+                  <p className="mt-2 rounded-xl border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                    Voice messages are disabled.
+                  </p>
                 ) : null}
                 <p className="mt-2 text-foreground">{message.text}</p>
                 {message.reactions?.length ? (
@@ -448,9 +449,6 @@ export function ConversationPanel({
             >
               <ImageIcon className="h-4 w-4" />
             </Button>
-            <Button size="icon" variant="ghost" onClick={() => openRecorder("audio")} title="Record voice">
-              <Mic className="h-4 w-4" />
-            </Button>
             <Button size="icon" variant="ghost" onClick={() => openRecorder("video")} title="Record video">
               <Video className="h-4 w-4" />
             </Button>
@@ -500,19 +498,13 @@ export function ConversationPanel({
       <Dialog open={recorderOpen} onOpenChange={(open) => (open ? null : closeRecorder())}>
         <DialogContent className="max-w-3xl p-4">
           <DialogTitle className="sr-only">
-            {recordMode === "video" ? "Record video" : "Record voice"}
+            Record video
           </DialogTitle>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {recordMode === "video" ? "Record video" : "Record voice"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {recordMode === "video"
-                    ? "Use your webcam and mic. Review before sending."
-                    : "Use your mic. Review before sending."}
-                </p>
+                <p className="text-sm font-semibold text-foreground">Record video</p>
+                <p className="text-xs text-muted-foreground">Use your webcam and mic. Review before sending.</p>
               </div>
               <Button variant="ghost" onClick={closeRecorder}>
                 Close
@@ -526,20 +518,12 @@ export function ConversationPanel({
             ) : null}
 
             <div className="rounded-2xl border border-border bg-black/90 p-4 text-center">
-              {recordMode === "video" ? (
-                <video
-                  ref={videoPreviewRef}
-                  className="mx-auto aspect-video w-full max-w-2xl rounded-xl bg-black"
-                  controls={Boolean(recordedUrl)}
-                  src={recordedUrl ?? undefined}
-                />
-              ) : (
-                <audio
-                  className="w-full"
-                  controls
-                  src={recordedUrl ?? undefined}
-                />
-              )}
+              <video
+                ref={videoPreviewRef}
+                className="mx-auto aspect-video w-full max-w-2xl rounded-xl bg-black"
+                controls={Boolean(recordedUrl)}
+                src={recordedUrl ?? undefined}
+              />
               {!recordedUrl && !recording ? (
                 <p className="mt-3 text-xs text-white/70">
                   Press record to start.

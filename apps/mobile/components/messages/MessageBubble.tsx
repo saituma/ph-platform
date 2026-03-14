@@ -3,7 +3,6 @@ import { ChatMessage } from "@/constants/messages";
 import React from "react";
 import { Image, Linking, Modal, Pressable, View, useWindowDimensions } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
-import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { Text } from "@/components/ScaledText";
 import { Ionicons } from "@expo/vector-icons";
 import { Shadows } from "@/constants/theme";
@@ -95,12 +94,6 @@ function MessageBubbleBase({
   const [imageSize, setImageSize] = React.useState<{ width: number; height: number } | null>(null);
   const [videoMeta, setVideoMeta] = React.useState<{ durationMs: number } | null>(null);
   const [mediaOpen, setMediaOpen] = React.useState(false);
-  const [audioSound, setAudioSound] = React.useState<any | null>(null);
-  const [audioPlaying, setAudioPlaying] = React.useState(false);
-  const [audioDuration, setAudioDuration] = React.useState(0);
-  const [audioPosition, setAudioPosition] = React.useState(0);
-  const audioStatusSubscriptionRef = React.useRef<any | null>(null);
-
   const formatDuration = React.useCallback((ms: number) => {
     const totalSeconds = Math.max(0, Math.round(ms / 1000));
     const minutes = Math.floor(totalSeconds / 60);
@@ -113,47 +106,6 @@ function MessageBubbleBase({
     const lower = message.mediaUrl.toLowerCase();
     return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
   }, [message.mediaUrl]);
-
-  React.useEffect(() => {
-    return () => {
-      audioStatusSubscriptionRef.current?.remove?.();
-      audioSound?.remove?.();
-    };
-  }, [audioSound]);
-
-  const toggleAudio = async () => {
-    if (!message.mediaUrl) return;
-    try {
-      await setAudioModeAsync({
-        playsInSilentMode: true,
-        allowsRecording: false,
-      });
-      if (!audioSound) {
-        const player = createAudioPlayer({ uri: message.mediaUrl });
-        audioStatusSubscriptionRef.current = player.addListener?.("playbackStatusUpdate", (status: any) => {
-          const nextDuration = Number(status?.duration ?? 0);
-          const nextPosition = Number(status?.currentTime ?? 0);
-          const didJustFinish = Boolean(status?.didJustFinish);
-          setAudioPlaying(Boolean(status?.playing));
-          setAudioDuration(Math.round(Math.max(0, nextDuration) * 1000));
-          setAudioPosition(Math.round(Math.max(0, nextPosition) * 1000));
-          if (didJustFinish) {
-            setAudioPlaying(false);
-          }
-        });
-        setAudioSound(player);
-        player.play();
-        return;
-      }
-      if (audioSound.playing) {
-        audioSound.pause();
-      } else {
-        audioSound.play();
-      }
-    } catch (error) {
-      console.warn("Failed to play audio", error);
-    }
-  };
 
   return (
     <View className="mb-3">
@@ -300,30 +252,14 @@ function MessageBubbleBase({
           </Pressable>
         ) : null}
         {isAudioMessage ? (
-          <Pressable
-            onPress={toggleAudio}
+          <View
             className="mb-2 rounded-2xl px-3 py-3"
             style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)" }}
           >
-            <View className="flex-row items-center gap-3">
-              <View className="h-9 w-9 rounded-full items-center justify-center bg-app/10">
-                <Ionicons name={audioPlaying ? "pause" : "play"} size={18} color={colors.accent} />
-              </View>
-              <View className="flex-1">
-                <View className="h-1.5 rounded-full bg-black/10 overflow-hidden">
-                  <View
-                    className="h-full bg-accent"
-                    style={{
-                      width: audioDuration ? `${(audioPosition / audioDuration) * 100}%` : "0%",
-                    }}
-                  />
-                </View>
-                <Text className="text-[10px] font-outfit text-secondary mt-1">
-                  {formatDuration(audioPosition)} / {formatDuration(audioDuration)}
-                </Text>
-              </View>
-            </View>
-          </Pressable>
+            <Text className="text-[12px] font-outfit" style={{ color: textColor }}>
+              Voice messages are disabled.
+            </Text>
+          </View>
         ) : null}
 
         {message.mediaUrl && message.contentType !== "image" && message.contentType !== "video" && !isAudioMessage ? (

@@ -4,7 +4,6 @@ import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal
 import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
-import { VoiceRecorderModal } from "@/components/messages/VoiceRecorderModal";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
 import { Alert, ActivityIndicator } from "react-native";
@@ -43,8 +42,6 @@ export default function ThreadScreen() {
     handleToggleReaction,
     handleDeleteMessage,
   } = useMessagesController();
-  const [voiceRecorderOpen, setVoiceRecorderOpen] = React.useState(false);
-  const [isHoldingVoiceRecord, setIsHoldingVoiceRecord] = React.useState(false);
 
   const handleLockedPress = React.useCallback(() => {
     Alert.alert(
@@ -102,14 +99,6 @@ export default function ThreadScreen() {
         onDraftChange={setDraft}
         onSend={handleSend}
         onOpenComposerMenu={() => setComposerMenuOpen(true)}
-        onOpenVoiceRecorder={() => setVoiceRecorderOpen(true)}
-        onVoiceHoldStart={() => {
-          setVoiceRecorderOpen(true);
-          setIsHoldingVoiceRecord(true);
-        }}
-        onVoiceHoldEnd={() => {
-          setIsHoldingVoiceRecord(false);
-        }}
         onLongPressMessage={handleLongPressMessage}
         onReactionPress={handleToggleReaction}
         composerDisabled={!canMessage}
@@ -137,27 +126,6 @@ export default function ThreadScreen() {
         onAttachVideo={handleAttachVideo}
         onTakePhoto={handleTakePhoto}
         onRecordVideo={handleRecordVideo}
-        onRecordVoice={() => {
-          setComposerMenuOpen(false);
-          setVoiceRecorderOpen(true);
-        }}
-      />
-      <VoiceRecorderModal
-        open={voiceRecorderOpen}
-        holdToRecordActive={isHoldingVoiceRecord}
-        onClose={() => {
-          setVoiceRecorderOpen(false);
-          setIsHoldingVoiceRecord(false);
-        }}
-        onRecorded={(payload) => {
-          setPendingAttachment({
-            uri: payload.uri,
-            fileName: payload.fileName,
-            mimeType: payload.mimeType,
-            sizeBytes: payload.sizeBytes,
-            isImage: false,
-          });
-        }}
       />
     </SafeAreaView>
   );

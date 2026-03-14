@@ -66,13 +66,12 @@ export default function TabLayout() {
     }
   }, [isAuthenticated, onboardingCompleted, isOnboarding, router]);
 
-  useEffect(() => {
+  const syncUnread = useCallback(async () => {
     if (!token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) {
       setMessagesUnread(0);
       return;
     }
 
-    let active = true;
     const effectiveUserId =
       role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
     const headers =
@@ -80,31 +79,41 @@ export default function TabLayout() {
         ? { "X-Acting-User-Id": String(athleteUserId) }
         : undefined;
 
-    const syncUnread = async () => {
-      try {
-        const data = await apiRequest<{ messages: any[] }>("/messages", { token, headers });
-        if (!active) return;
-        const unread =
-          data.messages?.filter(
-            (message) => !message.read && Number(message.senderId) !== effectiveUserId
-          ).length ?? 0;
-        setMessagesUnread(unread);
-      } catch {
-        if (!active) return;
-        setMessagesUnread(0);
-      }
-    };
+    try {
+      const data = await apiRequest<{ messages: any[] }>("/messages", { token, headers });
+      const unread =
+        data.messages?.filter(
+          (message) => !message.read && Number(message.senderId) !== effectiveUserId
+        ).length ?? 0;
+      setMessagesUnread(unread);
+    } catch {
+      setMessagesUnread(0);
+    }
+  }, [athleteUserId, isAuthenticated, profile.id, programTier, role, token]);
 
+  useEffect(() => {
+    if (!token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) {
+      setMessagesUnread(0);
+      return;
+    }
+
+    let active = true;
     const task = InteractionManager.runAfterInteractions(() => {
-      syncUnread();
+      if (active) {
+        syncUnread();
+      }
     });
-    const timer = setInterval(syncUnread, 30000);
+    const timer = setInterval(() => {
+      if (active) {
+        syncUnread();
+      }
+    }, 30000);
     return () => {
       active = false;
       clearInterval(timer);
       task?.cancel?.();
     };
-  }, [athleteUserId, isAuthenticated, profile.id, programTier, role, token, pathname]);
+  }, [isAuthenticated, programTier, syncUnread, token]);
 
   useEffect(() => {
     if (!token || !isAuthenticated) return;
@@ -166,9 +175,9 @@ export default function TabLayout() {
   }, [athleteUserId, isAuthenticated, pathname, profile.id, programTier, role, socket, token]);
 
   useEffect(() => {
-    if (!pathname.startsWith("/messages/")) return;
-    setMessagesUnread(0);
-  }, [pathname]);
+    if (!pathname.startsWith("/messages")) return;
+    syncUnread();
+  }, [pathname, syncUnread]);
 
   useEffect(() => {
     getNotifications().then((Notifications) => {

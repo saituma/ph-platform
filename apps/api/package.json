@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:psql": "bash -lc 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); ENV_FILE=\"\"; if [ -f \"$ROOT/apps/api/.env\" ]; then ENV_FILE=\"$ROOT/apps/api/.env\"; elif [ -f .env ]; then ENV_FILE=.env; fi; if [ -z \"$ENV_FILE\" ]; then echo \"DATABASE_URL is not set\"; exit 1; fi; DATABASE_URL=$(sed -n \"s/^DATABASE_URL=//p\" \"$ENV_FILE\" | tail -n 1); if [ -z \"$DATABASE_URL\" ]; then echo \"DATABASE_URL is not set\"; exit 1; fi; psql \"$DATABASE_URL\" \"$@\"'",
     "db:migrate:prod": "node dist/db/migrate.js",
-    "seed:admin": "ts-node src/scripts/seed-admin.ts"
+    "seed:admin": "ts-node src/scripts/seed-admin.ts",
+    "admin:set-password": "ts-node src/scripts/set-admin-password.ts"
   },
   "keywords": [],
   "author": "",

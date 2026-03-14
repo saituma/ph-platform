@@ -1,7 +1,14 @@
 import React from "react";
 import { Modal, Pressable, View } from "react-native";
-import * as FileSystem from "expo-file-system";
-import { createAudioPlayer, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
+import * as FileSystem from "expo-file-system/legacy";
+import {
+  createAudioPlayer,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from "expo-audio";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
@@ -31,7 +38,8 @@ export function VoiceRecorderModal({
   const [positionMs, setPositionMs] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const soundStatusSubscriptionRef = React.useRef<any | null>(null);
-  const holdStartedRef = React.useRef(false);
+  const holdIntentRef = React.useRef(false);
+  const holdStartInFlightRef = React.useRef(false);
   const waveformBars = React.useMemo(() => Array.from({ length: 26 }, (_, index) => index), []);
 
   React.useEffect(() => {
@@ -83,7 +91,7 @@ export function VoiceRecorderModal({
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  const startRecording = async () => {
+  const startRecording = React.useCallback(async () => {
     try {
       setError(null);
       const permission = await requestRecordingPermissionsAsync();
@@ -105,13 +113,13 @@ export function VoiceRecorderModal({
       console.warn("Failed to start recording", err);
       setError("Unable to start recording.");
     }
-  };
+  }, [recorder]);
 
-  const stopRecording = async () => {
+  const stopRecording = React.useCallback(async () => {
     try {
       if (!recording && !recorderState?.isRecording) return;
       await recorder.stop();
-      const status = recorder.getStatus();
+      const status = await recorder.getStatus();
       const uri = status?.url ?? recorderState?.url ?? null;
       setRecording(null);
       setIsRecording(false);
@@ -127,30 +135,34 @@ export function VoiceRecorderModal({
       console.warn("Failed to stop recording", err);
       setError("Unable to stop recording.");
     }
-  };
+  }, [recording, recorder, recorderState?.isRecording, recorderState?.url]);
 
   React.useEffect(() => {
-    if (!open) {
-      holdStartedRef.current = false;
+    holdIntentRef.current = holdToRecordActive;
+  }, [holdToRecordActive]);
+
+  React.useEffect(() => {
+    if (!holdToRecordActive) {
+      if (recorderState?.isRecording) {
+        stopRecording();
+      }
       return;
     }
 
-    if (holdToRecordActive && !recorderState?.isRecording && !recordedUri && !holdStartedRef.current) {
-      holdStartedRef.current = true;
-      startRecording();
+    if (recordedUri || recorderState?.isRecording || holdStartInFlightRef.current) {
       return;
     }
 
-    if (!holdToRecordActive && holdStartedRef.current && recorderState?.isRecording) {
-      holdStartedRef.current = false;
-      stopRecording();
-      return;
-    }
-
-    if (!holdToRecordActive && !recorderState?.isRecording) {
-      holdStartedRef.current = false;
-    }
-  }, [holdToRecordActive, open, recordedUri, recorderState?.isRecording]);
+    holdStartInFlightRef.current = true;
+    startRecording()
+      .catch(() => {})
+      .finally(() => {
+        holdStartInFlightRef.current = false;
+        if (!holdIntentRef.current) {
+          stopRecording();
+        }
+      });
+  }, [holdToRecordActive, recordedUri, recorderState?.isRecording, startRecording, stopRecording]);
 
   const togglePlayback = async () => {
     try {
@@ -162,18 +174,41 @@ export function VoiceRecorderModal({
       if (!sound) {
         const player = createAudioPlayer({ uri: recordedUri });
         soundStatusSubscriptionRef.current = player.addListener?.("playbackStatusUpdate", (status: any) => {
-          setIsPlaying(Boolean(status?.playing));
-          setDurationMs(Math.round(Math.max(0, Number(status?.duration ?? 0)) * 1000));
-          setPositionMs(Math.round(Math.max(0, Number(status?.currentTime ?? 0)) * 1000));
+          const playing = Boolean(status?.playing ?? status?.isPlaying);
+          const durationRaw = Number(
+            status?.durationMillis ?? status?.durationSeconds ?? status?.duration ?? 0
+          );
+          const currentRaw = Number(
+            status?.positionMillis ?? status?.currentTimeMillis ?? status?.currentTime ?? 0
+          );
+          const duration =
+            status?.durationMillis || status?.positionMillis
+              ? Math.round(Math.max(0, durationRaw))
+              : Math.round(Math.max(0, durationRaw) * 1000);
+          const position =
+            status?.positionMillis || status?.currentTimeMillis
+              ? Math.round(Math.max(0, currentRaw))
+              : Math.round(Math.max(0, currentRaw) * 1000);
+
+          setIsPlaying(playing);
+          setDurationMs(duration);
+          setPositionMs(position);
+
+          if (status?.didJustFinish || status?.ended) {
+            setIsPlaying(false);
+            setPositionMs(duration);
+          }
         });
         setSound(player);
         player.play();
         return;
       }
-      if (sound.playing) {
+      if (isPlaying) {
         sound.pause();
+        setIsPlaying(false);
       } else {
         sound.play();
+        setIsPlaying(true);
       }
     } catch (err) {
       console.warn("Failed to play recording", err);
@@ -208,6 +243,20 @@ export function VoiceRecorderModal({
     }
     resetState();
   }, [recorder, recorderState?.isRecording, resetState]);
+
+  const retakeRecording = React.useCallback(async () => {
+    try {
+      if (sound?.playing) {
+        sound.pause();
+      }
+      discardRecording();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await startRecording();
+    } catch (err) {
+      console.warn("Failed to retake recording", err);
+      setError("Unable to start a new recording.");
+    }
+  }, [discardRecording, sound, startRecording]);
 
   const playbackProgress = durationMs > 0 ? Math.min(positionMs / durationMs, 1) : 0;
   const activeWaveIndex = recordedUri
@@ -412,10 +461,7 @@ export function VoiceRecorderModal({
                   </Pressable>
 
                   <Pressable
-                    onPress={() => {
-                      discardRecording();
-                      startRecording();
-                    }}
+                    onPress={retakeRecording}
                     className="rounded-full px-4 py-3"
                     style={{ backgroundColor: "rgba(148,163,184,0.12)" }}
                   >

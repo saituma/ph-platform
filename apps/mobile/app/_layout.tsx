@@ -6,7 +6,7 @@ import { AuthPersist } from "@/store/AuthPersist";
 import { useAppSelector } from "@/store/hooks";
 import { DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { StripeProvider } from "@stripe/stripe-react-native";
-import { SplashScreen, Stack, useRouter } from "expo-router";
+import { SplashScreen, Stack, router, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useColorScheme } from "nativewind";
@@ -234,10 +234,12 @@ export default function RootLayout() {
 function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
   const { colors } = useAppTheme();
   const hydrated = useAppSelector((state) => state.user.hydrated);
-  const router = useRouter();
+  const rootState = useRootNavigationState();
+  const navigationReady = Boolean(rootState?.key);
   const lastHandledNotificationRef = React.useRef<string | null>(null);
 
   useEffect(() => {
+    if (!hydrated || !navigationReady) return;
     let sub: { remove: () => void } | null = null;
     const handleNotificationResponse = (response: any) => {
       const identifier = response?.notification?.request?.identifier;
@@ -285,11 +287,7 @@ function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
     return () => {
       sub?.remove();
     };
-  }, [router]);
-
-  if (!hydrated) {
-    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
-  }
+  }, [hydrated, navigationReady]);
 
   return (
     <>
