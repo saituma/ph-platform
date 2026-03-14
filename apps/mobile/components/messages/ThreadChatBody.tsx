@@ -1,7 +1,7 @@
 import { Feather } from "@/components/ui/theme-icons";
 import { ChatMessage } from "@/constants/messages";
 import React from "react";
-import { ActivityIndicator, Animated, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { ActivityIndicator, Animated, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -49,6 +49,140 @@ function getThreadTone(thread: MessageThread) {
   return "Direct chat";
 }
 
+const MemoizedComposer = React.memo(({ 
+  isDark, 
+  colors, 
+  insets, 
+  isKeyboardVisible, 
+  pendingAttachment, 
+  isUploadingAttachment, 
+  attachmentMeta, 
+  onRemovePendingAttachment, 
+  composerDisabled, 
+  onDisabledPress, 
+  onOpenComposerMenu, 
+  draft, 
+  onDraftChange, 
+  composerPlaceholder, 
+  textSecondaryColor, 
+  onSendPress,
+  composerBusy, 
+  sendButtonColor,
+  onFocus,
+  onBlur
+}: any) => {
+  return (
+    <View
+      style={{
+        backgroundColor: colors.background,
+        paddingBottom: isKeyboardVisible ? 0 : Math.max(10, insets.bottom),
+        paddingTop: 8,
+        paddingHorizontal: 8,
+      }}
+    >
+      {pendingAttachment ? (
+        <View
+          className="mb-2 mx-1 rounded-[24px] border p-3"
+          style={{
+            backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+            borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+            ...(isDark ? Shadows.none : Shadows.md),
+          }}
+        >
+          <View className="flex-row items-center justify-between gap-3">
+            <View className="flex-1 flex-row items-center gap-3">
+              {pendingAttachment.isImage ? (
+                <Image
+                  source={{ uri: pendingAttachment.uri }}
+                  className="w-14 h-14 rounded-[18px]"
+                  resizeMode="cover"
+                />
+              ) : (
+                <View
+                  className="w-14 h-14 rounded-[18px] items-center justify-center"
+                  style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
+                >
+                  <Feather name="file-text" size={22} color={colors.accent} />
+                </View>
+              )}
+
+              <View className="flex-1">
+                <Text className="text-sm font-outfit font-semibold" numberOfLines={1} style={{ color: colors.text }}>
+                  {pendingAttachment.fileName}
+                </Text>
+                {attachmentMeta ? (
+                  <Text className="mt-1 text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
+                    {attachmentMeta}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+
+            <Pressable onPress={onRemovePendingAttachment} disabled={isUploadingAttachment}>
+              <Ionicons name="close-circle" size={22} color="#EF4444" />
+            </Pressable>
+          </View>
+
+          {isUploadingAttachment ? (
+            <>
+              <Text className="mt-3 text-[11px] font-outfit font-medium" style={{ color: colors.accent }}>
+                Uploading attachment...
+              </Text>
+              <View className="mt-2 h-1.5 bg-accent/10 rounded-full overflow-hidden">
+                <View className="h-full bg-accent w-1/3" />
+              </View>
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View className="flex-row items-end gap-2">
+        <View
+          className="flex-1 rounded-[28px] border flex-row items-end px-1 py-1"
+          style={{
+            backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+            ...(isDark ? Shadows.none : Shadows.sm),
+          }}
+        >
+          <Pressable
+            onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onOpenComposerMenu}
+            className="h-10 w-10 rounded-full items-center justify-center active:opacity-70"
+          >
+            <Feather name="plus" size={22} color={colors.accent} />
+          </Pressable>
+
+          <TextInput
+            className="flex-1 text-[16px] font-outfit text-app mx-1 my-2"
+            placeholder={composerPlaceholder}
+            placeholderTextColor={textSecondaryColor}
+            value={draft}
+            onChangeText={onDraftChange}
+            multiline
+            style={{ minHeight: 24, maxHeight: 120, textAlignVertical: 'center' }}
+            editable={!composerDisabled && !isUploadingAttachment}
+            onFocus={onFocus}
+            onBlur={onBlur}
+          />
+        </View>
+
+        <Pressable
+          onPress={onSendPress}
+          className={`h-12 w-12 rounded-full items-center justify-center ${
+            !composerBusy ? "active:opacity-80" : "opacity-40"
+          }`}
+          style={{ 
+            backgroundColor: sendButtonColor,
+            ...(isDark ? Shadows.none : Shadows.sm),
+          }}
+        >
+          <Ionicons name="send" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
+        </Pressable>
+      </View>
+    </View>
+  );
+});
+
 function ThreadChatBodyBase({
   thread,
   messages,
@@ -79,6 +213,7 @@ function ThreadChatBodyBase({
   const latestMessageIdRef = React.useRef<string | null>(null);
   const hintScale = React.useRef(new Animated.Value(1)).current;
   const [newIncomingCount, setNewIncomingCount] = React.useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = React.useState(false);
   
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
   const latestMessage = React.useMemo(() => messages[messages.length - 1] ?? null, [messages]);
@@ -93,17 +228,15 @@ function ThreadChatBodyBase({
   const introSubtitle = isGroupThread
     ? "Share updates, clips, and questions without losing the thread."
     : "Send quick check-ins, clips, and feedback in one calm conversation.";
-  const attachmentMeta = pendingAttachment
-    ? `${pendingAttachment.isImage ? "Image" : "Attachment"} • ${formatFileSize(pendingAttachment.sizeBytes)}`
-    : null;
-  const threadTone = getThreadTone(thread);
+  const attachmentMeta = React.useMemo(() => 
+    pendingAttachment
+      ? `${pendingAttachment.isImage ? "Image" : "Attachment"} • ${formatFileSize(pendingAttachment.sizeBytes)}`
+      : null,
+    [pendingAttachment]
+  );
   const threadStatus = typing?.isTyping
     ? `${typing.name} is typing...`
     : thread.lastSeen ?? thread.responseTime ?? "Replies stay in this thread";
-  const primaryActionIcon = "arrow-up";
-  const composerSurfaceColor = isDark ? colors.cardElevated : "#FFFFFF";
-  const composerFieldColor = isDark ? "rgba(255,255,255,0.05)" : "#F8FAFC";
-  const composerButtonColor = isDark ? "rgba(255,255,255,0.05)" : colors.backgroundSecondary;
   const sendButtonColor = canSend
     ? colors.accent
     : isDark
@@ -111,19 +244,39 @@ function ThreadChatBodyBase({
       : "rgba(15,23,42,0.08)";
 
   const handlePrimaryAction = React.useCallback(() => {
-    if (composerDisabled) {
-      onDisabledPress?.();
-      return;
-    }
-    if (isUploadingAttachment || !hasComposerContent) return;
+    if (composerBusy) return;
     onSend();
-  }, [
-    composerDisabled,
-    hasComposerContent,
-    isUploadingAttachment,
-    onDisabledPress,
-    onSend,
-  ]);
+  }, [composerBusy, onSend]);
+
+  const handleFocus = React.useCallback(() => {
+    if (Platform.OS === 'android') {
+      setIsKeyboardVisible(true);
+    }
+  }, []);
+
+  const handleBlur = React.useCallback(() => {
+    if (Platform.OS === 'android') {
+      // Small delay on blur to prevent flickering if toggling between inputs
+      // though here we only have one primary input.
+      setIsKeyboardVisible(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (hasInitialScrolled.current === thread.id) return;
@@ -195,11 +348,10 @@ function ThreadChatBodyBase({
     (event: { nativeEvent: { contentOffset: { y: number } } }) => {
       const { contentOffset } = event.nativeEvent;
       isNearBottomRef.current = contentOffset.y < 60;
-      if (isNearBottomRef.current && newIncomingCount > 0) {
-        setNewIncomingCount(0);
-      }
+      // Note: We don't clear newIncomingCount here to avoid re-triggering 
+      // render cycles on every scroll tick.
     },
-    [newIncomingCount]
+    []
   );
   const listFooterComponent = React.useMemo(
     () => (
@@ -265,7 +417,7 @@ function ThreadChatBodyBase({
               style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
             >
               <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                {threadTone}
+                {getThreadTone(thread)}
               </Text>
             </View>
             <View
@@ -317,10 +469,8 @@ function ThreadChatBodyBase({
       isLoading,
       isThreadLoading,
       messages.length,
-      thread.premium,
-      thread.responseTime,
+      thread,
       threadStatus,
-      threadTone,
     ]
   );
   const listEmptyComponent = React.useMemo(
@@ -386,7 +536,7 @@ function ThreadChatBodyBase({
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : "padding"}
-      keyboardVerticalOffset={0}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
       <View className="flex-1 overflow-hidden" style={{ backgroundColor: colors.background }}>
         <View
@@ -417,10 +567,11 @@ function ThreadChatBodyBase({
           }}
           contentContainerStyle={contentContainerStyle}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={8}
-          windowSize={5}
-          maxToRenderPerBatch={10}
-          removeClippedSubviews
+          initialNumToRender={10}
+          windowSize={7}
+          maxToRenderPerBatch={5}
+          updateCellsBatchingPeriod={30}
+          removeClippedSubviews={Platform.OS === 'android'}
           ListFooterComponent={listFooterComponent}
           ListEmptyComponent={listEmptyComponent}
           renderItem={renderItem}
@@ -478,178 +629,49 @@ function ThreadChatBodyBase({
       ) : null}
 
       <View
-        className="px-4 pt-3"
         style={{
           backgroundColor: colors.background,
-          paddingBottom: Math.max(12, insets.bottom),
+          paddingBottom: 0,
         }}
       >
         {composerDisabled && disabledMessage ? (
-          <View
-            className="mb-3 rounded-[24px] border px-4 py-3"
-            style={{
-              backgroundColor: isDark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.08)",
-              borderColor: isDark ? "rgba(245,158,11,0.18)" : "rgba(245,158,11,0.16)",
-            }}
-          >
-            <Text className="text-[11px] font-medium font-outfit text-warning text-center">
-              {disabledMessage}
-            </Text>
+          <View className="px-3 pb-2">
+            <View
+              className="rounded-[18px] border px-4 py-2.5"
+              style={{
+                backgroundColor: isDark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.08)",
+                borderColor: isDark ? "rgba(245,158,11,0.18)" : "rgba(245,158,11,0.16)",
+              }}
+            >
+              <Text className="text-[11px] font-medium font-outfit text-warning text-center">
+                {disabledMessage}
+              </Text>
+            </View>
           </View>
         ) : null}
-
-        <View
-          className="rounded-[32px] border px-3 pb-3 pt-3"
-          style={{
-            backgroundColor: composerSurfaceColor,
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.lg),
-          }}
-        >
-          <View className="mb-3 flex-row items-center justify-between px-2">
-            <View className="flex-row items-center gap-2 flex-1">
-              <View className="h-2 w-2 rounded-full" style={{ backgroundColor: typing?.isTyping ? colors.accent : colors.textSecondary }} />
-              <Text
-                className="text-[11px] font-outfit font-semibold flex-1"
-                numberOfLines={1}
-                style={{ color: colors.textSecondary }}
-              >
-                {threadStatus}
-              </Text>
-            </View>
-            <View
-              className="rounded-full px-2.5 py-1"
-              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)" }}
-            >
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.accent }}>
-                {threadTone}
-              </Text>
-            </View>
-          </View>
-
-          {pendingAttachment ? (
-            <View
-              className="mb-3 rounded-[24px] border p-3"
-              style={{
-                backgroundColor: composerFieldColor,
-                borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
-              }}
-            >
-              <View className="flex-row items-center justify-between gap-3">
-                <View className="flex-1 flex-row items-center gap-3">
-                  {pendingAttachment.isImage ? (
-                    <Image
-                      source={{ uri: pendingAttachment.uri }}
-                      className="w-14 h-14 rounded-[18px]"
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View
-                      className="w-14 h-14 rounded-[18px] items-center justify-center"
-                      style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
-                    >
-                      <Feather name="file-text" size={22} color={colors.accent} />
-                    </View>
-                  )}
-
-                  <View className="flex-1">
-                    <Text className="text-sm font-outfit font-semibold" numberOfLines={1} style={{ color: colors.text }}>
-                      {pendingAttachment.fileName}
-                    </Text>
-                    {attachmentMeta ? (
-                      <Text className="mt-1 text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
-                        {attachmentMeta}
-                      </Text>
-                    ) : null}
-                    <View className="mt-2 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.12)" }}>
-                      <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                        Ready to send
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <Pressable onPress={onRemovePendingAttachment} disabled={isUploadingAttachment}>
-                  <Ionicons name="close-circle" size={22} color="#EF4444" />
-                </Pressable>
-              </View>
-
-              {isUploadingAttachment ? (
-                <>
-                  <Text className="mt-3 text-[11px] font-outfit font-medium" style={{ color: colors.accent }}>
-                    Uploading attachment...
-                  </Text>
-                  <View className="mt-2 h-1.5 bg-accent/10 rounded-full overflow-hidden">
-                    <View className="h-full bg-accent w-1/3" />
-                  </View>
-                </>
-              ) : null}
-            </View>
-          ) : null}
-
-          <View className="flex-row items-end gap-3">
-            <Pressable
-              onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onOpenComposerMenu}
-              className="h-12 w-12 rounded-full items-center justify-center active:opacity-80"
-              style={{
-                backgroundColor: composerButtonColor,
-              }}
-            >
-              <Feather name="plus" size={20} color={colors.accent} />
-            </Pressable>
-
-            <View
-              className="flex-1 rounded-[28px] border px-4 py-3"
-              style={{
-                backgroundColor: composerFieldColor,
-                borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
-              }}
-            >
-              {!draft.trim() ? (
-                <View className="mb-2 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}>
-                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
-                    {hasComposerContent ? "Caption" : "Message"}
-                  </Text>
-                </View>
-              ) : null}
-              <TextInput
-                className="text-sm font-outfit text-app"
-                placeholder={composerPlaceholder}
-                placeholderTextColor={textSecondaryColor}
-                value={draft}
-                onChangeText={onDraftChange}
-                multiline
-                style={{ minHeight: 26, maxHeight: 110 }}
-                editable={!composerDisabled && !isUploadingAttachment}
-              />
-            </View>
-
-            <Pressable
-              onPress={() => {
-                handlePrimaryAction();
-              }}
-              className={`h-12 w-12 rounded-full items-center justify-center ${
-                !composerBusy ? "active:opacity-80" : "opacity-40"
-              }`}
-              style={{ backgroundColor: sendButtonColor }}
-            >
-              <Feather name={primaryActionIcon} size={18} color="#FFFFFF" />
-            </Pressable>
-          </View>
-
-          <View className="mt-2 flex-row items-center justify-between px-2">
-            <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
-              {pendingAttachment
-                ? "Add an optional caption, then send."
-                : hasComposerContent
-                ? "Ready to send."
-                : "Tap + for media."}
-            </Text>
-            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-              Send
-            </Text>
-          </View>
-        </View>
+        
+        <MemoizedComposer
+          isDark={isDark}
+          colors={colors}
+          insets={insets}
+          isKeyboardVisible={isKeyboardVisible}
+          pendingAttachment={pendingAttachment}
+          isUploadingAttachment={isUploadingAttachment}
+          attachmentMeta={attachmentMeta}
+          onRemovePendingAttachment={onRemovePendingAttachment}
+          composerDisabled={composerDisabled}
+          onDisabledPress={onDisabledPress}
+          onOpenComposerMenu={onOpenComposerMenu}
+          draft={draft}
+          onDraftChange={onDraftChange}
+          composerPlaceholder={composerPlaceholder}
+          textSecondaryColor={textSecondaryColor}
+          onSendPress={handlePrimaryAction}
+          composerBusy={composerBusy}
+          sendButtonColor={sendButtonColor}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+        />
       </View>
     </KeyboardAvoidingView>
   );

@@ -84,7 +84,13 @@ export function useMessagesController() {
   }, [currentThread, messages]);
 
   const loadMessages = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+    // Prevent multiple in-flight requests
+    if (isLoading && threads.length > 0) return;
+    
     setIsLoading(true);
     try {
       const [data, groupsData] = await Promise.all([
@@ -817,6 +823,13 @@ export function useMessagesController() {
       setOpeningThreadId(null);
     }
   }, [activeThread, threadId]);
+
+  // Auto-reset opening state when returning to inbox
+  useEffect(() => {
+    if (!threadId && openingThreadId) {
+      setOpeningThreadId(null);
+    }
+  }, [threadId, openingThreadId]);
 
   useEffect(() => {
     loadMessages();
