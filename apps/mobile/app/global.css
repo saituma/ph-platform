@@ -34,36 +34,38 @@
   --color-danger-soft: #fef2f2;
 }
 
-.dark {
-  --color-bg: #0F1115;
-  --color-bg-secondary: #1A1D27;
-  --color-bg-input: #1A1D27;
-  --color-card: #181B23;
-  --color-card-elevated: #1F2330;
-  /* UI polish: keep dividers visible in dark mode without looking "outlined". */
-  --color-separator: rgba(255, 255, 255, 0.08);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0F1115;
+    --color-bg-secondary: #1A1D27;
+    --color-bg-input: #1A1D27;
+    --color-card: #181B23;
+    --color-card-elevated: #1F2330;
+    /* UI polish: keep dividers visible in dark mode without looking "outlined". */
+    --color-separator: rgba(255, 255, 255, 0.08);
 
-  --color-text: #f8fafc;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
+    --color-text: #f8fafc;
+    --color-text-secondary: #94a3b8;
+    --color-text-muted: #64748b;
 
-  --color-accent: #22c55e;
-  --color-accent-light: #064e3b;
+    --color-accent: #22c55e;
+    --color-accent-light: #064e3b;
 
-  /* UI polish: subtle neutral borders (no pure black). */
-  --color-border: rgba(255, 255, 255, 0.12);
-  /* UI polish: neutral border opacity steps for Tailwind `border-app/..` usage. */
-  --color-border-10: rgba(255, 255, 255, 0.12);
-  --color-border-15: rgba(255, 255, 255, 0.16);
-  --color-border-20: rgba(255, 255, 255, 0.20);
-  --color-icon: #94a3b8;
+    /* UI polish: subtle neutral borders (no pure black). */
+    --color-border: rgba(255, 255, 255, 0.12);
+    /* UI polish: neutral border opacity steps for Tailwind `border-app/..` usage. */
+    --color-border-10: rgba(255, 255, 255, 0.12);
+    --color-border-15: rgba(255, 255, 255, 0.16);
+    --color-border-20: rgba(255, 255, 255, 0.20);
+    --color-icon: #94a3b8;
 
-  --color-success: #10b981;
-  --color-success-soft: #064e3b;
-  --color-warning: #f59e0b;
-  --color-warning-soft: #451a03;
-  --color-danger: #ef4444;
-  --color-danger-soft: #450a0a;
+    --color-success: #10b981;
+    --color-success-soft: #064e3b;
+    --color-warning: #f59e0b;
+    --color-warning-soft: #451a03;
+    --color-danger: #ef4444;
+    --color-danger-soft: #450a0a;
+  }
 }
 
 /* ── Semantic background utilities ── */

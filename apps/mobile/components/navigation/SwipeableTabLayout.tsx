@@ -181,7 +181,7 @@ export function SwipeableTabLayout({
       const key = tabs[index]?.key ?? `page-${index}`;
       const shouldRenderChild = index === activeIndex || visitedIndices.includes(index);
       return (
-        <View key={key} style={styles.page}>
+        <View key={key} style={[styles.page, { backgroundColor: "transparent" }]}>
           {shouldRenderChild ? child : null}
         </View>
       );
@@ -190,28 +190,30 @@ export function SwipeableTabLayout({
 
   if (Platform.OS === "web" || !PagerView) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.pager, { backgroundColor: colors.background }]}>
+      <View style={styles.container}>
+        <View style={styles.pager}>
           {pagerChildren[activeIndex]}
         </View>
         {isTabBarVisible && (
-          <TabBar
-            tabs={tabs}
-            activeIndex={activeIndex}
-            onTabPress={handleTabPress}
-            scrollOffset={scrollOffset}
-          />
+          <View style={styles.tabBarWrapper}>
+            <TabBar
+              tabs={tabs}
+              activeIndex={activeIndex}
+              onTabPress={handleTabPress}
+              scrollOffset={scrollOffset}
+            />
+          </View>
         )}
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
       <PagerView
         key={tabs.length}
         ref={pagerRef}
-        style={[styles.pager, { backgroundColor: colors.background }]}
+        style={[styles.pager, { backgroundColor: "transparent" }]}
         initialPage={staticInitialPage.current}
         onPageSelected={handlePageSelected}
         onPageScroll={handlePageScroll}
@@ -223,12 +225,14 @@ export function SwipeableTabLayout({
         {pagerChildren}
       </PagerView>
       {isTabBarVisible && (
-        <TabBar
-          tabs={tabs}
-          activeIndex={activeIndex}
-          onTabPress={handleTabPress}
-          scrollOffset={scrollOffset}
-        />
+        <View style={styles.tabBarWrapper}>
+          <TabBar
+            tabs={tabs}
+            activeIndex={activeIndex}
+            onTabPress={handleTabPress}
+            scrollOffset={scrollOffset}
+          />
+        </View>
       )}
     </View>
   );
@@ -237,11 +241,22 @@ export function SwipeableTabLayout({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "transparent",
   },
   pager: {
     flex: 1,
+    backgroundColor: "transparent",
   },
   page: {
     flex: 1,
+    backgroundColor: "transparent",
+  },
+  tabBarWrapper: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: "transparent",
   },
 });

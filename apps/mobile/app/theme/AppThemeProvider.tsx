@@ -3,7 +3,7 @@ import { useAppSelector } from "@/store/hooks";
 import * as SecureStore from "expo-secure-store";
 import { useColorScheme } from "nativewind";
 import React, { createContext, useContext, useEffect, useMemo, useState, startTransition } from "react";
-import { InteractionManager } from "react-native";
+import { InteractionManager, View } from "react-native";
 
 type ColorSchemeName = "light" | "dark" | "system";
 
@@ -99,5 +99,11 @@ export default function AppThemeProvider({
     [colorScheme, colors, guestKey, isDark, isSwitching, setColorScheme, themeKey],
   );
 
-  return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;
+  return (
+    <AppThemeContext.Provider value={value}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {children}
+      </View>
+    </AppThemeContext.Provider>
+  );
 }

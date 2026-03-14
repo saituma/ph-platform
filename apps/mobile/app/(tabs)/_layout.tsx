@@ -3,9 +3,10 @@ import { useRole } from "@/context/RoleContext";
 import { useSocket } from "@/context/SocketContext";
 import { apiRequest, prefetchApi } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
+import { Colors } from "@/constants/theme";
 import { Redirect, Slot, usePathname, useRouter, useSegments } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { InteractionManager, Platform } from "react-native";
+import { InteractionManager, Platform, View, useColorScheme } from "react-native";
 import { useAppSelector } from "@/store/hooks";
 import { canAccessTier } from "@/lib/planAccess";
 
@@ -50,6 +51,7 @@ export default function TabLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
+  const colorScheme = useColorScheme();
   const { socket } = useSocket();
   const pendingNavToken = useRef(0);
   const lastHandledNotificationRef = useRef<string | null>(null);
@@ -317,6 +319,13 @@ export default function TabLayout() {
     });
   }, [visibleTabs]); // visibleTabs only changes when role changes
 
+  const containerStyle = [
+    {
+      flex: 1,
+      backgroundColor: "transparent",
+    },
+  ];
+
   if (!hydrated) {
     return null;
   }
@@ -326,16 +335,18 @@ export default function TabLayout() {
   }
 
   if (isOnboarding) {
-    return <Slot />;
+    return <View style={containerStyle}><Slot /></View>;
   }
 
   return (
-    <SwipeableTabLayout
-      tabs={visibleTabs}
-      initialIndex={initialIndex}
-      onIndexChange={handleIndexChange}
-    >
-      {screens}
-    </SwipeableTabLayout>
+    <View style={containerStyle}>
+      <SwipeableTabLayout
+        tabs={visibleTabs}
+        initialIndex={initialIndex}
+        onIndexChange={handleIndexChange}
+      >
+        {screens}
+      </SwipeableTabLayout>
+    </View>
   );
 }
