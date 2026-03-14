@@ -15,7 +15,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { Text } from "@/components/ScaledText";
@@ -164,156 +164,158 @@ export default function HomeScreen() {
   const showSkeleton = isLoadingContent && !homeContentError;
 
   return (
-    <ScrollView
-      className="flex-1 bg-app"
-      contentContainerStyle={{
-        paddingTop: insets.top + 20,
-        paddingBottom: insets.bottom + 40,
-        paddingHorizontal: 24,
-      }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={() => {
-            setIsRefreshing(true);
-            Promise.all([loadHomeContent(true)]).finally(() => {
-              setTimeout(() => setIsRefreshing(false), 400);
-            });
-          }}
-          tintColor={colors.textSecondary}
-        />
-      }
-    >
-      <View className="mb-10">
-        <View className="relative bg-card rounded-[32px] p-6 overflow-hidden" style={isDark ? Shadows.none : Shadows.md}>
-          <View
-            style={{
-              position: "absolute",
-              top: -40,
-              right: -40,
-              width: 160,
-              height: 160,
-              borderRadius: 80,
-              backgroundColor: colors.accentLight,
-              opacity: 0.6,
+    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          paddingTop: 20,
+          paddingBottom: insets.bottom + 100, // Extra padding to clear floating tab bar
+          paddingHorizontal: 24,
+        }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              setIsRefreshing(true);
+              Promise.all([loadHomeContent(true)]).finally(() => {
+                setTimeout(() => setIsRefreshing(false), 400);
+              });
             }}
+            tintColor={colors.textSecondary}
           />
-          <View
-            style={{
-              position: "absolute",
-              bottom: -48,
-              left: -48,
-              width: 200,
-              height: 200,
-              borderRadius: 100,
-              backgroundColor: colors.backgroundSecondary,
-              opacity: 0.9,
-            }}
-          />
+        }
+      >
+        <View className="mb-10">
+          <View className="relative bg-card rounded-[32px] p-6 overflow-hidden" style={isDark ? Shadows.none : Shadows.md}>
+            <View
+              style={{
+                position: "absolute",
+                top: -40,
+                right: -40,
+                width: 160,
+                height: 160,
+                borderRadius: 80,
+                backgroundColor: colors.accentLight,
+                opacity: 0.6,
+              }}
+            />
+            <View
+              style={{
+                position: "absolute",
+                bottom: -48,
+                left: -48,
+                width: 200,
+                height: 200,
+                borderRadius: 100,
+                backgroundColor: colors.backgroundSecondary,
+                opacity: 0.9,
+              }}
+            />
 
-          <View className="flex-row justify-between items-start">
-            <View className="flex-1">
-              <View className="flex-row items-center gap-2 mb-3">
-                <View className="h-2 w-2 rounded-full bg-success" />
-                <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">
-                  Today
-                </Text>
-              </View>
-              {showSkeleton ? (
-                <>
-                  <Skeleton width={220} height={36} borderRadius={18} style={{ marginBottom: 10 }} />
-                  <Skeleton width={180} height={30} borderRadius={16} />
-                  <Skeleton width={200} height={16} borderRadius={10} style={{ marginTop: 16 }} />
-                </>
-              ) : (
-                <>
-                  <Text className="font-clash text-4xl text-app leading-[1.05]">
-                    {greeting},{"\n"}
-                    <Text className="text-accent">
-                      {profile?.name || "Guardian"}
-                    </Text>
+            <View className="flex-row justify-between items-start">
+              <View className="flex-1">
+                <View className="flex-row items-center gap-2 mb-3">
+                  <View className="h-2 w-2 rounded-full bg-success" />
+                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">
+                    Today
                   </Text>
-                  {homeContent?.welcome ? (
-                    <Text className="text-secondary font-outfit text-sm mt-3 max-w-[240px]">
-                      {homeContent.welcome}
+                </View>
+                {showSkeleton ? (
+                  <>
+                    <Skeleton width={220} height={36} borderRadius={18} style={{ marginBottom: 10 }} />
+                    <Skeleton width={180} height={30} borderRadius={16} />
+                    <Skeleton width={200} height={16} borderRadius={10} style={{ marginTop: 16 }} />
+                  </>
+                ) : (
+                  <>
+                    <Text className="font-clash text-4xl text-app leading-[1.05]">
+                      {greeting},{"\n"}
+                      <Text className="text-accent">
+                        {profile?.name || "Guardian"}
+                      </Text>
                     </Text>
-                  ) : null}
-                </>
-              )}
+                    {homeContent?.welcome ? (
+                      <Text className="text-secondary font-outfit text-sm mt-3 max-w-[240px]">
+                        {homeContent.welcome}
+                      </Text>
+                    ) : null}
+                  </>
+                )}
+              </View>
+
+              <View className="h-14 w-14 bg-card rounded-[22px] items-center justify-center relative overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
+                {showSkeleton ? (
+                  <Skeleton width={56} height={56} circle />
+                ) : profile?.avatar ? (
+                  <Image
+                    source={{ uri: profile.avatar }}
+                    resizeMode="cover"
+                    className="h-full w-full"
+                  />
+                ) : (
+                  <Feather name="user" size={24} className="text-app" />
+                )}
+                <View className="absolute bottom-0 right-0 h-4 w-4 bg-success rounded-full" />
+              </View>
             </View>
-
-            <View className="h-14 w-14 bg-card rounded-[22px] items-center justify-center relative overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
-              {showSkeleton ? (
-                <Skeleton width={56} height={56} circle />
-              ) : profile?.avatar ? (
-                <Image
-                  source={{ uri: profile.avatar }}
-                  resizeMode="cover"
-                  className="h-full w-full"
-                />
-              ) : (
-                <Feather name="user" size={24} className="text-app" />
-              )}
-              <View className="absolute bottom-0 right-0 h-4 w-4 bg-success rounded-full" />
-            </View>
           </View>
         </View>
-      </View>
 
-      {homeContentError ? (
-        <View className="mb-8 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
-          <Text className="text-sm font-outfit text-red-400">{homeContentError}</Text>
-        </View>
-      ) : !showSkeleton && !homeContent ? (
-        <View className="mb-8 rounded-2xl border border-white/10 bg-card p-4">
-          <Text className="text-sm font-outfit text-secondary">
-            Home content will appear here once it is available.
-          </Text>
-        </View>
-      ) : null}
+        {homeContentError ? (
+          <View className="mb-8 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
+            <Text className="text-sm font-outfit text-red-400">{homeContentError}</Text>
+          </View>
+        ) : !showSkeleton && !homeContent ? (
+          <View className="mb-8 rounded-2xl border border-white/10 bg-card p-4">
+            <Text className="text-sm font-outfit text-secondary">
+              Home content will appear here once it is available.
+            </Text>
+          </View>
+        ) : null}
 
-      {showSkeleton ? (
-        <>
-          <View className="mb-6">
-            <Skeleton width="100%" height={180} borderRadius={28} />
-          </View>
-          <View className="mb-8">
-            <Skeleton width="100%" height={140} borderRadius={24} />
-          </View>
-          <View className="mt-6 gap-6">
-            <Skeleton width="100%" height={120} borderRadius={24} />
-            <Skeleton width="100%" height={180} borderRadius={24} />
-            <Skeleton width="100%" height={160} borderRadius={24} />
-          </View>
-        </>
-      ) : (
-        <>
-          {homeContent?.introVideoUrl ? (
+        {showSkeleton ? (
+          <>
             <View className="mb-6">
-              <IntroVideoSection
-                introVideoUrl={homeContent.introVideoUrl}
-                posterUrl={homeContent.heroImageUrl ?? null}
-              />
+              <Skeleton width="100%" height={180} borderRadius={28} />
             </View>
-          ) : null}
-
-          <GuardianDashboard />
-
-          <View className="mt-16 gap-16">
-            <View>
-              <AdminStorySection
-                story={homeContent?.adminStory}
-                photoUrl={homeContent?.professionalPhoto ?? null}
-              />
+            <View className="mb-8">
+              <Skeleton width="100%" height={140} borderRadius={24} />
             </View>
-
-            <View>
-              <TestimonialsSection items={homeContent?.testimonials ?? null} />
+            <View className="mt-6 gap-6">
+              <Skeleton width="100%" height={120} borderRadius={24} />
+              <Skeleton width="100%" height={180} borderRadius={24} />
+              <Skeleton width="100%" height={160} borderRadius={24} />
             </View>
-          </View>
-        </>
-      )}
-    </ScrollView>
+          </>
+        ) : (
+          <>
+            {homeContent?.introVideoUrl ? (
+              <View className="mb-6">
+                <IntroVideoSection
+                  introVideoUrl={homeContent.introVideoUrl}
+                  posterUrl={homeContent.heroImageUrl ?? null}
+                />
+              </View>
+            ) : null}
+
+            <GuardianDashboard />
+
+            <View className="mt-16 gap-16">
+              <View>
+                <AdminStorySection
+                  story={homeContent?.adminStory}
+                  photoUrl={homeContent?.professionalPhoto ?? null}
+                />
+              </View>
+
+              <View>
+                <TestimonialsSection items={homeContent?.testimonials ?? null} />
+              </View>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }

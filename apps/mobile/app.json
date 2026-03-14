@@ -1,5 +1,6 @@
 {
   "expo": {
+    "entryPoint": "expo-router/entry",
     "name": "PH Performance",
     "slug": "mobile",
     "version": "1.0.0",
@@ -54,7 +55,9 @@
       "reactCompiler": false
     },
     "extra": {
-      "router": {},
+      "router": {
+        "root": "app"
+      },
       "eas": {
         "projectId": "05e78255-c0dc-481a-85c0-835a4d6502a7"
       }

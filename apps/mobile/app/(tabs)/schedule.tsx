@@ -366,7 +366,7 @@ export default function ScheduleScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app">
+    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView
         onRefresh={async () => {
           if (!token) return;

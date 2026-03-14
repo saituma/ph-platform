@@ -53,7 +53,7 @@ export default function MoreScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-app">
+    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView
         onRefresh={handleRefresh}
         // UI polish: extra safe bottom spacing prevents cramped last actions near tab bar.
