@@ -164,11 +164,11 @@ export default function HomeScreen() {
   const showSkeleton = isLoadingContent && !homeContentError;
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <View className="flex-1" style={{ paddingTop: insets.top }}>
       <ScrollView
-        className="flex-1"
+        className="flex-1 bg-transparent"
         contentContainerStyle={{
-          paddingTop: 20,
+          paddingTop: 10,
           paddingBottom: insets.bottom + 100, // Extra padding to clear floating tab bar
           paddingHorizontal: 24,
         }}
@@ -316,6 +316,6 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

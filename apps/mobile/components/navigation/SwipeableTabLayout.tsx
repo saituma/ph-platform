@@ -195,7 +195,7 @@ export function SwipeableTabLayout({
           {pagerChildren[activeIndex]}
         </View>
         {isTabBarVisible && (
-          <View style={styles.tabBarWrapper}>
+          <View style={styles.tabBarWrapper} pointerEvents="box-none">
             <TabBar
               tabs={tabs}
               activeIndex={activeIndex}
@@ -225,7 +225,7 @@ export function SwipeableTabLayout({
         {pagerChildren}
       </PagerView>
       {isTabBarVisible && (
-        <View style={styles.tabBarWrapper}>
+        <View style={styles.tabBarWrapper} pointerEvents="box-none">
           <TabBar
             tabs={tabs}
             activeIndex={activeIndex}
@@ -257,6 +257,5 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    backgroundColor: "transparent",
   },
 });

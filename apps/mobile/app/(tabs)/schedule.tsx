@@ -8,7 +8,7 @@ import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, InteractionManager, Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
@@ -364,9 +364,10 @@ export default function ScheduleScreen() {
   if (isSectionHidden("schedule")) {
     return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
   }
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <View className="flex-1" style={{ paddingTop: insets.top }}>
       <ThemedScrollView
         onRefresh={async () => {
           if (!token) return;
@@ -1124,6 +1125,6 @@ export default function ScheduleScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }

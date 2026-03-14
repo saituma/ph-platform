@@ -3,7 +3,7 @@ import { InboxScreen } from "@/components/messages/InboxScreen";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
 import { View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier } from "@/lib/planAccess";
 import { Text } from "@/components/ScaledText";
@@ -23,6 +23,7 @@ export default function MessagesScreen() {
   const programTier = useAppSelector((state) => state.user.programTier);
   const token = useAppSelector((state) => state.user.token);
   const { isSectionHidden } = useAgeExperience();
+  const insets = useSafeAreaInsets();
 
   const {
     sortedThreads,
@@ -79,7 +80,7 @@ export default function MessagesScreen() {
   // ====================== LOCKED / UPGRADE STATE ======================
   if (!canMessage) {
     return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      <SafeAreaView className="flex-1" edges={["top"]}>
         <View className="flex-1 items-center justify-center px-6 pb-12">
           <View className="items-center max-w-[340px]">
             {/* Visual Icon with Lock Overlay */}
@@ -136,7 +137,7 @@ export default function MessagesScreen() {
 
   // ====================== INBOX VIEW ======================
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <View className="flex-1" style={{ paddingTop: insets.top }}>
       <View className="px-6 pt-8 pb-5">
         <View className="rounded-[28px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
           <View className="flex-row items-center justify-between">
@@ -184,6 +185,6 @@ export default function MessagesScreen() {
         accentLight={colors.accentLight}
         textSecondaryColor={colors.textSecondary}
       />
-    </SafeAreaView>
+    </View>
   );
 }

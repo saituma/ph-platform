@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import {
   setLatestSubscriptionRequest,
@@ -337,27 +337,27 @@ export default function ProgramsScreen() {
   if (selectedTierId) {
     const requiredTier =
       selectedTierId === "plus" ? "PHP_Plus" : selectedTierId === "premium" ? "PHP_Premium" : "PHP";
-    const plan = planDetailsByTier[requiredTier];
-    const pricing = pricingByTier[requiredTier];
-    return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <ProgramDetailPanel
+    const insets = useSafeAreaInsets();
+     return (
+      <View className="flex-1" style={{ paddingTop: insets.top }}>
+         <ProgramDetailPanel
           programId={selectedTierId}
           showBack
           onBack={() => setSelectedTierId(null)}
           onNavigate={(path) => router.push(path as any)}
-          planDetails={plan}
-          pricing={pricing}
+          planDetails={planDetailsByTier[requiredTier]}
+          pricing={pricingByTier[requiredTier]}
           onApply={handleApply}
           latestSubscriptionRequest={latestSubscriptionRequest ?? null}
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
   // Otherwise, show the plan cards
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <View className="flex-1" style={{ paddingTop: insets.top }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
@@ -720,6 +720,6 @@ export default function ProgramsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
