@@ -1033,13 +1033,16 @@ export default function ScheduleScreen() {
                             location: bookingLocation || undefined,
                             meetingLink: bookingMeetingLink || undefined,
                           },
+                          suppressStatusCodes: [400],
                         });
                         const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
                         setEvents(mapBookingsToEvents(refreshed.items ?? []));
                         setBookingConfirmed(true);
                         await notifyBookingConfirmed(selectedService.name ?? "Booking", startsAt);
                       } catch (err: any) {
-                        setBookingError(err.message ?? "Failed to submit booking");
+                        const rawMessage = err?.message ?? "Failed to submit booking";
+                        const cleanedMessage = String(rawMessage).replace(/^\d+\s+/, "");
+                        setBookingError(cleanedMessage);
                       } finally {
                         setIsSubmitting(false);
                       }

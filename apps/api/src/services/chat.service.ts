@@ -2,7 +2,6 @@ import { and, eq, ne } from "drizzle-orm";
 import { sendPushNotification } from "./push.service";
 
 import { db } from "../db";
-import { sql } from "drizzle-orm";
 import {
   chatGroupMemberTable,
   chatGroupMessageReactionTable,
@@ -13,7 +12,6 @@ import {
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { attachGroupMessageReactions } from "./reaction.service";
-import { env } from "../config/env";
 
 export async function createDirectMessage(input: {
   senderId: number;
@@ -37,38 +35,7 @@ export async function createDirectMessage(input: {
   return result[0];
 }
 
-async function ensureChatTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS "chat_groups" (
-      "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-      "name" varchar(255) NOT NULL,
-      "createdBy" integer NOT NULL REFERENCES "users"("id"),
-      "createdAt" timestamp NOT NULL DEFAULT now()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS "chat_group_members" (
-      "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-      "groupId" integer NOT NULL REFERENCES "chat_groups"("id"),
-      "userId" integer NOT NULL REFERENCES "users"("id"),
-      "createdAt" timestamp NOT NULL DEFAULT now()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS "chat_group_messages" (
-      "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-      "groupId" integer NOT NULL REFERENCES "chat_groups"("id"),
-      "senderId" integer NOT NULL REFERENCES "users"("id"),
-      "content" varchar(500) NOT NULL,
-      "contentType" message_type NOT NULL DEFAULT 'text',
-      "mediaUrl" varchar(500),
-      "createdAt" timestamp NOT NULL DEFAULT now()
-    )
-  `);
-}
-
 export async function createGroup(input: { name: string; createdBy: number; memberIds: number[] }) {
-  await ensureChatTables();
   const group = await db
     .insert(chatGroupTable)
     .values({
@@ -91,20 +58,21 @@ export async function createGroup(input: { name: string; createdBy: number; memb
 }
 
 export async function addGroupMembers(groupId: number, memberIds: number[]) {
-  await ensureChatTables();
   const unique = Array.from(new Set(memberIds));
   if (!unique.length) return [];
-  await db.insert(chatGroupMemberTable).values(
-    unique.map((userId) => ({
-      groupId,
-      userId,
-    }))
-  );
+  await db
+    .insert(chatGroupMemberTable)
+    .values(
+      unique.map((userId) => ({
+        groupId,
+        userId,
+      }))
+    )
+    .onConflictDoNothing();
   return unique;
 }
 
 export async function listGroupsForUser(userId: number) {
-  await ensureChatTables();
   return db
     .select({
       id: chatGroupTable.id,
@@ -118,7 +86,6 @@ export async function listGroupsForUser(userId: number) {
 }
 
 export async function listGroupMembers(groupId: number) {
-  await ensureChatTables();
   return db
     .select({
       userId: userTable.id,
@@ -133,7 +100,6 @@ export async function listGroupMembers(groupId: number) {
 }
 
 export async function isGroupMember(groupId: number, userId: number) {
-  await ensureChatTables();
   const result = await db
     .select()
     .from(chatGroupMemberTable)
@@ -143,7 +109,6 @@ export async function isGroupMember(groupId: number, userId: number) {
 }
 
 export async function listGroupMessages(groupId: number) {
-  await ensureChatTables();
   const messages = await db
     .select()
     .from(chatGroupMessageTable)
@@ -159,7 +124,6 @@ export async function createGroupMessage(input: {
   contentType?: "text" | "image" | "video";
   mediaUrl?: string | null;
 }) {
-  await ensureChatTables();
   const safeContent = input.content.trim() || "Attachment";
   const result = await db
     .insert(chatGroupMessageTable)
@@ -219,7 +183,6 @@ export async function createGroupMessage(input: {
 }
 
 export async function deleteGroupMessage(input: { groupId: number; messageId: number; userId: number }) {
-  await ensureChatTables();
   const rows = await db
     .select()
     .from(chatGroupMessageTable)

@@ -78,17 +78,17 @@ describe("messaging page", () => {
     apiSlice.useDeleteGroupMessageMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
   });
 
-  it("renders direct inbox by default", () => {
+  it("renders direct inbox by default", async () => {
     render(<MessagingPage />);
 
-    expect(screen.getByRole("heading", { name: /messaging/i })).toBeInTheDocument();
-    expect(screen.getByTestId("inbox-list")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /messaging/i })).toBeInTheDocument();
+    expect(await screen.findByTestId("inbox-list")).toBeInTheDocument();
   });
 
-  it("switches to group inbox", () => {
+  it("switches to group inbox", async () => {
     render(<MessagingPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /groups/i }));
-    expect(screen.getByTestId("group-inbox")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /groups/i }));
+    expect(await screen.findByTestId("group-inbox")).toBeInTheDocument();
   });
 });

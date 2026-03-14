@@ -1,10 +1,13 @@
 import "dotenv/config";
+import dns from "node:dns";
 import { defineConfig } from "drizzle-kit";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
+
+dns.setDefaultResultOrder("ipv4first");
 
 const parsed = new URL(databaseUrl);
 const username = decodeURIComponent(parsed.username || "");
@@ -22,6 +25,9 @@ export default defineConfig({
     user: username,
     password,
     database,
-    ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+    ssl:
+      process.env.DATABASE_SSL === "true"
+        ? { rejectUnauthorized: false }
+        : undefined,
   },
 });

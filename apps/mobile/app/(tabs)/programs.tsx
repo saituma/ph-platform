@@ -6,7 +6,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
-import { NavigationContainer, NavigationIndependentTree } from "@react-navigation/native";
 import {
   setLatestSubscriptionRequest,
   setProgramTier,
@@ -342,20 +341,16 @@ export default function ProgramsScreen() {
     const pricing = pricingByTier[requiredTier];
     return (
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <NavigationIndependentTree>
-          <NavigationContainer>
-            <ProgramDetailPanel
-              programId={selectedTierId}
-              showBack
-              onBack={() => setSelectedTierId(null)}
-              onNavigate={(path) => router.push(path as any)}
-              planDetails={plan}
-              pricing={pricing}
-              onApply={handleApply}
-              latestSubscriptionRequest={latestSubscriptionRequest ?? null}
-            />
-          </NavigationContainer>
-        </NavigationIndependentTree>
+        <ProgramDetailPanel
+          programId={selectedTierId}
+          showBack
+          onBack={() => setSelectedTierId(null)}
+          onNavigate={(path) => router.push(path as any)}
+          planDetails={plan}
+          pricing={pricing}
+          onApply={handleApply}
+          latestSubscriptionRequest={latestSubscriptionRequest ?? null}
+        />
       </SafeAreaView>
     );
   }

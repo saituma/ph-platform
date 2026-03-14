@@ -23,9 +23,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const csrfToken = document.cookie
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("csrfToken="))
+        ?.split("=")[1];
       const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
         body: JSON.stringify({ email, password }),
       });
 

@@ -27,18 +27,19 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const allowBypass = env.allowJwtBypass && env.nodeEnv !== "production";
     let user = userId ? await getUserById(Number(userId)) : await getUserByCognitoSub(sub!);
     if (!user) {
       if (!email) {
-        if (!env.allowJwtBypass) {
+        if (!allowBypass) {
           return res.status(401).json({ error: "Unauthorized" });
         }
         const fallbackEmail = `${sub}@local.dev`;
         user = await createUserFromCognito({
           sub: sub ?? `local:${Date.now()}`,
           email: fallbackEmail,
-          name: name || "Local Admin",
-          role: "admin",
+          name: name || "Local User",
+          role: "guardian",
         });
       } else {
         user = await createUserFromCognito({ sub: sub ?? `local:${Date.now()}`, email, name });

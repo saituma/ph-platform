@@ -19,7 +19,11 @@ describe("auth refresh route", () => {
     const { POST } = await import("@/app/api/auth/refresh/route");
     const req = new NextRequest("http://localhost/api/auth/refresh", {
       method: "POST",
-      headers: { cookie: "refreshToken=my-refresh-token", host: "localhost:3000" },
+      headers: {
+        cookie: "refreshToken=my-refresh-token; csrfToken=csrf-1",
+        host: "localhost:3000",
+        "x-csrf-token": "csrf-1",
+      },
     });
 
     const res = await POST(req);
@@ -36,6 +40,10 @@ describe("auth refresh route", () => {
     const { POST } = await import("@/app/api/auth/refresh/route");
     const req = new NextRequest("http://localhost/api/auth/refresh", {
       method: "POST",
+      headers: {
+        cookie: "csrfToken=csrf-1",
+        "x-csrf-token": "csrf-1",
+      },
     });
 
     const res = await POST(req);
@@ -55,7 +63,7 @@ describe("auth refresh route", () => {
     const { POST } = await import("@/app/api/auth/refresh/route");
     const req = new NextRequest("http://localhost/api/auth/refresh", {
       method: "POST",
-      headers: { cookie: "refreshToken=bad-token" },
+      headers: { cookie: "refreshToken=bad-token; csrfToken=csrf-1", "x-csrf-token": "csrf-1" },
     });
 
     const res = await POST(req);

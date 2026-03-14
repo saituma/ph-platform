@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout"];
+const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh"];
+const csrfCookieName = "csrfToken";
+const generateCsrfToken = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("accessToken")?.value;
+  const csrfToken = req.cookies.get(csrfCookieName)?.value;
 
   if (pathname === "/login" && token) {
     const url = req.nextUrl.clone();
@@ -19,7 +27,19 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/api/backend") ||
     publicPaths.includes(pathname)
   ) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    if (!csrfToken) {
+      const host = req.headers.get("host") ?? "";
+      const isLocalhost = host.includes("localhost") || host.startsWith("127.0.0.1");
+      const secure = process.env.NODE_ENV === "production" && !isLocalhost;
+      response.cookies.set(csrfCookieName, generateCsrfToken(), {
+        httpOnly: false,
+        secure,
+        sameSite: "lax",
+        path: "/",
+      });
+    }
+    return response;
   }
 
   if (!token) {
@@ -28,7 +48,19 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  if (!csrfToken) {
+    const host = req.headers.get("host") ?? "";
+    const isLocalhost = host.includes("localhost") || host.startsWith("127.0.0.1");
+    const secure = process.env.NODE_ENV === "production" && !isLocalhost;
+    response.cookies.set(csrfCookieName, generateCsrfToken(), {
+      httpOnly: false,
+      secure,
+      sameSite: "lax",
+      path: "/",
+    });
+  }
+  return response;
 }
 
 export const config = {

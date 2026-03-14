@@ -1,8 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import BookingsPage from "@/app/bookings/page";
+import BookingsPage from "../app/bookings/page";
 
-jest.mock("@/components/admin/shell", () => ({
+jest.mock("@fullcalendar/react", () => ({
+  __esModule: true,
+  default: () => <div data-testid="fullcalendar" />,
+}));
+jest.mock("@fullcalendar/daygrid", () => ({}));
+jest.mock("@fullcalendar/timegrid", () => ({}));
+jest.mock("@fullcalendar/interaction", () => ({}));
+
+jest.mock("../components/admin/shell", () => ({
   AdminShell: ({ title, children, actions }: any) => (
     <div>
       <h1>{title}</h1>
@@ -12,7 +20,26 @@ jest.mock("@/components/admin/shell", () => ({
   ),
 }));
 
-jest.mock("@/components/admin/bookings/bookings-list", () => ({
+jest.mock("../components/admin/section-header", () => ({
+  SectionHeader: ({ title, description }: any) => (
+    <div>
+      <h2>{title}</h2>
+      {description ? <p>{description}</p> : null}
+    </div>
+  ),
+}));
+
+jest.mock("../components/ui/button", () => ({
+  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+}));
+
+jest.mock("../components/ui/card", () => ({
+  Card: ({ children }: any) => <div>{children}</div>,
+  CardHeader: ({ children }: any) => <div>{children}</div>,
+  CardContent: ({ children }: any) => <div>{children}</div>,
+}));
+
+jest.mock("../components/admin/bookings/bookings-list", () => ({
   BookingsList: ({ bookings, onSelect }: any) => (
     <div>
       <div data-testid="bookings-count">{bookings.length}</div>
@@ -23,7 +50,7 @@ jest.mock("@/components/admin/bookings/bookings-list", () => ({
   ),
 }));
 
-jest.mock("@/components/admin/bookings/bookings-filters", () => ({
+jest.mock("../components/admin/bookings/bookings-filters", () => ({
   BookingsFilters: ({ chips, onChipSelect }: any) => (
     <div>
       {chips.map((chip: string) => (
@@ -35,15 +62,15 @@ jest.mock("@/components/admin/bookings/bookings-filters", () => ({
   ),
 }));
 
-jest.mock("@/components/admin/bookings/availability-panel", () => ({
+jest.mock("../components/admin/bookings/availability-panel", () => ({
   AvailabilityPanel: () => <div data-testid="availability-panel" />,
 }));
 
-jest.mock("@/components/admin/bookings/bookings-dialogs", () => ({
+jest.mock("../components/admin/bookings/bookings-dialogs", () => ({
   BookingsDialogs: () => null,
 }));
 
-jest.mock("@/lib/apiSlice", () => ({
+jest.mock("../lib/apiSlice", () => ({
   useGetBookingsQuery: jest.fn(),
   useGetServicesQuery: jest.fn(),
   useGetUsersQuery: jest.fn(),
@@ -51,7 +78,7 @@ jest.mock("@/lib/apiSlice", () => ({
 }));
 
 const { useGetBookingsQuery, useGetServicesQuery, useGetUsersQuery, useUpdateBookingStatusMutation } =
-  jest.requireMock("@/lib/apiSlice");
+  jest.requireMock("../lib/apiSlice");
 
 describe("bookings page", () => {
   beforeEach(() => {
@@ -70,11 +97,15 @@ describe("bookings page", () => {
   });
 
   it("filters bookings by chip and renders list", () => {
+    const baseDate = new Date();
+    const noonLocal = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 12, 0, 0);
+    const laterLocal = new Date(noonLocal.getTime() + 60 * 60 * 1000);
+
     useGetBookingsQuery.mockReturnValue({
       data: {
         bookings: [
-          { serviceName: "Group Session", athleteName: "Sam", startsAt: new Date().toISOString(), type: "group_call" },
-          { serviceName: "Lift Lab", athleteName: "Lee", startsAt: new Date().toISOString(), type: "lift_lab_1on1" },
+          { serviceName: "Group Session", athleteName: "Sam", startsAt: noonLocal.toISOString(), type: "group_call" },
+          { serviceName: "Lift Lab", athleteName: "Lee", startsAt: laterLocal.toISOString(), type: "lift_lab_1on1" },
         ],
       },
       isLoading: false,

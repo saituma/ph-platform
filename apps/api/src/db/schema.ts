@@ -4,6 +4,7 @@ import {
   doublePrecision,
   integer,
   jsonb,
+  index,
   pgEnum,
   pgTable,
   text,
@@ -249,18 +250,25 @@ export const sessionExerciseTable = pgTable("session_exercises", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
-export const messageTable = pgTable("messages", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  senderId: integer().notNull().references(() => userTable.id),
-  receiverId: integer().notNull().references(() => userTable.id),
-  content: varchar({ length: 255 }).notNull(),
-  contentType: messageType().default("text").notNull(),
-  mediaUrl: varchar({ length: 500 }),
-  videoUploadId: integer(),
-  read: boolean().notNull().default(false),
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-});
+export const messageTable = pgTable(
+  "messages",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    senderId: integer().notNull().references(() => userTable.id),
+    receiverId: integer().notNull().references(() => userTable.id),
+    content: varchar({ length: 255 }).notNull(),
+    contentType: messageType().default("text").notNull(),
+    mediaUrl: varchar({ length: 500 }),
+    videoUploadId: integer(),
+    read: boolean().notNull().default(false),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    senderIdx: index("messages_sender_id_idx").on(table.senderId),
+    receiverIdx: index("messages_receiver_id_idx").on(table.receiverId),
+  })
+);
 
 export const chatGroupTable = pgTable("chat_groups", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -269,38 +277,64 @@ export const chatGroupTable = pgTable("chat_groups", {
   createdAt: timestamp().notNull().defaultNow(),
 });
 
-export const chatGroupMemberTable = pgTable("chat_group_members", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  groupId: integer().notNull().references(() => chatGroupTable.id),
-  userId: integer().notNull().references(() => userTable.id),
-  createdAt: timestamp().notNull().defaultNow(),
-});
+export const chatGroupMemberTable = pgTable(
+  "chat_group_members",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    groupId: integer().notNull().references(() => chatGroupTable.id),
+    userId: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueMember: uniqueIndex("chat_group_members_group_user_unique").on(table.groupId, table.userId),
+    groupIdx: index("chat_group_members_group_idx").on(table.groupId),
+    userIdx: index("chat_group_members_user_idx").on(table.userId),
+  })
+);
 
-export const chatGroupMessageTable = pgTable("chat_group_messages", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  groupId: integer().notNull().references(() => chatGroupTable.id),
-  senderId: integer().notNull().references(() => userTable.id),
-  content: varchar({ length: 500 }).notNull(),
-  contentType: messageType().default("text").notNull(),
-  mediaUrl: varchar({ length: 500 }),
-  createdAt: timestamp().notNull().defaultNow(),
-});
+export const chatGroupMessageTable = pgTable(
+  "chat_group_messages",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    groupId: integer().notNull().references(() => chatGroupTable.id),
+    senderId: integer().notNull().references(() => userTable.id),
+    content: varchar({ length: 500 }).notNull(),
+    contentType: messageType().default("text").notNull(),
+    mediaUrl: varchar({ length: 500 }),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    groupIdx: index("chat_group_messages_group_idx").on(table.groupId),
+  })
+);
 
-export const messageReactionTable = pgTable("message_reactions", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  messageId: integer().notNull().references(() => messageTable.id),
-  userId: integer().notNull().references(() => userTable.id),
-  emoji: varchar({ length: 16 }).notNull(),
-  createdAt: timestamp().notNull().defaultNow(),
-});
+export const messageReactionTable = pgTable(
+  "message_reactions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    messageId: integer().notNull().references(() => messageTable.id),
+    userId: integer().notNull().references(() => userTable.id),
+    emoji: varchar({ length: 16 }).notNull(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    messageIdx: index("message_reactions_message_idx").on(table.messageId),
+  })
+);
 
-export const chatGroupMessageReactionTable = pgTable("chat_group_message_reactions", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  messageId: integer().notNull().references(() => chatGroupMessageTable.id),
-  userId: integer().notNull().references(() => userTable.id),
-  emoji: varchar({ length: 16 }).notNull(),
-  createdAt: timestamp().notNull().defaultNow(),
-});
+export const chatGroupMessageReactionTable = pgTable(
+  "chat_group_message_reactions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    messageId: integer().notNull().references(() => chatGroupMessageTable.id),
+    userId: integer().notNull().references(() => userTable.id),
+    emoji: varchar({ length: 16 }).notNull(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    messageIdx: index("chat_group_message_reactions_message_idx").on(table.messageId),
+  })
+);
 
 export const bookingTable = pgTable("bookings", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

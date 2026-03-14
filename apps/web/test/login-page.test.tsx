@@ -12,6 +12,7 @@ describe("login page", () => {
   beforeEach(() => {
     replaceMock.mockReset();
     global.fetch = jest.fn();
+    document.cookie = "csrfToken=csrf-1";
   });
 
   it("submits credentials and redirects on success", async () => {
@@ -22,14 +23,14 @@ describe("login page", () => {
 
     render(<LoginPage />);
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "coach@test.com" } });
+    fireEvent.change(await screen.findByLabelText(/email/i), { target: { value: "coach@test.com" } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "Password123" } });
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": "csrf-1" },
         body: JSON.stringify({ email: "coach@test.com", password: "Password123" }),
       });
       expect(replaceMock).toHaveBeenCalledWith("/");
@@ -44,7 +45,7 @@ describe("login page", () => {
 
     render(<LoginPage />);
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "coach@test.com" } });
+    fireEvent.change(await screen.findByLabelText(/email/i), { target: { value: "coach@test.com" } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "WrongPassword" } });
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 

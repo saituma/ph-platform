@@ -2,8 +2,22 @@ import { NextResponse } from "next/server";
 
 const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 const apiBase = rawBase.replace(/\/api\/?$/, "");
+const csrfCookieName = "csrfToken";
+
+function validateCsrf(req: Request) {
+  const csrfCookie = (req.headers.get("cookie") ?? "")
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${csrfCookieName}=`))
+    ?.split("=")[1];
+  const csrfHeader = req.headers.get("x-csrf-token") ?? "";
+  return Boolean(csrfCookie && csrfHeader && csrfCookie === csrfHeader);
+}
 
 export async function POST(req: Request) {
+  if (!validateCsrf(req)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
   const body = await req.json();
   const res = await fetch(`${apiBase}/api/auth/login`, {
     method: "POST",

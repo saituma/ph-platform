@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://test:test@localhost:5432/test
+      JWT_SECRET: test-jwt-secret
+      STRIPE_SECRET_KEY: sk_test_123
+      STRIPE_WEBHOOK_SECRET: whsec_test
+      STRIPE_SUCCESS_URL: http://localhost:3000/stripe/success
+      STRIPE_CANCEL_URL: http://localhost:3000/stripe/cancel
+      OPEN_AI_API_KEY: test-openai
+      ADMIN_WEB_URL: http://localhost:3000
+      API_BASE_URL: http://localhost:8000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Lint
+        run: |
+          pnpm --filter api lint
+          pnpm --filter web lint
+          pnpm --filter mobile lint
+
+      - name: Typecheck
+        run: |
+          pnpm --filter api typecheck
+          pnpm --filter web typecheck
+          pnpm --filter mobile typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Integration tests
+        env:
+          API_INTEGRATION: "1"
+        run: pnpm --filter api test
+
+      - name: Install Playwright browsers
+        run: pnpm run test:e2e:install
+
+      - name: E2E tests
+        run: pnpm run test:e2e
+
+      - name: Build
+        run: pnpm build

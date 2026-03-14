@@ -197,8 +197,17 @@ export async function confirmPaymentSheet(req: Request, res: Response) {
   if (!input.success) {
     return res.status(400).json({ error: "Invalid request", details: input.error.flatten() });
   }
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
   try {
-    const result = await confirmPaymentSheetIntent({ paymentIntentId: input.data.paymentIntentId });
+    const result = await confirmPaymentSheetIntent({
+      paymentIntentId: input.data.paymentIntentId,
+      userId: req.user.id,
+    });
+    if (!result.request) {
+      return res.status(404).json({ error: "Payment request not found" });
+    }
     return res.status(200).json({ request: result.request, paymentStatus: result.intent.status });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || "Failed to confirm payment" });

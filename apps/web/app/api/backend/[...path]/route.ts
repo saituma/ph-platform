@@ -3,10 +3,21 @@ import type { NextRequest } from "next/server";
 
 const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 const apiBase = rawBase.replace(/\/api\/?$/, "");
+const csrfCookieName = "csrfToken";
+
+function validateCsrf(req: NextRequest) {
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return true;
+  const csrfCookie = req.cookies.get(csrfCookieName)?.value ?? "";
+  const csrfHeader = req.headers.get("x-csrf-token") ?? "";
+  return csrfCookie.length > 0 && csrfCookie === csrfHeader;
+}
 
 async function forward(req: NextRequest) {
   if (!apiBase) {
     return NextResponse.json({ error: "API base URL not configured" }, { status: 500 });
+  }
+  if (!validateCsrf(req)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
   const url = new URL(req.url);

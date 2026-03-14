@@ -11,7 +11,7 @@ const jwks = issuer ? createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.jso
 export async function verifyAccessToken(token: string) {
   const clockTolerance = env.allowExpiredTokens ? 60 * 60 * 24 * 365 * 100 : undefined;
   if (env.authMode === "local") {
-    const secret = new TextEncoder().encode(env.localJwtSecret);
+    const secret = new TextEncoder().encode(env.jwtSecret);
     const { payload } = await jwtVerify(token, secret, clockTolerance ? { clockTolerance } : undefined);
     return payload;
   }
@@ -27,7 +27,7 @@ export async function verifyAccessToken(token: string) {
       clockTolerance ? { issuer, clockTolerance } : { issuer }
     ));
   } catch (error: any) {
-    if (env.allowJwtBypass && (error?.code === "ERR_JWKS_TIMEOUT" || env.nodeEnv === "development")) {
+    if (env.nodeEnv !== "production" && env.allowJwtBypass && error?.code === "ERR_JWKS_TIMEOUT") {
       return decodeJwt(token) as Record<string, unknown>;
     }
     throw error;
@@ -57,7 +57,7 @@ export async function createLocalToken(input: {
   userId: number;
   tokenVersion: number;
 }) {
-  const secret = new TextEncoder().encode(env.localJwtSecret);
+  const secret = new TextEncoder().encode(env.jwtSecret);
   const signer = new SignJWT({
     sub: input.sub,
     email: input.email,
