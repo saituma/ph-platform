@@ -15,7 +15,7 @@ import {
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
+import { usePathname } from "expo-router";
 
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
@@ -33,6 +33,7 @@ export default function MessagesScreen() {
     loadMessages,
     resetOpeningThread,
   } = useMessagesController();
+  const pathname = usePathname();
 
   const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");
 
@@ -61,11 +62,10 @@ export default function MessagesScreen() {
     })();
   }, [dispatch, token]);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      resetOpeningThread();
-    }, [resetOpeningThread])
-  );
+  React.useEffect(() => {
+    if (!pathname.startsWith("/(tabs)/messages")) return;
+    resetOpeningThread();
+  }, [pathname, resetOpeningThread]);
 
   if (isSectionHidden("messages")) {
     return (

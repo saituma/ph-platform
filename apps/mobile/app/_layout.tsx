@@ -3,13 +3,12 @@ import { RoleProvider } from "@/context/RoleContext";
 import { AppLockProvider } from "@/context/AppLockContext";
 import { ReduxProvider } from "@/store/Provider";
 import { AuthPersist } from "@/store/AuthPersist";
-import { useAppSelector } from "@/store/hooks";
-import { DarkTheme, DefaultTheme } from "@react-navigation/native";
+import { Colors } from "@/constants/theme";
 import { StripeProvider } from "@stripe/stripe-react-native";
-import { SplashScreen, Stack, router, useRootNavigationState } from "expo-router";
+import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
-import { useColorScheme } from "nativewind";
+import { useColorScheme, vars } from "nativewind";
 import React, { useEffect, useState } from "react";
 import { LogBox, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -19,7 +18,6 @@ import { getNotifications } from "@/lib/notifications";
 import "./global.css";
 import useLoadFonts from "./hooks/useLoadFonts";
 import AppThemeProvider from "./theme/AppThemeProvider";
-import { useAppTheme } from "./theme/AppThemeProvider";
 import { FontScaleProvider } from "@/context/FontScaleContext";
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
@@ -76,19 +74,6 @@ if (typeof global !== "undefined") {
   }
 }
 
-function GlobalRefreshLayout({ children }: { children: React.ReactNode }) {
-  const { colorScheme } = useColorScheme();
-  const theme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
-
-  return (
-    <View
-      className={colorScheme === "dark" ? "dark" : ""}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-    >
-      {children}
-    </View>
-  );
-}
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
@@ -196,6 +181,31 @@ export default function RootLayout() {
     return null;
   }
 
+  const themeVars: Record<`--${string}`, string> = colorScheme === "dark" ? {
+    "--color-bg": "#0F1115",
+    "--color-bg-secondary": "#1A1D27",
+    "--color-bg-input": "#1A1D27",
+    "--color-card": "#181B23",
+    "--color-card-elevated": "#1F2330",
+    "--color-separator": "rgba(255, 255, 255, 0.08)",
+    "--color-text": "#f8fafc",
+    "--color-text-secondary": "#94a3b8",
+    "--color-text-muted": "#64748b",
+    "--color-accent": "#22c55e",
+    "--color-accent-light": "#064e3b",
+    "--color-border": "rgba(255, 255, 255, 0.12)",
+    "--color-border-10": "rgba(255, 255, 255, 0.12)",
+    "--color-border-15": "rgba(255, 255, 255, 0.16)",
+    "--color-border-20": "rgba(255, 255, 255, 0.20)",
+    "--color-icon": "#94a3b8",
+    "--color-success": "#10b981",
+    "--color-success-soft": "#064e3b",
+    "--color-warning": "#f59e0b",
+    "--color-warning-soft": "#451a03",
+    "--color-danger": "#ef4444",
+    "--color-danger-soft": "#450a0a",
+  } : {};
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ReduxProvider>
@@ -208,15 +218,28 @@ export default function RootLayout() {
                     <FontScaleProvider>
                       <AgeExperienceProvider>
                         <RefreshProvider>
-                          <GlobalRefreshLayout>
+                          <View
+                            style={[
+                              {
+                                flex: 1,
+                                backgroundColor:
+                                  colorScheme === "dark"
+                                    ? Colors.dark.background
+                                    : Colors.light.background,
+                              },
+                              colorScheme === "dark" ? vars(themeVars) : undefined,
+                            ]}
+                          >
                             <StripeProvider
                               publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
                               merchantIdentifier="merchant.ph.performance"
                             >
                               <AuthPersist />
-                              <AppShell colorScheme={colorScheme ?? "light"} />
+                              <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
+                              <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+                              <AppLockGate />
                             </StripeProvider>
-                          </GlobalRefreshLayout>
+                          </View>
                         </RefreshProvider>
                       </AgeExperienceProvider>
                     </FontScaleProvider>
@@ -228,88 +251,5 @@ export default function RootLayout() {
         </SafeAreaProvider>
       </ReduxProvider>
     </GestureHandlerRootView>
-  );
-}
-
-function AppShell({ colorScheme }: { colorScheme: "light" | "dark" }) {
-  const { colors } = useAppTheme();
-  const hydrated = useAppSelector((state) => state.user.hydrated);
-  const rootState = useRootNavigationState();
-  const navigationReady = Boolean(rootState?.key);
-  const lastHandledNotificationRef = React.useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!hydrated || !navigationReady) return;
-    let sub: { remove: () => void } | null = null;
-    const handleNotificationResponse = (response: any) => {
-      const identifier = response?.notification?.request?.identifier;
-      if (identifier && identifier === lastHandledNotificationRef.current) return;
-      if (identifier) lastHandledNotificationRef.current = identifier;
-
-      const data = response?.notification?.request?.content?.data as
-        | { threadId?: string; type?: string; screen?: string }
-        | undefined;
-      const threadId = data?.threadId;
-      if (threadId) {
-        router.push(`/messages/${String(threadId)}`);
-        return;
-      }
-      if (data?.type === "booking" || data?.screen === "schedule") {
-        router.push("/(tabs)/schedule");
-        return;
-      }
-      if (data?.screen === "messages") {
-        router.push("/(tabs)/messages");
-        return;
-      }
-      if (data?.screen === "plans") {
-        router.push("/plans");
-        return;
-      }
-      if (data?.screen === "physio-referral" || data?.type === "physio-referral") {
-        router.push("/physio-referral");
-      }
-    };
-
-    getNotifications().then(async (Notifications) => {
-      if (!Notifications) return;
-      if (typeof Notifications.addNotificationResponseReceivedListener === "function") {
-        sub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
-      }
-      if (typeof Notifications.getLastNotificationResponseAsync === "function") {
-        const response = await Notifications.getLastNotificationResponseAsync();
-        if (response) {
-          handleNotificationResponse(response);
-        }
-      }
-    });
-
-    return () => {
-      sub?.remove();
-    };
-  }, [hydrated, navigationReady]);
-
-  return (
-    <>
-      <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-      <AppLockGate />
-      <SafeNavigationLayer />
-    </>
-  );
-}
-
-function SafeNavigationLayer() {
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    setReady(true);
-  }, []);
-
-  if (!ready) return null;
-
-  return (
-    <>
-    </>
   );
 }

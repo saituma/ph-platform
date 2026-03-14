@@ -612,11 +612,29 @@ export function VideoPlayer({
   });
 
   useEffect(() => {
-    player.loop = isLooping;
+    return () => {
+      try {
+        (player as any)?.pause?.();
+      } catch {
+        // noop: player may already be released
+      }
+    };
+  }, [player]);
+
+  useEffect(() => {
+    try {
+      player.loop = isLooping;
+    } catch {
+      // player may already be released
+    }
   }, [isLooping, player]);
 
   useEffect(() => {
-    player.muted = isMuted;
+    try {
+      player.muted = isMuted;
+    } catch {
+      // player may already be released
+    }
   }, [isMuted, player]);
 
   useEffect(() => {
@@ -877,6 +895,7 @@ export function VideoPlayer({
 
       <Animated.View style={{ opacity: fadeAnim }}>
         <VideoView
+          key={normalizedUri}
           ref={videoViewRef}
           player={player}
           style={{ width: "100%" as any, height: resolvedHeight }}

@@ -38,14 +38,29 @@ function MessageVideoSurface({
   muted?: boolean;
   onDurationMs?: (durationMs: number) => void;
 }) {
-  const player = useVideoPlayer({ uri }, (instance) => {
+  const source = React.useMemo(() => ({ uri }), [uri]);
+  const player = useVideoPlayer(source, (instance) => {
     instance.loop = false;
     instance.muted = muted;
   });
 
   React.useEffect(() => {
+    return () => {
+      try {
+        (player as any)?.pause?.();
+      } catch {
+        // noop: player may already be released
+      }
+    };
+  }, [player]);
+
+  React.useEffect(() => {
     if (!nativeControls) {
-      (player as any)?.pause?.();
+      try {
+        (player as any)?.pause?.();
+      } catch {
+        // player may already be released
+      }
     }
   }, [nativeControls, player]);
 
@@ -62,6 +77,7 @@ function MessageVideoSurface({
 
   return (
     <VideoView
+      key={uri}
       player={player}
       nativeControls={nativeControls}
       contentFit={contentFit}
