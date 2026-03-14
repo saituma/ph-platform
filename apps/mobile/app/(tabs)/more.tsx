@@ -9,7 +9,7 @@ import { Shadows } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { Image, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { logout } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
@@ -51,9 +51,10 @@ export default function MoreScreen() {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Refreshed More Screen");
   };
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <View className="flex-1" style={{ paddingTop: insets.top }}>
       <ThemedScrollView
         onRefresh={handleRefresh}
         // UI polish: extra safe bottom spacing prevents cramped last actions near tab bar.
@@ -316,7 +317,7 @@ export default function MoreScreen() {
           </Text>
         </Animated.View>
       </ThemedScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

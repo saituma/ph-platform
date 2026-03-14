@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Alert, Pressable, RefreshControl, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { buildPlanPricing } from "@/lib/billing";
@@ -164,8 +164,10 @@ export default function RegisterScreen() {
     [dispatch, isPaying, planByTier, router, setValue, token],
   );
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView className="flex-1 bg-app">
+    <View className="flex-1" style={{ paddingTop: insets.top }}>
       <View className="px-6 pt-4 mb-4">
         <Pressable onPress={() => router.navigate("/(tabs)/onboarding")} className="p-2 -ml-2 self-start">
           <Feather name="arrow-left" size={24} color={colors.textSecondary} />
@@ -262,6 +264,6 @@ export default function RegisterScreen() {
           setDropdownOpen(null);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }

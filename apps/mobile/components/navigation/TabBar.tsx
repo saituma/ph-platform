@@ -1,8 +1,9 @@
+import { BlurView } from "expo-blur";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { AnimatedText } from "@/components/ScaledText";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Extrapolate,
   interpolate,
@@ -284,59 +285,70 @@ export function TabBar({
 }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const barHeight = Platform.OS === "ios" ? 68 : 72;
+  const barHeight = Platform.OS === "ios" ? 64 : 68;
   const visibleTabs = tabs
     .map((tab, index) => ({ tab, index }))
     .filter(({ tab }) => !tab.hidden);
 
   return (
     <View
+      pointerEvents="box-none"
       style={{
         backgroundColor: "transparent",
-        paddingHorizontal: 12,
-        paddingTop: 6,
-        paddingBottom: 8 + insets.bottom,
         width: "100%",
-        alignSelf: "stretch",
+        paddingBottom: 16 + insets.bottom, // Visual spacing from the bottom edge
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
       <View
         style={{
-          flexDirection: "row",
-          width: "92%",
-          alignSelf: "center",
+          width: "90%",
           height: barHeight,
-          backgroundColor: isDark
-            ? "rgba(15, 17, 21, 0.92)"
-            : "rgba(255, 255, 255, 0.96)",
           borderRadius: 32,
-          borderWidth: isDark ? 0 : 0.5,
-          borderColor: isDark
-            ? "transparent"
-            : "rgba(15, 23, 42, 0.08)",
-          justifyContent: "space-evenly",
-          alignItems: "center",
-          paddingHorizontal: 4,
-          // UI polish: avoid pure-black shadow and reduce dark-mode heaviness.
-          shadowColor: "#0F172A",
-          shadowOpacity: isDark ? 0.22 : 0.1,
-          shadowRadius: 24,
-          shadowOffset: { width: 0, height: 10 },
-          elevation: isDark ? 12 : 8,
+          overflow: "hidden",
+          // UI polish: premium shadow
+          shadowColor: "#000",
+          shadowOpacity: isDark ? 0.4 : 0.15,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: isDark ? 10 : 6,
         }}
       >
-        {visibleTabs.map(({ tab, index }) => (
-          <TabItem
-            key={tab.key}
-            tab={tab}
-            index={index}
-            activeIndex={activeIndex}
-            onTabPress={onTabPress}
-            scrollOffset={scrollOffset}
-            colors={colors}
-            isDark={isDark}
-          />
-        ))}
+        <BlurView
+          intensity={Platform.OS === "ios" ? 70 : 90}
+          tint={isDark ? "dark" : "light"}
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              flexDirection: "row",
+              // UI polish: extremely subtle backgrounds to let blur lead the aesthetic.
+              backgroundColor: isDark
+                ? "rgba(10, 10, 10, 0.4)"
+                : "rgba(255, 255, 255, 0.4)",
+              borderWidth: isDark ? 1 : 0.5,
+              borderColor: isDark
+                ? "rgba(255, 255, 255, 0.1)"
+                : "rgba(0, 0, 0, 0.05)",
+              alignItems: "center",
+              justifyContent: "space-around", // Equal spacing as requested
+              paddingHorizontal: 12,
+            }
+          ]}
+        >
+          {visibleTabs.map(({ tab, index }) => (
+            <TabItem
+              key={tab.key}
+              tab={tab}
+              index={index}
+              activeIndex={activeIndex}
+              onTabPress={onTabPress}
+              scrollOffset={scrollOffset}
+              colors={colors}
+              isDark={isDark}
+            />
+          ))}
+        </BlurView>
       </View>
     </View>
   );
