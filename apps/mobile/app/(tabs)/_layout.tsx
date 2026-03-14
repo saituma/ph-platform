@@ -52,8 +52,17 @@ export default function TabLayout() {
   const segments = useSegments();
   const { socket } = useSocket();
   const pendingNavToken = useRef(0);
+  const lastHandledNotificationRef = useRef<string | null>(null);
   const [messagesUnread, setMessagesUnread] = useState(0);
   const lastPrefetchAt = useRef(0);
+
+  if (!hydrated) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   const isOnboarding =
     segments.some((segment) => segment === "onboarding") ||
@@ -65,6 +74,58 @@ export default function TabLayout() {
       router.replace("/(tabs)/onboarding");
     }
   }, [isAuthenticated, onboardingCompleted, isOnboarding, router]);
+
+  useEffect(() => {
+    if (!hydrated || !isAuthenticated) return;
+    let sub: { remove: () => void } | null = null;
+
+    const handleNotificationResponse = (response: any) => {
+      const identifier = response?.notification?.request?.identifier;
+      if (identifier && identifier === lastHandledNotificationRef.current) return;
+      if (identifier) lastHandledNotificationRef.current = identifier;
+
+      const data = response?.notification?.request?.content?.data as
+        | { threadId?: string; type?: string; screen?: string }
+        | undefined;
+      const threadId = data?.threadId;
+      if (threadId) {
+        router.push(`/messages/${String(threadId)}`);
+        return;
+      }
+      if (data?.type === "booking" || data?.screen === "schedule") {
+        router.push("/(tabs)/schedule");
+        return;
+      }
+      if (data?.screen === "messages") {
+        router.push("/(tabs)/messages");
+        return;
+      }
+      if (data?.screen === "plans") {
+        router.push("/plans");
+        return;
+      }
+      if (data?.screen === "physio-referral" || data?.type === "physio-referral") {
+        router.push("/physio-referral");
+      }
+    };
+
+    getNotifications().then(async (Notifications) => {
+      if (!Notifications) return;
+      if (typeof Notifications.addNotificationResponseReceivedListener === "function") {
+        sub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+      }
+      if (typeof Notifications.getLastNotificationResponseAsync === "function") {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (response) {
+          handleNotificationResponse(response);
+        }
+      }
+    });
+
+    return () => {
+      sub?.remove();
+    };
+  }, [hydrated, isAuthenticated, router]);
 
   const syncUnread = useCallback(async () => {
     if (!token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) {
