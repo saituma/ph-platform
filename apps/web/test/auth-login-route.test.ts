@@ -19,7 +19,12 @@ describe("web login API route", () => {
     const req = new Request("http://localhost/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email: "coach@test.com", password: "Password123" }),
-      headers: { "Content-Type": "application/json", host: "localhost:3000" },
+      headers: {
+        "Content-Type": "application/json",
+        host: "localhost:3000",
+        cookie: "csrfToken=csrf-1",
+        "x-csrf-token": "csrf-1",
+      },
     });
 
     const res = await POST(req);
@@ -42,7 +47,7 @@ describe("web login API route", () => {
     const req = new Request("http://localhost/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email: "coach@test.com", password: "wrong" }),
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", cookie: "csrfToken=csrf-1", "x-csrf-token": "csrf-1" },
     });
 
     const res = await POST(req);

@@ -48,7 +48,13 @@ describe("requireAuth middleware", () => {
   test("attaches user to req when token is valid", async () => {
     const { requireAuth } = await import("../../src/middlewares/auth");
 
-    verifyAccessToken.mockResolvedValue({ sub: "sub-1", email: "a@b.com", name: "A", user_id: 10 });
+    verifyAccessToken.mockResolvedValue({
+      sub: "sub-1",
+      email: "a@b.com",
+      name: "A",
+      user_id: 10,
+      token_version: 1,
+    });
     getUserById.mockResolvedValue({
       id: 10,
       role: "guardian",

@@ -5,8 +5,8 @@ function SmokeComponent() {
 }
 
 describe("web test setup", () => {
-  it("renders smoke component", () => {
+  it("renders smoke component", async () => {
     render(<SmokeComponent />);
-    expect(screen.getByRole("heading", { name: "Web Test Ready" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Web Test Ready" })).toBeInTheDocument();
   });
 });

@@ -4,13 +4,13 @@ import { AppLockProvider } from "@/context/AppLockContext";
 import { ReduxProvider } from "@/store/Provider";
 import { AuthPersist } from "@/store/AuthPersist";
 import { useAppSelector } from "@/store/hooks";
-import { DarkTheme, DefaultTheme, NavigationContainerRefContext, NavigationContext } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { SplashScreen, Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useColorScheme } from "nativewind";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { LogBox, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -192,64 +192,42 @@ export default function RootLayout() {
     }
   }, [appIsReady]);
 
-  const navigationStub = useMemo(
-    () =>
-      ({
-        navigate: () => undefined,
-        goBack: () => undefined,
-        dispatch: () => undefined,
-        addListener: () => () => undefined,
-        removeListener: () => undefined,
-        reset: () => undefined,
-        canGoBack: () => false,
-        isFocused: () => true,
-        getParent: () => undefined,
-        setOptions: () => undefined,
-        getState: () => undefined,
-      }) as any,
-    []
-  );
-
   if (!appIsReady) {
     return null;
   }
 
   return (
-    <NavigationContainerRefContext.Provider value={navigationStub}>
-      <NavigationContext.Provider value={navigationStub}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <ReduxProvider>
-            <SafeAreaProvider>
-              <TabVisibilityProvider>
-                <RoleProvider>
-                  <AppLockProvider>
-                    <SocketProvider>
-                      <AppThemeProvider>
-                        <FontScaleProvider>
-                          <AgeExperienceProvider>
-                            <RefreshProvider>
-                              <GlobalRefreshLayout>
-                                <StripeProvider
-                                  publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                                  merchantIdentifier="merchant.ph.performance"
-                                >
-                                  <AuthPersist />
-                                  <AppShell colorScheme={colorScheme ?? "light"} />
-                                </StripeProvider>
-                              </GlobalRefreshLayout>
-                            </RefreshProvider>
-                          </AgeExperienceProvider>
-                        </FontScaleProvider>
-                      </AppThemeProvider>
-                    </SocketProvider>
-                  </AppLockProvider>
-                </RoleProvider>
-              </TabVisibilityProvider>
-            </SafeAreaProvider>
-          </ReduxProvider>
-        </GestureHandlerRootView>
-      </NavigationContext.Provider>
-    </NavigationContainerRefContext.Provider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ReduxProvider>
+        <SafeAreaProvider>
+          <TabVisibilityProvider>
+            <RoleProvider>
+              <AppLockProvider>
+                <SocketProvider>
+                  <AppThemeProvider>
+                    <FontScaleProvider>
+                      <AgeExperienceProvider>
+                        <RefreshProvider>
+                          <GlobalRefreshLayout>
+                            <StripeProvider
+                              publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                              merchantIdentifier="merchant.ph.performance"
+                            >
+                              <AuthPersist />
+                              <AppShell colorScheme={colorScheme ?? "light"} />
+                            </StripeProvider>
+                          </GlobalRefreshLayout>
+                        </RefreshProvider>
+                      </AgeExperienceProvider>
+                    </FontScaleProvider>
+                  </AppThemeProvider>
+                </SocketProvider>
+              </AppLockProvider>
+            </RoleProvider>
+          </TabVisibilityProvider>
+        </SafeAreaProvider>
+      </ReduxProvider>
+    </GestureHandlerRootView>
   );
 }
 

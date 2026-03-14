@@ -3,8 +3,18 @@ import type { NextRequest } from "next/server";
 
 const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 const apiBase = rawBase.replace(/\/api\/?$/, "");
+const csrfCookieName = "csrfToken";
+
+function validateCsrf(req: NextRequest) {
+  const csrfCookie = req.cookies.get(csrfCookieName)?.value ?? "";
+  const csrfHeader = req.headers.get("x-csrf-token") ?? "";
+  return csrfCookie.length > 0 && csrfCookie === csrfHeader;
+}
 
 export async function POST(req: NextRequest) {
+  if (!validateCsrf(req)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
   const refreshToken = req.cookies.get("refreshToken")?.value;
 
   if (!refreshToken) {

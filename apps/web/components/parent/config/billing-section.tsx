@@ -25,6 +25,12 @@ type PlanFormState = {
 };
 
 const BILLING_INTERVALS = ["monthly", "yearly"] as const;
+const getCsrfToken = () =>
+  document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("csrfToken="))
+    ?.split("=")[1] ?? "";
 
 function parseIntervals(value: string) {
   return new Set(
@@ -150,13 +156,17 @@ export function BillingSection() {
     setActionError(null);
     const key = plan.tier;
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(
         plan.id
           ? `/api/backend/admin/subscription-plans/${plan.id}`
           : "/api/backend/admin/subscription-plans",
         {
           method: plan.id ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
           body: JSON.stringify({
             name: plan.name,
             tier: plan.tier,
@@ -196,8 +206,10 @@ export function BillingSection() {
   const handleApprove = async (requestId: number) => {
     setActionError(null);
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/backend/admin/subscription-requests/${requestId}/approve`, {
         method: "POST",
+        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -212,8 +224,10 @@ export function BillingSection() {
   const handleReject = async (requestId: number) => {
     setActionError(null);
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/backend/admin/subscription-requests/${requestId}/reject`, {
         method: "POST",
+        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));

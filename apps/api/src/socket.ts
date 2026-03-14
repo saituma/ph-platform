@@ -21,10 +21,31 @@ async function resolveUserId(payload: AuthPayload) {
 }
 
 export function initSocket(server: HttpServer) {
+  const allowedOrigins = new Set<string>();
+  const addOrigin = (value?: string) => {
+    if (!value) return;
+    try {
+      const url = new URL(value);
+      allowedOrigins.add(url.origin);
+    } catch {
+      allowedOrigins.add(value);
+    }
+  };
+  addOrigin(env.adminWebUrl);
+  (env.corsOrigins ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .forEach(addOrigin);
+
   const io = new SocketIOServer(server, {
     cors: {
-      origin: "*",
-      credentials: false,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error("Origin not allowed"), false);
+      },
+      credentials: true,
     },
   });
   setSocketServer(io);

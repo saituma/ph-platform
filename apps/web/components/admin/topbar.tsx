@@ -153,7 +153,16 @@ export function AdminTopbar({
               className="w-full justify-start"
               onClick={async () => {
                 setProfileAction("Logging out...");
-                await fetch("/api/auth/logout", { method: "POST" });
+                const csrfToken =
+                  document.cookie
+                    .split(";")
+                    .map((part) => part.trim())
+                    .find((part) => part.startsWith("csrfToken="))
+                    ?.split("=")[1] ?? "";
+                await fetch("/api/auth/logout", {
+                  method: "POST",
+                  headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+                });
                 router.replace("/login");
               }}
             >

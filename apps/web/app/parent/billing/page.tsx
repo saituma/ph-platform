@@ -34,6 +34,12 @@ const defaultForm: PlanFormState = {
   billingInterval: "monthly",
   isActive: true,
 };
+const getCsrfToken = () =>
+  document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("csrfToken="))
+    ?.split("=")[1] ?? "";
 
 export default function ParentBillingPage() {
   const [plans, setPlans] = useState<any[]>([]);
@@ -67,13 +73,17 @@ export default function ParentBillingPage() {
   const handleSavePlan = async () => {
     setActionError(null);
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(
         editingPlanId
           ? `/api/backend/admin/subscription-plans/${editingPlanId}`
           : "/api/backend/admin/subscription-plans",
         {
           method: editingPlanId ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
           body: JSON.stringify(form),
         }
       );
@@ -105,9 +115,10 @@ export default function ParentBillingPage() {
   const handleApprove = async (requestId: number) => {
     setActionError(null);
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(
         `/api/backend/admin/subscription-requests/${requestId}/approve`,
-        { method: "POST" }
+        { method: "POST", headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined }
       );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -122,9 +133,10 @@ export default function ParentBillingPage() {
   const handleReject = async (requestId: number) => {
     setActionError(null);
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(
         `/api/backend/admin/subscription-requests/${requestId}/reject`,
-        { method: "POST" }
+        { method: "POST", headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined }
       );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));

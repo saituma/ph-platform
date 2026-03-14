@@ -232,6 +232,13 @@
       "when": 1771925505649,
       "tag": "0032_loving_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1773000000000,
+      "tag": "0033_chat_group_constraints",
+      "breakpoints": true
     }
   ]
 }

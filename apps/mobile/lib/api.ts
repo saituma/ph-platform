@@ -18,36 +18,46 @@ type ApiRequestOptions = {
 type ApiCacheEntry = { data: any; savedAt: number };
 const apiCache = new Map<string, ApiCacheEntry>();
 const ASYNC_CACHE_KEY = "ph_api_cache_v2";
+const hashString = (value: string) => {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+};
 
-let cacheHydrationPromise: Promise<void> | null = AsyncStorage.getItem(ASYNC_CACHE_KEY)
-  .then((stored: string | null) => {
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as Record<string, any>;
-        const now = Date.now();
-        for (const [key, value] of Object.entries(parsed)) {
-          if (!value || typeof value !== "object") continue;
-          const legacyExpiry = typeof value.expiry === "number" ? value.expiry : null;
-          if (legacyExpiry !== null && legacyExpiry < now) continue;
-          const data = "data" in value ? value.data : value;
-          const savedAt = typeof value.savedAt === "number" ? value.savedAt : now;
-          apiCache.set(key, { data, savedAt });
+const hydrateCache = () =>
+  Promise.resolve(AsyncStorage?.getItem?.(ASYNC_CACHE_KEY))
+    .then((stored: string | null | undefined) => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as Record<string, any>;
+          const now = Date.now();
+          for (const [key, value] of Object.entries(parsed)) {
+            if (!value || typeof value !== "object") continue;
+            const legacyExpiry = typeof value.expiry === "number" ? value.expiry : null;
+            if (legacyExpiry !== null && legacyExpiry < now) continue;
+            const data = "data" in value ? value.data : value;
+            const savedAt = typeof value.savedAt === "number" ? value.savedAt : now;
+            apiCache.set(key, { data, savedAt });
+          }
+        } catch {
+          // ignore parsing errors
         }
-      } catch {
-        // ignore parsing errors
       }
-    }
-  })
-  .catch(() => {});
+    })
+    .catch(() => {});
+
+let cacheHydrationPromise: Promise<void> | null = hydrateCache();
 
 function persistCache() {
   const obj = Object.fromEntries(apiCache.entries());
-  AsyncStorage.setItem(ASYNC_CACHE_KEY, JSON.stringify(obj)).catch(() => {});
+  Promise.resolve(AsyncStorage?.setItem?.(ASYNC_CACHE_KEY, JSON.stringify(obj))).catch(() => {});
 }
 
 export function clearApiCache() {
   apiCache.clear();
-  AsyncStorage.removeItem(ASYNC_CACHE_KEY).catch(() => {});
+  Promise.resolve(AsyncStorage?.removeItem?.(ASYNC_CACHE_KEY)).catch(() => {});
 }
 
 export function prefetchApi<T>(path: string, options: ApiRequestOptions = {}): void {
@@ -110,6 +120,7 @@ async function refreshAuthToken(normalizedBaseUrl: string): Promise<string | nul
           ? payload.refreshToken.trim()
           : refreshToken;
       await SecureStore.setItemAsync(AUTH_REFRESH_KEY, nextRefreshToken);
+      await SecureStore.setItemAsync(AUTH_TOKEN_KEY, nextToken);
 
       const state = store.getState();
       store.dispatch(
@@ -172,7 +183,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     });
 
   const method = options.method ?? "GET";
-  const cacheKey = `${resolvedToken || "anon"}:${url}`;
+  const tokenKey = resolvedToken ? hashString(resolvedToken) : "anon";
+  const cacheKey = `${tokenKey}:${url}`;
 
   const shouldReadCache = method === "GET" && !options.skipCache && !options.forceRefresh;
   if (shouldReadCache) {

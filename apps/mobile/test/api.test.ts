@@ -1,22 +1,30 @@
-const secureStore = {
+const mockSecureStore = {
   getItemAsync: jest.fn(),
   setItemAsync: jest.fn(),
 };
 
-const asyncStorage = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
+const mockAsyncStorage = {
+  getItem: jest.fn(async () => null),
+  setItem: jest.fn(async () => undefined),
+  removeItem: jest.fn(async () => undefined),
 };
 
-const storeMock = {
+const mockStore = {
   getState: jest.fn(() => ({ user: { token: null, profile: {} } })),
   dispatch: jest.fn(),
 };
 
-jest.mock("expo-secure-store", () => secureStore);
-jest.mock("@react-native-async-storage/async-storage", () => asyncStorage);
-jest.mock("@/store", () => ({ store: storeMock }));
+jest.mock("expo-secure-store", () => ({
+  __esModule: true,
+  default: mockSecureStore,
+  ...mockSecureStore,
+}));
+jest.mock("@react-native-async-storage/async-storage", () => ({
+  __esModule: true,
+  default: mockAsyncStorage,
+  ...mockAsyncStorage,
+}));
+jest.mock("@/store", () => ({ store: mockStore }));
 jest.mock("@/store/slices/userSlice", () => ({
   setCredentials: jest.fn(() => ({ type: "setCredentials" })),
 }));
@@ -24,25 +32,26 @@ jest.mock("@/store/slices/userSlice", () => ({
 describe("apiRequest", () => {
   beforeEach(() => {
     jest.resetModules();
-    secureStore.getItemAsync.mockReset();
-    secureStore.setItemAsync.mockReset();
-    asyncStorage.getItem.mockReset();
-    asyncStorage.setItem.mockReset();
-    asyncStorage.removeItem.mockReset();
-    storeMock.getState.mockClear();
-    storeMock.dispatch.mockClear();
+    mockSecureStore.getItemAsync.mockReset();
+    mockSecureStore.setItemAsync.mockReset();
+    mockAsyncStorage.getItem.mockReset();
+    mockAsyncStorage.setItem.mockReset();
+    mockAsyncStorage.removeItem.mockReset();
+    mockStore.getState.mockClear();
+    mockStore.dispatch.mockClear();
     delete (global as any).fetch;
   });
 
   test("throws when EXPO_PUBLIC_API_BASE_URL is missing", async () => {
     delete process.env.EXPO_PUBLIC_API_BASE_URL;
-    const { apiRequest } = await import("../lib/api");
+    jest.resetModules();
+    const { apiRequest } = require("../lib/api");
     await expect(apiRequest("/health")).rejects.toThrow("API base URL not configured");
   });
 
   test("caches GET responses and avoids duplicate fetch", async () => {
     process.env.EXPO_PUBLIC_API_BASE_URL = "https://example.com";
-    asyncStorage.getItem.mockResolvedValue(null);
+    mockAsyncStorage.getItem.mockResolvedValue(null);
 
     const fetchMock = jest.fn(async () => ({
       ok: true,
@@ -51,8 +60,8 @@ describe("apiRequest", () => {
     }));
     (global as any).fetch = fetchMock;
 
-    const { apiRequest } = await import("../lib/api");
-
+    jest.resetModules();
+    const { apiRequest } = require("../lib/api");
     const first = await apiRequest<{ ok: boolean; value: number }>("/ping");
     const second = await apiRequest<{ ok: boolean; value: number }>("/ping");
 

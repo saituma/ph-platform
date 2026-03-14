@@ -1,7 +1,27 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from "@reduxjs/toolkit/query";
 
-const rawBaseQuery = fetchBaseQuery({ baseUrl: "/api/backend" });
+const getCsrfToken = () => {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("csrfToken="))
+      ?.split("=")[1] ?? ""
+  );
+};
+
+const rawBaseQuery = fetchBaseQuery({
+  baseUrl: "/api/backend",
+  prepareHeaders: (headers) => {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers.set("x-csrf-token", csrfToken);
+    }
+    return headers;
+  },
+});
 
 /**
  * Wrapper that silently refreshes the access token on 401,
@@ -17,7 +37,11 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 
   if (result.error && result.error.status === 401) {
     // Try to silently refresh the access token
-    const refreshResult = await fetch("/api/auth/refresh", { method: "POST" });
+    const csrfToken = getCsrfToken();
+    const refreshResult = await fetch("/api/auth/refresh", {
+      method: "POST",
+      headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+    });
 
     if (refreshResult.ok) {
       // Retry the original request with the new token

@@ -1,14 +1,12 @@
 import { middleware } from "../middleware";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 function makeRequest(pathname: string, token?: string) {
-  const url = new URL(`http://localhost${pathname}`);
-  return {
-    nextUrl: url,
-    cookies: {
-      get: (key: string) => (key === "accessToken" && token ? { value: token } : undefined),
-    },
-  } as any;
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.cookie = `accessToken=${token}`;
+  }
+  return new NextRequest(`http://localhost${pathname}`, { headers });
 }
 
 describe("web middleware", () => {

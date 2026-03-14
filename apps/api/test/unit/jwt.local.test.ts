@@ -15,7 +15,7 @@ describe("jwt local mode", () => {
   });
 
   test("verifyAccessToken accepts a valid local token", async () => {
-    process.env.LOCAL_JWT_SECRET = "test-secret";
+    process.env.JWT_SECRET = "test-secret";
     const { createLocalToken, verifyAccessToken } = await import("../../src/lib/jwt");
 
     const token = await createLocalToken({
@@ -33,12 +33,12 @@ describe("jwt local mode", () => {
   });
 
   test("verifyAccessToken rejects tokens signed with the wrong secret", async () => {
-    process.env.LOCAL_JWT_SECRET = "secret-a";
+    process.env.JWT_SECRET = "secret-a";
     const token = await makeToken("secret-a");
 
     jest.resetModules();
     process.env.AUTH_MODE = "local";
-    process.env.LOCAL_JWT_SECRET = "secret-b";
+    process.env.JWT_SECRET = "secret-b";
 
     const { verifyAccessToken } = await import("../../src/lib/jwt");
 

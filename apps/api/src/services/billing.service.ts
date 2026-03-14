@@ -27,11 +27,11 @@ function getStripeClient() {
 }
 
 function getSuccessUrl() {
-  return env.stripeSuccessUrl || "http://localhost:3000/parent/billing?stripe=success&session_id={CHECKOUT_SESSION_ID}";
+  return env.stripeSuccessUrl;
 }
 
 function getCancelUrl() {
-  return env.stripeCancelUrl || "http://localhost:3000/parent/billing?stripe=cancel";
+  return env.stripeCancelUrl;
 }
 
 function resolveTierFallbackPrice(
@@ -492,7 +492,7 @@ export async function createPaymentSheetIntent(input: {
   };
 }
 
-export async function confirmPaymentSheetIntent(input: { paymentIntentId: string }) {
+export async function confirmPaymentSheetIntent(input: { paymentIntentId: string; userId: number }) {
   const stripeClient = getStripeClient();
   const intent = await stripeClient.paymentIntents.retrieve(input.paymentIntentId);
   const paymentStatus = intent.status ?? "unknown";
@@ -508,7 +508,12 @@ export async function confirmPaymentSheetIntent(input: { paymentIntentId: string
       status: nextStatus,
       updatedAt: new Date(),
     })
-    .where(eq(subscriptionRequestTable.stripeSessionId, input.paymentIntentId))
+    .where(
+      and(
+        eq(subscriptionRequestTable.stripeSessionId, input.paymentIntentId),
+        eq(subscriptionRequestTable.userId, input.userId)
+      )
+    )
     .returning();
 
   return { intent, request: updated[0] ?? null };
