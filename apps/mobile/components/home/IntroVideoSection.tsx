@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Image, Pressable, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useEventListener } from "expo";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { Feather } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -23,7 +23,6 @@ export function IntroVideoSection({
   const globalActiveTab = useActiveTabIndex();
   
   const [appActive, setAppActive] = useState(true);
-  const [showPlayer, setShowPlayer] = useState(false);
   const [aspectRatio, setAspectRatio] = useState(16 / 9);
 
   const isTabActive = globalActiveTab === tabIndex;
@@ -35,16 +34,10 @@ export function IntroVideoSection({
     return () => sub.remove();
   }, []);
 
-  // Hide player immediately if the tab becomes inactive
-  useEffect(() => {
-    if (!isTabActive) {
-      setShowPlayer(false);
-    }
-  }, [isTabActive]);
 
-  const shouldShowPlayer = showPlayer && appActive && isTabActive;
 
-  console.warn(`[VideoRender] currentGlobalTab:${globalActiveTab} myHardcodedTab:${tabIndex} isActive:${isTabActive}`);
+  const shouldShowPlayer = appActive && isTabActive;
+
   useEffect(() => {
     if (posterUrl) {
       Image.getSize(
@@ -57,75 +50,21 @@ export function IntroVideoSection({
     }
   }, [posterUrl]);
 
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (next) => {
-      setAppActive(next === "active");
-    });
-    return () => sub.remove();
-  }, []);
+
 
 
 
   if (!introVideoUrl) return null;
 
-  // Poster state — shown before user taps play, when backgrounded, or when tab is not active.
-  // When tab becomes inactive, we UNMOUNT the native player entirely to guarantee zero audio leak.
-  if (!shouldShowPlayer) {
-    return (
-      <Pressable
-        onPress={() => setShowPlayer(true)}
-        className="overflow-hidden rounded-[28px]"
-        style={{
-          backgroundColor: isDark ? "#0a1a10" : "#111",
-          aspectRatio,
-        }}
-      >
-        {posterUrl ? (
-          <Image
-            source={{ uri: posterUrl }}
-            className="absolute inset-0 w-full h-full"
-            resizeMode="cover"
-          />
-        ) : null}
-
-        <View
-          className="absolute inset-0"
-          style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
-        />
-
-        <View className="absolute inset-0 items-center justify-center">
-          <View
-            className="h-20 w-20 items-center justify-center rounded-full"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.15)",
-              borderWidth: 1.5,
-              borderColor: "rgba(255,255,255,0.3)",
-            }}
-          >
-            <Feather
-              name="play"
-              size={34}
-              color="#fff"
-              style={{ marginLeft: 4 }}
-            />
-          </View>
-        </View>
-
-        <View
-          className="absolute bottom-4 left-4 right-4 rounded-2xl px-4 py-3"
-          style={{
-            backgroundColor: isDark ? "rgba(6,16,10,0.7)" : "rgba(0,0,0,0.55)",
-          }}
-        >
-          <Text className="text-sm font-outfit font-semibold text-white">
-            Tap to watch the intro
-          </Text>
-        </View>
-      </Pressable>
-    );
-  }
-
-  return <ActiveVideoPlayer videoUrl={introVideoUrl} posterUrl={posterUrl} appActive={appActive} isTabActive={isTabActive} />;
+  return (
+    <ActiveVideoPlayer 
+      videoUrl={introVideoUrl} 
+      posterUrl={posterUrl} 
+      appActive={appActive} 
+      isTabActive={isTabActive} 
+      aspectRatio={aspectRatio}
+    />
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -136,20 +75,39 @@ function ActiveVideoPlayer({
   videoUrl, 
   posterUrl,
   appActive,
-  isTabActive
+  isTabActive,
+  aspectRatio = 16 / 9,
 }: { 
   videoUrl: string; 
   posterUrl?: string | null;
   appActive: boolean;
   isTabActive: boolean;
+  aspectRatio?: number;
 }) {
-  // Use the poster aspect ratio initially to avoid flashes if it's there
-  const [aspectRatio, setAspectRatio] = useState(16 / 9);
-
   const player = useVideoPlayer(videoUrl, (player) => {
     player.loop = false;
     // Attempt standard OS level constraint
     player.staysActiveInBackground = false;
+  });
+
+  const [actualRatio, setActualRatio] = useState(aspectRatio);
+  // Track if the user has explicitly started viewing. 
+  // This prevents the video from auto-playing on first landing but allows it to resume after switching tabs.
+  const [userIntentToPlay, setUserIntentToPlay] = useState(false);
+
+  useEventListener(player, 'videoTrackChange', (payload) => {
+    if (payload.videoTrack?.size) {
+      const { width, height } = payload.videoTrack.size;
+      if (width && height) {
+        setActualRatio(width / height);
+      }
+    }
+  });
+
+  useEventListener(player, 'playingChange', (payload) => {
+    if (payload.isPlaying && !userIntentToPlay) {
+      setUserIntentToPlay(true);
+    }
   });
 
   // Track app foreground/background directly within the player to guarantee a synchronous pause
@@ -169,16 +127,16 @@ function ActiveVideoPlayer({
   // We rely on the poster's Image.getSize aspect ratio and contentFit="contain"
   // to ensure the video perfectly fits its container without cropping.
 
-  // Explicit simple IF statement: if on Home tab -> play, otherwise -> pause.
+  // Explicit simple IF statement: if on Home tab AND user wants to play -> play, otherwise -> pause.
   useEffect(() => {
-    if (appActive && isTabActive) {
-      if (__DEV__) console.debug('[IntroVideo] PLAYING — appActive:', appActive, 'tabActive:', isTabActive);
+    if (appActive && isTabActive && userIntentToPlay) {
+      if (__DEV__) console.debug('[IntroVideo] PLAYING — appActive:', appActive, 'tabActive:', isTabActive, 'intent:', userIntentToPlay);
       player.play();
     } else {
-      if (__DEV__) console.debug('[IntroVideo] PAUSING — appActive:', appActive, 'tabActive:', isTabActive);
+      if (__DEV__) console.debug('[IntroVideo] PAUSING — appActive:', appActive, 'tabActive:', isTabActive, 'intent:', userIntentToPlay);
       player.pause();
     }
-  }, [appActive, player, isTabActive]);
+  }, [appActive, player, isTabActive, userIntentToPlay]);
 
   // When this component is unmounted (e.g. switched to poster),
   // aggressively pause and attempt a hard release to prevent zombie audio
@@ -197,13 +155,15 @@ function ActiveVideoPlayer({
       className="overflow-hidden rounded-[28px]"
       style={{
         backgroundColor: "#000",
+        width: "100%",
+        aspectRatio: actualRatio, // <-- Dynamically updates to exact video resolution
       }}
     >
       <VideoView
         player={player}
         nativeControls={true}
-        contentFit="contain"
-        style={{ width: "100%", aspectRatio }}
+        contentFit="cover" // <-- Changed to cover so the video perfectly fills the calculated box
+        style={{ width: "100%", height: "100%" }}
       />
     </View>
   );
