@@ -45,7 +45,7 @@ describe("apiRequest", () => {
   test("throws when EXPO_PUBLIC_API_BASE_URL is missing", async () => {
     delete process.env.EXPO_PUBLIC_API_BASE_URL;
     jest.resetModules();
-    const { apiRequest } = require("../lib/api");
+    const { apiRequest } = require("../lib/api") as typeof import("../lib/api");
     await expect(apiRequest("/health")).rejects.toThrow("API base URL not configured");
   });
 
@@ -61,7 +61,7 @@ describe("apiRequest", () => {
     (global as any).fetch = fetchMock;
 
     jest.resetModules();
-    const { apiRequest } = require("../lib/api");
+    const { apiRequest } = require("../lib/api") as typeof import("../lib/api");
     const first = await apiRequest<{ ok: boolean; value: number }>("/ping");
     const second = await apiRequest<{ ok: boolean; value: number }>("/ping");
 

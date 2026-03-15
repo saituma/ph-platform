@@ -42,6 +42,7 @@ function MessageVideoSurface({
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = false;
     instance.muted = muted;
+    instance.staysActiveInBackground = false;
   });
 
   React.useEffect(() => {

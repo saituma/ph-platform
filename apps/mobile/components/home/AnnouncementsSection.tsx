@@ -8,6 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 
@@ -85,6 +86,7 @@ const extractAnnouncements = (item: AnnouncementItem): ParsedAnnouncement => {
 export function AnnouncementsSection({ items }: AnnouncementsSectionProps) {
   const { width } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
+  const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
@@ -219,9 +221,9 @@ export function AnnouncementsSection({ items }: AnnouncementsSectionProps) {
               {parsed.videos.map((url) => (
                 <View key={url} className="overflow-hidden rounded-[24px]">
                   {isYoutubeUrl(url) ? (
-                    <YouTubeEmbed url={url} />
+                    <YouTubeEmbed url={url} shouldPlay={isFocused} />
                   ) : (
-                    <VideoPlayer uri={url} title={title} autoPlay />
+                    <VideoPlayer uri={url} title={title} autoPlay={isFocused} shouldPlay={isFocused} />
                   )}
                 </View>
               ))}

@@ -31,7 +31,7 @@ const TAB_ROUTES: TabConfig[] = [
   { key: "more", label: "More", icon: "menu", iconOutline: "menu-outline" },
 ];
 
-const TAB_COMPONENTS: Record<string, React.ComponentType> = {
+const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
   index: React.memo(HomeScreen),
   programs: React.memo(ProgramsScreen),
   messages: React.memo(MessagesScreen),
@@ -295,7 +295,8 @@ export default function TabLayout() {
 
       if (tab.key !== currentTabKey) {
         const path = tab.key === "index" ? "/(tabs)" : `/(tabs)/${tab.key}`;
-        // Avoid native flicker by not replacing the route on device.
+        
+        // Avoid native flicker and deep re-renders by not replacing the route on device.
         if (Platform.OS !== "web") {
           return;
         }
@@ -337,6 +338,7 @@ export default function TabLayout() {
   if (isOnboarding) {
     return <View style={containerStyle}><Slot /></View>;
   }
+
 
   return (
     <View style={containerStyle}>
