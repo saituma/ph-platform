@@ -1,1466 +1,559 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, AppState, Easing, Image, LayoutChangeEvent, Linking, Modal, Pressable, View, useWindowDimensions } from "react-native";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
+import {
+  View,
+  Pressable,
+  Animated,
+  AppState,
+  Image,
+  ActivityIndicator,
+  Linking,
+  Dimensions,
+  StyleSheet,
+} from "react-native";
+const absoluteFillObject = StyleSheet.absoluteFillObject;
 import { VideoView, useVideoPlayer } from "expo-video";
-import { WebView } from "react-native-webview";
+import { useEventListener } from "expo";
+import { useIsFocused } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useVideoCache } from "@/hooks/useVideoCache";
-import { useIsFocused } from "@react-navigation/native";
 import { useActiveTab } from "@/context/ActiveTabContext";
 
-const normalizeUrl = (url: string) => {
-  const trimmed = String(url ?? "").trim();
-  if (!trimmed) return trimmed;
-  if (/^(https?:|file:|content:|asset:|blob:|data:)/i.test(trimmed)) {
-    return trimmed;
-  }
-  if (trimmed.startsWith("//")) {
-    return `https:${trimmed}`;
-  }
-  return `https://${trimmed}`;
-};
+const normalizeUrl = (url: string) => String(url ?? "").trim();
 
-const sanitizeYoutubeId = (value: string | null | undefined) => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) {
-    return trimmed;
-  }
-  return null;
-};
+const isYoutubeUrl = (url?: string) =>
+  /youtube\.com|youtu\.be/i.test(normalizeUrl(url ?? ""));
 
-const getYoutubeId = (url: string) => {
-  const normalized = normalizeUrl(url);
-  try {
-    const parsed = new URL(normalized);
-    const host = parsed.hostname.toLowerCase();
-    const pathname = parsed.pathname;
-
-    if (host.includes("youtu.be")) {
-      const shortId = pathname.replace(/^\/+/, "").split("/")[0];
-      return sanitizeYoutubeId(shortId);
-    }
-
-    if (host.includes("youtube.com")) {
-      const fromQuery = parsed.searchParams.get("v");
-      if (fromQuery) return sanitizeYoutubeId(fromQuery);
-
-      const pathSegments = pathname.split("/").filter(Boolean);
-      const markerIndex = pathSegments.findIndex((segment) =>
-        ["shorts", "embed", "live", "v"].includes(segment.toLowerCase()),
-      );
-      if (markerIndex >= 0 && pathSegments[markerIndex + 1]) {
-        return sanitizeYoutubeId(pathSegments[markerIndex + 1]);
-      }
-    }
-  } catch {
-    // fallback to regex parser below
-  }
-
-  const shortMatch = normalized.match(/youtu\.be\/([^?#/]+)/i);
-  if (shortMatch) return sanitizeYoutubeId(shortMatch[1]);
-  const shortsMatch = normalized.match(/\/shorts\/([^?#/]+)/i);
-  if (shortsMatch) return sanitizeYoutubeId(shortsMatch[1]);
-  const embedMatch = normalized.match(/\/embed\/([^?#/]+)/i);
-  if (embedMatch) return sanitizeYoutubeId(embedMatch[1]);
-  const liveMatch = normalized.match(/\/live\/([^?#/]+)/i);
-  if (liveMatch) return sanitizeYoutubeId(liveMatch[1]);
-  const watchMatch = normalized.match(/[?&]v=([^&#]+)/i);
-  if (watchMatch) return sanitizeYoutubeId(watchMatch[1]);
-  return null;
-};
-
-const parseYoutubeStartSeconds = (url: string) => {
-  const normalized = normalizeUrl(url);
-  const startMatch = normalized.match(/[?&](?:t|start)=([^&#]+)/i);
-  if (!startMatch) return null;
-  const raw = decodeURIComponent(startMatch[1] ?? "").trim().toLowerCase();
-  if (!raw) return null;
-  if (/^\d+$/.test(raw)) {
-    const value = Number(raw);
-    return Number.isFinite(value) && value > 0 ? value : null;
-  }
-  const parts = raw.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/i);
-  if (!parts) return null;
-  const hours = Number(parts[1] ?? 0);
-  const minutes = Number(parts[2] ?? 0);
-  const seconds = Number(parts[3] ?? 0);
-  const total = hours * 3600 + minutes * 60 + seconds;
-  return total > 0 ? total : null;
-};
-
-const getYoutubeWatchUrl = (videoId: string, url: string, mobile = false) => {
-  const start = parseYoutubeStartSeconds(url);
-  const params = [`v=${videoId}`, "playsinline=1"];
-  if (start) {
-    params.push(`t=${start}s`);
-  }
-  const host = mobile ? "m.youtube.com" : "www.youtube.com";
-  return `https://${host}/watch?${params.join("&")}`;
-};
-
-export const isYoutubeUrl = (url?: string) => {
-  if (!url) return false;
-  const normalized = normalizeUrl(url);
-  return /youtube\.com|youtu\.be/i.test(normalized);
-};
-
-const getResolutionLabel = (width: number, height: number) => {
-  const maxSide = Math.max(width, height);
-  if (maxSide >= 3840) return "4K";
-  if (maxSide >= 1920) return "FHD";
-  if (maxSide >= 1280) return "HD";
-  if (maxSide >= 854) return "SD";
-  return "Video";
-};
-
-export function YouTubeEmbed({ url, immersive = false, shouldPlay = true }: { url: string; immersive?: boolean; shouldPlay?: boolean }) {
-  const { colors, isDark } = useAppTheme();
-  const navFocused = useIsFocused();
-  const { activeTabIndex, currentTabIndex } = useActiveTab();
-  const isTabActive = activeTabIndex === currentTabIndex;
-  const [appActive, setAppActive] = useState(true);
-  const effectiveShouldPlay = shouldPlay && navFocused && isTabActive && appActive;
-  const webViewRef = useRef<WebView>(null);
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const videoId = useMemo(() => getYoutubeId(url), [url]);
-  const watchUrls = useMemo(() => {
-    if (!videoId) return [] as string[];
-    return [
-      getYoutubeWatchUrl(videoId, url, false),
-      getYoutubeWatchUrl(videoId, url, true),
-    ];
-  }, [videoId, url]);
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const [webError, setWebError] = useState(false);
-  const [isWebLoading, setIsWebLoading] = useState(true);
-  const [isFullscreenLoading, setIsFullscreenLoading] = useState(true);
-  const [hasInitialLoadFinished, setHasInitialLoadFinished] = useState(false);
-  const [hasFullscreenLoadFinished, setHasFullscreenLoadFinished] = useState(false);
-  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
-  const [fullscreenRotation, setFullscreenRotation] = useState(0);
-  const [playerWidth, setPlayerWidth] = useState(0);
-  const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
-
-  // Pause YouTube WebView playback when the app is backgrounded
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (nextState) => {
-      setAppActive(nextState === "active");
-    });
-    return () => sub.remove();
-  }, []);
-
-  const stopWebPlayback = useCallback(() => {
-    try {
-      webViewRef.current?.injectJavaScript(`
-        (function() {
-          try {
-            var videos = document.querySelectorAll('video');
-            for (var i = 0; i < videos.length; i++) {
-              videos[i].pause();
-              videos[i].muted = true;
-            }
-          } catch (e) {}
-        })();
-        true;
-      `);
-      webViewRef.current?.stopLoading?.();
-    } catch {
-      // ignore failures when WebView is already torn down
-    }
-  }, []);
-
-  useEffect(() => {
-    setSourceIndex(0);
-    setWebError(false);
-    setIsWebLoading(true);
-    setIsFullscreenLoading(true);
-    setHasInitialLoadFinished(false);
-    setHasFullscreenLoadFinished(false);
-    setIsFullscreenOpen(false);
-    setFullscreenRotation(0);
-    setVideoAspectRatio(null);
-  }, [watchUrls]);
-
-  const activeUrl = watchUrls[sourceIndex] ?? null;
-
-  const onPlayerLayout = useCallback((event: LayoutChangeEvent) => {
-    setPlayerWidth(event.nativeEvent.layout.width);
-  }, []);
-
-  useEffect(() => {
-    if (!effectiveShouldPlay) {
-      if (__DEV__) console.debug('[YouTubeEmbed] PAUSING — shouldPlay:', shouldPlay, 'navFocused:', navFocused, 'isTabActive:', isTabActive, 'appActive:', appActive);
-      stopWebPlayback();
-      setIsFullscreenOpen(false);
-    } else if (effectiveShouldPlay && hasInitialLoadFinished) {
-      if (__DEV__) console.debug('[YouTubeEmbed] RESUMING — injecting play command');
-      webViewRef.current?.injectJavaScript(`
-        (function() {
-          var video = document.querySelector('video');
-          if (video) video.play();
-        })();
-        true;
-      `);
-    }
-  }, [effectiveShouldPlay, hasInitialLoadFinished, stopWebPlayback, shouldPlay, navFocused, isTabActive, appActive]);
-
-  useEffect(() => {
-    return () => {
-      stopWebPlayback();
-    };
-  }, [stopWebPlayback]);
-
-  const resolvedAspectRatio = useMemo(() => {
-    if (videoAspectRatio && Number.isFinite(videoAspectRatio) && videoAspectRatio > 0.4 && videoAspectRatio < 3.5) {
-      return videoAspectRatio;
-    }
-    return 16 / 9;
-  }, [videoAspectRatio]);
-
-  const resolvedHeight = useMemo(() => {
-    if (!playerWidth) return 360;
-    const calculated = Math.round(playerWidth / resolvedAspectRatio);
-    if (resolvedAspectRatio >= 1) {
-      return Math.max(340, Math.min(760, calculated));
-    }
-    return Math.max(520, Math.min(920, calculated));
-  }, [playerWidth, resolvedAspectRatio]);
-
-  const shouldRotateFullscreen = useMemo(() => {
-    return resolvedAspectRatio > 1.01 && screenHeight >= screenWidth;
-  }, [resolvedAspectRatio, screenHeight, screenWidth]);
-
-  const isFullscreenRotated = fullscreenRotation % 180 !== 0;
-  const videoQualityLabel = useMemo(() => {
-    if (!videoAspectRatio) return "Adaptive";
-    return resolvedAspectRatio >= 1.7 ? "Widescreen" : "Portrait";
-  }, [resolvedAspectRatio, videoAspectRatio]);
-  const panelColor = immersive ? "transparent" : isDark ? colors.cardElevated : "#F7FFF9";
-  const chromeColor = isDark ? "rgba(12,28,18,0.82)" : "rgba(255,255,255,0.88)";
-  const overlayColor = isDark ? "rgba(16,33,22,0.72)" : "rgba(15,23,42,0.22)";
-
-  const tryNextSource = useCallback(() => {
-    if (sourceIndex < watchUrls.length - 1) {
-      setSourceIndex((prev) => prev + 1);
-      setWebError(false);
-      setIsWebLoading(true);
-      setIsFullscreenLoading(true);
-      setHasInitialLoadFinished(false);
-      setHasFullscreenLoadFinished(false);
-      return true;
-    }
-    return false;
-  }, [sourceIndex, watchUrls.length]);
-
-  const handleWebViewMessage = useCallback((event: any) => {
-    const raw = String(event?.nativeEvent?.data ?? "");
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      const type = String(parsed?.type ?? "");
-      if (type === "video-failed") {
-        if (!tryNextSource()) {
-          setWebError(true);
-          setIsWebLoading(false);
-          setIsFullscreenLoading(false);
-        }
-        return;
-      }
-      if (type !== "video-size") return;
-      const width = Number(parsed?.width ?? 0);
-      const height = Number(parsed?.height ?? 0);
-      if (width > 0 && height > 0) {
-        const ratio = width / height;
-        if (Number.isFinite(ratio) && ratio > 0.4 && ratio < 3.5) {
-          setVideoAspectRatio((prev) => (prev && Math.abs(prev - ratio) < 0.01 ? prev : ratio));
-        }
-      }
-    } catch {
-      // ignore malformed payloads
-    }
-  }, [tryNextSource]);
-
-  const injectedResolutionScript = useMemo(() => `
-    (function() {
-      function post(type, payload) {
-        try {
-          if (!window.ReactNativeWebView || !window.ReactNativeWebView.postMessage) return;
-          var message = payload ? Object.assign({ type: type }, payload) : { type: type };
-          window.ReactNativeWebView.postMessage(JSON.stringify(message));
-        } catch (e) {}
-      }
-      function applyMinimalWatchUi() {
-        try {
-          var styleId = '__rn_yt_watch_minimal_ui__';
-          if (!document.getElementById(styleId)) {
-            var style = document.createElement('style');
-            style.id = styleId;
-            style.textContent = ''
-              + 'ytm-mobile-topbar-renderer, ytm-pivot-bar-renderer, ytm-searchbox, ytm-slim-video-metadata-section-renderer, ytm-slim-owner-renderer, ytm-video-action-bar-renderer, ytm-item-section-renderer, ytm-comment-section-renderer, ytm-watch-next-secondary-results-renderer, ytm-merch-shelf-renderer, #comments, #related { display: none !important; }'
-              + 'html, body { background: #000 !important; }'
-              + '#player-container-id, #player-container, #player { margin: 0 !important; }';
-            document.head.appendChild(style);
-          }
-        } catch (e) {}
-      }
-      function sendVideoSize() {
-        try {
-          var video = document.querySelector('video');
-          if (!video) return;
-          var width = Number(video.videoWidth || 0);
-          var height = Number(video.videoHeight || 0);
-          if (width > 0 && height > 0) {
-            post('video-size', { width: width, height: height });
-          }
-        } catch (e) {}
-      }
-      function detectFailure() {
-        try {
-          var txt = ((document.body && document.body.innerText) || '').toLowerCase();
-          if (!txt) return;
-          if (
-            txt.indexOf('configuration error') >= 0 ||
-            txt.indexOf('video unavailable') >= 0 ||
-            txt.indexOf('video is unavailable') >= 0
-          ) {
-            post('video-failed');
-          }
-        } catch (e) {}
-      }
-      applyMinimalWatchUi();
-      sendVideoSize();
-      document.addEventListener('DOMContentLoaded', applyMinimalWatchUi, true);
-      document.addEventListener('readystatechange', applyMinimalWatchUi, true);
-      document.addEventListener('loadedmetadata', sendVideoSize, true);
-      document.addEventListener('play', sendVideoSize, true);
-      setTimeout(function() { applyMinimalWatchUi(); sendVideoSize(); }, 700);
-      setTimeout(function() { applyMinimalWatchUi(); sendVideoSize(); }, 1700);
-      setTimeout(detectFailure, 1800);
-      setTimeout(detectFailure, 3600);
-      setInterval(sendVideoSize, 1500);
-      setInterval(detectFailure, 2500);
-    })();
-    true;
-  `, []);
-
-  if (!videoId) {
-    return (
-      <View className="rounded-2xl border border-app/10 bg-input px-4 py-4">
-        <Text className="text-sm font-outfit text-secondary">Invalid or unsupported YouTube link.</Text>
-      </View>
-    );
-  }
-
-  const handleOpenYoutube = async () => {
-    try {
-      await Linking.openURL(normalizeUrl(url));
-    } catch {
-      // ignore
-    }
-  };
-
+export function YouTubeEmbed({
+  url,
+  immersive = false,
+  shouldPlay = true,
+}: {
+  url: string;
+  immersive?: boolean;
+  shouldPlay?: boolean;
+}) {
+  const { colors } = useAppTheme();
   return (
-    <View
-      className={`overflow-hidden border border-app/10 w-full ${immersive ? "rounded-none" : "rounded-[24px]"}`}
-      style={{ backgroundColor: panelColor, borderWidth: immersive ? 0 : 1 }}
-    >
-      <View
-        className="overflow-hidden w-full"
-        style={{ height: resolvedHeight }}
-        onLayout={onPlayerLayout}
-      >
-        {activeUrl && !webError ? (
-          <>
-            {effectiveShouldPlay ? (
-              <WebView
-                ref={webViewRef}
-                source={{ uri: activeUrl }}
-                originWhitelist={["*"]}
-                javaScriptEnabled
-                domStorageEnabled
-                mediaPlaybackRequiresUserAction={false}
-                allowsInlineMediaPlayback
-                allowsFullscreenVideo
-                thirdPartyCookiesEnabled
-                mixedContentMode="always"
-                setSupportMultipleWindows={false}
-                injectedJavaScriptBeforeContentLoaded={injectedResolutionScript}
-                injectedJavaScript={injectedResolutionScript}
-                startInLoadingState={false}
-                onLoadStart={() => {
-                  if (!hasInitialLoadFinished) {
-                    setIsWebLoading(true);
-                  }
-                }}
-                onLoadEnd={() => {
-                  setIsWebLoading(false);
-                  if (!hasInitialLoadFinished) {
-                    setHasInitialLoadFinished(true);
-                  }
-                }}
-                onMessage={handleWebViewMessage}
-                onError={() => {
-                  if (!tryNextSource()) {
-                    setIsWebLoading(false);
-                    setWebError(true);
-                  }
-                }}
-                onHttpError={() => {
-                  if (!tryNextSource()) {
-                    setIsWebLoading(false);
-                    setWebError(true);
-                  }
-                }}
-                style={{ flex: 1, backgroundColor: panelColor }}
-              />
-            ) : (
-              <View style={{ flex: 1, backgroundColor: isDark ? "#0a1a10" : "#111" }} />
-            )}
-            {isWebLoading ? (
-              <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: overlayColor }}>
-                <View className="rounded-full px-4 py-2 flex-row items-center gap-2" style={{ backgroundColor: chromeColor }}>
-                  <ActivityIndicator color={colors.accent} size="small" />
-                  <Text className="text-xs font-outfit" style={{ color: colors.text }}>Loading video…</Text>
-                </View>
-              </View>
-            ) : null}
-            {!immersive ? (
-              <View className="absolute top-3 left-3 flex-row items-center gap-2">
-                <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
-                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                    {videoQualityLabel}
-                  </Text>
-                </View>
-                <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
-                  <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
-                    Best available quality
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-            <Pressable
-              onPress={handleOpenYoutube}
-              className="absolute top-3 right-3 h-11 w-11 rounded-full items-center justify-center border"
-              style={({ pressed }) => ({
-                backgroundColor: chromeColor,
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
-                opacity: pressed ? 0.85 : 1,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              })}
-              accessibilityLabel="Open in YouTube"
-            >
-              <Feather name="external-link" size={17} color={colors.accent} />
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setFullscreenRotation(shouldRotateFullscreen ? 90 : 0);
-                setIsFullscreenLoading(true);
-                setIsFullscreenOpen(true);
-              }}
-              className="absolute bottom-3 right-3 h-11 w-11 rounded-full items-center justify-center border"
-              style={({ pressed }) => ({
-                backgroundColor: chromeColor,
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
-                opacity: pressed ? 0.85 : 1,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              })}
-              accessibilityLabel="Open fullscreen"
-            >
-              <Feather name="maximize" size={17} color={colors.accent} />
-            </Pressable>
-          </>
-        ) : (
-          <View className="flex-1 items-center justify-center px-4">
-            <View className="h-10 w-10 rounded-full items-center justify-center mb-3" style={{ backgroundColor: chromeColor }}>
-              <Feather name="alert-triangle" size={18} color={colors.accent} />
-            </View>
-            <Text className="text-sm font-outfit text-center mb-3" style={{ color: colors.text }}>
-              Unable to play this video in-app.
-            </Text>
-            <Pressable
-              onPress={handleOpenYoutube}
-              className="rounded-full px-4 py-2 border"
-              style={({ pressed }) => ({
-                backgroundColor: chromeColor,
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
-                opacity: pressed ? 0.85 : 1,
-              })}
-            >
-              <Text className="text-xs font-outfit" style={{ color: colors.accent }}>Open in YouTube</Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
-
-      <Modal
-        visible={isFullscreenOpen}
-        transparent={false}
-        animationType="fade"
-        onRequestClose={() => setIsFullscreenOpen(false)}
-        supportedOrientations={["portrait", "landscape"]}
-      >
-        <View className="flex-1 items-center justify-center" style={{ backgroundColor: isDark ? "#102116" : colors.background }}>
-          {activeUrl ? (
-            <View
-              style={
-                isFullscreenRotated
-                  ? {
-                      width: screenHeight,
-                      height: screenWidth,
-                      transform: [{ rotate: `${fullscreenRotation}deg` }],
-                    }
-                  : { width: "100%", height: "100%", transform: [{ rotate: `${fullscreenRotation}deg` }] }
-              }
-            >
-              <WebView
-                source={{ uri: activeUrl }}
-                originWhitelist={["*"]}
-                javaScriptEnabled
-                domStorageEnabled
-                mediaPlaybackRequiresUserAction={false}
-                allowsInlineMediaPlayback
-                allowsFullscreenVideo
-                thirdPartyCookiesEnabled
-                mixedContentMode="always"
-                setSupportMultipleWindows={false}
-                injectedJavaScriptBeforeContentLoaded={injectedResolutionScript}
-                injectedJavaScript={injectedResolutionScript}
-                onLoadStart={() => {
-                  if (!hasFullscreenLoadFinished) {
-                    setIsFullscreenLoading(true);
-                  }
-                }}
-                onLoadEnd={() => {
-                  setIsFullscreenLoading(false);
-                  if (!hasFullscreenLoadFinished) {
-                    setHasFullscreenLoadFinished(true);
-                  }
-                }}
-                onMessage={handleWebViewMessage}
-                onError={() => {
-                  if (!tryNextSource()) {
-                    setIsFullscreenLoading(false);
-                  }
-                }}
-                onHttpError={() => {
-                  if (!tryNextSource()) {
-                    setIsFullscreenLoading(false);
-                  }
-                }}
-                style={{ flex: 1, backgroundColor: isDark ? "#102116" : colors.background }}
-              />
-            </View>
-          ) : null}
-          {isFullscreenLoading ? (
-            <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: overlayColor }}>
-              <View className="rounded-full px-4 py-2 flex-row items-center gap-2" style={{ backgroundColor: chromeColor }}>
-                <ActivityIndicator color={colors.accent} size="small" />
-                <Text className="text-xs font-outfit" style={{ color: colors.text }}>Loading video…</Text>
-              </View>
-            </View>
-          ) : null}
-          <Pressable
-            onPress={() => setFullscreenRotation((prev) => (prev + 90) % 360)}
-            className="absolute top-12 left-4 h-12 w-12 rounded-full items-center justify-center border"
-            style={({ pressed }) => ({
-              backgroundColor: chromeColor,
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
-              opacity: pressed ? 0.85 : 1,
-              transform: [{ scale: pressed ? 0.96 : 1 }],
-            })}
-            accessibilityLabel="Rotate fullscreen video"
-          >
-            <Feather name="rotate-cw" size={20} color={colors.accent} />
-          </Pressable>
-          <Pressable
-            onPress={() => setIsFullscreenOpen(false)}
-            className="absolute top-12 right-4 h-12 w-12 rounded-full items-center justify-center border"
-            style={({ pressed }) => ({
-              backgroundColor: chromeColor,
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
-              opacity: pressed ? 0.85 : 1,
-              transform: [{ scale: pressed ? 0.96 : 1 }],
-            })}
-            accessibilityLabel="Close fullscreen"
-          >
-            <Feather name="x" size={20} color={colors.accent} />
-          </Pressable>
-        </View>
-      </Modal>
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      <Text style={{ color: "white", textAlign: "center", padding: 20 }}>
+        YouTube embed placeholder
+      </Text>
+      <Pressable onPress={() => Linking.openURL(url)}>
+        <Text style={{ color: colors.accent, textAlign: "center" }}>
+          Open in YouTube
+        </Text>
+      </Pressable>
     </View>
   );
 }
 
-export function VideoPlayer({
-  uri,
-  title,
-  autoPlay = false,
-  initialMuted = false,
-  isLooping = false,
-  posterUri,
-  height = 220,
-  useVideoResolution = true,
-  immersive = false,
-  cinematic = false,
-  shouldPlay = true,
-}: {
+interface VideoPlayerProps {
   uri: string;
-  title?: string;
+  height?: number;
   autoPlay?: boolean;
   initialMuted?: boolean;
   isLooping?: boolean;
-  posterUri?: string | null;
-  height?: number;
   useVideoResolution?: boolean;
+  maxHeightRatio?: number;
+  showLoadingOverlay?: boolean;
+  ignoreTabFocus?: boolean;
+  contentFitOverride?: "cover" | "contain";
+  previewOnly?: boolean;
+  onPreviewPress?: () => void;
+  hideTopChrome?: boolean;
+  hideControls?: boolean;
+  disableCache?: boolean;
+  cacheKey?: string;
+  hideCenterControls?: boolean;
+  posterUri?: string | null;
   immersive?: boolean;
   cinematic?: boolean;
   shouldPlay?: boolean;
-}) {
+  title?: string;
+  initialAspectRatio?: number;
+  isVisible?: boolean;
+  pauseOthers?: () => void;
+}
+
+export function VideoPlayer({
+  uri,
+  height = 200,
+  autoPlay = false,
+  initialMuted = true,
+  isLooping = true,
+  useVideoResolution = false,
+  maxHeightRatio = 0.8,
+  showLoadingOverlay = true,
+  ignoreTabFocus = false,
+  contentFitOverride,
+  previewOnly = false,
+  onPreviewPress,
+  hideTopChrome = false,
+  hideControls = false,
+  disableCache = false,
+  cacheKey,
+  hideCenterControls = false,
+  posterUri,
+  immersive = false,
+  cinematic = false,
+  shouldPlay: propShouldPlay = true,
+  title,
+  initialAspectRatio,
+  isVisible = true,
+  pauseOthers,
+}: VideoPlayerProps) {
   const { colors, isDark } = useAppTheme();
   const navFocused = useIsFocused();
   const { activeTabIndex, currentTabIndex } = useActiveTab();
   const isTabActive = activeTabIndex === currentTabIndex;
-  const [appActive, setAppActive] = useState(true);
-  const effectiveShouldPlay = shouldPlay && navFocused && isTabActive && appActive;
 
-  // Pause video when the app is backgrounded (OS tab switch / home button)
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (nextState) => {
-      setAppActive(nextState === "active");
-    });
-    return () => sub.remove();
-  }, []);
-  const videoViewRef = useRef<any>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const controlsOpacity = useRef(new Animated.Value(1)).current;
-  const hasFadeInRef = useRef(false);
-  const pendingPlayRef = useRef(false);
-  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const playRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastPositionRef = useRef(0);
-  const stallMsRef = useRef(0);
-  const resolutionRatioRef = useRef<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isBuffering, setIsBuffering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState(initialMuted);
-  const [isPlaying, setIsPlaying] = useState(autoPlay);
-  const [positionSec, setPositionSec] = useState(0);
-  const [durationSec, setDurationSec] = useState(0);
-  const [hasPlaybackRequest, setHasPlaybackRequest] = useState(autoPlay);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [showControls, setShowControls] = useState(true);
-  const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
-  const [videoResolution, setVideoResolution] = useState<{ width: number; height: number } | null>(null);
-  const normalizedUri = useMemo(() => normalizeUrl(uri), [uri]);
-  const isYoutube = useMemo(() => isYoutubeUrl(normalizedUri), [normalizedUri]);
-  const { cachedUri } = useVideoCache(isYoutube ? null : normalizedUri);
-  const finalVideoUri = cachedUri || normalizedUri;
+  const [appActive, setAppActive] = useState(
+    AppState.currentState === "active",
+  );
 
-  const toggleControls = useCallback(() => {
-    const nextValue = !showControls;
-    setShowControls(nextValue);
-    Animated.timing(controlsOpacity, {
-      toValue: nextValue ? 1 : 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+  const effectiveShouldPlay =
+    propShouldPlay &&
+    (ignoreTabFocus || (navFocused && isTabActive)) &&
+    appActive &&
+    isVisible;
 
-    if (nextValue) {
-      resetControlsTimer();
-    }
-  }, [showControls, controlsOpacity]);
+  const normalizedUri = normalizeUrl(uri);
+  const isYoutube = isYoutubeUrl(normalizedUri);
+  const { cachedUri } = useVideoCache(
+    disableCache || isYoutube ? null : normalizedUri,
+    cacheKey,
+  );
+  const finalUri = disableCache ? normalizedUri : cachedUri || normalizedUri;
 
-  const resetControlsTimer = useCallback(() => {
-    if (controlsTimerRef.current) {
-      clearTimeout(controlsTimerRef.current);
-    }
-    if (!showControls) {
-      setShowControls(true);
-      Animated.timing(controlsOpacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    }
-    controlsTimerRef.current = setTimeout(() => {
-      setShowControls(false);
-      Animated.timing(controlsOpacity, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }).start();
-    }, 2500);
-  }, [showControls, controlsOpacity]);
-
-  useEffect(() => {
-    if (cinematic && isPlaying) {
-      resetControlsTimer();
-    }
-    return () => {
-      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-    };
-  }, [cinematic, isPlaying, resetControlsTimer]);
-  const chromeColor = isDark ? "rgba(12,28,18,0.82)" : "rgba(255,255,255,0.9)";
-  const overlayColor = isDark ? "rgba(16,33,22,0.64)" : "rgba(15,23,42,0.18)";
-  const frameBackground = immersive ? (isDark ? "#09110c" : "#08140d") : colors.cardElevated;
-  const frameBorderColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(5,46,22,0.08)";
-  const controlSurfaceColor = immersive
-    ? isDark
-      ? "rgba(6,16,10,0.84)"
-      : "rgba(255,255,255,0.92)"
-    : chromeColor;
-  const heroBadgeColor = isDark ? "rgba(12,28,18,0.74)" : "rgba(255,255,255,0.86)";
-  const qualityLabel = useMemo(() => {
-    if (!videoResolution) return "Adaptive";
-    return `${getResolutionLabel(videoResolution.width, videoResolution.height)} · ${videoResolution.width}×${videoResolution.height}`;
-  }, [videoResolution]);
-  const fitMode = useMemo(() => {
-    if (cinematic) return "cover" as const;
-    if (useVideoResolution) return "contain" as const;
-    if (videoAspectRatio && videoAspectRatio < 1) return "contain" as const;
-    return "cover" as const;
-  }, [useVideoResolution, videoAspectRatio, cinematic]);
-  const triggerFadeIn = useCallback(() => {
-    if (hasFadeInRef.current) return;
-    hasFadeInRef.current = true;
-    setIsLoading(false);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
-
-  const source = useMemo(() => ({ uri: finalVideoUri }), [finalVideoUri]);
-  const player = useVideoPlayer(source, (instance) => {
+  const player = useVideoPlayer({ uri: finalUri }, (instance) => {
     instance.loop = isLooping;
     instance.muted = initialMuted;
     instance.staysActiveInBackground = false;
-    if (autoPlay) {
-      instance.play();
-    }
+    if (autoPlay && effectiveShouldPlay) instance.play();
   });
 
-  // Track app foreground/background directly within the player to guarantee a synchronous pause
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (next) => {
-      // The moment the OS signals a background state, aggressively pause the actual native player
-      // synchronously before the JS thread gets entirely suspended by the OS.
-      if (next !== "active") {
-        try {
-          player.pause();
-        } catch {}
-      }
-    });
-    return () => sub.remove();
+  const videoRef = useRef<VideoView>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const [isPlaying, setIsPlaying] = useState(autoPlay);
+  const [isMuted, setIsMuted] = useState(initialMuted);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [duration, setDuration] = useState(0);
+  const [position, setPosition] = useState(0);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(
+    initialAspectRatio ?? null,
+  );
+  const [resolution, setResolution] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const { width: screenWidth, height: screenHeight } =
+    Dimensions.get("window");
+  const releasedRef = useRef(false);
+
+  const safePause = useCallback(() => {
+    if (releasedRef.current) return;
+    try {
+      player.pause();
+    } catch {
+      // Ignore errors from released native instances.
+    }
+  }, [player]);
+
+  const safePlay = useCallback(() => {
+    if (releasedRef.current) return;
+    try {
+      player.play();
+    } catch {
+      // Ignore errors from released native instances.
+    }
+  }, [player]);
+
+  const safeGetTimeInfo = useCallback(() => {
+    if (releasedRef.current) return { currentTime: 0, duration: 0 };
+    try {
+      return {
+        currentTime: player.currentTime ?? 0,
+        duration: player.duration ?? 0,
+      };
+    } catch {
+      return { currentTime: 0, duration: 0 };
+    }
   }, [player]);
 
   useEffect(() => {
     return () => {
-      try {
-        (player as any)?.pause?.();
-        try {
-          (player as any).muted = true;
-        } catch {
-          // ignore mute failures during teardown
-        }
-        try {
-          if (typeof (player as any)?.seekTo === "function") {
-            (player as any).seekTo(0);
-          } else if (typeof (player as any)?.currentTime === "number") {
-            (player as any).currentTime = 0;
-          }
-        } catch {
-          // ignore seek failures during teardown
-        }
-        // Fully release the player to guarantee no lingering audio
-        try {
-          (player as any)?.release?.();
-        } catch {
-          // ignore if already released
-        }
-      } catch {
-        // noop: player may already be released
-      }
-    };
-  }, [player]);
-
-  useEffect(() => {
-    try {
-      player.loop = isLooping;
-    } catch {
-      // player may already be released
-    }
-  }, [isLooping, player]);
-
-  useEffect(() => {
-    if (!effectiveShouldPlay) {
-      if (__DEV__) console.debug('[VideoPlayer] PAUSING — shouldPlay:', shouldPlay, 'navFocused:', navFocused, 'isTabActive:', isTabActive, 'appActive:', appActive);
-      try {
-        player.pause();
-      } catch {
-        // player may already be released
-      }
+      safePause();
       try {
         player.muted = true;
       } catch {
-        // noop
+        // Ignore errors from released native instances.
       }
-      setHasPlaybackRequest(false);
-      setIsPlaying(false);
-    } else if (effectiveShouldPlay && hasPlaybackRequest) {
-      if (__DEV__) console.debug('[VideoPlayer] RESUMING — unmuting and playing');
-      try {
-        player.muted = isMuted;
-      } catch {
-        // noop
-      }
-      player.play();
-    }
-  }, [effectiveShouldPlay, player, hasPlaybackRequest, isMuted, shouldPlay, navFocused, isTabActive, appActive]);
-
-  useEffect(() => {
-    try {
-      player.muted = isMuted;
-    } catch {
-      // player may already be released
-    }
-  }, [isMuted, player]);
-
-  useEffect(() => {
-    setIsLoading(true);
-    setError(null);
-    setPositionSec(0);
-    setDurationSec(0);
-    setIsBuffering(false);
-    setHasPlaybackRequest(autoPlay);
-    hasFadeInRef.current = false;
-    fadeAnim.setValue(0);
-    lastPositionRef.current = 0;
-    stallMsRef.current = 0;
-    pendingPlayRef.current = false;
-    resolutionRatioRef.current = null;
-    setVideoAspectRatio(null);
-    setVideoResolution(null);
-  }, [autoPlay, fadeAnim, normalizedUri]);
-
-  useEffect(() => {
-    return () => {
-      if (playRetryTimeoutRef.current) {
-        clearTimeout(playRetryTimeoutRef.current);
-      }
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
+      if (!releasedRef.current && "release" in player) {
+        try {
+          (player as any).release?.();
+        } catch {
+          // Ignore double-release errors.
+        } finally {
+          releasedRef.current = true;
+        }
       }
     };
-  }, []);
+  }, [player, safePause]);
 
   useEffect(() => {
-    if (loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
-      loadTimeoutRef.current = null;
+    const sub = AppState.addEventListener("change", (next) => {
+      setAppActive(next === "active");
+      if (next !== "active") safePause();
+    });
+    return () => sub.remove();
+  }, [safePause]);
+
+  useEffect(() => {
+    if (!effectiveShouldPlay || !isVisible) {
+      safePause();
+      setIsPlaying(false);
+    } else {
+      if (pauseOthers) pauseOthers();
+      safePlay();
+      setIsPlaying(true);
     }
-    if (error || isPlaying || durationSec > 0 || !hasPlaybackRequest) {
+  }, [effectiveShouldPlay, isVisible, pauseOthers, safePause, safePlay]);
+
+  useEventListener(player, "videoTrackChange", (e) => {
+    const w = e.videoTrack?.size?.width ?? 0;
+    const h = e.videoTrack?.size?.height ?? 0;
+    if (w > 0 && h > 0) {
+      setResolution({ width: w, height: h });
+      setAspectRatio(w / h);
+    }
+  });
+
+  useEventListener(player, "statusChange", (e) => {
+    const status = e.status;
+    if (status === "readyToPlay") {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+      setIsLoading(false);
+    }
+    if (status === "error") {
+      setError("Unable to play video. Tap to open externally.");
+      setIsLoading(false);
+    }
+    // Buffering is inferred from status === 'loading' or long 'loading' duration
+    // Removed invalid string comparison → no more TS error
+    setIsBuffering(status === "loading");
+  });
+
+  useEventListener(player, "playingChange", (e) =>
+    setIsPlaying(e.isPlaying ?? false),
+  );
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const { currentTime, duration } = safeGetTimeInfo();
+      setPosition(currentTime);
+      setDuration(duration);
+    }, 400);
+    return () => clearInterval(id);
+  }, [safeGetTimeInfo]);
+
+  useEffect(() => {
+    if (posterUri && !aspectRatio) {
+      Image.getSize(
+        posterUri,
+        (w, h) => setAspectRatio(w / h),
+        () => {},
+      );
+    }
+  }, [posterUri, aspectRatio]);
+
+  const togglePlay = () => {
+    if (error) {
+      Linking.openURL(finalUri).catch(() => {});
       return;
     }
-    loadTimeoutRef.current = setTimeout(() => {
-      if (!isPlaying && durationSec <= 0 && !error) {
-        setError("Unable to play this video here. Tap to open.");
-      }
-    }, 10000);
-    return () => {
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-        loadTimeoutRef.current = null;
-      }
-    };
-  }, [durationSec, error, hasPlaybackRequest, isPlaying]);
-
-  useEffect(() => {
-    const statusSub = (player as any)?.addListener?.("statusChange", (payload: any) => {
-      try {
-        if (!player) return;
-        if (payload?.error) {
-          setError("Unable to play video. Tap to open.");
-          setIsLoading(false);
-        }
-        const nextStatus = String(payload?.status ?? "");
-        if (nextStatus.toLowerCase().includes("ready")) {
-          triggerFadeIn();
-          if (pendingPlayRef.current) {
-            try { (player as any)?.play?.(); } catch {}
-          }
-        }
-        if (nextStatus.toLowerCase().includes("buffer")) {
-          setIsBuffering(true);
-        }
-      } catch (e) {
-        console.debug('[VideoPlayer] statusChange listener failed:', e);
-      }
-    });
-
-    const playingSub = (player as any)?.addListener?.("playingChange", (payload: any) => {
-      try {
-        if (!player) return;
-        const nextPlaying = Boolean(payload?.isPlaying ?? (player as any)?.playing);
-        if (nextPlaying) {
-          pendingPlayRef.current = false;
-          triggerFadeIn();
-        }
-        setIsPlaying(nextPlaying);
-      } catch (e) {
-        console.debug('[VideoPlayer] playingChange listener failed:', e);
-      }
-    });
-
-    return () => {
-      statusSub?.remove?.();
-      playingSub?.remove?.();
-    };
-  }, [player, triggerFadeIn]);
-
-  useEffect(() => {
-    const ticker = setInterval(() => {
-      try {
-        // Basic check to see if player is still likely valid
-        if (!player) return;
-
-        const nextDuration = Number((player as any)?.duration ?? 0);
-        const nextPosition = Number((player as any)?.currentTime ?? 0);
-        const nextPlaying = Boolean((player as any)?.playing);
-        
-        if (Number.isFinite(nextDuration) && nextDuration > 0) {
-          setDurationSec((prev) => (Math.abs(prev - nextDuration) < 0.5 ? prev : nextDuration));
-          triggerFadeIn();
-        }
-        if (Number.isFinite(nextPosition)) {
-          setPositionSec((prev) => (Math.abs(prev - nextPosition) < 0.5 ? prev : nextPosition));
-          if (nextPosition > 0.01) {
-            triggerFadeIn();
-          }
-        }
-        setIsPlaying((prev) => (prev === nextPlaying ? prev : nextPlaying));
-        
-        const activeTrack = (player as any)?.videoTrack ?? (player as any)?.availableVideoTracks?.[0];
-        const trackWidth = Number(activeTrack?.size?.width ?? 0);
-        const trackHeight = Number(activeTrack?.size?.height ?? 0);
-        
-        if (trackWidth > 0 && trackHeight > 0) {
-          setVideoResolution((prev) =>
-            prev?.width === trackWidth && prev?.height === trackHeight
-              ? prev
-              : { width: trackWidth, height: trackHeight },
-          );
-          const ratio = trackWidth / trackHeight;
-          if (Number.isFinite(ratio) && ratio > 0.2 && ratio < 5) {
-            const previousRatio = resolutionRatioRef.current ?? 0;
-            if (Math.abs(previousRatio - ratio) > 0.01) {
-              resolutionRatioRef.current = ratio;
-              setVideoAspectRatio(ratio);
-            }
-          }
-        }
-
-        if (nextPlaying && nextDuration > 0) {
-          const delta = Math.abs(nextPosition - lastPositionRef.current);
-          if (delta < 0.01 && nextPosition < nextDuration - 0.35) {
-            stallMsRef.current += 1000;
-            if (stallMsRef.current > 3000) setIsBuffering((prev) => prev || true);
-          } else {
-            stallMsRef.current = 0;
-            setIsBuffering((prev) => (prev ? false : prev));
-          }
-        } else {
-          stallMsRef.current = 0;
-          setIsBuffering((prev) => (prev ? false : prev));
-        }
-        lastPositionRef.current = nextPosition;
-      } catch (e) {
-        // Silently handle cases where player is released before interval is cleared
-      }
-    }, 1000);
-
-    return () => clearInterval(ticker);
-  }, [player, triggerFadeIn]);
-
-  const onContainerLayout = useCallback((event: LayoutChangeEvent) => {
-    setContainerWidth(event.nativeEvent.layout.width);
-  }, []);
-
-  const resolvedHeight = useMemo(() => {
-    if (!containerWidth || !videoAspectRatio) {
-      return height; // Fallback only if metadata is not yet available
-    }
-    const calculatedHeight = Math.round(containerWidth / videoAspectRatio);
-    return calculatedHeight;
-  }, [containerWidth, height, videoAspectRatio]);
-
-  const progress = durationSec > 0 ? Math.min(1, Math.max(0, positionSec / durationSec)) : 0;
-
-  const formatTime = (secondsInput: number) => {
-    const totalSeconds = Math.floor(Math.max(0, secondsInput));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+    if (isPlaying) safePause();
+    else safePlay();
   };
 
-  const showPoster =
-    !autoPlay &&
-    !error &&
-    !hasPlaybackRequest &&
-    !isPlaying &&
-    positionSec <= 0 &&
-    durationSec <= 0;
+  const toggleMute = () => {
+    const next = !isMuted;
+    player.muted = next;
+    setIsMuted(next);
+  };
 
-  const togglePlayback = useCallback(async () => {
-    try {
-      if (!player) return;
-      if (error) {
-        Linking.openURL(normalizedUri).catch(() => undefined);
-        return;
-      }
-      if (showPoster) {
-        setHasPlaybackRequest(true);
-        pendingPlayRef.current = true;
-        (player as any)?.play?.();
-        if (playRetryTimeoutRef.current) {
-          clearTimeout(playRetryTimeoutRef.current);
-        }
-        playRetryTimeoutRef.current = setTimeout(() => {
-          if (pendingPlayRef.current) {
-            try { (player as any)?.play?.(); } catch {}
-          }
-        }, 350);
-        return;
-      }
-      if (isPlaying) {
-        pendingPlayRef.current = false;
-        (player as any)?.pause?.();
-        return;
-      }
-      // If video ended (position at or near duration), seek to start before replaying
-      if (durationSec > 0 && positionSec >= durationSec - 0.5) {
-        try {
-          (player as any).currentTime = 0;
-        } catch {
-          // ignore seek failure
-        }
-      }
-      setHasPlaybackRequest(true);
-      pendingPlayRef.current = true;
-      (player as any)?.play?.();
-    } catch (e) {
-      console.warn('[VideoPlayer] togglePlayback failed:', e);
-    }
-  }, [durationSec, error, isPlaying, normalizedUri, player, positionSec, showPoster]);
+  const progress = duration > 0 ? Math.min(1, position / duration) : 0;
+  const formatTime = (s: number) =>
+    `${Math.floor(s / 60)}:${Math.floor(s % 60)
+      .toString()
+      .padStart(2, "0")}`;
 
-  const seekBy = useCallback((deltaSeconds: number) => {
-    try {
-      if (!player || !durationSec) {
-        return;
-      }
-      const target = Math.max(0, Math.min(durationSec, positionSec + deltaSeconds));
-      (player as any).currentTime = target;
-    } catch (e) {
-      console.warn('[VideoPlayer] seekBy failed:', e);
-    }
-  }, [durationSec, player, positionSec]);
+  const fitMode =
+    contentFitOverride ||
+    (cinematic
+      ? "cover"
+      : aspectRatio && aspectRatio < 1
+        ? "contain"
+        : "cover");
 
-  const toggleMute = useCallback(() => {
-    try {
-      if (!player) return;
-      const next = !isMuted;
-      setIsMuted(next);
-      (player as any).muted = next;
-    } catch (e) {
-      console.warn('[VideoPlayer] toggleMute failed:', e);
-    }
-  }, [isMuted, player]);
+  const resolvedHeight = useMemo(() => {
+    if (!aspectRatio) return height;
+    const calc = screenWidth / aspectRatio;
+    const maxH = screenHeight * Math.max(0.3, Math.min(1, maxHeightRatio));
+    return Math.min(calc, maxH);
+  }, [aspectRatio, height, maxHeightRatio, screenHeight, screenWidth]);
 
-  const openFullscreen = useCallback(async () => {
-    try {
-      if (!player) return;
-      const entered = await videoViewRef.current?.enterFullscreen?.();
-      if (entered === undefined) {
-        Linking.openURL(normalizedUri).catch(() => undefined);
-      }
-    } catch (e) {
-      console.warn('[VideoPlayer] openFullscreen failed:', e);
-      Linking.openURL(normalizedUri).catch(() => undefined);
-    }
-  }, [normalizedUri, player]);
+  const showPoster = !isPlaying && position < 0.5 && !error && !previewOnly;
+
+  if (isYoutube) {
+    return (
+      <YouTubeEmbed
+        url={uri}
+        immersive={immersive}
+        shouldPlay={propShouldPlay}
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <Pressable
+        onPress={() => Linking.openURL(finalUri)}
+        style={{
+          flex: 1,
+          backgroundColor: "#000",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "white" }}>{error}</Text>
+        <Feather
+          name="external-link"
+          size={24}
+          color="white"
+          style={{ marginTop: 12 }}
+        />
+      </Pressable>
+    );
+  }
 
   return (
     <View
-      className={`overflow-hidden border border-app/10 bg-card-elevated ${immersive || cinematic ? "rounded-none" : "rounded-[24px]"}`}
-      style={{ backgroundColor: cinematic ? "transparent" : frameBackground, borderColor: cinematic ? "transparent" : frameBorderColor, borderWidth: immersive || cinematic ? 0 : 1 }}
-      onLayout={useVideoResolution ? onContainerLayout : undefined}
+      style={{
+        height: useVideoResolution ? resolvedHeight : height,
+        backgroundColor: "#000",
+        overflow: "hidden",
+        borderRadius: immersive || cinematic ? 0 : 24,
+        borderWidth: immersive || cinematic ? 0 : 1,
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+      }}
     >
-      {immersive ? (
-        <>
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              top: -48,
-              right: -32,
-              width: 160,
-              height: 160,
-              borderRadius: 999,
-              backgroundColor: colors.accent,
-              opacity: isDark ? 0.18 : 0.14,
-              zIndex: 0,
-            }}
-          />
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              bottom: -60,
-              left: -24,
-              width: 170,
-              height: 170,
-              borderRadius: 999,
-              backgroundColor: colors.accentLight,
-              opacity: isDark ? 0.22 : 0.8,
-              zIndex: 0,
-            }}
-          />
-        </>
-      ) : null}
-
-      <Animated.View style={{ opacity: fadeAnim }}>
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         <VideoView
-          key={finalVideoUri}
-          ref={videoViewRef}
+          ref={videoRef}
           player={player}
-          style={{ width: "100%" as any, height: resolvedHeight }}
-          nativeControls={false}
+          style={{ flex: 1 }}
           contentFit={fitMode}
-          fullscreenOptions={{ enable: true }}
+          nativeControls={false}
           allowsPictureInPicture
         />
       </Animated.View>
 
-      <View className="absolute top-3 left-3 flex-row items-center gap-2">
-        {immersive ? (
-          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: heroBadgeColor }}>
-            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
-              Intro film
-            </Text>
-          </View>
-        ) : null}
-        {!immersive ? (
-          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
-            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-              {qualityLabel}
-            </Text>
-          </View>
-        ) : null}
-        {!immersive && useVideoResolution ? (
-          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
-            <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
-              Full frame
-            </Text>
-          </View>
-        ) : null}
-        {immersive ? (
-          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: heroBadgeColor }}>
-            <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
-              Fullscreen ready
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {showPoster ? (
-        <Pressable onPress={togglePlayback} className="absolute inset-0">
-          {posterUri ? (
-            <Image source={{ uri: posterUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-          ) : (
-            <View className="flex-1 items-center justify-center bg-secondary/40" />
+      {showPoster && (
+        <Pressable
+          onPress={previewOnly ? onPreviewPress : togglePlay}
+          style={[
+            absoluteFillObject,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
+          {posterUri && (
+            <Image
+              source={{ uri: posterUri }}
+              style={absoluteFillObject}
+              resizeMode="cover"
+            />
           )}
-
           <View
-            pointerEvents="none"
-            className="absolute inset-0"
-            style={{ backgroundColor: immersive ? "rgba(4,12,8,0.3)" : overlayColor }}
+            style={[absoluteFillObject, { backgroundColor: "rgba(0,0,0,0.4)" }]}
           />
-
-          {immersive ? (
-            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: chromeColor }}>
-              <Text className="text-[10px] font-outfit font-semibold" style={{ color: colors.text }}>
-                Coach welcome
-              </Text>
-            </View>
-          ) : null}
-
-          <View className="absolute inset-0 items-center justify-center">
-            {immersive ? (
-              <View className="items-center gap-4">
-                <View
-                  className="h-24 w-24 items-center justify-center rounded-full border"
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.14)",
-                    borderColor: "rgba(255,255,255,0.22)",
-                  }}
-                >
-                  <View
-                    className="h-16 w-16 items-center justify-center rounded-full"
-                    style={{ backgroundColor: controlSurfaceColor }}
-                  >
-                    <Feather name="play" size={30} color={colors.accent} style={{ marginLeft: 3 }} />
-                  </View>
-                </View>
-                <View className="items-center">
-                  <Text className="text-lg font-clash font-bold text-white">Watch the welcome</Text>
-                  <Text className="mt-1 text-xs font-outfit uppercase tracking-[2px] text-white/80">
-                    Tap to start the intro experience
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <View className="h-20 w-20 items-center justify-center rounded-full" style={{ backgroundColor: chromeColor }}>
-                <Feather name="play" size={34} color="#fff" />
-              </View>
-            )}
-          </View>
-
-          {immersive ? (
-            <View className="absolute bottom-5 left-5 right-5 flex-row items-center justify-between rounded-[22px] border px-4 py-3"
-              style={{
-                backgroundColor: "rgba(6,16,10,0.66)",
-                borderColor: "rgba(255,255,255,0.12)",
-              }}
-            >
-              <View className="flex-1 pr-4">
-                <Text className="text-sm font-outfit font-semibold text-white">A polished first look</Text>
-                <Text className="mt-1 text-xs font-outfit leading-5 text-white/75">
-                  Personal, clean, and built to feel premium from the first second.
-                </Text>
-              </View>
-              <Feather name="star" size={18} color="#fff" />
-            </View>
-          ) : null}
-        </Pressable>
-      ) : null}
-
-      {!showPoster ? (
-        <Pressable
-          className="absolute inset-0"
-          onPress={cinematic ? resetControlsTimer : togglePlayback}
-          pointerEvents={cinematic ? "box-none" : "auto"}
-        >
-          <View className="flex-1 items-center justify-center" pointerEvents={cinematic ? "none" : "auto"}>
-            {isLoading || isBuffering ? (
-              <View className="rounded-full px-4 py-2" style={{ backgroundColor: chromeColor }}>
-                <View className="flex-row items-center gap-2">
-                  <ActivityIndicator color={colors.accent} />
-                  <Text className="text-xs font-outfit" style={{ color: colors.text }}>
-                    {isLoading ? "Loading video..." : "Buffering..."}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-          </View>
-        </Pressable>
-      ) : null}
-
-      {!showPoster && cinematic ? (
-        <Pressable
-          className="absolute inset-0"
-          onPress={() => {
-            resetControlsTimer();
-            togglePlayback();
-          }}
-        >
-          <Animated.View 
-            pointerEvents="box-none"
-            className="flex-1 items-center justify-center"
-            style={{ opacity: controlsOpacity }}
-          >
-            <View className="flex-row items-center gap-12">
-              <Pressable
-                onPress={(e) => {
-                  e.stopPropagation?.();
-                  togglePlayback();
-                }}
-                className="h-20 w-20 items-center justify-center rounded-full bg-black/30 border border-white/20"
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.7 : 1,
-                  transform: [{ scale: pressed ? 0.94 : 1 }],
-                })}
-              >
-                <Feather name={isPlaying ? "pause" : "play"} size={36} color="#fff" />
-              </Pressable>
-
-              <Pressable
-                onPress={(e) => {
-                  e.stopPropagation?.();
-                  toggleMute();
-                }}
-                className="h-20 w-20 items-center justify-center rounded-full bg-black/30 border border-white/20"
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.7 : 1,
-                  transform: [{ scale: pressed ? 0.94 : 1 }],
-                })}
-              >
-                <Feather name={isMuted ? "volume-x" : "volume-2"} size={32} color="#fff" />
-              </Pressable>
-            </View>
-
-            {/* Subtle bottom vignette gradient placeholder (shadow) */}
-            <View 
-              pointerEvents="none"
-              className="absolute bottom-0 left-0 right-0 h-32"
-              style={{ 
-                backgroundColor: "transparent",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: -20 },
-                shadowOpacity: 0.4,
-                shadowRadius: 30,
-              }}
-            />
-          </Animated.View>
-        </Pressable>
-      ) : null}
-
-      {!showPoster && !cinematic ? (
-        <View className="absolute inset-0 items-center justify-center">
-          {error ? (
-            <Pressable
-              onPress={() => Linking.openURL(normalizedUri).catch(() => undefined)}
-              className="rounded-full px-4 py-2"
-              style={({ pressed }) => ({
-                backgroundColor: chromeColor,
-                opacity: pressed ? 0.9 : 1,
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              })}
-            >
-              <Text className="text-sm font-outfit" style={{ color: colors.text }}>{error}</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={togglePlayback}
-              className={`items-center justify-center rounded-full ${immersive ? "h-20 w-20 border" : "h-16 w-16"}`}
-              accessibilityLabel={isPlaying ? "Pause video" : "Play video"}
-              style={({ pressed }) => ({
-                backgroundColor: controlSurfaceColor,
-                borderColor: immersive ? "rgba(255,255,255,0.14)" : "transparent",
-                opacity: pressed ? 0.9 : 1,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              })}
-            >
-              <Feather name={isPlaying ? "pause" : "play"} size={immersive ? 30 : 28} color={colors.accent} />
-            </Pressable>
-          )}
-        </View>
-      ) : null}
-
-      {!showPoster && !cinematic ? (
-        <View
-          className={`absolute left-0 right-0 px-4 ${immersive ? "bottom-4" : "bottom-0 py-3"}`}
-          style={
-            immersive
-              ? undefined
-              : { backgroundColor: controlSurfaceColor }
-          }
-        >
           <View
-            className={`${immersive ? "rounded-[24px] border px-4 py-4" : ""}`}
-            style={
-              immersive
-                ? {
-                    backgroundColor: "rgba(6,16,10,0.7)",
-                    borderColor: "rgba(255,255,255,0.12)",
-                  }
-                : undefined
-            }
+            style={{
+              backgroundColor: "rgba(255,255,255,0.25)",
+              borderRadius: 50,
+              padding: 20,
+            }}
           >
-          <View className="mb-3 flex-row items-center justify-between">
-            {immersive ? (
-              <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.6px] text-white">
-                  {isPlaying ? "Now playing" : "Ready to play"}
-                </Text>
-              </View>
-            ) : <View />}
-            <Text className="text-xs font-outfit" style={{ color: immersive ? "rgba(255,255,255,0.82)" : colors.text }}>
-              {formatTime(positionSec)} / {formatTime(durationSec)}
-            </Text>
+            <Feather name="play" size={48} color="white" />
           </View>
-          <View className="mb-3 h-1.5 w-full rounded-full" style={{ backgroundColor: immersive ? "rgba(255,255,255,0.16)" : isDark ? "rgba(255,255,255,0.18)" : "rgba(15,23,42,0.12)" }}>
-            <View
-              className="h-1.5 rounded-full"
-              style={{ backgroundColor: colors.accent, width: `${Math.round(progress * 100)}%` }}
-            />
-          </View>
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-4">
-              <Pressable
-                onPress={() => seekBy(-10)}
-                accessibilityLabel="Rewind 10 seconds"
-                hitSlop={10}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              >
-                <Feather name="rotate-ccw" size={20} color={immersive ? "#fff" : colors.accent} />
-              </Pressable>
-              <Pressable
-                onPress={togglePlayback}
-                accessibilityLabel={isPlaying ? "Pause video" : "Play video"}
-                hitSlop={10}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              >
-                <Feather name={isPlaying ? "pause-circle" : "play-circle"} size={26} color={immersive ? "#fff" : colors.accent} />
-              </Pressable>
-              <Pressable
-                onPress={() => seekBy(10)}
-                accessibilityLabel="Forward 10 seconds"
-                hitSlop={10}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              >
-                <Feather name="rotate-cw" size={20} color={immersive ? "#fff" : colors.accent} />
-              </Pressable>
-              <Pressable
-                onPress={toggleMute}
-                accessibilityLabel={isMuted ? "Unmute video" : "Mute video"}
-                hitSlop={10}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              >
-                <Feather name={isMuted ? "volume-x" : "volume-2"} size={20} color={immersive ? "#fff" : colors.accent} />
-              </Pressable>
-              <Pressable
-                onPress={openFullscreen}
-                accessibilityLabel="Open fullscreen"
-                hitSlop={10}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              >
-                <Feather name="maximize" size={20} color={immersive ? "#fff" : colors.accent} />
-              </Pressable>
-            </View>
-          </View>
-          </View>
-        </View>
-      ) : null}
+        </Pressable>
+      )}
 
-      {title && !immersive ? (
-        <View className="absolute top-3 right-3 rounded-full px-3 py-1" style={{ backgroundColor: chromeColor, maxWidth: "58%" }}>
-          <Text className="text-xs font-outfit" style={{ color: colors.text }} numberOfLines={1}>{title}</Text>
-        </View>
-      ) : null}
-
-      {showPoster ? (
-        <View className="absolute bottom-0 left-0 right-0 px-3 py-2" style={{ backgroundColor: chromeColor }}>
-          <Text className="text-xs font-outfit" style={{ color: colors.text }}>
-            {immersive ? "Tap to begin the intro" : "Tap to play"}
+      {(isLoading || isBuffering) && showLoadingOverlay && (
+        <View
+          style={[
+            absoluteFillObject,
+            {
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: "rgba(0,0,0,0.5)",
+            },
+          ]}
+        >
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={{ color: "white", marginTop: 12 }}>
+            {isLoading ? "Loading..." : "Buffering..."}
           </Text>
         </View>
-      ) : null}
+      )}
+
+      {!cinematic && !hideCenterControls && !showPoster && (
+        <Pressable
+          onPress={togglePlay}
+          style={[
+            absoluteFillObject,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
+          <View
+            style={{
+              backgroundColor: "rgba(0,0,0,0.5)",
+              borderRadius: 50,
+              padding: 20,
+            }}
+          >
+            <Feather
+              name={isPlaying ? "pause" : "play"}
+              size={40}
+              color="white"
+            />
+          </View>
+        </Pressable>
+      )}
+
+      {!hideControls && !showPoster && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: 16,
+            backgroundColor: "rgba(0,0,0,0.6)",
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <Text style={{ color: "white", fontSize: 12 }}>
+              {formatTime(position)}
+            </Text>
+            <Text style={{ color: "white", fontSize: 12 }}>
+              {formatTime(duration)}
+            </Text>
+          </View>
+          <View
+            style={{
+              height: 4,
+              backgroundColor: "rgba(255,255,255,0.3)",
+              borderRadius: 2,
+              overflow: "hidden",
+            }}
+          >
+            <View
+              style={{
+                height: "100%",
+                width: `${progress * 100}%`,
+                backgroundColor: colors.accent,
+              }}
+            />
+          </View>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              marginTop: 12,
+            }}
+          >
+            <Pressable onPress={toggleMute}>
+              <Feather
+                name={isMuted ? "volume-x" : "volume-2"}
+                size={24}
+                color="white"
+              />
+            </Pressable>
+            <Pressable onPress={togglePlay}>
+              <Feather
+                name={isPlaying ? "pause" : "play"}
+                size={28}
+                color="white"
+              />
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {!hideTopChrome && (
+        <View
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            right: 12,
+            flexDirection: "row",
+            justifyContent: "space-between",
+          }}
+        >
+          {resolution && (
+            <View
+              style={{
+                backgroundColor: "rgba(0,0,0,0.6)",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 20,
+              }}
+            >
+              <Text
+                style={{ color: "white", fontSize: 12 }}
+              >{`${resolution.width}×${resolution.height}`}</Text>
+            </View>
+          )}
+          {title && (
+            <Text
+              style={{
+                color: "white",
+                fontSize: 14,
+                backgroundColor: "rgba(0,0,0,0.6)",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 20,
+              }}
+            >
+              {title}
+            </Text>
+          )}
+        </View>
+      )}
     </View>
   );
 }

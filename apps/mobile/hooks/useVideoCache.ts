@@ -5,13 +5,31 @@ import * as FileSystem from 'expo-file-system';
  * Hook to cache a video file locally.
  * If the URL changes, it re-downloads the video.
  */
-export function useVideoCache(url: string | null | undefined) {
+export function useVideoCache(
+  url: string | null | undefined,
+  cacheKey?: string | null,
+) {
   const [cachedUri, setCachedUri] = useState<string | null>(null);
   const [isCaching, setIsCaching] = useState(false);
+
+  const hashUrl = (value: string) => {
+    let hash = 5381;
+    for (let i = 0; i < value.length; i += 1) {
+      hash = (hash * 33) ^ value.charCodeAt(i);
+    }
+    // Convert to unsigned 32-bit hex
+    return (hash >>> 0).toString(16);
+  };
 
   useEffect(() => {
     if (!url) {
       setCachedUri(null);
+      return;
+    }
+
+    // Skip caching for local files (recorded videos, etc.)
+    if (url.startsWith('file://')) {
+      setCachedUri(url);
       return;
     }
 
@@ -22,9 +40,11 @@ export function useVideoCache(url: string | null | undefined) {
       try {
         setIsCaching(true);
         
-        // Create a unique filename based on the URL (sanitize to avoid slashes)
-        const sanitizedFilename = url.replace(/[^a-z0-9]/gi, '_').substring(0, 100) + '.mp4';
-        const fileUri = `${FileSystem.cacheDirectory}${sanitizedFilename}`;
+        const baseUrl = url.split("?")[0];
+        const key = cacheKey ? `${cacheKey}:${baseUrl}` : baseUrl;
+        // Create a unique filename based on a hash of the key to avoid collisions
+        const fileName = `video_${hashUrl(key)}.mp4`;
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
 
         // Ensure the directory exists (though cacheDirectory usually does, it's safe)
         const dirInfo = await FileSystem.getInfoAsync(FileSystem.cacheDirectory as string);
