@@ -8,6 +8,7 @@ import PagerView, {
 } from "react-native-pager-view";
 import { useSharedValue } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
+import { setGlobalActiveTab } from "@/context/ActiveTabContext";
 
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
@@ -91,6 +92,8 @@ export function SwipeableTabLayout({
         onIndexChange?.(index, source);
         lastChangeSourceRef.current = "sync";
       }
+
+      setGlobalActiveTab(index);
     },
     [onIndexChange],
   );
@@ -116,6 +119,14 @@ export function SwipeableTabLayout({
     pagerRef.current?.setPage(index);
     setActiveIndex(index);
     lastSelectedIndex.current = index;
+
+    setGlobalActiveTab(index);
+
+    if (lastNotifiedIndex.current !== index) {
+      lastNotifiedIndex.current = index;
+      onIndexChange?.(index, "press");
+    }
+    lastChangeSourceRef.current = "sync";
   };
 
   const childrenArray = React.Children.toArray(children);

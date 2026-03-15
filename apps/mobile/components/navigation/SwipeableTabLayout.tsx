@@ -14,8 +14,8 @@ import type {
 } from "react-native-pager-view";
 import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
-import { useTabVisibility } from "../../context/TabVisibilityContext";
-
+import { useTabVisibility } from "@/context/TabVisibilityContext";
+import { ActiveTabProvider, setGlobalActiveTab } from "@/context/ActiveTabContext";
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
   children: React.ReactNode[];
@@ -41,6 +41,12 @@ export function SwipeableTabLayout({
   const [visitedIndices, setVisitedIndices] = useState<number[]>([initialIndex]);
 
   const scrollOffset = useSharedValue(initialIndex);
+
+  setGlobalActiveTab(activeIndex);
+  useEffect(() => {
+    console.warn(`[SwipeableTabLayout] activeIndex effect fired: ${activeIndex}`);
+    setGlobalActiveTab(activeIndex);
+  }, [activeIndex]);
 
   const lastSelectedIndex = useRef(initialIndex);
   const lastNotifiedIndex = useRef(initialIndex);
@@ -131,6 +137,9 @@ export function SwipeableTabLayout({
         onIndexChange?.(index, source);
         lastChangeSourceRef.current = "sync";
       }
+
+      // Guarantee global context update regardless of platform or routing
+      setGlobalActiveTab(index);
     },
     [onIndexChange],
   );
@@ -164,25 +173,54 @@ export function SwipeableTabLayout({
     setVisitedIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
     lastSelectedIndex.current = index;
 
-    if (Platform.OS === "web") {
-      if (lastNotifiedIndex.current !== index) {
-        lastNotifiedIndex.current = index;
-        onIndexChange?.(index, "press");
-      }
-      lastChangeSourceRef.current = "sync";
+    // Guarantee global context update regardless of platform or routing
+    setGlobalActiveTab(index);
+
+    if (lastNotifiedIndex.current !== index) {
+      lastNotifiedIndex.current = index;
+      onIndexChange?.(index, "press");
     }
+    lastChangeSourceRef.current = "sync";
   };
 
 
-  const childrenArray = React.Children.toArray(children);
+  // Stabilize children references to prevent ActiveTabProvider remounts.
+  // React.Children.toArray creates new references each render, which would
+  // cause the provider to unmount/remount and reset video player state.
+  const childrenRef = useRef<React.ReactNode[]>([]);
+  const rawChildren = React.Children.toArray(children);
+  if (rawChildren.length !== childrenRef.current.length) {
+    childrenRef.current = rawChildren;
+  } else {
+    // Only update when keys actually change (role switch etc.)
+    const keysChanged = rawChildren.some((child, i) => {
+      const prev = childrenRef.current[i];
+      return (child as any)?.key !== (prev as any)?.key;
+    });
+    if (keysChanged) {
+      childrenRef.current = rawChildren;
+    }
+  }
+  const childrenArray = childrenRef.current;
 
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {
       const key = tabs[index]?.key ?? `page-${index}`;
-      const shouldRenderChild = index === activeIndex || visitedIndices.includes(index);
+      const isActive = index === activeIndex;
+      const shouldRenderChild = isActive || visitedIndices.includes(index);
+      
       return (
         <View key={key} style={[styles.page, { backgroundColor: "transparent" }]}>
-          {shouldRenderChild ? child : null}
+          {shouldRenderChild ? (
+            <ActiveTabProvider activeTabIndex={activeIndex} currentTabIndex={index}>
+              {React.isValidElement(child) 
+                // @ts-ignore - Injecting isTabActive prop forcibly to bypass memoization
+                ? React.cloneElement(child, { isTabActive: isActive }) 
+                : child}
+            </ActiveTabProvider>
+          ) : (
+             <View style={{ flex: 1 }} />
+          )}
         </View>
       );
     });

@@ -2,7 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { store } from "@/store";
-import { setCredentials } from "@/store/slices/userSlice";
+import { setCredentials, logout } from "@/store/slices/userSlice";
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -241,8 +241,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const payload = parseJsonSafe(text);
   if (!res.ok) {
     if (res.status === 401 && !options.skipAuthRefresh && normalizedPath !== "/auth/login") {
-      // Do not force logout on 401. Keep the session so users only log out explicitly.
-      // The request will surface the 401 error to the caller for handling/retry.
+      // Force logout on 401 so the user is prompted to log in again.
+      SecureStore.deleteItemAsync(AUTH_TOKEN_KEY).catch(() => {});
+      SecureStore.deleteItemAsync(AUTH_REFRESH_KEY).catch(() => {});
+      store.dispatch(logout());
     }
     let message = extractErrorMessage(text, payload);
     const details =

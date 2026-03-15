@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, Image, LayoutChangeEvent, Linking, Modal, Pressable, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Animated, AppState, Easing, Image, LayoutChangeEvent, Linking, Modal, Pressable, View, useWindowDimensions } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { WebView } from "react-native-webview";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useVideoCache } from "@/hooks/useVideoCache";
+import { useIsFocused } from "@react-navigation/native";
+import { useActiveTab } from "@/context/ActiveTabContext";
 
 const normalizeUrl = (url: string) => {
   const trimmed = String(url ?? "").trim();
@@ -113,8 +115,14 @@ const getResolutionLabel = (width: number, height: number) => {
   return "Video";
 };
 
-export function YouTubeEmbed({ url, immersive = false }: { url: string; immersive?: boolean }) {
+export function YouTubeEmbed({ url, immersive = false, shouldPlay = true }: { url: string; immersive?: boolean; shouldPlay?: boolean }) {
   const { colors, isDark } = useAppTheme();
+  const navFocused = useIsFocused();
+  const { activeTabIndex, currentTabIndex } = useActiveTab();
+  const isTabActive = activeTabIndex === currentTabIndex;
+  const [appActive, setAppActive] = useState(true);
+  const effectiveShouldPlay = shouldPlay && navFocused && isTabActive && appActive;
+  const webViewRef = useRef<WebView>(null);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const videoId = useMemo(() => getYoutubeId(url), [url]);
   const watchUrls = useMemo(() => {
@@ -135,6 +143,34 @@ export function YouTubeEmbed({ url, immersive = false }: { url: string; immersiv
   const [playerWidth, setPlayerWidth] = useState(0);
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
 
+  // Pause YouTube WebView playback when the app is backgrounded
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      setAppActive(nextState === "active");
+    });
+    return () => sub.remove();
+  }, []);
+
+  const stopWebPlayback = useCallback(() => {
+    try {
+      webViewRef.current?.injectJavaScript(`
+        (function() {
+          try {
+            var videos = document.querySelectorAll('video');
+            for (var i = 0; i < videos.length; i++) {
+              videos[i].pause();
+              videos[i].muted = true;
+            }
+          } catch (e) {}
+        })();
+        true;
+      `);
+      webViewRef.current?.stopLoading?.();
+    } catch {
+      // ignore failures when WebView is already torn down
+    }
+  }, []);
+
   useEffect(() => {
     setSourceIndex(0);
     setWebError(false);
@@ -152,6 +188,29 @@ export function YouTubeEmbed({ url, immersive = false }: { url: string; immersiv
   const onPlayerLayout = useCallback((event: LayoutChangeEvent) => {
     setPlayerWidth(event.nativeEvent.layout.width);
   }, []);
+
+  useEffect(() => {
+    if (!effectiveShouldPlay) {
+      if (__DEV__) console.debug('[YouTubeEmbed] PAUSING — shouldPlay:', shouldPlay, 'navFocused:', navFocused, 'isTabActive:', isTabActive, 'appActive:', appActive);
+      stopWebPlayback();
+      setIsFullscreenOpen(false);
+    } else if (effectiveShouldPlay && hasInitialLoadFinished) {
+      if (__DEV__) console.debug('[YouTubeEmbed] RESUMING — injecting play command');
+      webViewRef.current?.injectJavaScript(`
+        (function() {
+          var video = document.querySelector('video');
+          if (video) video.play();
+        })();
+        true;
+      `);
+    }
+  }, [effectiveShouldPlay, hasInitialLoadFinished, stopWebPlayback, shouldPlay, navFocused, isTabActive, appActive]);
+
+  useEffect(() => {
+    return () => {
+      stopWebPlayback();
+    };
+  }, [stopWebPlayback]);
 
   const resolvedAspectRatio = useMemo(() => {
     if (videoAspectRatio && Number.isFinite(videoAspectRatio) && videoAspectRatio > 0.4 && videoAspectRatio < 3.5) {
@@ -314,46 +373,51 @@ export function YouTubeEmbed({ url, immersive = false }: { url: string; immersiv
       >
         {activeUrl && !webError ? (
           <>
-            <WebView
-              source={{ uri: activeUrl }}
-              originWhitelist={["*"]}
-              javaScriptEnabled
-              domStorageEnabled
-              mediaPlaybackRequiresUserAction={false}
-              allowsInlineMediaPlayback
-              allowsFullscreenVideo
-              thirdPartyCookiesEnabled
-              mixedContentMode="always"
-              setSupportMultipleWindows={false}
-              injectedJavaScriptBeforeContentLoaded={injectedResolutionScript}
-              injectedJavaScript={injectedResolutionScript}
-              startInLoadingState={false}
-              onLoadStart={() => {
-                if (!hasInitialLoadFinished) {
-                  setIsWebLoading(true);
-                }
-              }}
-              onLoadEnd={() => {
-                setIsWebLoading(false);
-                if (!hasInitialLoadFinished) {
-                  setHasInitialLoadFinished(true);
-                }
-              }}
-              onMessage={handleWebViewMessage}
-              onError={() => {
-                if (!tryNextSource()) {
+            {effectiveShouldPlay ? (
+              <WebView
+                ref={webViewRef}
+                source={{ uri: activeUrl }}
+                originWhitelist={["*"]}
+                javaScriptEnabled
+                domStorageEnabled
+                mediaPlaybackRequiresUserAction={false}
+                allowsInlineMediaPlayback
+                allowsFullscreenVideo
+                thirdPartyCookiesEnabled
+                mixedContentMode="always"
+                setSupportMultipleWindows={false}
+                injectedJavaScriptBeforeContentLoaded={injectedResolutionScript}
+                injectedJavaScript={injectedResolutionScript}
+                startInLoadingState={false}
+                onLoadStart={() => {
+                  if (!hasInitialLoadFinished) {
+                    setIsWebLoading(true);
+                  }
+                }}
+                onLoadEnd={() => {
                   setIsWebLoading(false);
-                  setWebError(true);
-                }
-              }}
-              onHttpError={() => {
-                if (!tryNextSource()) {
-                  setIsWebLoading(false);
-                  setWebError(true);
-                }
-              }}
-              style={{ flex: 1, backgroundColor: panelColor }}
-            />
+                  if (!hasInitialLoadFinished) {
+                    setHasInitialLoadFinished(true);
+                  }
+                }}
+                onMessage={handleWebViewMessage}
+                onError={() => {
+                  if (!tryNextSource()) {
+                    setIsWebLoading(false);
+                    setWebError(true);
+                  }
+                }}
+                onHttpError={() => {
+                  if (!tryNextSource()) {
+                    setIsWebLoading(false);
+                    setWebError(true);
+                  }
+                }}
+                style={{ flex: 1, backgroundColor: panelColor }}
+              />
+            ) : (
+              <View style={{ flex: 1, backgroundColor: isDark ? "#0a1a10" : "#111" }} />
+            )}
             {isWebLoading ? (
               <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: overlayColor }}>
                 <View className="rounded-full px-4 py-2 flex-row items-center gap-2" style={{ backgroundColor: chromeColor }}>
@@ -540,6 +604,7 @@ export function VideoPlayer({
   useVideoResolution = true,
   immersive = false,
   cinematic = false,
+  shouldPlay = true,
 }: {
   uri: string;
   title?: string;
@@ -551,8 +616,22 @@ export function VideoPlayer({
   useVideoResolution?: boolean;
   immersive?: boolean;
   cinematic?: boolean;
+  shouldPlay?: boolean;
 }) {
   const { colors, isDark } = useAppTheme();
+  const navFocused = useIsFocused();
+  const { activeTabIndex, currentTabIndex } = useActiveTab();
+  const isTabActive = activeTabIndex === currentTabIndex;
+  const [appActive, setAppActive] = useState(true);
+  const effectiveShouldPlay = shouldPlay && navFocused && isTabActive && appActive;
+
+  // Pause video when the app is backgrounded (OS tab switch / home button)
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      setAppActive(nextState === "active");
+    });
+    return () => sub.remove();
+  }, []);
   const videoViewRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const controlsOpacity = useRef(new Animated.Value(1)).current;
@@ -661,15 +740,50 @@ export function VideoPlayer({
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = isLooping;
     instance.muted = initialMuted;
+    instance.staysActiveInBackground = false;
     if (autoPlay) {
       instance.play();
     }
   });
 
+  // Track app foreground/background directly within the player to guarantee a synchronous pause
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      // The moment the OS signals a background state, aggressively pause the actual native player
+      // synchronously before the JS thread gets entirely suspended by the OS.
+      if (next !== "active") {
+        try {
+          player.pause();
+        } catch {}
+      }
+    });
+    return () => sub.remove();
+  }, [player]);
+
   useEffect(() => {
     return () => {
       try {
         (player as any)?.pause?.();
+        try {
+          (player as any).muted = true;
+        } catch {
+          // ignore mute failures during teardown
+        }
+        try {
+          if (typeof (player as any)?.seekTo === "function") {
+            (player as any).seekTo(0);
+          } else if (typeof (player as any)?.currentTime === "number") {
+            (player as any).currentTime = 0;
+          }
+        } catch {
+          // ignore seek failures during teardown
+        }
+        // Fully release the player to guarantee no lingering audio
+        try {
+          (player as any)?.release?.();
+        } catch {
+          // ignore if already released
+        }
       } catch {
         // noop: player may already be released
       }
@@ -683,6 +797,32 @@ export function VideoPlayer({
       // player may already be released
     }
   }, [isLooping, player]);
+
+  useEffect(() => {
+    if (!effectiveShouldPlay) {
+      if (__DEV__) console.debug('[VideoPlayer] PAUSING — shouldPlay:', shouldPlay, 'navFocused:', navFocused, 'isTabActive:', isTabActive, 'appActive:', appActive);
+      try {
+        player.pause();
+      } catch {
+        // player may already be released
+      }
+      try {
+        player.muted = true;
+      } catch {
+        // noop
+      }
+      setHasPlaybackRequest(false);
+      setIsPlaying(false);
+    } else if (effectiveShouldPlay && hasPlaybackRequest) {
+      if (__DEV__) console.debug('[VideoPlayer] RESUMING — unmuting and playing');
+      try {
+        player.muted = isMuted;
+      } catch {
+        // noop
+      }
+      player.play();
+    }
+  }, [effectiveShouldPlay, player, hasPlaybackRequest, isMuted, shouldPlay, navFocused, isTabActive, appActive]);
 
   useEffect(() => {
     try {
@@ -795,16 +935,16 @@ export function VideoPlayer({
         const nextPlaying = Boolean((player as any)?.playing);
         
         if (Number.isFinite(nextDuration) && nextDuration > 0) {
-          setDurationSec(nextDuration);
+          setDurationSec((prev) => (Math.abs(prev - nextDuration) < 0.5 ? prev : nextDuration));
           triggerFadeIn();
         }
         if (Number.isFinite(nextPosition)) {
-          setPositionSec(nextPosition);
+          setPositionSec((prev) => (Math.abs(prev - nextPosition) < 0.5 ? prev : nextPosition));
           if (nextPosition > 0.01) {
             triggerFadeIn();
           }
         }
-        setIsPlaying(nextPlaying);
+        setIsPlaying((prev) => (prev === nextPlaying ? prev : nextPlaying));
         
         const activeTrack = (player as any)?.videoTrack ?? (player as any)?.availableVideoTracks?.[0];
         const trackWidth = Number(activeTrack?.size?.width ?? 0);
@@ -829,21 +969,21 @@ export function VideoPlayer({
         if (nextPlaying && nextDuration > 0) {
           const delta = Math.abs(nextPosition - lastPositionRef.current);
           if (delta < 0.01 && nextPosition < nextDuration - 0.35) {
-            stallMsRef.current += 250;
-            if (stallMsRef.current > 1000) setIsBuffering(true);
+            stallMsRef.current += 1000;
+            if (stallMsRef.current > 3000) setIsBuffering((prev) => prev || true);
           } else {
             stallMsRef.current = 0;
-            setIsBuffering(false);
+            setIsBuffering((prev) => (prev ? false : prev));
           }
         } else {
           stallMsRef.current = 0;
-          setIsBuffering(false);
+          setIsBuffering((prev) => (prev ? false : prev));
         }
         lastPositionRef.current = nextPosition;
       } catch (e) {
         // Silently handle cases where player is released before interval is cleared
       }
-    }, 250);
+    }, 1000);
 
     return () => clearInterval(ticker);
   }, [player, triggerFadeIn]);
@@ -903,13 +1043,21 @@ export function VideoPlayer({
         (player as any)?.pause?.();
         return;
       }
+      // If video ended (position at or near duration), seek to start before replaying
+      if (durationSec > 0 && positionSec >= durationSec - 0.5) {
+        try {
+          (player as any).currentTime = 0;
+        } catch {
+          // ignore seek failure
+        }
+      }
       setHasPlaybackRequest(true);
       pendingPlayRef.current = true;
       (player as any)?.play?.();
     } catch (e) {
       console.warn('[VideoPlayer] togglePlayback failed:', e);
     }
-  }, [error, isPlaying, normalizedUri, player, showPoster]);
+  }, [durationSec, error, isPlaying, normalizedUri, player, positionSec, showPoster]);
 
   const seekBy = useCallback((deltaSeconds: number) => {
     try {
@@ -1103,8 +1251,12 @@ export function VideoPlayer({
       ) : null}
 
       {!showPoster ? (
-        <Pressable className="absolute inset-0" onPress={cinematic ? resetControlsTimer : togglePlayback}>
-          <View className="flex-1 items-center justify-center">
+        <Pressable
+          className="absolute inset-0"
+          onPress={cinematic ? resetControlsTimer : togglePlayback}
+          pointerEvents={cinematic ? "box-none" : "auto"}
+        >
+          <View className="flex-1 items-center justify-center" pointerEvents={cinematic ? "none" : "auto"}>
             {isLoading || isBuffering ? (
               <View className="rounded-full px-4 py-2" style={{ backgroundColor: chromeColor }}>
                 <View className="flex-row items-center gap-2">
@@ -1120,48 +1272,62 @@ export function VideoPlayer({
       ) : null}
 
       {!showPoster && cinematic ? (
-        <Animated.View 
-          pointerEvents="box-none"
-          className="absolute inset-0 items-center justify-center"
-          style={{ opacity: controlsOpacity }}
+        <Pressable
+          className="absolute inset-0"
+          onPress={() => {
+            resetControlsTimer();
+            togglePlayback();
+          }}
         >
-          <View className="flex-row items-center gap-12">
-            <Pressable
-              onPress={togglePlayback}
-              className="h-20 w-20 items-center justify-center rounded-full bg-black/30 border border-white/20"
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.7 : 1,
-                transform: [{ scale: pressed ? 0.94 : 1 }],
-              })}
-            >
-              <Feather name={isPlaying ? "pause" : "play"} size={36} color="#fff" />
-            </Pressable>
+          <Animated.View 
+            pointerEvents="box-none"
+            className="flex-1 items-center justify-center"
+            style={{ opacity: controlsOpacity }}
+          >
+            <View className="flex-row items-center gap-12">
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  togglePlayback();
+                }}
+                className="h-20 w-20 items-center justify-center rounded-full bg-black/30 border border-white/20"
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.7 : 1,
+                  transform: [{ scale: pressed ? 0.94 : 1 }],
+                })}
+              >
+                <Feather name={isPlaying ? "pause" : "play"} size={36} color="#fff" />
+              </Pressable>
 
-            <Pressable
-              onPress={toggleMute}
-              className="h-20 w-20 items-center justify-center rounded-full bg-black/30 border border-white/20"
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.7 : 1,
-                transform: [{ scale: pressed ? 0.94 : 1 }],
-              })}
-            >
-              <Feather name={isMuted ? "volume-x" : "volume-2"} size={32} color="#fff" />
-            </Pressable>
-          </View>
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  toggleMute();
+                }}
+                className="h-20 w-20 items-center justify-center rounded-full bg-black/30 border border-white/20"
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.7 : 1,
+                  transform: [{ scale: pressed ? 0.94 : 1 }],
+                })}
+              >
+                <Feather name={isMuted ? "volume-x" : "volume-2"} size={32} color="#fff" />
+              </Pressable>
+            </View>
 
-          {/* Subtle bottom vignette gradient placeholder (shadow) */}
-          <View 
-            pointerEvents="none"
-            className="absolute bottom-0 left-0 right-0 h-32"
-            style={{ 
-              backgroundColor: "transparent",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: -20 },
-              shadowOpacity: 0.4,
-              shadowRadius: 30,
-            }}
-          />
-        </Animated.View>
+            {/* Subtle bottom vignette gradient placeholder (shadow) */}
+            <View 
+              pointerEvents="none"
+              className="absolute bottom-0 left-0 right-0 h-32"
+              style={{ 
+                backgroundColor: "transparent",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: -20 },
+                shadowOpacity: 0.4,
+                shadowRadius: 30,
+              }}
+            />
+          </Animated.View>
+        </Pressable>
       ) : null}
 
       {!showPoster && !cinematic ? (
