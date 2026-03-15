@@ -127,146 +127,15 @@ export default function VideoUploadScreen() {
       />
 
       <ThemedScrollView
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 48 }}
+        contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 12, paddingBottom: 24 }}
       >
-        <View
-          className="relative rounded-[30px] bg-card p-6 overflow-hidden mb-6 border"
-          style={{
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.md),
-          }}
-        >
-          <View
-            style={{
-              position: "absolute",
-              top: -40,
-              right: -40,
-              width: 140,
-              height: 140,
-              borderRadius: 70,
-              backgroundColor: colors.accentLight,
-              opacity: 0.5,
-            }}
-          />
-          <View
-            style={{
-              position: "absolute",
-              bottom: -48,
-              left: -48,
-              width: 180,
-              height: 180,
-              borderRadius: 90,
-              backgroundColor: colors.backgroundSecondary,
-              opacity: 0.9,
-            }}
-          />
-
-          <View className="flex-row items-center gap-3 mb-2">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">
-              Premium Feature
-            </Text>
-          </View>
-          <Text className="text-3xl font-clash text-app mb-2">
-            Coach Video Review
+        <View className="px-4 pb-2">
+          <Text className="text-sm font-outfit text-secondary">
+            Upload one focused clip and add a short note for your coach.
           </Text>
-          <Text className="text-base font-outfit text-secondary leading-6">
-            Upload a training clip, add context, and get clearer feedback on movement quality, technique, and next-step adjustments.
-          </Text>
-
-          <View className="mt-5 flex-row gap-3">
-            <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary mb-2">
-                Best for
-              </Text>
-              <Text className="font-clash text-lg text-app mb-1">Form review</Text>
-              <Text className="text-sm font-outfit text-secondary leading-5">Lifting mechanics, drills, sprint work, and match clips.</Text>
-            </View>
-            <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary mb-2">
-                Typical flow
-              </Text>
-              <Text className="font-clash text-lg text-app mb-1">Upload → Review</Text>
-              <Text className="text-sm font-outfit text-secondary leading-5">Send one focused clip and check back for notes or a response video.</Text>
-            </View>
-          </View>
         </View>
 
-        <View
-          className="mb-6 rounded-[28px] border p-5"
-          style={{
-            backgroundColor: colors.card,
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.sm),
-          }}
-        >
-          <View className="flex-row items-center gap-3 mb-4">
-            <View className="h-5 w-1.5 rounded-full bg-accent" />
-            <Text className="text-lg font-clash text-app">Before you upload</Text>
-          </View>
-
-          <View className="flex-row flex-wrap gap-2">
-            {READINESS_TIPS.map((tip) => (
-              <View
-                key={tip}
-                className="rounded-full border px-3 py-2"
-                style={{
-                  backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                }}
-              >
-                <Text className="text-xs font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
-                  {tip}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View className="mb-6">
-          <View className="flex-row items-center gap-3 mb-3">
-            <View className="h-5 w-1.5 rounded-full bg-accent" />
-            <Text className="text-lg font-clash text-app">
-              How It Works
-            </Text>
-          </View>
-          <View className="gap-3">
-            {HOW_IT_WORKS.map((item, index) => (
-              <View
-                key={item.title}
-                className="rounded-[24px] bg-card px-4 py-4 border"
-                style={{
-                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                  ...(isDark ? Shadows.none : Shadows.sm),
-                }}
-              >
-                <View className="flex-row items-start gap-3">
-                  <View className="h-11 w-11 rounded-2xl items-center justify-center" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.accentLight }}>
-                    <Feather name={item.icon as any} size={18} color={colors.accent} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary mb-1">
-                      Step {index + 1}
-                    </Text>
-                    <Text className="text-sm font-bold font-outfit text-app">
-                      {item.title}
-                    </Text>
-                    <Text className="text-[12px] font-outfit text-secondary mt-1 leading-5">
-                      {item.body}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View
-          className="rounded-[28px] bg-card p-4"
-          style={isDark ? Shadows.none : Shadows.md}
-        >
-          <VideoUploadPanel />
-        </View>
+        <VideoUploadPanel />
       </ThemedScrollView>
     </SafeAreaView>
   );

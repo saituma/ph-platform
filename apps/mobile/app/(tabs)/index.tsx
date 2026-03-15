@@ -13,6 +13,7 @@ import {
   InteractionManager,
   RefreshControl,
   ScrollView,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +21,7 @@ import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
+import { useRouter } from "expo-router";
 
 type HomeTestimonial = {
   id: string;
@@ -47,6 +49,7 @@ type HomeContentPayload = {
 
 export default function HomeScreen() {
   const { colors, isDark } = useAppTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile, token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
@@ -259,6 +262,46 @@ export default function HomeScreen() {
                 <View className="absolute bottom-0 right-0 h-4 w-4 bg-success rounded-full" />
               </View>
             </View>
+          </View>
+        </View>
+
+        <View className="mb-10">
+          <View className="flex-row items-center gap-2 mb-4">
+            <View className="h-2 w-2 rounded-full bg-accent" />
+            <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">Quick Links</Text>
+          </View>
+          <View className="flex-row flex-wrap gap-3">
+            <TouchableOpacity
+              onPress={() => router.push("/video-upload")}
+              className="flex-1 min-w-[140px] rounded-[20px] border px-4 py-4"
+              style={{
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+                ...(isDark ? Shadows.none : Shadows.sm),
+              }}
+            >
+              <View className="h-10 w-10 rounded-2xl items-center justify-center mb-3" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : colors.accentLight }}>
+                <Feather name="video" size={18} color={colors.accent} />
+              </View>
+              <Text className="text-sm font-outfit font-semibold text-app">Upload Video</Text>
+              <Text className="text-xs font-outfit text-secondary mt-1">Coach review</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push("/parent-platform")}
+              className="flex-1 min-w-[140px] rounded-[20px] border px-4 py-4"
+              style={{
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+                ...(isDark ? Shadows.none : Shadows.sm),
+              }}
+            >
+              <View className="h-10 w-10 rounded-2xl items-center justify-center mb-3" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : colors.accentLight }}>
+                <Feather name="users" size={18} color={colors.accent} />
+              </View>
+              <Text className="text-sm font-outfit font-semibold text-app">Parent Platform</Text>
+              <Text className="text-xs font-outfit text-secondary mt-1">Family support</Text>
+            </TouchableOpacity>
           </View>
         </View>
 

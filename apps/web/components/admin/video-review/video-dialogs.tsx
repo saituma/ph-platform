@@ -159,6 +159,20 @@ export function VideoDialogs({
     }
   };
 
+  const makeUniqueName = (originalName: string) => {
+    const uploadPart = selectedVideo?.id ? `upload-${selectedVideo.id}` : "upload";
+    const parts = originalName.split(".");
+    const ext = parts.length > 1 ? parts.pop() : "mp4";
+    const base = parts.join(".") || "coach-response";
+    const safeBase = base
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+    const timestamp = Date.now();
+    return `${safeBase || "coach-response"}-${uploadPart}-${timestamp}.${ext}`;
+  };
+
   const uploadBlob = async (blob: Blob, fileName: string) => {
     const maxSizeMb = 200;
     if (blob.size > maxSizeMb * 1024 * 1024) {
@@ -168,9 +182,10 @@ export function VideoDialogs({
     try {
       setIsUploading(true);
       setUploadProgress(0);
+      const uniqueName = makeUniqueName(fileName);
       const result = await createUploadUrl({
         folder: "video-review/coach-response",
-        fileName,
+        fileName: uniqueName,
         contentType: blob.type || "application/octet-stream",
         sizeBytes: blob.size,
       }).unwrap();
@@ -221,7 +236,8 @@ export function VideoDialogs({
     }
     const mimeType = recordedBlob.type || "video/webm";
     const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-    await uploadBlob(recordedBlob, `coach-response-${Date.now()}.${ext}`);
+    const uploadPart = selectedVideo?.id ? `upload-${selectedVideo.id}` : "upload";
+    await uploadBlob(recordedBlob, `coach-response-${uploadPart}-${Date.now()}.${ext}`);
   };
 
   const handleSendResponse = async () => {
