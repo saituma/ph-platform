@@ -240,27 +240,34 @@ export function VideoDialogs({
     await uploadBlob(recordedBlob, `coach-response-${uploadPart}-${Date.now()}.${ext}`);
   };
 
-  const handleSendResponse = async () => {
-    if (!selectedVideo?.athleteUserId) {
-      setResponseError("Athlete profile not found for this upload.");
+  const handleMarkReviewed = async () => {
+    const hasFeedback = feedback.trim().length > 0;
+    const hasResponse = Boolean(responseUrl);
+    if (!hasFeedback && !hasResponse) {
+      setResponseError("Add feedback or upload a response video.");
       return;
     }
-    if (!responseUrl) {
-      setResponseError("Upload a response video first.");
+    if (hasResponse && !selectedVideo?.athleteUserId) {
+      setResponseError("Athlete profile not found for this upload.");
       return;
     }
     try {
       setResponseError(null);
-      await onSendResponseVideo?.({
-        athleteUserId: selectedVideo.athleteUserId,
-        mediaUrl: responseUrl,
-        uploadId: selectedVideo.id,
-      });
-      const fallbackFeedback = feedback.trim() || "Coach sent a response video.";
+      if (hasResponse) {
+        await onSendResponseVideo?.({
+          athleteUserId: selectedVideo!.athleteUserId!,
+          mediaUrl: responseUrl!,
+          uploadId: selectedVideo!.id,
+        });
+      }
+      const fallbackFeedback = hasFeedback ? feedback.trim() : "Coach sent a response video.";
       if (onSubmitReview) {
         await onSubmitReview(fallbackFeedback);
       }
-      toast.success("Response sent", "The athlete will see the video in their messages and program.");
+      toast.success(
+        "Marked reviewed",
+        hasResponse ? "Response video sent to the athlete." : "Feedback submitted."
+      );
       setResponseUrl(null);
       setRecordedBlob(null);
       if (recordedPreview) {
@@ -268,8 +275,8 @@ export function VideoDialogs({
         setRecordedPreview(null);
       }
     } catch (error: any) {
-      setResponseError(error?.message ?? "Failed to send response video.");
-      toast.error("Send failed", error?.message ?? "Failed to send response video.");
+      setResponseError(error?.message ?? "Failed to mark reviewed.");
+      toast.error("Review failed", error?.message ?? "Failed to mark reviewed.");
     }
   };
 
@@ -401,9 +408,6 @@ export function VideoDialogs({
                         muted
                       />
                       <div className="flex flex-wrap items-center gap-2">
-                        <Button onClick={handleSendResponse} disabled={isSendingResponse}>
-                          {isSendingResponse ? "Sending..." : "Send Response Video"}
-                        </Button>
                         <Button
                           variant="ghost"
                           onClick={() => {
@@ -427,8 +431,8 @@ export function VideoDialogs({
                   Save Draft
                 </Button>
                 <Button
-                  onClick={() => onSubmitReview?.(feedback)}
-                  disabled={isSubmitting || feedback.trim().length === 0}
+                  onClick={handleMarkReviewed}
+                  disabled={isSubmitting || isSendingResponse || (feedback.trim().length === 0 && !responseUrl)}
                 >
                   Mark Reviewed
                 </Button>
