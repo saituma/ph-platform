@@ -256,6 +256,10 @@ export function VideoDialogs({
         mediaUrl: responseUrl,
         uploadId: selectedVideo.id,
       });
+      const fallbackFeedback = feedback.trim() || "Coach sent a response video.";
+      if (onSubmitReview) {
+        await onSubmitReview(fallbackFeedback);
+      }
       toast.success("Response sent", "The athlete will see the video in their messages and program.");
       setResponseUrl(null);
       setRecordedBlob(null);
