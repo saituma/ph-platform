@@ -25,6 +25,7 @@ import {
   getDashboard,
   listMessageThreads,
   listThreadMessages,
+  deleteThreadMessages,
   markThreadRead,
   sendAdminMessage,
   listAllUsers,
@@ -68,6 +69,7 @@ router.get("/admin/videos", listVideosAdmin);
 router.get("/admin/messages/threads", listMessageThreads);
 router.get("/admin/messages/:userId", listThreadMessages);
 router.post("/admin/messages/:userId", sendAdminMessage);
+router.delete("/admin/messages/:userId", deleteThreadMessages);
 router.post("/admin/messages/:userId/read", markThreadRead);
 router.get("/admin/users/:userId/onboarding", getOnboarding);
 router.post("/admin/users/program-tier", updateProgramTier);

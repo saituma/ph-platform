@@ -1190,6 +1190,38 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number) {
   return attachDirectMessageReactions(messages);
 }
 
+export async function deleteThreadMessagesAdmin(coachId: number, userId: number) {
+  const adminIds = await getAdminCoachIds();
+  if (!adminIds.length) return 0;
+  if (!adminIds.includes(coachId)) return 0;
+
+  const [guardian] = await db
+    .select({ id: guardianTable.id })
+    .from(guardianTable)
+    .where(eq(guardianTable.userId, userId))
+    .limit(1);
+
+  let otherUserIds: number[] = [userId];
+  if (guardian?.id) {
+    const athleteRows = await db
+      .select({ userId: athleteTable.userId })
+      .from(athleteTable)
+      .where(eq(athleteTable.guardianId, guardian.id));
+    const athleteUserIds = athleteRows.map((row) => row.userId);
+    otherUserIds = Array.from(new Set([userId, ...athleteUserIds]));
+  }
+
+  const result = await db
+    .delete(messageTable)
+    .where(
+      or(
+        and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, otherUserIds)),
+        and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, adminIds))
+      )
+    );
+  return result.rowCount ?? 0;
+}
+
 export async function markThreadReadAdmin(coachId: number, userId: number) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return 0;

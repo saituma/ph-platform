@@ -375,6 +375,13 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Threads"],
     }),
+    deleteThread: builder.mutation<{ deleted: number }, { userId: number }>({
+      query: ({ userId }) => ({
+        url: `/admin/messages/${userId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Threads"],
+    }),
     sendMessage: builder.mutation<
       { message: any },
       {

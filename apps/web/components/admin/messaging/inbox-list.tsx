@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "../../ui/badge";
 import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
@@ -25,6 +26,8 @@ type InboxListProps = {
   threads: Thread[];
   selected?: number | null;
   onSelect: (userId: number) => void;
+  onMarkRead: (userId: number) => void;
+  onDeleteThread: (userId: number) => void;
   onFilterSelect: (chip: string) => void;
   searchValue: string;
   onSearch: (value: string) => void;
@@ -36,12 +39,31 @@ export function InboxList({
   threads,
   selected,
   onSelect,
+  onMarkRead,
+  onDeleteThread,
   onFilterSelect,
   searchValue,
   onSearch,
   activeFilter,
   counts,
 }: InboxListProps) {
+  const [menuState, setMenuState] = useState<{
+    userId: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuState) return;
+    const handleClick = (event: MouseEvent) => {
+      if (menuRef.current && menuRef.current.contains(event.target as Node)) return;
+      setMenuState(null);
+    };
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [menuState]);
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -76,6 +98,10 @@ export function InboxList({
               key={thread.userId}
               type="button"
               onClick={() => onSelect(thread.userId)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setMenuState({ userId: thread.userId, x: event.clientX, y: event.clientY });
+              }}
               className={`flex w-full items-center justify-between rounded-2xl border border-border p-4 text-left text-sm transition ${
                 selected === thread.userId
                   ? "bg-background"
@@ -143,6 +169,34 @@ export function InboxList({
           )})}
         </div>
       )}
+      {menuState ? (
+        <div
+          ref={menuRef}
+          className="fixed z-50 min-w-[160px] rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
+          style={{ left: menuState.x, top: menuState.y }}
+        >
+          <button
+            type="button"
+            className="w-full rounded-lg px-3 py-2 text-left hover:bg-secondary/60"
+            onClick={() => {
+              onMarkRead(menuState.userId);
+              setMenuState(null);
+            }}
+          >
+            Mark Read
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-lg px-3 py-2 text-left text-destructive hover:bg-destructive/10"
+            onClick={() => {
+              onDeleteThread(menuState.userId);
+              setMenuState(null);
+            }}
+          >
+            Delete Chat
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
