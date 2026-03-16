@@ -640,6 +640,7 @@ export const {
   useToggleMessageReactionMutation,
   useDeleteMessageMutation,
   useDeleteGroupMessageMutation,
+  useDeleteThreadMutation,
   useCreateServiceMutation,
   useUpdateServiceMutation,
   useCreateAvailabilityMutation,
