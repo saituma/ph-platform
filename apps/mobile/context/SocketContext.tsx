@@ -25,7 +25,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const socketRef = useRef<Socket | null>(null);
   const activeThreadIdRef = useRef<string | null>(null);
   const effectiveProfileIdRef = useRef<string>("");
-  const actingUserIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -34,8 +33,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const effectiveProfileId =
       role === "Athlete" && athleteUserId
-        ? String(athleteUserId)
-        : role === "Guardian" && athleteUserId
         ? String(athleteUserId)
         : String(profile.id ?? "");
     effectiveProfileIdRef.current = effectiveProfileId;
@@ -74,11 +71,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     newSocket.on("connect", () => {
       console.log("[Socket] Global connected");
       setIsConnected(true);
-      if (role === "Guardian" && athleteUserId) {
-        console.log("[Socket] acting:join on connect", { actingUserId: athleteUserId });
-        newSocket.emit("acting:join", { actingUserId: Number(athleteUserId) });
-        actingUserIdRef.current = Number(athleteUserId);
-      }
     });
 
     newSocket.on("disconnect", (reason) => {
@@ -186,21 +178,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [token]);
 
-  useEffect(() => {
-    if (!socketRef.current) return;
-    if (role === "Guardian" && athleteUserId) {
-      const nextId = Number(athleteUserId);
-      if (actingUserIdRef.current !== nextId) {
-        console.log("[Socket] acting:join on role/athlete change", { actingUserId: nextId });
-        socketRef.current.emit("acting:join", { actingUserId: nextId });
-        actingUserIdRef.current = nextId;
-      }
-    } else if (actingUserIdRef.current !== null) {
-      console.log("[Socket] acting:join clear");
-      socketRef.current.emit("acting:join", { actingUserId: null });
-      actingUserIdRef.current = null;
-    }
-  }, [role, athleteUserId]);
+  // No role-based socket room switching for guardians; messages are guardian-only.
 
   return (
     <SocketContext.Provider value={{ socket, isConnected, setActiveThreadId }}>
