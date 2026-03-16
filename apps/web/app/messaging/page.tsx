@@ -235,7 +235,7 @@ export default function MessagingPage() {
         : "";
     const socket: Socket = io(socketUrl, {
       auth: accessToken ? { token: accessToken } : undefined,
-      transports: ["polling", "websocket"],
+      transports: ["websocket"],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
