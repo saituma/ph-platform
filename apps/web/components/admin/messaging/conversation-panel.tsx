@@ -31,6 +31,7 @@ type ConversationPanelProps = {
     lastActive: string;
     tags: string[];
   } | null;
+  uploadState?: { name: string; sizeLabel: string; progress: number } | null;
   onReact?: (messageId: string, emoji: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   onSend?: (payload: { text: string; attachment?: ComposerAttachment | null }) => void;
@@ -42,6 +43,7 @@ export function ConversationPanel({
   name,
   messages,
   profile,
+  uploadState,
   onReact,
   onDeleteMessage,
   onSend,
@@ -448,6 +450,23 @@ export function ConversationPanel({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="h-2 w-2 rounded-full bg-primary/60" />
           {typingLabel}
+        </div>
+      ) : null}
+      {uploadState ? (
+        <div className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-foreground">Uploading {uploadState.name}</p>
+              <p className="text-[11px] text-muted-foreground">{uploadState.sizeLabel}</p>
+            </div>
+            <p className="text-[11px] text-muted-foreground">{uploadState.progress}%</p>
+          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${uploadState.progress}%` }}
+            />
+          </div>
         </div>
       ) : null}
       <div className="fixed bottom-0 left-0 right-0 z-20 space-y-3 border-t border-border bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-sm backdrop-blur lg:static lg:rounded-2xl lg:border lg:border-border lg:bg-background lg:shadow-none">

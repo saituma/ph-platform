@@ -32,6 +32,7 @@ import {
   useToggleMessageReactionMutation,
   useDeleteMessageMutation,
   useDeleteGroupMessageMutation,
+  useDeleteThreadMutation,
 } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
@@ -78,6 +79,7 @@ export default function MessagingPage() {
   const [mobileView, setMobileView] = useState<"inbox" | "conversation">("inbox");
   const [realtimeDirectMessages, setRealtimeDirectMessages] = useState<MessageItem[]>([]);
   const [realtimeGroupMessages, setRealtimeGroupMessages] = useState<MessageItem[]>([]);
+  const [uploadState, setUploadState] = useState<{ name: string; sizeLabel: string; progress: number } | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
@@ -90,10 +92,12 @@ export default function MessagingPage() {
   const [toggleGroupMessageReaction] = useToggleChatGroupMessageReactionMutation();
   const [deleteMessage] = useDeleteMessageMutation();
   const [deleteGroupMessage] = useDeleteGroupMessageMutation();
+  const [deleteThread] = useDeleteThreadMutation();
   const [markThreadRead] = useMarkThreadReadMutation();
   const [newGroupName, setNewGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const lastNotifiedRef = useRef<number | null>(null);
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
 
   // --- Stable refs so socket handlers always see latest values ---
   const selectedUserIdRef = useRef(selectedUserId);
@@ -534,16 +538,29 @@ export default function MessagingPage() {
       sizeBytes: file.size,
     }).unwrap();
 
-    const uploadResponse = await fetch(presign.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": inferredType,
-      },
-      body: file,
+    const sizeLabel = formatBytes(file.size);
+    setUploadState({ name: file.name, sizeLabel, progress: 0 });
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", presign.uploadUrl, true);
+      xhr.setRequestHeader("Content-Type", inferredType);
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        const progress = Math.round((event.loaded / event.total) * 100);
+        setUploadState({ name: file.name, sizeLabel, progress });
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error("Failed to upload attachment"));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Failed to upload attachment"));
+      xhr.send(file);
+    }).finally(() => {
+      setUploadState(null);
     });
-    if (!uploadResponse.ok) {
-      throw new Error("Failed to upload attachment");
-    }
 
     const mappedContentType: "text" | "image" | "video" = inferredType.startsWith("image/")
       ? "image"
@@ -573,6 +590,26 @@ export default function MessagingPage() {
                   Connect with every athlete and guardian.
                 </p>
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isMarkingAll || inboxUnreadCount === 0}
+                onClick={async () => {
+                  if (!threads.length) return;
+                  setIsMarkingAll(true);
+                  try {
+                    const targets = threads.filter((thread) => (thread.unread ?? 0) > 0);
+                    await Promise.all(targets.map((thread) => markThreadRead({ userId: thread.userId }).unwrap()));
+                    refetchThreads();
+                  } catch (err: any) {
+                    toast.error("Mark all failed", err?.message ?? "Please try again.");
+                  } finally {
+                    setIsMarkingAll(false);
+                  }
+                }}
+              >
+                {isMarkingAll ? "Marking..." : "Mark All Read"}
+              </Button>
               {inboxMode === "direct" && inboxUnreadCount > 0 ? (
                 <Badge variant="primary">{inboxUnreadCount}</Badge>
               ) : null}
@@ -645,6 +682,28 @@ export default function MessagingPage() {
                     setSelectedUserId(userId);
                     setMobileView("conversation");
                   }}
+                  onMarkRead={async (userId) => {
+                    try {
+                      await markThreadRead({ userId }).unwrap();
+                      refetchThreads();
+                    } catch (err: any) {
+                      toast.error("Mark read failed", err?.message ?? "Please try again.");
+                    }
+                  }}
+                  onDeleteThread={async (userId) => {
+                    const confirmed = window.confirm("Delete this chat? This cannot be undone.");
+                    if (!confirmed) return;
+                    try {
+                      await deleteThread({ userId }).unwrap();
+                      refetchThreads();
+                      refetchMessages();
+                      if (selectedUserId === userId) {
+                        setSelectedUserId(null);
+                      }
+                    } catch (err: any) {
+                      toast.error("Delete chat failed", err?.message ?? "Please try again.");
+                    }
+                  }}
                   onFilterSelect={setActiveFilter}
                   searchValue={searchTerm}
                   onSearch={setSearchTerm}
@@ -670,6 +729,7 @@ export default function MessagingPage() {
           typingMap={typingMap}
           messages={messages}
           groupMessages={groupMessages}
+          uploadState={uploadState}
           onTypingChange={(isTyping) => {
             const socket = socketRef.current;
             if (!socket) return;

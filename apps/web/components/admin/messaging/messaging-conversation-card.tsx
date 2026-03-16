@@ -33,6 +33,7 @@ type MessagingConversationCardProps = {
   onSend: (payload: { text: string; attachment?: ComposerAttachment | null }) => Promise<void>;
   onReact: (messageId: string, emoji: string) => Promise<void>;
   onDelete: (messageId: string, inboxMode: "direct" | "group", groupId: number | null) => Promise<void>;
+  uploadState?: { name: string; sizeLabel: string; progress: number } | null;
 };
 
 export function MessagingConversationCard({
@@ -53,6 +54,7 @@ export function MessagingConversationCard({
   onSend,
   onReact,
   onDelete,
+  uploadState,
 }: MessagingConversationCardProps) {
   const selectedGroupName = groups.find((group) => group.id === selectedGroupId)?.name;
   const responseBadge =
@@ -106,6 +108,7 @@ export function MessagingConversationCard({
           name={inboxMode === "group" ? selectedGroupName ?? null : selectedThreadName}
           messages={inboxMode === "group" ? groupMessages : messages}
           profile={null}
+          uploadState={uploadState}
           typingLabel={
             inboxMode === "group"
               ? typingMap[`group:${selectedGroupId}`]?.isTyping

@@ -15,6 +15,7 @@ import {
   listExercises,
   listBookingsAdmin,
   getBookingByIdAdmin,
+  deleteThreadMessagesAdmin,
   listMessageThreadsAdmin,
   listThreadMessagesAdmin,
   listVideoUploadsAdmin,
@@ -520,6 +521,12 @@ export async function listThreadMessages(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
   const messages = await listThreadMessagesAdmin(req.user!.id, userId);
   return res.status(200).json({ messages });
+}
+
+export async function deleteThreadMessages(req: Request, res: Response) {
+  const userId = z.coerce.number().int().min(1).parse(req.params.userId);
+  const deleted = await deleteThreadMessagesAdmin(req.user!.id, userId);
+  return res.status(200).json({ deleted });
 }
 
 export async function markThreadRead(req: Request, res: Response) {
