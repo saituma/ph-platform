@@ -1020,6 +1020,22 @@ export async function listMessageThreadsAdmin(coachId: number) {
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
   const adminSet = new Set(adminIds);
+
+  const athleteRows = await db
+    .select({
+      athleteUserId: athleteTable.userId,
+      guardianUserId: guardianTable.userId,
+    })
+    .from(athleteTable)
+    .leftJoin(guardianTable, eq(guardianTable.id, athleteTable.guardianId));
+
+  const athleteToGuardian = new Map<number, number>();
+  for (const row of athleteRows) {
+    if (row.athleteUserId && row.guardianUserId) {
+      athleteToGuardian.set(row.athleteUserId, row.guardianUserId);
+    }
+  }
+
   const messages = await db
     .select()
     .from(messageTable)
@@ -1030,7 +1046,8 @@ export async function listMessageThreadsAdmin(coachId: number) {
     if (adminSet.has(msg.senderId) && adminSet.has(msg.receiverId)) {
       continue;
     }
-    const otherId = adminSet.has(msg.senderId) ? msg.receiverId : msg.senderId;
+    const rawOtherId = adminSet.has(msg.senderId) ? msg.receiverId : msg.senderId;
+    const otherId = athleteToGuardian.get(rawOtherId) ?? rawOtherId;
     const current = threads.get(otherId);
     const isUnread = !adminSet.has(msg.senderId) && !msg.read;
     if (!current || new Date(msg.createdAt) > new Date(current.lastMessage.createdAt)) {
@@ -1144,13 +1161,29 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
+  const [guardian] = await db
+    .select({ id: guardianTable.id })
+    .from(guardianTable)
+    .where(eq(guardianTable.userId, userId))
+    .limit(1);
+
+  let otherUserIds: number[] = [userId];
+  if (guardian?.id) {
+    const athleteRows = await db
+      .select({ userId: athleteTable.userId })
+      .from(athleteTable)
+      .where(eq(athleteTable.guardianId, guardian.id));
+    const athleteUserIds = athleteRows.map((row) => row.userId);
+    otherUserIds = Array.from(new Set([userId, ...athleteUserIds]));
+  }
+
   const messages = await db
     .select()
     .from(messageTable)
     .where(
       or(
-        and(inArray(messageTable.senderId, adminIds), eq(messageTable.receiverId, userId)),
-        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, adminIds))
+        and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, otherUserIds)),
+        and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, adminIds))
       )
     )
     .orderBy(messageTable.createdAt);

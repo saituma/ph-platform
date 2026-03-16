@@ -515,6 +515,13 @@ export default function MessagingPage() {
     }
   };
 
+  const formatBytes = (sizeBytes: number) => {
+    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return "0 KB";
+    if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+    if (sizeBytes < 1024 * 1024 * 1024) return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  };
+
   const uploadAttachment = async (attachment: ComposerAttachment) => {
     const file = attachment.file;
     const inferredType =
@@ -547,7 +554,7 @@ export default function MessagingPage() {
     return {
       mediaUrl: presign.publicUrl,
       contentType: mappedContentType,
-      fallbackContent: file.name,
+      fallbackContent: `${file.name} • ${formatBytes(file.size)}`,
     };
   };
 

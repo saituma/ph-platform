@@ -29,11 +29,10 @@ export function useMessagesController() {
   const { role } = useRole();
   const effectiveProfileId = useMemo(() => {
     if (role === "Athlete" && athleteUserId) return Number(athleteUserId);
-    if (role === "Guardian" && athleteUserId) return Number(athleteUserId);
     return Number(profile.id ?? 0);
   }, [athleteUserId, profile.id, role]);
   const actingHeaders = useMemo(() => {
-    if (role === "Guardian" && athleteUserId) {
+    if (role === "Athlete" && athleteUserId) {
       return { "X-Acting-User-Id": String(athleteUserId) };
     }
     return undefined;

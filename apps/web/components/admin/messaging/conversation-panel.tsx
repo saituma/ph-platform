@@ -240,6 +240,35 @@ export function ConversationPanel({
     return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
   };
 
+  const formatBytes = (sizeBytes: number) => {
+    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return "0 KB";
+    if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+    if (sizeBytes < 1024 * 1024 * 1024) return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  };
+
+  const extractFileName = (url: string) => {
+    try {
+      const pathname = new URL(url).pathname;
+      const raw = pathname.split("/").pop() ?? "";
+      return decodeURIComponent(raw) || "Attachment";
+    } catch {
+      const raw = url.split("?")[0]?.split("/").pop() ?? "";
+      return decodeURIComponent(raw) || "Attachment";
+    }
+  };
+
+  const getAttachmentMeta = (message: Message) => {
+    if (!message.mediaUrl) return null;
+    const sizeMatch = message.text.match(/\b(\d+(?:\.\d+)?)\s?(KB|MB|GB)\b/i);
+    const nameFromText = message.text.includes(" • ")
+      ? message.text.split(" • ")[0]?.trim()
+      : null;
+    const sizeLabel = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2].toUpperCase()}` : null;
+    const name = nameFromText && nameFromText.length > 0 ? nameFromText : extractFileName(message.mediaUrl);
+    return { name, sizeLabel };
+  };
+
   if (!name) {
     return (
       <EmptyState
@@ -274,6 +303,9 @@ export function ConversationPanel({
         <div className="space-y-3 pb-[calc(11rem+env(safe-area-inset-bottom))] lg:pb-0">
         {messages.map((message) => {
           const isCoach = message.author === "Coach";
+          const attachmentMeta = getAttachmentMeta(message);
+          const showAttachmentMeta = Boolean(attachmentMeta);
+          const shouldHideText = showAttachmentMeta && message.text.startsWith(attachmentMeta!.name);
           return (
             <div
               key={message.id}
@@ -295,6 +327,25 @@ export function ConversationPanel({
                 <p className="text-[11px] text-muted-foreground">
                   {message.author} • {message.time}
                 </p>
+                {showAttachmentMeta ? (
+                  <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-foreground">{attachmentMeta!.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {attachmentMeta!.sizeLabel ?? "Size unavailable"}
+                      </p>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {message.contentType === "image"
+                        ? "Image"
+                        : message.contentType === "video"
+                        ? "Video"
+                        : isAudioAttachment(message)
+                        ? "Audio"
+                        : "File"}
+                    </div>
+                  </div>
+                ) : null}
                 {message.mediaUrl && message.contentType === "image" ? (
                   <button
                     type="button"
@@ -344,7 +395,7 @@ export function ConversationPanel({
                     Voice messages are disabled.
                   </p>
                 ) : null}
-                <p className="mt-2 text-foreground">{message.text}</p>
+                {shouldHideText ? null : <p className="mt-2 text-foreground">{message.text}</p>}
                 {message.reactions?.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {message.reactions.map((reaction) => (
