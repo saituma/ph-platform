@@ -24,6 +24,10 @@ export function initSocket(server: HttpServer) {
   const allowedOrigins = new Set<string>();
   const addOrigin = (value?: string) => {
     if (!value) return;
+    if (value === "*") {
+      allowedOrigins.add("*");
+      return;
+    }
     try {
       const url = new URL(value);
       allowedOrigins.add(url.origin);
@@ -42,6 +46,7 @@ export function initSocket(server: HttpServer) {
     cors: {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
+        if (allowedOrigins.has("*")) return callback(null, true);
         if (allowedOrigins.has(origin)) return callback(null, true);
         return callback(new Error("Origin not allowed"), false);
       },
