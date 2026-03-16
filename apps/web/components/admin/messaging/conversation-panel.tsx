@@ -225,6 +225,14 @@ export function ConversationPanel({
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages.length, name]);
 
+  const submitDraft = () => {
+    const text = draft.trim();
+    if (!text && !attachment) return;
+    onSend?.({ text, attachment });
+    setDraft("");
+    setAttachment(null);
+  };
+
   const isAudioAttachment = (message: Message) => {
     if (message.contentType === "audio") return true;
     if (!message.mediaUrl) return false;
@@ -420,6 +428,13 @@ export function ConversationPanel({
           className="min-h-[56px] rounded-2xl bg-background px-4 py-3"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            if (event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) return;
+            if ((event as unknown as { isComposing?: boolean }).isComposing) return;
+            event.preventDefault();
+            submitDraft();
+          }}
         />
         {attachment ? (
           <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 px-3 py-2">
@@ -460,13 +475,7 @@ export function ConversationPanel({
             <Button variant="outline">Save Draft</Button>
             <Button
               className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
-              onClick={() => {
-                const text = draft.trim();
-                if (!text && !attachment) return;
-                onSend?.({ text, attachment });
-                setDraft("");
-                setAttachment(null);
-              }}
+              onClick={submitDraft}
             >
               Send
               <Send className="h-4 w-4" />

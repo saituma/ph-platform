@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { athleteTable, videoUploadTable, userTable } from "../db/schema";
+import { athleteTable, guardianTable, videoUploadTable } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { sendPushNotification } from "./push.service";
 
@@ -76,23 +76,36 @@ export async function reviewVideoUpload(input: {
   // Send push notification to user
   try {
     const [athlete] = await db
-      .select({ userId: athleteTable.userId })
+      .select({
+        athleteUserId: athleteTable.userId,
+        guardianUserId: guardianTable.userId,
+      })
       .from(athleteTable)
+      .leftJoin(guardianTable, eq(guardianTable.id, athleteTable.guardianId))
       .where(eq(athleteTable.id, upload.athleteId))
       .limit(1);
 
     if (athlete) {
-      await sendPushNotification(
-        athlete.userId,
-        "Video Reviewed",
-        "Your coach has provided feedback on your training video.",
-        { videoUploadId: upload.id, url: "/video-upload" }
-      );
+      const recipients = new Set<number>();
+      if (athlete.athleteUserId) recipients.add(athlete.athleteUserId);
+      if (athlete.guardianUserId) recipients.add(athlete.guardianUserId);
+      const payload = { videoUploadId: upload.id, url: "/video-upload" };
+
+      for (const userId of recipients) {
+        await sendPushNotification(
+          userId,
+          "Video Reviewed",
+          "Your coach has provided feedback on your training video.",
+          payload
+        );
+      }
 
       // Emit socket event for live update in the app
       const io = getSocketServer();
       if (io) {
-        io.to(`user:${athlete.userId}`).emit("video:reviewed", upload);
+        for (const userId of recipients) {
+          io.to(`user:${userId}`).emit("video:reviewed", upload);
+        }
       }
     }
   } catch (err) {

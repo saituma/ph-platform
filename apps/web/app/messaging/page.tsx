@@ -135,15 +135,13 @@ export default function MessagingPage() {
         } as ThreadItem;
       });
 
-    const guardiansOnly = combined.filter((thread) => thread.role === "guardian");
-
     const tierWeight = (tier?: string | null) => {
       if (tier === "PHP_Premium") return 3;
       if (tier === "PHP_Plus") return 2;
       return 1;
     };
 
-    return guardiansOnly.sort((a, b) => {
+    return combined.sort((a, b) => {
       const tierDiff = tierWeight(b.programTier) - tierWeight(a.programTier);
       if (tierDiff !== 0) return tierDiff;
       if (a.premium !== b.premium) {

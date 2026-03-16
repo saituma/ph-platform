@@ -136,9 +136,13 @@ export default function TabLayout() {
     }
 
     const effectiveUserId =
-      role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
-    const headers =
       role === "Athlete" && athleteUserId
+        ? Number(athleteUserId)
+        : role === "Guardian" && athleteUserId
+        ? Number(athleteUserId)
+        : Number(profile.id);
+    const headers =
+      role === "Guardian" && athleteUserId
         ? { "X-Acting-User-Id": String(athleteUserId) }
         : undefined;
 
@@ -185,7 +189,7 @@ export default function TabLayout() {
     lastPrefetchAt.current = now;
 
     const headers =
-      role === "Athlete" && athleteUserId
+      role === "Guardian" && athleteUserId
         ? { "X-Acting-User-Id": String(athleteUserId) }
         : undefined;
 
@@ -206,7 +210,11 @@ export default function TabLayout() {
     if (!socket || !token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) return;
 
     const effectiveUserId =
-      role === "Athlete" && athleteUserId ? String(athleteUserId) : String(profile.id ?? "");
+      role === "Athlete" && athleteUserId
+        ? String(athleteUserId)
+        : role === "Guardian" && athleteUserId
+        ? String(athleteUserId)
+        : String(profile.id ?? "");
     const currentThreadFromPath = pathname.startsWith("/messages/")
       ? decodeURIComponent(pathname.replace("/messages/", "").split("/")[0] || "")
       : null;

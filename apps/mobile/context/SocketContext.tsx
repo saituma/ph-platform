@@ -25,6 +25,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const socketRef = useRef<Socket | null>(null);
   const activeThreadIdRef = useRef<string | null>(null);
   const effectiveProfileIdRef = useRef<string>("");
+  const actingUserIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -32,12 +33,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const effectiveProfileId =
-      role === "Athlete" && athleteUserId ? String(athleteUserId) : String(profile.id ?? "");
+      role === "Athlete" && athleteUserId
+        ? String(athleteUserId)
+        : role === "Guardian" && athleteUserId
+        ? String(athleteUserId)
+        : String(profile.id ?? "");
     effectiveProfileIdRef.current = effectiveProfileId;
   }, [athleteUserId, profile.id, role]);
 
   useEffect(() => {
     if (!token) {
+      console.log("[Socket] Skipping connect: missing token");
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -49,9 +55,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
     const socketUrl = baseUrl ? baseUrl.replace(/\/api\/?$/, "") : "";
-    if (!socketUrl) return;
+    if (!socketUrl) {
+      console.log("[Socket] Skipping connect: missing EXPO_PUBLIC_API_BASE_URL");
+      return;
+    }
 
     if (socketRef.current) return;
+    console.log("[Socket] Connecting", { socketUrl });
 
     const newSocket: Socket = io(socketUrl, {
       auth: { token },
@@ -64,11 +74,19 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     newSocket.on("connect", () => {
       console.log("[Socket] Global connected");
       setIsConnected(true);
+      if (role === "Guardian" && athleteUserId) {
+        console.log("[Socket] acting:join on connect", { actingUserId: athleteUserId });
+        newSocket.emit("acting:join", { actingUserId: Number(athleteUserId) });
+        actingUserIdRef.current = Number(athleteUserId);
+      }
     });
 
-    newSocket.on("disconnect", () => {
-      console.log("[Socket] Global disconnected");
+    newSocket.on("disconnect", (reason) => {
+      console.log("[Socket] Global disconnected", reason);
       setIsConnected(false);
+    });
+    newSocket.on("connect_error", (error) => {
+      console.log("[Socket] connect_error", error?.message ?? error);
     });
 
     const scheduleRealtimeNotification = async ({
@@ -167,6 +185,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setIsConnected(false);
     };
   }, [token]);
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+    if (role === "Guardian" && athleteUserId) {
+      const nextId = Number(athleteUserId);
+      if (actingUserIdRef.current !== nextId) {
+        console.log("[Socket] acting:join on role/athlete change", { actingUserId: nextId });
+        socketRef.current.emit("acting:join", { actingUserId: nextId });
+        actingUserIdRef.current = nextId;
+      }
+    } else if (actingUserIdRef.current !== null) {
+      console.log("[Socket] acting:join clear");
+      socketRef.current.emit("acting:join", { actingUserId: null });
+      actingUserIdRef.current = null;
+    }
+  }, [role, athleteUserId]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected, setActiveThreadId }}>
