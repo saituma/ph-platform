@@ -55,7 +55,7 @@ export function useMessagesRealtime({
       return [nextThread, ...threads.filter((thread) => thread.id !== nextThread.id)];
     };
 
-    socket.on("message:new", async (payload: any) => {
+    const handleMessageNew = async (payload: any) => {
       if (!payload?.id) return;
       const senderId = Number(payload.senderId);
       const receiverId = Number(payload.receiverId);
@@ -124,9 +124,9 @@ export function useMessagesRealtime({
         };
         return [createdThread, ...prev];
       });
-    });
+    };
 
-    socket.on("group:message", async (payload: any) => {
+    const handleGroupMessage = async (payload: any) => {
       if (!payload?.id || !payload?.groupId) return;
       const groupId = Number(payload.groupId);
       const currentProfileId = profileIdRef.current;
@@ -192,39 +192,36 @@ export function useMessagesRealtime({
         };
         return [createdThread, ...prev];
       });
-    });
+    };
 
-    socket.on(
-      "typing:update",
-      (payload: { name: string; isTyping: boolean; scope: string; groupId?: number; fromUserId?: number }) => {
-        const key =
-          payload.scope === "group" && payload.groupId
-            ? `group:${payload.groupId}`
-            : payload.fromUserId
-            ? `user:${payload.fromUserId}`
-            : "direct";
-        setTypingStatusRef.current((prev) => ({
-          ...prev,
-          [key]: { name: payload.name, isTyping: payload.isTyping },
-        }));
-      }
-    );
+    const handleTypingUpdate = (payload: { name: string; isTyping: boolean; scope: string; groupId?: number; fromUserId?: number }) => {
+      const key =
+        payload.scope === "group" && payload.groupId
+          ? `group:${payload.groupId}`
+          : payload.fromUserId
+          ? `user:${payload.fromUserId}`
+          : "direct";
+      setTypingStatusRef.current((prev) => ({
+        ...prev,
+        [key]: { name: payload.name, isTyping: payload.isTyping },
+      }));
+    };
 
-    socket.on("message:reaction", (payload: { messageId: number; reactions: ChatMessage["reactions"] }) => {
+    const handleMessageReaction = (payload: { messageId: number; reactions: ChatMessage["reactions"] }) => {
       const id = String(payload.messageId);
       setMessagesRef.current((prev) =>
         prev.map((message) => (message.id === id ? { ...message, reactions: payload.reactions ?? [] } : message))
       );
-    });
+    };
 
-    socket.on("group:reaction", (payload: { messageId: number; reactions: ChatMessage["reactions"] }) => {
+    const handleGroupReaction = (payload: { messageId: number; reactions: ChatMessage["reactions"] }) => {
       const id = `group-${payload.messageId}`;
       setMessagesRef.current((prev) =>
         prev.map((message) => (message.id === id ? { ...message, reactions: payload.reactions ?? [] } : message))
       );
-    });
+    };
 
-    socket.on("message:deleted", (payload: { messageId: number }) => {
+    const handleMessageDeleted = (payload: { messageId: number }) => {
       const id = String(payload.messageId);
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
       setThreadsRef.current((prev) => {
@@ -234,21 +231,29 @@ export function useMessagesRealtime({
         );
       });
       loadMessagesRef.current();
-    });
+    };
 
-    socket.on("group:message:deleted", (payload: { messageId: number }) => {
+    const handleGroupMessageDeleted = (payload: { messageId: number }) => {
       const id = `group-${payload.messageId}`;
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
-    });
+    };
+
+    socket.on("message:new", handleMessageNew);
+    socket.on("group:message", handleGroupMessage);
+    socket.on("typing:update", handleTypingUpdate);
+    socket.on("message:reaction", handleMessageReaction);
+    socket.on("group:reaction", handleGroupReaction);
+    socket.on("message:deleted", handleMessageDeleted);
+    socket.on("group:message:deleted", handleGroupMessageDeleted);
 
     return () => {
-      socket.off("message:new");
-      socket.off("group:message");
-      socket.off("typing:update");
-      socket.off("message:reaction");
-      socket.off("group:reaction");
-      socket.off("message:deleted");
-      socket.off("group:message:deleted");
+      socket.off("message:new", handleMessageNew);
+      socket.off("group:message", handleGroupMessage);
+      socket.off("typing:update", handleTypingUpdate);
+      socket.off("message:reaction", handleMessageReaction);
+      socket.off("group:reaction", handleGroupReaction);
+      socket.off("message:deleted", handleMessageDeleted);
+      socket.off("group:message:deleted", handleGroupMessageDeleted);
     };
   }, [socket]); // Simplified deps to avoid listener re-attachment spam
 

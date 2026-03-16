@@ -1,6 +1,8 @@
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { FontScaleProvider } from "@/context/FontScaleContext";
 import { RefreshProvider } from "@/context/RefreshContext";
+import { RoleProvider } from "@/context/RoleContext";
+import { SocketProvider } from "@/context/SocketContext";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
 import { Stack } from "expo-router";
@@ -21,13 +23,17 @@ export default function RootLayout() {
           <AppThemeProvider>
             <FontScaleProvider>
               <AgeExperienceProvider>
-                <RefreshProvider>
-                  <View style={{ flex: 1 }}>
-                    <AuthPersist />
-                    <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
-                    <StatusBar style="dark" />
-                  </View>
-                </RefreshProvider>
+                <RoleProvider>
+                  <SocketProvider>
+                    <RefreshProvider>
+                      <View style={{ flex: 1 }}>
+                        <AuthPersist />
+                        <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
+                        <StatusBar style="dark" />
+                      </View>
+                    </RefreshProvider>
+                  </SocketProvider>
+                </RoleProvider>
               </AgeExperienceProvider>
             </FontScaleProvider>
           </AppThemeProvider>
