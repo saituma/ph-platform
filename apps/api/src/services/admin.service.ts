@@ -1222,15 +1222,37 @@ export async function deleteThreadMessagesAdmin(coachId: number, userId: number)
   return result.rowCount ?? 0;
 }
 
+const resolveGuardianThreadUsers = async (userId: number) => {
+  const [guardian] = await db
+    .select({ id: guardianTable.id })
+    .from(guardianTable)
+    .where(eq(guardianTable.userId, userId))
+    .limit(1);
+
+  if (!guardian?.id) {
+    return [userId];
+  }
+
+  const athleteRows = await db
+    .select({ userId: athleteTable.userId })
+    .from(athleteTable)
+    .where(eq(athleteTable.guardianId, guardian.id));
+  const athleteUserIds = athleteRows.map((row) => row.userId);
+  return Array.from(new Set([userId, ...athleteUserIds]));
+};
+
 export async function markThreadReadAdmin(coachId: number, userId: number) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return 0;
   if (!adminIds.includes(coachId)) return 0;
 
+  const otherUserIds = await resolveGuardianThreadUsers(userId);
   const result = await db
     .update(messageTable)
     .set({ read: true })
-    .where(and(inArray(messageTable.receiverId, adminIds), eq(messageTable.senderId, userId), eq(messageTable.read, false)));
+    .where(
+      and(inArray(messageTable.receiverId, adminIds), inArray(messageTable.senderId, otherUserIds), eq(messageTable.read, false))
+    );
 
   return result.rowCount ?? 0;
 }
