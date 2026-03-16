@@ -52,6 +52,9 @@ export function initSocket(server: HttpServer) {
       },
       credentials: true,
     },
+    // More tolerant heartbeats for flaky networks / proxies.
+    pingInterval: 25000,
+    pingTimeout: 60000,
   });
   setSocketServer(io);
   const onlineUsers = new Set<number>();
@@ -71,11 +74,19 @@ export function initSocket(server: HttpServer) {
         ?.split("=")[1];
       const token = socket.handshake.auth?.token || headerAuth || cookieToken;
       if (!token) {
+        console.warn("[Socket] Unauthorized: missing token", {
+          ip: socket.handshake.address,
+          origin: socket.handshake.headers?.origin,
+        });
         return next(new Error("Unauthorized"));
       }
       const payload = (await verifyAccessToken(token)) as AuthPayload;
       const userId = await resolveUserId(payload);
       if (!userId) {
+        console.warn("[Socket] Unauthorized: user not resolved", {
+          ip: socket.handshake.address,
+          origin: socket.handshake.headers?.origin,
+        });
         return next(new Error("Unauthorized"));
       }
       socket.data.userId = userId;
@@ -85,6 +96,11 @@ export function initSocket(server: HttpServer) {
       socket.data.name = user?.name ?? "User";
       return next();
     } catch (error) {
+      console.warn("[Socket] Unauthorized: token verification failed", {
+        ip: socket.handshake.address,
+        origin: socket.handshake.headers?.origin,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return next(new Error("Unauthorized"));
     }
   });

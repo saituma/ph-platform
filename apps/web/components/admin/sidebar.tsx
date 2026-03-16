@@ -44,6 +44,16 @@ export function AdminSidebarContent({
   const { data: usersData } = useGetUsersQuery();
   const { data: videosData, refetch: refetchVideos } = useGetVideoUploadsQuery();
   const socketRef = useRef<Socket | null>(null);
+  const refetchThreadsRef = useRef(refetchThreads);
+  const refetchVideosRef = useRef(refetchVideos);
+
+  useEffect(() => {
+    refetchThreadsRef.current = refetchThreads;
+  }, [refetchThreads]);
+
+  useEffect(() => {
+    refetchVideosRef.current = refetchVideos;
+  }, [refetchVideos]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -70,7 +80,7 @@ export function AdminSidebarContent({
 
     const socket: Socket = io(socketUrl, {
       auth: accessToken ? { token: accessToken } : undefined,
-      transports: ["polling", "websocket"],
+      transports: ["websocket"],
       reconnection: true,
     });
     socketRef.current = socket;
@@ -78,8 +88,8 @@ export function AdminSidebarContent({
     socket.on("connect", () => console.log("[Sidebar Socket] Connected"));
 
     const handleRefresh = () => {
-      refetchVideos();
-      refetchThreads();
+      refetchVideosRef.current();
+      refetchThreadsRef.current();
     };
 
     socket.on("video:new", handleRefresh);
@@ -90,7 +100,7 @@ export function AdminSidebarContent({
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [refetchThreads, refetchVideos]);
+  }, []);
   const guardianIds = new Set(
     (usersData?.users ?? [])
       .filter((user: any) => user?.role === "guardian")
