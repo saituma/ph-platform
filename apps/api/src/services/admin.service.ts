@@ -1050,6 +1050,46 @@ export async function listMessageThreadsAdmin(coachId: number) {
     ? await db.select().from(userTable).where(inArray(userTable.id, userIds))
     : [];
 
+  const guardianNameByAthleteUserId = new Map<number, string>();
+  if (userIds.length) {
+    const athleteRows = await db
+      .select({
+        athleteUserId: athleteTable.userId,
+        guardianId: athleteTable.guardianId,
+      })
+      .from(athleteTable)
+      .where(inArray(athleteTable.userId, userIds));
+
+    const guardianIds = Array.from(new Set(athleteRows.map((row) => row.guardianId)));
+    if (guardianIds.length) {
+      const guardianRows = await db
+        .select({
+          guardianId: guardianTable.id,
+          guardianUserId: guardianTable.userId,
+          guardianName: userTable.name,
+          guardianEmail: userTable.email,
+        })
+        .from(guardianTable)
+        .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
+        .where(inArray(guardianTable.id, guardianIds));
+
+      const guardianNameById = new Map<number, string>();
+      for (const row of guardianRows) {
+        guardianNameById.set(
+          row.guardianId,
+          row.guardianName ?? row.guardianEmail ?? "Guardian"
+        );
+      }
+
+      for (const row of athleteRows) {
+        const guardianName = guardianNameById.get(row.guardianId);
+        if (guardianName) {
+          guardianNameByAthleteUserId.set(row.athleteUserId, guardianName);
+        }
+      }
+    }
+  }
+
   const tierMap = new Map<number, string | null>();
   if (userIds.length) {
     const athleteRows = await db
@@ -1086,10 +1126,11 @@ export async function listMessageThreadsAdmin(coachId: number) {
   return userIds.map((id) => {
     const info = threads.get(id)!;
     const user = users.find((u) => u.id === id);
+    const guardianName = guardianNameByAthleteUserId.get(id);
     const programTier = tierMap.get(id) ?? null;
     return {
       userId: id,
-      name: user?.name ?? user?.email ?? "Unknown",
+      name: guardianName ?? user?.name ?? user?.email ?? "Unknown",
       preview: info.lastMessage.content,
       time: info.lastMessage.createdAt,
       unread: info.unread,
