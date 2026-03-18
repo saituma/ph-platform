@@ -140,7 +140,7 @@ export default function VideoReviewListPage() {
                   <div className="text-xs text-muted-foreground">{training.count} uploads</div>
                 </div>
                 {training.awaiting > 0 ? (
-                  <Badge variant="secondary">{training.awaiting} awaiting</Badge>
+                  <Badge variant="accent">{training.awaiting} awaiting</Badge>
                 ) : (
                   <Badge>Reviewed</Badge>
                 )}

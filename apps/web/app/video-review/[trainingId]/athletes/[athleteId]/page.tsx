@@ -128,7 +128,7 @@ export default function AthleteVideoDetailPage() {
                     {video.createdAt ? new Date(video.createdAt).toLocaleString() : "Unknown time"}
                   </div>
                 </div>
-                <Badge variant={video.status === "Reviewed" ? "default" : "secondary"}>{video.status}</Badge>
+                <Badge variant={video.status === "Reviewed" ? "default" : "accent"}>{video.status}</Badge>
               </div>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
