@@ -81,6 +81,7 @@ interface VideoPlayerProps {
   initialAspectRatio?: number;
   isVisible?: boolean;
   pauseOthers?: () => void;
+  onDurationMs?: (durationMs: number) => void;
 }
 
 export function VideoPlayer({
@@ -109,6 +110,7 @@ export function VideoPlayer({
   initialAspectRatio,
   isVisible = true,
   pauseOthers,
+  onDurationMs,
 }: VideoPlayerProps) {
   const { colors, isDark } = useAppTheme();
   const navFocused = useIsFocused();
@@ -256,6 +258,14 @@ export function VideoPlayer({
     }, 400);
     return () => clearInterval(id);
   }, [safeGetTimeInfo]);
+
+  const lastDurationRef = useRef(0);
+  useEffect(() => {
+    if (!onDurationMs) return;
+    if (!duration || duration === lastDurationRef.current) return;
+    lastDurationRef.current = duration;
+    onDurationMs(duration * 1000);
+  }, [duration, onDurationMs]);
 
   useEffect(() => {
     if (posterUri && !aspectRatio) {

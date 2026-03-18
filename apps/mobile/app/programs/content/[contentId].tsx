@@ -56,7 +56,7 @@ function isGoogleDriveUrl(url: string): boolean {
   return url.toLowerCase().includes("drive.google.com");
 }
 
-function ExternalLinkButton({ url, label }: { url: string; label: string }) {
+const ExternalLinkButton = React.memo(function ExternalLinkButton({ url, label }: { url: string; label: string }) {
   const { isDark } = useAppTheme();
   return (
     <TouchableOpacity
@@ -72,9 +72,9 @@ function ExternalLinkButton({ url, label }: { url: string; label: string }) {
       <Feather name="chevron-right" size={16} color="#94A3B8" />
     </TouchableOpacity>
   );
-}
+});
 
-function MediaSection({ url, title }: { url: string; title?: string }) {
+const MediaSection = React.memo(function MediaSection({ url, title }: { url: string; title?: string }) {
   if (isYoutubeUrl(url)) {
     return <YouTubeEmbed url={url} />;
   }
@@ -102,7 +102,7 @@ function MediaSection({ url, title }: { url: string; title?: string }) {
       />
     </View>
   );
-}
+});
 
 export default function ProgramContentDetailScreen() {
   const { contentId, sharedBoundTag } = useLocalSearchParams<{ contentId: string; sharedBoundTag?: string }>();
@@ -205,13 +205,34 @@ export default function ProgramContentDetailScreen() {
     },
     [handleBack]
   );
+  const contentContainerStyle = useMemo(() => ({ paddingBottom: 40 }), []);
+  const contentBody = useMemo(() => {
+    if (!item?.body) return null;
+    return (
+      <MarkdownText
+        text={item.body}
+        baseStyle={{ fontSize: 15, lineHeight: 24, color: colors.text }}
+        headingStyle={{ fontSize: 18, lineHeight: 26, color: colors.text, fontWeight: "700" }}
+        subheadingStyle={{ fontSize: 16, lineHeight: 24, color: colors.text, fontWeight: "700" }}
+        listItemStyle={{ paddingLeft: 6 }}
+      />
+    );
+  }, [item?.body, colors.text]);
+  const mediaSection = useMemo(() => {
+    if (!item?.videoUrl) return null;
+    return (
+      <View className="mt-1">
+        <MediaSection url={item.videoUrl} title={item.title} />
+      </View>
+    );
+  }, [item?.title, item?.videoUrl]);
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <SafeMaskedView style={{ flex: 1 }}>
         <ThemedScrollView
           onRefresh={() => load(true)}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={contentContainerStyle}
           onScrollEndDrag={handleScrollEnd}
           onMomentumScrollEnd={handleScrollEnd}
         >
@@ -317,15 +338,7 @@ export default function ProgramContentDetailScreen() {
                 )}
 
                 {/* Body content */}
-                {item.body ? (
-                  <MarkdownText
-                    text={item.body}
-                    baseStyle={{ fontSize: 15, lineHeight: 24, color: colors.text }}
-                    headingStyle={{ fontSize: 18, lineHeight: 26, color: colors.text, fontWeight: "700" }}
-                    subheadingStyle={{ fontSize: 16, lineHeight: 24, color: colors.text, fontWeight: "700" }}
-                    listItemStyle={{ paddingLeft: 6 }}
-                  />
-                ) : null}
+                {contentBody}
               </View>
 
               {/* Coaching Cues */}
@@ -376,11 +389,7 @@ export default function ProgramContentDetailScreen() {
                ) : null}
  
              {/* Media */}
-             {item.videoUrl ? (
-               <View className="mt-1">
-                 <MediaSection url={item.videoUrl} title={item.title} />
-               </View>
-             ) : null}
+             {mediaSection}
 
 
              </View>
@@ -420,10 +429,12 @@ export default function ProgramContentDetailScreen() {
                   <Feather name="x" size={20} color={colors.accent} />
                 </TouchableOpacity>
               </View>
-              <VideoUploadPanel
-                sectionContentId={Number.isFinite(Number(contentId)) ? Number(contentId) : null}
-                sectionTitle={item?.title ?? null}
-              />
+              {showUploadModal ? (
+                <VideoUploadPanel
+                  sectionContentId={Number.isFinite(Number(contentId)) ? Number(contentId) : null}
+                  sectionTitle={item?.title ?? null}
+                />
+              ) : null}
             </View>
           </View>
         </Modal>

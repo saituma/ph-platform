@@ -1,6 +1,8 @@
 import { GuardianDashboard } from "@/components/dashboard/GuardianDashboard";
 import { AdminStorySection } from "@/components/home/AdminStorySection";
 import { IntroVideoSection } from "@/components/home/IntroVideoSection";
+import { StoriesSection } from "@/components/home/StoriesSection";
+import { StoriesViewer, type StoryViewerItem } from "@/components/home/StoriesViewer";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -35,6 +37,14 @@ type HomeTestimonial = {
   image?: string | null;
 };
 
+type HomeStory = {
+  id?: string | null;
+  title?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: "image" | "video" | null;
+  badge?: string | null;
+};
+
 type HomeContentPayload = {
   headline?: string | null;
   description?: string | null;
@@ -45,6 +55,7 @@ type HomeContentPayload = {
   adminStory?: string | null;
   professionalPhoto?: string | null;
   professionalPhotos?: string[] | string | null;
+  stories?: HomeStory[] | string | null;
 };
 
 export default function HomeScreen() {
@@ -57,6 +68,11 @@ export default function HomeScreen() {
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
   const [homeContentError, setHomeContentError] = useState<string | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(true);
+  const [homeStories, setHomeStories] = useState<HomeStory[]>([]);
+  const [homeStoriesError, setHomeStoriesError] = useState<string | null>(null);
+  const [hasLoadedStories, setHasLoadedStories] = useState(false);
+  const [storyViewerVisible, setStoryViewerVisible] = useState(false);
+  const [storyViewerIndex, setStoryViewerIndex] = useState(0);
   const isMountedRef = useRef(true);
   const lastLoadAtRef = useRef(0);
   const hasLoadedRef = useRef(false);
@@ -72,6 +88,56 @@ export default function HomeScreen() {
     return "Good Evening";
   }, []);
 
+  const storyItems = useMemo(() => {
+    const storiesValue = hasLoadedStories ? homeStories : homeContent?.stories ?? null;
+    const parsedStories =
+      typeof storiesValue === "string" && storiesValue.trim().length
+        ? (() => {
+            try {
+              const parsed = JSON.parse(storiesValue);
+              return Array.isArray(parsed) ? (parsed as HomeStory[]) : [];
+            } catch {
+              return [];
+            }
+          })()
+        : Array.isArray(storiesValue)
+          ? storiesValue
+          : [];
+
+    const mappedStories = parsedStories.map((story, index) => ({
+      id: story.id ?? `story-${index}`,
+      name: story.title ?? `Story ${index + 1}`,
+      imageUrl: story.mediaType === "image" ? story.mediaUrl ?? null : null,
+      mediaUrl: story.mediaUrl ?? null,
+      mediaType: story.mediaType ?? "image",
+      badge: story.badge ?? (story.mediaType === "video" ? "Video" : null),
+    }));
+
+    return [
+      {
+        id: "add",
+        name: "Your Story",
+        imageUrl: profile?.avatar ?? null,
+        isAdd: true,
+      },
+      ...mappedStories,
+    ];
+  }, [hasLoadedStories, homeContent?.stories, homeStories, profile?.avatar]);
+
+  const viewerStories = useMemo<StoryViewerItem[]>(
+    () =>
+      storyItems
+        .filter((story) => !story.isAdd)
+        .map((story) => ({
+          id: story.id,
+          title: story.name,
+          mediaUrl: story.mediaUrl ?? story.imageUrl ?? null,
+          mediaType: story.mediaType ?? "image",
+          badge: story.badge ?? null,
+        })),
+    [storyItems],
+  );
+
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
@@ -82,8 +148,9 @@ export default function HomeScreen() {
     if (!token) return;
     setIsLoadingContent(true);
     try {
-      const [data] = await Promise.all([
+      const [data, storiesData] = await Promise.all([
         apiRequest<{ items?: any[] }>("/content/home", { token, forceRefresh }),
+        apiRequest<{ items?: HomeStory[] }>("/stories", { token, forceRefresh: true, skipCache: true }),
       ]);
       const item = (data.items ?? [])[0];
       if (!item) {
@@ -115,6 +182,17 @@ export default function HomeScreen() {
                 }
               })()
             : null;
+        const parsedStories =
+          typeof body.stories === "string" && (body.stories as string).trim().length
+            ? (() => {
+                try {
+                  const parsed = JSON.parse(body.stories);
+                  return Array.isArray(parsed) ? parsed : null;
+                } catch {
+                  return null;
+                }
+              })()
+            : null;
         const professionalPhoto =
           typeof body.professionalPhoto === "string" && body.professionalPhoto.trim()
             ? body.professionalPhoto.trim()
@@ -136,12 +214,19 @@ export default function HomeScreen() {
           testimonials: parsedTestimonials ?? (Array.isArray(body.testimonials) ? body.testimonials : null),
           adminStory: body.adminStory ?? null,
           professionalPhoto,
+          stories: parsedStories ?? (Array.isArray(body.stories) ? body.stories : null),
         });
       }
+      if (Array.isArray(storiesData?.items)) {
+        setHomeStories(storiesData.items);
+        setHasLoadedStories(true);
+      }
       setHomeContentError(null);
+      setHomeStoriesError(null);
     } catch (err: any) {
       if (!isMountedRef.current) return;
       setHomeContentError(err?.message ?? "Failed to load home content");
+      setHomeStoriesError(err?.message ?? "Failed to load stories");
     } finally {
       if (isMountedRef.current) {
         setIsLoadingContent(false);
@@ -341,6 +426,28 @@ export default function HomeScreen() {
                 />
               </View>
             ) : null}
+
+            <StoriesSection
+              items={storyItems}
+              onPressStory={(story) => {
+                if (story.isAdd) {
+                  router.push("/video-upload");
+                  return;
+                }
+                const nextIndex = viewerStories.findIndex((item) => item.id === story.id);
+                if (nextIndex >= 0) {
+                  setStoryViewerIndex(nextIndex);
+                  setStoryViewerVisible(true);
+                }
+              }}
+            />
+
+            <StoriesViewer
+              visible={storyViewerVisible}
+              stories={viewerStories}
+              initialIndex={storyViewerIndex}
+              onClose={() => setStoryViewerVisible(false)}
+            />
 
             <View className="mb-8">
               <GuardianDashboard />

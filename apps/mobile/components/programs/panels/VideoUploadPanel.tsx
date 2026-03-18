@@ -573,26 +573,34 @@ export function VideoUploadPanel({
   return (
     <ProgramPanelCard className="p-0">
       {/* Header */}
-      <View className="px-5 pt-6 pb-4">
+      <View className="px-5 pt-6 pb-5">
         <View className="flex-row items-center justify-between">
-          <Text
-            className="text-2xl font-clash font-bold tracking-tight"
-            style={{ color: colors.text }}
-          >
-            Video Review
-          </Text>
+          <View>
+            <Text
+              className="text-[11px] font-outfit font-semibold uppercase tracking-[1.8px]"
+              style={{ color: colors.textSecondary }}
+            >
+              Premium Review
+            </Text>
+            <Text
+              className="mt-1 text-3xl font-telma-bold font-bold tracking-tight"
+              style={{ color: colors.text }}
+            >
+              Video Review
+            </Text>
+          </View>
           <ProgramPanelStatusBadge label="Coach Review" variant="default" />
         </View>
         {sectionTitle ? (
           <Text
-            className="mt-2 text-sm font-outfit"
+            className="mt-3 text-xs font-outfit uppercase tracking-widest"
             style={{ color: colors.textSecondary }}
           >
             Uploading for: {sectionTitle}
           </Text>
         ) : null}
         <Text
-          className="mt-2 text-base font-outfit leading-6"
+          className="mt-2 text-sm font-outfit leading-6"
           style={{ color: colors.textSecondary }}
         >
           One focused clip per upload. Tell your coach exactly what to look for.
@@ -629,7 +637,7 @@ export function VideoUploadPanel({
             <Feather name="target" size={20} color={colors.accent} />
           </View>
           <Text
-            className="text-base font-bold font-outfit"
+            className="text-sm font-outfit font-semibold uppercase tracking-[1.6px]"
             style={{ color: colors.text }}
           >
             Keep it focused
@@ -665,6 +673,12 @@ export function VideoUploadPanel({
           borderColor: colors.border,
         }}
       >
+        <Text
+          className="text-[11px] font-outfit font-semibold uppercase tracking-[1.4px] mb-2"
+          style={{ color: colors.textSecondary }}
+        >
+          Coach Notes
+        </Text>
         <TextInput
           value={notes}
           onChangeText={setNotes}
@@ -687,14 +701,14 @@ export function VideoUploadPanel({
           disabled={uploading || !canUploadForSection}
           className="flex-1 rounded-3xl py-5 items-center border"
           style={{
-            backgroundColor: colors.backgroundSecondary,
-            borderColor: colors.border,
+            backgroundColor: colors.accent,
+            borderColor: colors.accent,
           }}
         >
-          <Feather name="video" size={24} color={colors.accent} />
+          <Feather name="video" size={22} color="#ffffff" />
           <Text
-            className="mt-3 text-base font-outfit font-semibold"
-            style={{ color: colors.text }}
+            className="mt-3 text-sm font-outfit font-bold uppercase tracking-[1.6px]"
+            style={{ color: "#ffffff" }}
           >
             Record
           </Text>
@@ -708,9 +722,9 @@ export function VideoUploadPanel({
             borderColor: colors.border,
           }}
         >
-          <Feather name="upload" size={24} color={colors.accent} />
+          <Feather name="upload" size={22} color={colors.accent} />
           <Text
-            className="mt-3 text-base font-outfit font-semibold"
+            className="mt-3 text-sm font-outfit font-semibold uppercase tracking-[1.4px]"
             style={{ color: colors.text }}
           >
             Upload
@@ -719,7 +733,7 @@ export function VideoUploadPanel({
       </View>
 
       <Text
-        className="mx-5 mb-6 text-xs font-outfit"
+        className="mx-5 mb-6 text-[11px] font-outfit uppercase tracking-[1.2px]"
         style={{ color: colors.textSecondary, opacity: 0.8 }}
       >
         Max video size: {VIDEO_MAX_MB}MB.
@@ -740,7 +754,7 @@ export function VideoUploadPanel({
           ) : (
             <Feather name="send" size={20} color="#ffffff" />
           )}
-          <Text className="text-base font-outfit font-bold text-white tracking-wide">
+          <Text className="text-base font-outfit font-bold text-white tracking-[1.2px] uppercase">
             {uploading ? "Sending..." : "Send to Coach"}
           </Text>
         </TouchableOpacity>
@@ -761,7 +775,7 @@ export function VideoUploadPanel({
             style={{ borderBottomColor: colors.separator }}
           >
             <Text
-              className="text-xl font-clash font-bold"
+              className="text-base font-outfit font-semibold uppercase tracking-[1.6px]"
               style={{ color: colors.text }}
             >
               Preview Clip
@@ -817,7 +831,7 @@ export function VideoUploadPanel({
       {/* Upload History */}
       <View className="px-5">
         <Text
-          className="text-xl font-clash font-bold mb-4"
+          className="text-2xl font-telma-bold font-bold mb-4 tracking-tight"
           style={{ color: colors.text }}
         >
           Your Uploads
@@ -858,7 +872,7 @@ export function VideoUploadPanel({
                 <View>
                   <View className="flex-row items-center justify-between mb-4">
                     <Text
-                      className="text-sm font-outfit font-bold uppercase tracking-widest"
+                      className="text-[11px] font-outfit font-bold uppercase tracking-[2px]"
                       style={{ color: colors.warning }}
                     >
                       Awaiting Review
@@ -868,7 +882,7 @@ export function VideoUploadPanel({
                       style={{ backgroundColor: colors.warningSoft }}
                     >
                       <Text
-                        className="text-xs font-bold"
+                        className="text-[11px] font-bold"
                         style={{ color: colors.warning }}
                       >
                         {awaitingVideos.length + optimisticUploads.length}
@@ -903,7 +917,7 @@ export function VideoUploadPanel({
                       </View>
                       <View className="p-5">
                         <Text
-                          className="text-base font-outfit font-semibold mb-1"
+                          className="text-sm font-outfit font-semibold mb-1"
                           style={{ color: colors.text }}
                         >
                           {u.progress < 1 ? "Uploading..." : "Submitted"}
@@ -945,7 +959,7 @@ export function VideoUploadPanel({
                       </View>
                       <View className="p-5">
                         <Text
-                          className="text-base font-outfit font-semibold mb-1"
+                          className="text-sm font-outfit font-semibold mb-1"
                           style={{ color: colors.text }}
                         >
                           Awaiting Feedback
@@ -957,7 +971,7 @@ export function VideoUploadPanel({
                           {item.notes || "No notes added"}
                         </Text>
                         <Text
-                          className="text-xs mt-2"
+                          className="text-[11px] mt-2 uppercase tracking-[1.2px]"
                           style={{ color: colors.textSecondary, opacity: 0.7 }}
                         >
                           {formatDate(item.createdAt)}
@@ -973,7 +987,7 @@ export function VideoUploadPanel({
                 <View>
                   <View className="flex-row items-center justify-between mb-4">
                     <Text
-                      className="text-sm font-outfit font-bold uppercase tracking-widest"
+                      className="text-[11px] font-outfit font-bold uppercase tracking-[2px]"
                       style={{ color: colors.success }}
                     >
                       Reviewed
@@ -983,7 +997,7 @@ export function VideoUploadPanel({
                       style={{ backgroundColor: colors.successSoft }}
                     >
                       <Text
-                        className="text-xs font-bold"
+                        className="text-[11px] font-bold"
                         style={{ color: colors.success }}
                       >
                         {reviewedVideos.length}
@@ -1021,7 +1035,7 @@ export function VideoUploadPanel({
                       </View>
                       <View className="p-5">
                         <Text
-                          className="text-base font-outfit font-semibold mb-2"
+                          className="text-sm font-outfit font-semibold mb-2"
                           style={{ color: colors.text }}
                         >
                           Coach Feedback
@@ -1064,7 +1078,7 @@ export function VideoUploadPanel({
                               </View>
                               <View className="p-4">
                                 <Text
-                                  className="text-sm font-outfit font-semibold mb-1"
+                                  className="text-[11px] font-outfit font-semibold uppercase tracking-[1.6px] mb-1"
                                   style={{ color: colors.text }}
                                 >
                                   Coach Reply
@@ -1086,7 +1100,7 @@ export function VideoUploadPanel({
                                 )}
                                 {resp.createdAt && (
                                   <Text
-                                    className="text-xs mt-2"
+                                    className="text-[11px] mt-2 uppercase tracking-[1.2px]"
                                     style={{
                                       color: colors.textSecondary,
                                       opacity: 0.7,
@@ -1110,7 +1124,7 @@ export function VideoUploadPanel({
                           </Text>
                         )}
                         <Text
-                          className="text-xs mt-3"
+                          className="text-[11px] mt-3 uppercase tracking-[1.2px]"
                           style={{ color: colors.textSecondary, opacity: 0.7 }}
                         >
                           {formatDate(item.createdAt)}

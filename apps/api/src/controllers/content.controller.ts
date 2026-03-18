@@ -19,6 +19,9 @@ import {
   getTestimonialSubmissions,
   updateContentCategory,
   getParentCourseAiInsight,
+  listStoriesForUser,
+  listStoriesAdmin,
+  replaceStories,
 } from "../services/content.service";
 import { ProgramType, contentType } from "../db/schema";
 import { getAthleteForUser } from "../services/user.service";
@@ -145,6 +148,19 @@ const testimonialSubmissionSchema = z.object({
   photoUrl: z.string().url().optional().nullable(),
 });
 
+const storyInputSchema = z.object({
+  title: z.string().min(1),
+  mediaUrl: z.string().url(),
+  mediaType: z.enum(["image", "video"]),
+  badge: z.string().optional().nullable(),
+  order: z.number().int().min(0).optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+});
+
+const storiesReplaceSchema = z.object({
+  stories: z.array(storyInputSchema),
+});
+
 export async function listHomeContent(req: Request, res: Response) {
   const items = await getHomeContentForUser(req.user!.id);
   return res.status(200).json({ items });
@@ -163,6 +179,22 @@ export async function listLegalContent(req: Request, res: Response) {
 
 export async function listAnnouncementsContent(_req: Request, res: Response) {
   const items = await getAnnouncements();
+  return res.status(200).json({ items });
+}
+
+export async function listStories(req: Request, res: Response) {
+  const items = await listStoriesForUser();
+  return res.status(200).json({ items });
+}
+
+export async function listStoriesForAdmin(_req: Request, res: Response) {
+  const items = await listStoriesAdmin();
+  return res.status(200).json({ items });
+}
+
+export async function replaceStoriesHandler(req: Request, res: Response) {
+  const input = storiesReplaceSchema.parse(req.body);
+  const items = await replaceStories(input.stories, req.user!.id);
   return res.status(200).json({ items });
 }
 

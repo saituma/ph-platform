@@ -9,6 +9,8 @@ import {
   listLegalContent,
   listLegalContentPublic,
   listAnnouncementsContent,
+  listStories,
+  listStoriesForAdmin,
   updateContentItem,
   getContentItem,
   deleteContent,
@@ -22,6 +24,7 @@ import {
   updateParentCourseHandler,
   getParentCourseAiInsightController,
   getContentAiInsightController,
+  replaceStoriesHandler,
 } from "../controllers/content.controller";
 
 const router = Router();
@@ -30,6 +33,9 @@ router.get("/content/home", requireAuth, listHomeContent);
 router.get("/content/parent-platform", requireAuth, listParentContent);
 router.get("/content/legal", requireAuth, listLegalContent);
 router.get("/content/announcements", requireAuth, listAnnouncementsContent);
+router.get("/stories", requireAuth, listStories);
+router.get("/content/stories", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listStoriesForAdmin);
+router.put("/content/stories", requireAuth, requireRole(["coach", "admin", "superAdmin"]), replaceStoriesHandler);
 router.get("/content/legal/public", listLegalContentPublic);
 router.post("/content/testimonials/submit", requireAuth, submitTestimonial);
 router.get(

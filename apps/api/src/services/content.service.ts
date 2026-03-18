@@ -1,7 +1,13 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 
 import { db } from "../db";
-import { athleteTable, contentTable, parentCourseTable, ProgramType } from "../db/schema";
+import {
+  athleteTable,
+  contentTable,
+  parentCourseTable,
+  ProgramType,
+  storyTable,
+} from "../db/schema";
 import { calculateAge, normalizeDate } from "../lib/age";
 
 const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
@@ -35,6 +41,49 @@ export async function getAnnouncements() {
     .from(contentTable)
     .where(eq(contentTable.surface, "announcements"))
     .orderBy(desc(contentTable.updatedAt));
+}
+
+export async function listStoriesForUser() {
+  return db
+    .select()
+    .from(storyTable)
+    .where(eq(storyTable.isActive, true))
+    .orderBy(asc(storyTable.order), desc(storyTable.updatedAt));
+}
+
+export async function listStoriesAdmin() {
+  return db
+    .select()
+    .from(storyTable)
+    .orderBy(asc(storyTable.order), desc(storyTable.updatedAt));
+}
+
+type StoryInput = {
+  title: string;
+  mediaUrl: string;
+  mediaType: "image" | "video";
+  badge?: string | null;
+  order?: number | null;
+  isActive?: boolean | null;
+};
+
+export async function replaceStories(stories: StoryInput[], userId: number) {
+  const normalized = stories.map((story, index) => ({
+    title: story.title.trim(),
+    mediaUrl: story.mediaUrl.trim(),
+    mediaType: story.mediaType,
+    badge: story.badge?.trim() || null,
+    order: Number.isFinite(story.order) ? Number(story.order) : index,
+    isActive: story.isActive ?? true,
+    createdBy: userId,
+  }));
+
+  return db.transaction(async (tx) => {
+    await tx.delete(storyTable);
+    if (!normalized.length) return [];
+    const inserted = await tx.insert(storyTable).values(normalized).returning();
+    return inserted;
+  });
 }
 
 function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
