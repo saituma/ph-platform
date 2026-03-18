@@ -130,7 +130,7 @@ export default function TrainingDetailPage() {
                   <div className="text-xs text-muted-foreground">{athlete.uploads} uploads</div>
                 </div>
                 {athlete.awaiting > 0 ? (
-                  <Badge variant="secondary">{athlete.awaiting} awaiting</Badge>
+                  <Badge variant="accent">{athlete.awaiting} awaiting</Badge>
                 ) : (
                   <Badge>Reviewed</Badge>
                 )}
