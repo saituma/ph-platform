@@ -34,6 +34,7 @@ export default function ForgotScreen() {
           flexGrow: 1,
           justifyContent: "center",
           paddingHorizontal: 24,
+          paddingBottom: 32,
         }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
@@ -48,7 +49,7 @@ export default function ForgotScreen() {
           </Text>
         </View>
 
-        <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14 mb-6">
+        <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14 mb-6">
           <Feather
             name="mail"
             size={20}

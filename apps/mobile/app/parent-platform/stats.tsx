@@ -321,7 +321,7 @@ export default function AthleteStatsScreen() {
             <Text className="text-lg font-clash text-app mb-2">
               Unlock athlete analytics
             </Text>
-            <Text className="text-sm font-outfit text-secondary leading-relaxed">
+            <Text className="text-base font-outfit text-secondary leading-relaxed">
               Performance charts, progress tracking, and feedback summaries are available on PHP Premium.
             </Text>
             <TouchableOpacity
@@ -343,11 +343,11 @@ export default function AthleteStatsScreen() {
         <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
             onPress={() => router.replace("/parent-platform")}
-            className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
+            className="h-10 w-10 items-center justify-center bg-secondary rounded-2xl"
           >
             <Feather name="arrow-left" size={20} className="text-secondary" />
           </TouchableOpacity>
-          <Text className="text-xl font-clash text-app font-bold">Athlete Stats</Text>
+          <Text className="text-2xl font-clash text-app font-bold">Athlete Stats</Text>
           <View className="w-10" />
         </View>
 
@@ -363,7 +363,7 @@ export default function AthleteStatsScreen() {
         ) : (
           <>
             <View className="rounded-3xl border border-app/10 bg-input p-5 mb-6">
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
+              <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.4px]">
                 Selected Athlete
               </Text>
               <View className="flex-row items-center gap-3 mt-3">
@@ -378,7 +378,7 @@ export default function AthleteStatsScreen() {
                   </View>
                 )}
                 <View className="flex-1">
-                  <Text className="text-lg font-clash text-app">
+                  <Text className="text-xl font-clash text-app">
                     {selectedAthlete?.name ?? "Athlete"}
                   </Text>
                   <Text className="text-sm font-outfit text-secondary">
