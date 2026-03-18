@@ -56,6 +56,17 @@ type ProgramSectionContent = {
   updatedAt?: string;
 };
 
+const getCsrfToken = () => {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("csrfToken="))
+      ?.split("=")[1] ?? ""
+  );
+};
+
 // ── Media URL helpers ──────────────────────────────────────────────
 
 function getMediaSourceType(url: string): "youtube" | "vimeo" | "loom" | "drive" | "streamable" | "direct" {
@@ -234,7 +245,10 @@ async function createProgramSectionContent(payload: {
 }) {
   const res = await fetch(PROGRAM_SECTION_API_BASE, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : {}),
+    },
     credentials: "include",
     body: JSON.stringify(payload),
   });
@@ -257,7 +271,10 @@ async function updateProgramSectionContent(id: number, payload: {
 }) {
   const res = await fetch(`${PROGRAM_SECTION_API_BASE}/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : {}),
+    },
     credentials: "include",
     body: JSON.stringify(payload),
   });
@@ -271,6 +288,7 @@ async function updateProgramSectionContent(id: number, payload: {
 async function deleteProgramSectionContent(id: number) {
   const res = await fetch(`${PROGRAM_SECTION_API_BASE}/${id}`, {
     method: "DELETE",
+    headers: getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : undefined,
     credentials: "include",
   });
   if (!res.ok) {
