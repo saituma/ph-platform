@@ -26,6 +26,7 @@ export const bookingType = pgEnum("booking_type", [
   "one_on_one",
 ]);
 export const contentType = pgEnum("content_type", ["article", "video", "image", "audio", "document", "link", "pdf", "faq"]);
+export const storyMediaType = pgEnum("story_media_type", ["image", "video"]);
 export const contentSurface = pgEnum("content_surface", [
   "home",
   "parent_platform",
@@ -238,6 +239,26 @@ export const programSectionContentTable = pgTable("program_section_contents", {
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
+
+export const storyTable = pgTable(
+  "stories",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    title: varchar({ length: 255 }).notNull(),
+    mediaUrl: varchar({ length: 500 }).notNull(),
+    mediaType: storyMediaType().notNull().default("image"),
+    badge: varchar({ length: 50 }),
+    order: integer().notNull().default(0),
+    isActive: boolean().notNull().default(true),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    isActiveIdx: index("stories_is_active_idx").on(table.isActive),
+    orderIdx: index("stories_order_idx").on(table.order),
+  })
+);
 
 export const sessionExerciseTable = pgTable("session_exercises", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

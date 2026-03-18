@@ -76,6 +76,7 @@ export const apiSlice = createApi({
     "Programs",
     "AgeExperience",
     "UserLocations",
+    "Stories",
   ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<any, void>({
@@ -105,6 +106,18 @@ export const apiSlice = createApi({
     getDashboard: builder.query<any, void>({
       query: () => "/admin/dashboard",
       providesTags: ["Dashboard"],
+    }),
+    getStories: builder.query<{ items: any[] }, void>({
+      query: () => "/content/stories",
+      providesTags: ["Stories"],
+    }),
+    replaceStories: builder.mutation<{ items: any[] }, { stories: any[] }>({
+      query: (body) => ({
+        url: "/content/stories",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["Stories"],
     }),
     getUserLocations: builder.query<{ latest: any[]; history: any[]; rangeDays?: number | null }, { days?: number } | void>({
       query: (params) => {
@@ -622,6 +635,8 @@ export const {
   useGetHomeContentQuery,
   useGetLegalContentQuery,
   useGetAnnouncementsQuery,
+  useGetStoriesQuery,
+  useReplaceStoriesMutation,
   useGetTestimonialSubmissionsQuery,
   useApproveTestimonialSubmissionMutation,
   useRejectTestimonialSubmissionMutation,
