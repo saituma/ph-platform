@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { Modal, Pressable, TouchableOpacity, View } from "react-native";
+import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
@@ -170,6 +171,20 @@ export function ProgramDetailPanel({
     requestStatus === "pending_approval";
   const planSubtitle = planDetails?.description ?? PROGRAM_TIERS.find((item) => item.id === programId)?.description;
   const priceHighlights = pricing?.entries?.slice(0, 2) ?? [];
+  const lastBackAtRef = useRef(0);
+
+  const handleScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      if (offsetY < -60 && showBack && onBack) {
+        const now = Date.now();
+        if (now - lastBackAtRef.current < 1000) return;
+        lastBackAtRef.current = now;
+        onBack();
+      }
+    },
+    [onBack, showBack]
+  );
 
 
   const toggleContent = useCallback((id: number) => {
@@ -636,6 +651,8 @@ export function ProgramDetailPanel({
       <ThemedScrollView
         onRefresh={handlePageRefresh}
         contentContainerStyle={{ paddingBottom: 40 }}
+        onScrollEndDrag={handleScrollEnd}
+        onMomentumScrollEnd={handleScrollEnd}
       >
         <View className="px-6 pt-6">
           <Transition.View
@@ -670,18 +687,18 @@ export function ProgramDetailPanel({
               <View className="w-11" />
             </View>
 
-            <Text className="text-[28px] font-telma-bold text-app font-bold">
+            <Text className="text-3xl font-telma-bold text-app font-bold">
               {PROGRAM_TITLES[programId]}
             </Text>
             {planSubtitle ? (
-              <Text className="text-sm font-outfit text-secondary mt-2 leading-6">
+              <Text className="text-base font-outfit text-secondary mt-2 leading-6">
                 {planSubtitle}
               </Text>
             ) : null}
 
             <View className="mt-4 flex-row flex-wrap gap-2">
               <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
-                <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
+                <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
                   Athlete detail: {headerAthleteName}
                 </Text>
               </View>
