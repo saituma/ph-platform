@@ -4,7 +4,6 @@ import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
-import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, InteractionManager, Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
@@ -13,6 +12,9 @@ import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useIsFocused } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import { Transition } from "@/components/navigation/TransitionStack";
 
 type ScheduleEvent = {
   id: string;
@@ -57,15 +59,20 @@ const EVENT_TITLE_BY_TYPE: Record<string, string> = {
   role_model: "Role Model Call",
 };
 
+const formatDateKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+
 export default function ScheduleScreen() {
   const { role } = useRole();
   const { colors, isDark } = useAppTheme();
   const { token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
-    today.getDate()
-  ).padStart(2, "0")}`;
+  const isFocused = useIsFocused();
+  const router = useRouter();
+  const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
+  const hasUserSelectedDate = useRef(false);
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(
     null,
   );
@@ -75,8 +82,8 @@ export default function ScheduleScreen() {
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
-  const [bookingDate, setBookingDate] = useState<Date>(today);
-  const [bookingTime, setBookingTime] = useState<Date>(today);
+  const [bookingDate, setBookingDate] = useState<Date>(() => new Date());
+  const [bookingTime, setBookingTime] = useState<Date>(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [bookingLocation, setBookingLocation] = useState("");
@@ -89,58 +96,41 @@ export default function ScheduleScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const hasUserSelectedService = useRef(false);
   const [calendarMonth, setCalendarMonth] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1),
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(todayKey);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(
+    () => formatDateKey(new Date()),
+  );
 
-  const notifyBookingConfirmed = useCallback(
-    async (serviceName: string, startsAt: Date) => {
-      const Notifications = await getNotifications();
-      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
-      const dateLabel = startsAt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-      const timeLabel = startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Booking requested",
-          body: `${serviceName} • ${dateLabel} at ${timeLabel}`,
-          sound: "default",
-          // @ts-ignore
-          channelId: "bookings",
-          data: { type: "booking", startsAt: startsAt.toISOString(), serviceName },
-        },
-        trigger: null,
-      });
-    },
-    [],
-  );
+  const notifyBookingConfirmed = useCallback(async () => {}, []);
 
   const mapBookingsToEvents = useCallback((items: any[]) => {
-    return (items ?? []).map((item) => {
-      const startsAt = new Date(item.startsAt);
-      const endTime = item.endTime ? new Date(item.endTime) : new Date(startsAt.getTime() + 30 * 60000);
-      const dayIndex = startsAt.getDay();
-      const dayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dayIndex] ?? "mon";
-      const dateKey = `${startsAt.getFullYear()}-${String(startsAt.getMonth() + 1).padStart(2, "0")}-${String(
-        startsAt.getDate()
-      ).padStart(2, "0")}`;
-      return {
-        id: String(item.id),
-        dayId,
-        dateKey,
-        startsAt: startsAt.toISOString(),
-        title: EVENT_TITLE_BY_TYPE[item.type] ?? "Session",
-        timeStart: startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
-        timeEnd: endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
-        location: item.location || "TBD",
-        meetingLink: item.meetingLink ?? null,
-        type: item.type?.includes("call") ? "call" : "training",
-        status: item.status ?? undefined,
-        tag: role === "Guardian" ? "Parent" : "Athlete",
-        athlete: item.athleteName ?? "Athlete",
-        coach: "Coach",
-        notes: item.notes ?? "",
-      } as ScheduleEvent;
-    });
+    return (items ?? [])
+      .map((item) => {
+        const startsAt = new Date(item.startsAt);
+        const endTime = item.endTime ? new Date(item.endTime) : new Date(startsAt.getTime() + 30 * 60000);
+        const dayIndex = startsAt.getDay();
+        const dayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dayIndex] ?? "mon";
+        const dateKey = formatDateKey(startsAt);
+        return {
+          id: String(item.id),
+          dayId,
+          dateKey,
+          startsAt: startsAt.toISOString(),
+          title: EVENT_TITLE_BY_TYPE[item.type] ?? "Session",
+          timeStart: startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+          timeEnd: endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+          location: item.location || "TBD",
+          meetingLink: item.meetingLink ?? null,
+          type: item.type?.includes("call") ? "call" : "training",
+          status: item.status ?? undefined,
+          tag: role === "Guardian" ? "Parent" : "Athlete",
+          athlete: item.athleteName ?? "Athlete",
+          coach: "Coach",
+          notes: item.notes ?? "",
+        } as ScheduleEvent;
+      })
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   }, [role]);
 
   const parseDateKey = useCallback((value: string) => {
@@ -168,14 +158,29 @@ export default function ScheduleScreen() {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startOffset = (firstDay.getDay() + 6) % 7; // Monday = 0
-    const cells: ({ date: Date; key: string } | null)[] = [];
-    for (let i = 0; i < startOffset; i += 1) cells.push(null);
+    const cells: { date: Date; key: string; isOutside: boolean }[] = [];
+
+    const prevMonth = new Date(year, month, 0);
+    const prevMonthDays = prevMonth.getDate();
+    for (let i = startOffset - 1; i >= 0; i -= 1) {
+      const day = prevMonthDays - i;
+      const date = new Date(year, month - 1, day);
+      cells.push({ date, key: formatDateKey(date), isOutside: true });
+    }
+
     for (let day = 1; day <= lastDay.getDate(); day += 1) {
       const date = new Date(year, month, day);
-      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      cells.push({ date, key });
+      const key = formatDateKey(date);
+      cells.push({ date, key, isOutside: false });
     }
-    while (cells.length % 7 !== 0) cells.push(null);
+
+    const totalCells = Math.ceil(cells.length / 7) * 7;
+    const trailing = totalCells - cells.length;
+    for (let i = 1; i <= trailing; i += 1) {
+      const date = new Date(year, month + 1, i);
+      cells.push({ date, key: formatDateKey(date), isOutside: true });
+    }
+
     return cells;
   }, [calendarMonth]);
 
@@ -254,7 +259,8 @@ export default function ScheduleScreen() {
           nextMonth.getMonth(),
           Math.min(preferredDay, maxDay),
         );
-        const nextKey = `${nextSelectedDate.getFullYear()}-${String(nextSelectedDate.getMonth() + 1).padStart(2, "0")}-${String(nextSelectedDate.getDate()).padStart(2, "0")}`;
+        const nextKey = formatDateKey(nextSelectedDate);
+        hasUserSelectedDate.current = true;
         setSelectedCalendarDate(nextKey);
         return nextMonth;
       });
@@ -263,10 +269,22 @@ export default function ScheduleScreen() {
   );
 
   const handleSelectCalendarDate = useCallback((dateKey: string) => {
+    hasUserSelectedDate.current = true;
     setSelectedCalendarDate(dateKey);
     const nextDate = parseDateKey(dateKey);
     setCalendarMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
   }, [parseDateKey]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    const now = new Date();
+    const nowKey = formatDateKey(now);
+    setTodayKey(nowKey);
+    if (!hasUserSelectedDate.current) {
+      setSelectedCalendarDate(nowKey);
+      setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     if (!bookingOpen || !token) return;
@@ -333,7 +351,7 @@ export default function ScheduleScreen() {
 
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !isFocused) return;
     let active = true;
     const loadEvents = async () => {
       setEventsLoading(true);
@@ -358,7 +376,7 @@ export default function ScheduleScreen() {
       active = false;
       task?.cancel?.();
     };
-  }, [token, role, mapBookingsToEvents]);
+  }, [token, role, mapBookingsToEvents, isFocused]);
 
   // Age gate check — placed after all hooks to avoid rules-of-hooks violation
   if (isSectionHidden("schedule")) {
@@ -409,7 +427,7 @@ export default function ScheduleScreen() {
                     {role === "Guardian" ? "Family planner" : "Training planner"}
                   </Text>
                 </View>
-                <Text className="mt-3 text-3xl font-clash text-app">
+                <Text className="mt-3 text-3xl font-telma-bold text-app">
                   {role === "Guardian" ? "Family Schedule" : "My Schedule"}
                 </Text>
                 <Text className="text-secondary font-outfit text-sm mt-2">
@@ -457,102 +475,168 @@ export default function ScheduleScreen() {
         </View>
 
         <View className="px-6 pb-4">
-          <View className="mb-3 flex-row items-center gap-3">
-            <View className="h-5 w-1.5 rounded-full bg-accent" />
-            <Text className="text-xl font-clash text-app">Booking Calendar</Text>
-          </View>
-          <View className="rounded-[28px] border px-4 py-4" style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}>
-            <View className="flex-row items-center justify-between">
-            <TouchableOpacity
-              onPress={() => changeCalendarMonth(-1)}
-              activeOpacity={0.8}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              className="h-11 w-11 items-center justify-center rounded-[18px]"
-              style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft, zIndex: 2 }}
-            >
-              <Feather name="chevron-left" size={20} color={colors.accent} />
-            </TouchableOpacity>
-            <Text className="text-lg font-clash text-app">
-              {monthLabel}
-            </Text>
-            <TouchableOpacity
-              onPress={() => changeCalendarMonth(1)}
-              activeOpacity={0.8}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              className="h-11 w-11 items-center justify-center rounded-[18px]"
-              style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft, zIndex: 2 }}
-            >
-              <Feather name="chevron-right" size={20} color={colors.accent} />
-            </TouchableOpacity>
-          </View>
-
-          <View className="mt-4 flex-row gap-2">
+          <View className="mb-3 flex-row items-center justify-between gap-3">
+            <View className="flex-row items-center gap-3">
+              <View className="h-5 w-1.5 rounded-full bg-accent" />
+              <Text className="text-xl font-clash text-app">Calendar</Text>
+            </View>
             <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
               <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
-                {events.length} total bookings
-              </Text>
-            </View>
-            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
-                Tap a day to focus
+                {events.length} bookings
               </Text>
             </View>
           </View>
 
-          <View className="mt-4 flex-row justify-between px-1">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
-              <Text
-                key={label}
-                className="text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.4px] w-9 text-center"
+          <View
+            className="rounded-[28px] border px-4 py-4"
+            style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}
+          >
+            <View className="flex-row items-center justify-between">
+              <TouchableOpacity
+                onPress={() => changeCalendarMonth(-1)}
+                activeOpacity={0.8}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                className="h-10 w-10 items-center justify-center rounded-[14px]"
+                style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
               >
-                {label}
-              </Text>
-            ))}
-          </View>
-
-          <View className="mt-2 flex-row flex-wrap">
-            {calendarGrid.map((cell, index) => {
-              if (!cell) {
-                return (
-                  <View
-                    key={`empty-${index}`}
-                    className="h-12"
-                    style={{ width: `${100 / 7}%` }}
-                  />
-                );
-              }
-              const isToday = cell.key === todayKey;
-              const hasEvents = eventsByDate.has(cell.key);
-              const isSelected = selectedCalendarDate === cell.key;
-              return (
+                <Feather name="chevron-left" size={18} color={colors.accent} />
+              </TouchableOpacity>
+              <View className="items-center gap-1">
+                <Text className="text-lg font-clash text-app">{monthLabel}</Text>
                 <Pressable
-                  key={cell.key}
-                  onPress={() => handleSelectCalendarDate(cell.key)}
-                  className="h-14 items-center justify-center rounded-[18px]"
-                  style={{
-                    width: `${100 / 7}%`,
-                    backgroundColor: isSelected
-                      ? colors.accent
-                      : isToday
-                        ? accentSurface
-                        : "transparent",
-                    borderWidth: isSelected || isToday ? 1 : 0,
-                    borderColor: isSelected ? colors.accent : borderSoft,
-                  }}
+                  onPress={() => handleSelectCalendarDate(todayKey)}
+                  className="rounded-full px-3 py-1"
+                  style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
                 >
-                  <Text
-                    className={`text-sm font-outfit ${isSelected ? "text-white font-bold" : isToday ? "font-bold" : "text-app"}`}
-                    style={!isSelected && isToday ? { color: colors.accent } : undefined}
-                  >
-                    {cell.date.getDate()}
+                  <Text className="text-[10px] font-outfit uppercase tracking-[1.2px] text-secondary">
+                    Today
                   </Text>
-                  {hasEvents ? (
-                    <View className="mt-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: isSelected ? "#FFFFFF" : colors.accent }} />
-                  ) : null}
                 </Pressable>
-              );
-            })}
-          </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => changeCalendarMonth(1)}
+                activeOpacity={0.8}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                className="h-10 w-10 items-center justify-center rounded-[14px]"
+                style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
+              >
+                <Feather name="chevron-right" size={18} color={colors.accent} />
+              </TouchableOpacity>
+            </View>
+
+            <View className="mt-4 flex-row justify-between px-1">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
+                <Text
+                  key={label}
+                  className="text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.4px] w-9 text-center"
+                >
+                  {label}
+                </Text>
+              ))}
+            </View>
+
+            <View
+              className="mt-3 overflow-hidden rounded-2xl border"
+              style={{ borderColor: borderSoft }}
+            >
+              <View className="flex-row flex-wrap">
+                {calendarGrid.map((cell, index) => {
+                  const isToday = cell.key === todayKey;
+                  const isSelected = selectedCalendarDate === cell.key;
+                  const hasEvents = eventsByDate.has(cell.key);
+                  const eventsForDay = eventsByDate.get(cell.key) ?? [];
+                  return (
+                    <Pressable
+                      key={`${cell.key}-${index}`}
+                      onPress={() => handleSelectCalendarDate(cell.key)}
+                      className="h-20"
+                      style={{
+                        width: `${100 / 7}%`,
+                        borderRightWidth: 1,
+                        borderBottomWidth: 1,
+                        borderColor: borderSoft,
+                        backgroundColor: isSelected
+                          ? accentSurface
+                          : cell.isOutside
+                            ? mutedSurface
+                            : "transparent",
+                      }}
+                    >
+                      <View className="flex-1 px-2 pt-2">
+                        <View className="flex-row items-center justify-between">
+                          <View
+                            className="h-6 w-6 items-center justify-center rounded-full"
+                            style={{
+                              backgroundColor: isSelected
+                                ? colors.accent
+                                : isToday
+                                  ? accentSurface
+                                  : "transparent",
+                            }}
+                          >
+                            <Text
+                              className={`text-[11px] font-outfit ${
+                                isSelected ? "text-white font-bold" : "text-app"
+                              }`}
+                              style={
+                                !isSelected && isToday
+                                  ? { color: colors.accent, fontWeight: "700" }
+                                  : cell.isOutside
+                                    ? { color: colors.textSecondary, opacity: 0.5 }
+                                    : undefined
+                              }
+                            >
+                              {cell.date.getDate()}
+                            </Text>
+                          </View>
+                          {hasEvents ? (
+                            <View
+                              className="h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: colors.accent }}
+                            />
+                          ) : null}
+                        </View>
+
+                        {eventsForDay.slice(0, 2).map((event) => {
+                          const tone = getEventTone(event.type);
+                          return (
+                            <View
+                              key={`${cell.key}-${event.id}`}
+                              className="mt-1 rounded-full px-2 py-0.5"
+                              style={{
+                                backgroundColor: isSelected ? "rgba(255,255,255,0.22)" : tone.pillBg,
+                              }}
+                            >
+                              <Text
+                                className="text-[10px] font-outfit"
+                                style={{
+                                  color: isSelected ? "#FFFFFF" : colors.text,
+                                }}
+                                numberOfLines={1}
+                              >
+                                {event.timeStart} {event.title}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                        {eventsForDay.length > 2 ? (
+                          <Text
+                            className="mt-1 text-[10px] font-outfit"
+                            style={{ color: colors.textSecondary }}
+                          >
+                            +{eventsForDay.length - 2} more
+                          </Text>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <Text className="mt-3 text-[11px] font-outfit text-secondary">
+              Tap a day to view details below.
+            </Text>
           </View>
         </View>
 
@@ -613,10 +697,20 @@ export default function ScheduleScreen() {
             <View className="gap-3">
               {dayEvents.map((event) => {
                 const tone = getEventTone(event.type);
+                const sharedBoundTag = `schedule-event-${event.id}`;
                 return (
-                  <Pressable
+                  <Transition.Pressable
                     key={event.id}
-                    onPress={() => setSelectedEvent(event)}
+                    sharedBoundTag={sharedBoundTag}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/schedule/event",
+                        params: {
+                          event: JSON.stringify(event),
+                          sharedBoundTag,
+                        },
+                      } as any);
+                    }}
                     className="rounded-[24px] p-4"
                     style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}
                   >
@@ -662,7 +756,7 @@ export default function ScheduleScreen() {
                         </View>
                       </View>
                     </View>
-                  </Pressable>
+                  </Transition.Pressable>
                 );
               })}
             </View>

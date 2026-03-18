@@ -231,6 +231,7 @@ export const programSectionContentTable = pgTable("program_section_contents", {
   title: varchar({ length: 255 }).notNull(),
   body: text().notNull(),
   videoUrl: varchar({ length: 500 }),
+  allowVideoUpload: boolean().notNull().default(false),
   metadata: jsonb(),
   order: integer().notNull().default(1),
   createdBy: integer().notNull().references(() => userTable.id),
@@ -420,6 +421,7 @@ export const subscriptionRequestTable = pgTable("subscription_requests", {
 export const videoUploadTable = pgTable("video_uploads", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   athleteId: integer().notNull().references(() => athleteTable.id),
+  programSectionContentId: integer().references(() => programSectionContentTable.id),
   videoUrl: varchar({ length: 500 }).notNull(),
   notes: varchar({ length: 500 }),
   reviewedByCoach: integer().references(() => userTable.id),

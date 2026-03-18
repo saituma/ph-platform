@@ -194,7 +194,7 @@ export default function ParentPlatformScreen() {
                 {isAthlete ? "Age-aware education" : "Family support library"}
               </Text>
             </View>
-            <Text className="mt-3 text-3xl font-clash text-app">{isAthlete ? "Learn what supports your next stage" : "Give your athlete better support at home"}</Text>
+            <Text className="mt-3 text-3xl font-telma-bold text-app">{isAthlete ? "Learn what supports your next stage" : "Give your athlete better support at home"}</Text>
             <Text className="mt-3 text-base font-outfit text-secondary leading-relaxed">{platformSubtitle}</Text>
           </View>
 

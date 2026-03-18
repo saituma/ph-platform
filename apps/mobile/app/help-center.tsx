@@ -260,7 +260,7 @@ export default function HelpCenterScreen() {
           />
 
           <View className="mb-5">
-            <Text className="text-3xl font-clash text-app mb-2">How can we help?</Text>
+            <Text className="text-3xl font-telma-bold text-app mb-2">How can we help?</Text>
             <Text className="text-base font-outfit text-secondary leading-relaxed">
               Find quick answers, learn the best next step, and get the right details ready before you contact the team.
             </Text>

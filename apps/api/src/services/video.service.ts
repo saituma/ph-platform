@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, guardianTable, videoUploadTable } from "../db/schema";
@@ -9,11 +9,13 @@ export async function createVideoUpload(input: {
   athleteId: number;
   videoUrl: string;
   notes?: string | null;
+  programSectionContentId?: number | null;
 }) {
   const result = await db
     .insert(videoUploadTable)
     .values({
       athleteId: input.athleteId,
+      programSectionContentId: input.programSectionContentId ?? null,
       videoUrl: input.videoUrl,
       notes: input.notes ?? null,
     })
@@ -55,8 +57,18 @@ export async function createVideoUpload(input: {
   return upload;
 }
 
-export async function listVideoUploadsByAthlete(athleteId: number) {
-  return db.select().from(videoUploadTable).where(eq(videoUploadTable.athleteId, athleteId));
+export async function listVideoUploadsByAthlete(
+  athleteId: number,
+  options?: { programSectionContentId?: number | null },
+) {
+  const filters = [eq(videoUploadTable.athleteId, athleteId)];
+  if (options?.programSectionContentId) {
+    filters.push(eq(videoUploadTable.programSectionContentId, options.programSectionContentId));
+  }
+  return db
+    .select()
+    .from(videoUploadTable)
+    .where(and(...filters));
 }
 
 export async function reviewVideoUpload(input: {
@@ -89,7 +101,12 @@ export async function reviewVideoUpload(input: {
       const recipients = new Set<number>();
       if (athlete.athleteUserId) recipients.add(athlete.athleteUserId);
       if (athlete.guardianUserId) recipients.add(athlete.guardianUserId);
-      const payload = { videoUploadId: upload.id, url: "/video-upload" };
+      const payload = {
+        videoUploadId: upload.id,
+        url: upload.programSectionContentId
+          ? `/video-upload?sectionContentId=${upload.programSectionContentId}`
+          : "/video-upload",
+      };
 
       for (const userId of recipients) {
         await sendPushNotification(

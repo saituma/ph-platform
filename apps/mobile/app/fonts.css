@@ -157,6 +157,10 @@
 @font-face{font-family: 'Telma'; src: url('../assets/fonts/Telma-Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap;}
 @font-face{font-family: 'Telma'; src: url('../assets/fonts/Telma-Bold.woff2') format('woff2'); font-weight:700; font-style:normal; font-display:swap;}
 @font-face{font-family: 'Telma'; src: url('../assets/fonts/Telma-Black.woff2') format('woff2'); font-weight:900; font-style:normal; font-display:swap;}
+@font-face{font-family: 'Telma-Light'; src: url('../assets/fonts/Telma-Light.ttf') format('ttf'); font-weight:300; font-style:normal; font-display:swap;}
+@font-face{font-family: 'Telma'; src: url('../assets/fonts/Telma-Regular.ttf') format('ttf'); font-weight:400; font-style:normal; font-display:swap;}
+@font-face{font-family: 'Telma-Medium'; src: url('../assets/fonts/Telma-Medium.ttf') format('ttf'); font-weight:500; font-style:normal; font-display:swap;}
+@font-face{font-family: 'Telma-Bold'; src: url('../assets/fonts/Telma-Bold.ttf') format('ttf'); font-weight:700; font-style:normal; font-display:swap;}
+@font-face{font-family: 'Telma-Black'; src: url('../assets/fonts/Telma-Black.ttf') format('ttf'); font-weight:900; font-style:normal; font-display:swap;}
 
 /* End of auto-generated file */
-

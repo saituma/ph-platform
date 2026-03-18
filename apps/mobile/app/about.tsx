@@ -30,7 +30,7 @@ export default function AboutScreen() {
           <View className="w-24 h-24 bg-accent rounded-[32px] items-center justify-center shadow-lg shadow-accent/40 mb-6">
             <Feather name="activity" size={48} color="white" />
           </View>
-          <Text className="text-4xl font-clash text-app tracking-tighter">
+          <Text className="text-4xl font-telma-bold text-app tracking-tighter">
             PHP Coaching
           </Text>
           <Text className="text-base font-outfit text-secondary mt-1">

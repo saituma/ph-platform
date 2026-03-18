@@ -97,7 +97,7 @@ export default function MessagesScreen() {
               </View>
             </View>
 
-            <Text className="text-4xl font-clash font-bold tracking-tight text-app text-center mb-3">
+            <Text className="text-4xl font-telma-bold font-bold tracking-tight text-app text-center mb-3">
               Coaching Chat
             </Text>
 
@@ -142,7 +142,7 @@ export default function MessagesScreen() {
         <View className="rounded-[28px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="text-4xl font-clash font-bold tracking-tight text-app">
+              <Text className="text-4xl font-telma-bold font-bold tracking-tight text-app">
                 Messages
               </Text>
               <Text className="mt-2 text-base font-outfit" style={{ color: colors.textSecondary }}>

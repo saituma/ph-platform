@@ -5,7 +5,7 @@ import { useRegisterController } from "@/hooks/onboarding/useRegisterController"
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Alert, Pressable, RefreshControl, View } from "react-native";
+import { Alert, InteractionManager, Pressable, RefreshControl, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
@@ -104,6 +104,7 @@ export default function RegisterScreen() {
         setPayingTier(tierKey);
         setValue("desiredProgramType", tierKey);
 
+        await new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve()));
         const data = await apiRequest<{
           customerId: string;
           ephemeralKey: string;
@@ -195,7 +196,7 @@ export default function RegisterScreen() {
         }
       >
         <View className="mb-8">
-          <Text className="text-4xl font-clash text-app mb-2">
+          <Text className="text-4xl font-telma-bold text-app mb-2">
             {profile?.name ? `Welcome, ${profile.name}` : config?.welcomeMessage || "Athlete Profile"}
           </Text>
           <Text className="text-base font-outfit text-secondary">

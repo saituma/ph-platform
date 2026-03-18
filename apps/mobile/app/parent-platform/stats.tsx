@@ -291,7 +291,7 @@ export default function AthleteStatsScreen() {
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
         <ThemedScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}>
           <View className="mb-6">
-            <Text className="text-3xl font-clash text-app mb-2">Athlete Stats</Text>
+            <Text className="text-3xl font-telma-bold text-app mb-2">Athlete Stats</Text>
             <Text className="text-base font-outfit text-secondary leading-relaxed">
               This dashboard is available for guardians managing athlete accounts.
             </Text>
@@ -306,7 +306,7 @@ export default function AthleteStatsScreen() {
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
         <ThemedScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}>
           <View className="mb-6">
-            <Text className="text-3xl font-clash text-app mb-2">Athlete Stats</Text>
+            <Text className="text-3xl font-telma-bold text-app mb-2">Athlete Stats</Text>
             <Text className="text-base font-outfit text-secondary leading-relaxed">
               Upgrade to PHP Premium to unlock the analytics dashboard.
             </Text>

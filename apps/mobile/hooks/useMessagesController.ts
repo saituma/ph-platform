@@ -297,12 +297,19 @@ export function useMessagesController() {
   }, [router]);
 
   const openThread = useCallback(
-    (thread: MessageThread) => {
+    (thread: MessageThread, sharedBoundTag?: string, sharedAvatarTag?: string) => {
       // Allow re-opening from inbox even if the opening flag stuck previously.
       if (openingThreadId === thread.id && threadId === thread.id) return;
       setOpeningThreadId(thread.id);
       setSelectedThread(thread);
-      router.push(`/messages/${thread.id}`);
+      router.push({
+        pathname: "/messages/[id]",
+        params: {
+          id: thread.id,
+          sharedBoundTag,
+          sharedAvatarTag,
+        },
+      } as any);
     },
     [openingThreadId, router, threadId]
   );

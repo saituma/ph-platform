@@ -48,32 +48,75 @@ export function AuthPersist() {
     let mounted = true;
     (async () => {
       try {
-        const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.token);
+        const forceLogout =
+          process.env.EXPO_PUBLIC_FORCE_LOGOUT === "1" ||
+          process.env.EXPO_PUBLIC_FORCE_LOGOUT === "true";
+        if (forceLogout) {
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.id);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
+          dispatch(logout());
+          return;
+        }
+        const storedTokenRaw = await SecureStore.getItemAsync(STORAGE_KEYS.token);
         const storedRefreshToken = await SecureStore.getItemAsync(STORAGE_KEYS.refreshToken);
         const storedId = await SecureStore.getItemAsync(STORAGE_KEYS.id);
         const storedName = await SecureStore.getItemAsync(STORAGE_KEYS.name);
         const storedEmail = await SecureStore.getItemAsync(STORAGE_KEYS.email);
         const storedAvatar = await SecureStore.getItemAsync(STORAGE_KEYS.avatar);
+        const storedToken = storedTokenRaw?.trim() ?? null;
+        const hasValidToken =
+          Boolean(storedToken) &&
+          storedToken !== "null" &&
+          storedToken !== "undefined";
 
         if (!mounted) return;
-        if (storedToken) {
-          dispatch(
-            setCredentials({
-              token: storedToken,
-              refreshToken: storedRefreshToken,
-              profile: {
-                id: storedId ?? null,
-                name: storedName ?? null,
-                email: storedEmail ?? null,
-                avatar: storedAvatar ?? null,
-              },
-            })
-          );
-          lastSavedToken.current = storedToken;
-          lastSavedRefreshToken.current = storedRefreshToken;
-        } else {
+        if (!hasValidToken) {
           dispatch(logout());
+          return;
         }
+
+        let tokenIsValid = true;
+        try {
+          await apiRequest("/auth/me", {
+            token: storedToken,
+            suppressStatusCodes: [401, 403],
+          });
+        } catch (error) {
+          if (isUnauthorizedError(error)) {
+            tokenIsValid = false;
+          }
+        }
+
+        if (!mounted) return;
+        if (!tokenIsValid) {
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.id);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
+          dispatch(logout());
+          return;
+        }
+
+        dispatch(
+          setCredentials({
+            token: storedToken,
+            refreshToken: storedRefreshToken ?? null,
+            profile: {
+              id: storedId ?? null,
+              name: storedName ?? null,
+              email: storedEmail ?? null,
+              avatar: storedAvatar ?? null,
+            },
+          })
+        );
+        lastSavedToken.current = storedToken;
+        lastSavedRefreshToken.current = storedRefreshToken ?? null;
       } finally {
         if (!mounted) return;
         setHydratedState(true);
@@ -185,18 +228,7 @@ export function AuthPersist() {
         lastBillingSnapshot.current = { tier: nextTier, requestStatus: nextRequestStatus };
 
         if (allowNotify && (becameApproved || tierChanged)) {
-          const Notifications = await getNotifications();
-          if (Notifications && typeof Notifications.scheduleNotificationAsync === "function") {
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: "Plan approved",
-                body: `Your ${String(nextTier ?? "program").replace("_", " ")} access is now active.`,
-                sound: "default",
-                data: { screen: "plans" },
-              },
-              trigger: null,
-            });
-          }
+          // Push notifications are handled server-side.
         }
       } catch {
         if (!active) return;

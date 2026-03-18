@@ -10,11 +10,17 @@ import { Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSelector } from "@/store/hooks";
 import { canAccessTier } from "@/lib/planAccess";
+import { useLocalSearchParams } from "expo-router";
+import { SafeMaskedView } from "@/components/navigation/TransitionStack";
 
 export default function ThreadScreen() {
   const { colors } = useAppTheme();
   const programTier = useAppSelector((state) => state.user.programTier);
   const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");
+  const { sharedBoundTag, sharedAvatarTag } = useLocalSearchParams<{
+    sharedBoundTag?: string;
+    sharedAvatarTag?: string;
+  }>();
 
   const {
     reactionOptions,
@@ -87,46 +93,53 @@ export default function ThreadScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThreadHeader thread={currentThread} onBack={clearThread} />
-      <ThreadChatBody
-        thread={currentThread}
-        messages={localMessages}
-        draft={draft}
-        isLoading={isLoading}
-        isThreadLoading={isThreadLoading}
-        typingStatus={typingStatus}
-        textSecondaryColor={colors.textSecondary}
-        onDraftChange={setDraft}
-        onSend={handleSend}
-        onOpenComposerMenu={() => setComposerMenuOpen(true)}
-        onLongPressMessage={handleLongPressMessage}
-        onReactionPress={handleToggleReaction}
-        composerDisabled={!canMessage}
-        pendingAttachment={pendingAttachment}
-        onRemovePendingAttachment={handleRemovePendingAttachment}
-        isUploadingAttachment={isUploadingAttachment}
-        disabledMessage={
-          !canMessage
-            ? "Messaging unlocks on PHP Premium."
-            : undefined
-        }
-        onDisabledPress={handleLockedPress}
-      />
-      <ReactionPickerModal
-        reactionTarget={reactionTarget}
-        options={reactionOptions}
-        onClose={() => setReactionTarget(null)}
-        onSelect={handleToggleReaction}
-      />
-      <ComposerActionsModal
-        open={composerMenuOpen}
-        onClose={() => setComposerMenuOpen(false)}
-        onAttachFile={handleAttachFile}
-        onAttachImage={handleAttachImage}
-        onAttachVideo={handleAttachVideo}
-        onTakePhoto={handleTakePhoto}
-        onRecordVideo={handleRecordVideo}
-      />
+      <SafeMaskedView style={{ flex: 1 }}>
+        <ThreadHeader
+          thread={currentThread}
+          onBack={clearThread}
+          sharedBoundTag={sharedBoundTag}
+          sharedAvatarTag={sharedAvatarTag}
+        />
+        <ThreadChatBody
+          thread={currentThread}
+          messages={localMessages}
+          draft={draft}
+          isLoading={isLoading}
+          isThreadLoading={isThreadLoading}
+          typingStatus={typingStatus}
+          textSecondaryColor={colors.textSecondary}
+          onDraftChange={setDraft}
+          onSend={handleSend}
+          onOpenComposerMenu={() => setComposerMenuOpen(true)}
+          onLongPressMessage={handleLongPressMessage}
+          onReactionPress={handleToggleReaction}
+          composerDisabled={!canMessage}
+          pendingAttachment={pendingAttachment}
+          onRemovePendingAttachment={handleRemovePendingAttachment}
+          isUploadingAttachment={isUploadingAttachment}
+          disabledMessage={
+            !canMessage
+              ? "Messaging unlocks on PHP Premium."
+              : undefined
+          }
+          onDisabledPress={handleLockedPress}
+        />
+        <ReactionPickerModal
+          reactionTarget={reactionTarget}
+          options={reactionOptions}
+          onClose={() => setReactionTarget(null)}
+          onSelect={handleToggleReaction}
+        />
+        <ComposerActionsModal
+          open={composerMenuOpen}
+          onClose={() => setComposerMenuOpen(false)}
+          onAttachFile={handleAttachFile}
+          onAttachImage={handleAttachImage}
+          onAttachVideo={handleAttachVideo}
+          onTakePhoto={handleTakePhoto}
+          onRecordVideo={handleRecordVideo}
+        />
+      </SafeMaskedView>
     </SafeAreaView>
   );
 }

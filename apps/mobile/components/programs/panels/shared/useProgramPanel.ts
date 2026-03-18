@@ -1,25 +1,12 @@
 import { useCallback } from "react";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-import { getNotifications } from "@/lib/notifications";
 
 export function useProgramPanel() {
   const { isDark, colors } = useAppTheme();
 
   const scheduleLocalNotification = useCallback(
-    async (title: string, body: string, data?: Record<string, string>) => {
-      const Notifications = await getNotifications();
-      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          sound: "default",
-          data,
-        },
-        trigger: null,
-      });
-    },
+    async () => {},
     []
   );
 

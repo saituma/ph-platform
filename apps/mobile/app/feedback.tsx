@@ -44,7 +44,7 @@ export default function FeedbackScreen() {
           }}
         >
           <View className="mb-8">
-            <Text className="text-3xl font-clash text-app mb-2">
+            <Text className="text-3xl font-telma-bold text-app mb-2">
               We value your input
             </Text>
             <Text className="text-base font-outfit text-secondary leading-relaxed">

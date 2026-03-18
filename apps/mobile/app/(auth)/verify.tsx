@@ -41,7 +41,7 @@ export default function VerifyScreen() {
         enableOnAndroid={true}
       >
         <View className="mb-8">
-          <Text className="text-4xl font-clash text-app mb-3">
+          <Text className="text-4xl font-telma-bold text-app mb-3">
             Activate Account
           </Text>
           <Text className="text-base font-outfit text-secondary leading-6">

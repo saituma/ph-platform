@@ -10,7 +10,6 @@ import {
   BookingsPanel,
   FoodDiaryPanel,
   PhysioReferralPanel,
-  VideoUploadPanel,
 } from "@/components/programs/ProgramPanels";
 import { Shadows } from "@/constants/theme";
 import {
@@ -31,6 +30,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { Transition } from "@/components/navigation/TransitionStack";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -47,6 +47,7 @@ type ProgramDetailPanelProps = {
   pricing?: any;
   onApply?: (tierId: any, interval?: any) => Promise<void>;
   latestSubscriptionRequest?: any;
+  sharedBoundTag?: string;
 };
 
 type ExerciseMetadata = {
@@ -67,6 +68,7 @@ type ProgramSectionContent = {
   title: string;
   body: string;
   videoUrl?: string | null;
+  allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
   order?: number | null;
   updatedAt?: string | null;
@@ -79,8 +81,10 @@ export function ProgramDetailPanel({
   onNavigate,
   planDetails,
   pricing,
+  latestSubscriptionRequest,
+  sharedBoundTag,
 }: ProgramDetailPanelProps) {
-  const { programTier, token, athleteUserId, managedAthletes } = useAppSelector(
+  const { programTier, token, athleteUserId, managedAthletes, latestSubscriptionRequest: latestRequestFromStore } = useAppSelector(
     (state) => state.user,
   );
   const { colors, isDark } = useAppTheme();
@@ -158,6 +162,12 @@ export function ProgramDetailPanel({
     currentAthlete?.trainingPerWeek ? `${currentAthlete.trainingPerWeek}x weekly` : null,
   ].filter(Boolean);
   const currentTierLabel = normalizeProgramTier(programTier)?.replace("PHP_", "").replace("_", " ") || "Starter";
+  const requiredTier = programIdToTier(programId);
+  const latestRequest = latestSubscriptionRequest ?? latestRequestFromStore ?? null;
+  const requestStatus = String(latestRequest?.status ?? "");
+  const isPendingApproval =
+    latestRequest?.planTier === requiredTier &&
+    requestStatus === "pending_approval";
   const planSubtitle = planDetails?.description ?? PROGRAM_TIERS.find((item) => item.id === programId)?.description;
   const priceHighlights = pricing?.entries?.slice(0, 2) ?? [];
 
@@ -417,8 +427,9 @@ export function ProgramDetailPanel({
                   </View>
                 </View>
 
-                <Pressable 
-                  onPress={() => onNavigate?.(`/programs/content/${item.id}`)}
+                <Transition.Pressable
+                  sharedBoundTag={`program-content-${item.id}`}
+                  onPress={() => onNavigate?.(`/programs/content/${item.id}?sharedBoundTag=${encodeURIComponent(`program-content-${item.id}`)}`)}
                   className="flex-row items-center justify-between mt-3 pt-3 border-t border-white/10"
                 >
                   <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
@@ -427,7 +438,7 @@ export function ProgramDetailPanel({
                   <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
                     <Feather name="arrow-right" size={14} color="#FFFFFF" />
                   </View>
-                </Pressable>
+                </Transition.Pressable>
               </Pressable>
 
               {isExpanded && (
@@ -518,21 +529,25 @@ export function ProgramDetailPanel({
     const hasAccess = canAccessTier(programTier, programIdToTier(programId));
     const normalizedTier = normalizeProgramTier(programTier);
     if (!hasAccess) {
-      const title = normalizedTier
-        ? "Program locked"
-        : "Complete onboarding to unlock programs";
-      const body = normalizedTier
-        ? "This program is available on a higher tier."
-        : "Once your plan is active, your full program will appear here.";
+      const title = isPendingApproval
+        ? "Plan approval pending"
+        : normalizedTier
+          ? "Program locked"
+          : "Complete onboarding to unlock programs";
+      const body = isPendingApproval
+        ? "Your plan request is waiting for admin approval. We’ll notify you once it’s approved."
+        : normalizedTier
+          ? "This program is available on a higher tier."
+          : "Once your plan is active, your full program will appear here.";
       return (
         <View 
           className="rounded-3xl bg-card px-6 py-5 gap-3"
           style={isDark ? Shadows.none : Shadows.md}
         >
           <View className="flex-row items-center gap-2">
-            <Feather name="lock" size={16} color={colors.accent} />
+            <Feather name={isPendingApproval ? "clock" : "lock"} size={16} color={colors.accent} />
             <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-              Pending Access
+              {isPendingApproval ? "Approval Waiting" : "Pending Access"}
             </Text>
           </View>
           <Text className="text-lg font-clash text-app font-bold">{title}</Text>
@@ -604,22 +619,6 @@ export function ProgramDetailPanel({
       return <FoodDiaryPanel />;
     }
 
-    if (activeTab === "Video Upload") {
-      if (role !== "Athlete") {
-        return (
-          <View 
-            className="rounded-3xl bg-card px-6 py-5"
-            style={isDark ? Shadows.none : Shadows.md}
-          >
-            <Text className="text-sm font-outfit text-secondary text-center">
-              Video uploads are available for athletes.
-            </Text>
-          </View>
-        );
-      }
-      return <VideoUploadPanel refreshToken={refreshToken} />;
-    }
-
     return (
       <View 
         className="rounded-3xl bg-card px-6 py-5"
@@ -639,7 +638,8 @@ export function ProgramDetailPanel({
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         <View className="px-6 pt-6">
-          <View
+          <Transition.View
+            sharedBoundTag={sharedBoundTag}
             className="overflow-hidden rounded-[30px] border px-5 py-5 mb-6"
             style={{
               backgroundColor: surfaceColor,
@@ -670,7 +670,7 @@ export function ProgramDetailPanel({
               <View className="w-11" />
             </View>
 
-            <Text className="text-[28px] font-clash text-app font-bold">
+            <Text className="text-[28px] font-telma-bold text-app font-bold">
               {PROGRAM_TITLES[programId]}
             </Text>
             {planSubtitle ? (
@@ -713,7 +713,7 @@ export function ProgramDetailPanel({
                 ))}
               </View>
             ) : null}
-          </View>
+          </Transition.View>
         </View>
 
         <ProgramTabBar
@@ -830,10 +830,11 @@ export function ProgramDetailPanel({
                 <Feather name="x" size={20} color={colors.accent} />
               </TouchableOpacity>
             </View>
-            {activeVideoUrl ? <VideoPlayer uri={activeVideoUrl} /> : null}
+            {activeVideoUrl ? <VideoPlayer uri={activeVideoUrl} useVideoResolution /> : null}
           </View>
         </View>
       </Modal>
+
     </>
   );
 }

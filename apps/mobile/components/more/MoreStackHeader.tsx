@@ -73,7 +73,7 @@ export function MoreStackHeader({
         </View>
 
         <View className="mt-4">
-          <Text className="font-clash text-[28px] font-bold tracking-tight" style={{ color: colors.text }}>
+          <Text className="font-telma-bold text-[28px] font-bold tracking-tight" style={{ color: colors.text }}>
             {title}
           </Text>
           {subtitle ? (

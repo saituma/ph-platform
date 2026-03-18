@@ -40,7 +40,6 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
     "Recovery",
     "In-Season Program",
     "Off-Season Program",
-    "Video Upload",
     "Submit Diary",
     "Bookings",
   ],

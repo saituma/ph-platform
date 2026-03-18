@@ -5,6 +5,7 @@ import { getPresignedUploadUrl } from "../services/s3.service";
 import { env } from "../config/env";
 import { createVideoUpload, listVideoUploadsByAthlete, reviewVideoUpload } from "../services/video.service";
 import { getAthleteForUser } from "../services/user.service";
+import { getProgramSectionContentById } from "../services/program-section.service";
 
 const presignSchema = z.object({
   key: z.string().min(1),
@@ -15,6 +16,7 @@ const presignSchema = z.object({
 const createSchema = z.object({
   videoUrl: z.string().url(),
   notes: z.string().optional(),
+  programSectionContentId: z.number().int().min(1).optional(),
 });
 
 const reviewSchema = z.object({
@@ -38,10 +40,21 @@ export async function createVideo(req: Request, res: Response) {
   if (!athlete) {
     return res.status(400).json({ error: "Onboarding incomplete" });
   }
+  if (athlete.currentProgramTier !== "PHP_Premium") {
+    return res.status(403).json({ error: "Video uploads are available for PHP Premium members only." });
+  }
+  if (!input.programSectionContentId) {
+    return res.status(400).json({ error: "Training section is required for video uploads." });
+  }
+  const section = await getProgramSectionContentById(input.programSectionContentId);
+  if (!section || !section.allowVideoUpload) {
+    return res.status(403).json({ error: "Video uploads are disabled for this training section." });
+  }
   const item = await createVideoUpload({
     athleteId: athlete.id,
     videoUrl: input.videoUrl,
     notes: input.notes,
+    programSectionContentId: input.programSectionContentId,
   });
   return res.status(201).json({ item });
 }
@@ -51,7 +64,12 @@ export async function listVideos(req: Request, res: Response) {
   if (!athlete) {
     return res.status(200).json({ items: [] });
   }
-  const items = await listVideoUploadsByAthlete(athlete.id);
+  const sectionContentId = req.query.sectionContentId ? Number(req.query.sectionContentId) : null;
+  const items = await listVideoUploadsByAthlete(athlete.id, {
+    programSectionContentId: Number.isFinite(sectionContentId ?? NaN)
+      ? (sectionContentId as number)
+      : null,
+  });
   return res.status(200).json({ items });
 }
 

@@ -3,13 +3,10 @@ import { Feather } from "@/components/ui/theme-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import * as Location from "expo-location";
 import { useCallback, useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useAppSelector } from "@/store/hooks";
-import { resetLocationConsent, sendDailyLocation } from "@/lib/location";
 import { getNotifications } from "@/lib/notifications";
 
 type PermissionStatus = "granted" | "denied" | "undetermined";
@@ -20,14 +17,10 @@ const formatStatus = (status: PermissionStatus) =>
 export default function PermissionsScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
-  const { token } = useAppSelector((state) => state.user);
-  const [locationStatus, setLocationStatus] = useState<PermissionStatus>("undetermined");
   const [notificationStatus, setNotificationStatus] = useState<PermissionStatus>("undetermined");
   const [notificationsSupported, setNotificationsSupported] = useState(true);
 
   const refreshStatuses = useCallback(async () => {
-    const location = await Location.getForegroundPermissionsAsync();
-    setLocationStatus(location.status);
     const notifications = await getNotifications();
     if (!notifications) {
       setNotificationsSupported(false);
@@ -42,15 +35,6 @@ export default function PermissionsScreen() {
   useEffect(() => {
     void refreshStatuses();
   }, [refreshStatuses]);
-
-  const requestLocation = async () => {
-    await resetLocationConsent();
-    const result = await Location.requestForegroundPermissionsAsync();
-    setLocationStatus(result.status);
-    if (result.status === "granted" && token) {
-      await sendDailyLocation(token, { force: true });
-    }
-  };
 
   const requestNotifications = async () => {
     const notifications = await getNotifications();
@@ -69,23 +53,12 @@ export default function PermissionsScreen() {
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <MoreStackHeader
           title="Permissions"
-          subtitle="Control location and notification access with clearer status and less friction."
+          subtitle="Control notification access with clearer status and less friction."
           badge="Access"
           onBack={() => router.replace("/(tabs)/more")}
         />
 
         <View className="px-6 gap-6">
-          <PermissionCard
-            icon="map-pin"
-            title="Location"
-            description="Used for daily location check-ins."
-            status={locationStatus}
-            onRequest={requestLocation}
-            onRevoke={() => Linking.openSettings()}
-            accentColor={colors.accent}
-            isDark={isDark}
-          />
-
           <PermissionCard
             icon="bell"
             title="Notifications"

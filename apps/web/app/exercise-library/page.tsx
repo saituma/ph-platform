@@ -49,6 +49,7 @@ type ProgramSectionContent = {
   body: string;
   ageList?: number[] | null;
   videoUrl?: string | null;
+  allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
   order?: number | null;
   createdAt?: string;
@@ -227,6 +228,7 @@ async function createProgramSectionContent(payload: {
   title: string;
   body: string;
   videoUrl?: string | null;
+  allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
   order?: number | null;
 }) {
@@ -249,6 +251,7 @@ async function updateProgramSectionContent(id: number, payload: {
   title: string;
   body: string;
   videoUrl?: string | null;
+  allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
   order?: number | null;
 }) {
@@ -294,6 +297,7 @@ function ExerciseLibraryPageInner() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [externalUrl, setExternalUrl] = useState("");
   const [order, setOrder] = useState("1");
+  const [allowVideoUpload, setAllowVideoUpload] = useState(false);
 
   // Exercise metadata state
   const [sets, setSets] = useState("");
@@ -340,6 +344,7 @@ function ExerciseLibraryPageInner() {
     setVideoUrl(null);
     setExternalUrl("");
     setOrder("1");
+    setAllowVideoUpload(false);
     setSets("");
     setReps("");
     setDuration("");
@@ -381,6 +386,7 @@ function ExerciseLibraryPageInner() {
         videoUrl: resolvedVideoUrl,
         metadata: buildMetadata(),
         order: order.trim() ? Number(order) : null,
+        allowVideoUpload,
       };
 
       if (editingId) {
@@ -415,6 +421,7 @@ function ExerciseLibraryPageInner() {
     }
 
     setOrder(item.order ? String(item.order) : "1");
+    setAllowVideoUpload(Boolean(item.allowVideoUpload));
 
     // Populate exercise fields
     const meta = (item.metadata ?? {}) as ExerciseMetadata;
@@ -762,6 +769,29 @@ function ExerciseLibraryPageInner() {
               )}
             </div>
 
+            {/* ── Athlete Upload Toggle ── */}
+            <div className="rounded-2xl border border-border bg-secondary/20 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Athlete Video Uploads
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Allow premium athletes to upload training clips for this section.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={allowVideoUpload}
+                    onChange={(event) => setAllowVideoUpload(event.target.checked)}
+                  />
+                  <span>{allowVideoUpload ? "On" : "Off"}</span>
+                </label>
+              </div>
+            </div>
+
             {/* Order + Submit */}
             <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
               <div className="space-y-2">
@@ -831,6 +861,11 @@ function ExerciseLibraryPageInner() {
                           <span className="text-xs text-muted-foreground">Ages: All</span>
                         )}
                         {item.videoUrl ? <MediaBadge url={item.videoUrl} /> : null}
+                        {item.allowVideoUpload ? (
+                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                            Video Uploads On
+                          </span>
+                        ) : null}
                       </div>
                       {/* Exercise metadata tags */}
                       {hasExercise && (

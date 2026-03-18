@@ -30,7 +30,6 @@ import { Text, TextInput } from "@/components/ScaledText";
 import { useRole } from "@/context/RoleContext";
 import { useSocket } from "@/context/SocketContext";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
-import { BuiltinCamera } from "@/components/media/BuiltinCamera";
 import { useProgramPanel } from "./shared/useProgramPanel";
 import { ProgramPanelCard } from "./shared/ProgramPanelCard";
 import { ProgramPanelStatusBadge } from "./shared/ProgramPanelStatusBadge";
@@ -41,6 +40,7 @@ interface VideoItem {
   feedback: string | null;
   notes?: string;
   createdAt: string;
+  programSectionContentId?: number | null;
 }
 
 interface CoachResponse {
@@ -74,8 +74,12 @@ interface OptimisticUpload {
 
 export function VideoUploadPanel({
   refreshToken = 0,
+  sectionContentId,
+  sectionTitle,
 }: {
   refreshToken?: number;
+  sectionContentId?: number | null;
+  sectionTitle?: string | null;
 }) {
   const { token, profile, athleteUserId } = useAppSelector(
     (state) => state.user,
@@ -114,7 +118,6 @@ export function VideoUploadPanel({
       ? selectedVideo.width / selectedVideo.height
       : undefined;
   const previewHeight = selectedVideo?.height ?? 240;
-  const [showCamera, setShowCamera] = useState(false);
   const [optimisticUploads, setOptimisticUploads] = useState<
     OptimisticUpload[]
   >([]);
@@ -126,11 +129,18 @@ export function VideoUploadPanel({
   } | null>(null);
 
   const { socket } = useSocket();
+  const VIDEO_MAX_MB = 200;
+  const VIDEO_MAX_BYTES = VIDEO_MAX_MB * 1024 * 1024;
+  const canUploadForSection = Boolean(sectionContentId);
 
-  const pendingKey = useMemo(
-    () => `video-upload:pending:${athleteUserId ?? profile.id ?? "me"}`,
-    [athleteUserId, profile.id],
-  );
+  const pendingKey = useMemo(() => {
+    const base = athleteUserId ?? profile.id ?? "me";
+    return sectionContentId
+      ? `video-upload:pending:${base}:section:${sectionContentId}`
+      : `video-upload:pending:${base}`;
+  }, [athleteUserId, profile.id, sectionContentId]);
+
+  const videoItemIdsRef = useRef<Set<number>>(new Set());
 
   // Persist optimistic uploads
   useEffect(() => {
@@ -185,14 +195,20 @@ export function VideoUploadPanel({
         const headers = athleteUserId
           ? { "X-Acting-User-Id": String(athleteUserId) }
           : undefined;
-        const data = await apiRequest<any>("/videos", {
+        const query = sectionContentId ? `?sectionContentId=${sectionContentId}` : "";
+        const data = await apiRequest<any>(`/videos${query}`, {
           token,
           headers,
           suppressLog: true,
           forceRefresh,
         });
-        const items = data.items ?? [];
+        const items = (data.items ?? []) as VideoItem[];
         setVideoItems(items);
+        videoItemIdsRef.current = new Set(
+          items
+            .map((item) => Number(item.id))
+            .filter((value) => Number.isFinite(value)),
+        );
 
         setOptimisticUploads((prev) =>
           prev.filter(
@@ -255,7 +271,7 @@ export function VideoUploadPanel({
           forceRefresh,
         });
 
-        const items = (data.messages ?? [])
+        let items = (data.messages ?? [])
           .filter(
             (msg: any) =>
               msg.contentType === "video" &&
@@ -270,6 +286,13 @@ export function VideoUploadPanel({
             createdAt: msg.createdAt ?? null,
             videoUploadId: msg.videoUploadId ?? undefined,
           }));
+
+        if (sectionContentId && videoItemIdsRef.current.size) {
+          const allowed = videoItemIdsRef.current;
+          items = items.filter((item: CoachResponse) =>
+            Number.isFinite(item.videoUploadId) && allowed.has(Number(item.videoUploadId))
+          );
+        }
 
         setCoachResponses(items);
 
@@ -359,6 +382,10 @@ export function VideoUploadPanel({
   // Media Selection & Upload
   const pickVideo = async (source: "library" | "camera") => {
     if (!token) return;
+    if (!canUploadForSection) {
+      setStatus("Select a training section to upload a video.");
+      return;
+    }
     setStatus(null);
     try {
       setPreparingVideo(true);
@@ -393,8 +420,8 @@ export function VideoUploadPanel({
       const fileInfo = await FileSystem.getInfoAsync(uri);
       const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
 
-      if (sizeBytes > 200 * 1024 * 1024)
-        throw new Error("Video exceeds 200MB limit.");
+      if (sizeBytes > VIDEO_MAX_BYTES)
+        throw new Error(`Video exceeds ${VIDEO_MAX_MB}MB limit.`);
 
       setSelectedVideo({
         uri,
@@ -415,6 +442,10 @@ export function VideoUploadPanel({
 
   const handleSubmitVideo = async () => {
     if (!token || !selectedVideo) return;
+    if (!canUploadForSection) {
+      setStatus("Select a training section to upload a video.");
+      return;
+    }
     Alert.alert(
       "Confirm Send",
       "Send this video and notes to your coach for review?",
@@ -498,6 +529,7 @@ export function VideoUploadPanel({
                 body: {
                   videoUrl: presign.publicUrl,
                   notes: uploadNotes || undefined,
+                  programSectionContentId: sectionContentId ?? undefined,
                 },
               });
 
@@ -551,6 +583,14 @@ export function VideoUploadPanel({
           </Text>
           <ProgramPanelStatusBadge label="Coach Review" variant="default" />
         </View>
+        {sectionTitle ? (
+          <Text
+            className="mt-2 text-sm font-outfit"
+            style={{ color: colors.textSecondary }}
+          >
+            Uploading for: {sectionTitle}
+          </Text>
+        ) : null}
         <Text
           className="mt-2 text-base font-outfit leading-6"
           style={{ color: colors.textSecondary }}
@@ -558,6 +598,20 @@ export function VideoUploadPanel({
           One focused clip per upload. Tell your coach exactly what to look for.
         </Text>
       </View>
+
+      {!canUploadForSection ? (
+        <View
+          className="mx-5 mb-6 rounded-3xl p-4 border"
+          style={{
+            backgroundColor: colors.warningSoft,
+            borderColor: colors.warning,
+          }}
+        >
+          <Text className="text-sm font-outfit" style={{ color: colors.warning }}>
+            Select a training module with video uploads enabled to start.
+          </Text>
+        </View>
+      ) : null}
 
       {/* Quick Tips Banner */}
       <View
@@ -629,8 +683,8 @@ export function VideoUploadPanel({
       {/* Upload / Record Buttons */}
       <View className="flex-row gap-4 px-5 mb-6">
         <TouchableOpacity
-          onPress={() => setShowCamera(true)}
-          disabled={uploading}
+          onPress={() => pickVideo("camera")}
+          disabled={uploading || !canUploadForSection}
           className="flex-1 rounded-3xl py-5 items-center border"
           style={{
             backgroundColor: colors.backgroundSecondary,
@@ -647,7 +701,7 @@ export function VideoUploadPanel({
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => pickVideo("library")}
-          disabled={uploading}
+          disabled={uploading || !canUploadForSection}
           className="flex-1 rounded-3xl py-5 items-center border"
           style={{
             backgroundColor: colors.backgroundSecondary,
@@ -663,6 +717,13 @@ export function VideoUploadPanel({
           </Text>
         </TouchableOpacity>
       </View>
+
+      <Text
+        className="mx-5 mb-6 text-xs font-outfit"
+        style={{ color: colors.textSecondary, opacity: 0.8 }}
+      >
+        Max video size: {VIDEO_MAX_MB}MB.
+      </Text>
 
       {/* Submit CTA */}
       {selectedVideo && (
@@ -1099,35 +1160,6 @@ export function VideoUploadPanel({
         </View>
       </Modal>
 
-      <BuiltinCamera
-        visible={showCamera}
-        onCancel={() => setShowCamera(false)}
-        onRecorded={async (asset) => {
-          setShowCamera(false);
-          setPreparingVideo(true);
-          try {
-            const fileName =
-              asset.uri.split("/").pop() ?? `record-${Date.now()}.mp4`;
-            const fileInfo = await FileSystem.getInfoAsync(asset.uri);
-            const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
-
-            setSelectedVideo({
-              uri: asset.uri,
-              fileName,
-              contentType: "video/mp4",
-              sizeBytes,
-              width: asset.width,
-              height: asset.height,
-            });
-
-            setStatus("Preview your video and confirm before sending.");
-          } catch {
-            setStatus("Unable to process recorded video.");
-          } finally {
-            setPreparingVideo(false);
-          }
-        }}
-      />
     </ProgramPanelCard>
   );
 }

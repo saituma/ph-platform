@@ -12,6 +12,7 @@ import {
   subscriptionStatus,
   userTable,
 } from "../db/schema";
+import { sendPushNotification } from "./push.service";
 
 const stripe = env.stripeSecretKey
   ? new Stripe(env.stripeSecretKey, {
@@ -672,6 +673,17 @@ export async function approveSubscriptionRequest(requestId: number) {
       link: "/plans",
       read: false,
     });
+
+    try {
+      await sendPushNotification(
+        request.userId,
+        "Plan approved",
+        `Your ${request.planTier.replace("_", " ")} plan is now active.`,
+        { url: "/plans", type: "plan_approved", planTier: request.planTier }
+      );
+    } catch (error) {
+      console.error("[Billing] Failed to send plan approval push:", error);
+    }
 
     return updated[0] ?? null;
   });

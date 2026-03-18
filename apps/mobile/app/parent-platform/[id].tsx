@@ -205,7 +205,7 @@ export default function ParentCourseDetail() {
                   </View>
                 ) : null}
               </View>
-              <Text className="text-3xl font-clash text-app">{item.title}</Text>
+              <Text className="text-3xl font-telma-bold text-app">{item.title}</Text>
               <Text className="text-base font-outfit text-secondary leading-relaxed mt-3">
                 {item.summary}
               </Text>
@@ -286,7 +286,7 @@ export default function ParentCourseDetail() {
                               </Text>
                             </View>
                           ) : (
-                            <VideoPlayer uri={module.mediaUrl} title={module.title} />
+                            <VideoPlayer uri={module.mediaUrl} title={module.title} useVideoResolution />
                           )}
                         </View>
                       ) : null}

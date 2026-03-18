@@ -6,6 +6,7 @@ import { MessageThread, TypingStatus } from "@/types/messages";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
+import { Transition } from "@/components/navigation/TransitionStack";
 
 type InboxScreenProps = {
   threads: MessageThread[];
@@ -13,7 +14,7 @@ type InboxScreenProps = {
   isLoading: boolean;
   openingThreadId: string | null;
   onRefresh: () => Promise<void>;
-  onOpenThread: (thread: MessageThread) => void;
+  onOpenThread: (thread: MessageThread, sharedBoundTag?: string, avatarTag?: string) => void;
   backgroundSecondary?: string;
   borderColor?: string;
   accentLight?: string;
@@ -74,11 +75,14 @@ function InboxScreenBase({
                 : `user:${thread.id}`;
               const typing = typingStatus[typingKey];
               const isOpening = openingThreadId === thread.id;
+              const sharedBoundTag = `thread-card-${thread.id}`;
+              const sharedAvatarTag = `thread-avatar-${thread.id}`;
 
               return (
-                <Pressable
+                <Transition.Pressable
                   key={thread.id}
-                  onPress={() => onOpenThread(thread)}
+                  sharedBoundTag={sharedBoundTag}
+                  onPress={() => onOpenThread(thread, sharedBoundTag, sharedAvatarTag)}
                   className="rounded-[28px] border p-4 active:opacity-95"
                   style={{
                     backgroundColor: colors.card,
@@ -88,21 +92,23 @@ function InboxScreenBase({
                 >
                   <View className="flex-row items-start gap-4">
                     <View className="relative flex-shrink-0">
-                      {thread.avatarUrl ? (
-                        <Image
-                          source={{ uri: thread.avatarUrl }}
-                          className="h-14 w-14 rounded-2xl"
-                        />
-                      ) : (
-                        <View
-                          className="h-14 w-14 rounded-2xl items-center justify-center"
-                          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)" }}
-                        >
-                          <Text className="font-clash text-2xl" style={{ color: colors.accent }}>
-                            {getInitials(thread.name)}
-                          </Text>
-                        </View>
-                      )}
+                      <Transition.View sharedBoundTag={sharedAvatarTag}>
+                        {thread.avatarUrl ? (
+                          <Image
+                            source={{ uri: thread.avatarUrl }}
+                            className="h-14 w-14 rounded-2xl"
+                          />
+                        ) : (
+                          <View
+                            className="h-14 w-14 rounded-2xl items-center justify-center"
+                            style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)" }}
+                          >
+                            <Text className="font-clash text-2xl" style={{ color: colors.accent }}>
+                              {getInitials(thread.name)}
+                            </Text>
+                          </View>
+                        )}
+                      </Transition.View>
 
                       {thread.unread > 0 && (
                         <View className="absolute -top-1 -right-1 min-w-6 h-6 px-1 bg-accent rounded-full items-center justify-center">
@@ -205,9 +211,9 @@ function InboxScreenBase({
                           </View>
                         )}
                       </View>
+                      </View>
                     </View>
-                  </View>
-                </Pressable>
+                </Transition.Pressable>
               );
             })
           ) : (
