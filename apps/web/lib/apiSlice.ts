@@ -611,6 +611,7 @@ export const {
   useCreateAdminBookingMutation,
   useGetAdminAvailabilityQuery,
   useGetVideoUploadsQuery,
+  useGetProgramSectionContentQuery,
   useGetServicesQuery,
   useGetBookingServicesQuery,
   useGetBookingAvailabilityQuery,
