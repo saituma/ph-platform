@@ -131,11 +131,11 @@ export default function ParentCourseDetail() {
         <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
             onPress={() => router.replace("/parent-platform")}
-            className="h-10 w-10 items-center justify-center bg-secondary rounded-full"
+            className="h-10 w-10 items-center justify-center bg-secondary rounded-2xl"
           >
             <Feather name="arrow-left" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text className="text-xl font-clash text-app font-bold">
+          <Text className="text-2xl font-clash text-app font-bold">
             {isAthlete ? "Athlete Course" : "Parent Course"}
           </Text>
           <View className="w-10" />
@@ -155,23 +155,23 @@ export default function ParentCourseDetail() {
           <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
             <View className="flex-row items-center gap-2 mb-2">
               <Feather name="lock" size={16} color={colors.textSecondary} />
-              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
-                Locked
-              </Text>
-            </View>
-            <Text className="text-base font-clash text-app mb-2">
-              Parent Program is locked on PHP
+            <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.4px]">
+              Locked
             </Text>
-            <Text className="text-sm font-outfit text-secondary leading-relaxed">
-              Upgrade to PHP Plus or PHP Premium to access this content.
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/plans")}
-              className="mt-4 rounded-full bg-accent px-4 py-3"
-            >
-              <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
-            </TouchableOpacity>
           </View>
+          <Text className="text-base font-clash text-app mb-2">
+            Parent Program is locked on PHP
+          </Text>
+          <Text className="text-base font-outfit text-secondary leading-relaxed">
+            Upgrade to PHP Plus or PHP Premium to access this content.
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/plans")}
+            className="mt-4 rounded-2xl bg-accent px-4 py-3"
+          >
+            <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
+          </TouchableOpacity>
+        </View>
         ) : item ? (
           <View className="space-y-6">
             <View className="rounded-[28px] border border-app/10 bg-input px-6 py-5">
@@ -185,21 +185,21 @@ export default function ParentCourseDetail() {
               <View className="flex-row flex-wrap items-center gap-2 mb-3">
                 {item.category ? (
                   <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-                    <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
+                    <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
                       {item.category}
                     </Text>
                   </View>
                 ) : null}
                 {item.programTier ? (
                   <View className="px-3 py-1 rounded-full bg-accent/15 border border-accent/20">
-                    <Text className="text-[0.6875rem] font-outfit text-accent uppercase tracking-[1.2px]">
+                    <Text className="text-[10px] font-outfit text-accent uppercase tracking-[1.2px]">
                       {item.programTier.replace("_", " ")}
                     </Text>
                   </View>
                 ) : null}
                 {item.isPreview ? (
                   <View className="px-3 py-1 rounded-full bg-amber-100 border border-amber-200">
-                    <Text className="text-[0.6875rem] font-outfit text-amber-900 uppercase tracking-[1.2px]">
+                    <Text className="text-[10px] font-outfit text-amber-900 uppercase tracking-[1.2px]">
                       Preview access
                     </Text>
                   </View>
@@ -210,7 +210,7 @@ export default function ParentCourseDetail() {
                 {item.summary}
               </Text>
               {item.description ? (
-                <Text className="text-sm font-outfit text-secondary leading-relaxed mt-3">
+                <Text className="text-base font-outfit text-secondary leading-relaxed mt-3">
                   {item.description}
                 </Text>
               ) : null}
@@ -222,55 +222,55 @@ export default function ParentCourseDetail() {
               <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
                 <View className="flex-row items-center gap-2 mb-2">
                   <Feather name="lock" size={16} color={colors.textSecondary} />
-                  <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
-                    Locked Content
-                  </Text>
-                </View>
-                <Text className="text-base font-clash text-app mb-2">
-                  Upgrade to unlock this course
+                <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.4px]">
+                  Locked Content
                 </Text>
-                <Text className="text-sm font-outfit text-secondary leading-relaxed">
-                  Parent education is included with PHP Plus and Premium plans.
-                </Text>
-                <TouchableOpacity
-                  onPress={() => router.push("/plans")}
-                  className="mt-4 rounded-full bg-accent px-4 py-3"
-                >
-                  <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
-                </TouchableOpacity>
               </View>
-            ) : (
-              <View className="space-y-3">
-                <Text className="text-lg font-clash text-app">Course Modules</Text>
-                {modules.length ? (
-                  modules.map((module) => (
-                    <View key={module.id} className="rounded-[24px] border border-app/10 bg-app px-5 py-4">
-                      <View className="flex-row flex-wrap items-center justify-between gap-2">
-                        <View className="flex-row items-center gap-2">
-                          <View className="h-9 w-9 rounded-2xl bg-secondary/10 items-center justify-center">
-                            <Feather name="book" size={16} color={colors.textSecondary} />
-                          </View>
-                          <View>
-                            <Text className="text-base font-outfit text-app font-semibold">{module.title}</Text>
-                            <Text className="text-xs font-outfit text-secondary uppercase">
-                              {module.type}
-                              {module.preview ? " • Preview" : ""}
-                            </Text>
-                          </View>
+              <Text className="text-base font-clash text-app mb-2">
+                Upgrade to unlock this course
+              </Text>
+              <Text className="text-base font-outfit text-secondary leading-relaxed">
+                Parent education is included with PHP Plus and Premium plans.
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push("/plans")}
+                className="mt-4 rounded-2xl bg-accent px-4 py-3"
+              >
+                <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="space-y-3">
+              <Text className="text-xl font-clash text-app">Course Modules</Text>
+              {modules.length ? (
+                modules.map((module) => (
+                  <View key={module.id} className="rounded-[24px] border border-app/10 bg-app px-5 py-4">
+                    <View className="flex-row flex-wrap items-center justify-between gap-2">
+                      <View className="flex-row items-center gap-2">
+                        <View className="h-9 w-9 rounded-2xl bg-secondary/10 items-center justify-center">
+                          <Feather name="book" size={16} color={colors.textSecondary} />
                         </View>
+                        <View>
+                          <Text className="text-base font-outfit text-app font-semibold">{module.title}</Text>
+                          <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                            {module.type}
+                            {module.preview ? " • Preview" : ""}
+                          </Text>
+                        </View>
+                      </View>
                         {(module.type === "pdf" || isPdfUrl(module.mediaUrl)) && module.mediaUrl ? (
                           <TouchableOpacity
                             onPress={() => openDocument(module.mediaUrl)}
-                            className="rounded-full bg-accent px-4 py-2"
+                            className="rounded-2xl bg-accent px-4 py-2"
                           >
-                            <Text className="text-white text-xs font-outfit">Open PDF</Text>
+                            <Text className="text-white text-xs font-outfit font-bold">Open PDF</Text>
                           </TouchableOpacity>
                         ) : module.mediaUrl ? (
                           <TouchableOpacity
                             onPress={() => openMedia(module.mediaUrl)}
-                            className="rounded-full bg-accent px-4 py-2"
+                            className="rounded-2xl bg-accent px-4 py-2"
                           >
-                            <Text className="text-white text-xs font-outfit">Open File</Text>
+                            <Text className="text-white text-xs font-outfit font-bold">Open File</Text>
                           </TouchableOpacity>
                         ) : null}
                       </View>
@@ -286,12 +286,12 @@ export default function ParentCourseDetail() {
                               </Text>
                             </View>
                           ) : (
-                            <VideoPlayer uri={module.mediaUrl} title={module.title} useVideoResolution />
+                            <VideoPlayer uri={module.mediaUrl} title={module.title} useVideoResolution ignoreTabFocus />
                           )}
                         </View>
                       ) : null}
                       {module.content ? (
-                        <Text className="text-sm font-outfit text-secondary leading-relaxed mt-3">
+                        <Text className="text-base font-outfit text-secondary leading-relaxed mt-3">
                           {module.content}
                         </Text>
                       ) : null}
@@ -299,17 +299,17 @@ export default function ParentCourseDetail() {
                   ))
                 ) : (
                   <View className="rounded-3xl border border-dashed border-app/20 p-4">
-                    <Text className="text-sm font-outfit text-secondary">No modules available.</Text>
+                    <Text className="text-base font-outfit text-secondary">No modules available.</Text>
                   </View>
                 )}
-              </View>
-            )}
-          </View>
-        ) : (
-          <View className="rounded-3xl border border-dashed border-app/20 p-4">
-            <Text className="text-sm font-outfit text-secondary">Course not found.</Text>
-          </View>
-        )}
+            </View>
+          )}
+        </View>
+      ) : (
+        <View className="rounded-3xl border border-dashed border-app/20 p-4">
+          <Text className="text-base font-outfit text-secondary">Course not found.</Text>
+        </View>
+      )}
       </ThemedScrollView>
     </SafeAreaView>
   );
