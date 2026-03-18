@@ -181,6 +181,10 @@ export const apiSlice = createApi({
       query: () => "/admin/videos",
       providesTags: ["Content"],
     }),
+    getProgramSectionContent: builder.query<{ items: any[] }, { sectionType: string }>({
+      query: ({ sectionType }) => `/program-section-content?sectionType=${encodeURIComponent(sectionType)}`,
+      providesTags: ["Content"],
+    }),
     getServices: builder.query<{ items: any[] }, void>({
       query: () => "/bookings/services?includeInactive=true",
       providesTags: ["Services"],

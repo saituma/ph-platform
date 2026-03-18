@@ -9,7 +9,7 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs";
-import { useGetVideoUploadsQuery } from "../../lib/apiSlice";
+import { useGetProgramSectionContentQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
 
 const SECTION_TABS = [
   { value: "program", label: "Program" },
@@ -40,12 +40,16 @@ type TrainingCard = {
   count: number;
   awaiting: number;
   lastUploadAt?: string | null;
+  hasUploads: boolean;
 };
 
 export default function VideoReviewListPage() {
   const router = useRouter();
   const { data: videosData, isLoading } = useGetVideoUploadsQuery();
   const [activeTab, setActiveTab] = useState<string>("program");
+  const { data: sectionData, isLoading: isLoadingSections } = useGetProgramSectionContentQuery({
+    sectionType: activeTab,
+  });
 
   const videos = useMemo<VideoItem[]>(() => {
     const items = videosData?.items ?? [];
@@ -87,6 +91,7 @@ export default function VideoReviewListPage() {
           count: 1,
           awaiting,
           lastUploadAt: video.createdAt ?? null,
+          hasUploads: true,
         });
       } else {
         map.set(key, {
@@ -97,14 +102,38 @@ export default function VideoReviewListPage() {
             video.createdAt && (!existing.lastUploadAt || video.createdAt > existing.lastUploadAt)
               ? video.createdAt
               : existing.lastUploadAt,
+          hasUploads: true,
         });
       }
     });
+    const uploadRows = Array.from(map.values());
+    const sectionItems = (sectionData?.items ?? []) as Array<{
+      id: number;
+      title: string;
+      sectionType: string;
+      allowVideoUpload?: boolean | null;
+    }>;
+    sectionItems
+      .filter((item) => Boolean(item.allowVideoUpload))
+      .forEach((item) => {
+        const key = `id:${item.id}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            sectionId: item.id,
+            sectionTitle: item.title || "Training",
+            sectionType: item.sectionType || activeTab,
+            count: 0,
+            awaiting: 0,
+            lastUploadAt: null,
+            hasUploads: false,
+          });
+        }
+      });
     return Array.from(map.values()).sort((a, b) => {
       if (a.awaiting !== b.awaiting) return b.awaiting - a.awaiting;
       return a.sectionTitle.localeCompare(b.sectionTitle);
     });
-  }, [videos]);
+  }, [videos, sectionData, activeTab]);
 
   const filteredTrainings = useMemo(() => {
     return trainings.filter((training) => training.sectionType === activeTab);
@@ -127,8 +156,10 @@ export default function VideoReviewListPage() {
       </Tabs>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        {isLoading && <div className="text-sm text-muted-foreground">Loading trainings…</div>}
-        {!isLoading && filteredTrainings.length === 0 && (
+        {(isLoading || isLoadingSections) && (
+          <div className="text-sm text-muted-foreground">Loading trainings…</div>
+        )}
+        {!isLoading && !isLoadingSections && filteredTrainings.length === 0 && (
           <div className="text-sm text-muted-foreground">No uploads in this tab yet.</div>
         )}
         {filteredTrainings.map((training) => (
@@ -148,7 +179,9 @@ export default function VideoReviewListPage() {
             </CardHeader>
             <CardContent className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground">
-                Last upload: {training.lastUploadAt ? new Date(training.lastUploadAt).toLocaleString() : "Unknown"}
+                {training.hasUploads
+                  ? `Last upload: ${training.lastUploadAt ? new Date(training.lastUploadAt).toLocaleString() : "Unknown"}`
+                  : "No uploads yet"}
               </div>
               <Button
                 size="sm"
