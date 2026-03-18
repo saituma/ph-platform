@@ -21,6 +21,7 @@ import {
   ProgramType,
   videoUploadTable,
   notificationTable,
+  programSectionContentTable,
 } from "../db/schema";
 import { env } from "../config/env";
 import { sendBookingApprovedEmail, sendBookingDeclinedEmail } from "../lib/mailer";
@@ -1009,9 +1010,13 @@ export async function listVideoUploadsAdmin() {
       feedback: videoUploadTable.feedback,
       reviewedAt: videoUploadTable.reviewedAt,
       createdAt: videoUploadTable.createdAt,
+      programSectionContentId: videoUploadTable.programSectionContentId,
+      programSectionTitle: programSectionContentTable.title,
+      programSectionType: programSectionContentTable.sectionType,
     })
     .from(videoUploadTable)
     .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))
+    .leftJoin(programSectionContentTable, eq(videoUploadTable.programSectionContentId, programSectionContentTable.id))
     .orderBy(desc(videoUploadTable.createdAt));
 }
 

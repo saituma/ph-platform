@@ -1,7 +1,6 @@
 import { Feather } from "@/components/ui/theme-icons";
 import { useRefreshContext, usePullToRefresh } from "@/context/RefreshContext";
 import { apiRequest } from "@/lib/api";
-import { getNotifications } from "@/lib/notifications";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
@@ -37,26 +36,10 @@ export function AthleteDashboard() {
 
   usePullToRefresh(loadAthlete);
 
-  // Fire a local push notification once per session on the athlete's birthday
+  // Birthday UI still shows, but notifications are handled via push server-side.
   useEffect(() => {
     if (!athlete?.isBirthday || birthdayNotified.current) return;
     birthdayNotified.current = true;
-    (async () => {
-      const Notifications = await getNotifications();
-      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "🎂 Happy Birthday!",
-          body: athlete?.name
-            ? `Happy Birthday, ${athlete.name}! New training content has been unlocked for your age.`
-            : "Happy Birthday! New training content has been unlocked for your age.",
-          sound: "default",
-          ...({ channelId: "birthday" } as any),
-          data: { type: "birthday" },
-        },
-        trigger: null,
-      });
-    })();
   }, [athlete]);
 
   const extraResponses = athlete?.extraResponses ?? {};
@@ -117,7 +100,7 @@ export function AthleteDashboard() {
                 <Text className="dark:text-white/80 text-app font-outfit text-sm mb-1 font-medium">
                   {athlete?.team ? `${athlete.team}${level ? ` • ${level}` : ""}` : "Athlete Overview"}
                 </Text>
-                <Text className="dark:text-white text-app font-clash text-4xl leading-[0.95] tracking-tight">
+                <Text className="dark:text-white text-app font-telma-bold text-4xl leading-[0.95] tracking-tight">
                   {athlete?.name ?? "Your"}{"\n"}Progress
                 </Text>
               </View>

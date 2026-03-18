@@ -67,7 +67,7 @@ export function ConversationPanel({
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
   const discardRecordingRef = useRef(false);
-  const typingRef = useRef<{ active: boolean; timer?: NodeJS.Timeout | null }>({
+  const typingRef = useRef<{ active: boolean; timer?: ReturnType<typeof setTimeout> | null }>({
     active: false,
     timer: null,
   });

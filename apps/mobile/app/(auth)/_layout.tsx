@@ -1,12 +1,20 @@
-import { Redirect, Stack } from "expo-router";
+import { Redirect } from "expo-router";
+import { Stack, Transition } from "@/components/navigation/TransitionStack";
 import { useAppSelector } from "@/store/hooks";
+import "../fonts.css";
+import useLoadFonts from "../hooks/useLoadFonts";
 
 export default function AuthLayout() {
+  const fontsLoaded = useLoadFonts();
   const { isAuthenticated, hydrated } = useAppSelector((state) => state.user);
+  const forceLogout =
+    process.env.EXPO_PUBLIC_FORCE_LOGOUT === "1" ||
+    process.env.EXPO_PUBLIC_FORCE_LOGOUT === "true";
+  const effectiveAuth = forceLogout ? false : isAuthenticated;
 
-  if (!hydrated) return null;
+  if (!hydrated || !fontsLoaded) return null;
 
-  if (isAuthenticated) {
+  if (effectiveAuth) {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -14,7 +22,7 @@ export default function AuthLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "none",
+        ...Transition.Presets.ZoomIn(),
       }}
     />
   );

@@ -90,7 +90,7 @@ export function ProgramCard({
                 )}
               </View>
               <Text
-                className="text-[1.375rem] leading-tight font-clash font-bold mb-1"
+                className="text-[1.375rem] leading-tight font-telma-bold font-bold mb-1"
                 style={{ color: "#F2F6F2" }}
                 numberOfLines={2}
                 ellipsizeMode="tail"

@@ -123,7 +123,7 @@ export default function TermsScreen() {
         }}
       >
         <View className="mb-8">
-          <Text className="text-3xl font-clash text-app mb-2">Legal Terms</Text>
+          <Text className="text-3xl font-telma-bold text-app mb-2">Legal Terms</Text>
           <Text className="text-base font-outfit text-secondary mt-1">
             {termsUpdatedAt
               ? `Updated: ${new Date(termsUpdatedAt).toLocaleDateString()}`

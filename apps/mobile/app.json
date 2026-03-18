@@ -8,11 +8,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We use your location to show coaches where athletes are located.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.clientreachai.phperformance"
@@ -23,7 +21,6 @@
         "foregroundImage": "./assets/images/icon.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.clientreachai.phperformance",
       "permissions": [
@@ -48,7 +45,13 @@
             "backgroundColor": "#0a0a0b"
           }
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-font",
+      "expo-image",
+      "expo-secure-store",
+      "expo-video",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -61,7 +64,6 @@
       "eas": {
         "projectId": "05e78255-c0dc-481a-85c0-835a4d6502a7"
       }
-    },
-    "owner": "dawitworkujima"
+    }
   }
 }

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAppSelector } from "@/store/hooks";
-import { getNotifications } from "@/lib/notifications";
 import { useRole } from "@/context/RoleContext";
 
 interface SocketContextType {
@@ -81,39 +80,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       console.log("[Socket] connect_error", error?.message ?? error);
     });
 
-    const scheduleRealtimeNotification = async ({
-      threadId,
-      title,
-      body,
-      data,
-    }: {
-      threadId: string;
-      title: string;
-      body: string;
-      data?: Record<string, unknown>;
-    }) => {
-      const Notifications = await getNotifications();
-      if (!Notifications || typeof Notifications.scheduleNotificationAsync !== "function") return;
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          sound: "default",
-          // @ts-ignore
-          channelId: "messages",
-          categoryIdentifier: "messages",
-          // @ts-ignore
-          threadIdentifier: "messages",
-          data: { threadId, ...(data ?? {}) },
-        },
-        trigger: null,
-      });
-
-      if (typeof Notifications.getBadgeCountAsync === "function" && typeof Notifications.setBadgeCountAsync === "function") {
-        const currentBadge = await Notifications.getBadgeCountAsync();
-        await Notifications.setBadgeCountAsync(currentBadge + 1);
-      }
-    };
+    const scheduleRealtimeNotification = async () => {};
 
     newSocket.on("message:new", async (payload: any) => {
       const selfId = effectiveProfileIdRef.current;

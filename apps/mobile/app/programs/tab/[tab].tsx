@@ -68,6 +68,17 @@ export default function ProgramTabDetailScreen() {
   const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
   const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  useEffect(() => {
+    if (router.canGoBack()) return;
+    router.replace("/(tabs)");
+  }, [router]);
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/programs");
+  }, [router]);
 
   const loadContent = useCallback(async () => {
     if (!token || !tabName) return;
@@ -123,7 +134,7 @@ export default function ProgramTabDetailScreen() {
           <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: accentSurface }} />
           <View className="flex-row items-center justify-between">
             <Pressable
-              onPress={() => router.back()}
+              onPress={handleBack}
               className="h-11 w-11 items-center justify-center rounded-[18px]"
               style={{ backgroundColor: mutedSurface }}
             >
@@ -136,7 +147,7 @@ export default function ProgramTabDetailScreen() {
             </View>
           </View>
 
-          <Text className="mt-4 text-[26px] font-clash text-app font-bold">
+          <Text className="mt-4 text-[26px] font-telma-bold text-app font-bold">
             {tabName || "Program Section"}
           </Text>
           <View className="mt-4 flex-row flex-wrap gap-2">

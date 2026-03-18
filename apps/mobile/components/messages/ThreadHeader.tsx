@@ -5,10 +5,13 @@ import { Image, Pressable, View } from "react-native";
 import { MessageThread } from "@/types/messages";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Transition } from "@/components/navigation/TransitionStack";
 
 type ThreadHeaderProps = {
   thread: MessageThread;
   onBack: () => void;
+  sharedBoundTag?: string;
+  sharedAvatarTag?: string;
 };
 
 function getInitials(name: string) {
@@ -20,7 +23,7 @@ function getInitials(name: string) {
     .join("");
 }
 
-export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
+export function ThreadHeader({ thread, onBack, sharedBoundTag, sharedAvatarTag }: ThreadHeaderProps) {
   const { colors, isDark } = useAppTheme();
   const headerBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)";
   const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.10)";
@@ -34,7 +37,8 @@ export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
 
   return (
     <View className="px-3 py-1" style={{ backgroundColor: colors.background }}>
-      <View
+      <Transition.View
+        sharedBoundTag={sharedBoundTag}
         className="overflow-hidden rounded-[28px] border px-4 py-3"
         style={{ backgroundColor: colors.card, borderColor: headerBorder }}
       >
@@ -67,24 +71,26 @@ export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
         </View>
 
         <View className="mt-2.5 flex-row items-center gap-3">
-          {thread.avatarUrl ? (
-            <View className="h-12 w-12 rounded-[18px] overflow-hidden border-2" style={{ borderColor: headerBorder }}>
-              <Image
-                source={{ uri: thread.avatarUrl }}
-                className="h-full w-full"
-                resizeMode="cover"
-              />
-            </View>
-          ) : (
-            <View
-              className="h-12 w-12 rounded-[18px] items-center justify-center border-2"
-              style={{ backgroundColor: avatarBg, borderColor: headerBorder }}
-            >
-              <Text className="font-clash text-xl font-bold" style={{ color: colors.text }}>
-                {getInitials(thread.name)}
-              </Text>
-            </View>
-          )}
+          <Transition.View sharedBoundTag={sharedAvatarTag}>
+            {thread.avatarUrl ? (
+              <View className="h-12 w-12 rounded-[18px] overflow-hidden border-2" style={{ borderColor: headerBorder }}>
+                <Image
+                  source={{ uri: thread.avatarUrl }}
+                  className="h-full w-full"
+                  resizeMode="cover"
+                />
+              </View>
+            ) : (
+              <View
+                className="h-12 w-12 rounded-[18px] items-center justify-center border-2"
+                style={{ backgroundColor: avatarBg, borderColor: headerBorder }}
+              >
+                <Text className="font-clash text-xl font-bold" style={{ color: colors.text }}>
+                  {getInitials(thread.name)}
+                </Text>
+              </View>
+            )}
+          </Transition.View>
 
           <View className="flex-1">
             <View className="flex-row items-center gap-2">
@@ -124,7 +130,7 @@ export function ThreadHeader({ thread, onBack }: ThreadHeaderProps) {
             </View>
           ) : null}
         </View>
-      </View>
+      </Transition.View>
     </View>
   );
 }

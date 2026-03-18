@@ -28,7 +28,7 @@ import { useActiveTab } from "@/context/ActiveTabContext";
 
 const normalizeUrl = (url: string) => String(url ?? "").trim();
 
-const isYoutubeUrl = (url?: string) =>
+export const isYoutubeUrl = (url?: string) =>
   /youtube\.com|youtu\.be/i.test(normalizeUrl(url ?? ""));
 
 export function YouTubeEmbed({
@@ -85,11 +85,11 @@ interface VideoPlayerProps {
 
 export function VideoPlayer({
   uri,
-  height = 200,
+  height = 220,
   autoPlay = false,
   initialMuted = true,
   isLooping = true,
-  useVideoResolution = false,
+  useVideoResolution = true,
   maxHeightRatio = 0.8,
   showLoadingOverlay = true,
   ignoreTabFocus = false,
@@ -160,10 +160,7 @@ export function VideoPlayer({
 
   const { width: screenWidth, height: screenHeight } =
     Dimensions.get("window");
-  const releasedRef = useRef(false);
-
   const safePause = useCallback(() => {
-    if (releasedRef.current) return;
     try {
       player.pause();
     } catch {
@@ -172,7 +169,6 @@ export function VideoPlayer({
   }, [player]);
 
   const safePlay = useCallback(() => {
-    if (releasedRef.current) return;
     try {
       player.play();
     } catch {
@@ -181,7 +177,6 @@ export function VideoPlayer({
   }, [player]);
 
   const safeGetTimeInfo = useCallback(() => {
-    if (releasedRef.current) return { currentTime: 0, duration: 0 };
     try {
       return {
         currentTime: player.currentTime ?? 0,
@@ -195,20 +190,6 @@ export function VideoPlayer({
   useEffect(() => {
     return () => {
       safePause();
-      try {
-        player.muted = true;
-      } catch {
-        // Ignore errors from released native instances.
-      }
-      if (!releasedRef.current && "release" in player) {
-        try {
-          (player as any).release?.();
-        } catch {
-          // Ignore double-release errors.
-        } finally {
-          releasedRef.current = true;
-        }
-      }
     };
   }, [player, safePause]);
 
@@ -222,14 +203,18 @@ export function VideoPlayer({
 
   useEffect(() => {
     if (!effectiveShouldPlay || !isVisible) {
-      safePause();
-      setIsPlaying(false);
+      if (isPlaying) {
+        safePause();
+        setIsPlaying(false);
+      }
     } else {
       if (pauseOthers) pauseOthers();
-      safePlay();
-      setIsPlaying(true);
+      if (!isPlaying) {
+        safePlay();
+        setIsPlaying(true);
+      }
     }
-  }, [effectiveShouldPlay, isVisible, pauseOthers, safePause, safePlay]);
+  }, [effectiveShouldPlay, isVisible, pauseOthers, safePause, safePlay, isPlaying]);
 
   useEventListener(player, "videoTrackChange", (e) => {
     const w = e.videoTrack?.size?.width ?? 0;

@@ -2,6 +2,11 @@
   "expo": {
     "android": {
       "package": "com.dawitworkujima.footballcoachingapp"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cd643765-01b9-4f39-9040-e06699e7fc58"
+      }
     }
   }
 }

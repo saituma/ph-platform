@@ -130,7 +130,7 @@ export default function SubmitTestimonialScreen() {
               <View className="h-20 w-20 rounded-full bg-accent/10 items-center justify-center mb-6">
                 <Feather name="check" size={28} color={colors.accent} />
               </View>
-              <Text className="text-3xl font-clash text-app mb-2 text-center">
+              <Text className="text-3xl font-telma-bold text-app mb-2 text-center">
                 Thank you!
               </Text>
               <Text className="text-base font-outfit text-secondary leading-relaxed mb-8 text-center">
@@ -146,7 +146,7 @@ export default function SubmitTestimonialScreen() {
             </View>
           ) : (
             <>
-              <Text className="text-3xl font-clash text-app mb-2">
+              <Text className="text-3xl font-telma-bold text-app mb-2">
                 Share your experience
               </Text>
               <Text className="text-base font-outfit text-secondary leading-relaxed mb-6">

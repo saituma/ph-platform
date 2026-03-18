@@ -46,6 +46,7 @@ const createSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   videoUrl: z.string().optional().nullable(),
+  allowVideoUpload: z.boolean().optional().nullable(),
   order: z.number().int().min(1).optional().nullable(),
   metadata: exerciseMetadataSchema,
 });
@@ -57,6 +58,7 @@ const updateSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   videoUrl: z.string().optional().nullable(),
+  allowVideoUpload: z.boolean().optional().nullable(),
   order: z.number().int().min(1).optional().nullable(),
   metadata: exerciseMetadataSchema,
 });
@@ -103,6 +105,7 @@ export async function createProgramSectionContentHandler(req: Request, res: Resp
     title: input.title,
     body: input.body,
     videoUrl: input.videoUrl ?? null,
+    allowVideoUpload: input.allowVideoUpload ?? null,
     metadata: input.metadata ?? null,
     order: input.order ?? null,
     createdBy: req.user!.id,
@@ -121,6 +124,7 @@ export async function updateProgramSectionContentHandler(req: Request, res: Resp
     title: input.title,
     body: input.body,
     videoUrl: input.videoUrl ?? null,
+    allowVideoUpload: input.allowVideoUpload ?? null,
     metadata: input.metadata ?? null,
     order: input.order ?? null,
   });

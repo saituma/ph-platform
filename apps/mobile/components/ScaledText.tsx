@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import {
   Platform,
+  StyleSheet,
   Text as RNText,
   TextInput as RNTextInput,
   type TextInputProps,
@@ -16,6 +17,39 @@ const InteropText = cssInterop(RNText, { className: "style" });
 const InteropTextInput = cssInterop(RNTextInput, { className: "style" });
 const AnimatedInteropText = Animated.createAnimatedComponent(InteropText);
 
+const baseTextStyle: TextStyle = {
+  fontFamily: "Outfit",
+  ...(Platform.OS === "android" ? { includeFontPadding: false } : {}),
+};
+
+const getTypeAdjustments = (style: any): TextStyle => {
+  const flat = StyleSheet.flatten(style) as TextStyle | undefined;
+  const fontSize = flat?.fontSize;
+  if (typeof fontSize !== "number") return {};
+
+  const next: TextStyle = {};
+  if (flat?.lineHeight == null) {
+    const ratio =
+      fontSize >= 32 ? 1.08 :
+      fontSize >= 26 ? 1.14 :
+      fontSize >= 20 ? 1.22 :
+      fontSize >= 16 ? 1.35 : 1.45;
+    next.lineHeight = Math.round(fontSize * ratio);
+  }
+
+  if (flat?.letterSpacing == null) {
+    const spacing =
+      fontSize >= 32 ? -0.6 :
+      fontSize >= 24 ? -0.4 :
+      fontSize >= 20 ? -0.2 : 0;
+    if (spacing !== 0) {
+      next.letterSpacing = spacing;
+    }
+  }
+
+  return next;
+};
+
 const scaleStyle = (style: any, scale: number): any => {
   if (!style || scale === 1) return style;
   if (Array.isArray(style)) {
@@ -30,13 +64,19 @@ const scaleStyle = (style: any, scale: number): any => {
   if (typeof next.lineHeight === "number") {
     next.lineHeight = Math.round(next.lineHeight * scale);
   }
+  if (typeof next.letterSpacing === "number") {
+    next.letterSpacing = Number((next.letterSpacing * scale).toFixed(2));
+  }
   return next;
 };
 
 export function Text(props: TextProps & { className?: string }) {
   const { fontScale } = useFontScale();
   const { style, ...rest } = props;
-  const scaledStyle = useMemo(() => scaleStyle(style, fontScale), [fontScale, style]);
+  const scaledStyle = useMemo(() => {
+    const adjustments = getTypeAdjustments(style);
+    return scaleStyle([baseTextStyle, adjustments, style], fontScale);
+  }, [fontScale, style]);
 
   return <InteropText {...rest} style={scaledStyle} />;
 }
@@ -54,7 +94,10 @@ export function TextInput(props: TextInputProps & { className?: string }) {
     smartInsertDelete,
     ...rest
   } = props;
-  const scaledStyle = useMemo(() => scaleStyle(style, fontScale), [fontScale, style]);
+  const scaledStyle = useMemo(() => {
+    const adjustments = getTypeAdjustments(style);
+    return scaleStyle([baseTextStyle, adjustments, style], fontScale);
+  }, [fontScale, style]);
   const shouldStabilizeControlledIosInput = Platform.OS === "ios" && props.value !== undefined;
 
   // iOS controlled inputs can drop characters or move the cursor when predictive text
@@ -77,7 +120,10 @@ export function TextInput(props: TextInputProps & { className?: string }) {
 export function AnimatedText(props: TextProps & { className?: string }) {
   const { fontScale } = useFontScale();
   const { style, ...rest } = props;
-  const scaledStyle = useMemo(() => scaleStyle(style, fontScale), [fontScale, style]);
+  const scaledStyle = useMemo(() => {
+    const adjustments = getTypeAdjustments(style);
+    return scaleStyle([baseTextStyle, adjustments, style], fontScale);
+  }, [fontScale, style]);
 
   return <AnimatedInteropText {...rest} style={scaledStyle} />;
 }

@@ -29,7 +29,6 @@ export default function MoreScreen() {
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
   const canAccessParentPlatform = canAccessTier(programTier ?? null, "PHP_Premium");
-  const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -63,7 +62,7 @@ export default function MoreScreen() {
         <View className="px-6 pt-6 mb-4 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3 flex-1 mr-4 overflow-hidden">
             <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-4xl font-clash text-app tracking-tight" numberOfLines={1}>
+            <Text className="text-4xl font-telma-bold text-app tracking-tight" numberOfLines={1}>
               More
             </Text>
           </View>
@@ -194,15 +193,6 @@ export default function MoreScreen() {
                       label="Parent Platform"
                       isLast={false}
                       onPress={openParentPlatform}
-                      accentColor={colors.accent}
-                    />
-                  ) : null}
-                  {canUploadVideo ? (
-                    <MenuItem
-                      icon="video"
-                      label="Upload Training Video"
-                      isLast={false}
-                      onPress={() => router.navigate("/video-upload")}
                       accentColor={colors.accent}
                     />
                   ) : null}

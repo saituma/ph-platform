@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Linking, Modal, Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -12,6 +12,11 @@ import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
+import { SafeMaskedView, Transition } from "@/components/navigation/TransitionStack";
+import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
+import { useRole } from "@/context/RoleContext";
+import { canAccessTier } from "@/lib/planAccess";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
 
 type ExerciseMetadata = {
   sets?: number | null;
@@ -29,6 +34,7 @@ type ContentItem = {
   title: string;
   body: string;
   videoUrl?: string | null;
+  allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
 };
 
@@ -87,27 +93,39 @@ function MediaSection({ url, title }: { url: string; title?: string }) {
 
   return (
     <View className="rounded-3xl overflow-hidden bg-white/5">
-      <VideoPlayer uri={url} title={title} />
+      <VideoPlayer uri={url} title={title} useVideoResolution />
     </View>
   );
 }
 
 export default function ProgramContentDetailScreen() {
-  const { contentId } = useLocalSearchParams<{ contentId: string }>();
+  const { contentId, sharedBoundTag } = useLocalSearchParams<{ contentId: string; sharedBoundTag?: string }>();
   const router = useRouter();
   const { token } = useAppSelector((state) => state.user);
+  const { role } = useRole();
+  const programTier = useAppSelector((state) => state.user.programTier);
   const { isDark, colors } = useAppTheme();
+  const { isSectionHidden } = useAgeExperience();
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<ContentItem | null>(null);
-  const load = useCallback(async () => {
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const lastLoadedRef = useRef<string | null>(null);
+  const loadingRef = useRef(false);
+  const load = useCallback(async (force = false) => {
     if (!token || !contentId) {
       setIsLoading(false);
       setError("Content not available.");
       return;
     }
+    const key = `${token}:${contentId}`;
+    if (!force && lastLoadedRef.current === key) {
+      return;
+    }
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
       setIsLoading(true);
       const data = await apiRequest<{ item?: any }>(`/program-section-content/${contentId}`, { token });
@@ -120,12 +138,15 @@ export default function ProgramContentDetailScreen() {
         title: data.item.title ?? "Program Content",
         body: data.item.body ?? "",
         videoUrl: data.item.videoUrl ?? null,
+        allowVideoUpload: data.item.allowVideoUpload ?? false,
         metadata: data.item.metadata ?? null,
       });
       setError(null);
+      lastLoadedRef.current = key;
     } catch (err: any) {
       setError(err?.message ?? "Failed to load content.");
     } finally {
+      loadingRef.current = false;
       setIsLoading(false);
     }
   }, [contentId, token]);
@@ -144,58 +165,75 @@ export default function ProgramContentDetailScreen() {
   const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
   const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const canUploadVideos =
+    role === "Athlete" &&
+    canAccessTier(programTier ?? null, "PHP_Premium") &&
+    !isSectionHidden("videoFeedback");
+  useEffect(() => {
+    if (router.canGoBack()) return;
+    router.replace("/(tabs)");
+  }, [router]);
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/programs");
+  }, [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThemedScrollView onRefresh={load} contentContainerStyle={{ paddingBottom: 40 }}>
-        <View className="px-6 pt-6">
-          <View
-            className="overflow-hidden rounded-[30px] border px-5 py-5 mb-6"
-            style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.md) }}
-          >
-            <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: accentSurface }} />
-            <View className="flex-row items-center justify-between mb-4">
-              <Pressable
-                onPress={() => router.back()}
-                className="h-11 w-11 items-center justify-center rounded-[18px]"
-                style={{ backgroundColor: mutedSurface }}
-              >
-                <Feather name="arrow-left" size={20} color={colors.accent} />
-              </Pressable>
-              <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
-                  Content detail
-                </Text>
+      <SafeMaskedView style={{ flex: 1 }}>
+        <ThemedScrollView onRefresh={() => load(true)} contentContainerStyle={{ paddingBottom: 40 }}>
+          <View className="px-6 pt-6">
+            <Transition.View
+              sharedBoundTag={sharedBoundTag}
+              className="overflow-hidden rounded-[30px] border px-5 py-5 mb-6"
+              style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.md) }}
+            >
+              <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: accentSurface }} />
+              <View className="flex-row items-center justify-between mb-4">
+                <Pressable
+                  onPress={handleBack}
+                  className="h-11 w-11 items-center justify-center rounded-[18px]"
+                  style={{ backgroundColor: mutedSurface }}
+                >
+                  <Feather name="arrow-left" size={20} color={colors.accent} />
+                </Pressable>
+                <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+                    Content detail
+                  </Text>
+                </View>
               </View>
-            </View>
 
-            <Text className="text-[26px] font-clash text-app font-bold">
-              {item?.title ?? "Program Content"}
-            </Text>
-            <View className="mt-4 flex-row flex-wrap gap-2">
-              {activeAthlete?.name ? (
-                <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
-                  <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
-                    Athlete: {activeAthlete.name}
-                  </Text>
-                </View>
-              ) : null}
-              {activeAthlete?.age ? (
-                <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
-                  <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                    {activeAthlete.age} yrs
-                  </Text>
-                </View>
-              ) : null}
-              {meta.category ? (
-                <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
-                  <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                    {meta.category}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
+              <Text className="text-[26px] font-telma-bold text-app font-bold">
+                {item?.title ?? "Program Content"}
+              </Text>
+              <View className="mt-4 flex-row flex-wrap gap-2">
+                {activeAthlete?.name ? (
+                  <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
+                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
+                      Athlete: {activeAthlete.name}
+                    </Text>
+                  </View>
+                ) : null}
+                {activeAthlete?.age ? (
+                  <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
+                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                      {activeAthlete.age} yrs
+                    </Text>
+                  </View>
+                ) : null}
+                {meta.category ? (
+                  <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
+                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                      {meta.category}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </Transition.View>
 
           {isLoading ? (
             <View className="rounded-3xl bg-[#2F8F57] px-6 py-6 items-center" style={isDark ? Shadows.none : Shadows.sm}>
@@ -307,18 +345,57 @@ export default function ProgramContentDetailScreen() {
                  </View>
                ) : null}
  
-               {/* Media */}
-               {item.videoUrl ? (
-                 <View className="mt-1">
-                   <MediaSection url={item.videoUrl} title={item.title} />
-                 </View>
-               ) : null}
+             {/* Media */}
+             {item.videoUrl ? (
+               <View className="mt-1">
+                 <MediaSection url={item.videoUrl} title={item.title} />
+               </View>
+             ) : null}
 
 
              </View>
            ) : null}
          </View>
        </ThemedScrollView>
-     </SafeAreaView>
-   );
- }
+
+        {item?.allowVideoUpload && canUploadVideos ? (
+          <Pressable
+            onPress={() => setShowUploadModal(true)}
+            className="absolute bottom-6 right-6 h-14 w-14 rounded-full items-center justify-center"
+            style={{ backgroundColor: colors.accent, ...(isDark ? Shadows.none : Shadows.md) }}
+          >
+            <Feather name="plus" size={24} color="#ffffff" />
+          </Pressable>
+        ) : null}
+
+        <Modal
+          visible={showUploadModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowUploadModal(false)}
+        >
+          <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}>
+            <View className="rounded-t-3xl p-4 pb-6" style={{ backgroundColor: surfaceColor }}>
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-lg font-clash text-app font-bold">
+                  Training Video Upload
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowUploadModal(false)}
+                  className="h-10 w-10 rounded-full items-center justify-center"
+                  style={{ backgroundColor: mutedSurface }}
+                >
+                  <Feather name="x" size={20} color={colors.accent} />
+                </TouchableOpacity>
+              </View>
+              <VideoUploadPanel
+                sectionContentId={Number.isFinite(Number(contentId)) ? Number(contentId) : null}
+                sectionTitle={item?.title ?? null}
+              />
+            </View>
+          </View>
+        </Modal>
+      </SafeMaskedView>
+    </SafeAreaView>
+  );
+}

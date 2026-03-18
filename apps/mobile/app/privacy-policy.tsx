@@ -127,7 +127,7 @@ export default function PrivacyPolicyScreen() {
         <View className="mb-6">
           <View className="flex-row items-center gap-3 mb-3">
             <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-3xl font-clash text-app">
+            <Text className="text-3xl font-telma-bold text-app">
               Data Protection
             </Text>
           </View>

@@ -15,6 +15,7 @@ type VideoItem = {
   athlete: string;
   topic: string;
   status: string;
+  sectionTitle?: string | null;
   videoUrl?: string | null;
   feedback?: string | null;
   athleteUserId?: number | null;
@@ -42,11 +43,15 @@ export default function VideoReviewPage() {
         : daysOpen >= 7
           ? "Priority"
           : "Awaiting feedback";
+      const sectionTitle = item.programSectionTitle ?? null;
+      const baseTopic = item.notes ?? "Video upload";
+      const topic = sectionTitle ? `${sectionTitle} • ${baseTopic}` : baseTopic;
       return {
         id: item.id,
         athlete: item.athleteName ?? "Athlete",
-        topic: item.notes ?? "Video upload",
+        topic,
         status,
+        sectionTitle,
         videoUrl: item.videoUrl ?? null,
         feedback: item.feedback ?? null,
         athleteUserId: item.athleteUserId ?? null,

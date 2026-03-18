@@ -223,7 +223,7 @@ export function AnnouncementsSection({ items }: AnnouncementsSectionProps) {
                   {isYoutubeUrl(url) ? (
                     <YouTubeEmbed url={url} shouldPlay={isFocused} />
                   ) : (
-                    <VideoPlayer uri={url} title={title} autoPlay={isFocused} shouldPlay={isFocused} />
+                    <VideoPlayer uri={url} title={title} autoPlay={isFocused} shouldPlay={isFocused} useVideoResolution />
                   )}
                 </View>
               ))}
@@ -238,7 +238,7 @@ export function AnnouncementsSection({ items }: AnnouncementsSectionProps) {
     <View className="py-2 items-center">
       <View className="w-full flex-row justify-between items-end mb-6 px-2">
         <View>
-          <Text className="text-3xl font-bold font-clash text-app tracking-tight">
+          <Text className="text-3xl font-bold font-telma-bold text-app tracking-tight">
             Announcements
           </Text>
           <Text className="text-secondary font-outfit text-base mt-1">

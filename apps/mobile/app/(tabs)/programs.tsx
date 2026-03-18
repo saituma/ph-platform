@@ -1,10 +1,9 @@
 import { ProgramTier } from "@/components/ProgramCard";
-import { ProgramDetailPanel } from "@/components/programs/ProgramDetailPanel";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert, InteractionManager, Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import {
   setLatestSubscriptionRequest,
@@ -20,6 +19,7 @@ import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-nati
 import { useRouter } from "expo-router";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRole } from "@/context/RoleContext";
+import { Transition } from "@/components/navigation/TransitionStack";
 
 export default function ProgramsScreen() {
   const dispatch = useAppDispatch();
@@ -36,11 +36,11 @@ export default function ProgramsScreen() {
   } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
 
-  const [selectedTierId, setSelectedTierId] = useState<"php" | "plus" | "premium" | null>(null);
   const [plansByTier, setPlansByTier] = useState<Record<string, number>>({});
   const [planDetailsByTier, setPlanDetailsByTier] = useState<Record<string, any>>({});
   const [pricingByTier, setPricingByTier] = useState<Record<string, PlanPricing>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTierId, setPickerTierId] = useState<"php" | "plus" | "premium" | null>(null);
 
@@ -53,6 +53,21 @@ export default function ProgramsScreen() {
     setPickerOpen(false);
   }, []);
 
+  const waitForInteractions = useCallback(
+    () => new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve())),
+    [],
+  );
+
+  const openProgramDetail = useCallback(
+    (tierId: "php" | "plus" | "premium") => {
+      const sharedBoundTag = `program-card-${tierId}`;
+      router.push({
+        pathname: "/programs/[id]",
+        params: { id: tierId, sharedBoundTag },
+      } as any);
+    },
+    [router],
+  );
 
   const getDiscountCopy = useCallback((plan?: any | null) => {
     if (!plan?.discountValue || !plan?.discountType) return null;
@@ -211,6 +226,9 @@ export default function ProgramsScreen() {
       if (!token) {
         return;
       }
+      if (isProcessingPayment) {
+        return;
+      }
       const requiredTier =
         tierId === "plus" ? "PHP_Plus" : tierId === "premium" ? "PHP_Premium" : "PHP";
       if (requiredTier === "PHP") {
@@ -224,44 +242,53 @@ export default function ProgramsScreen() {
       }
 
       const startCheckout = async (selectedInterval?: "monthly" | "yearly") => {
-        const data = await apiRequest<{
-          customerId: string;
-          ephemeralKey: string;
-          paymentIntentId: string;
-          paymentIntentClientSecret: string;
-          request?: any;
-        }>("/billing/payment-sheet", {
-          method: "POST",
-          body: { planId, interval: selectedInterval },
-          token,
-        });
-
-        const init = await initPaymentSheet({
-          merchantDisplayName: "PH Platform",
-          customerId: data.customerId,
-          customerEphemeralKeySecret: data.ephemeralKey,
-          paymentIntentClientSecret: data.paymentIntentClientSecret,
-          allowsDelayedPaymentMethods: true,
-        });
-        if (init.error) {
-          throw new Error(init.error.message);
-        }
-
-        const result = await presentPaymentSheet();
-        if (result.error) {
-          throw new Error(result.error.message);
-        }
-
-        const confirm = await apiRequest<{ paymentStatus?: string; request?: any }>(
-          "/billing/payment-sheet/confirm",
-          {
+        setIsProcessingPayment(true);
+        try {
+          await waitForInteractions();
+          const data = await apiRequest<{
+            customerId: string;
+            ephemeralKey: string;
+            paymentIntentId: string;
+            paymentIntentClientSecret: string;
+            request?: any;
+          }>("/billing/payment-sheet", {
             method: "POST",
-            body: { paymentIntentId: data.paymentIntentId },
+            body: { planId, interval: selectedInterval },
             token,
-          },
-        );
+          });
 
-        dispatch(setLatestSubscriptionRequest(confirm.request ?? data.request ?? null));
+          const init = await initPaymentSheet({
+            merchantDisplayName: "PH Platform",
+            customerId: data.customerId,
+            customerEphemeralKeySecret: data.ephemeralKey,
+            paymentIntentClientSecret: data.paymentIntentClientSecret,
+            allowsDelayedPaymentMethods: true,
+          });
+          if (init.error) {
+            throw new Error(init.error.message);
+          }
+
+          const result = await presentPaymentSheet();
+          if (result.error) {
+            throw new Error(result.error.message);
+          }
+
+          const confirm = await apiRequest<{ paymentStatus?: string; request?: any }>(
+            "/billing/payment-sheet/confirm",
+            {
+              method: "POST",
+              body: { paymentIntentId: data.paymentIntentId },
+              token,
+            },
+          );
+
+          dispatch(setLatestSubscriptionRequest(confirm.request ?? data.request ?? null));
+        } catch (error: any) {
+          const message = error?.message || "Failed to start checkout.";
+          Alert.alert("Payment failed", message);
+        } finally {
+          setIsProcessingPayment(false);
+        }
       };
 
       if (interval) {
@@ -277,13 +304,14 @@ export default function ProgramsScreen() {
       const defaultInterval = plan.billingInterval?.includes("yearly") ? "yearly" : "monthly";
       await startCheckout(defaultInterval);
     },
-    [dispatch, planDetailsByTier, plansByTier, token],
+    [dispatch, isProcessingPayment, planDetailsByTier, plansByTier, token, waitForInteractions],
   );
 
   useEffect(() => {
     if (!token) return;
     refreshBillingStatus();
   }, [refreshBillingStatus, token]);
+
 
   const loadPlans = useCallback(async (forceRefresh = false) => {
     const plansResponse = await apiRequest<{ plans: any[] }>("/public/plans", {
@@ -333,27 +361,6 @@ export default function ProgramsScreen() {
     );
   }
 
-  // If a plan is selected, show its detail view
-  if (selectedTierId) {
-    const requiredTier =
-      selectedTierId === "plus" ? "PHP_Plus" : selectedTierId === "premium" ? "PHP_Premium" : "PHP";
-    const insets = useSafeAreaInsets();
-     return (
-      <View className="flex-1" style={{ paddingTop: insets.top }}>
-         <ProgramDetailPanel
-          programId={selectedTierId}
-          showBack
-          onBack={() => setSelectedTierId(null)}
-          onNavigate={(path) => router.push(path as any)}
-          planDetails={planDetailsByTier[requiredTier]}
-          pricing={pricingByTier[requiredTier]}
-          onApply={handleApply}
-          latestSubscriptionRequest={latestSubscriptionRequest ?? null}
-        />
-      </View>
-    );
-  }
-
   // Otherwise, show the plan cards
   const insets = useSafeAreaInsets();
   return (
@@ -387,7 +394,7 @@ export default function ProgramsScreen() {
               </Text>
             </View>
 
-            <Text className="mt-3 text-3xl font-clash text-app">Programs</Text>
+            <Text className="mt-3 text-3xl font-telma-bold text-app">Programs</Text>
             <Text className="text-secondary font-outfit text-sm mt-2 leading-6">
               Explore every training tier, compare value quickly, and open a more premium detail experience for each plan.
             </Text>
@@ -452,10 +459,12 @@ export default function ProgramsScreen() {
                     : "Get Started";
 
             return (
-              <Pressable
+              <Transition.Pressable
                 key={tier.id}
+                sharedBoundTag={`program-card-${tier.id}`}
                 className="rounded-[30px] overflow-hidden"
                 style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
+                onPress={() => openProgramDetail(tier.id)}
               >
                 {/* Card Header */}
                 <View className={`${tier.color} p-5 rounded-b-[24px]`}>
@@ -504,7 +513,7 @@ export default function ProgramsScreen() {
                         )}
                       </View>
                       <Text
-                        className="text-[1.375rem] leading-tight font-clash font-bold mb-1"
+                        className="text-[1.375rem] leading-tight font-telma-bold font-bold mb-1"
                         style={{ color: "#F2F6F2" }}
                       >
                         {tier.name}
@@ -558,7 +567,7 @@ export default function ProgramsScreen() {
                   <View className="gap-2.5">
                     {/* Detail button — always visible */}
                     <Pressable
-                      onPress={() => setSelectedTierId(tier.id as "php" | "plus" | "premium")}
+                      onPress={() => openProgramDetail(tier.id as "php" | "plus" | "premium")}
                       className="rounded-full py-3 items-center"
                       style={{ borderWidth: 1, borderColor: `${colors.accent}33`, backgroundColor: accentSurface }}
                     >
@@ -571,7 +580,8 @@ export default function ProgramsScreen() {
                     {hasBothIntervals && !isTierEnrolled && !isPendingApproval && !isPendingPayment ? (
                       <Pressable
                         onPress={() => openPaymentPicker(tier.id as "php" | "plus" | "premium")}
-                        className="rounded-full py-3 items-center bg-[#2F8F57]"
+                        className={`rounded-full py-3 items-center bg-[#2F8F57] ${isProcessingPayment ? "opacity-60" : ""}`}
+                        disabled={isProcessingPayment}
                       >
                         <Text className="text-sm font-outfit text-white font-semibold">
                           Pay Now
@@ -590,8 +600,8 @@ export default function ProgramsScreen() {
                           isTierEnrolled || isPendingApproval
                             ? "bg-secondary/20"
                             : "bg-[#2F8F57]"
-                        }`}
-                        disabled={isTierEnrolled || isPendingApproval}
+                        } ${isProcessingPayment ? "opacity-60" : ""}`}
+                        disabled={isTierEnrolled || isPendingApproval || isProcessingPayment}
                       >
                         <Text className={`text-sm font-outfit font-semibold ${
                           isTierEnrolled || isPendingApproval ? "text-secondary" : "text-white"
@@ -602,7 +612,7 @@ export default function ProgramsScreen() {
                     )}
                   </View>
                 </View>
-              </Pressable>
+              </Transition.Pressable>
             );
           })}
         </View>
@@ -652,7 +662,8 @@ export default function ProgramsScreen() {
                         closePaymentPicker();
                         handleApply(pickerTierId, "monthly");
                       }}
-                      className="rounded-full py-3 items-center bg-[#2F8F57]"
+                      className={`rounded-full py-3 items-center bg-[#2F8F57] ${isProcessingPayment ? "opacity-60" : ""}`}
+                      disabled={isProcessingPayment}
                     >
                       <Text className="text-sm font-outfit text-white font-semibold">Monthly</Text>
                       {monthlyEntry?.discounted ? (
@@ -682,7 +693,8 @@ export default function ProgramsScreen() {
                         closePaymentPicker();
                         handleApply(pickerTierId, "yearly");
                       }}
-                      className="rounded-full py-3 items-center bg-[#1F6F45]"
+                      className={`rounded-full py-3 items-center bg-[#1F6F45] ${isProcessingPayment ? "opacity-60" : ""}`}
+                      disabled={isProcessingPayment}
                     >
                       <Text className="text-sm font-outfit text-white font-semibold">Yearly</Text>
                       {yearlyEntry?.discounted ? (

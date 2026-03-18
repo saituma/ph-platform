@@ -7,7 +7,7 @@ import { canAccessTier } from "@/lib/planAccess";
 import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
 import { Feather } from "@expo/vector-icons";
 import { Shadows } from "@/constants/theme";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -39,6 +39,10 @@ const READINESS_TIPS = [
 
 export default function VideoUploadScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ sectionContentId?: string }>();
+  const sectionContentId = params.sectionContentId
+    ? Number(params.sectionContentId)
+    : null;
   const { colors, isDark } = useAppTheme();
   const programTier = useAppSelector((state) => state.user.programTier);
   const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
@@ -75,7 +79,7 @@ export default function VideoUploadScreen() {
                 </Text>
               </View>
             </View>
-            <Text className="text-3xl font-clash font-bold text-app text-center mb-3">
+            <Text className="text-3xl font-telma-bold font-bold text-app text-center mb-3">
               Video Upload Locked
             </Text>
             <Text className="text-[15px] font-outfit text-center text-secondary leading-relaxed mb-6">
@@ -135,7 +139,7 @@ export default function VideoUploadScreen() {
           </Text>
         </View>
 
-        <VideoUploadPanel />
+        <VideoUploadPanel sectionContentId={Number.isFinite(sectionContentId) ? sectionContentId : null} />
       </ThemedScrollView>
     </SafeAreaView>
   );

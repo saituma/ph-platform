@@ -42,6 +42,10 @@ const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
 export default function TabLayout() {
   const { role } = useRole();
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const forceLogout =
+    process.env.EXPO_PUBLIC_FORCE_LOGOUT === "1" ||
+    process.env.EXPO_PUBLIC_FORCE_LOGOUT === "true";
+  const effectiveAuth = forceLogout ? false : isAuthenticated;
   const onboardingCompleted = useAppSelector((state) => state.user.onboardingCompleted);
   const hydrated = useAppSelector((state) => state.user.hydrated);
   const token = useAppSelector((state) => state.user.token);
@@ -55,30 +59,48 @@ export default function TabLayout() {
   const { socket } = useSocket();
   const pendingNavToken = useRef(0);
   const lastHandledNotificationRef = useRef<string | null>(null);
+  const bootRedirectedRef = useRef(false);
   const [messagesUnread, setMessagesUnread] = useState(0);
   const lastPrefetchAt = useRef(0);
-
-  if (!hydrated) {
-    return null;
-  }
-
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
-  }
 
   const isOnboarding =
     segments.some((segment) => segment === "onboarding") ||
     pathname.includes("/onboarding");
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!effectiveAuth) return;
     if (onboardingCompleted === false && !isOnboarding) {
       router.replace("/(tabs)/onboarding");
     }
   }, [isAuthenticated, onboardingCompleted, isOnboarding, router]);
 
   useEffect(() => {
-    if (!hydrated || !isAuthenticated) return;
+    if (!hydrated || !effectiveAuth || isOnboarding) return;
+    if (bootRedirectedRef.current) return;
+
+    const normalizedPath = pathname.replace(/\/+$/, "");
+    const isProgramsPath =
+      normalizedPath === "/(tabs)/programs" ||
+      normalizedPath === "/programs" ||
+      (segments?.[0] === "(tabs)" && segments?.[1] === "programs");
+
+    if (isProgramsPath || normalizedPath === "/(tabs)") {
+      if (__DEV__) {
+        console.log("[TabBoot]", {
+          pathname,
+          segments,
+          normalizedPath,
+          isProgramsPath,
+        });
+      }
+      bootRedirectedRef.current = true;
+      lastTabKey = "index";
+      router.replace("/(tabs)");
+    }
+  }, [effectiveAuth, hydrated, isOnboarding, pathname, router, segments]);
+
+  useEffect(() => {
+    if (!hydrated || !effectiveAuth) return;
     let sub: { remove: () => void } | null = null;
 
     const handleNotificationResponse = (response: any) => {
@@ -130,7 +152,7 @@ export default function TabLayout() {
   }, [hydrated, isAuthenticated, router]);
 
   const syncUnread = useCallback(async () => {
-    if (!token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) {
+    if (!token || !effectiveAuth || !canAccessTier(programTier ?? null, "PHP_Premium")) {
       setMessagesUnread(0);
       return;
     }
@@ -155,7 +177,7 @@ export default function TabLayout() {
   }, [athleteUserId, isAuthenticated, profile.id, programTier, role, token]);
 
   useEffect(() => {
-    if (!token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) {
+    if (!token || !effectiveAuth || !canAccessTier(programTier ?? null, "PHP_Premium")) {
       setMessagesUnread(0);
       return;
     }
@@ -179,7 +201,7 @@ export default function TabLayout() {
   }, [isAuthenticated, programTier, syncUnread, token]);
 
   useEffect(() => {
-    if (!token || !isAuthenticated) return;
+    if (!token || !effectiveAuth) return;
     const now = Date.now();
     if (now - lastPrefetchAt.current < 60_000) return;
     lastPrefetchAt.current = now;
@@ -203,7 +225,7 @@ export default function TabLayout() {
   }, [athleteUserId, isAuthenticated, programTier, role, token]);
 
   useEffect(() => {
-    if (!socket || !token || !isAuthenticated || !canAccessTier(programTier ?? null, "PHP_Premium")) return;
+    if (!socket || !token || !effectiveAuth || !canAccessTier(programTier ?? null, "PHP_Premium")) return;
 
     const effectiveUserId =
       role === "Athlete" && athleteUserId ? String(athleteUserId) : String(profile.id ?? "");
@@ -270,6 +292,13 @@ export default function TabLayout() {
     const normalizedPath = pathname
       .replace(/^\//, "")
       .replace(/^\(tabs\)\/?/, "");
+    const isProgramsPath =
+      pathname.replace(/\/+$/, "") === "/(tabs)/programs" ||
+      pathname.replace(/\/+$/, "") === "/programs";
+    if (isProgramsPath && !bootRedirectedRef.current && lastTabKey === "index") {
+      const homeIndex = visibleTabs.findIndex((tab) => tab.key === "index");
+      return homeIndex >= 0 ? homeIndex : 0;
+    }
     const routeName = normalizedPath.split("/")[0] || "index";
 
     const index = visibleTabs.findIndex((tab) => tab.key === routeName);
@@ -331,7 +360,7 @@ export default function TabLayout() {
     return null;
   }
 
-  if (!isAuthenticated) {
+  if (!effectiveAuth) {
     return <Redirect href="/(auth)/login" />;
   }
 

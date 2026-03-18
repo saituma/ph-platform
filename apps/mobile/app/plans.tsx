@@ -7,7 +7,7 @@ import { normalizeProgramTier, tierRank } from "@/lib/planAccess";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, TouchableOpacity, View } from "react-native";
+import { Alert, InteractionManager, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setLatestSubscriptionRequest, setProgramTier } from "../store/slices/userSlice";
@@ -21,6 +21,12 @@ export default function PlansScreen() {
   const [plans, setPlans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  const waitForInteractions = useCallback(
+    () => new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve())),
+    [],
+  );
 
   const tierMap = useMemo(() => {
     return new Map<string, ProgramTier>(
@@ -116,6 +122,9 @@ export default function PlansScreen() {
 
   const handleCheckout = useCallback(
     async (planId: number, interval?: "monthly" | "yearly") => {
+      if (isProcessingPayment) {
+        return;
+      }
       setActionError(null);
       try {
         if (!token) {
@@ -123,6 +132,8 @@ export default function PlansScreen() {
           router.replace("/(auth)/login");
           return;
         }
+        setIsProcessingPayment(true);
+        await waitForInteractions();
         const data = await apiRequest<{
           customerId: string;
           ephemeralKey: string;
@@ -175,9 +186,11 @@ export default function PlansScreen() {
           return;
         }
         setActionError(message);
+      } finally {
+        setIsProcessingPayment(false);
       }
     },
-    [token, router, dispatch]
+    [dispatch, isProcessingPayment, router, token, waitForInteractions]
   );
 
   const handleDowngrade = useCallback(
@@ -233,7 +246,7 @@ export default function PlansScreen() {
         <View className="mb-6">
           <View className="flex-row items-center gap-3 mb-3">
             <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-3xl font-clash text-app">
+            <Text className="text-3xl font-telma-bold text-app">
               Choose Your Plan
             </Text>
           </View>

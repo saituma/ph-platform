@@ -1,11 +1,11 @@
-import { Stack } from "expo-router";
+import { Stack, Transition } from "@/components/navigation/TransitionStack";
 
 export default function AuthLayout() {
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "none",
+        ...Transition.Presets.SlideFromBottom(),
       }}
     />
   );
