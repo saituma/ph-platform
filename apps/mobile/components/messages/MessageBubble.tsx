@@ -165,7 +165,7 @@ function MessageBubbleBase({
                 paddingHorizontal: 14,
                 paddingTop: 10,
                 paddingBottom: 8,
-                borderRadius: 22,
+                borderRadius: 24,
                 backgroundColor: isUser ? bubbleUser : bubbleOther,
                 borderWidth: 1,
                 borderColor: bubbleBorder,

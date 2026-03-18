@@ -38,6 +38,7 @@ export default function ResetPasswordScreen() {
           flexGrow: 1,
           justifyContent: "center",
           paddingHorizontal: 24,
+          paddingBottom: 32,
         }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
@@ -52,7 +53,7 @@ export default function ResetPasswordScreen() {
         </View>
 
         <View className="gap-4 mb-8">
-          <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
+          <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
             <Feather
               name="shield"
               size={20}
@@ -68,7 +69,7 @@ export default function ResetPasswordScreen() {
             />
           </View>
 
-          <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
+          <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
             <Feather name="lock" size={20} color={colors.textSecondary} />
             <TextInput
               className="flex-1 ml-3 text-app text-base font-outfit"
@@ -87,7 +88,7 @@ export default function ResetPasswordScreen() {
             </Pressable>
           </View>
 
-          <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
+          <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
             <Feather name="lock" size={20} color={colors.textSecondary} />
             <TextInput
               className="flex-1 ml-3 text-app text-base font-outfit"

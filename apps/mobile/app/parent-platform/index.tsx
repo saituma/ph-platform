@@ -194,8 +194,12 @@ export default function ParentPlatformScreen() {
                 {isAthlete ? "Age-aware education" : "Family support library"}
               </Text>
             </View>
-            <Text className="mt-3 text-3xl font-telma-bold text-app">{isAthlete ? "Learn what supports your next stage" : "Give your athlete better support at home"}</Text>
-            <Text className="mt-3 text-base font-outfit text-secondary leading-relaxed">{platformSubtitle}</Text>
+            <Text className="mt-3 text-3xl font-telma-bold text-app">
+              {isAthlete ? "Learn what supports your next stage" : "Give your athlete better support at home"}
+            </Text>
+            <Text className="mt-3 text-base font-outfit text-secondary leading-relaxed">
+              {platformSubtitle}
+            </Text>
           </View>
 
           <View className="flex-row items-center rounded-2xl border border-app bg-input px-4 py-3">
@@ -205,7 +209,7 @@ export default function ParentPlatformScreen() {
               onChangeText={setSearchQuery}
               placeholder={isAthlete ? "Search recovery, confidence, sleep..." : "Search nutrition, recovery, mindset..."}
               placeholderTextColor={colors.placeholder}
-              className="ml-3 flex-1 font-outfit text-app"
+              className="ml-3 flex-1 font-outfit text-base text-app"
             />
             {searchQuery ? (
               <TouchableOpacity
@@ -278,7 +282,7 @@ export default function ParentPlatformScreen() {
               </View>
             </View>
 
-            <Text className="text-sm font-outfit text-secondary leading-relaxed">
+            <Text className="text-base font-outfit text-secondary leading-relaxed">
               {isAthlete
                 ? "Athlete education is available on PHP Plus and PHP Premium plans."
                 : "Parent education is available on PHP Plus and PHP Premium plans."}
@@ -396,7 +400,7 @@ export default function ParentPlatformScreen() {
             {filteredItems.length === 0 ? (
               <View className="rounded-[28px] border border-dashed border-app/20 p-5">
                 <Text className="mb-2 font-clash text-xl text-app">No matching courses</Text>
-                <Text className="text-sm font-outfit leading-6 text-secondary">
+                <Text className="text-base font-outfit leading-6 text-secondary">
                   Try a broader term like recovery, nutrition, sleep, growth, or confidence.
                 </Text>
               </View>
@@ -412,16 +416,16 @@ export default function ParentPlatformScreen() {
               </View>
               <View>
                 <Text className="font-clash text-lg font-bold text-accent">Full Access</Text>
-                <Text className="text-sm font-outfit text-secondary">More support across every topic</Text>
-              </View>
+              <Text className="text-base font-outfit text-secondary">More support across every topic</Text>
             </View>
+          </View>
             <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.82)" }}>
               <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
                 {hasPremiumAccess ? "Premium" : `${lockedCount} locked`}
               </Text>
             </View>
           </View>
-          <Text className="text-sm font-outfit leading-relaxed text-app">
+          <Text className="text-base font-outfit leading-relaxed text-app">
             PHP Plus and Premium members receive exclusive articles, video guides, and deeper education in every category.
           </Text>
         </View>
@@ -431,7 +435,7 @@ export default function ParentPlatformScreen() {
 }
 
 function SectionLabel({ label }: { label: string }) {
-  return <Text className="mb-4 ml-2 text-xs font-outfit font-bold uppercase tracking-wider text-secondary">{label}</Text>;
+  return <Text className="mb-4 ml-2 text-[11px] font-outfit font-bold uppercase tracking-[1.6px] text-secondary">{label}</Text>;
 }
 
 function MetricCard({ title, value, caption, isDark }: { title: string; value: string; caption: string; isDark: boolean }) {
@@ -439,7 +443,7 @@ function MetricCard({ title, value, caption, isDark }: { title: string; value: s
     <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
       <Text className="mb-2 text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">{title}</Text>
       <Text className="mb-1 font-clash text-2xl text-app">{value}</Text>
-      <Text className="text-sm font-outfit text-secondary leading-5">{caption}</Text>
+      <Text className="text-base font-outfit text-secondary leading-5">{caption}</Text>
     </View>
   );
 }
