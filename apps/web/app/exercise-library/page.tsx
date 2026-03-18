@@ -870,6 +870,9 @@ function ExerciseLibraryPageInner() {
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-foreground">{item.title}</p>
                       <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          ID {item.id}
+                        </span>
                         <span className="text-xs text-muted-foreground">Order {item.order ?? 1}</span>
                         {Array.isArray(item.ageList) && item.ageList.length ? (
                           <span className="text-xs text-muted-foreground">
