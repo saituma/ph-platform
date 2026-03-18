@@ -239,6 +239,13 @@
       "when": 1773000000000,
       "tag": "0033_chat_group_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1773005000000,
+      "tag": "0034_add_video_upload_toggle",
+      "breakpoints": true
     }
   ]
 }
