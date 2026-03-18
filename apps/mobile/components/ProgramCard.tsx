@@ -61,7 +61,7 @@ export function ProgramCard({
                 {tier.highlight && (
                   <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/20">
                     <Text
-                      className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                      className="text-[10px] font-bold uppercase tracking-[1.6px]"
                       style={{ color: "#F2F6F2" }}
                     >
                       {tier.highlight}
@@ -71,7 +71,7 @@ export function ProgramCard({
                 {tier.price && (
                   <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/15">
                     <Text
-                      className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                      className="text-[10px] font-bold uppercase tracking-[1.6px]"
                       style={{ color: "#F2F6F2" }}
                     >
                       {tier.price}
@@ -81,7 +81,7 @@ export function ProgramCard({
                 {tier.priceBadge && (
                   <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/15">
                     <Text
-                      className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                      className="text-[10px] font-bold uppercase tracking-[1.6px]"
                       style={{ color: "#F2F6F2" }}
                     >
                       {tier.priceBadge}
@@ -90,7 +90,7 @@ export function ProgramCard({
                 )}
               </View>
               <Text
-                className="text-[1.375rem] leading-tight font-telma-bold font-bold mb-1"
+                className="text-2xl leading-snug font-telma-bold font-bold mb-1"
                 style={{ color: "#F2F6F2" }}
                 numberOfLines={2}
                 ellipsizeMode="tail"
@@ -98,7 +98,7 @@ export function ProgramCard({
                 {tier.name}
               </Text>
               <Text
-                className="font-outfit text-sm leading-snug"
+                className="font-outfit text-base leading-6"
                 style={{ color: "#E6F2E6" }}
                 numberOfLines={2}
                 ellipsizeMode="tail"
@@ -133,7 +133,7 @@ export function ProgramCard({
                 <View className="h-5 w-5 bg-[#2F8F57]/15 rounded-full items-center justify-center mr-3">
                   <Feather name="check" size={12} color="#2F8F57" />
                 </View>
-                <Text className="flex-1 text-[#0E1510] dark:text-[#F2F6F2] font-outfit text-[0.9375rem]">
+                <Text className="flex-1 text-[#0E1510] dark:text-[#F2F6F2] font-outfit text-base">
                   {feature}
                 </Text>
               </View>

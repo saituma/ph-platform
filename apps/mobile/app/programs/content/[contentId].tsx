@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Modal, Pressable, TouchableOpacity, View } from "react-native";
+import type { NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -93,7 +94,12 @@ function MediaSection({ url, title }: { url: string; title?: string }) {
 
   return (
     <View className="rounded-3xl overflow-hidden bg-white/5">
-      <VideoPlayer uri={url} title={title} useVideoResolution />
+      <VideoPlayer
+        uri={url}
+        title={title}
+        useVideoResolution
+        ignoreTabFocus
+      />
     </View>
   );
 }
@@ -114,6 +120,7 @@ export default function ProgramContentDetailScreen() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const lastLoadedRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  const lastBackAtRef = useRef(0);
   const load = useCallback(async (force = false) => {
     if (!token || !contentId) {
       setIsLoading(false);
@@ -128,7 +135,11 @@ export default function ProgramContentDetailScreen() {
     loadingRef.current = true;
     try {
       setIsLoading(true);
-      const data = await apiRequest<{ item?: any }>(`/program-section-content/${contentId}`, { token });
+      const data = await apiRequest<{ item?: any }>(`/program-section-content/${contentId}`, {
+        token,
+        forceRefresh: force,
+        skipCache: true,
+      });
       if (!data.item) {
         setItem(null);
         setError("Content not found.");
@@ -166,9 +177,10 @@ export default function ProgramContentDetailScreen() {
   const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const canUploadVideos =
-    role === "Athlete" &&
+    (role === "Athlete" || role === "Guardian") &&
     canAccessTier(programTier ?? null, "PHP_Premium") &&
     !isSectionHidden("videoFeedback");
+  const showUploadFab = Boolean(item?.allowVideoUpload) && canUploadVideos;
   useEffect(() => {
     if (router.canGoBack()) return;
     router.replace("/(tabs)");
@@ -181,10 +193,28 @@ export default function ProgramContentDetailScreen() {
     router.replace("/(tabs)/programs");
   }, [router]);
 
+  const handleScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      if (offsetY < -60) {
+        const now = Date.now();
+        if (now - lastBackAtRef.current < 1000) return;
+        lastBackAtRef.current = now;
+        handleBack();
+      }
+    },
+    [handleBack]
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <SafeMaskedView style={{ flex: 1 }}>
-        <ThemedScrollView onRefresh={() => load(true)} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ThemedScrollView
+          onRefresh={() => load(true)}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          onScrollEndDrag={handleScrollEnd}
+          onMomentumScrollEnd={handleScrollEnd}
+        >
           <View className="px-6 pt-6">
             <Transition.View
               sharedBoundTag={sharedBoundTag}
@@ -207,13 +237,13 @@ export default function ProgramContentDetailScreen() {
                 </View>
               </View>
 
-              <Text className="text-[26px] font-telma-bold text-app font-bold">
+              <Text className="text-3xl font-telma-bold text-app font-bold">
                 {item?.title ?? "Program Content"}
               </Text>
               <View className="mt-4 flex-row flex-wrap gap-2">
                 {activeAthlete?.name ? (
                   <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
-                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
+                    <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
                       Athlete: {activeAthlete.name}
                     </Text>
                   </View>
@@ -358,7 +388,7 @@ export default function ProgramContentDetailScreen() {
          </View>
        </ThemedScrollView>
 
-        {item?.allowVideoUpload && canUploadVideos ? (
+        {showUploadFab ? (
           <Pressable
             onPress={() => setShowUploadModal(true)}
             className="absolute bottom-6 right-6 h-14 w-14 rounded-full items-center justify-center"
@@ -367,6 +397,8 @@ export default function ProgramContentDetailScreen() {
             <Feather name="plus" size={24} color="#ffffff" />
           </Pressable>
         ) : null}
+
+        
 
         <Modal
           visible={showUploadModal}

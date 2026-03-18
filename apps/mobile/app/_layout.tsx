@@ -43,6 +43,7 @@ export default function RootLayout() {
                               <Stack.Screen
                                 name="programs/[id]"
                                 options={({ route }: any) => ({
+                                  gestureEnabled: false,
                                   ...Transition.Presets.SharedAppleMusic({
                                     sharedBoundTag: String(route?.params?.sharedBoundTag ?? "program-card"),
                                   }),
@@ -51,6 +52,8 @@ export default function RootLayout() {
                               <Stack.Screen
                                 name="programs/content/[contentId]"
                                 options={({ route }: any) => ({
+                                  gestureDirection: ["horizontal"],
+                                  gestureEnabled: false,
                                   ...Transition.Presets.SharedAppleMusic({
                                     sharedBoundTag: String(route?.params?.sharedBoundTag ?? "program-content"),
                                   }),

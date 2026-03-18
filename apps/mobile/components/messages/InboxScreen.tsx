@@ -126,7 +126,7 @@ function InboxScreenBase({
                       <View className="flex-row justify-between items-start">
                         <View className="flex-1 pr-2">
                           <Text
-                            className="font-clash text-[17px] text-app"
+                            className="font-clash text-lg text-app"
                             numberOfLines={1}
                           >
                             {thread.name}
@@ -164,7 +164,7 @@ function InboxScreenBase({
                       </View>
 
                       <Text
-                        className="mt-2.5 text-sm leading-snug font-outfit"
+                        className="mt-2.5 text-sm leading-6 font-outfit"
                         style={{ color: typing?.isTyping ? colors.accent : colors.textSecondary }}
                         numberOfLines={1}
                       >

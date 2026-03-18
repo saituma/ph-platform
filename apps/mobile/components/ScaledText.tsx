@@ -30,17 +30,17 @@ const getTypeAdjustments = (style: any): TextStyle => {
   const next: TextStyle = {};
   if (flat?.lineHeight == null) {
     const ratio =
-      fontSize >= 32 ? 1.08 :
-      fontSize >= 26 ? 1.14 :
-      fontSize >= 20 ? 1.22 :
-      fontSize >= 16 ? 1.35 : 1.45;
+      fontSize >= 32 ? 1.06 :
+      fontSize >= 26 ? 1.12 :
+      fontSize >= 20 ? 1.2 :
+      fontSize >= 16 ? 1.32 : 1.42;
     next.lineHeight = Math.round(fontSize * ratio);
   }
 
   if (flat?.letterSpacing == null) {
     const spacing =
-      fontSize >= 32 ? -0.6 :
-      fontSize >= 24 ? -0.4 :
+      fontSize >= 32 ? -0.5 :
+      fontSize >= 26 ? -0.35 :
       fontSize >= 20 ? -0.2 : 0;
     if (spacing !== 0) {
       next.letterSpacing = spacing;

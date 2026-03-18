@@ -111,15 +111,21 @@ export default function RegisterScreen() {
           flexGrow: 1,
           justifyContent: "center",
           paddingHorizontal: 24,
+          paddingBottom: 32,
         }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
       >
-        <View className="mb-10">
+        <View className="mb-8">
+          <View className="self-start rounded-full px-3 py-1.5 mb-4 bg-accent-light">
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.6px] text-accent">
+              Athlete + guardian
+            </Text>
+          </View>
           <Text className="text-4xl font-telma-bold text-app mb-2">
-            Create Account
+            Create account
           </Text>
-          <Text className="text-base font-outfit text-secondary">
+          <Text className="text-base font-outfit text-secondary leading-6">
             Sign up to get started on your journey.
           </Text>
         </View>
@@ -127,7 +133,7 @@ export default function RegisterScreen() {
         <View className="space-y-4 gap-4 mb-6">
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.name ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.name ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
             >
               <Feather
                 name="user"
@@ -160,7 +166,7 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.email ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.email ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
             >
               <Feather
                 name="mail"
@@ -194,7 +200,7 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.password ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.password ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
             >
               <Feather
                 name="lock"
@@ -269,7 +275,7 @@ export default function RegisterScreen() {
 
           <View>
             <View
-              className={`flex-row items-center bg-input border ${errors.confirmPassword ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.confirmPassword ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
             >
               <Feather
                 name="lock"

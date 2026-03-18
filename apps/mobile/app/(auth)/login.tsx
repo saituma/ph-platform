@@ -143,23 +143,29 @@ export default function LoginScreen() {
           flexGrow: 1,
           justifyContent: "center",
           paddingHorizontal: 24,
+          paddingBottom: 32,
         }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
       >
-        <View className="mb-10">
+        <View className="mb-8">
+          <View className="self-start rounded-full px-3 py-1.5 mb-4 bg-accent-light">
+            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.6px] text-accent">
+              Premium coaching
+            </Text>
+          </View>
           <Text className="text-4xl font-telma-bold text-app mb-2">
-            Welcome Back
+            Welcome back
           </Text>
-          <Text className="text-base font-outfit text-secondary">
-            Please enter your details to sign in.
+          <Text className="text-base font-outfit text-secondary leading-6">
+            Sign in to keep training progress and feedback in sync.
           </Text>
         </View>
 
-        <View className="gap-4 mb-4">
-          <View>
+        <View className="gap-4 mb-5">
+          <View className="rounded-3xl bg-card-elevated px-4 py-4 border border-border">
             <View
-              className={`flex-row items-center bg-input border ${errors.email ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.email ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
             >
               <Feather
                 name="mail"
@@ -191,9 +197,9 @@ export default function LoginScreen() {
             )}
           </View>
 
-          <View>
+          <View className="rounded-3xl bg-card-elevated px-4 py-4 border border-border">
             <View
-              className={`flex-row items-center bg-input border ${errors.password ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}
+              className={`flex-row items-center bg-input border ${errors.password ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
             >
               <Feather
                 name="lock"
@@ -233,7 +239,7 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        <View className="flex-row justify-end mb-8">
+        <View className="flex-row justify-end mb-6">
           <Pressable onPress={() => router.push("/forgot")}>
             <Text className="text-accent font-bold text-sm font-outfit">
               Forgot Password?
@@ -243,7 +249,7 @@ export default function LoginScreen() {
 
         <Pressable
           onPress={handleSubmit(onSubmit)}
-          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
+          className={`bg-accent h-14 rounded-2xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
           disabled={isSubmitting}
         >
           <Text className="text-white font-bold text-lg font-outfit">
