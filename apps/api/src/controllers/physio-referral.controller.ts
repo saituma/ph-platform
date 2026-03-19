@@ -9,7 +9,7 @@ import {
   listPhysioReferrals,
   updatePhysioReferral,
 } from "../services/physio-referral.service";
-import { ProgramType, notificationTable, athleteTable, guardianTable } from "../db/schema";
+import { ProgramType, notificationTable, athleteTable, guardianTable, physioRefferalsTable } from "../db/schema";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 import { getSocketServer } from "../socket-hub";
@@ -50,6 +50,8 @@ const updatePhysioSchema = z.object({
   discountPercent: z.number().int().min(0).max(100).optional().nullable(),
   metadata: physioMetadataSchema,
 });
+
+const ELIGIBLE_TIERS = new Set(["PHP_Plus", "PHP_Premium"]);
 
 async function resolveReferralRecipientUserIds(athleteId: number) {
   const rows = await db
@@ -153,13 +155,22 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const input = createPhysioSchema.parse(req.body);
+  const athleteRows = await db
+    .select({ currentProgramTier: athleteTable.currentProgramTier })
+    .from(athleteTable)
+    .where(eq(athleteTable.id, input.athleteId))
+    .limit(1);
+  const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
+  if (!athleteTier || !ELIGIBLE_TIERS.has(athleteTier)) {
+    return res.status(400).json({ error: "Physio referrals are only available for PHP Plus and PHP Premium athletes." });
+  }
   const existing = await getPhysioReferralForAthlete(input.athleteId);
   if (existing) {
     return res.status(409).json({ error: "Referral already exists for this athlete" });
   }
   const item = await createPhysioReferral({
     athleteId: input.athleteId,
-    programTier: input.programTier ?? null,
+    programTier: athleteTier,
     referalLink: input.referalLink,
     discountPercent: input.discountPercent ?? null,
     metadata: input.metadata ?? null,
@@ -186,11 +197,29 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
 export async function updatePhysioReferralAdmin(req: Request, res: Response) {
   const id = z.coerce.number().int().min(1).parse(req.params.id);
   const input = updatePhysioSchema.parse(req.body);
+  const existing = await db
+    .select({ athleteId: physioRefferalsTable.athleteId })
+    .from(physioRefferalsTable)
+    .where(eq(physioRefferalsTable.id, id))
+    .limit(1);
+  const athleteId = existing[0]?.athleteId ?? null;
+  if (!athleteId) {
+    return res.status(404).json({ error: "Referral not found" });
+  }
+  const athleteRows = await db
+    .select({ currentProgramTier: athleteTable.currentProgramTier })
+    .from(athleteTable)
+    .where(eq(athleteTable.id, athleteId))
+    .limit(1);
+  const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
+  if (!athleteTier || !ELIGIBLE_TIERS.has(athleteTier)) {
+    return res.status(400).json({ error: "Physio referrals are only available for PHP Plus and PHP Premium athletes." });
+  }
   const updated = await updatePhysioReferral({
     id,
     referalLink: input.referalLink === "" ? null : input.referalLink ?? undefined,
     discountPercent: input.discountPercent ?? undefined,
-    programTier: input.programTier ?? undefined,
+    programTier: athleteTier,
     metadata: input.metadata ?? undefined,
   });
   if (!updated) {
