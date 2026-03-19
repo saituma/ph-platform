@@ -139,13 +139,30 @@ export default function UserDetailPage() {
   }, [planSessions, planWeek]);
 
   const exerciseOptions = useMemo(() => exercisesData?.exercises ?? [], [exercisesData]);
-  const [newSessionWeek, setNewSessionWeek] = useState("1");
-  const [newSessionNumber, setNewSessionNumber] = useState("1");
+  const nextSessionNumberForWeek = useMemo(() => {
+    const nums = (visiblePlanSessions ?? [])
+      .map((s: any) => Number(s.sessionNumber))
+      .filter((n: number) => Number.isFinite(n));
+    return nums.length ? Math.max(...nums) + 1 : 1;
+  }, [visiblePlanSessions]);
+
+  const [addSessionMode, setAddSessionMode] = useState<"next" | "custom">("next");
+  const [newSessionWeek, setNewSessionWeek] = useState(String(planWeek));
+  const [newSessionNumber, setNewSessionNumber] = useState(String(nextSessionNumberForWeek));
+  const [newSessionTitle, setNewSessionTitle] = useState("");
+  const [newSessionNotes, setNewSessionNotes] = useState("");
   const [sessionDrafts, setSessionDrafts] = useState<Record<number, { title: string; notes: string }>>({});
   const [exerciseDrafts, setExerciseDrafts] = useState<
     Record<number, { sets: string; reps: string; duration: string; restSeconds: string; coachingNotes: string }>
   >({});
   const [addExerciseSelection, setAddExerciseSelection] = useState<Record<number, string>>({});
+  const [planNotice, setPlanNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (addSessionMode !== "next") return;
+    setNewSessionWeek(String(planWeek));
+    setNewSessionNumber(String(nextSessionNumberForWeek));
+  }, [addSessionMode, planWeek, nextSessionNumberForWeek]);
 
   useEffect(() => {
     setSessionDrafts((prev) => {
@@ -184,6 +201,23 @@ export default function UserDetailPage() {
     isAddingExercise ||
     isUpdatingExercise ||
     isDeletingExercise;
+
+  useEffect(() => {
+    if (!planNotice) return;
+    const t = window.setTimeout(() => setPlanNotice(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [planNotice]);
+
+  const planErrorMessage = useCallback((err: any) => {
+    const msg =
+      err?.data?.error ??
+      err?.data?.message ??
+      err?.error ??
+      err?.message ??
+      (typeof err === "string" ? err : null) ??
+      "Something went wrong";
+    return String(msg);
+  }, []);
 
   useEffect(() => {
     setProgramTier(resolvedTier);
@@ -461,20 +495,55 @@ export default function UserDetailPage() {
         {resolvedTier === "PHP_Premium" && (
           <Card>
             <CardContent className="pt-6">
-              <SectionHeader
-                title="Premium Plan Editor (V1)"
-                description="Create and edit a per-athlete weekly schedule. This does not change templates."
-              />
+	              <SectionHeader
+	                title="Premium Plan Editor (V1)"
+	                description="Create and edit a per-athlete weekly schedule. This does not change templates."
+	              />
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    await clonePlan({ userId, replaceExisting: true }).unwrap();
-                  }}
-                  disabled={!isValidId || isPlanBusy}
-                >
-                  {isCloningPlan ? "Cloning..." : "Clone From Assigned Template"}
+	              <div className="mt-4 rounded-2xl border border-border bg-secondary/20 p-4 text-sm text-muted-foreground">
+	                <div className="font-semibold text-foreground">What you’re adding</div>
+	                <ul className="mt-2 list-disc space-y-1 pl-5">
+	                  <li>
+	                    A <span className="font-medium text-foreground">Session</span> is one training day for that week (e.g. “Lower Body
+	                    Strength”, “Speed”, “Movement Screen”).
+	                  </li>
+	                  <li>
+	                    Inside each session, you add <span className="font-medium text-foreground">Exercises</span> and optionally override sets,
+	                    reps, rest, and coaching notes for this athlete.
+	                  </li>
+	                  <li>
+	                    Recommended: click <span className="font-medium text-foreground">Clone From Assigned Template</span> first, then tweak.
+	                  </li>
+	                </ul>
+	              </div>
+
+	              {planNotice && (
+	                <div
+	                  className={[
+	                    "mt-4 rounded-2xl border px-4 py-3 text-sm",
+	                    planNotice.type === "success"
+	                      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+	                      : "border-red-200 bg-red-50 text-red-900",
+	                  ].join(" ")}
+	                >
+	                  {planNotice.message}
+	                </div>
+	              )}
+
+	              <div className="mt-4 flex flex-wrap items-center gap-2">
+	                <Button
+	                  variant="outline"
+	                  onClick={async () => {
+	                    try {
+	                      await clonePlan({ userId, replaceExisting: true }).unwrap();
+	                      setPlanNotice({ type: "success", message: "Cloned the assigned template into this athlete’s Premium plan." });
+	                    } catch (err) {
+	                      setPlanNotice({ type: "error", message: `Clone failed: ${planErrorMessage(err)}` });
+	                    }
+	                  }}
+	                  disabled={!isValidId || isPlanBusy}
+	                >
+	                  {isCloningPlan ? "Cloning..." : "Clone From Assigned Template"}
                 </Button>
 
                 <div className="flex items-center gap-2">
@@ -493,44 +562,131 @@ export default function UserDetailPage() {
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-4">
-                <div className="rounded-2xl border border-border bg-secondary/20 p-4">
-                  <p className="text-sm font-semibold text-foreground">Add session</p>
-                  <div className="mt-3 flex flex-wrap items-end gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Week
-                      </label>
-                      <Input value={newSessionWeek} onChange={(e) => setNewSessionWeek(e.target.value)} className="w-24" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Session
-                      </label>
-                      <Input value={newSessionNumber} onChange={(e) => setNewSessionNumber(e.target.value)} className="w-24" />
-                    </div>
-                    <Button
-                      onClick={async () => {
-                        const week = Number(newSessionWeek);
-                        const sessionNumber = Number(newSessionNumber);
-                        if (!Number.isFinite(week) || !Number.isFinite(sessionNumber)) return;
-                        await createPlanSession({ userId, weekNumber: week, sessionNumber }).unwrap();
-                        setPlanWeek(week);
-                      }}
-                      disabled={isPlanBusy}
-                    >
-                      {isCreatingSession ? "Adding..." : "Add"}
-                    </Button>
-                  </div>
-                </div>
+	              <div className="mt-6 grid gap-4">
+	                <div className="rounded-2xl border border-border bg-secondary/20 p-4">
+	                  <div className="flex flex-wrap items-center justify-between gap-2">
+	                    <div>
+	                      <p className="text-sm font-semibold text-foreground">Create a session</p>
+	                      <p className="mt-1 text-xs text-muted-foreground">
+	                        Sessions are ordered (Session 1, 2, 3…) within a week. Use titles like “Lower Body Strength”, “Speed”, or “Movement
+	                        Screen”.
+	                      </p>
+	                    </div>
+	                    <div className="flex items-center gap-2">
+	                      <Button
+	                        type="button"
+	                        size="sm"
+	                        variant={addSessionMode === "next" ? "default" : "outline"}
+	                        onClick={() => setAddSessionMode("next")}
+	                        disabled={isPlanBusy}
+	                      >
+	                        Next session
+	                      </Button>
+	                      <Button
+	                        type="button"
+	                        size="sm"
+	                        variant={addSessionMode === "custom" ? "default" : "outline"}
+	                        onClick={() => setAddSessionMode("custom")}
+	                        disabled={isPlanBusy}
+	                      >
+	                        Custom
+	                      </Button>
+	                    </div>
+	                  </div>
+
+	                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
+	                    <div className="space-y-2">
+	                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Title (recommended)</label>
+	                      <Input
+	                        value={newSessionTitle}
+	                        onChange={(e) => setNewSessionTitle(e.target.value)}
+	                        placeholder="e.g. Lower Body Strength"
+	                      />
+	                    </div>
+	                    <div className="space-y-2">
+	                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes (optional)</label>
+	                      <Textarea
+	                        className="min-h-[42px]"
+	                        value={newSessionNotes}
+	                        onChange={(e) => setNewSessionNotes(e.target.value)}
+	                        placeholder="Optional: what to focus on, cues, limitations…"
+	                      />
+	                    </div>
+	                  </div>
+
+	                  <div className="mt-4 flex flex-wrap items-end gap-2">
+	                    <div className="space-y-1">
+	                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Week</label>
+	                      <Input
+	                        value={newSessionWeek}
+	                        onChange={(e) => setNewSessionWeek(e.target.value)}
+	                        className="w-28"
+	                        disabled={addSessionMode === "next"}
+	                        placeholder={String(planWeek)}
+	                      />
+	                    </div>
+	                    <div className="space-y-1">
+	                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session #</label>
+	                      <Input
+	                        value={newSessionNumber}
+	                        onChange={(e) => setNewSessionNumber(e.target.value)}
+	                        className="w-28"
+	                        disabled={addSessionMode === "next"}
+	                        placeholder={String(nextSessionNumberForWeek)}
+	                      />
+	                    </div>
+	                    <div className="flex-1" />
+	                    <Button
+	                      onClick={async () => {
+	                        const week = addSessionMode === "next" ? planWeek : Number(newSessionWeek);
+	                        const sessionNumber = addSessionMode === "next" ? nextSessionNumberForWeek : Number(newSessionNumber);
+	                        if (!Number.isFinite(week) || week <= 0) {
+	                          setPlanNotice({ type: "error", message: "Week must be a positive number." });
+	                          return;
+	                        }
+	                        if (!Number.isFinite(sessionNumber) || sessionNumber <= 0) {
+	                          setPlanNotice({ type: "error", message: "Session number must be a positive number." });
+	                          return;
+	                        }
+	                        try {
+	                          await createPlanSession({
+	                            userId,
+	                            weekNumber: week,
+	                            sessionNumber,
+	                            title: newSessionTitle.trim() || null,
+	                            notes: newSessionNotes.trim() || null,
+	                          }).unwrap();
+	                          setPlanWeek(week);
+	                          setNewSessionTitle("");
+	                          setNewSessionNotes("");
+	                          setPlanNotice({ type: "success", message: `Created Week ${week} • Session ${sessionNumber}. Now add exercises below.` });
+	                        } catch (err) {
+	                          setPlanNotice({ type: "error", message: `Create session failed: ${planErrorMessage(err)}` });
+	                        }
+	                      }}
+	                      disabled={isPlanBusy || !isValidId}
+	                    >
+	                      {isCreatingSession ? "Creating..." : "Create session"}
+	                    </Button>
+	                  </div>
+	                </div>
 
                 {premiumPlanLoading ? (
                   <div className="text-sm text-muted-foreground">Loading plan…</div>
-                ) : visiblePlanSessions.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">
-                    No sessions in this week yet. Clone from template or add a session.
-                  </div>
-                ) : (
+	                ) : visiblePlanSessions.length === 0 ? (
+	                  <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
+	                    <div className="font-semibold text-foreground">No sessions in Week {planWeek} yet</div>
+	                    <div className="mt-2">Pick one:</div>
+	                    <ul className="mt-2 list-disc space-y-1 pl-5">
+	                      <li>
+	                        Click <span className="font-medium text-foreground">Clone From Assigned Template</span> (fastest).
+	                      </li>
+	                      <li>
+	                        Or create a session above, then add exercises.
+	                      </li>
+	                    </ul>
+	                  </div>
+	                ) : (
                   visiblePlanSessions
                     .slice()
                     .sort((a: any, b: any) => Number(a.sessionNumber) - Number(b.sessionNumber))
@@ -549,18 +705,26 @@ export default function UserDetailPage() {
                               <div className="text-xs text-muted-foreground">Session ID: {session.id}</div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  const confirmed = window.confirm("Delete this session and all its exercises?");
-                                  if (!confirmed) return;
-                                  await deletePlanSession({ userId, sessionId: session.id }).unwrap();
-                                }}
-                                disabled={isPlanBusy}
-                              >
-                                Delete
-                              </Button>
+	                              <Button
+	                                variant="outline"
+	                                size="sm"
+	                                onClick={async () => {
+	                                  const confirmed = window.confirm("Delete this session and all its exercises?");
+	                                  if (!confirmed) return;
+	                                  try {
+	                                    await deletePlanSession({ userId, sessionId: session.id }).unwrap();
+	                                    setPlanNotice({
+	                                      type: "success",
+	                                      message: `Deleted Week ${session.weekNumber} • Session ${session.sessionNumber}.`,
+	                                    });
+	                                  } catch (err) {
+	                                    setPlanNotice({ type: "error", message: `Delete failed: ${planErrorMessage(err)}` });
+	                                  }
+	                                }}
+	                                disabled={isPlanBusy}
+	                              >
+	                                Delete
+	                              </Button>
                             </div>
                           </div>
 
@@ -595,21 +759,26 @@ export default function UserDetailPage() {
                               />
                             </div>
                           </div>
-                          <div className="mt-3 flex justify-end">
-                            <Button
-                              size="sm"
-                              onClick={async () => {
-                                await updatePlanSession({
-                                  userId,
-                                  sessionId: session.id,
-                                  patch: { title: draft.title.trim() || null, notes: draft.notes.trim() || null },
-                                }).unwrap();
-                              }}
-                              disabled={isPlanBusy}
-                            >
-                              {isUpdatingSession ? "Saving..." : "Save Session"}
-                            </Button>
-                          </div>
+	                          <div className="mt-3 flex justify-end">
+	                            <Button
+	                              size="sm"
+	                              onClick={async () => {
+	                                try {
+	                                  await updatePlanSession({
+	                                    userId,
+	                                    sessionId: session.id,
+	                                    patch: { title: draft.title.trim() || null, notes: draft.notes.trim() || null },
+	                                  }).unwrap();
+	                                  setPlanNotice({ type: "success", message: "Session saved." });
+	                                } catch (err) {
+	                                  setPlanNotice({ type: "error", message: `Save failed: ${planErrorMessage(err)}` });
+	                                }
+	                              }}
+	                              disabled={isPlanBusy}
+	                            >
+	                              {isUpdatingSession ? "Saving..." : "Save Session"}
+	                            </Button>
+	                          </div>
 
                           <div className="mt-4 rounded-2xl border border-border bg-secondary/20 p-4">
                             <div className="flex flex-wrap items-end justify-between gap-2">
@@ -629,22 +798,27 @@ export default function UserDetailPage() {
                                     </option>
                                   ))}
                                 </Select>
-                                <Button
-                                  size="sm"
-                                  onClick={async () => {
-                                    const exId = Number(selectedExerciseId);
-                                    if (!Number.isFinite(exId) || exId <= 0) return;
-                                    await addPlanExercise({
-                                      userId,
-                                      sessionId: session.id,
-                                      body: { exerciseId: exId, order: nextOrder },
-                                    }).unwrap();
-                                    setAddExerciseSelection((prev) => ({ ...prev, [session.id]: "" }));
-                                  }}
-                                  disabled={isPlanBusy || !selectedExerciseId}
-                                >
-                                  {isAddingExercise ? "Adding..." : "Add Exercise"}
-                                </Button>
+	                                <Button
+	                                  size="sm"
+	                                  onClick={async () => {
+	                                    const exId = Number(selectedExerciseId);
+	                                    if (!Number.isFinite(exId) || exId <= 0) return;
+	                                    try {
+	                                      await addPlanExercise({
+	                                        userId,
+	                                        sessionId: session.id,
+	                                        body: { exerciseId: exId, order: nextOrder },
+	                                      }).unwrap();
+	                                      setAddExerciseSelection((prev) => ({ ...prev, [session.id]: "" }));
+	                                      setPlanNotice({ type: "success", message: "Exercise added." });
+	                                    } catch (err) {
+	                                      setPlanNotice({ type: "error", message: `Add exercise failed: ${planErrorMessage(err)}` });
+	                                    }
+	                                  }}
+	                                  disabled={isPlanBusy || !selectedExerciseId}
+	                                >
+	                                  {isAddingExercise ? "Adding..." : "Add Exercise"}
+	                                </Button>
                               </div>
                             </div>
 
@@ -670,18 +844,23 @@ export default function UserDetailPage() {
                                           <div className="text-xs text-muted-foreground">Order: {ex.order}</div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={async () => {
-                                              const confirmed = window.confirm("Remove this exercise from the session?");
-                                              if (!confirmed) return;
-                                              await deletePlanExercise({ userId, planExerciseId: ex.id }).unwrap();
-                                            }}
-                                            disabled={isPlanBusy}
-                                          >
-                                            Remove
-                                          </Button>
+	                                          <Button
+	                                            variant="outline"
+	                                            size="sm"
+	                                            onClick={async () => {
+	                                              const confirmed = window.confirm("Remove this exercise from the session?");
+	                                              if (!confirmed) return;
+	                                              try {
+	                                                await deletePlanExercise({ userId, planExerciseId: ex.id }).unwrap();
+	                                                setPlanNotice({ type: "success", message: "Exercise removed." });
+	                                              } catch (err) {
+	                                                setPlanNotice({ type: "error", message: `Remove failed: ${planErrorMessage(err)}` });
+	                                              }
+	                                            }}
+	                                            disabled={isPlanBusy}
+	                                          >
+	                                            Remove
+	                                          </Button>
                                         </div>
                                       </div>
 
@@ -741,30 +920,35 @@ export default function UserDetailPage() {
                                         />
                                       </div>
                                       <div className="mt-2 flex justify-end">
-                                        <Button
-                                          size="sm"
-                                          onClick={async () => {
-                                            const toNumOrNull = (v: string) => {
-                                              if (!v.trim()) return null;
-                                              const n = Number(v);
-                                              return Number.isFinite(n) ? n : null;
-                                            };
-                                            await updatePlanExercise({
-                                              userId,
-                                              planExerciseId: ex.id,
-                                              patch: {
-                                                sets: toNumOrNull(d.sets),
-                                                reps: toNumOrNull(d.reps),
-                                                duration: toNumOrNull(d.duration),
-                                                restSeconds: toNumOrNull(d.restSeconds),
-                                                coachingNotes: d.coachingNotes.trim() || null,
-                                              },
-                                            }).unwrap();
-                                          }}
-                                          disabled={isPlanBusy}
-                                        >
-                                          {isUpdatingExercise ? "Saving..." : "Save Exercise"}
-                                        </Button>
+	                                        <Button
+	                                          size="sm"
+	                                          onClick={async () => {
+	                                            const toNumOrNull = (v: string) => {
+	                                              if (!v.trim()) return null;
+	                                              const n = Number(v);
+	                                              return Number.isFinite(n) ? n : null;
+	                                            };
+	                                            try {
+	                                              await updatePlanExercise({
+	                                                userId,
+	                                                planExerciseId: ex.id,
+	                                                patch: {
+	                                                  sets: toNumOrNull(d.sets),
+	                                                  reps: toNumOrNull(d.reps),
+	                                                  duration: toNumOrNull(d.duration),
+	                                                  restSeconds: toNumOrNull(d.restSeconds),
+	                                                  coachingNotes: d.coachingNotes.trim() || null,
+	                                                },
+	                                              }).unwrap();
+	                                              setPlanNotice({ type: "success", message: "Exercise saved." });
+	                                            } catch (err) {
+	                                              setPlanNotice({ type: "error", message: `Save failed: ${planErrorMessage(err)}` });
+	                                            }
+	                                          }}
+	                                          disabled={isPlanBusy}
+	                                        >
+	                                          {isUpdatingExercise ? "Saving..." : "Save Exercise"}
+	                                        </Button>
                                       </div>
                                     </div>
                                   );

@@ -1,4 +1,7 @@
+ "use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "../../ui/badge";
 import {
   Table,
@@ -29,6 +32,7 @@ type UsersTableProps = {
 };
 
 export function UsersTable({ users, onSelect, onChangePlan, onToggleBlock, onDelete }: UsersTableProps) {
+  const router = useRouter();
   return (
     <div className="hidden md:block">
       <Table>
@@ -44,7 +48,19 @@ export function UsersTable({ users, onSelect, onChangePlan, onToggleBlock, onDel
         </TableHeader>
         <TableBody>
           {users.map((user) => (
-            <TableRow key={user.id} className="hover:bg-secondary/60">
+            <TableRow
+              key={user.id}
+              className="cursor-pointer hover:bg-secondary/60"
+              role="link"
+              tabIndex={0}
+              onClick={() => router.push(`/users/${user.id}`)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  router.push(`/users/${user.id}`);
+                }
+              }}
+            >
               <TableCell className="font-medium text-foreground">
                 <Link href={`/users/${user.id}`} className="hover:underline focus:outline-none">
                   {user.name}
