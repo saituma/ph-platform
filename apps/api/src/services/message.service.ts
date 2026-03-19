@@ -131,6 +131,25 @@ export async function sendMessage(input: {
     }
   }
 
+  const adminIds = await getAdminCoachIds();
+  const senderIsStaff = adminIds.includes(input.senderId);
+  if (!senderIsStaff) {
+    if (aiCoachId !== null && resolvedReceiverId === aiCoachId) {
+      if (!(await isUserPremium(input.senderId))) {
+        throw new Error("AI_COACH_REQUIRES_PREMIUM");
+      }
+    } else if (adminIds.includes(resolvedReceiverId)) {
+      const { getAthleteForUser } = await import("./user.service");
+      const { getMessagingAccessTiers } = await import("./messaging-policy.service");
+      const athlete = await getAthleteForUser(input.senderId);
+      const tier = athlete?.currentProgramTier ?? null;
+      const allowed = await getMessagingAccessTiers();
+      if (!tier || !(allowed as readonly string[]).includes(tier)) {
+        throw new Error("MESSAGING_DISABLED_FOR_TIER");
+      }
+    }
+  }
+
   const result = await db
     .insert(messageTable)
     .values({

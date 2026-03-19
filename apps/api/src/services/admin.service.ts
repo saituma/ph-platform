@@ -226,6 +226,23 @@ export async function updateAdminPreferences(
   return getAdminProfile(userId);
 }
 
+export async function updateAdminMessagingAccess(
+  coachUserId: number,
+  tiers: (typeof ProgramType.enumValues)[number][]
+) {
+  const allowed = new Set(ProgramType.enumValues);
+  const cleaned = tiers.filter((t) => allowed.has(t));
+  const existing = await getOrCreateAdminSettings(coachUserId);
+  await db
+    .update(adminSettingsTable)
+    .set({
+      messagingEnabledTiers: cleaned,
+      updatedAt: new Date(),
+    })
+    .where(eq(adminSettingsTable.id, existing.id));
+  return cleaned;
+}
+
 export async function getOnboardingConfig() {
   try {
     const configs = await db.select().from(onboardingConfigTable).limit(1);

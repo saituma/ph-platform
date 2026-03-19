@@ -29,6 +29,8 @@ interface UserState {
   athleteUserId: number | null;
   managedAthletes: ManagedAthlete[];
   programTier: string | null;
+  /** Coach-controlled: which tiers may message (defaults match server until billing/status loads). */
+  messagingAccessTiers: string[];
   latestSubscriptionRequest: {
     status?: string | null;
     paymentStatus?: string | null;
@@ -53,6 +55,7 @@ const initialState: UserState = {
   athleteUserId: null,
   managedAthletes: [],
   programTier: null,
+  messagingAccessTiers: ["PHP", "PHP_Plus", "PHP_Premium"],
   latestSubscriptionRequest: null,
 };
 
@@ -84,6 +87,9 @@ const userSlice = createSlice({
     setProgramTier: (state, action: PayloadAction<string | null>) => {
       state.programTier = action.payload;
     },
+    setMessagingAccessTiers: (state, action: PayloadAction<string[]>) => {
+      state.messagingAccessTiers = action.payload;
+    },
     setLatestSubscriptionRequest: (
       state,
       action: PayloadAction<UserState["latestSubscriptionRequest"]>
@@ -105,6 +111,7 @@ const userSlice = createSlice({
       state.athleteUserId = null;
       state.managedAthletes = [];
       state.programTier = null;
+      state.messagingAccessTiers = ["PHP", "PHP_Plus", "PHP_Premium"];
       state.latestSubscriptionRequest = null;
     },
   },
@@ -117,6 +124,7 @@ export const {
   setAthleteUserId,
   setManagedAthletes,
   setProgramTier,
+  setMessagingAccessTiers,
   setLatestSubscriptionRequest,
   setLoading,
   setHydrated,

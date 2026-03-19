@@ -32,6 +32,7 @@ import {
   updateExerciseItem,
   updateAdminPreferencesDetails,
   updateAdminProfileDetails,
+  putMessagingAccessDetails,
   updateProgramTier,
   updateOnboardingConfigDetails,
   getPhpPlusTabsAdmin,
@@ -65,6 +66,7 @@ router.get("/admin/dashboard", getDashboard);
 router.get("/admin/profile", getAdminProfileDetails);
 router.put("/admin/profile", updateAdminProfileDetails);
 router.put("/admin/preferences", updateAdminPreferencesDetails);
+router.put("/admin/messaging-access", putMessagingAccessDetails);
 router.get("/admin/onboarding-config", getOnboardingConfigDetails);
 router.put("/admin/onboarding-config", updateOnboardingConfigDetails);
 router.get("/admin/php-plus-tabs", getPhpPlusTabsAdmin);

@@ -10,7 +10,7 @@ import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
-import { Card, CardContent, CardHeader } from "../../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { InboxList } from "../../components/admin/messaging/inbox-list";
 import { GroupInboxPanel } from "../../components/admin/messaging/group-inbox-panel";
 import { MessagingConversationCard } from "../../components/admin/messaging/messaging-conversation-card";
@@ -26,6 +26,8 @@ import {
   useMarkThreadReadMutation,
   useGetThreadsQuery,
   useGetUsersQuery,
+  useGetAdminProfileQuery,
+  useUpdateMessagingAccessMutation,
   useSendChatGroupMessageMutation,
   useSendMessageMutation,
   useToggleChatGroupMessageReactionMutation,
@@ -98,6 +100,20 @@ export default function MessagingPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const lastNotifiedRef = useRef<number | null>(null);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const { data: adminProfile } = useGetAdminProfileQuery();
+  const [updateMessagingAccess, { isLoading: savingMessagingAccess }] = useUpdateMessagingAccessMutation();
+  const [localMessagingTiers, setLocalMessagingTiers] = useState<string[]>(["PHP", "PHP_Plus", "PHP_Premium"]);
+
+  useEffect(() => {
+    const raw = adminProfile?.settings?.messagingEnabledTiers;
+    if (raw === undefined || raw === null) {
+      setLocalMessagingTiers(["PHP", "PHP_Plus", "PHP_Premium"]);
+      return;
+    }
+    if (Array.isArray(raw)) {
+      setLocalMessagingTiers(raw.length ? [...raw] : []);
+    }
+  }, [adminProfile]);
 
   // --- Stable refs so socket handlers always see latest values ---
   const selectedUserIdRef = useRef(selectedUserId);
@@ -108,19 +124,35 @@ export default function MessagingPage() {
   const markThreadReadRef = useRef(markThreadRead);
   const playNotificationSoundRef = useRef(playNotificationSound);
 
+  const enabledMessagingTiers = useMemo(() => {
+    const raw = adminProfile?.settings?.messagingEnabledTiers;
+    if (raw === undefined || raw === null) {
+      return new Set<string>(["PHP", "PHP_Plus", "PHP_Premium"]);
+    }
+    if (Array.isArray(raw) && raw.length === 0) {
+      return new Set<string>();
+    }
+    return new Set(Array.isArray(raw) ? raw.filter((t: unknown) => typeof t === "string") : []);
+  }, [adminProfile]);
+
   const threads = useMemo<ThreadItem[]>(() => {
     const source = threadsData?.threads ?? [];
     const users = usersData?.users ?? [];
-    const premiumUsers = users.filter((user: any) => {
-      const tier = user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null;
-      if (tier !== "PHP_Premium") return false;
-      return user.role !== "admin" && user.role !== "superAdmin";
-    });
     const userThreads = new Map<number, any>();
     source.forEach((thread: any) => {
       userThreads.set(thread.userId, thread);
     });
-    const combined = premiumUsers.map((user: any) => {
+    const eligibleUsers = users.filter((user: any) => {
+      if (user.role === "admin" || user.role === "superAdmin" || user.role === "coach") {
+        return false;
+      }
+      const tier = user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null;
+      const hasThread = userThreads.has(user.id);
+      if (hasThread) return true;
+      if (!tier) return false;
+      return enabledMessagingTiers.has(tier);
+    });
+    const combined = eligibleUsers.map((user: any) => {
         const thread = userThreads.get(user.id);
         const timestamp = thread?.time ? new Date(thread.time).getTime() : 0;
         return {
@@ -156,7 +188,7 @@ export default function MessagingPage() {
       }
       return (b.lastTimestamp ?? 0) - (a.lastTimestamp ?? 0);
     });
-  }, [onlineUsers, threadsData, typingMap, usersData]);
+  }, [enabledMessagingTiers, onlineUsers, threadsData, typingMap, usersData]);
 
   const selectedThread = useMemo(
     () => threads.find((thread) => thread.userId === selectedUserId) ?? null,
@@ -587,6 +619,49 @@ export default function MessagingPage() {
       title="Messaging"
       subtitle="Priority inbox and coach responses."
     >
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">Messaging by plan</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Turn plans on or off for <strong>new</strong> client messages. Existing threads stay in the inbox so you can finish conversations.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+          {(["PHP", "PHP_Plus", "PHP_Premium"] as const).map((tier) => (
+            <label key={tier} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={localMessagingTiers.includes(tier)}
+                onChange={(e) => {
+                  setLocalMessagingTiers((prev) => {
+                    if (e.target.checked) {
+                      return prev.includes(tier) ? prev : [...prev, tier];
+                    }
+                    return prev.filter((t) => t !== tier);
+                  });
+                }}
+              />
+              {tier === "PHP" ? "PHP Program" : tier === "PHP_Plus" ? "PHP Plus" : "PHP Premium"}
+            </label>
+          ))}
+          <Button
+            size="sm"
+            className="sm:ml-2"
+            disabled={savingMessagingAccess}
+            onClick={async () => {
+              try {
+                await updateMessagingAccess({ tiers: localMessagingTiers }).unwrap();
+                toast.success("Saved", "Messaging access updated.");
+              } catch (err: any) {
+                toast.error("Save failed", err?.data?.error ?? "Please try again.");
+              }
+            }}
+          >
+            {savingMessagingAccess ? "Saving…" : "Save"}
+          </Button>
+        </CardContent>
+      </Card>
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Card className={`h-full lg:h-[calc(100vh-11rem)] ${mobileView === "conversation" ? "hidden lg:block" : ""}`}>
           <CardHeader>

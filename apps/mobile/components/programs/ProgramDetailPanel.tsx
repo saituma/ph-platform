@@ -12,6 +12,7 @@ import {
   FoodDiaryPanel,
   PhysioReferralPanel,
 } from "@/components/programs/ProgramPanels";
+import { ProgramSessionPanel } from "@/components/programs/ProgramSessionPanel";
 import { Shadows } from "@/constants/theme";
 import {
   PROGRAM_TABS,
@@ -22,13 +23,16 @@ import {
   ProgramId,
 } from "@/constants/program-details";
 import { PROGRAM_TIERS } from "@/constants/Programs";
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setMessagingAccessTiers, setProgramTier } from "@/store/slices/userSlice";
 import { useRole } from "@/context/RoleContext";
+import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import {
   canAccessTier,
   normalizeProgramTier,
   programIdToTier,
 } from "@/lib/planAccess";
+import { sessionsFromSectionContentForTab } from "@/lib/sessionsFromSectionContent";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
@@ -65,6 +69,9 @@ type ExerciseMetadata = {
   regression?: string | null;
   category?: string | null;
   equipment?: string | null;
+  weekNumber?: number | null;
+  sessionNumber?: number | null;
+  sessionLabel?: string | null;
 };
 
 type ProgramSectionContent = {
@@ -119,9 +126,15 @@ export function ProgramDetailPanel({
   latestSubscriptionRequest,
   sharedBoundTag,
 }: ProgramDetailPanelProps) {
-  const { programTier, token, athleteUserId, managedAthletes, latestSubscriptionRequest: latestRequestFromStore } = useAppSelector(
-    (state) => state.user,
-  );
+  const dispatch = useAppDispatch();
+  const {
+    programTier,
+    token,
+    athleteUserId,
+    managedAthletes,
+    messagingAccessTiers,
+    latestSubscriptionRequest: latestRequestFromStore,
+  } = useAppSelector((state) => state.user);
   const { colors, isDark } = useAppTheme();
   const { role } = useRole();
   const { isSectionHidden } = useAgeExperience();
@@ -206,10 +219,18 @@ export function ProgramDetailPanel({
   const planSubtitle = planDetails?.description ?? PROGRAM_TIERS.find((item) => item.id === programId)?.description;
   const priceHighlights = pricing?.entries?.slice(0, 2) ?? [];
   const lastBackAtRef = useRef(0);
+  /** Only treat pull-to-close when the drag began at the top (avoids closing while scrolling through content). */
+  const scrollDragStartYRef = useRef(0);
 
-  const handleScrollEnd = useCallback(
+  const handleScrollBeginDrag = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollDragStartYRef.current = event.nativeEvent.contentOffset.y;
+  }, []);
+
+  const handleScrollEndDragForBack = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
+      const startedAtTop = scrollDragStartYRef.current <= 12;
+      if (!startedAtTop) return;
       if (offsetY < -60 && showBack && onBack) {
         const now = Date.now();
         if (now - lastBackAtRef.current < 1000) return;
@@ -217,7 +238,7 @@ export function ProgramDetailPanel({
         onBack();
       }
     },
-    [onBack, showBack]
+    [onBack, showBack],
   );
 
 
@@ -250,13 +271,40 @@ export function ProgramDetailPanel({
   }, [loadPhpPlusTabs]);
 
   useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const status = await apiRequest<{
+          currentProgramTier?: string | null;
+          messagingAccessTiers?: string[] | null;
+        }>("/billing/status", { token, suppressStatusCodes: [401, 403, 404], skipCache: true });
+        if (cancelled) return;
+        dispatch(setProgramTier(status?.currentProgramTier ?? null));
+        dispatch(
+          setMessagingAccessTiers(
+            Array.isArray(status?.messagingAccessTiers)
+              ? status!.messagingAccessTiers!
+              : ["PHP", "PHP_Plus", "PHP_Premium"],
+          ),
+        );
+      } catch {
+        // no-op
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, token]);
+
+  useEffect(() => {
     if (!tabs.length) return;
     setActiveTab((prev) => (tabs.includes(prev) ? prev : tabs[0]!));
   }, [tabs]);
 
   const canMessageCoach = useMemo(
-    () => canAccessTier(programTier ?? null, "PHP_Premium"),
-    [programTier],
+    () => canUseCoachMessaging(programTier, messagingAccessTiers),
+    [messagingAccessTiers, programTier],
   );
 
   const openCoachMessage = useCallback(
@@ -264,7 +312,7 @@ export function ProgramDetailPanel({
       if (!canMessageCoach) {
         Alert.alert(
           "Messaging",
-          "Message your coach on the PHP Premium plan. You can still complete your training here.",
+          "Messaging isn’t enabled for your plan. You can still complete your training here.",
         );
         return;
       }
@@ -687,7 +735,7 @@ export function ProgramDetailPanel({
       const flowSteps = pickTrainingFlowSteps(tabs);
       return (
         <View className="gap-4">
-          {programId !== "premium" && flowSteps.length > 0 ? (
+          {flowSteps.length > 0 ? (
             <View
               className="rounded-[28px] px-5 py-4 gap-3 border"
               style={{
@@ -749,12 +797,24 @@ export function ProgramDetailPanel({
               </View>
             ))}
           </View>
-          {renderTrainingContent()}
+          {(() => {
+            const structured = sessionsFromSectionContentForTab(sectionContent, activeTab);
+            if (structured?.length) {
+              return (
+                <ProgramSessionPanel sessions={structured} onVideoPress={handleVideoPress} />
+              );
+            }
+            return renderTrainingContent();
+          })()}
         </View>
       );
     }
 
     if (TRAINING_TABS.has(activeTab)) {
+      const structured = sessionsFromSectionContentForTab(sectionContent, activeTab);
+      if (structured?.length) {
+        return <ProgramSessionPanel sessions={structured} onVideoPress={handleVideoPress} />;
+      }
       return renderTrainingContent();
     }
 
@@ -801,8 +861,8 @@ export function ProgramDetailPanel({
       <ThemedScrollView
         onRefresh={handlePageRefresh}
         contentContainerStyle={{ paddingBottom: 40 }}
-        onScrollEndDrag={handleScrollEnd}
-        onMomentumScrollEnd={handleScrollEnd}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDragForBack}
       >
         <View className="px-6 pt-6">
           <Transition.View

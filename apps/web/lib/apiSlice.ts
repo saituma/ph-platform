@@ -95,6 +95,13 @@ export const apiSlice = createApi({
         body,
       }),
     }),
+    updateMessagingAccess: builder.mutation<{ messagingAccessTiers: string[] }, { tiers: string[] }>({
+      query: (body) => ({
+        url: "/admin/messaging-access",
+        method: "PUT",
+        body,
+      }),
+    }),
     changePassword: builder.mutation<any, { oldPassword: string; newPassword: string }>({
       query: (body) => ({
         url: "/auth/change-password",
@@ -720,6 +727,7 @@ export const {
   useGetAdminProfileQuery,
   useUpdateAdminProfileMutation,
   useUpdateAdminPreferencesMutation,
+  useUpdateMessagingAccessMutation,
   useChangePasswordMutation,
   useGetDashboardQuery,
   useGetTrainingSnapshotQuery,

@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { ProgramType } from "../db/schema";
 import { env } from "../config/env";
 import { guardianTable } from "../db/schema";
+import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { db } from "../db";
 import { getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
 import {
@@ -61,9 +62,15 @@ export async function listPlans(_req: Request, res: Response) {
 }
 
 export async function getBillingStatus(req: Request, res: Response) {
+  const messagingAccessTiers = await getMessagingAccessTiers();
   const athlete = await getAthleteForUser(req.user!.id);
   if (!athlete) {
-    return res.status(200).json({ athlete: null, currentProgramTier: null, latestRequest: null });
+    return res.status(200).json({
+      athlete: null,
+      currentProgramTier: null,
+      latestRequest: null,
+      messagingAccessTiers,
+    });
   }
   const guardianRows = await db
     .select({ userId: guardianTable.userId })
@@ -79,6 +86,7 @@ export async function getBillingStatus(req: Request, res: Response) {
     athlete,
     currentProgramTier: athlete.currentProgramTier ?? null,
     latestRequest,
+    messagingAccessTiers,
   });
 }
 

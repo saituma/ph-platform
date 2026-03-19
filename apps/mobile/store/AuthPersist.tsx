@@ -9,6 +9,7 @@ import {
   setAthleteUserId,
   setHydrated,
   setProgramTier,
+  setMessagingAccessTiers,
   setLatestSubscriptionRequest,
   updateProfile,
   setManagedAthletes,
@@ -199,6 +200,7 @@ export function AuthPersist() {
       try {
         const status = await apiRequest<{
           currentProgramTier?: string | null;
+          messagingAccessTiers?: string[] | null;
           latestRequest?: {
             status?: string | null;
             paymentStatus?: string | null;
@@ -224,6 +226,13 @@ export function AuthPersist() {
         const tierChanged = previous && previous.tier !== nextTier;
 
         dispatch(setProgramTier(nextTier));
+        dispatch(
+          setMessagingAccessTiers(
+            Array.isArray(status?.messagingAccessTiers)
+              ? status!.messagingAccessTiers!
+              : ["PHP", "PHP_Plus", "PHP_Premium"],
+          ),
+        );
         dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
         lastBillingSnapshot.current = { tier: nextTier, requestStatus: nextRequestStatus };
 
