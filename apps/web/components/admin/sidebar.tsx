@@ -8,6 +8,7 @@ import {
   BookOpen,
   CalendarDays,
   ClipboardCheck,
+  ClipboardList,
   Home,
   MessageCircle,
   PlaySquare,
@@ -117,6 +118,7 @@ export function AdminSidebarContent({
     { label: "Parent Portal", href: "/parent", icon: UserRound },
     { label: "Content", href: "/content", icon: BookOpen },
     { label: "Users & Tiers", href: "/users", icon: UserRound },
+    { label: "Client training", href: "/training-snapshot", icon: ClipboardList },
     {
       label: "Messaging",
       href: "/messaging",

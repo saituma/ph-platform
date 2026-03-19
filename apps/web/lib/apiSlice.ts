@@ -106,6 +106,10 @@ export const apiSlice = createApi({
       query: () => "/admin/dashboard",
       providesTags: ["Dashboard"],
     }),
+    getTrainingSnapshot: builder.query<{ items: any[] }, void>({
+      query: () => "/admin/training-snapshot",
+      providesTags: ["Users"],
+    }),
     getUserLocations: builder.query<{ latest: any[]; history: any[]; rangeDays?: number | null }, { days?: number } | void>({
       query: (params) => {
         if (!params?.days) return "/admin/user-locations";
@@ -718,6 +722,7 @@ export const {
   useUpdateAdminPreferencesMutation,
   useChangePasswordMutation,
   useGetDashboardQuery,
+  useGetTrainingSnapshotQuery,
   useGetUserLocationsQuery,
   useGetUsersQuery,
   useBlockUserMutation,

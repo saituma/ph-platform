@@ -42,6 +42,7 @@ import {
 import { createBooking } from "../services/booking.service";
 import { getGuardianAndAthlete } from "../services/user.service";
 import { listProgramSectionCompletionsForAthlete } from "../services/program-section-completion.service";
+import { listTrainingSnapshotForAdmin } from "../services/training-snapshot.service";
 import {
   addExerciseToPlanSession,
   clonePremiumPlanFromAssignedTemplate,
@@ -219,6 +220,11 @@ const phpPlusTabsSchema = z.object({
 export async function listAllUsers(_req: Request, res: Response) {
   const users = await listUsers();
   return res.status(200).json({ users });
+}
+
+export async function listTrainingSnapshotAdmin(_req: Request, res: Response) {
+  const items = await listTrainingSnapshotForAdmin();
+  return res.status(200).json({ items });
 }
 
 export async function blockUser(req: Request, res: Response) {
