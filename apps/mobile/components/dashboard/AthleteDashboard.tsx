@@ -18,6 +18,8 @@ export function AthleteDashboard() {
       const data = await apiRequest<{ athlete: any | null }>("/onboarding", {
         token,
         suppressStatusCodes: [401],
+        skipCache: true,
+        forceRefresh: true,
       });
       setAthlete(data.athlete ?? null);
     } catch (error) {

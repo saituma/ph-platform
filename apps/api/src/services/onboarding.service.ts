@@ -6,6 +6,7 @@ import {
   enrollmentTable,
   guardianTable,
   legalAcceptanceTable,
+  notificationTable,
   onboardingConfigTable,
   ProgramType,
   userTable,
@@ -14,6 +15,7 @@ import { sql } from "drizzle-orm";
 import { getUserById } from "./user.service";
 import { calculateAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
 import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
+import { sendPushNotification } from "./push.service";
 
 const defaultPublicConfig = {
   version: 1,
@@ -138,7 +140,9 @@ export async function getOnboardingByUser(userId: number) {
   if (user.role === "athlete") {
     const athletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
     const athlete = athletes[0] ?? null;
-    return decorateAthlete(athlete);
+    const decorated = decorateAthlete(athlete);
+    await maybeSendBirthdayNotifications(decorated);
+    return decorated;
   }
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0];
@@ -147,7 +151,9 @@ export async function getOnboardingByUser(userId: number) {
   const athlete = athletes[0] ?? null;
   if (!athlete) return null;
   const ensured = await ensureAthleteUserRecord(athlete);
-  return decorateAthlete(ensured);
+  const decorated = decorateAthlete(ensured);
+  await maybeSendBirthdayNotifications(decorated);
+  return decorated;
 }
 
 export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$inferSelect) {
@@ -388,6 +394,7 @@ export async function listGuardianAthletesWithUsers(userId: number) {
   }
   const ensured = await Promise.all(athletes.map((athlete) => ensureAthleteUserRecord(athlete)));
   const decorated = ensured.map((athlete) => decorateAthlete(athlete)).filter(Boolean) as typeof ensured;
+  await Promise.all(decorated.map((athlete) => maybeSendBirthdayNotifications(athlete)));
   return { guardian, athletes: decorated };
 }
 
@@ -407,6 +414,69 @@ function decorateAthlete(athlete: typeof athleteTable.$inferSelect | null) {
     age: calculateAge(birthDate, now),
     isBirthday: isBirthday(birthDate, now),
   };
+}
+
+async function maybeSendBirthdayNotifications(athlete: (typeof athleteTable.$inferSelect & { isBirthday?: boolean }) | null) {
+  if (!athlete?.isBirthday) return;
+
+  const recipientIds = new Set<number>();
+  if (athlete.userId) {
+    recipientIds.add(athlete.userId);
+  }
+
+  if (athlete.guardianId) {
+    const [guardian] = await db
+      .select({ userId: guardianTable.userId })
+      .from(guardianTable)
+      .where(eq(guardianTable.id, athlete.guardianId))
+      .limit(1);
+    if (guardian?.userId) {
+      recipientIds.add(guardian.userId);
+    }
+  }
+
+  if (!recipientIds.size) return;
+
+  const athleteName = athlete.name?.trim() || "your athlete";
+  const birthdayLink = `/?birthdayAthleteId=${athlete.id}`;
+  await Promise.all(
+    [...recipientIds].map(async (userId) => {
+      const alreadySentToday = await db
+        .select({ id: notificationTable.id })
+        .from(notificationTable)
+        .where(
+          and(
+            eq(notificationTable.userId, userId),
+            eq(notificationTable.type, "birthday"),
+            eq(notificationTable.link, birthdayLink),
+            sql`DATE(${notificationTable.createdAt}) = CURRENT_DATE`
+          )
+        )
+        .limit(1);
+
+      if (alreadySentToday[0]) return;
+
+      const title = `Happy Birthday${athlete.name ? `, ${athlete.name}` : ""}!`;
+      const content =
+        userId === athlete.userId
+          ? "A new year of training starts today. Your age-based content is ready."
+          : `${athleteName} has a birthday today. Their age-based training content is ready.`;
+
+      await db.insert(notificationTable).values({
+        userId,
+        type: "birthday",
+        content,
+        link: birthdayLink,
+        read: false,
+      });
+
+      await sendPushNotification(userId, title, content, {
+        type: "birthday",
+        url: birthdayLink,
+        athleteId: athlete.id,
+      });
+    })
+  );
 }
 
 function normalizeConfigFields(fields: any[] | null | undefined) {

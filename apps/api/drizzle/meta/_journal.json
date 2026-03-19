@@ -246,6 +246,20 @@
       "when": 1773005000000,
       "tag": "0034_add_video_upload_toggle",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1773006000000,
+      "tag": "0035_add_stories",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1773007000000,
+      "tag": "0036_remove_story_schedule",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { useAppDispatch } from "../../store/hooks";
 import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
 import { Text, TextInput } from "@/components/ScaledText";
@@ -18,6 +19,7 @@ export default function VerifyScreen() {
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
   const { email, password } = useLocalSearchParams<{ email?: string; password?: string }>();
+  const normalizedOtp = otp.replace(/\D/g, "").slice(0, 6);
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -59,8 +61,8 @@ export default function VerifyScreen() {
             className="flex-1 ml-3 text-app text-xl font-outfit tracking-widest"
             placeholder="000000"
             placeholderTextColor={colors.placeholder}
-            value={otp}
-            onChangeText={setOtp}
+            value={normalizedOtp}
+            onChangeText={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))}
             keyboardType="number-pad"
             maxLength={6}
           />
@@ -73,11 +75,15 @@ export default function VerifyScreen() {
               setFormError("Missing email address");
               return;
             }
+            if (normalizedOtp.length !== 6) {
+              setFormError("Please enter the 6-digit verification code.");
+              return;
+            }
             setIsSubmitting(true);
             try {
               await apiRequest("/auth/confirm", {
                 method: "POST",
-                body: { email, code: otp },
+                body: { email, code: normalizedOtp },
               });
               if (password) {
                 const login = await apiRequest<{
@@ -114,7 +120,7 @@ export default function VerifyScreen() {
                 );
                 const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
                   "/onboarding",
-                  { token, suppressStatusCodes: [401] }
+                  { token, suppressStatusCodes: [401], skipCache: true, forceRefresh: true }
                 );
                 const completed = Boolean(onboarding.athlete?.onboardingCompleted);
                 dispatch(setOnboardingCompleted(completed));
@@ -124,7 +130,7 @@ export default function VerifyScreen() {
               }
               router.replace("/(auth)/login");
             } catch (err: any) {
-              setFormError(err?.message ?? "Verification failed");
+              setFormError(getFriendlyAuthErrorMessage(err, "verify"));
             } finally {
               setIsSubmitting(false);
             }
@@ -160,7 +166,7 @@ export default function VerifyScreen() {
                   body: { email },
                 });
               } catch (err: any) {
-                setFormError(err?.message ?? "Failed to resend");
+                setFormError(getFriendlyAuthErrorMessage(err, "resend"));
               } finally {
                 setIsSubmitting(false);
               }

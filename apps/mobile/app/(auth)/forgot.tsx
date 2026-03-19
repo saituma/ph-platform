@@ -6,6 +6,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { Text, TextInput } from "@/components/ScaledText";
 
 export default function ForgotScreen() {
@@ -89,7 +90,7 @@ export default function ForgotScreen() {
                 params: { email: normalizedEmail },
               });
             } catch (err: any) {
-              setFormError(err?.message ?? "Failed to send code");
+              setFormError(getFriendlyAuthErrorMessage(err, "forgot"));
             } finally {
               setIsSubmitting(false);
             }

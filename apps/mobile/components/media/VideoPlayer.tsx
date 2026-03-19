@@ -21,6 +21,7 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { useEventListener } from "expo";
 import { useIsFocused } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useVideoCache } from "@/hooks/useVideoCache";
@@ -31,26 +32,213 @@ const normalizeUrl = (url: string) => String(url ?? "").trim();
 export const isYoutubeUrl = (url?: string) =>
   /youtube\.com|youtu\.be/i.test(normalizeUrl(url ?? ""));
 
+const extractYoutubeVideoId = (url?: string) => {
+  const normalized = normalizeUrl(url ?? "");
+  if (!normalized) return null;
+  const shortMatch = normalized.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/i);
+  if (shortMatch?.[1]) return shortMatch[1];
+  const watchMatch = normalized.match(/[?&]v=([A-Za-z0-9_-]{6,})/i);
+  if (watchMatch?.[1]) return watchMatch[1];
+  const embedMatch = normalized.match(/youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/i);
+  if (embedMatch?.[1]) return embedMatch[1];
+  const shortsMatch = normalized.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/i);
+  if (shortsMatch?.[1]) return shortsMatch[1];
+  return null;
+};
+
+const getYoutubeEmbedUrl = (url?: string, autoplay = false, muted = false) => {
+  const videoId = extractYoutubeVideoId(url);
+  if (!videoId) return null;
+  const params = new URLSearchParams({
+    enablejsapi: "1",
+    playsinline: "1",
+    rel: "0",
+    modestbranding: "1",
+    controls: "1",
+    autoplay: autoplay ? "1" : "0",
+    mute: muted ? "1" : "0",
+  });
+  return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
+};
+
+const getYoutubePosterUrl = (url?: string) => {
+  const videoId = extractYoutubeVideoId(url);
+  return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+};
+
 export function YouTubeEmbed({
   url,
   immersive = false,
   shouldPlay = true,
+  initialMuted = false,
 }: {
   url: string;
   immersive?: boolean;
   shouldPlay?: boolean;
+  initialMuted?: boolean;
 }) {
   const { colors } = useAppTheme();
+  const [isReady, setIsReady] = useState(false);
+  const [hasEmbedError, setHasEmbedError] = useState(false);
+  const embedUrl = useMemo(
+    () => getYoutubeEmbedUrl(url, shouldPlay, initialMuted),
+    [initialMuted, shouldPlay, url],
+  );
+  const posterUrl = useMemo(() => getYoutubePosterUrl(url), [url]);
+  const watchUrl = useMemo(() => {
+    const videoId = extractYoutubeVideoId(url);
+    return videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
+  }, [url]);
+  const webHtml = useMemo(() => {
+    if (!embedUrl) return "";
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #000;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      iframe {
+        border: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe
+      src="${embedUrl}"
+      title="YouTube video player"
+      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+      allowfullscreen
+      referrerpolicy="strict-origin-when-cross-origin"
+    ></iframe>
+  </body>
+</html>`;
+  }, [embedUrl]);
+
+  if (!embedUrl) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}>
+        <Text style={{ color: "white", textAlign: "center", padding: 20 }}>
+          Invalid YouTube link
+        </Text>
+        <Pressable onPress={() => Linking.openURL(url).catch(() => {})}>
+          <Text style={{ color: colors.accent, textAlign: "center" }}>
+            Open in YouTube
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
-      <Text style={{ color: "white", textAlign: "center", padding: 20 }}>
-        YouTube embed placeholder
-      </Text>
-      <Pressable onPress={() => Linking.openURL(url)}>
-        <Text style={{ color: colors.accent, textAlign: "center" }}>
-          Open in YouTube
-        </Text>
-      </Pressable>
+      {!isReady && posterUrl ? (
+        <Image
+          source={{ uri: posterUrl }}
+          style={absoluteFillObject}
+          resizeMode="cover"
+        />
+      ) : null}
+      {!isReady ? (
+        <View
+          style={[
+            absoluteFillObject,
+            {
+              backgroundColor: "rgba(0,0,0,0.35)",
+              justifyContent: "center",
+              alignItems: "center",
+            },
+          ]}
+        >
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
+      ) : null}
+      {!hasEmbedError ? (
+        <WebView
+          source={{ html: webHtml }}
+          style={{ flex: 1, backgroundColor: "transparent" }}
+          originWhitelist={["*"]}
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          javaScriptEnabled
+          domStorageEnabled
+          scrollEnabled={false}
+          bounces={false}
+          onHttpError={() => {
+            setHasEmbedError(true);
+            setIsReady(true);
+          }}
+          onError={() => {
+            setHasEmbedError(true);
+            setIsReady(true);
+          }}
+          onLoadEnd={() => setIsReady(true)}
+          setSupportMultipleWindows={false}
+        />
+      ) : (
+        <Pressable
+          onPress={() => Linking.openURL(watchUrl).catch(() => {})}
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: 24,
+          }}
+        >
+          {posterUrl ? (
+            <Image
+              source={{ uri: posterUrl }}
+              style={absoluteFillObject}
+              resizeMode="cover"
+            />
+          ) : null}
+          <View
+            style={[
+              absoluteFillObject,
+              { backgroundColor: "rgba(0,0,0,0.55)" },
+            ]}
+          />
+          <View
+            style={{
+              paddingHorizontal: 18,
+              paddingVertical: 10,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.12)",
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ color: colors.accent, fontWeight: "600" }}>
+              YouTube
+            </Text>
+          </View>
+          <Text style={{ color: "white", textAlign: "center", fontSize: 16, marginBottom: 8 }}>
+            This video can&apos;t play inline here
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.78)", textAlign: "center", marginBottom: 18 }}>
+            Open it directly in YouTube for a smooth playback experience.
+          </Text>
+          <View
+            style={{
+              paddingHorizontal: 18,
+              paddingVertical: 12,
+              borderRadius: 999,
+              backgroundColor: colors.accent,
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "600" }}>
+              Open in YouTube
+            </Text>
+          </View>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -82,6 +270,7 @@ interface VideoPlayerProps {
   isVisible?: boolean;
   pauseOthers?: () => void;
   onDurationMs?: (durationMs: number) => void;
+  onEnded?: () => void;
 }
 
 export function VideoPlayer({
@@ -111,6 +300,7 @@ export function VideoPlayer({
   isVisible = true,
   pauseOthers,
   onDurationMs,
+  onEnded,
 }: VideoPlayerProps) {
   const { colors, isDark } = useAppTheme();
   const navFocused = useIsFocused();
@@ -260,12 +450,28 @@ export function VideoPlayer({
   }, [safeGetTimeInfo]);
 
   const lastDurationRef = useRef(0);
+  const endedRef = useRef(false);
   useEffect(() => {
     if (!onDurationMs) return;
     if (!duration || duration === lastDurationRef.current) return;
     lastDurationRef.current = duration;
     onDurationMs(duration * 1000);
   }, [duration, onDurationMs]);
+
+  useEffect(() => {
+    endedRef.current = false;
+  }, [finalUri]);
+
+  useEffect(() => {
+    if (!onEnded || !duration || duration <= 0) return;
+    if (position < Math.max(0, duration - 0.35)) {
+      endedRef.current = false;
+      return;
+    }
+    if (endedRef.current) return;
+    endedRef.current = true;
+    onEnded();
+  }, [duration, onEnded, position]);
 
   useEffect(() => {
     if (posterUri && !aspectRatio) {

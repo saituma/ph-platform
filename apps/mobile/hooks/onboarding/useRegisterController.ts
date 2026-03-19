@@ -1,5 +1,5 @@
 import { useRole } from "@/context/RoleContext";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, clearApiCache } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setAthleteUserId, setOnboardingCompleted } from "@/store/slices/userSlice";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -84,6 +84,8 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
     handleSubmit,
     formState: { errors },
     setValue,
+    getValues,
+    trigger,
     setError,
     clearErrors,
   } = useForm<AthleteRegisterFormData>({
@@ -188,6 +190,12 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
     return visibleFields.filter((field) => !known.has(field.id));
   }, [visibleFields]);
 
+  const normalizeFieldKey = useCallback((fieldId: string) => {
+    if (fieldId === "trainingPerWeek") return "trainingDaysPerWeek";
+    if (fieldId === "athleteName") return "name";
+    return fieldId;
+  }, []);
+
   const loadConfig = useCallback(async (showSpinner = true, forceRefresh = false) => {
     if (showSpinner) setConfigLoading(true);
     try {
@@ -202,10 +210,6 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
       setConfigLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
 
   useEffect(() => {
     loadConfig();
@@ -261,11 +265,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
       for (const field of requiredList) {
         if (field.id === "parentEmail") continue;
         const key =
-          field.id === "trainingPerWeek"
-            ? "trainingDaysPerWeek"
-            : field.id === "athleteName"
-              ? "name"
-              : field.id;
+          normalizeFieldKey(field.id);
         const value = (data as Record<string, unknown>)[key];
         if (value === undefined || value === null || value === "") {
           setError(key as keyof AthleteRegisterFormData, {
@@ -309,34 +309,40 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
 
         const teamValueForSubmit = data.team || (isVisible("team") ? "" : "Unknown");
 
-        const response = await apiRequest<{ athleteUserId?: number }>("/onboarding", {
-          method: "POST",
-          token,
-          body: {
-            athleteName: data.name,
-            birthDate: data.birthDate,
-            team: teamValueForSubmit,
-            trainingPerWeek: trainingValue,
-            injuries: data.injuries,
-            growthNotes: data.growthNotes || null,
-            performanceGoals: data.performanceGoals,
-            equipmentAccess: data.equipmentAccess,
-            parentEmail: profile.email,
-            parentPhone,
-            relationToAthlete: relation,
-            desiredProgramType: programTier,
-            termsVersion: config?.termsVersion ?? "1.0",
-            privacyVersion: config?.privacyVersion ?? "1.0",
-            appVersion: Constants.expoConfig?.version ?? "mobile-unknown",
-            extraResponses,
-            createNew: createNewAthlete,
-          },
-        });
+        const response = await Promise.race([
+          apiRequest<{ athleteUserId?: number }>("/onboarding", {
+            method: "POST",
+            token,
+            body: {
+              athleteName: data.name,
+              birthDate: data.birthDate,
+              team: teamValueForSubmit,
+              trainingPerWeek: trainingValue,
+              injuries: data.injuries,
+              growthNotes: data.growthNotes || null,
+              performanceGoals: data.performanceGoals,
+              equipmentAccess: data.equipmentAccess,
+              parentEmail: profile.email,
+              parentPhone,
+              relationToAthlete: relation,
+              desiredProgramType: programTier,
+              termsVersion: config?.termsVersion ?? "1.0",
+              privacyVersion: config?.privacyVersion ?? "1.0",
+              appVersion: Constants.expoConfig?.version ?? "mobile-unknown",
+              extraResponses,
+              createNew: createNewAthlete,
+            },
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Registration is taking too long. Please try again.")), 15000)
+          ),
+        ]);
 
         dispatch(setOnboardingCompleted(true));
         if (response?.athleteUserId) {
           dispatch(setAthleteUserId(response.athleteUserId));
         }
+        clearApiCache();
         setRole("Guardian");
         router?.replace("/(tabs)");
       } catch (error) {
@@ -347,7 +353,111 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
         setIsSubmitting(false);
       }
     },
-    [config, createNewAthlete, dispatch, profile.email, router, setRole, token]
+    [config, createNewAthlete, dispatch, normalizeFieldKey, profile.email, router, setRole, token]
+  );
+
+  const validateStep = useCallback(
+    async (step: number) => {
+      setFormError(null);
+
+      const stepFieldIds =
+        step === 0
+          ? ["athleteName", "birthDate", "team", "level"]
+          : step === 1
+            ? ["trainingPerWeek", "trainingDaysPerWeek", "injuries", "growthNotes", "performanceGoals", "equipmentAccess"]
+            : ["parentPhone", "relationToAthlete", "desiredProgramType", ...customFields.map((field) => field.id), "isChecked"];
+
+      const requiredFields = visibleFields.filter(
+        (field) => field.required && stepFieldIds.includes(field.id)
+      );
+
+      const fallbackRequired =
+        step === 0
+          ? [
+              { id: "athleteName", label: "Athlete Name" },
+              { id: "birthDate", label: "Birth date" },
+              { id: "team", label: "Team" },
+            ]
+          : step === 1
+            ? [
+                { id: "trainingDaysPerWeek", label: "Training days" },
+                { id: "injuries", label: "Injuries" },
+                { id: "performanceGoals", label: "Performance goals" },
+                { id: "equipmentAccess", label: "Equipment access" },
+              ]
+            : [{ id: "isChecked", label: "Terms and privacy agreement" }];
+
+      const requiredList = requiredFields.length
+        ? requiredFields
+        : fallbackRequired.filter((field) => field.id === "isChecked" || isVisible(field.id));
+
+      const values = getValues() as Record<string, unknown>;
+
+      for (const field of requiredList) {
+        if (field.id === "parentEmail") continue;
+        const key = normalizeFieldKey(field.id);
+        const value = values[key];
+        const isEmpty =
+          typeof value === "boolean"
+            ? value !== true
+            : value === undefined || value === null || String(value).trim() === "";
+
+        if (isEmpty) {
+          setError(key as keyof AthleteRegisterFormData, {
+            type: "required",
+            message: `${field.label ?? labelFor(field.id, String(field.id))} is required.`,
+          });
+          setFormError(`${field.label ?? labelFor(field.id, String(field.id))} is required.`);
+          return false;
+        }
+      }
+
+      const triggerFields = requiredList
+        .map((field) => normalizeFieldKey(field.id))
+        .filter((value, index, array) => array.indexOf(value) === index);
+
+      if (triggerFields.length) {
+        const isTriggeredValid = await trigger(triggerFields as any);
+        if (!isTriggeredValid) {
+          const firstKey = triggerFields.find((field) => {
+            const error = (errors as Record<string, { message?: string }>)[field];
+            return Boolean(error?.message);
+          });
+          const firstMessage = firstKey
+            ? (errors as Record<string, { message?: string }>)[firstKey]?.message
+            : undefined;
+          setFormError(firstMessage ? String(firstMessage) : "Please complete the required fields.");
+          return false;
+        }
+      }
+
+      if (step === 0 && isVisible("birthDate")) {
+        const birthDateValue = String(values.birthDate ?? "");
+        const birthDate = new Date(`${birthDateValue}T00:00:00Z`);
+        if (!birthDateValue || Number.isNaN(birthDate.getTime())) {
+          setError("birthDate", { type: "validate", message: "Birth date must be valid." });
+          setFormError("Birth date must be valid.");
+          return false;
+        }
+        if (calculateAge(birthDate) < 5) {
+          setError("birthDate", { type: "validate", message: "Birth date must result in an age of 5 or older." });
+          setFormError("Birth date must result in an age of 5 or older.");
+          return false;
+        }
+      }
+
+      if (step === 1 && isVisible("trainingDaysPerWeek")) {
+        const trainingValue = Math.round(Number(values.trainingDaysPerWeek));
+        if (Number.isNaN(trainingValue) || trainingValue < 0) {
+          setError("trainingDaysPerWeek", { type: "validate", message: "Training days must be a valid number." });
+          setFormError("Training days must be a valid number.");
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [customFields, errors, getValues, isVisible, labelFor, normalizeFieldKey, setError, trigger, visibleFields]
   );
 
   const onSubmit = handleSubmit(submit, (invalid) => {
@@ -399,6 +509,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
     levelTriggerRef,
     openDropdown,
     onSubmit,
+    validateStep,
     dropdownState,
   };
 }

@@ -6,6 +6,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { apiRequest } from "@/lib/api";
+import { getFriendlyAuthErrorMessage } from "@/lib/auth-error-message";
 import { useAppSelector } from "@/store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
 
@@ -53,7 +54,7 @@ export default function ChangePasswordScreen() {
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch (err: any) {
-      setFormError(err?.message ?? "Failed to change password");
+      setFormError(getFriendlyAuthErrorMessage(err, "change-password"));
     } finally {
       setIsSubmitting(false);
     }

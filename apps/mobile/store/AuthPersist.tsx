@@ -156,7 +156,7 @@ export function AuthPersist() {
       try {
         const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
           "/onboarding",
-          { token, suppressStatusCodes: [401, 403] }
+          { token, suppressStatusCodes: [401, 403], skipCache: true, forceRefresh: true }
         );
         if (!active) return;
         dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));

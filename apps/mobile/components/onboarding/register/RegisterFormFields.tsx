@@ -1,4 +1,3 @@
-import { Checkbox } from "@/components/ui/checkbox";
 import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useMemo, useState } from "react";
@@ -21,6 +20,7 @@ type RegisterFormFieldsProps = {
   control: Control<AthleteRegisterFormData>;
   errors: FieldErrors<AthleteRegisterFormData>;
   colors: ColorSet;
+  step: number;
   isVisible: (id: string) => boolean;
   labelFor: (id: string, fallback: string) => string;
   optionsFor: (id: string) => string[];
@@ -51,6 +51,7 @@ export function RegisterFormFields({
   control,
   errors,
   colors,
+  step,
   isVisible,
   labelFor,
   optionsFor,
@@ -72,6 +73,9 @@ export function RegisterFormFields({
   isPaying,
 }: RegisterFormFieldsProps) {
   const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
+  const isAthleteStep = step === 0;
+  const isTrainingStep = step === 1;
+  const isGuardianStep = step === 2;
 
   const tierByKey = useMemo(() => {
     const map = new Map<string, (typeof PROGRAM_TIERS)[number]>();
@@ -110,7 +114,7 @@ export function RegisterFormFields({
 
   return (
     <View className="gap-4 mb-8">
-      {isVisible("athleteName") ? (
+      {isAthleteStep && isVisible("athleteName") ? (
         <View>
           <View className={`flex-row items-center bg-input border ${errors.name ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}>
             <Feather name="user" size={20} color={errors.name ? colors.danger : colors.textSecondary} />
@@ -134,7 +138,7 @@ export function RegisterFormFields({
         </View>
       ) : null}
 
-      {isVisible("birthDate") ? (
+      {isAthleteStep && isVisible("birthDate") ? (
         <View>
           <Controller
             control={control}
@@ -189,7 +193,7 @@ export function RegisterFormFields({
         </View>
       ) : null}
 
-      {isVisible("team") ? (
+      {isAthleteStep && isVisible("team") ? (
         <View>
           {optionsFor("team").length ? (
             <View ref={teamTriggerRef} collapsable={false}>
@@ -221,7 +225,7 @@ export function RegisterFormFields({
         </View>
       ) : null}
 
-      {isVisible("level") ? (
+      {isAthleteStep && isVisible("level") ? (
         <View>
           {!teamValue ? (
             <View className="rounded-2xl border border-border bg-secondary/30 px-4 py-3">
@@ -242,80 +246,63 @@ export function RegisterFormFields({
         </View>
       ) : null}
 
-      <View>
-        <View className={`flex-row items-center bg-input border ${errors.trainingDaysPerWeek ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}>
-          <Feather name="activity" size={20} color={errors.trainingDaysPerWeek ? colors.danger : colors.textSecondary} />
-          <Controller
-            control={control}
-            name="trainingDaysPerWeek"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                className="flex-1 ml-3 text-app text-base font-outfit"
-                placeholder={labelFor("trainingPerWeek", "Training days per week")}
-                placeholderTextColor={colors.placeholder}
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
-                keyboardType="numeric"
-              />
-            )}
-          />
-        </View>
-        <ErrorText text={errors.trainingDaysPerWeek?.message} />
-      </View>
-
-      <View>
-        <View className={`flex-row items-center bg-input border ${errors.injuries ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}>
-          <Feather name="alert-circle" size={20} color={errors.injuries ? colors.danger : colors.textSecondary} />
-          <Controller
-            control={control}
-            name="injuries"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                className="flex-1 ml-3 text-app text-base font-outfit"
-                placeholder={labelFor("injuries", "Current or previous injuries")}
-                placeholderTextColor={colors.placeholder}
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
-              />
-            )}
-          />
-        </View>
-        <ErrorText text={errors.injuries?.message} />
-      </View>
-
-      <View className="flex-row items-start pt-4 bg-input border border-app rounded-xl px-4 min-h-[56px] h-auto">
-        <Feather name="file-text" size={20} color={colors.textSecondary} style={{ marginTop: 2 }} />
-        <Controller
-          control={control}
-          name="growthNotes"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              className="flex-1 ml-3 text-app text-base font-outfit leading-5"
-              placeholder={labelFor("growthNotes", "Growth notes (optional)")}
-              placeholderTextColor={colors.placeholder}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              multiline
-              numberOfLines={3}
-              style={{ textAlignVertical: "top" }}
+      {isTrainingStep ? (
+        <View>
+          <View className={`flex-row items-center bg-input border ${errors.trainingDaysPerWeek ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}>
+            <Feather name="activity" size={20} color={errors.trainingDaysPerWeek ? colors.danger : colors.textSecondary} />
+            <Controller
+              control={control}
+              name="trainingDaysPerWeek"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  className="flex-1 ml-3 text-app text-base font-outfit"
+                  placeholder={labelFor("trainingPerWeek", "Training days per week")}
+                  placeholderTextColor={colors.placeholder}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  value={value}
+                  keyboardType="numeric"
+                />
+              )}
             />
-          )}
-        />
-      </View>
+          </View>
+          <ErrorText text={errors.trainingDaysPerWeek?.message} />
+        </View>
+      ) : null}
 
-      <View>
-        <View className={`flex-row items-start pt-4 bg-input border ${errors.performanceGoals ? "border-danger" : "border-app"} rounded-xl px-4 min-h-[56px] h-auto`}>
-          <Feather name="target" size={20} color={errors.performanceGoals ? colors.danger : colors.textSecondary} style={{ marginTop: 2 }} />
+      {isTrainingStep ? (
+        <View>
+          <View className={`flex-row items-center bg-input border ${errors.injuries ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}>
+            <Feather name="alert-circle" size={20} color={errors.injuries ? colors.danger : colors.textSecondary} />
+            <Controller
+              control={control}
+              name="injuries"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  className="flex-1 ml-3 text-app text-base font-outfit"
+                  placeholder={labelFor("injuries", "Current or previous injuries")}
+                  placeholderTextColor={colors.placeholder}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  value={value}
+                />
+              )}
+            />
+          </View>
+          <ErrorText text={errors.injuries?.message} />
+        </View>
+      ) : null}
+
+      {isTrainingStep ? (
+        <View className="flex-row items-start pt-4 bg-input border border-app rounded-xl px-4 min-h-[56px] h-auto">
+          <Feather name="file-text" size={20} color={colors.textSecondary} style={{ marginTop: 2 }} />
           <Controller
             control={control}
-            name="performanceGoals"
+            name="growthNotes"
             render={({ field: { onChange, onBlur, value } }) => (
               <TextInput
                 className="flex-1 ml-3 text-app text-base font-outfit leading-5"
-                placeholder={labelFor("performanceGoals", "Performance goals")}
+                placeholder={labelFor("growthNotes", "Growth notes (optional)")}
                 placeholderTextColor={colors.placeholder}
                 onBlur={onBlur}
                 onChangeText={onChange}
@@ -327,50 +314,79 @@ export function RegisterFormFields({
             )}
           />
         </View>
-        <ErrorText text={errors.performanceGoals?.message} />
-      </View>
+      ) : null}
 
-      <View>
-        <View className={`flex-row items-center bg-input border ${errors.equipmentAccess ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}>
-          <Feather name="tool" size={20} color={errors.equipmentAccess ? colors.danger : colors.textSecondary} />
+      {isTrainingStep ? (
+        <View>
+          <View className={`flex-row items-start pt-4 bg-input border ${errors.performanceGoals ? "border-danger" : "border-app"} rounded-xl px-4 min-h-[56px] h-auto`}>
+            <Feather name="target" size={20} color={errors.performanceGoals ? colors.danger : colors.textSecondary} style={{ marginTop: 2 }} />
+            <Controller
+              control={control}
+              name="performanceGoals"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  className="flex-1 ml-3 text-app text-base font-outfit leading-5"
+                  placeholder={labelFor("performanceGoals", "Performance goals")}
+                  placeholderTextColor={colors.placeholder}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  value={value}
+                  multiline
+                  numberOfLines={3}
+                  style={{ textAlignVertical: "top" }}
+                />
+              )}
+            />
+          </View>
+          <ErrorText text={errors.performanceGoals?.message} />
+        </View>
+      ) : null}
+
+      {isTrainingStep ? (
+        <View>
+          <View className={`flex-row items-center bg-input border ${errors.equipmentAccess ? "border-danger" : "border-app"} rounded-xl px-4 h-14`}>
+            <Feather name="tool" size={20} color={errors.equipmentAccess ? colors.danger : colors.textSecondary} />
+            <Controller
+              control={control}
+              name="equipmentAccess"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  className="flex-1 ml-3 text-app text-base font-outfit"
+                  placeholder={labelFor("equipmentAccess", "Equipment access")}
+                  placeholderTextColor={colors.placeholder}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  value={value}
+                />
+              )}
+            />
+          </View>
+          <ErrorText text={errors.equipmentAccess?.message} />
+        </View>
+      ) : null}
+
+      {isGuardianStep ? (
+        <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
+          <Feather name="phone" size={20} color={colors.textSecondary} />
           <Controller
             control={control}
-            name="equipmentAccess"
+            name="parentPhone"
             render={({ field: { onChange, onBlur, value } }) => (
               <TextInput
                 className="flex-1 ml-3 text-app text-base font-outfit"
-                placeholder={labelFor("equipmentAccess", "Equipment access")}
+                placeholder={labelFor("parentPhone", "Guardian phone")}
                 placeholderTextColor={colors.placeholder}
                 onBlur={onBlur}
                 onChangeText={onChange}
                 value={value}
+                keyboardType="phone-pad"
               />
             )}
           />
         </View>
-        <ErrorText text={errors.equipmentAccess?.message} />
-      </View>
+      ) : null}
 
-      <View className="flex-row items-center bg-input border border-app rounded-xl px-4 h-14">
-        <Feather name="phone" size={20} color={colors.textSecondary} />
-        <Controller
-          control={control}
-          name="parentPhone"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              className="flex-1 ml-3 text-app text-base font-outfit"
-              placeholder={labelFor("parentPhone", "Guardian phone")}
-              placeholderTextColor={colors.placeholder}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              keyboardType="phone-pad"
-            />
-          )}
-        />
-      </View>
-
-      {isVisible("relationToAthlete") ? (
+      {isGuardianStep && isVisible("relationToAthlete") ? (
         <View className="flex-row flex-wrap gap-2">
           {optionsFor("relationToAthlete").map((option) => (
             <Pressable
@@ -386,7 +402,7 @@ export function RegisterFormFields({
 
       {null}
 
-      {customFields.map((field) => (
+      {isGuardianStep ? customFields.map((field) => (
         <View key={field.id}>
           {field.type === "dropdown" && field.options?.length ? (
             <View className="flex-row flex-wrap gap-2">
@@ -418,25 +434,54 @@ export function RegisterFormFields({
             </View>
           )}
         </View>
-      ))}
+      )) : null}
 
-      <Controller
-        control={control}
-        name="isChecked"
-        render={({ field: { onChange, value } }) => (
-          <Checkbox
-            checked={value}
-            onChange={onChange}
-            label={
-              <Text className="text-app font-outfit text-base">
-                I agree to the <Text onPress={onOpenTerms} className="text-accent font-bold">Terms of Service</Text> and{" "}
-                <Text onPress={onOpenPrivacy} className="text-accent font-bold">Privacy Policy</Text>
-              </Text>
-            }
-            error={errors.isChecked?.message}
-          />
-        )}
-      />
+      {isGuardianStep ? (
+        <Controller
+          control={control}
+          name="isChecked"
+          render={({ field: { onChange, value } }) => (
+            <View>
+              <View className="flex-row items-center">
+                <View
+                  className={`w-6 h-6 rounded-md border items-center justify-center ${
+                    value ? "bg-accent border-accent" : errors.isChecked ? "bg-input border-danger" : "bg-input border-app"
+                  }`}
+                >
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: value }}
+                    className="w-6 h-6 items-center justify-center"
+                    hitSlop={8}
+                    onPress={() => onChange(!value)}
+                  >
+                    {value ? <Feather name="check" size={16} color="white" /> : null}
+                  </Pressable>
+                </View>
+                <View className="ml-3 flex-1 flex-row flex-wrap items-center">
+                  <Text className="text-secondary text-base font-outfit">
+                    I agree to the{" "}
+                  </Text>
+                  <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenTerms}>
+                    <Text className="text-accent font-outfit-semibold">
+                      Terms of Service
+                    </Text>
+                  </Pressable>
+                  <Text className="text-secondary text-base font-outfit">
+                    {" "}and{" "}
+                  </Text>
+                  <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenPrivacy}>
+                    <Text className="text-accent font-outfit-semibold">
+                      Privacy Policy
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+              <ErrorText text={errors.isChecked?.message} />
+            </View>
+          )}
+        />
+      ) : null}
     </View>
   );
 }
