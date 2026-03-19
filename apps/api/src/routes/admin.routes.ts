@@ -41,6 +41,14 @@ import {
   createBookingAdmin,
   getBooking,
   listProgramSectionCompletionsAdmin,
+  getPremiumPlanAdmin,
+  clonePremiumPlanAdmin,
+  createPremiumPlanSessionAdmin,
+  updatePremiumPlanSessionAdmin,
+  deletePremiumPlanSessionAdmin,
+  addPremiumPlanExerciseAdmin,
+  updatePremiumPlanExerciseAdmin,
+  deletePremiumPlanExerciseAdmin,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -74,6 +82,14 @@ router.delete("/admin/messages/:userId", deleteThreadMessages);
 router.post("/admin/messages/:userId/read", markThreadRead);
 router.get("/admin/users/:userId/onboarding", getOnboarding);
 router.get("/admin/users/:userId/program-section-completions", listProgramSectionCompletionsAdmin);
+router.get("/admin/users/:userId/premium-plan", getPremiumPlanAdmin);
+router.post("/admin/users/:userId/premium-plan/clone", clonePremiumPlanAdmin);
+router.post("/admin/users/:userId/premium-plan/sessions", createPremiumPlanSessionAdmin);
+router.patch("/admin/users/:userId/premium-plan/sessions/:sessionId", updatePremiumPlanSessionAdmin);
+router.delete("/admin/users/:userId/premium-plan/sessions/:sessionId", deletePremiumPlanSessionAdmin);
+router.post("/admin/users/:userId/premium-plan/sessions/:sessionId/exercises", addPremiumPlanExerciseAdmin);
+router.patch("/admin/users/:userId/premium-plan/exercises/:planExerciseId", updatePremiumPlanExerciseAdmin);
+router.delete("/admin/users/:userId/premium-plan/exercises/:planExerciseId", deletePremiumPlanExerciseAdmin);
 router.post("/admin/users/program-tier", updateProgramTier);
 router.post("/admin/enrollments", assignProgram);
 router.post("/admin/programs", createProgram);

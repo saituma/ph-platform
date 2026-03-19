@@ -294,6 +294,83 @@ export const sessionExerciseTable = pgTable("session_exercises", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const athletePlanSessionTable = pgTable(
+  "athlete_plan_sessions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    weekNumber: integer().notNull(),
+    sessionNumber: integer().notNull(),
+    title: varchar({ length: 255 }),
+    notes: varchar({ length: 500 }),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("athlete_plan_sessions_athlete_idx").on(table.athleteId),
+    weekIdx: index("athlete_plan_sessions_week_idx").on(table.weekNumber),
+  })
+);
+
+export const athletePlanExerciseTable = pgTable(
+  "athlete_plan_exercises",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    planSessionId: integer().notNull().references(() => athletePlanSessionTable.id),
+    exerciseId: integer().notNull().references(() => exerciseTable.id),
+    order: integer().notNull(),
+    sets: integer(),
+    reps: integer(),
+    duration: integer(),
+    restSeconds: integer(),
+    coachingNotes: varchar({ length: 500 }),
+    progressionNotes: varchar({ length: 500 }),
+    regressionNotes: varchar({ length: 500 }),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    sessionIdx: index("athlete_plan_exercises_session_idx").on(table.planSessionId),
+  })
+);
+
+export const athletePlanExerciseCompletionTable = pgTable(
+  "athlete_plan_exercise_completions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    planExerciseId: integer().notNull().references(() => athletePlanExerciseTable.id),
+    completedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("athlete_plan_exercise_completions_athlete_idx").on(table.athleteId),
+    exerciseIdx: uniqueIndex("athlete_plan_exercise_completions_unique").on(table.athleteId, table.planExerciseId),
+    completedAtIdx: index("athlete_plan_exercise_completions_completed_at_idx").on(table.completedAt),
+  })
+);
+
+export const athletePlanSessionCompletionTable = pgTable(
+  "athlete_plan_session_completions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    planSessionId: integer().notNull().references(() => athletePlanSessionTable.id),
+    rpe: integer(),
+    soreness: integer(),
+    fatigue: integer(),
+    notes: varchar({ length: 500 }),
+    completedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("athlete_plan_session_completions_athlete_idx").on(table.athleteId),
+    sessionIdx: index("athlete_plan_session_completions_session_idx").on(table.planSessionId),
+    completedAtIdx: index("athlete_plan_session_completions_completed_at_idx").on(table.completedAt),
+  })
+);
+
 export const messageTable = pgTable(
   "messages",
   {
