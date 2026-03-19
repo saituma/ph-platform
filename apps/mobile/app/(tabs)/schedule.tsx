@@ -13,8 +13,6 @@ import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useIsFocused } from "@react-navigation/native";
-import { useRouter } from "expo-router";
-import { Transition } from "@/components/navigation/TransitionStack";
 
 type ScheduleEvent = {
   id: string;
@@ -70,7 +68,6 @@ export default function ScheduleScreen() {
   const { token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useIsFocused();
-  const router = useRouter();
   const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
   const hasUserSelectedDate = useRef(false);
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(
@@ -1133,6 +1130,13 @@ export default function ScheduleScreen() {
                         const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
                         setEvents(mapBookingsToEvents(refreshed.items ?? []));
                         setBookingConfirmed(true);
+                        setServices((prev) =>
+                          prev.map((s) =>
+                            s.id === selectedService.id && s.capacity != null
+                              ? { ...s, capacity: Math.max(0, s.capacity - 1) }
+                              : s
+                          )
+                        );
                         await notifyBookingConfirmed(selectedService.name ?? "Booking", startsAt);
                       } catch (err: any) {
                         const rawMessage = err?.message ?? "Failed to submit booking";

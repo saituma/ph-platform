@@ -29,6 +29,8 @@ export default function MoreScreen() {
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
   const canAccessParentPlatform = canAccessTier(programTier ?? null, "PHP_Premium");
+  const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
+  const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Plus");
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -193,6 +195,24 @@ export default function MoreScreen() {
                       label="Parent Platform"
                       isLast={false}
                       onPress={openParentPlatform}
+                      accentColor={colors.accent}
+                    />
+                  ) : null}
+                  {canUploadVideo ? (
+                    <MenuItem
+                      icon="video"
+                      label="Upload Training Video"
+                      isLast={false}
+                      onPress={() => router.navigate("/video-upload")}
+                      accentColor={colors.accent}
+                    />
+                  ) : null}
+                  {canAccessFoodDiary ? (
+                    <MenuItem
+                      icon="coffee"
+                      label="Food Diary"
+                      isLast={false}
+                      onPress={() => router.push("/food-diary")}
                       accentColor={colors.accent}
                     />
                   ) : null}

@@ -15,6 +15,7 @@ import {
   Linking,
   Dimensions,
   StyleSheet,
+  Platform,
 } from "react-native";
 const absoluteFillObject = StyleSheet.absoluteFillObject;
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -65,6 +66,13 @@ const getYoutubePosterUrl = (url?: string) => {
   const videoId = extractYoutubeVideoId(url);
   return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
 };
+
+/** Professional buffer settings: generous forward buffer to minimize stalling and frame drops. */
+const PROFESSIONAL_BUFFER_OPTIONS = {
+  preferredForwardBufferDuration: 45,
+  minBufferForPlayback: 5,
+  waitsToMinimizeStalling: true,
+} as const;
 
 export function YouTubeEmbed({
   url,
@@ -280,7 +288,7 @@ export function VideoPlayer({
   initialMuted = true,
   isLooping = true,
   useVideoResolution = true,
-  maxHeightRatio = 0.8,
+  maxHeightRatio = 1,
   showLoadingOverlay = true,
   ignoreTabFocus = false,
   contentFitOverride,
@@ -324,11 +332,15 @@ export function VideoPlayer({
     cacheKey,
   );
   const finalUri = disableCache ? normalizedUri : cachedUri || normalizedUri;
+  const sourceForPlayer = (finalUri && typeof finalUri === "string" ? finalUri : normalizedUri) || "";
 
-  const player = useVideoPlayer({ uri: finalUri }, (instance) => {
+  const player = useVideoPlayer(sourceForPlayer, (instance) => {
     instance.loop = isLooping;
     instance.muted = initialMuted;
     instance.staysActiveInBackground = false;
+    if ("bufferOptions" in instance) {
+      (instance as any).bufferOptions = { ...PROFESSIONAL_BUFFER_OPTIONS };
+    }
     if (autoPlay && effectiveShouldPlay) instance.play();
   });
 
@@ -352,6 +364,9 @@ export function VideoPlayer({
 
   const { width: screenWidth, height: screenHeight } =
     Dimensions.get("window");
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const releasedRef = useRef(false);
+
   const safePause = useCallback(() => {
     try {
       player.pause();
@@ -362,7 +377,10 @@ export function VideoPlayer({
 
   const safePlay = useCallback(() => {
     try {
-      player.play();
+      const result = player.play();
+      if (result && typeof (result as Promise<void>).then === "function") {
+        (result as Promise<void>).catch(() => {});
+      }
     } catch {
       // Ignore errors from released native instances.
     }
@@ -394,19 +412,18 @@ export function VideoPlayer({
   }, [safePause]);
 
   useEffect(() => {
+    if (ignoreTabFocus) return;
     if (!effectiveShouldPlay || !isVisible) {
-      if (isPlaying) {
-        safePause();
-        setIsPlaying(false);
-      }
-    } else {
+      safePause();
+      setIsPlaying(false);
+    } else if (autoPlay) {
       if (pauseOthers) pauseOthers();
       if (!isPlaying) {
         safePlay();
         setIsPlaying(true);
       }
     }
-  }, [effectiveShouldPlay, isVisible, pauseOthers, safePause, safePlay, isPlaying]);
+  }, [ignoreTabFocus, effectiveShouldPlay, isVisible, autoPlay, pauseOthers, safePause, safePlay]);
 
   useEventListener(player, "videoTrackChange", (e) => {
     const w = e.videoTrack?.size?.width ?? 0;
@@ -504,20 +521,30 @@ export function VideoPlayer({
       .toString()
       .padStart(2, "0")}`;
 
-  const fitMode =
-    contentFitOverride ||
-    (cinematic
-      ? "cover"
-      : aspectRatio && aspectRatio < 1
-        ? "contain"
-        : "cover");
+  const fitMode = contentFitOverride ?? "contain";
 
-  const resolvedHeight = useMemo(() => {
-    if (!aspectRatio) return height;
-    const calc = screenWidth / aspectRatio;
-    const maxH = screenHeight * Math.max(0.3, Math.min(1, maxHeightRatio));
-    return Math.min(calc, maxH);
-  }, [aspectRatio, height, maxHeightRatio, screenHeight, screenWidth]);
+  const effectiveAspectRatio = aspectRatio ?? initialAspectRatio ?? 16 / 9;
+
+  const containerSize = useMemo(() => {
+    const ratio = effectiveAspectRatio > 0 ? effectiveAspectRatio : 16 / 9;
+    const w = containerWidth ?? screenWidth;
+    const naturalH = w / ratio;
+    const maxH = screenHeight * Math.max(0.5, Math.min(1, maxHeightRatio));
+    return {
+      width: w,
+      height: Math.min(naturalH, maxH),
+    };
+  }, [containerWidth, effectiveAspectRatio, maxHeightRatio, screenHeight, screenWidth]);
+
+  const resolvedHeight = useVideoResolution ? containerSize.height : height;
+
+  const onContainerLayout = useCallback(
+    (e: { nativeEvent: { layout: { width: number; height: number } } }) => {
+      const w = e.nativeEvent.layout.width;
+      if (w > 0) setContainerWidth(w);
+    },
+    [],
+  );
 
   const showPoster = !isPlaying && position < 0.5 && !error && !previewOnly;
 
@@ -555,8 +582,10 @@ export function VideoPlayer({
 
   return (
     <View
+      onLayout={onContainerLayout}
       style={{
-        height: useVideoResolution ? resolvedHeight : height,
+        width: "100%",
+        height: resolvedHeight,
         backgroundColor: "#000",
         overflow: "hidden",
         borderRadius: immersive || cinematic ? 0 : 24,
@@ -570,17 +599,18 @@ export function VideoPlayer({
           player={player}
           style={{ flex: 1 }}
           contentFit={fitMode}
-          nativeControls={false}
+          nativeControls={ignoreTabFocus}
           allowsPictureInPicture
+          {...(Platform.OS === "android" ? { surfaceType: "textureView" } : {})}
         />
       </Animated.View>
 
-      {showPoster && (
+      {!ignoreTabFocus && showPoster && (
         <Pressable
           onPress={previewOnly ? onPreviewPress : togglePlay}
           style={[
             absoluteFillObject,
-            { justifyContent: "center", alignItems: "center" },
+            { justifyContent: "center", alignItems: "center", zIndex: 10 },
           ]}
         >
           {posterUri && (
@@ -607,6 +637,7 @@ export function VideoPlayer({
 
       {(isLoading || isBuffering) && showLoadingOverlay && (
         <View
+          pointerEvents="none"
           style={[
             absoluteFillObject,
             {
@@ -623,12 +654,12 @@ export function VideoPlayer({
         </View>
       )}
 
-      {!cinematic && !hideCenterControls && !showPoster && (
+      {!ignoreTabFocus && !cinematic && !hideCenterControls && !showPoster && (
         <Pressable
           onPress={togglePlay}
           style={[
             absoluteFillObject,
-            { justifyContent: "center", alignItems: "center" },
+            { justifyContent: "center", alignItems: "center", zIndex: 10 },
           ]}
         >
           <View
@@ -647,7 +678,7 @@ export function VideoPlayer({
         </Pressable>
       )}
 
-      {!hideControls && !showPoster && (
+      {!ignoreTabFocus && !hideControls && !showPoster && (
         <View
           style={{
             position: "absolute",
@@ -714,7 +745,7 @@ export function VideoPlayer({
         </View>
       )}
 
-      {!hideTopChrome && (
+      {!ignoreTabFocus && !hideTopChrome && (
         <View
           style={{
             position: "absolute",

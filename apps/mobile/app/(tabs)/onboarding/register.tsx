@@ -5,17 +5,9 @@ import { useRegisterController } from "@/hooks/onboarding/useRegisterController"
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import {
-  Alert,
-  InteractionManager,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert, InteractionManager, Pressable, RefreshControl, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { buildPlanPricing } from "@/lib/billing";
@@ -71,7 +63,7 @@ export default function RegisterScreen() {
     let active = true;
     const loadPlans = async () => {
       try {
-        const data = await apiRequest<{ plans: any[] }>("/public/plans");
+        const data = await apiRequest<{ plans: any[] }>("/public/plans", { forceRefresh: true });
         if (!active) return;
         const map: Record<string, any> = {};
         const pricingMap: Record<string, any> = {};

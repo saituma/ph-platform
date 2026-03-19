@@ -76,7 +76,7 @@ export default function PlansScreen() {
     setIsLoading(true);
     setActionError(null);
     try {
-      const data = await apiRequest<{ plans: any[] }>("/public/plans");
+      const data = await apiRequest<{ plans: any[] }>("/public/plans", { forceRefresh: true });
       setPlans(data.plans ?? []);
     } catch (error: any) {
       setActionError(error?.message || "Failed to load plans.");

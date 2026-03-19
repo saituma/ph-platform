@@ -359,19 +359,19 @@ export default function HomeScreen() {
           </View>
           <View className="flex-row flex-wrap gap-3">
             <TouchableOpacity
-              onPress={() => router.push("/video-upload")}
-              className="flex-1 min-w-[140px] rounded-[24px] border px-5 py-5"
+              onPress={() => router.push("/food-diary")}
+              className="flex-1 min-w-[140px] rounded-[20px] border px-4 py-4"
               style={{
                 backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
                 borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
                 ...(isDark ? Shadows.none : Shadows.sm),
               }}
             >
-              <View className="h-12 w-12 rounded-[18px] items-center justify-center mb-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : colors.accentLight }}>
-                <Feather name="video" size={18} color={colors.accent} />
+              <View className="h-10 w-10 rounded-2xl items-center justify-center mb-3" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : colors.accentLight }}>
+                <Feather name="coffee" size={18} color={colors.accent} />
               </View>
-              <Text className="text-sm font-outfit font-semibold text-app">Upload Video</Text>
-              <Text className="text-xs font-outfit text-secondary mt-1">Coach review</Text>
+              <Text className="text-sm font-outfit font-semibold text-app">Food Diary</Text>
+              <Text className="text-xs font-outfit text-secondary mt-1">Log meals</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

@@ -46,7 +46,7 @@ export function inferNotificationCategory(
   if (/(schedule|booking|session|calendar|reschedule)/.test(haystack)) return "schedule";
   if (/(invoice|payment|billing|card|receipt|stripe)/.test(haystack)) return "payment";
   if (/(account|profile|password|login|security)/.test(haystack)) return "account";
-  if (/(progress|goal|workout|program|plan|assessment)/.test(haystack)) return "progress";
+  if (/(progress|goal|workout|program|plan|assessment|video_reviewed|feedback)/.test(haystack)) return "progress";
   if (/(alert|warning|system|maintenance|update)/.test(haystack)) return "system";
   return "general";
 }

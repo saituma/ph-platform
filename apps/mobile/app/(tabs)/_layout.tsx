@@ -109,8 +109,20 @@ export default function TabLayout() {
       if (identifier) lastHandledNotificationRef.current = identifier;
 
       const data = response?.notification?.request?.content?.data as
-        | { threadId?: string; type?: string; screen?: string }
+        | {
+            threadId?: string;
+            type?: string;
+            screen?: string;
+            url?: string;
+            contentId?: string | number;
+            videoUploadId?: string | number;
+          }
         | undefined;
+
+      if (data?.url) {
+        router.push(data.url as any);
+        return;
+      }
       const threadId = data?.threadId;
       if (threadId) {
         router.push(`/messages/${String(threadId)}`);
@@ -124,12 +136,21 @@ export default function TabLayout() {
         router.push("/(tabs)/messages");
         return;
       }
-      if (data?.screen === "plans") {
+      if (data?.screen === "plans" || data?.type === "plan_approved") {
         router.push("/plans");
         return;
       }
       if (data?.screen === "physio-referral" || data?.type === "physio-referral") {
         router.push("/physio-referral");
+        return;
+      }
+      if (data?.type === "video_reviewed" && (data?.contentId != null || data?.videoUploadId != null)) {
+        if (data.contentId != null) {
+          router.push(`/programs/content/${String(data.contentId)}`);
+        } else {
+          router.push("/video-upload");
+        }
+        return;
       }
     };
 

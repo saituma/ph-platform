@@ -2,10 +2,12 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState, AppStateStatus, Platform, Pressable, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, Layout } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { getNotifications } from "@/lib/notifications";
+import { setupNotificationChannels } from "@/lib/notificationSetup";
 import {
   formatRelativeTime,
   getNotificationMeta,
@@ -56,6 +58,7 @@ export function InAppNotificationsProvider({
   children: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const [items, setItems] = useState<InAppNotificationItem[]>([]);
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
@@ -154,6 +157,7 @@ export function InAppNotificationsProvider({
 
   useEffect(() => {
     let sub: { remove: () => void } | null = null;
+    setupNotificationChannels();
     getNotifications().then((Notifications) => {
       if (!Notifications) return;
       if (!handlerConfiguredRef.current && typeof Notifications.setNotificationHandler === "function") {
@@ -161,7 +165,7 @@ export function InAppNotificationsProvider({
         Notifications.setNotificationHandler({
           handleNotification: async () => ({
             shouldShowAlert: false,
-            shouldPlaySound: false,
+            shouldPlaySound: true,
             shouldSetBadge: true,
           }),
         });
@@ -175,6 +179,7 @@ export function InAppNotificationsProvider({
           if (data?.suppressInApp) return;
           const category = inferNotificationCategory(data?.type, content?.body);
           const meta = getNotificationMeta(category);
+          const url = data?.url as string | undefined;
           notify({
             title: content?.title ?? meta.label,
             message: content?.body ?? "",
@@ -187,6 +192,7 @@ export function InAppNotificationsProvider({
                 : data?.type
                 ? `type:${data.type}`
                 : content?.title ?? "general",
+            onPress: url ? () => router.push(url as any) : undefined,
           });
         });
       }
@@ -268,43 +274,43 @@ export function InAppNotificationsProvider({
                 <View
                   style={{
                     backgroundColor: colors.card,
-                    borderRadius: 18,
+                    borderRadius: 16,
                     borderWidth: 1,
                     borderColor: colors.border,
-                    paddingVertical: 12,
-                    paddingHorizontal: 14,
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
                     shadowColor: "#000",
-                    shadowOpacity: isDark ? 0.3 : 0.12,
-                    shadowRadius: 16,
-                    shadowOffset: { width: 0, height: 8 },
-                    elevation: isDark ? 8 : 5,
+                    shadowOpacity: isDark ? 0.35 : 0.14,
+                    shadowRadius: 20,
+                    shadowOffset: { width: 0, height: 6 },
+                    elevation: isDark ? 10 : 6,
+                    overflow: "hidden",
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
                     <View
                       style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 12,
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
                         backgroundColor: accentSoft,
                         alignItems: "center",
                         justifyContent: "center",
-                        marginRight: 12,
+                        marginRight: 14,
                       }}
                     >
-                      <Ionicons name={meta.icon} size={20} color={accent} />
+                      <Ionicons name={meta.icon} size={22} color={accent} />
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                         <Text className="text-sm font-outfit-semibold text-app" numberOfLines={1}>
                           {title}
                         </Text>
                         {item.count > 1 ? (
                           <View
                             style={{
-                              marginLeft: 8,
-                              paddingHorizontal: 6,
-                              paddingVertical: 2,
+                              paddingHorizontal: 8,
+                              paddingVertical: 3,
                               borderRadius: 999,
                               backgroundColor: accentSoft,
                             }}
@@ -316,16 +322,25 @@ export function InAppNotificationsProvider({
                         ) : null}
                       </View>
                       <Text
-                        className="text-xs font-outfit text-secondary"
+                        className="text-[13px] font-outfit text-secondary"
                         numberOfLines={2}
-                        style={{ marginTop: 2 }}
+                        style={{ marginTop: 4, lineHeight: 18 }}
                       >
                         {item.message}
                       </Text>
+                      {item.onPress ? (
+                        <Text
+                          className="text-[11px] font-outfit text-accent"
+                          style={{ marginTop: 6 }}
+                          numberOfLines={1}
+                        >
+                          Tap to open
+                        </Text>
+                      ) : null}
                     </View>
                     <Text
                       className="text-[11px] font-outfit text-secondary"
-                      style={{ marginLeft: 10 }}
+                      style={{ marginLeft: 8 }}
                     >
                       {formatRelativeTime(item.timestamp)}
                     </Text>
