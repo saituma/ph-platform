@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useRouter } from "expo-router";
 
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -12,6 +13,7 @@ import { ProgramPanelCard } from "./shared/ProgramPanelCard";
 import { ProgramPanelStatusBadge } from "./shared/ProgramPanelStatusBadge";
 
 export function FoodDiaryPanel() {
+  const router = useRouter();
   const { token } = useAppSelector((state) => state.user);
   const { isDark, colors, shadows, scheduleLocalNotification, formatDate } = useProgramPanel();
   
@@ -200,8 +202,8 @@ export function FoodDiaryPanel() {
   };
 
   const filledMealsCount = Object.values(meals).filter((value) => value.trim()).length;
-  const reviewedEntriesCount = entries.filter((item) => Boolean(item.feedback)).length;
-  const pendingEntriesCount = entries.filter((item) => !item.feedback).length;
+  const reviewedEntriesCount = entries.filter((item) => Boolean(item.reviewedAt)).length;
+  const pendingEntriesCount = entries.filter((item) => !item.reviewedAt).length;
   const hasDraft = entry.trim().length > 0 || filledMealsCount > 0;
   const mealPlaceholders: Record<keyof typeof meals, string> = {
     breakfast: "What was eaten, how much, and timing before training if relevant.",
@@ -521,17 +523,19 @@ export function FoodDiaryPanel() {
       ) : entries.length ? (
         <View className="gap-3">
           {entries.map((item) => (
-            <ProgramPanelCard 
-              key={item.id} 
-              className="px-5 py-4"
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.8}
+              onPress={() => router.push(`/food-diary/entry/${item.id}`)}
             >
+              <ProgramPanelCard className="px-5 py-4">
               <View className="flex-row items-center justify-between gap-3">
                 <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
                   {formatDate(item.date)}
                 </Text>
                 <ProgramPanelStatusBadge
-                  label={item.feedback ? "Reviewed" : "Pending"}
-                  variant={item.feedback ? "success" : "default"}
+                  label={item.reviewedAt ? "Reviewed" : "Pending"}
+                  variant={item.reviewedAt ? "success" : "default"}
                 />
               </View>
               {formatMeals(item.meals).length ? (
@@ -563,7 +567,8 @@ export function FoodDiaryPanel() {
               {item.photoUrl ? (
                 <Image source={{ uri: item.photoUrl }} className="mt-3 h-24 w-full rounded-2xl" resizeMode="cover" />
               ) : null}
-            </ProgramPanelCard>
+              </ProgramPanelCard>
+            </TouchableOpacity>
           ))}
         </View>
       ) : (

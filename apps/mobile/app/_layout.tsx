@@ -6,7 +6,8 @@ import { SocketProvider } from "@/context/SocketContext";
 import { InAppNotificationsProvider } from "@/context/InAppNotificationsContext";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
-import { Stack } from "expo-router";
+import { Stack, slideFromRight } from "@/components/navigation/TransitionStack";
+import { Transition } from "@/components/navigation/TransitionStack";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { View } from "react-native";
@@ -33,7 +34,58 @@ export default function RootLayout() {
                         <RefreshProvider>
                           <View style={{ flex: 1 }}>
                             <AuthPersist />
-                            <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
+                            <Stack
+                              screenOptions={{
+                                headerShown: false,
+                                ...slideFromRight,
+                              }}
+                            >
+                              <Stack.Screen
+                                name="programs/[id]"
+                                options={({ route }: any) => ({
+                                  gestureEnabled: false,
+                                  ...Transition.Presets.SharedAppleMusic({
+                                    sharedBoundTag: String(
+                                      route?.params?.sharedBoundTag ?? "program-card"
+                                    ),
+                                  }),
+                                })}
+                              />
+                              <Stack.Screen
+                                name="programs/content/[contentId]"
+                                options={({ route }: any) => ({
+                                  gestureDirection: ["horizontal"],
+                                  gestureEnabled: false,
+                                  ...Transition.Presets.SharedAppleMusic({
+                                    sharedBoundTag: String(
+                                      route?.params?.sharedBoundTag ?? "program-content"
+                                    ),
+                                  }),
+                                })}
+                              />
+                              <Stack.Screen
+                                name="messages/[id]"
+                                options={({ route }: any) => ({
+                                  ...Transition.Presets.SharedAppleMusic({
+                                    sharedBoundTag: String(
+                                      route?.params?.sharedBoundTag ?? "thread-card"
+                                    ),
+                                  }),
+                                })}
+                              />
+                              <Stack.Screen
+                                name="schedule/event"
+                                options={({ route }: any) => ({
+                                  gestureEnabled: true,
+                                  gestureDirection: "vertical",
+                                  ...Transition.Presets.SharedAppleMusic({
+                                    sharedBoundTag: String(
+                                      route?.params?.sharedBoundTag ?? "schedule-event"
+                                    ),
+                                  }),
+                                })}
+                              />
+                            </Stack>
                             <StatusBar style="dark" />
                           </View>
                         </RefreshProvider>

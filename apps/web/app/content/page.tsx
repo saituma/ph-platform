@@ -13,20 +13,16 @@ import {
   useRejectTestimonialSubmissionMutation,
   useCreateContentMutation,
   useGetHomeContentQuery,
-  useGetStoriesQuery,
   useGetTestimonialSubmissionsQuery,
-  useReplaceStoriesMutation,
   useUpdateContentMutation,
 } from "../../lib/apiSlice";
 
 export default function ContentPage() {
   const [createContent, { isLoading }] = useCreateContentMutation();
   const [updateContent] = useUpdateContentMutation();
-  const [replaceStories] = useReplaceStoriesMutation();
   const [approveSubmission] = useApproveTestimonialSubmissionMutation();
   const [rejectSubmission] = useRejectTestimonialSubmissionMutation();
   const { data: homeData, refetch: refetchHome } = useGetHomeContentQuery();
-  const { data: storiesData, refetch: refetchStories } = useGetStoriesQuery();
   const { data: testimonialSubmissionsData, refetch: refetchSubmissions } =
     useGetTestimonialSubmissionsQuery(undefined, { refetchOnMountOrArgChange: true });
   const [activeDialog, setActiveDialog] = useState<ContentDialog>(null);
@@ -86,7 +82,6 @@ export default function ContentPage() {
                           .map((item: string) => item.trim())
                           .filter(Boolean)[0] ?? ""
                       : ""),
-                stories: storiesData?.items ?? [],
               }}
               onSaveProfile={async (data) => {
                 setError(null);
@@ -168,16 +163,6 @@ export default function ContentPage() {
                   setActiveDialog("home");
                 } catch (err) {
                   setError("Failed to save intro video");
-                }
-              }}
-              onSaveStories={async (data) => {
-                setError(null);
-                try {
-                  await replaceStories({ stories: data.stories }).unwrap();
-                  refetchStories();
-                  setActiveDialog("home");
-                } catch (err) {
-                  setError("Failed to save stories");
                 }
               }}
               testimonialSubmissions={testimonialSubmissionsData?.items ?? []}

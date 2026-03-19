@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -15,6 +16,8 @@ type FoodDiaryItem = {
   notes?: string | null;
   photoUrl?: string | null;
   meals?: Record<string, string> | null;
+  feedback?: string | null;
+  reviewedAt?: string | null;
   athleteName?: string | null;
   guardianName?: string | null;
   guardianEmail?: string | null;
@@ -27,6 +30,8 @@ export default function FoodDiaryPage() {
   const [search, setSearch] = useState("");
 
   const entries: FoodDiaryItem[] = useMemo(() => data?.items ?? [], [data]);
+  const awaitingReview = useMemo(() => entries.filter((e) => !e.reviewedAt), [entries]);
+  const reviewed = useMemo(() => entries.filter((e) => e.reviewedAt), [entries]);
   const filtered = useMemo(() => {
     if (!search.trim()) return entries;
     const needle = search.trim().toLowerCase();
@@ -94,6 +99,25 @@ export default function FoodDiaryPage() {
 
   return (
     <AdminShell title="Food Diary" subtitle="Review parent-submitted meal logs.">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/food-diary/awaiting"
+          className="rounded-2xl border border-border bg-card p-5 transition-colors hover:bg-secondary/30"
+        >
+          <p className="text-xs uppercase tracking-[2px] text-muted-foreground">Awaiting review</p>
+          <p className="mt-2 text-3xl font-semibold text-foreground">{awaitingReview.length}</p>
+          <p className="mt-1 text-sm text-muted-foreground">View and add feedback</p>
+        </Link>
+        <Link
+          href="/food-diary/reviewed"
+          className="rounded-2xl border border-border bg-card p-5 transition-colors hover:bg-secondary/30"
+        >
+          <p className="text-xs uppercase tracking-[2px] text-muted-foreground">Reviewed</p>
+          <p className="mt-2 text-3xl font-semibold text-foreground">{reviewed.length}</p>
+          <p className="mt-1 text-sm text-muted-foreground">View past feedback</p>
+        </Link>
+      </div>
+
       <Card>
         <CardHeader>
           <SectionHeader title="Food Diary Entries" description="Filter by athlete or parent email." />
@@ -134,7 +158,11 @@ export default function FoodDiaryPage() {
               {filtered.map((entry) => {
                 const meals = formatMeals(entry.meals);
                 return (
-                  <div key={entry.id} className="rounded-3xl border border-border bg-secondary/20 p-5">
+                  <Link
+                    key={entry.id}
+                    href={`/food-diary/entry/${entry.id}`}
+                    className="block rounded-3xl border border-border bg-secondary/20 p-5 transition-colors hover:bg-secondary/30"
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-xs uppercase tracking-[2px] text-muted-foreground">
@@ -148,10 +176,14 @@ export default function FoodDiaryPage() {
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+                          {entry.reviewedAt ? "Reviewed" : "Awaiting review"}
+                        </span>
                         {entry.guardianUserId ? (
                           <a
                             href={`/users?userId=${entry.guardianUserId}`}
-                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground"
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
                           >
                             View Guardian
                           </a>
@@ -159,7 +191,8 @@ export default function FoodDiaryPage() {
                         {entry.athleteId ? (
                           <a
                             href={`/users?athleteId=${entry.athleteId}`}
-                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground"
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
                           >
                             View Athlete
                           </a>
@@ -169,6 +202,7 @@ export default function FoodDiaryPage() {
                             href={entry.photoUrl}
                             target="_blank"
                             rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="rounded-full border border-border px-3 py-2 text-xs text-foreground"
                           >
                             View Photo
@@ -193,7 +227,7 @@ export default function FoodDiaryPage() {
                     {entry.notes ? (
                       <p className="mt-4 text-sm text-foreground">{entry.notes}</p>
                     ) : null}
-                  </div>
+                  </Link>
                 );
               })}
             </div>

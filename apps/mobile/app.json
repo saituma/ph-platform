@@ -56,7 +56,10 @@
       ],
       "expo-audio",
       "expo-font",
-      "expo-image",
+      [
+        "expo-image",
+        {}
+      ],
       "expo-secure-store",
       "expo-video",
       "expo-web-browser"

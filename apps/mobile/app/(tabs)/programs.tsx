@@ -44,6 +44,13 @@ export default function ProgramsScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTierId, setPickerTierId] = useState<"php" | "plus" | "premium" | null>(null);
 
+  const openProgramDetail = useCallback(
+    (tierId: "php" | "plus" | "premium") => {
+      router.push(`/programs/${tierId}`);
+    },
+    [router],
+  );
+
   const openPaymentPicker = useCallback((tierId: "php" | "plus" | "premium") => {
     setPickerTierId(tierId);
     setPickerOpen(true);
