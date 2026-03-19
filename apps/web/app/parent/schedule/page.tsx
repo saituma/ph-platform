@@ -198,9 +198,12 @@ export default function ParentSchedulePage() {
     >
       <Card id="booking-panel">
         <CardHeader>
-          <CardTitle>Request a Booking</CardTitle>
+          <CardTitle>Request a session</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Pick a session type and day, then choose an open start time. The coach confirms before it&apos;s final.
+          </p>
           <div className="grid gap-3 md:grid-cols-2">
             <Select
               value={selectedServiceId ? String(selectedServiceId) : ""}
@@ -222,6 +225,44 @@ export default function ParentSchedulePage() {
             />
           </div>
 
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Available start times</p>
+            {fixedTimeLabel ? (
+              <p className="text-xs text-muted-foreground">
+                This type always starts at {fixedTimeLabel} (when the coach opens that day).
+              </p>
+            ) : null}
+            {availabilityLoading ? <p className="text-sm text-muted-foreground">Loading times…</p> : null}
+            {!availabilityLoading && selectedService && availableSlots.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No open times on this day. Try another date or ask your coach to add availability.
+              </p>
+            ) : null}
+            {availableSlots.length > 0 ? (
+              <Select
+                value={selectedSlot ? selectedSlot.toISOString() : ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSelectedSlot(value ? new Date(value) : null);
+                }}
+              >
+                <option value="">Select a time</option>
+                {availableSlots.map((slot) => {
+                  const cap = selectedService?.capacity ?? null;
+                  const taken = bookingCounts.get(slot.toISOString()) ?? 0;
+                  const atCap = cap != null && taken >= cap;
+                  const label = slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  return (
+                    <option key={slot.toISOString()} value={slot.toISOString()} disabled={atCap}>
+                      {label}
+                      {cap != null ? ` (${Math.max(cap - taken, 0)} spots left)` : ""}
+                      {atCap ? " — full" : ""}
+                    </option>
+                  );
+                })}
+              </Select>
+            ) : null}
+          </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <Input
@@ -259,14 +300,14 @@ export default function ParentSchedulePage() {
                   location: location || undefined,
                   meetingLink: meetingLink || undefined,
                 }).unwrap();
-                setBookingSuccess("Booking request sent. Awaiting approval.");
+                setBookingSuccess("Request sent. Your coach will confirm it.");
                 await refetchBookings();
               } catch (err: any) {
                 setBookingError(err?.message ?? "Failed to submit booking.");
               }
             }}
           >
-            Submit Booking Request
+            Send request
           </Button>
         </CardContent>
       </Card>

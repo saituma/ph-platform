@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, InteractionManager, Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
@@ -80,9 +80,12 @@ export default function ScheduleScreen() {
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [bookingDate, setBookingDate] = useState<Date>(() => new Date());
-  const [bookingTime, setBookingTime] = useState<Date>(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [availabilityData, setAvailabilityData] = useState<{ items: any[]; bookings?: any[] } | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
+  const [confirmedStartsAt, setConfirmedStartsAt] = useState<Date | null>(null);
   const [bookingLocation, setBookingLocation] = useState("");
   const [bookingMeetingLink, setBookingMeetingLink] = useState("");
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
@@ -100,6 +103,15 @@ export default function ScheduleScreen() {
   );
 
   const notifyBookingConfirmed = useCallback(async () => {}, []);
+
+  const resetBookingDraft = useCallback(() => {
+    setBookingConfirmed(false);
+    setBookingError(null);
+    setConfirmedStartsAt(null);
+    setSelectedSlot(null);
+    setAvailabilityData(null);
+    setAvailabilityError(null);
+  }, []);
 
   const mapBookingsToEvents = useCallback((items: any[]) => {
     return (items ?? [])
@@ -196,6 +208,37 @@ export default function ScheduleScreen() {
     return null;
   }, [selectedService]);
 
+  const bookingCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    (availabilityData?.bookings ?? []).forEach((booking: any) => {
+      if (!booking?.startsAt) return;
+      const key = new Date(booking.startsAt).toISOString();
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+    return map;
+  }, [availabilityData]);
+
+  const availableSlots = useMemo(() => {
+    if (!selectedService || !availabilityData?.items?.length) return [] as Date[];
+    const durationMs = selectedService.durationMinutes * 60 * 1000;
+    const slotMap = new Map<string, Date>();
+    for (const block of availabilityData.items) {
+      const start = new Date(block.startsAt);
+      const end = new Date(block.endsAt);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+      for (
+        let cursor = new Date(start.getTime());
+        cursor.getTime() + durationMs <= end.getTime();
+        cursor = new Date(cursor.getTime() + durationMs)
+      ) {
+        const timeLabel = `${String(cursor.getHours()).padStart(2, "0")}:${String(cursor.getMinutes()).padStart(2, "0")}`;
+        if (fixedTimeLabel && timeLabel !== fixedTimeLabel) continue;
+        slotMap.set(cursor.toISOString(), cursor);
+      }
+    }
+    return Array.from(slotMap.values()).sort((a, b) => a.getTime() - b.getTime());
+  }, [availabilityData, selectedService, fixedTimeLabel]);
+
   const selectedDateLabel = useMemo(
     () => selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }),
     [selectedDate],
@@ -237,13 +280,6 @@ export default function ScheduleScreen() {
     [isDark],
   );
 
-
-
-  const mergeDateAndTime = useCallback((date: Date, time: Date) => {
-    const next = new Date(date);
-    next.setHours(time.getHours(), time.getMinutes(), 0, 0);
-    return next;
-  }, []);
 
   const changeCalendarMonth = useCallback(
     (offset: number) => {
@@ -326,26 +362,65 @@ export default function ScheduleScreen() {
   }, [bookingOpen, activeServices, selectedServiceId, selectedDate]);
 
   useEffect(() => {
-    if (!fixedTimeLabel) return;
-    const [hours, minutes] = fixedTimeLabel.split(":").map((value) => Number(value));
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) return;
-    setBookingTime((current) => {
-      if (current.getHours() === hours && current.getMinutes() === minutes) return current;
-      const next = new Date(current);
-      next.setHours(hours, minutes, 0, 0);
-      return next;
+    if (!bookingOpen || !token || !selectedServiceId) {
+      return;
+    }
+    let active = true;
+    setAvailabilityLoading(true);
+    setAvailabilityError(null);
+    const start = new Date(bookingDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(bookingDate);
+    end.setHours(23, 59, 59, 999);
+    const params = new URLSearchParams({
+      serviceTypeId: String(selectedServiceId),
+      from: start.toISOString(),
+      to: end.toISOString(),
     });
-  }, [fixedTimeLabel]);
+    apiRequest<{ items: any[]; bookings?: any[] }>(`/bookings/availability?${params.toString()}`, {
+      token,
+      skipCache: true,
+    })
+      .then((data) => {
+        if (!active) return;
+        setAvailabilityData(data);
+      })
+      .catch((err: any) => {
+        if (!active) return;
+        setAvailabilityData(null);
+        setAvailabilityError(err.message ?? "Could not load available times.");
+      })
+      .finally(() => {
+        if (!active) return;
+        setAvailabilityLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [bookingOpen, token, selectedServiceId, bookingDate]);
 
   useEffect(() => {
-    setBookingTime((current) => {
-      const next = mergeDateAndTime(bookingDate, current);
-      if (current.getTime() === next.getTime()) return current;
-      return next;
+    if (!availableSlots.length) {
+      setSelectedSlot(null);
+      return;
+    }
+    setSelectedSlot((prev) => {
+      const capacity = selectedService?.capacity ?? null;
+      const isPrevValid =
+        prev != null && availableSlots.some((slot) => slot.toISOString() === prev.toISOString());
+      if (isPrevValid && prev != null) {
+        if (!capacity) return prev;
+        const prevCount = bookingCounts.get(prev.toISOString()) ?? 0;
+        if (prevCount < capacity) return prev;
+      }
+      const firstAvailable = availableSlots.find((slot) => {
+        if (!capacity) return true;
+        const count = bookingCounts.get(slot.toISOString()) ?? 0;
+        return count < capacity;
+      });
+      return firstAvailable ?? null;
     });
-  }, [bookingDate, mergeDateAndTime]);
-
-
+  }, [availableSlots, bookingCounts, selectedService]);
 
   useEffect(() => {
     if (!token || !isFocused) return;
@@ -435,16 +510,15 @@ export default function ScheduleScreen() {
               <Pressable
                 className="rounded-[20px] bg-accent px-4 py-3 justify-center"
                 onPress={() => {
+                  resetBookingDraft();
                   setBookingOpen(true);
-                  setBookingConfirmed(false);
-                  setBookingError(null);
                 }}
                 style={isDark ? Shadows.none : Shadows.sm}
               >
                 <View className="flex-row items-center gap-2">
                   <Feather name="plus" size={16} color="#FFFFFF" />
                   <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
-                    Add booking
+                    Request session
                   </Text>
                 </View>
               </Pressable>
@@ -670,18 +744,17 @@ export default function ScheduleScreen() {
                 No events scheduled
               </Text>
               <Text className="text-sm font-outfit text-secondary mt-2 text-center">
-                Use the plus button to add a call or training session.
+                Request a call or session — the coach confirms before it&apos;s final.
               </Text>
               <Pressable
                 className="mt-4 rounded-full bg-accent px-5 py-2"
                 onPress={() => {
+                  resetBookingDraft();
                   setBookingOpen(true);
-                  setBookingConfirmed(false);
-                  setBookingError(null);
                 }}
               >
                 <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
-                  Book this day
+                  Request for this day
                 </Text>
               </Pressable>
               {eventsError ? (
@@ -836,13 +909,11 @@ export default function ScheduleScreen() {
                     onPress={() => {
                       if (selectedEvent) {
                         const eventDate = new Date(selectedEvent.startsAt);
-                        setBookingDate(eventDate);
-                        setBookingTime(eventDate);
+                        handleSelectCalendarDate(formatDateKey(eventDate));
                       }
                       setSelectedEvent(null);
                       setShowDetails(false);
-                      setBookingConfirmed(false);
-                      setBookingError(null);
+                      resetBookingDraft();
                       setBookingOpen(true);
                     }}
                   >
@@ -932,7 +1003,7 @@ export default function ScheduleScreen() {
             >
               <View className="flex-row items-center justify-between">
                 <Text className="text-lg font-clash text-app">
-                  {bookingConfirmed ? "Booking Requested" : "New Booking"}
+                  {bookingConfirmed ? "Request sent" : "Request a session"}
                 </Text>
                 <Pressable onPress={() => setBookingOpen(false)}>
                   <Feather name="x" size={20} className="text-secondary" />
@@ -942,15 +1013,20 @@ export default function ScheduleScreen() {
               {bookingConfirmed ? (
                 <>
                   <Text className="text-sm font-outfit text-secondary mt-2">
-                    Booking request sent for {bookingDate.toLocaleDateString([], { month: "short", day: "numeric" })} at{" "}
-                    {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
+                    {confirmedStartsAt
+                      ? `We sent your request for ${confirmedStartsAt.toLocaleDateString([], {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })} at ${confirmedStartsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
+                      : "Your session request was sent."}
                   </Text>
                   <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                      Pending approval
+                      Awaiting coach approval
                     </Text>
                     <Text className="text-sm font-outfit text-app mt-2">
-                      Your request is awaiting approval.
+                      You&apos;ll see it on the calendar when it&apos;s confirmed. Check your email for a copy.
                     </Text>
                     {bookingLocation ? (
                       <Text className="text-xs font-outfit text-secondary mt-3">
@@ -970,7 +1046,7 @@ export default function ScheduleScreen() {
               ) : (
                 <>
                   <Text className="text-sm font-outfit text-secondary mt-2">
-                    Fill this out so the admin understands the request clearly.
+                    Choose the session type, then pick a day and a time the coach has open. Nothing is final until they approve.
                   </Text>
 
                   {servicesLoading ? (
@@ -1001,6 +1077,7 @@ export default function ScheduleScreen() {
                               hasUserSelectedService.current = true;
                               if (item.id) {
                                 setSelectedServiceId(item.id);
+                                setSelectedSlot(null);
                                 setBookingLocation(item.defaultLocation ?? "");
                                 setBookingMeetingLink(item.defaultMeetingLink ?? "");
                               }
@@ -1027,46 +1104,84 @@ export default function ScheduleScreen() {
 
                   <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                      Date & Time
+                      Date
                     </Text>
-                    <View className="mt-3 gap-2">
-                      <Pressable
-                        onPress={() => setShowDatePicker(true)}
-                        className="rounded-2xl border px-3 py-3"
-                        style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
-                      >
-                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                          Date
-                        </Text>
-                        <Text className="text-sm font-outfit text-app mt-1">
-                          {bookingDate.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => {
-                          if (fixedTimeLabel) return;
-                          setShowTimePicker(true);
-                        }}
-                        className={`rounded-2xl border px-3 py-3 ${fixedTimeLabel ? "opacity-70" : ""}`}
-                        style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
-                      >
-                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                          Time
-                        </Text>
-                        <Text className="text-sm font-outfit text-app mt-1">
-                          {fixedTimeLabel
-                            ? `${fixedTimeLabel} (Fixed)`
-                            : bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </Text>
-                      </Pressable>
-                    </View>
+                    <Pressable
+                      onPress={() => setShowDatePicker(true)}
+                      className="mt-3 rounded-2xl border px-3 py-3"
+                      style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
+                    >
+                      <Text className="text-sm font-outfit text-app">
+                        {bookingDate.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+                      </Text>
+                    </Pressable>
+                    {fixedTimeLabel ? (
+                      <Text className="text-xs font-outfit text-secondary mt-3">
+                        This type always starts at {fixedTimeLabel} (coach local time).
+                      </Text>
+                    ) : null}
+                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mt-4">
+                      Available start times
+                    </Text>
+                    {availabilityLoading ? (
+                      <View className="mt-3 py-4 items-center">
+                        <ActivityIndicator color={colors.accent} />
+                      </View>
+                    ) : null}
+                    {availabilityError ? (
+                      <Text className="text-xs font-outfit mt-3" style={{ color: errorColor }}>
+                        {availabilityError}
+                      </Text>
+                    ) : null}
+                    {!availabilityLoading && !availabilityError && selectedService && !availableSlots.length ? (
+                      <Text className="text-sm font-outfit text-secondary mt-3">
+                        No open times on this day. Pick another date or ask the coach to add availability.
+                      </Text>
+                    ) : null}
+                    {!availabilityLoading && availableSlots.length > 0 ? (
+                      <View className="mt-3 flex-row flex-wrap gap-2">
+                        {availableSlots.map((slot) => {
+                          const cap = selectedService?.capacity ?? null;
+                          const taken = bookingCounts.get(slot.toISOString()) ?? 0;
+                          const atCap = cap != null && taken >= cap;
+                          const active =
+                            selectedSlot != null && selectedSlot.toISOString() === slot.toISOString();
+                          return (
+                            <Pressable
+                              key={slot.toISOString()}
+                              disabled={atCap}
+                              onPress={() => setSelectedSlot(slot)}
+                              className="px-4 py-2 rounded-full border"
+                              style={{
+                                backgroundColor: atCap
+                                  ? mutedSurface
+                                  : active
+                                    ? colors.accent
+                                    : surfaceColor,
+                                borderColor: atCap ? borderSoft : active ? colors.accent : borderSoft,
+                                opacity: atCap ? 0.45 : 1,
+                              }}
+                            >
+                              <Text
+                                className={`text-xs font-outfit uppercase tracking-[1.2px] ${
+                                  atCap ? "text-secondary" : active ? "text-white" : "text-app"
+                                }`}
+                              >
+                                {slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {cap != null ? ` (${Math.max(cap - taken, 0)} left)` : ""}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : null}
                   </View>
 
 
 
                   <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                      Details (optional)
+                      Location & link (optional)
                     </Text>
                     <View className="mt-3 gap-2">
                       <View className="rounded-2xl border px-3 py-2" style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}>
@@ -1102,17 +1217,17 @@ export default function ScheduleScreen() {
                     onPress={async () => {
                       if (isSubmitting) return;
                       if (!selectedService) {
-                        setBookingError("Please select a booking type.");
+                        setBookingError("Pick a session type first.");
                         return;
                       }
-                      if (!bookingTime) {
-                        setBookingError("Please select a time slot.");
+                      if (!selectedSlot) {
+                        setBookingError("Pick a time from the available slots.");
                         return;
                       }
                       setBookingError(null);
                       setIsSubmitting(true);
                       try {
-                        const startsAt = new Date(bookingTime);
+                        const startsAt = new Date(selectedSlot);
                         const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
                         await apiRequest("/bookings", {
                           method: "POST",
@@ -1127,17 +1242,14 @@ export default function ScheduleScreen() {
                           },
                           suppressStatusCodes: [400],
                         });
-                        const refreshed = await apiRequest<{ items: any[] }>("/bookings", { token });
+                        const refreshed = await apiRequest<{ items: any[] }>("/bookings", {
+                          token,
+                          forceRefresh: true,
+                        });
                         setEvents(mapBookingsToEvents(refreshed.items ?? []));
+                        setConfirmedStartsAt(startsAt);
                         setBookingConfirmed(true);
-                        setServices((prev) =>
-                          prev.map((s) =>
-                            s.id === selectedService.id && s.capacity != null
-                              ? { ...s, capacity: Math.max(0, s.capacity - 1) }
-                              : s
-                          )
-                        );
-                        await notifyBookingConfirmed(selectedService.name ?? "Booking", startsAt);
+                        await notifyBookingConfirmed();
                       } catch (err: any) {
                         const rawMessage = err?.message ?? "Failed to submit booking";
                         const cleanedMessage = String(rawMessage).replace(/^\d+\s+/, "");
@@ -1146,18 +1258,18 @@ export default function ScheduleScreen() {
                         setIsSubmitting(false);
                       }
                     }}
-                    disabled={!selectedService || !bookingTime || isSubmitting}
+                    disabled={!selectedService || !selectedSlot || isSubmitting}
                     className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
-                      selectedService && bookingTime ? "bg-accent" : "bg-secondary/20"
+                      selectedService && selectedSlot ? "bg-accent" : "bg-secondary/20"
                     }`}
                   >
                     {isSubmitting ? <ActivityIndicator size="small" color="#ffffff" /> : null}
                     <Text
                       className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                        selectedService && bookingTime ? "text-white" : "text-secondary"
+                        selectedService && selectedSlot ? "text-white" : "text-secondary"
                       }`}
                     >
-                      {isSubmitting ? "Submitting..." : "Submit Booking"}
+                      {isSubmitting ? "Sending..." : "Send request"}
                     </Text>
                   </Pressable>
                   {bookingError ? (
@@ -1184,31 +1296,6 @@ export default function ScheduleScreen() {
                       {Platform.OS === "ios" ? (
                         <Pressable
                           onPress={() => setShowDatePicker(false)}
-                          className="mt-2 self-end rounded-full border border-app px-4 py-2"
-                        >
-                          <Text className="text-app font-outfit text-xs">Done</Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  ) : null}
-                  {showTimePicker ? (
-                    <View className="mt-3">
-                      <DateTimePicker
-                        value={bookingTime}
-                        mode="time"
-                        display={Platform.OS === "ios" ? "spinner" : "default"}
-                        onChange={(event, date) => {
-                          if (Platform.OS !== "ios") {
-                            setShowTimePicker(false);
-                          }
-                          if (event.type === "dismissed") return;
-                          if (!date) return;
-                          setBookingTime(date);
-                        }}
-                      />
-                      {Platform.OS === "ios" ? (
-                        <Pressable
-                          onPress={() => setShowTimePicker(false)}
                           className="mt-2 self-end rounded-full border border-app px-4 py-2"
                         >
                           <Text className="text-app font-outfit text-xs">Done</Text>
