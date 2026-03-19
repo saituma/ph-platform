@@ -14,6 +14,7 @@ import {
   useBlockUserMutation,
   useDeleteUserMutation,
   useGetUserOnboardingQuery,
+  useGetUserProgramSectionCompletionsQuery,
   useGetUsersQuery,
   useUpdateProgramTierMutation,
 } from "../../../lib/apiSlice";
@@ -39,6 +40,14 @@ export default function UserDetailPage() {
   const { data: usersData } = useGetUsersQuery();
   const { data: onboarding, isFetching: onboardingLoading } = useGetUserOnboardingQuery(
     isValidId ? userId : skipToken
+  );
+  const fromIso = useMemo(() => {
+    const from = new Date();
+    from.setDate(from.getDate() - 14);
+    return from.toISOString();
+  }, []);
+  const { data: completionsData, isFetching: completionsLoading } = useGetUserProgramSectionCompletionsQuery(
+    isValidId ? { userId, from: fromIso, limit: 200 } : (skipToken as any)
   );
 
   const [blockUser, { isLoading: blockLoading }] = useBlockUserMutation();
@@ -68,6 +77,25 @@ export default function UserDetailPage() {
     rawUser?.programTier ??
     rawUser?.guardianProgramTier ??
     "PHP";
+
+  const loadCompletions = useMemo(() => completionsData?.items ?? [], [completionsData]);
+  const completionStats = useMemo(() => {
+    const rows = loadCompletions as Array<{ rpe?: number | null; soreness?: number | null; fatigue?: number | null }>;
+    if (!rows.length) {
+      return { count: 0, avgRpe: null as number | null, avgSoreness: null as number | null, avgFatigue: null as number | null };
+    }
+    const average = (key: "rpe" | "soreness" | "fatigue") => {
+      const vals = rows.map((r) => (typeof r[key] === "number" ? (r[key] as number) : null)).filter((v) => v != null) as number[];
+      if (!vals.length) return null;
+      return Math.round((vals.reduce((sum, v) => sum + v, 0) / vals.length) * 10) / 10;
+    };
+    return {
+      count: rows.length,
+      avgRpe: average("rpe"),
+      avgSoreness: average("soreness"),
+      avgFatigue: average("fatigue"),
+    };
+  }, [loadCompletions]);
 
   useEffect(() => {
     setProgramTier(resolvedTier);
@@ -313,6 +341,30 @@ export default function UserDetailPage() {
                   />
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Training load (Premium) */}
+        {resolvedTier === "PHP_Premium" && (
+          <Card>
+            <CardContent className="pt-6">
+              <SectionHeader
+                title="Training Load (V1)"
+                description="Completions + RPE/soreness/fatigue captured from the mobile app."
+              />
+              <div className="mt-4 space-y-0">
+                {completionsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading check-ins...</p>
+                ) : (
+                  <>
+                    <DetailRow label="Completions (last 14 days)" value={completionStats.count} />
+                    <DetailRow label="Avg RPE" value={completionStats.avgRpe} />
+                    <DetailRow label="Avg soreness" value={completionStats.avgSoreness} />
+                    <DetailRow label="Avg fatigue" value={completionStats.avgFatigue} />
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}

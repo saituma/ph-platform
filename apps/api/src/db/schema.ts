@@ -241,6 +241,27 @@ export const programSectionContentTable = pgTable("program_section_contents", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const programSectionCompletionTable = pgTable(
+  "program_section_completions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    programSectionContentId: integer().notNull().references(() => programSectionContentTable.id),
+    rpe: integer(),
+    soreness: integer(),
+    fatigue: integer(),
+    notes: varchar({ length: 500 }),
+    completedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("program_section_completions_athlete_idx").on(table.athleteId),
+    contentIdx: index("program_section_completions_content_idx").on(table.programSectionContentId),
+    completedAtIdx: index("program_section_completions_completed_at_idx").on(table.completedAt),
+  })
+);
+
 export const storyTable = pgTable(
   "stories",
   {
