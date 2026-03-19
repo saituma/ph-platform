@@ -22,7 +22,6 @@ type StoriesSectionProps = {
 };
 
 const fallbackStories: StoryItem[] = [
-  { id: "add", name: "Your Story", isAdd: true },
   { id: "coach", name: "Coach Tips", badge: "New", mediaType: "video" },
   { id: "week", name: "Weekly Wins", badge: "3", mediaType: "image" },
   { id: "mobility", name: "Mobility", isSeen: true, mediaType: "image" },
@@ -31,7 +30,8 @@ const fallbackStories: StoryItem[] = [
 
 export function StoriesSection({ items, onPressStory }: StoriesSectionProps) {
   const { colors, isDark } = useAppTheme();
-  const stories = items && items.length ? items : fallbackStories;
+  const stories = items ?? fallbackStories;
+  if (!stories.length) return null;
 
   return (
     <View className="mb-10">

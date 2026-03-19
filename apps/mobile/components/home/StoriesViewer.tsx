@@ -22,6 +22,7 @@ import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import * as Haptics from "expo-haptics";
+import { prefetchStoryMedia } from "@/lib/story-media-prefetch";
 
 export type StoryViewerItem = {
   id: string;
@@ -62,9 +63,13 @@ export function StoriesViewer({
   const progress = useSharedValue(0);
 
   const currentStory = stories[currentIndex] ?? null;
+  const currentVideoDurationMs =
+    currentStory?.mediaType === "video"
+      ? videoDurations[currentStory?.id ?? ""] ?? 0
+      : 0;
   const durationMs =
     currentStory?.mediaType === "video"
-      ? videoDurations[currentStory?.id ?? ""] ?? VIDEO_FALLBACK_MS
+      ? currentVideoDurationMs || VIDEO_FALLBACK_MS
       : IMAGE_DURATION_MS;
 
   const handleClose = useCallback(() => {
@@ -143,6 +148,11 @@ export function StoriesViewer({
   const startProgress = useCallback(
     (fromValue = 0) => {
       if (!visible || !currentStory) return;
+      if (currentStory.mediaType === "video" && currentVideoDurationMs <= 0) {
+        cancelAnimation(progress);
+        progress.value = 0;
+        return;
+      }
       cancelAnimation(progress);
       progress.value = fromValue;
       const remaining = Math.max(0, 1 - fromValue);
@@ -157,26 +167,36 @@ export function StoriesViewer({
         }
       );
     },
-    [currentStory, durationMs, handleNext, progress, visible],
+    [currentStory, currentVideoDurationMs, durationMs, handleNext, progress, visible],
   );
 
   useEffect(() => {
     if (!visible) return;
     if (!currentStory) return;
     progress.value = 0;
-    if (!isPaused) {
+    if (!isPaused && (currentStory.mediaType !== "video" || currentVideoDurationMs > 0)) {
       startProgress(0);
     } else {
       cancelAnimation(progress);
     }
     return () => cancelAnimation(progress);
-  }, [currentIndex, currentStory, isPaused, progress, startProgress, visible]);
+  }, [currentIndex, currentStory, currentVideoDurationMs, isPaused, progress, startProgress, visible]);
 
   useEffect(() => {
     if (!visible || !currentStory) return;
     if (isPaused) return;
+    if (currentStory.mediaType === "video" && currentVideoDurationMs <= 0) return;
     startProgress(progress.value);
-  }, [durationMs, currentStory, isPaused, progress, startProgress, visible]);
+  }, [currentStory, currentVideoDurationMs, durationMs, isPaused, progress, startProgress, visible]);
+
+  useEffect(() => {
+    if (!visible || stories.length === 0) return;
+    void prefetchStoryMedia(stories, {
+      startIndex: currentIndex,
+      itemCount: 3,
+      maxVideos: 1,
+    });
+  }, [currentIndex, stories, visible]);
 
   const currentTitle = currentStory?.title ?? "Story";
   const currentBadge = currentStory?.badge ?? null;
@@ -354,6 +374,7 @@ export function StoriesViewer({
                       hideTopChrome
                       contentFitOverride="cover"
                       ignoreTabFocus
+                      showLoadingOverlay={false}
                       shouldPlay={visible && !isPaused}
                       isVisible={visible}
                       disableCache={false}
@@ -365,6 +386,10 @@ export function StoriesViewer({
                             ? prev
                             : { ...prev, [currentStory.id]: ms },
                         );
+                      }}
+                      onEnded={() => {
+                        if (!visible || isPaused) return;
+                        handleNext();
                       }}
                     />
                   ) : (

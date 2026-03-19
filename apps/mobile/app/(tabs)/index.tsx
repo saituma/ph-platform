@@ -8,6 +8,7 @@ import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { prefetchStoryMedia } from "@/lib/story-media-prefetch";
 import { useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -113,16 +114,8 @@ export default function HomeScreen() {
       badge: story.badge ?? (story.mediaType === "video" ? "Video" : null),
     }));
 
-    return [
-      {
-        id: "add",
-        name: "Your Story",
-        imageUrl: profile?.avatar ?? null,
-        isAdd: true,
-      },
-      ...mappedStories,
-    ];
-  }, [hasLoadedStories, homeContent?.stories, homeStories, profile?.avatar]);
+    return mappedStories;
+  }, [hasLoadedStories, homeContent?.stories, homeStories]);
 
   const viewerStories = useMemo<StoryViewerItem[]>(
     () =>
@@ -137,6 +130,15 @@ export default function HomeScreen() {
         })),
     [storyItems],
   );
+
+  useEffect(() => {
+    if (!viewerStories.length) return;
+    void prefetchStoryMedia(viewerStories, {
+      startIndex: 0,
+      itemCount: 4,
+      maxVideos: 1,
+    });
+  }, [viewerStories]);
 
   useEffect(() => {
     return () => {
@@ -430,12 +432,13 @@ export default function HomeScreen() {
             <StoriesSection
               items={storyItems}
               onPressStory={(story) => {
-                if (story.isAdd) {
-                  router.push("/video-upload");
-                  return;
-                }
                 const nextIndex = viewerStories.findIndex((item) => item.id === story.id);
                 if (nextIndex >= 0) {
+                  void prefetchStoryMedia(viewerStories, {
+                    startIndex: nextIndex,
+                    itemCount: 3,
+                    maxVideos: 1,
+                  });
                   setStoryViewerIndex(nextIndex);
                   setStoryViewerVisible(true);
                 }

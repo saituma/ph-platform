@@ -6,6 +6,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { Text, TextInput } from "@/components/ScaledText";
 
 export default function ResetPasswordScreen() {
@@ -20,6 +21,7 @@ export default function ResetPasswordScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const { email } = useLocalSearchParams<{ email?: string }>();
+  const normalizedCode = code.replace(/\D/g, "").slice(0, 6);
 
   return (
     <SafeAreaView className="flex-1 bg-app">
@@ -64,8 +66,9 @@ export default function ResetPasswordScreen() {
               placeholder="Verification Code"
               placeholderTextColor={colors.placeholder}
               keyboardType="number-pad"
-              value={code}
-              onChangeText={setCode}
+              value={normalizedCode}
+              onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))}
+              maxLength={6}
             />
           </View>
 
@@ -117,6 +120,10 @@ export default function ResetPasswordScreen() {
               setFormError("Missing email address");
               return;
             }
+            if (normalizedCode.length !== 6) {
+              setFormError("Please enter the 6-digit verification code.");
+              return;
+            }
             if (!password || password !== confirmPassword) {
               setFormError("Passwords do not match");
               return;
@@ -125,11 +132,11 @@ export default function ResetPasswordScreen() {
             try {
               await apiRequest("/auth/forgot/confirm", {
                 method: "POST",
-                body: { email, code, password },
+                body: { email, code: normalizedCode, password },
               });
               router.replace("/(auth)/login");
             } catch (err: any) {
-              setFormError(err?.message ?? "Password reset failed");
+              setFormError(getFriendlyAuthErrorMessage(err, "reset-password"));
             } finally {
               setIsSubmitting(false);
             }

@@ -53,6 +53,12 @@ export function ContentTabs({
   const [storyBadge, setStoryBadge] = useState("");
   const [storyMediaType, setStoryMediaType] = useState<"image" | "video">("image");
   const [storyMediaUrl, setStoryMediaUrl] = useState("");
+  const [introVideoError, setIntroVideoError] = useState<string | null>(null);
+
+  const isBlockedIntroVideoUrl = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+    return normalized.includes("youtube.com") || normalized.includes("youtu.be") || normalized.includes("vimeo.com");
+  };
   useEffect(() => {
     if (!initialHome) return;
     if (initialHome.introVideoUrl !== undefined) setHomeIntroVideo(initialHome.introVideoUrl ?? "");
@@ -483,29 +489,48 @@ export function ContentTabs({
                 onUploaded={(url) => setHomeIntroVideo(url)}
               />
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Or paste a link</Label>
+                <Label className="text-xs text-muted-foreground">Or paste a direct video file URL</Label>
                 <Input
-                  placeholder="https://youtube.com/watch?v=..."
+                  placeholder="https://cdn.example.com/home-intro.mp4"
                   value={homeIntroVideo}
-                  onChange={(event) => setHomeIntroVideo(event.target.value)}
+                  onChange={(event) => {
+                    setHomeIntroVideo(event.target.value);
+                    setIntroVideoError(null);
+                  }}
                 />
               </div>
+              {introVideoError ? (
+                <p className="text-xs text-red-500">{introVideoError}</p>
+              ) : null}
               {homeIntroVideo ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
                   <span className="break-all text-muted-foreground">{homeIntroVideo}</span>
-                  <Button size="sm" variant="outline" onClick={() => setHomeIntroVideo("")}>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setHomeIntroVideo("");
+                    setIntroVideoError(null);
+                  }}>
                     Remove
                   </Button>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Upload an intro video or paste a YouTube/Vimeo link for the mobile home screen.
+                  Upload an intro video or paste a direct hosted video URL such as `.mp4`. YouTube and Vimeo links do not play inline in the mobile app.
                 </p>
               )}
             </div>
           </div>
           <div className="space-y-4">
-            <Button className="w-full" onClick={() => onSaveIntroVideo({ introVideoUrl: homeIntroVideo })}>
+            <Button
+              className="w-full"
+              onClick={() => {
+                const normalized = homeIntroVideo.trim();
+                if (normalized && isBlockedIntroVideoUrl(normalized)) {
+                  setIntroVideoError("Use an uploaded video or direct .mp4 URL. YouTube/Vimeo links are blocked for intro video because they do not play inline in the mobile app.");
+                  return;
+                }
+                onSaveIntroVideo({ introVideoUrl: normalized });
+              }}
+            >
               Save Intro Video
             </Button>
           </div>

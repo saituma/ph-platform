@@ -9,8 +9,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import {
+  extractAuthErrorMessage,
+  getFriendlyAuthErrorMessage,
+} from "../../lib/auth-error-message";
 import { useAppDispatch } from "../../store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
+import {
+  AuthFieldRow,
+  AuthFormGroup,
+  AuthHeader,
+  AuthPrimaryButton,
+} from "@/components/auth/AuthPrimitives";
 import {
   setCredentials,
   setOnboardingCompleted,
@@ -85,7 +95,7 @@ export default function LoginScreen() {
       );
       const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
         "/onboarding",
-        { token, suppressStatusCodes: [401] }
+        { token, suppressStatusCodes: [401], skipCache: true, forceRefresh: true }
       );
       const completed = Boolean(onboarding.athlete?.onboardingCompleted);
       dispatch(setOnboardingCompleted(completed));
@@ -112,7 +122,7 @@ export default function LoginScreen() {
       }
       router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
     } catch (err: any) {
-      const message = err?.message ?? "Login failed";
+      const message = extractAuthErrorMessage(err);
       if (message.toLowerCase().includes("not confirmed")) {
         router.replace({
           pathname: "/(auth)/verify",
@@ -120,7 +130,7 @@ export default function LoginScreen() {
         });
         return;
       }
-      setFormError(message);
+      setFormError(getFriendlyAuthErrorMessage(err, "login"));
     } finally {
       setIsSubmitting(false);
     }
@@ -142,43 +152,33 @@ export default function LoginScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
-          paddingHorizontal: 24,
+          paddingHorizontal: 20,
           paddingBottom: 32,
+          paddingTop: 8,
         }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
       >
-        <View className="mb-8">
-          <View className="self-start rounded-full px-3 py-1.5 mb-4 bg-accent-light">
-            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.6px] text-accent">
-              Premium coaching
-            </Text>
-          </View>
-          <Text className="text-4xl font-telma-bold text-app mb-2">
-            Welcome back
-          </Text>
-          <Text className="text-base font-outfit text-secondary leading-6">
-            Sign in to keep training progress and feedback in sync.
-          </Text>
-        </View>
+        <AuthHeader
+          title="Welcome back"
+          subtitle="Sign in to keep your training progress, coach feedback, and schedule in sync."
+        />
 
         <View className="gap-4 mb-5">
-          <View className="rounded-3xl bg-card-elevated px-4 py-4 border border-border">
-            <View
-              className={`flex-row items-center bg-input border ${errors.email ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
+          <AuthFormGroup>
+            <AuthFieldRow
+              icon="mail"
+              label="Email"
+              error={errors.email?.message}
             >
-              <Feather
-                name="mail"
-                size={20}
-                color={errors.email ? colors.danger : colors.textSecondary}
-              />
               <Controller
                 control={control}
                 name="email"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    className="flex-1 ml-3 text-app text-base font-outfit"
-                    placeholder="Email Address"
+                    className="text-app font-outfit"
+                    style={{ fontSize: 17, lineHeight: 22, paddingVertical: 0 }}
+                    placeholder="name@example.com"
                     placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -189,30 +189,34 @@ export default function LoginScreen() {
                   />
                 )}
               />
-            </View>
-            {errors.email && (
-              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
-                {errors.email.message}
-              </Text>
-            )}
-          </View>
-
-          <View className="rounded-3xl bg-card-elevated px-4 py-4 border border-border">
-            <View
-              className={`flex-row items-center bg-input border ${errors.password ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
+            </AuthFieldRow>
+            <AuthFieldRow
+              icon="lock"
+              label="Password"
+              error={errors.password?.message}
+              isLast
+              trailing={
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Feather
+                    name={showPassword ? "eye" : "eye-off"}
+                    size={18}
+                    color={colors.textSecondary}
+                  />
+                </Pressable>
+              }
             >
-              <Feather
-                name="lock"
-                size={20}
-                color={errors.password ? colors.danger : colors.textSecondary}
-              />
               <Controller
                 control={control}
                 name="password"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    className="flex-1 ml-3 text-app text-base font-outfit"
-                    placeholder="Password"
+                    className="text-app font-outfit"
+                    style={{ fontSize: 17, lineHeight: 22, paddingVertical: 0 }}
+                    placeholder="Enter your password"
                     placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -223,41 +227,26 @@ export default function LoginScreen() {
                   />
                 )}
               />
-              <Pressable onPress={() => setShowPassword(!showPassword)}>
-                <Feather
-                  name={showPassword ? "eye" : "eye-off"}
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
-            </View>
-            {errors.password && (
-              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
-                {errors.password.message}
-              </Text>
-            )}
-          </View>
+            </AuthFieldRow>
+          </AuthFormGroup>
         </View>
 
         <View className="flex-row justify-end mb-6">
           <Pressable onPress={() => router.push("/forgot")}>
-            <Text className="text-accent font-bold text-sm font-outfit">
+            <Text className="text-accent text-sm font-outfit-semibold">
               Forgot Password?
             </Text>
           </Pressable>
         </View>
 
-        <Pressable
+        <AuthPrimaryButton
           onPress={handleSubmit(onSubmit)}
-          className={`bg-accent h-14 rounded-2xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
-          disabled={isSubmitting}
-        >
-          <Text className="text-white font-bold text-lg font-outfit">
-            {isSubmitting ? "Signing In..." : "Sign In"}
-          </Text>
-        </Pressable>
+          isBusy={isSubmitting}
+          label="Sign In"
+          busyLabel="Signing In..."
+        />
         {formError ? (
-          <Text className="text-danger text-xs font-outfit mb-4">
+          <Text className="text-danger text-sm font-outfit mb-4" selectable>
             {formError}
           </Text>
         ) : null}
@@ -266,8 +255,8 @@ export default function LoginScreen() {
             {"Don't"} have an account?{" "}
           </Text>
           <Pressable onPress={() => router.push("/(auth)/register")}>
-            <Text className="text-accent font-bold text-base font-outfit">
-              Register
+            <Text className="text-accent text-base font-outfit-semibold">
+              Sign Up
             </Text>
           </Pressable>
         </View>

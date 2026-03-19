@@ -9,7 +9,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import {
+  extractAuthErrorMessage,
+  getFriendlyAuthErrorMessage,
+} from "../../lib/auth-error-message";
 import { Text, TextInput } from "@/components/ScaledText";
+import {
+  AuthFieldRow,
+  AuthFormGroup,
+  AuthHeader,
+  AuthPrimaryButton,
+} from "@/components/auth/AuthPrimitives";
+import { LegalModal, LegalSection } from "@/components/ui/LegalModal";
 
 const registerSchema = z
   .object({
@@ -37,6 +48,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -83,12 +95,12 @@ export default function RegisterScreen() {
       });
     } catch (err: any) {
       console.error("Register failed", err);
-      const message = err?.message ?? "Registration failed";
-      if (message.includes("already exists")) {
+      const message = extractAuthErrorMessage(err);
+      if (message.toLowerCase().includes("already exists")) {
         router.replace("/(auth)/login");
         return;
       }
-      setFormError(message);
+      setFormError(getFriendlyAuthErrorMessage(err, "register"));
     } finally {
       setIsSubmitting(false);
     }
@@ -110,43 +122,33 @@ export default function RegisterScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
-          paddingHorizontal: 24,
+          paddingHorizontal: 20,
           paddingBottom: 32,
+          paddingTop: 8,
         }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
       >
-        <View className="mb-8">
-          <View className="self-start rounded-full px-3 py-1.5 mb-4 bg-accent-light">
-            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.6px] text-accent">
-              Athlete + guardian
-            </Text>
-          </View>
-          <Text className="text-4xl font-telma-bold text-app mb-2">
-            Create account
-          </Text>
-          <Text className="text-base font-outfit text-secondary leading-6">
-            Sign up to get started on your journey.
-          </Text>
-        </View>
+        <AuthHeader
+          title="Create account"
+          subtitle="Set up your profile so training plans, coaching, and family access are ready from day one."
+        />
 
         <View className="space-y-4 gap-4 mb-6">
-          <View>
-            <View
-              className={`flex-row items-center bg-input border ${errors.name ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
+          <AuthFormGroup>
+            <AuthFieldRow
+              icon="user"
+              label="Full name"
+              error={errors.name?.message}
             >
-              <Feather
-                name="user"
-                size={20}
-                color={errors.name ? colors.danger : colors.textSecondary}
-              />
               <Controller
                 control={control}
                 name="name"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    className="flex-1 ml-3 text-app text-base font-outfit"
-                    placeholder="Full Name"
+                    className="text-app font-outfit"
+                    style={{ fontSize: 17, lineHeight: 22, paddingVertical: 0 }}
+                    placeholder="Your full name"
                     placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -156,30 +158,20 @@ export default function RegisterScreen() {
                   />
                 )}
               />
-            </View>
-            {errors.name && (
-              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
-                {errors.name.message}
-              </Text>
-            )}
-          </View>
-
-          <View>
-            <View
-              className={`flex-row items-center bg-input border ${errors.email ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
+            </AuthFieldRow>
+            <AuthFieldRow
+              icon="mail"
+              label="Email"
+              error={errors.email?.message}
             >
-              <Feather
-                name="mail"
-                size={20}
-                color={errors.email ? colors.danger : colors.textSecondary}
-              />
               <Controller
                 control={control}
                 name="email"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    className="flex-1 ml-3 text-app text-base font-outfit"
-                    placeholder="Email Address"
+                    className="text-app font-outfit"
+                    style={{ fontSize: 17, lineHeight: 22, paddingVertical: 0 }}
+                    placeholder="name@example.com"
                     placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -190,30 +182,33 @@ export default function RegisterScreen() {
                   />
                 )}
               />
-            </View>
-            {errors.email && (
-              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
-                {errors.email.message}
-              </Text>
-            )}
-          </View>
-
-          <View>
-            <View
-              className={`flex-row items-center bg-input border ${errors.password ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
+            </AuthFieldRow>
+            <AuthFieldRow
+              icon="lock"
+              label="Password"
+              error={errors.password?.message}
+              trailing={
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Feather
+                    name={showPassword ? "eye" : "eye-off"}
+                    size={18}
+                    color={colors.textSecondary}
+                  />
+                </Pressable>
+              }
             >
-              <Feather
-                name="lock"
-                size={20}
-                color={errors.password ? colors.danger : colors.textSecondary}
-              />
               <Controller
                 control={control}
                 name="password"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    className="flex-1 ml-3 text-app text-base font-outfit"
-                    placeholder="Password"
+                    className="text-app font-outfit"
+                    style={{ fontSize: 17, lineHeight: 22, paddingVertical: 0 }}
+                    placeholder="Create a password"
                     placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -224,21 +219,9 @@ export default function RegisterScreen() {
                   />
                 )}
               />
-              <Pressable onPress={() => setShowPassword(!showPassword)}>
-                <Feather
-                  name={showPassword ? "eye" : "eye-off"}
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
-            </View>
-            {errors.password && (
-              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
-                {errors.password.message}
-              </Text>
-            )}
+            </AuthFieldRow>
             {passwordValue.length > 0 ? (
-              <View className="mt-2 ml-2 gap-1">
+              <View className="mt-3 ml-4 gap-1">
                 <Text
                   className="text-xs font-outfit"
                   style={{ color: passwordRules.minLength ? colors.success : colors.textSecondary }}
@@ -271,28 +254,33 @@ export default function RegisterScreen() {
                 </Text>
               </View>
             ) : null}
-          </View>
-
-          <View>
-            <View
-              className={`flex-row items-center bg-input border ${errors.confirmPassword ? "border-danger" : "border-app"} rounded-2xl px-4 h-14`}
+            <AuthFieldRow
+              icon="lock"
+              label="Confirm password"
+              error={errors.confirmPassword?.message}
+              isLast
+              trailing={
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  <Feather
+                    name={showConfirmPassword ? "eye" : "eye-off"}
+                    size={18}
+                    color={colors.textSecondary}
+                  />
+                </Pressable>
+              }
             >
-              <Feather
-                name="lock"
-                size={20}
-                color={
-                  errors.confirmPassword
-                    ? colors.danger
-                    : colors.textSecondary
-                }
-              />
               <Controller
                 control={control}
                 name="confirmPassword"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    className="flex-1 ml-3 text-app text-base font-outfit"
-                    placeholder="Confirm Password"
+                    className="text-app font-outfit"
+                    style={{ fontSize: 17, lineHeight: 22, paddingVertical: 0 }}
+                    placeholder="Re-enter your password"
                     placeholderTextColor={colors.placeholder}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -303,22 +291,8 @@ export default function RegisterScreen() {
                   />
                 )}
               />
-              <Pressable
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Feather
-                  name={showConfirmPassword ? "eye" : "eye-off"}
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
-            </View>
-            {errors.confirmPassword && (
-              <Text className="text-danger text-xs font-outfit ml-2 mt-1">
-                {errors.confirmPassword.message}
-              </Text>
-            )}
-          </View>
+            </AuthFieldRow>
+          </AuthFormGroup>
         </View>
 
         <View>
@@ -326,31 +300,35 @@ export default function RegisterScreen() {
             control={control}
             name="isChecked"
             render={({ field: { onChange, value } }) => (
-              <Pressable
-                className="flex-row items-center mb-8"
-                onPress={() => onChange(!value)}
-              >
+              <View className="flex-row items-center mb-8">
                 <View
                   className={`w-6 h-6 rounded-md border items-center justify-center ${value ? "bg-accent border-accent" : "bg-input border-app"}`}
                 >
-                  {value && <Feather name="check" size={16} color="white" />}
-                </View>
-                <Text className="ml-3 text-secondary text-base font-outfit">
-                  I agree to the{" "}
                   <Pressable
-                    onPress={() =>
-                      router.push({
-                        pathname: "/terms",
-                        params: { from: "/(auth)/register" },
-                      })
-                    }
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: value }}
+                    className="w-6 h-6 items-center justify-center"
+                    hitSlop={8}
+                    onPress={() => onChange(!value)}
                   >
-                    <Text className="text-accent font-bold">
+                    {value ? <Feather name="check" size={16} color="white" /> : null}
+                  </Pressable>
+                </View>
+                <View className="ml-3 flex-row items-center">
+                  <Text className="text-secondary text-base font-outfit">
+                    I agree to the{" "}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => setShowTerms(true)}
+                  >
+                    <Text className="text-accent font-outfit-semibold">
                       Terms & Conditions
                     </Text>
                   </Pressable>
-                </Text>
-              </Pressable>
+                </View>
+              </View>
             )}
           />
           {errors.isChecked && (
@@ -360,17 +338,14 @@ export default function RegisterScreen() {
           )}
         </View>
 
-        <Pressable
+        <AuthPrimaryButton
           onPress={handleSubmit(onSubmit)}
-          className={`bg-accent h-14 rounded-xl items-center justify-center shadow-sm active:opacity-90 mb-8 ${isSubmitting ? "opacity-70" : ""}`}
-          disabled={isSubmitting}
-        >
-          <Text className="text-white font-bold text-lg font-outfit">
-            {isSubmitting ? "Creating..." : "Sign Up"}
-          </Text>
-        </Pressable>
+          isBusy={isSubmitting}
+          label="Sign Up"
+          busyLabel="Creating..."
+        />
         {formError ? (
-          <Text className="text-danger text-xs font-outfit mb-4">
+          <Text className="text-danger text-sm font-outfit mb-4" selectable>
             {formError}
           </Text>
         ) : null}
@@ -380,12 +355,41 @@ export default function RegisterScreen() {
             Already have an account?{" "}
           </Text>
           <Pressable onPress={() => router.back()}>
-            <Text className="text-accent font-bold text-base font-outfit">
+            <Text className="text-accent text-base font-outfit-semibold">
               Log In
             </Text>
           </Pressable>
         </View>
       </KeyboardAwareScrollView>
+
+      <LegalModal visible={showTerms} onClose={() => setShowTerms(false)} title="Terms & Conditions">
+        <View className="mb-6">
+          <Text className="text-base font-outfit text-secondary mb-4">Last updated: February 05, 2024</Text>
+          <Text className="text-base font-outfit text-secondary">
+            By accessing or using the PHP Coaching application, you agree to be bound by these Terms of Service.
+          </Text>
+        </View>
+        <LegalSection
+          title="1. Agreement to Terms"
+          content="By accessing or using the PHP Coaching application, you agree to be bound by these Terms of Service. If you do not agree, please do not use the app."
+        />
+        <LegalSection
+          title="2. Eligibility"
+          content="The app is designed for athletes and their guardians. Guardians are responsible for the management of minor accounts and all coaching bookings."
+        />
+        <LegalSection
+          title="3. Coaching & Subscriptions"
+          content="Subscriptions provide access to specific training tiers (PHP, Plus, Premium). Features and availability may vary based on your selected plan."
+        />
+        <LegalSection
+          title="4. Safety & Liability"
+          content="Physical training involves inherent risks. Users must ensure they are in proper physical condition before proceeding with any training program provided."
+        />
+        <LegalSection
+          title="5. Termination"
+          content="We reserve the right to suspend or terminate accounts that violate our community guidelines or fail to maintain valid subscriptions."
+        />
+      </LegalModal>
     </SafeAreaView>
   );
 }
