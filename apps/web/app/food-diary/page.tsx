@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { SectionHeader } from "../../components/admin/section-header";
 import { EmptyState } from "../../components/admin/empty-state";
+import { Badge } from "../../components/ui/badge";
 import { useGetFoodDiaryQuery } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
@@ -25,14 +27,26 @@ type FoodDiaryItem = {
   athleteId?: number | null;
 };
 
+type AthleteSummary = {
+  athleteId: number;
+  athleteName: string;
+  guardianName?: string | null;
+  guardianEmail?: string | null;
+  awaiting: number;
+  reviewed: number;
+  total: number;
+  lastEntryAt?: string | null;
+};
+
 export default function FoodDiaryPage() {
+  const router = useRouter();
   const { data, isLoading } = useGetFoodDiaryQuery();
   const [search, setSearch] = useState("");
 
   const entries: FoodDiaryItem[] = useMemo(() => data?.items ?? [], [data]);
   const awaitingReview = useMemo(() => entries.filter((e) => !e.reviewedAt), [entries]);
   const reviewed = useMemo(() => entries.filter((e) => e.reviewedAt), [entries]);
-  const filtered = useMemo(() => {
+  const filteredEntries = useMemo<FoodDiaryItem[]>(() => {
     if (!search.trim()) return entries;
     const needle = search.trim().toLowerCase();
     return entries.filter((entry) => {
@@ -46,6 +60,62 @@ export default function FoodDiaryPage() {
       );
     });
   }, [entries, search]);
+  const athletes = useMemo<AthleteSummary[]>(() => {
+    const map = new Map<number, AthleteSummary>();
+    for (const entry of entries) {
+      const athleteId = entry.athleteId ? Number(entry.athleteId) : null;
+      if (!athleteId || !Number.isFinite(athleteId)) continue;
+      const existing = map.get(athleteId);
+      const isReviewed = Boolean(entry.reviewedAt);
+      const lastEntryAt = entry.date ?? null;
+      const entryMs = lastEntryAt ? new Date(lastEntryAt).getTime() : 0;
+
+      if (!existing) {
+        map.set(athleteId, {
+          athleteId,
+          athleteName: entry.athleteName ?? `Athlete #${athleteId}`,
+          guardianName: entry.guardianName ?? null,
+          guardianEmail: entry.guardianEmail ?? null,
+          awaiting: isReviewed ? 0 : 1,
+          reviewed: isReviewed ? 1 : 0,
+          total: 1,
+          lastEntryAt,
+        });
+        continue;
+      }
+
+      const existingMs = existing.lastEntryAt ? new Date(existing.lastEntryAt).getTime() : 0;
+      map.set(athleteId, {
+        ...existing,
+        awaiting: existing.awaiting + (isReviewed ? 0 : 1),
+        reviewed: existing.reviewed + (isReviewed ? 1 : 0),
+        total: existing.total + 1,
+        lastEntryAt: entryMs > existingMs ? lastEntryAt : existing.lastEntryAt,
+      });
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.awaiting !== b.awaiting) return b.awaiting - a.awaiting;
+      const aMs = a.lastEntryAt ? new Date(a.lastEntryAt).getTime() : 0;
+      const bMs = b.lastEntryAt ? new Date(b.lastEntryAt).getTime() : 0;
+      return bMs - aMs;
+    });
+  }, [entries]);
+
+  const filteredAthletes = useMemo(() => {
+    if (!search.trim()) return athletes;
+    const needle = search.trim().toLowerCase();
+    return athletes.filter((athlete) => {
+      const name = athlete.athleteName ?? "";
+      const guardian = athlete.guardianName ?? "";
+      const email = athlete.guardianEmail ?? "";
+      return (
+        name.toLowerCase().includes(needle) ||
+        guardian.toLowerCase().includes(needle) ||
+        email.toLowerCase().includes(needle)
+      );
+    });
+  }, [athletes, search]);
 
   const formatDate = (value?: string | null) => {
     if (!value) return "Today";
@@ -65,7 +135,7 @@ export default function FoodDiaryPage() {
   };
 
   const exportCsv = () => {
-    const rows = filtered.map((entry) => {
+    const rows: Record<string, string>[] = filteredEntries.map((entry) => {
       const meals = formatMeals(entry.meals)
         .map((meal) => `${meal.label}: ${meal.value}`)
         .join(" | ");
@@ -83,9 +153,7 @@ export default function FoodDiaryPage() {
     const escape = (value: string) => `"${value.replace(/\"/g, '""')}"`;
     const csv = [
       headers.join(","),
-      ...rows.map((row) =>
-        headers.map((key) => escape(String((row as Record<string, string>)[key] ?? ""))).join(",")
-      ),
+      ...rows.map((row) => headers.map((key) => escape(String(row[key] ?? ""))).join(",")),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -120,7 +188,7 @@ export default function FoodDiaryPage() {
 
       <Card>
         <CardHeader>
-          <SectionHeader title="Food Diary Entries" description="Filter by athlete or parent email." />
+          <SectionHeader title="Athletes" description="Pick an athlete to view their food diary history by date/time." />
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -132,7 +200,7 @@ export default function FoodDiaryPage() {
             />
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-xs text-muted-foreground">
-                Showing {filtered.length} of {entries.length}
+                Showing {filteredAthletes.length} of {athletes.length}
               </p>
               <button
                 type="button"
@@ -148,88 +216,51 @@ export default function FoodDiaryPage() {
             <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
               Loading food diary entries...
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filteredAthletes.length === 0 ? (
             <EmptyState
-              title="No food diary entries"
+              title="No athletes yet"
               description="Guardian submissions will appear here."
             />
           ) : (
             <div className="space-y-4">
-              {filtered.map((entry) => {
-                const meals = formatMeals(entry.meals);
-                return (
-                  <Link
-                    key={entry.id}
-                    href={`/food-diary/entry/${entry.id}`}
-                    className="block rounded-3xl border border-border bg-secondary/20 p-5 transition-colors hover:bg-secondary/30"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+              {filteredAthletes.map((athlete) => (
+                <Card
+                  key={athlete.athleteId}
+                  className="cursor-pointer rounded-3xl border-border bg-secondary/20 transition hover:border-primary/40 hover:bg-secondary/30"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/food-diary/athletes/${athlete.athleteId}`)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    router.push(`/food-diary/athletes/${athlete.athleteId}`);
+                  }}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-xs uppercase tracking-[2px] text-muted-foreground">
-                          {formatDate(entry.date)}
+                          Last entry: {athlete.lastEntryAt ? new Date(athlete.lastEntryAt).toLocaleString() : "Unknown"}
                         </p>
-                        <p className="text-lg font-semibold text-foreground">
-                          {entry.athleteName ?? "Athlete"}
-                        </p>
+                        <p className="mt-1 text-lg font-semibold text-foreground">{athlete.athleteName}</p>
                         <p className="text-xs text-muted-foreground">
-                          Guardian: {entry.guardianName ?? entry.guardianEmail ?? "Unknown"}
+                          Guardian: {athlete.guardianName ?? athlete.guardianEmail ?? "Unknown"}
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        {athlete.awaiting > 0 ? (
+                          <Badge variant="accent">{athlete.awaiting} awaiting</Badge>
+                        ) : (
+                          <Badge>All reviewed</Badge>
+                        )}
                         <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-                          {entry.reviewedAt ? "Reviewed" : "Awaiting review"}
+                          {athlete.total} entr{athlete.total === 1 ? "y" : "ies"}
                         </span>
-                        {entry.guardianUserId ? (
-                          <a
-                            href={`/users?userId=${entry.guardianUserId}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
-                          >
-                            View Guardian
-                          </a>
-                        ) : null}
-                        {entry.athleteId ? (
-                          <a
-                            href={`/users?athleteId=${entry.athleteId}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
-                          >
-                            View Athlete
-                          </a>
-                        ) : null}
-                        {entry.photoUrl ? (
-                          <a
-                            href={entry.photoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded-full border border-border px-3 py-2 text-xs text-foreground"
-                          >
-                            View Photo
-                          </a>
-                        ) : null}
                       </div>
                     </div>
-
-                    {meals.length ? (
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        {meals.map((meal) => (
-                          <div key={meal.label} className="rounded-2xl border border-border bg-background/40 p-3">
-                            <p className="text-[11px] uppercase tracking-[1.4px] text-muted-foreground">
-                              {meal.label}
-                            </p>
-                            <p className="mt-2 text-sm text-foreground">{meal.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {entry.notes ? (
-                      <p className="mt-4 text-sm text-foreground">{entry.notes}</p>
-                    ) : null}
-                  </Link>
-                );
-              })}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>
