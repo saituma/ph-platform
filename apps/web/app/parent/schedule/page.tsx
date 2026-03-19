@@ -47,10 +47,13 @@ export default function ParentSchedulePage() {
 
   const availabilityRange = useMemo(() => {
     if (!selectedDate) return null;
-    const start = new Date(selectedDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(selectedDate);
-    end.setHours(23, 59, 59, 999);
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(selectedDate.trim());
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    const d = Number(m[3]);
+    const start = new Date(y, mo, d, 0, 0, 0, 0);
+    const end = new Date(y, mo, d, 23, 59, 59, 999);
     return { from: start.toISOString(), to: end.toISOString() };
   }, [selectedDate]);
 

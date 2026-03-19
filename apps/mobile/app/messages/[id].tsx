@@ -8,15 +8,42 @@ import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
 import { Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppSelector } from "@/store/hooks";
-import { canAccessTier } from "@/lib/planAccess";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { canUseCoachMessaging } from "@/lib/messagingAccess";
+import { apiRequest } from "@/lib/api";
+import { setMessagingAccessTiers, setProgramTier } from "@/store/slices/userSlice";
 import { useLocalSearchParams } from "expo-router";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
 
 export default function ThreadScreen() {
   const { colors } = useAppTheme();
+  const dispatch = useAppDispatch();
+  const token = useAppSelector((state) => state.user.token);
   const programTier = useAppSelector((state) => state.user.programTier);
-  const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");
+  const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
+  const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
+
+  React.useEffect(() => {
+    if (!token) return;
+    void (async () => {
+      try {
+        const status = await apiRequest<{
+          currentProgramTier?: string | null;
+          messagingAccessTiers?: string[] | null;
+        }>("/billing/status", { token, suppressStatusCodes: [401, 403, 404], skipCache: true });
+        dispatch(setProgramTier(status?.currentProgramTier ?? null));
+        dispatch(
+          setMessagingAccessTiers(
+            Array.isArray(status?.messagingAccessTiers)
+              ? status!.messagingAccessTiers!
+              : ["PHP", "PHP_Plus", "PHP_Premium"],
+          ),
+        );
+      } catch {
+        // no-op
+      }
+    })();
+  }, [dispatch, token]);
   const { sharedBoundTag, sharedAvatarTag } = useLocalSearchParams<{
     sharedBoundTag?: string;
     sharedAvatarTag?: string;
@@ -52,7 +79,7 @@ export default function ThreadScreen() {
   const handleLockedPress = React.useCallback(() => {
     Alert.alert(
       "Messaging locked",
-      "Messaging is available on PHP Premium plans.",
+      "Messaging isn’t enabled for your current plan.",
       [{ text: "OK" }],
     );
   }, []);
@@ -117,11 +144,7 @@ export default function ThreadScreen() {
           pendingAttachment={pendingAttachment}
           onRemovePendingAttachment={handleRemovePendingAttachment}
           isUploadingAttachment={isUploadingAttachment}
-          disabledMessage={
-            !canMessage
-              ? "Messaging unlocks on PHP Premium."
-              : undefined
-          }
+          disabledMessage={!canMessage ? "Messaging isn’t enabled for your plan." : undefined}
           onDisabledPress={handleLockedPress}
         />
         <ReactionPickerModal

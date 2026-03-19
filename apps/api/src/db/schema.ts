@@ -95,6 +95,8 @@ export const adminSettingsTable = pgTable(
     workStartMinute: integer().notNull().default(0),
     workEndHour: integer().notNull().default(18),
     workEndMinute: integer().notNull().default(0),
+    /** Which program tiers may message the coach (coach-editable). Null = all tiers. */
+    messagingEnabledTiers: jsonb(),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },

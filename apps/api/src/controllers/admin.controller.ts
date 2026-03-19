@@ -27,6 +27,7 @@ import {
   softDeleteUser,
   updateAdminPreferences,
   updateAdminProfile,
+  updateAdminMessagingAccess,
   updateAthleteProgramTier,
   getOnboardingConfig,
   updateOnboardingConfig,
@@ -440,6 +441,19 @@ export async function updateAdminPreferencesDetails(req: Request, res: Response)
   }
   const data = await updateAdminPreferences(req.user!.id, parsed.data);
   return res.status(200).json(data);
+}
+
+const messagingAccessSchema = z.object({
+  tiers: z.array(z.enum(ProgramType.enumValues)),
+});
+
+export async function putMessagingAccessDetails(req: Request, res: Response) {
+  const parsed = messagingAccessSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+  const tiers = await updateAdminMessagingAccess(req.user!.id, parsed.data.tiers);
+  return res.status(200).json({ messagingAccessTiers: tiers });
 }
 
 export async function getOnboardingConfigDetails(_req: Request, res: Response) {

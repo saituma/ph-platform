@@ -5,11 +5,12 @@ import React from "react";
 import { View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { canAccessTier } from "@/lib/planAccess";
+import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import {
   setLatestSubscriptionRequest,
+  setMessagingAccessTiers,
   setProgramTier,
 } from "@/store/slices/userSlice";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -22,6 +23,7 @@ export default function MessagesScreen() {
   const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.user.token);
   const programTier = useAppSelector((state) => state.user.programTier);
+  const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
   const { isSectionHidden } = useAgeExperience();
   const insets = useSafeAreaInsets();
 
@@ -35,7 +37,7 @@ export default function MessagesScreen() {
     resetOpeningThread,
   } = useMessagesController();
   const pathname = usePathname();
-  const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");
+  const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
 
   React.useEffect(() => {
     if (!token) return;
@@ -43,6 +45,7 @@ export default function MessagesScreen() {
       try {
         const status = await apiRequest<{
           currentProgramTier?: string | null;
+          messagingAccessTiers?: string[] | null;
           latestRequest?: {
             status?: string | null;
             paymentStatus?: string | null;
@@ -55,6 +58,13 @@ export default function MessagesScreen() {
           skipCache: true,
         });
         dispatch(setProgramTier(status?.currentProgramTier ?? null));
+        dispatch(
+          setMessagingAccessTiers(
+            Array.isArray(status?.messagingAccessTiers)
+              ? status!.messagingAccessTiers!
+              : ["PHP", "PHP_Plus", "PHP_Premium"],
+          ),
+        );
         dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
       } catch {
         // no-op
@@ -95,7 +105,7 @@ export default function MessagesScreen() {
             Messages
           </Text>
           <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
-            Purchase the Premium plan to use messaging.
+            Messaging isn&apos;t enabled for your current plan. Ask your coach if you need access.
           </Text>
         </View>
       </SafeAreaView>

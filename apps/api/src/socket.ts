@@ -159,14 +159,23 @@ export function initSocket(server: HttpServer) {
         }
       }
 
-      await sendMessage({
-        senderId,
-        receiverId: payload.toUserId,
-        content: content || "Attachment",
-        contentType: payload.contentType ?? "text",
-        mediaUrl: payload.mediaUrl,
-        clientId: payload.clientId,
-      });
+      try {
+        await sendMessage({
+          senderId,
+          receiverId: payload.toUserId,
+          content: content || "Attachment",
+          contentType: payload.contentType ?? "text",
+          mediaUrl: payload.mediaUrl,
+          clientId: payload.clientId,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM") {
+          console.warn("[socket] message:send blocked:", msg);
+          return;
+        }
+        throw err;
+      }
     });
 
     socket.on(

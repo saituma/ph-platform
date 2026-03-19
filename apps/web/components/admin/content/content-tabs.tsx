@@ -45,6 +45,9 @@ export function ContentTabs({
   const [testimonialName, setTestimonialName] = useState("");
   const [testimonialQuote, setTestimonialQuote] = useState("");
   const [testimonialPhoto, setTestimonialPhoto] = useState("");
+  const [testimonialMediaType, setTestimonialMediaType] = useState<"text" | "image" | "video">("text");
+  const [testimonialVideoUrl, setTestimonialVideoUrl] = useState("");
+  const [testimonialVideoAspect, setTestimonialVideoAspect] = useState<"reel" | "landscape" | "square">("reel");
   const [introVideoError, setIntroVideoError] = useState<string | null>(null);
 
   const isBlockedIntroVideoUrl = (value: string) => {
@@ -292,48 +295,101 @@ export function ContentTabs({
               />
             </div>
             <div className="space-y-2">
-              <Label>Testimony</Label>
+              <Label>Format</Label>
+              <Select
+                value={testimonialMediaType}
+                onChange={(e) => setTestimonialMediaType(e.target.value as "text" | "image" | "video")}
+              >
+                <option value="text">Text quote</option>
+                <option value="image">Photo + optional quote</option>
+                <option value="video">Video (link or Shorts / Reel URL)</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Quote {testimonialMediaType === "text" ? "" : "(optional)"}</Label>
               <Textarea
                 placeholder="Share the testimonial..."
                 value={testimonialQuote}
                 onChange={(e) => setTestimonialQuote(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Photo</Label>
-              <ParentCourseMediaUpload
-                label={testimonialPhoto ? "Replace Photo" : "Upload Photo"}
-                folder="home/testimonials"
-                accept="image/*"
-                maxSizeMb={10}
-                onUploaded={(url) => setTestimonialPhoto(url)}
-              />
-              {testimonialPhoto ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
-                  <span className="break-all text-muted-foreground">{testimonialPhoto}</span>
-                  <Button size="sm" variant="outline" onClick={() => setTestimonialPhoto("")}>
-                    Remove
-                  </Button>
+            {testimonialMediaType === "image" ? (
+              <div className="space-y-2">
+                <Label>Photo</Label>
+                <ParentCourseMediaUpload
+                  label={testimonialPhoto ? "Replace Photo" : "Upload Photo"}
+                  folder="home/testimonials"
+                  accept="image/*"
+                  maxSizeMb={10}
+                  onUploaded={(url) => setTestimonialPhoto(url)}
+                />
+                {testimonialPhoto ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                    <span className="break-all text-muted-foreground">{testimonialPhoto}</span>
+                    <Button size="sm" variant="outline" onClick={() => setTestimonialPhoto("")}>
+                      Remove
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {testimonialMediaType === "video" ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Video URL</Label>
+                  <Input
+                    placeholder="https://… (MP4, Vimeo, YouTube, Shorts)"
+                    value={testimonialVideoUrl}
+                    onChange={(e) => setTestimonialVideoUrl(e.target.value)}
+                  />
                 </div>
-              ) : null}
-            </div>
+                <div className="space-y-2">
+                  <Label>Video shape</Label>
+                  <Select
+                    value={testimonialVideoAspect}
+                    onChange={(e) =>
+                      setTestimonialVideoAspect(e.target.value as "reel" | "landscape" | "square")
+                    }
+                  >
+                    <option value="reel">Vertical (9:16 — Reels / Shorts)</option>
+                    <option value="landscape">Landscape (16:9)</option>
+                    <option value="square">Square (1:1)</option>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Paste a direct file URL or a YouTube / Vimeo link. The app uses the same player as exercise videos.
+                </p>
+              </div>
+            ) : null}
           </div>
           <div className="space-y-4">
             <Button
               className="w-full"
               onClick={() => {
-                if (!testimonialName.trim() || !testimonialQuote.trim()) {
-                  return;
-                }
-                const entry = {
+                if (!testimonialName.trim()) return;
+                const quote = testimonialQuote.trim();
+                const video = testimonialVideoUrl.trim();
+                const photo = testimonialPhoto.trim();
+                if (testimonialMediaType === "text" && !quote) return;
+                if (testimonialMediaType === "image" && !photo && !quote) return;
+                if (testimonialMediaType === "video" && !video) return;
+                const entry: Record<string, unknown> = {
                   id: `t_${Date.now()}`,
                   name: testimonialName.trim(),
-                  quote: testimonialQuote.trim(),
-                  photoUrl: testimonialPhoto.trim() || undefined,
+                  quote: quote || "",
+                  mediaType: testimonialMediaType,
                 };
+                if (testimonialMediaType === "image" && photo) entry.photoUrl = photo;
+                if (testimonialMediaType === "video") {
+                  entry.videoUrl = video;
+                  entry.aspectRatio = testimonialVideoAspect;
+                }
                 setTestimonialName("");
                 setTestimonialQuote("");
                 setTestimonialPhoto("");
+                setTestimonialVideoUrl("");
+                setTestimonialMediaType("text");
+                setTestimonialVideoAspect("reel");
                 setHomeTestimonials((prev) => [...prev, entry]);
               }}
             >
@@ -343,9 +399,17 @@ export function ContentTabs({
               className="w-full"
               variant="outline"
               onClick={() => {
-                const cleaned = homeTestimonials.filter(
-                  (item: any) => item?.name?.trim?.() && item?.quote?.trim?.()
-                );
+                const cleaned = homeTestimonials.filter((item: any) => {
+                  if (!item?.name?.trim?.()) return false;
+                  const q = String(item?.quote ?? "").trim();
+                  const photo = String(item?.photoUrl ?? "").trim();
+                  const video = String(item?.videoUrl ?? "").trim();
+                  const mt = item?.mediaType ?? (video ? "video" : photo ? "image" : "text");
+                  if (mt === "text") return q.length > 0;
+                  if (mt === "image") return q.length > 0 || photo.length > 0;
+                  if (mt === "video") return video.length > 0;
+                  return q.length > 0;
+                });
                 onSaveTestimonials({ testimonials: cleaned });
               }}
             >
@@ -364,7 +428,9 @@ export function ContentTabs({
                           {item?.name ?? "Unnamed"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {item?.quote ?? ""}
+                          {item?.mediaType === "video"
+                            ? item?.videoUrl ?? "Video"
+                            : item?.quote ?? ""}
                         </p>
                       </div>
                       <Button
@@ -387,6 +453,9 @@ export function ContentTabs({
                           className="h-full w-full object-cover"
                         />
                       </div>
+                    ) : null}
+                    {item?.mediaType === "video" && item?.videoUrl ? (
+                      <p className="mt-2 text-[10px] text-muted-foreground break-all">{item.videoUrl}</p>
                     ) : null}
                   </div>
                 ))}

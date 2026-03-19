@@ -200,9 +200,17 @@ export default function ProgramContentDetailScreen() {
     router.replace("/(tabs)/programs");
   }, [router]);
 
-  const handleScrollEnd = useCallback(
+  const scrollDragStartYRef = useRef(0);
+
+  const handleScrollBeginDrag = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollDragStartYRef.current = event.nativeEvent.contentOffset.y;
+  }, []);
+
+  const handleScrollEndDragForBack = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
+      const startedAtTop = scrollDragStartYRef.current <= 12;
+      if (!startedAtTop) return;
       if (offsetY < -60) {
         const now = Date.now();
         if (now - lastBackAtRef.current < 1000) return;
@@ -210,7 +218,7 @@ export default function ProgramContentDetailScreen() {
         handleBack();
       }
     },
-    [handleBack]
+    [handleBack],
   );
   const contentContainerStyle = useMemo(() => ({ paddingBottom: 40 }), []);
   const contentBody = useMemo(() => {
@@ -240,8 +248,8 @@ export default function ProgramContentDetailScreen() {
         <ThemedScrollView
           onRefresh={() => load(true)}
           contentContainerStyle={contentContainerStyle}
-          onScrollEndDrag={handleScrollEnd}
-          onMomentumScrollEnd={handleScrollEnd}
+          onScrollBeginDrag={handleScrollBeginDrag}
+          onScrollEndDrag={handleScrollEndDragForBack}
         >
           <View className="px-6 pt-6">
             <Transition.View

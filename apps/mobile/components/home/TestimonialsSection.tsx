@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated"
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { Ionicons } from "@expo/vector-icons";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
 
 const AUTO_SCROLL_INTERVAL = 5000;
 
@@ -18,11 +19,82 @@ type TestimonialItem = {
   photo?: string | null;
   imageUrl?: string | null;
   image?: string | null;
+  mediaType?: "text" | "image" | "video" | string | null;
+  videoUrl?: string | null;
+  aspectRatio?: "reel" | "landscape" | "square" | string | null;
 };
 
 type TestimonialsSectionProps = {
   items?: TestimonialItem[] | null;
 };
+
+function videoHeightForAspect(cardInnerWidth: number, aspect?: string | null) {
+  const a = aspect === "landscape" ? "landscape" : aspect === "square" ? "square" : "reel";
+  const ar = a === "reel" ? 9 / 16 : a === "square" ? 1 : 16 / 9;
+  const h = cardInnerWidth / ar;
+  return Math.min(Math.max(Math.round(h), 140), a === "reel" ? 520 : 300);
+}
+
+function TestimonialBody({ item, innerWidth }: { item: TestimonialItem; innerWidth: number }) {
+  const videoUrl = String(item.videoUrl ?? "").trim();
+  const showVideo =
+    item.mediaType === "video" ||
+    (videoUrl.length > 0 && item.mediaType !== "image" && item.mediaType !== "text");
+  const photo =
+    item.photoUrl ?? item.photo ?? item.imageUrl ?? item.image ?? null;
+  const quote = String(item.quote ?? "").trim();
+
+  if (showVideo && videoUrl) {
+    const h = videoHeightForAspect(innerWidth, item.aspectRatio ?? undefined);
+    return (
+      <View className="gap-4">
+        <View className="overflow-hidden rounded-2xl bg-black/10">
+          <VideoPlayer
+            uri={videoUrl}
+            height={h}
+            autoPlay={false}
+            shouldPlay={false}
+            initialMuted
+            ignoreTabFocus
+            isLooping={false}
+          />
+        </View>
+        {quote ? (
+          <Text className="text-app font-outfit text-lg italic leading-relaxed opacity-90">
+            {"\u201C"}
+            {quote}
+            {"\u201D"}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
+
+  if (photo) {
+    return (
+      <View className="gap-4">
+        {quote ? (
+          <Text className="text-app font-outfit text-lg italic leading-relaxed mb-2 opacity-90">
+            {"\u201C"}
+            {quote}
+            {"\u201D"}
+          </Text>
+        ) : null}
+        <View className="w-full overflow-hidden rounded-2xl" style={{ maxHeight: 280 }}>
+          <Image source={{ uri: photo }} resizeMode="cover" style={{ width: "100%", height: 220 }} />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <Text className="text-app font-outfit text-lg italic leading-relaxed mb-8 opacity-90">
+      {"\u201C"}
+      {quote || " "}
+      {"\u201D"}
+    </Text>
+  );
+}
 
 export function TestimonialsSection({ items }: TestimonialsSectionProps) {
   const { width } = useWindowDimensions();
@@ -57,6 +129,7 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
 
   if (isSingle) {
     const item = testimonials[0];
+    const innerW = width - 48 - 64;
     const photo =
       item.photoUrl ??
       item.photo ??
@@ -92,11 +165,9 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
                 <StarRating rating={item.rating} />
               </View>
             ) : null}
-            <Text className="text-app font-outfit text-lg italic leading-relaxed mb-8 opacity-90">
-              {"\u201C"}
-              {item.quote}
-              {"\u201D"}
-            </Text>
+            <View className="mb-6">
+              <TestimonialBody item={item} innerWidth={innerW} />
+            </View>
 
             <View className="flex-row justify-between items-center border-t border-separator pt-6">
               <View>
@@ -146,6 +217,7 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
     item: TestimonialItem;
     index: number;
   }) => {
+    const innerW = width - 48 - 64;
     const photo =
       item.photoUrl ??
       (item as any).photo ??
@@ -169,11 +241,9 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
               <StarRating rating={item.rating} />
             </View>
           ) : null}
-          <Text className="text-app font-outfit text-lg italic leading-relaxed mb-8 opacity-90">
-            {"\u201C"}
-            {item.quote}
-            {"\u201D"}
-          </Text>
+          <View className="mb-6">
+            <TestimonialBody item={item} innerWidth={innerW} />
+          </View>
 
           <View className="flex-row justify-between items-center border-t border-separator pt-6">
             <View>
@@ -235,7 +305,7 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
         ref={flatListRef}
         data={testimonials}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => (item.id ? String(item.id) : `t-${index}`)}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}

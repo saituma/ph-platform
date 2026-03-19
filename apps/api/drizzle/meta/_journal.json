@@ -281,6 +281,13 @@
       "when": 1773010000000,
       "tag": "0039_premium_athlete_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1773011000000,
+      "tag": "0040_messaging_enabled_tiers",
+      "breakpoints": true
     }
   ]
 }

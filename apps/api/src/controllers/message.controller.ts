@@ -72,16 +72,27 @@ export async function sendMessageToCoach(req: Request, res: Response) {
     receiverId = coach.id;
   }
 
-  const message = await sendMessage({
-    senderId: userId,
-    receiverId: receiverId,
-    content: input.content,
-    contentType: input.contentType,
-    mediaUrl: input.mediaUrl,
-    videoUploadId: input.videoUploadId,
-    clientId: input.clientId,
-  });
-  return res.status(201).json({ message });
+  try {
+    const message = await sendMessage({
+      senderId: userId,
+      receiverId: receiverId,
+      content: input.content,
+      contentType: input.contentType,
+      mediaUrl: input.mediaUrl,
+      videoUploadId: input.videoUploadId,
+      clientId: input.clientId,
+    });
+    return res.status(201).json({ message });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg === "MESSAGING_DISABLED_FOR_TIER") {
+      return res.status(403).json({ error: "Messaging is not enabled for your plan." });
+    }
+    if (msg === "AI_COACH_REQUIRES_PREMIUM") {
+      return res.status(403).json({ error: "AI coach chat requires PHP Premium." });
+    }
+    throw err;
+  }
 }
 
 export async function markRead(req: Request, res: Response) {
