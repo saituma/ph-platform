@@ -40,6 +40,7 @@ import {
   deletePhpPlusTabsAdmin,
   createBookingAdmin,
   getBooking,
+  listProgramSectionCompletionsAdmin,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -72,6 +73,7 @@ router.post("/admin/messages/:userId", sendAdminMessage);
 router.delete("/admin/messages/:userId", deleteThreadMessages);
 router.post("/admin/messages/:userId/read", markThreadRead);
 router.get("/admin/users/:userId/onboarding", getOnboarding);
+router.get("/admin/users/:userId/program-section-completions", listProgramSectionCompletionsAdmin);
 router.post("/admin/users/program-tier", updateProgramTier);
 router.post("/admin/enrollments", assignProgram);
 router.post("/admin/programs", createProgram);

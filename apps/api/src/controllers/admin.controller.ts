@@ -41,6 +41,7 @@ import {
 } from "../services/admin.service";
 import { createBooking } from "../services/booking.service";
 import { getGuardianAndAthlete } from "../services/user.service";
+import { listProgramSectionCompletionsForAthlete } from "../services/program-section-completion.service";
 import { db } from "../db";
 import { notificationTable, serviceTypeTable } from "../db/schema";
 import { ProgramType, sessionType } from "../db/schema";
@@ -233,6 +234,31 @@ export async function getOnboarding(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
   const data = await getUserOnboarding(userId);
   return res.status(200).json(data);
+}
+
+export async function listProgramSectionCompletionsAdmin(req: Request, res: Response) {
+  const userId = z.coerce.number().int().min(1).parse(req.params.userId);
+  const query = z
+    .object({
+      from: z.string().datetime().optional(),
+      to: z.string().datetime().optional(),
+      limit: z.coerce.number().int().min(1).max(500).optional(),
+    })
+    .parse(req.query);
+
+  const onboarding = await getUserOnboarding(userId);
+  const athleteId = onboarding?.athlete?.id ?? null;
+  if (!athleteId) {
+    return res.status(200).json({ items: [] });
+  }
+
+  const items = await listProgramSectionCompletionsForAthlete({
+    athleteId,
+    from: query.from ? new Date(query.from) : null,
+    to: query.to ? new Date(query.to) : null,
+    limit: query.limit ?? 200,
+  });
+  return res.status(200).json({ items });
 }
 
 export async function getAdminProfileDetails(req: Request, res: Response) {

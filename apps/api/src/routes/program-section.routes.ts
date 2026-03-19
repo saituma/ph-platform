@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   createProgramSectionContentHandler,
+  completeProgramSectionContentHandler,
   deleteProgramSectionContentHandler,
   getProgramSectionContentHandler,
   listProgramSectionContentHandler,
@@ -14,6 +15,7 @@ const router = Router();
 
 router.get("/program-section-content", requireAuth, listProgramSectionContentHandler);
 router.get("/program-section-content/:contentId", requireAuth, getProgramSectionContentHandler);
+router.post("/program-section-content/:contentId/complete", requireAuth, completeProgramSectionContentHandler);
 router.post(
   "/program-section-content",
   requireAuth,

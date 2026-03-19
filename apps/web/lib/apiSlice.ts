@@ -484,6 +484,20 @@ export const apiSlice = createApi({
       query: (userId) => `/admin/users/${userId}/onboarding`,
       providesTags: ["Users"],
     }),
+    getUserProgramSectionCompletions: builder.query<
+      { items: any[] },
+      { userId: number; from?: string; to?: string; limit?: number }
+    >({
+      query: ({ userId, from, to, limit }) => {
+        const params = new URLSearchParams();
+        if (from) params.set("from", from);
+        if (to) params.set("to", to);
+        if (limit != null) params.set("limit", String(limit));
+        const suffix = params.toString() ? `?${params.toString()}` : "";
+        return `/admin/users/${userId}/program-section-completions${suffix}`;
+      },
+      providesTags: ["Users"],
+    }),
     updateProgramTier: builder.mutation<any, { athleteId: number; programTier: string }>({
       query: (body) => ({
         url: "/admin/users/program-tier",
@@ -662,6 +676,7 @@ export const {
   useDeleteContentMutation,
   useReviewVideoUploadMutation,
   useGetUserOnboardingQuery,
+  useGetUserProgramSectionCompletionsQuery,
   useUpdateProgramTierMutation,
   useAssignProgramMutation,
   useGetProgramsQuery,

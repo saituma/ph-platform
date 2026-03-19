@@ -11,6 +11,7 @@ import {
 } from "../services/program-section.service";
 import { getAthleteForUser } from "../services/user.service";
 import { calculateAge, normalizeDate } from "../lib/age";
+import { createProgramSectionCompletion } from "../services/program-section-completion.service";
 
 function resolveAgeFromAthlete(row: any) {
   if (!row) return null;
@@ -62,6 +63,13 @@ const updateSchema = z.object({
   allowVideoUpload: z.boolean().optional().nullable(),
   order: z.number().int().min(1).optional().nullable(),
   metadata: exerciseMetadataSchema,
+});
+
+const completionSchema = z.object({
+  rpe: z.number().int().min(1).max(10).optional().nullable(),
+  soreness: z.number().int().min(0).max(10).optional().nullable(),
+  fatigue: z.number().int().min(0).max(10).optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
 });
 
 export async function listProgramSectionContentHandler(req: Request, res: Response) {
@@ -142,4 +150,23 @@ export async function deleteProgramSectionContentHandler(req: Request, res: Resp
     return res.status(404).json({ error: "Content not found" });
   }
   return res.status(200).json({ item });
+}
+
+export async function completeProgramSectionContentHandler(req: Request, res: Response) {
+  const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const input = completionSchema.parse(req.body ?? {});
+  const athlete = await getAthleteForUser(req.user!.id);
+  if (!athlete) {
+    return res.status(400).json({ error: "Onboarding incomplete" });
+  }
+
+  const row = await createProgramSectionCompletion({
+    athleteId: athlete.id,
+    programSectionContentId: contentId,
+    rpe: input.rpe ?? null,
+    soreness: input.soreness ?? null,
+    fatigue: input.fatigue ?? null,
+    notes: input.notes ?? null,
+  });
+  return res.status(201).json({ item: row });
 }
