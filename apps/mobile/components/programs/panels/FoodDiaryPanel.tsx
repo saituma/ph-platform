@@ -51,7 +51,11 @@ export function FoodDiaryPanel() {
     if (!token) return;
     try {
       setLoadingEntries(true);
-      const data = await apiRequest<{ items: any[] }>("/food-diary", { token, suppressLog: true });
+      const data = await apiRequest<{ items: any[] }>("/food-diary", {
+        token,
+        suppressLog: true,
+        forceRefresh: true,
+      });
       const items = data.items ?? [];
       setEntries(items);
 

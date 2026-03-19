@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "../../ui/badge";
 
 type UserCard = {
@@ -23,18 +24,10 @@ export function UsersCards({ users, onSelect, onChangePlan, onToggleBlock, onDel
   return (
     <div className="space-y-3 md:hidden">
       {users.map((user) => (
-        <div
+        <Link
           key={user.id}
-          className="w-full rounded-2xl border border-border bg-secondary/40 p-4 text-left text-sm"
-          role="button"
-          tabIndex={0}
-          onClick={() => onSelect(user.id)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onSelect(user.id);
-            }
-          }}
+          href={`/users/${user.id}`}
+          className="block w-full rounded-2xl border border-border bg-secondary/40 p-4 text-left text-sm transition-colors hover:bg-secondary/60"
         >
           <div className="flex items-center justify-between">
             <p className="font-semibold text-foreground">{user.name}</p>
@@ -64,11 +57,18 @@ export function UsersCards({ users, onSelect, onChangePlan, onToggleBlock, onDel
               <span className="text-foreground">{user.lastActive}</span>
             </div>
           </div>
-          <div className="mt-4 flex items-center gap-2">
+          <div
+            className="mt-4 flex items-center gap-2"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
             <button
               type="button"
               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/70"
               onClick={(event) => {
+                event.preventDefault();
                 event.stopPropagation();
                 onChangePlan(user.id);
               }}
@@ -79,6 +79,7 @@ export function UsersCards({ users, onSelect, onChangePlan, onToggleBlock, onDel
               type="button"
               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/70"
               onClick={(event) => {
+                event.preventDefault();
                 event.stopPropagation();
                 onToggleBlock(user.id, !user.isBlocked);
               }}
@@ -89,6 +90,7 @@ export function UsersCards({ users, onSelect, onChangePlan, onToggleBlock, onDel
               type="button"
               className="rounded-full border border-red-500/40 px-3 py-1 text-xs font-medium text-red-200 hover:bg-red-500/10"
               onClick={(event) => {
+                event.preventDefault();
                 event.stopPropagation();
                 onDelete(user.id);
               }}
@@ -96,7 +98,7 @@ export function UsersCards({ users, onSelect, onChangePlan, onToggleBlock, onDel
               Delete
             </button>
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );

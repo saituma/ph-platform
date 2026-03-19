@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "../../ui/badge";
 import {
   Table,
@@ -43,13 +44,11 @@ export function UsersTable({ users, onSelect, onChangePlan, onToggleBlock, onDel
         </TableHeader>
         <TableBody>
           {users.map((user) => (
-            <TableRow
-              key={user.id}
-              className="hover:bg-secondary/60"
-              onClick={() => onSelect(user.id)}
-            >
+            <TableRow key={user.id} className="hover:bg-secondary/60">
               <TableCell className="font-medium text-foreground">
-                {user.name}
+                <Link href={`/users/${user.id}`} className="hover:underline focus:outline-none">
+                  {user.name}
+                </Link>
               </TableCell>
               <TableCell>
                 <Badge variant={user.tier === "Premium" ? "primary" : "default"}>

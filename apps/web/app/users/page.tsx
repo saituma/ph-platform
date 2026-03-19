@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { EmptyState } from "../../components/admin/empty-state";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { useBlockUserMutation, useDeleteUserMutation, useGetUsersQuery } from "../../lib/apiSlice";
 
 function UsersPageContent() {
+  const router = useRouter();
   const { data: usersData, isLoading } = useGetUsersQuery();
   const searchParams = useSearchParams();
   const [blockUser] = useBlockUserMutation();
@@ -83,19 +84,18 @@ function UsersPageContent() {
       if (Number.isFinite(parsed)) {
         resolvedUserId = parsed;
       }
-    } else if (athleteIdParam) {
+    } else if (athleteIdParam && usersData?.users) {
       const parsed = Number(athleteIdParam);
       if (Number.isFinite(parsed)) {
-        const match = usersData?.users?.find((user: any) => user.athleteId === parsed);
+        const match = usersData.users.find((user: any) => user.athleteId === parsed);
         resolvedUserId = match?.id ?? null;
       }
     }
 
     if (resolvedUserId) {
-      setSelectedUserId(resolvedUserId);
-      setActiveDialog("review-onboarding");
+      router.replace(`/users/${resolvedUserId}`);
     }
-  }, [searchParams, usersData]);
+  }, [searchParams, usersData, router]);
 
   return (
     <AdminShell
