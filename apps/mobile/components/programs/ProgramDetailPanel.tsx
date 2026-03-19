@@ -32,6 +32,7 @@ import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { Transition } from "@/components/navigation/TransitionStack";
+import { ActivityIndicator, TextInput } from "react-native";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -74,6 +75,36 @@ type ProgramSectionContent = {
   metadata?: ExerciseMetadata | null;
   order?: number | null;
   updatedAt?: string | null;
+};
+
+type PlanExercise = {
+  id: number;
+  order: number;
+  sets?: number | null;
+  reps?: number | null;
+  duration?: number | null;
+  restSeconds?: number | null;
+  coachingNotes?: string | null;
+  completed?: boolean;
+  exercise?: {
+    id: number;
+    name: string;
+    videoUrl?: string | null;
+    sets?: number | null;
+    reps?: number | null;
+    duration?: number | null;
+    restSeconds?: number | null;
+    cues?: string | null;
+  } | null;
+};
+
+type PlanSession = {
+  id: number;
+  weekNumber: number;
+  sessionNumber: number;
+  title?: string | null;
+  notes?: string | null;
+  exercises: PlanExercise[];
 };
 
 export function ProgramDetailPanel({
@@ -572,6 +603,19 @@ export function ProgramDetailPanel({
       );
     }
     if (activeTab === "Program") {
+      if (programId === "premium") {
+        return (
+          <PremiumPlanPanel
+            token={token}
+            accent={colors.accent}
+            isDark={isDark}
+            surfaceColor={surfaceColor}
+            mutedSurface={mutedSurface}
+            accentSurface={accentSurface}
+            borderSoft={borderSoft}
+          />
+        );
+      }
       const tier = PROGRAM_TIERS.find((item) => item.id === programId);
       return (
         <View className="gap-4">
@@ -854,5 +898,369 @@ export function ProgramDetailPanel({
       </Modal>
 
     </>
+  );
+}
+
+function PremiumPlanPanel({
+  token,
+  accent,
+  isDark,
+  surfaceColor,
+  mutedSurface,
+  accentSurface,
+  borderSoft,
+}: {
+  token: string | null;
+  accent: string;
+  isDark: boolean;
+  surfaceColor: string;
+  mutedSurface: string;
+  accentSurface: string;
+  borderSoft: string;
+}) {
+  const [items, setItems] = useState<PlanSession[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeWeek, setActiveWeek] = useState<number | null>(null);
+  const [checkinOpen, setCheckinOpen] = useState(false);
+  const [checkinSession, setCheckinSession] = useState<PlanSession | null>(null);
+  const [rpe, setRpe] = useState("");
+  const [soreness, setSoreness] = useState("");
+  const [fatigue, setFatigue] = useState("");
+  const [notes, setNotes] = useState("");
+  const [checkinError, setCheckinError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await apiRequest<{ items: PlanSession[] }>("/premium-plan", {
+        token,
+        forceRefresh: true,
+        skipCache: true,
+      });
+      const list = (data.items ?? []).filter((s) => s && s.id);
+      setItems(list);
+      const weeks = Array.from(new Set(list.map((s) => Number(s.weekNumber)).filter((v) => Number.isFinite(v)))).sort(
+        (a, b) => a - b,
+      );
+      if (weeks.length) {
+        setActiveWeek((prev) => (prev != null && weeks.includes(prev) ? prev : weeks[0]));
+      } else {
+        setActiveWeek(null);
+      }
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to load plan.");
+      setItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const weeks = useMemo(() => {
+    const values = Array.from(
+      new Set(items.map((s) => Number(s.weekNumber)).filter((v) => Number.isFinite(v))),
+    ).sort((a, b) => a - b);
+    return values;
+  }, [items]);
+
+  const visibleSessions = useMemo(() => {
+    if (activeWeek == null) return [];
+    return items
+      .filter((s) => Number(s.weekNumber) === Number(activeWeek))
+      .slice()
+      .sort((a, b) => Number(a.sessionNumber) - Number(b.sessionNumber));
+  }, [activeWeek, items]);
+
+  const toggleExercise = useCallback(
+    async (exercise: PlanExercise) => {
+      if (!token) return;
+      const nextCompleted = !exercise.completed;
+      setItems((prev) =>
+        prev.map((session) => ({
+          ...session,
+          exercises: (session.exercises ?? []).map((ex) => (ex.id === exercise.id ? { ...ex, completed: nextCompleted } : ex)),
+        })),
+      );
+      try {
+        if (nextCompleted) {
+          await apiRequest(`/premium-plan/exercises/${exercise.id}/complete`, { method: "POST", token });
+        } else {
+          await apiRequest(`/premium-plan/exercises/${exercise.id}/complete`, { method: "DELETE", token });
+        }
+      } catch {
+        // revert on failure
+        setItems((prev) =>
+          prev.map((session) => ({
+            ...session,
+            exercises: (session.exercises ?? []).map((ex) =>
+              ex.id === exercise.id ? { ...ex, completed: !nextCompleted } : ex,
+            ),
+          })),
+        );
+      }
+    },
+    [token],
+  );
+
+  const openCheckin = (session: PlanSession) => {
+    setCheckinSession(session);
+    setRpe("");
+    setSoreness("");
+    setFatigue("");
+    setNotes("");
+    setCheckinError(null);
+    setCheckinOpen(true);
+  };
+
+  const submitCheckin = useCallback(async () => {
+    if (!token || !checkinSession) return;
+    const parseBoundedInt = (value: string, min: number, max: number) => {
+      if (!value.trim()) return null;
+      const num = Math.round(Number(value));
+      if (!Number.isFinite(num) || num < min || num > max) return "invalid";
+      return num;
+    };
+    const parsedRpe = parseBoundedInt(rpe, 1, 10);
+    const parsedSoreness = parseBoundedInt(soreness, 0, 10);
+    const parsedFatigue = parseBoundedInt(fatigue, 0, 10);
+    if (parsedRpe === "invalid" || parsedSoreness === "invalid" || parsedFatigue === "invalid") {
+      setCheckinError("Enter valid numbers (RPE 1–10, soreness/fatigue 0–10).");
+      return;
+    }
+    setIsSubmitting(true);
+    setCheckinError(null);
+    try {
+      await apiRequest(`/premium-plan/sessions/${checkinSession.id}/complete`, {
+        method: "POST",
+        token,
+        body: {
+          rpe: parsedRpe,
+          soreness: parsedSoreness,
+          fatigue: parsedFatigue,
+          notes: notes.trim() || null,
+        },
+      });
+      setCheckinOpen(false);
+    } catch (err: any) {
+      setCheckinError(err?.message ?? "Failed to save check-in.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [checkinSession, fatigue, notes, rpe, soreness, token]);
+
+  if (!token) {
+    return (
+      <View className="rounded-3xl bg-card px-6 py-5" style={isDark ? Shadows.none : Shadows.md}>
+        <Text className="text-sm font-outfit text-secondary text-center">
+          Log in to view your Premium plan.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className="gap-4">
+      <View className="rounded-[28px] px-6 py-5 gap-3" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}>
+        <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: accent }}>
+            Weekly plan
+          </Text>
+        </View>
+        <Text className="text-lg font-clash text-app font-bold">Your Weekly Schedule</Text>
+        <Text className="text-sm font-outfit text-secondary">
+          Mark exercises complete and log session check-ins so your coach can adjust training load.
+        </Text>
+      </View>
+
+      {weeks.length ? (
+        <View className="flex-row flex-wrap gap-2">
+          {weeks.map((week) => {
+            const active = activeWeek === week;
+            return (
+              <Pressable
+                key={week}
+                onPress={() => setActiveWeek(week)}
+                className="px-4 py-2 rounded-full border"
+                style={{
+                  backgroundColor: active ? accent : mutedSurface,
+                  borderColor: active ? accent : borderSoft,
+                }}
+              >
+                <Text className={`text-xs font-outfit uppercase tracking-[1.4px] ${active ? "text-white" : "text-secondary"}`}>
+                  Week {week}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {isLoading ? (
+        <View className="rounded-3xl bg-card px-6 py-6 items-center" style={isDark ? Shadows.none : Shadows.sm}>
+          <ActivityIndicator color={accent} />
+          <Text className="text-sm font-outfit text-secondary mt-2">Loading plan…</Text>
+        </View>
+      ) : error ? (
+        <View className="rounded-3xl bg-card px-6 py-6" style={isDark ? Shadows.none : Shadows.sm}>
+          <Text className="text-sm font-outfit text-secondary text-center">{error}</Text>
+        </View>
+      ) : visibleSessions.length === 0 ? (
+        <View className="rounded-3xl bg-card px-6 py-6" style={isDark ? Shadows.none : Shadows.sm}>
+          <Text className="text-sm font-outfit text-secondary text-center">
+            No sessions assigned yet. Your coach will build your plan soon.
+          </Text>
+        </View>
+      ) : (
+        visibleSessions.map((session) => (
+          <View key={session.id} className="rounded-[28px] px-6 py-5 gap-4" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
+            <View className="flex-row items-start justify-between gap-3">
+              <View className="flex-1">
+                <Text className="text-base font-clash text-app font-bold">
+                  Session {session.sessionNumber}
+                  {session.title ? ` • ${session.title}` : ""}
+                </Text>
+                {session.notes ? (
+                  <Text className="text-sm font-outfit text-secondary mt-1">{session.notes}</Text>
+                ) : null}
+              </View>
+              <Pressable
+                onPress={() => openCheckin(session)}
+                className="px-3 py-2 rounded-full"
+                style={{ backgroundColor: accentSurface, borderWidth: 1, borderColor: `${accent}33` }}
+              >
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: accent }}>
+                  Complete
+                </Text>
+              </Pressable>
+            </View>
+
+            <View className="gap-2">
+              {(session.exercises ?? []).map((ex) => {
+                const base = ex.exercise ?? null;
+                const displaySets = ex.sets ?? base?.sets ?? null;
+                const displayReps = ex.reps ?? base?.reps ?? null;
+                const displayDuration = ex.duration ?? base?.duration ?? null;
+                const displayRest = ex.restSeconds ?? base?.restSeconds ?? null;
+                const badge = [
+                  displaySets != null ? `${displaySets} sets` : null,
+                  displayReps != null ? `${displayReps} reps` : null,
+                  displayDuration != null ? `${displayDuration}s` : null,
+                  displayRest != null ? `${displayRest}s rest` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" • ");
+                return (
+                  <Pressable
+                    key={ex.id}
+                    onPress={() => toggleExercise(ex)}
+                    className="rounded-2xl border px-4 py-3"
+                    style={{
+                      backgroundColor: ex.completed ? `${accent}14` : mutedSurface,
+                      borderColor: ex.completed ? `${accent}55` : borderSoft,
+                    }}
+                  >
+                    <View className="flex-row items-center justify-between gap-2">
+                      <View className="flex-1">
+                        <Text className="text-sm font-outfit text-app font-semibold">
+                          {base?.name ?? "Exercise"}
+                        </Text>
+                        {badge ? (
+                          <Text className="text-[11px] font-outfit text-secondary mt-0.5">{badge}</Text>
+                        ) : null}
+                      </View>
+                      <View
+                        className="h-7 w-7 rounded-full items-center justify-center"
+                        style={{ backgroundColor: ex.completed ? accent : "rgba(15,23,42,0.10)" }}
+                      >
+                        <Feather name={ex.completed ? "check" : "circle"} size={14} color={ex.completed ? "#ffffff" : accent} />
+                      </View>
+                    </View>
+                    {ex.coachingNotes ? (
+                      <Text className="text-[12px] font-outfit text-secondary mt-2">{ex.coachingNotes}</Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ))
+      )}
+
+      <Modal visible={checkinOpen} transparent animationType="slide" onRequestClose={() => (isSubmitting ? null : setCheckinOpen(false))}>
+        <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}>
+          <View className="rounded-t-3xl p-4 pb-6" style={{ backgroundColor: surfaceColor }}>
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-lg font-clash text-app font-bold">Session Check-in</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  if (isSubmitting) return;
+                  setCheckinOpen(false);
+                }}
+                className="h-10 w-10 rounded-full items-center justify-center"
+                style={{ backgroundColor: mutedSurface }}
+              >
+                <Feather name="x" size={20} color={accent} />
+              </TouchableOpacity>
+            </View>
+
+            <View className="gap-3">
+              {[
+                { label: "RPE (1–10)", value: rpe, onChange: setRpe },
+                { label: "Soreness (0–10)", value: soreness, onChange: setSoreness },
+                { label: "Fatigue (0–10)", value: fatigue, onChange: setFatigue },
+              ].map((field) => (
+                <View key={field.label} className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
+                  <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">{field.label}</Text>
+                  <TextInput
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    placeholder="0"
+                    placeholderTextColor={isDark ? "rgba(255,255,255,0.45)" : "rgba(15,23,42,0.45)"}
+                    keyboardType="number-pad"
+                    style={{ marginTop: 6, color: isDark ? "#fff" : "#0f172a", fontSize: 16 }}
+                  />
+                </View>
+              ))}
+
+              <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
+                <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">Notes (optional)</Text>
+                <TextInput
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Anything your coach should know…"
+                  placeholderTextColor={isDark ? "rgba(255,255,255,0.45)" : "rgba(15,23,42,0.45)"}
+                  style={{ marginTop: 6, color: isDark ? "#fff" : "#0f172a", fontSize: 16 }}
+                />
+              </View>
+
+              {checkinError ? (
+                <Text className="text-xs font-outfit" style={{ color: isDark ? "#FCA5A5" : "#DC2626" }}>
+                  {checkinError}
+                </Text>
+              ) : null}
+
+              <Pressable
+                onPress={submitCheckin}
+                disabled={isSubmitting}
+                className="rounded-2xl px-4 py-4 flex-row items-center justify-center gap-2"
+                style={{ backgroundColor: accent, opacity: isSubmitting ? 0.7 : 1 }}
+              >
+                {isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Feather name="save" size={18} color="#ffffff" />}
+                <Text className="text-white font-outfit font-bold text-sm uppercase tracking-[1.3px]">
+                  {isSubmitting ? "Saving…" : "Save Check-in"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }

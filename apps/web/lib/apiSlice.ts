@@ -498,6 +498,72 @@ export const apiSlice = createApi({
       },
       providesTags: ["Users"],
     }),
+    getExercises: builder.query<{ exercises: any[] }, void>({
+      query: () => "/admin/exercises",
+      providesTags: ["Content"],
+      transformResponse: (response: any) => ({ exercises: response?.exercises ?? [] }),
+    }),
+    getUserPremiumPlan: builder.query<{ items: any[] }, { userId: number; weekNumber?: number }>({
+      query: ({ userId, weekNumber }) => ({
+        url: `/admin/users/${userId}/premium-plan`,
+        params: weekNumber ? { weekNumber } : undefined,
+      }),
+      providesTags: ["Users"],
+    }),
+    cloneUserPremiumPlan: builder.mutation<{ result: any }, { userId: number; replaceExisting?: boolean }>({
+      query: ({ userId, replaceExisting }) => ({
+        url: `/admin/users/${userId}/premium-plan/clone`,
+        method: "POST",
+        body: { replaceExisting: replaceExisting ?? true },
+      }),
+      invalidatesTags: ["Users"],
+    }),
+    createUserPremiumPlanSession: builder.mutation<{ item: any }, { userId: number; weekNumber: number; sessionNumber: number; title?: string | null; notes?: string | null }>({
+      query: ({ userId, ...body }) => ({
+        url: `/admin/users/${userId}/premium-plan/sessions`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Users"],
+    }),
+    updateUserPremiumPlanSession: builder.mutation<{ item: any }, { userId: number; sessionId: number; patch: any }>({
+      query: ({ userId, sessionId, patch }) => ({
+        url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}`,
+        method: "PATCH",
+        body: patch,
+      }),
+      invalidatesTags: ["Users"],
+    }),
+    deleteUserPremiumPlanSession: builder.mutation<{ item: any }, { userId: number; sessionId: number }>({
+      query: ({ userId, sessionId }) => ({
+        url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Users"],
+    }),
+    addUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; sessionId: number; body: any }>({
+      query: ({ userId, sessionId, body }) => ({
+        url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}/exercises`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Users"],
+    }),
+    updateUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; planExerciseId: number; patch: any }>({
+      query: ({ userId, planExerciseId, patch }) => ({
+        url: `/admin/users/${userId}/premium-plan/exercises/${planExerciseId}`,
+        method: "PATCH",
+        body: patch,
+      }),
+      invalidatesTags: ["Users"],
+    }),
+    deleteUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; planExerciseId: number }>({
+      query: ({ userId, planExerciseId }) => ({
+        url: `/admin/users/${userId}/premium-plan/exercises/${planExerciseId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Users"],
+    }),
     updateProgramTier: builder.mutation<any, { athleteId: number; programTier: string }>({
       query: (body) => ({
         url: "/admin/users/program-tier",
@@ -677,6 +743,15 @@ export const {
   useReviewVideoUploadMutation,
   useGetUserOnboardingQuery,
   useGetUserProgramSectionCompletionsQuery,
+  useGetExercisesQuery,
+  useGetUserPremiumPlanQuery,
+  useCloneUserPremiumPlanMutation,
+  useCreateUserPremiumPlanSessionMutation,
+  useUpdateUserPremiumPlanSessionMutation,
+  useDeleteUserPremiumPlanSessionMutation,
+  useAddUserPremiumPlanExerciseMutation,
+  useUpdateUserPremiumPlanExerciseMutation,
+  useDeleteUserPremiumPlanExerciseMutation,
   useUpdateProgramTierMutation,
   useAssignProgramMutation,
   useGetProgramsQuery,

@@ -18,6 +18,7 @@ import physioReferralRoutes from "./physio-referral.routes";
 import ageExperienceRoutes from "./age-experience.routes";
 import locationRoutes from "./location.routes";
 import notificationRoutes from "./notification.routes";
+import athletePlanRoutes from "./athlete-plan.routes";
 
 const router = Router();
 
@@ -39,5 +40,6 @@ router.use(physioReferralRoutes);
 router.use(ageExperienceRoutes);
 router.use(locationRoutes);
 router.use(notificationRoutes);
+router.use(athletePlanRoutes);
 
 export default router;

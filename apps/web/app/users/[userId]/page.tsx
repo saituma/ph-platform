@@ -10,11 +10,22 @@ import { Card, CardContent } from "../../../components/ui/card";
 import { SectionHeader } from "../../../components/admin/section-header";
 import { Button } from "../../../components/ui/button";
 import { Select } from "../../../components/ui/select";
+import { Input } from "../../../components/ui/input";
+import { Textarea } from "../../../components/ui/textarea";
 import {
   useBlockUserMutation,
   useDeleteUserMutation,
   useGetUserOnboardingQuery,
   useGetUserProgramSectionCompletionsQuery,
+  useGetExercisesQuery,
+  useGetUserPremiumPlanQuery,
+  useCloneUserPremiumPlanMutation,
+  useCreateUserPremiumPlanSessionMutation,
+  useUpdateUserPremiumPlanSessionMutation,
+  useDeleteUserPremiumPlanSessionMutation,
+  useAddUserPremiumPlanExerciseMutation,
+  useUpdateUserPremiumPlanExerciseMutation,
+  useDeleteUserPremiumPlanExerciseMutation,
   useGetUsersQuery,
   useUpdateProgramTierMutation,
 } from "../../../lib/apiSlice";
@@ -49,6 +60,14 @@ export default function UserDetailPage() {
   const { data: completionsData, isFetching: completionsLoading } = useGetUserProgramSectionCompletionsQuery(
     isValidId ? { userId, from: fromIso, limit: 200 } : (skipToken as any)
   );
+  const { data: exercisesData } = useGetExercisesQuery();
+  const [clonePlan, { isLoading: isCloningPlan }] = useCloneUserPremiumPlanMutation();
+  const [createPlanSession, { isLoading: isCreatingSession }] = useCreateUserPremiumPlanSessionMutation();
+  const [updatePlanSession, { isLoading: isUpdatingSession }] = useUpdateUserPremiumPlanSessionMutation();
+  const [deletePlanSession, { isLoading: isDeletingSession }] = useDeleteUserPremiumPlanSessionMutation();
+  const [addPlanExercise, { isLoading: isAddingExercise }] = useAddUserPremiumPlanExerciseMutation();
+  const [updatePlanExercise, { isLoading: isUpdatingExercise }] = useUpdateUserPremiumPlanExerciseMutation();
+  const [deletePlanExercise, { isLoading: isDeletingExercise }] = useDeleteUserPremiumPlanExerciseMutation();
 
   const [blockUser, { isLoading: blockLoading }] = useBlockUserMutation();
   const [deleteUser, { isLoading: deleteLoading }] = useDeleteUserMutation();
@@ -96,6 +115,75 @@ export default function UserDetailPage() {
       avgFatigue: average("fatigue"),
     };
   }, [loadCompletions]);
+
+  const [planWeek, setPlanWeek] = useState<number>(1);
+  const { data: premiumPlanData, isFetching: premiumPlanLoading } = useGetUserPremiumPlanQuery(
+    isValidId && resolvedTier === "PHP_Premium" ? { userId } : (skipToken as any)
+  );
+  const planSessions = useMemo(() => premiumPlanData?.items ?? [], [premiumPlanData]);
+  const planWeeks = useMemo(() => {
+    const set = new Set<number>();
+    (planSessions ?? []).forEach((s: any) => {
+      if (typeof s.weekNumber === "number") set.add(s.weekNumber);
+    });
+    return Array.from(set.values()).sort((a, b) => a - b);
+  }, [planSessions]);
+  useEffect(() => {
+    if (!planWeeks.length) return;
+    if (planWeeks.includes(planWeek)) return;
+    setPlanWeek(planWeeks[0]);
+  }, [planWeeks, planWeek]);
+
+  const visiblePlanSessions = useMemo(() => {
+    return (planSessions ?? []).filter((s: any) => Number(s.weekNumber) === Number(planWeek));
+  }, [planSessions, planWeek]);
+
+  const exerciseOptions = useMemo(() => exercisesData?.exercises ?? [], [exercisesData]);
+  const [newSessionWeek, setNewSessionWeek] = useState("1");
+  const [newSessionNumber, setNewSessionNumber] = useState("1");
+  const [sessionDrafts, setSessionDrafts] = useState<Record<number, { title: string; notes: string }>>({});
+  const [exerciseDrafts, setExerciseDrafts] = useState<
+    Record<number, { sets: string; reps: string; duration: string; restSeconds: string; coachingNotes: string }>
+  >({});
+  const [addExerciseSelection, setAddExerciseSelection] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    setSessionDrafts((prev) => {
+      const next = { ...prev };
+      (planSessions ?? []).forEach((session: any) => {
+        if (!session?.id) return;
+        if (next[session.id]) return;
+        next[session.id] = { title: session.title ?? "", notes: session.notes ?? "" };
+      });
+      return next;
+    });
+    setExerciseDrafts((prev) => {
+      const next = { ...prev };
+      (planSessions ?? []).forEach((session: any) => {
+        (session.exercises ?? []).forEach((ex: any) => {
+          if (!ex?.id) return;
+          if (next[ex.id]) return;
+          next[ex.id] = {
+            sets: ex.sets != null ? String(ex.sets) : "",
+            reps: ex.reps != null ? String(ex.reps) : "",
+            duration: ex.duration != null ? String(ex.duration) : "",
+            restSeconds: ex.restSeconds != null ? String(ex.restSeconds) : "",
+            coachingNotes: ex.coachingNotes ?? "",
+          };
+        });
+      });
+      return next;
+    });
+  }, [planSessions]);
+
+  const isPlanBusy =
+    isCloningPlan ||
+    isCreatingSession ||
+    isUpdatingSession ||
+    isDeletingSession ||
+    isAddingExercise ||
+    isUpdatingExercise ||
+    isDeletingExercise;
 
   useEffect(() => {
     setProgramTier(resolvedTier);
@@ -363,6 +451,330 @@ export default function UserDetailPage() {
                     <DetailRow label="Avg soreness" value={completionStats.avgSoreness} />
                     <DetailRow label="Avg fatigue" value={completionStats.avgFatigue} />
                   </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Premium plan editor */}
+        {resolvedTier === "PHP_Premium" && (
+          <Card>
+            <CardContent className="pt-6">
+              <SectionHeader
+                title="Premium Plan Editor (V1)"
+                description="Create and edit a per-athlete weekly schedule. This does not change templates."
+              />
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    await clonePlan({ userId, replaceExisting: true }).unwrap();
+                  }}
+                  disabled={!isValidId || isPlanBusy}
+                >
+                  {isCloningPlan ? "Cloning..." : "Clone From Assigned Template"}
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Week</span>
+                  <Select
+                    value={String(planWeek)}
+                    onChange={(e) => setPlanWeek(Number(e.target.value))}
+                    className="min-w-[120px]"
+                  >
+                    {(planWeeks.length ? planWeeks : [planWeek]).map((w) => (
+                      <option key={w} value={String(w)}>
+                        Week {w}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4">
+                <div className="rounded-2xl border border-border bg-secondary/20 p-4">
+                  <p className="text-sm font-semibold text-foreground">Add session</p>
+                  <div className="mt-3 flex flex-wrap items-end gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Week
+                      </label>
+                      <Input value={newSessionWeek} onChange={(e) => setNewSessionWeek(e.target.value)} className="w-24" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Session
+                      </label>
+                      <Input value={newSessionNumber} onChange={(e) => setNewSessionNumber(e.target.value)} className="w-24" />
+                    </div>
+                    <Button
+                      onClick={async () => {
+                        const week = Number(newSessionWeek);
+                        const sessionNumber = Number(newSessionNumber);
+                        if (!Number.isFinite(week) || !Number.isFinite(sessionNumber)) return;
+                        await createPlanSession({ userId, weekNumber: week, sessionNumber }).unwrap();
+                        setPlanWeek(week);
+                      }}
+                      disabled={isPlanBusy}
+                    >
+                      {isCreatingSession ? "Adding..." : "Add"}
+                    </Button>
+                  </div>
+                </div>
+
+                {premiumPlanLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading plan…</div>
+                ) : visiblePlanSessions.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    No sessions in this week yet. Clone from template or add a session.
+                  </div>
+                ) : (
+                  visiblePlanSessions
+                    .slice()
+                    .sort((a: any, b: any) => Number(a.sessionNumber) - Number(b.sessionNumber))
+                    .map((session: any) => {
+                      const draft = sessionDrafts[session.id] ?? { title: "", notes: "" };
+                      const exercises = (session.exercises ?? []).slice().sort((a: any, b: any) => Number(a.order) - Number(b.order));
+                      const nextOrder = exercises.length ? Math.max(...exercises.map((e: any) => Number(e.order ?? 0))) + 1 : 1;
+                      const selectedExerciseId = addExerciseSelection[session.id] ?? "";
+                      return (
+                        <div key={session.id} className="rounded-2xl border border-border bg-card p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-semibold text-foreground">
+                                Week {session.weekNumber} • Session {session.sessionNumber}
+                              </div>
+                              <div className="text-xs text-muted-foreground">Session ID: {session.id}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  const confirmed = window.confirm("Delete this session and all its exercises?");
+                                  if (!confirmed) return;
+                                  await deletePlanSession({ userId, sessionId: session.id }).unwrap();
+                                }}
+                                disabled={isPlanBusy}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                            <div className="space-y-2">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Title
+                              </label>
+                              <Input
+                                value={draft.title}
+                                onChange={(e) =>
+                                  setSessionDrafts((prev) => ({
+                                    ...prev,
+                                    [session.id]: { ...(prev[session.id] ?? { title: "", notes: "" }), title: e.target.value },
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Notes
+                              </label>
+                              <Textarea
+                                className="min-h-[42px]"
+                                value={draft.notes}
+                                onChange={(e) =>
+                                  setSessionDrafts((prev) => ({
+                                    ...prev,
+                                    [session.id]: { ...(prev[session.id] ?? { title: "", notes: "" }), notes: e.target.value },
+                                  }))
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              size="sm"
+                              onClick={async () => {
+                                await updatePlanSession({
+                                  userId,
+                                  sessionId: session.id,
+                                  patch: { title: draft.title.trim() || null, notes: draft.notes.trim() || null },
+                                }).unwrap();
+                              }}
+                              disabled={isPlanBusy}
+                            >
+                              {isUpdatingSession ? "Saving..." : "Save Session"}
+                            </Button>
+                          </div>
+
+                          <div className="mt-4 rounded-2xl border border-border bg-secondary/20 p-4">
+                            <div className="flex flex-wrap items-end justify-between gap-2">
+                              <div className="text-sm font-semibold text-foreground">Exercises</div>
+                              <div className="flex flex-wrap items-end gap-2">
+                                <Select
+                                  value={selectedExerciseId}
+                                  onChange={(e) =>
+                                    setAddExerciseSelection((prev) => ({ ...prev, [session.id]: e.target.value }))
+                                  }
+                                  className="min-w-[240px]"
+                                >
+                                  <option value="">Select exercise…</option>
+                                  {exerciseOptions.map((ex: any) => (
+                                    <option key={ex.id} value={String(ex.id)}>
+                                      {ex.name}
+                                    </option>
+                                  ))}
+                                </Select>
+                                <Button
+                                  size="sm"
+                                  onClick={async () => {
+                                    const exId = Number(selectedExerciseId);
+                                    if (!Number.isFinite(exId) || exId <= 0) return;
+                                    await addPlanExercise({
+                                      userId,
+                                      sessionId: session.id,
+                                      body: { exerciseId: exId, order: nextOrder },
+                                    }).unwrap();
+                                    setAddExerciseSelection((prev) => ({ ...prev, [session.id]: "" }));
+                                  }}
+                                  disabled={isPlanBusy || !selectedExerciseId}
+                                >
+                                  {isAddingExercise ? "Adding..." : "Add Exercise"}
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 grid gap-3">
+                              {exercises.length === 0 ? (
+                                <div className="text-xs text-muted-foreground">No exercises yet.</div>
+                              ) : (
+                                exercises.map((ex: any) => {
+                                  const base = ex.exercise ?? null;
+                                  const d = exerciseDrafts[ex.id] ?? {
+                                    sets: "",
+                                    reps: "",
+                                    duration: "",
+                                    restSeconds: "",
+                                    coachingNotes: "",
+                                  };
+                                  const name = base?.name ?? `Exercise ${ex.exerciseId}`;
+                                  return (
+                                    <div key={ex.id} className="rounded-2xl border border-border bg-background p-3">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                          <div className="text-sm font-semibold text-foreground">{name}</div>
+                                          <div className="text-xs text-muted-foreground">Order: {ex.order}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={async () => {
+                                              const confirmed = window.confirm("Remove this exercise from the session?");
+                                              if (!confirmed) return;
+                                              await deletePlanExercise({ userId, planExerciseId: ex.id }).unwrap();
+                                            }}
+                                            disabled={isPlanBusy}
+                                          >
+                                            Remove
+                                          </Button>
+                                        </div>
+                                      </div>
+
+                                      <div className="mt-3 grid gap-2 md:grid-cols-4">
+                                        <Input
+                                          placeholder={`Sets${base?.sets != null ? ` (${base.sets})` : ""}`}
+                                          value={d.sets}
+                                          onChange={(e) =>
+                                            setExerciseDrafts((prev) => ({
+                                              ...prev,
+                                              [ex.id]: { ...(prev[ex.id] ?? d), sets: e.target.value },
+                                            }))
+                                          }
+                                        />
+                                        <Input
+                                          placeholder={`Reps${base?.reps != null ? ` (${base.reps})` : ""}`}
+                                          value={d.reps}
+                                          onChange={(e) =>
+                                            setExerciseDrafts((prev) => ({
+                                              ...prev,
+                                              [ex.id]: { ...(prev[ex.id] ?? d), reps: e.target.value },
+                                            }))
+                                          }
+                                        />
+                                        <Input
+                                          placeholder={`Duration sec${base?.duration != null ? ` (${base.duration})` : ""}`}
+                                          value={d.duration}
+                                          onChange={(e) =>
+                                            setExerciseDrafts((prev) => ({
+                                              ...prev,
+                                              [ex.id]: { ...(prev[ex.id] ?? d), duration: e.target.value },
+                                            }))
+                                          }
+                                        />
+                                        <Input
+                                          placeholder={`Rest sec${base?.restSeconds != null ? ` (${base.restSeconds})` : ""}`}
+                                          value={d.restSeconds}
+                                          onChange={(e) =>
+                                            setExerciseDrafts((prev) => ({
+                                              ...prev,
+                                              [ex.id]: { ...(prev[ex.id] ?? d), restSeconds: e.target.value },
+                                            }))
+                                          }
+                                        />
+                                      </div>
+                                      <div className="mt-2">
+                                        <Textarea
+                                          className="min-h-[60px]"
+                                          placeholder="Coaching notes (override)"
+                                          value={d.coachingNotes}
+                                          onChange={(e) =>
+                                            setExerciseDrafts((prev) => ({
+                                              ...prev,
+                                              [ex.id]: { ...(prev[ex.id] ?? d), coachingNotes: e.target.value },
+                                            }))
+                                          }
+                                        />
+                                      </div>
+                                      <div className="mt-2 flex justify-end">
+                                        <Button
+                                          size="sm"
+                                          onClick={async () => {
+                                            const toNumOrNull = (v: string) => {
+                                              if (!v.trim()) return null;
+                                              const n = Number(v);
+                                              return Number.isFinite(n) ? n : null;
+                                            };
+                                            await updatePlanExercise({
+                                              userId,
+                                              planExerciseId: ex.id,
+                                              patch: {
+                                                sets: toNumOrNull(d.sets),
+                                                reps: toNumOrNull(d.reps),
+                                                duration: toNumOrNull(d.duration),
+                                                restSeconds: toNumOrNull(d.restSeconds),
+                                                coachingNotes: d.coachingNotes.trim() || null,
+                                              },
+                                            }).unwrap();
+                                          }}
+                                          disabled={isPlanBusy}
+                                        >
+                                          {isUpdatingExercise ? "Saving..." : "Save Exercise"}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                 )}
               </div>
             </CardContent>
