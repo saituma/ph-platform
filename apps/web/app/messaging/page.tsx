@@ -111,11 +111,16 @@ export default function MessagingPage() {
   const threads = useMemo<ThreadItem[]>(() => {
     const source = threadsData?.threads ?? [];
     const users = usersData?.users ?? [];
+    const premiumUsers = users.filter((user: any) => {
+      const tier = user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null;
+      if (tier !== "PHP_Premium") return false;
+      return user.role !== "admin" && user.role !== "superAdmin";
+    });
     const userThreads = new Map<number, any>();
     source.forEach((thread: any) => {
       userThreads.set(thread.userId, thread);
     });
-    const combined = users.map((user: any) => {
+    const combined = premiumUsers.map((user: any) => {
         const thread = userThreads.get(user.id);
         const timestamp = thread?.time ? new Date(thread.time).getTime() : 0;
         return {
@@ -146,11 +151,6 @@ export default function MessagingPage() {
     };
 
     return combined.sort((a, b) => {
-      const tierDiff = tierWeight(b.programTier) - tierWeight(a.programTier);
-      if (tierDiff !== 0) return tierDiff;
-      if (a.premium !== b.premium) {
-        return a.premium ? -1 : 1;
-      }
       if ((b.unread ?? 0) !== (a.unread ?? 0)) {
         return (b.unread ?? 0) - (a.unread ?? 0);
       }
@@ -184,6 +184,13 @@ export default function MessagingPage() {
     if (inboxMode === "direct" && !selectedUserId && threads.length) {
       setSelectedUserId(threads[0].userId);
     }
+  }, [inboxMode, selectedUserId, threads]);
+
+  useEffect(() => {
+    if (inboxMode !== "direct") return;
+    if (!selectedUserId) return;
+    if (threads.some((t) => t.userId === selectedUserId)) return;
+    setSelectedUserId(threads[0]?.userId ?? null);
   }, [inboxMode, selectedUserId, threads]);
 
   const groups = useMemo(() => {

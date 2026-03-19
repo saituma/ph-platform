@@ -8,7 +8,6 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { EmptyState } from "../../components/admin/empty-state";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
 import { Textarea } from "../../components/ui/textarea";
 import {
   useCreatePhysioReferralMutation,
@@ -40,7 +39,7 @@ type ReferralItem = {
   createdAt?: string | null;
 };
 
-const TIERS = ["PHP", "PHP_Plus", "PHP_Premium"];
+const ELIGIBLE_TIERS = new Set(["PHP_Plus", "PHP_Premium"]);
 
 export default function PhysioReferralsPage() {
   const { data, isLoading } = useGetPhysioReferralsQuery();
@@ -53,7 +52,6 @@ export default function PhysioReferralsPage() {
   const [athleteId, setAthleteId] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
   const [athleteLabel, setAthleteLabel] = useState<string | null>(null);
-  const [programTier, setProgramTier] = useState("PHP");
   const [referalLink, setReferalLink] = useState("");
   const [discountPercent, setDiscountPercent] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +67,6 @@ export default function PhysioReferralsPage() {
 
   const entries: ReferralItem[] = useMemo(() => data?.items ?? [], [data]);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editTier, setEditTier] = useState("PHP");
   const [editLink, setEditLink] = useState("");
   const [editDiscount, setEditDiscount] = useState("");
   const [editPhysioName, setEditPhysioName] = useState("");
@@ -80,13 +77,37 @@ export default function PhysioReferralsPage() {
   const [editSpecialty, setEditSpecialty] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
+  const athleteTierById = useMemo(() => {
+    const users = usersData?.users ?? [];
+    const map = new Map<number, string>();
+    users.forEach((user: any) => {
+      const aId = user.athleteId ? Number(user.athleteId) : null;
+      if (!aId) return;
+      const tier = (user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null) as string | null;
+      if (tier) map.set(aId, tier);
+    });
+    return map;
+  }, [usersData]);
+
+  const selectedAthleteTier = useMemo(() => {
+    const id = Number(athleteId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    return athleteTierById.get(id) ?? null;
+  }, [athleteId, athleteTierById]);
+
   const athleteOptions = useMemo(() => {
     const users = usersData?.users ?? [];
     return users
       .filter((user: any) => user.athleteId)
+      .map((user: any) => {
+        const tier = (user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null) as string | null;
+        return { ...user, _tier: tier };
+      })
+      .filter((user: any) => ELIGIBLE_TIERS.has(user._tier))
       .map((user: any) => ({
         athleteId: user.athleteId as number,
-        label: `${user.athleteName ?? "Athlete"} (Guardian: ${user.name ?? user.email ?? "Unknown"})`,
+        tier: user._tier as string,
+        label: `${user.athleteName ?? "Athlete"} (Guardian: ${user.name ?? user.email ?? "Unknown"}) • ${user._tier}`,
       }));
   }, [usersData]);
 
@@ -144,10 +165,14 @@ export default function PhysioReferralsPage() {
       setError("Athlete ID and referral link are required.");
       return;
     }
+    if (!selectedAthleteTier || !ELIGIBLE_TIERS.has(selectedAthleteTier)) {
+      setError("Physio referrals can only be sent to PHP Plus or PHP Premium athletes.");
+      return;
+    }
     try {
       await createReferral({
         athleteId: Number(athleteId),
-        programTier,
+        programTier: selectedAthleteTier,
         referalLink,
         discountPercent: discountPercent ? Number(discountPercent) : undefined,
         metadata: buildMetadata(),
@@ -167,7 +192,6 @@ export default function PhysioReferralsPage() {
 
   const startEdit = (entry: ReferralItem) => {
     setEditingId(entry.id);
-    setEditTier(entry.programTier ?? "PHP");
     setEditLink(entry.referalLink ?? "");
     setEditDiscount(
       typeof entry.discountPercent === "number" ? String(entry.discountPercent) : ""
@@ -188,7 +212,6 @@ export default function PhysioReferralsPage() {
       await updateReferral({
         id,
         data: {
-          programTier: editTier,
           referalLink: editLink,
           discountPercent: editDiscount ? Number(editDiscount) : null,
           metadata: buildEditMetadata(),
@@ -236,7 +259,7 @@ export default function PhysioReferralsPage() {
             ) : null}
 
             {/* Athlete Search */}
-            <div className="space-y-2">
+	            <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Athlete</label>
               <Input
                 value={athleteSearch}
@@ -267,26 +290,22 @@ export default function PhysioReferralsPage() {
                   </button>
                 ))}
               </div>
-              {!athleteId ? (
-                <p className="text-xs text-muted-foreground">
-                  Select an athlete to enable referral creation.
-                </p>
-              ) : null}
-            </div>
+	              {!athleteId ? (
+	                <p className="text-xs text-muted-foreground">
+	                  Only PHP Plus and PHP Premium athletes can receive physio referrals.
+	                </p>
+	              ) : selectedAthleteTier ? (
+	                <p className="text-xs text-muted-foreground">
+	                  Program tier: <span className="text-foreground">{selectedAthleteTier}</span>
+	                </p>
+	              ) : null}
+	            </div>
 
-            {/* Tier & Link */}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program Tier</label>
-                <Select value={programTier} onChange={(event) => setProgramTier(event.target.value)}>
-                  {TIERS.map((tier) => (
-                    <option key={tier} value={tier}>{tier}</option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Discount %</label>
-                <Input
+	            {/* Tier & Link */}
+	            <div className="grid gap-3 sm:grid-cols-2">
+	              <div className="space-y-1">
+	                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Discount %</label>
+	                <Input
                   value={discountPercent}
                   onChange={(event) => setDiscountPercent(event.target.value)}
                   placeholder="Optional"
@@ -326,11 +345,11 @@ export default function PhysioReferralsPage() {
               />
             </div>
 
-            <Button onClick={handleCreate} disabled={creating} className="w-full">
-              {creating ? "Saving..." : "Save Referral & Notify Athlete"}
-            </Button>
-          </CardContent>
-        </Card>
+	            <Button onClick={handleCreate} disabled={creating} className="w-full">
+	              {creating ? "Saving..." : "Save Referral & Notify Athlete"}
+	            </Button>
+	          </CardContent>
+	        </Card>
 
         <Card>
           <CardHeader>
@@ -341,16 +360,21 @@ export default function PhysioReferralsPage() {
               <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
                 Loading referrals...
               </div>
-            ) : entries.length === 0 ? (
-              <EmptyState title="No referrals yet" description="Create your first physio referral." />
-            ) : (
-              <div className="space-y-3">
-                {entries.map((entry) => {
-                  const meta = (entry.metadata ?? {}) as PhysioMetadata;
-                  const hasMeta = !!(meta.physioName || meta.clinicName || meta.location || meta.phone || meta.specialty);
+	            ) : entries.filter((entry) => ELIGIBLE_TIERS.has(athleteTierById.get(entry.athleteId) ?? entry.programTier ?? "PHP")).length === 0 ? (
+	              <EmptyState title="No referrals yet" description="Create your first physio referral." />
+	            ) : (
+	              <div className="space-y-3">
+	                {entries
+	                  .filter((entry) =>
+	                    ELIGIBLE_TIERS.has(athleteTierById.get(entry.athleteId) ?? entry.programTier ?? "PHP")
+	                  )
+	                  .map((entry) => {
+	                  const meta = (entry.metadata ?? {}) as PhysioMetadata;
+	                  const hasMeta = !!(meta.physioName || meta.clinicName || meta.location || meta.phone || meta.specialty);
+	                  const resolvedTier = athleteTierById.get(entry.athleteId) ?? entry.programTier ?? "PHP";
 
-                  return (
-                    <div key={entry.id} className="rounded-3xl border border-border bg-secondary/20 p-4">
+	                  return (
+	                    <div key={entry.id} className="rounded-3xl border border-border bg-secondary/20 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="space-y-1">
                           <p className="text-xs uppercase tracking-[2px] text-muted-foreground">
@@ -359,10 +383,10 @@ export default function PhysioReferralsPage() {
                           <p className="text-lg font-semibold text-foreground">
                             {entry.athleteName ?? `Athlete #${entry.athleteId}`}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Tier: {entry.programTier ?? "PHP"}
-                          </p>
-                        </div>
+	                          <p className="text-xs text-muted-foreground">
+	                            Tier: {resolvedTier}
+	                          </p>
+	                        </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {entry.referalLink ? (
                             <a
@@ -420,26 +444,21 @@ export default function PhysioReferralsPage() {
                         </div>
                       )}
 
-                      {editingId === entry.id ? (
-                        <div className="mt-4 space-y-3">
-                          <div className="grid gap-3 lg:grid-cols-3">
-                            <Select value={editTier} onChange={(event) => setEditTier(event.target.value)}>
-                              {TIERS.map((tier) => (
-                                <option key={tier} value={tier}>{tier}</option>
-                              ))}
-                            </Select>
-                            <Input
-                              value={editLink}
-                              onChange={(event) => setEditLink(event.target.value)}
-                              placeholder="Referral link"
-                            />
-                            <Input
-                              value={editDiscount}
-                              onChange={(event) => setEditDiscount(event.target.value)}
-                              placeholder="Discount %"
-                              type="number"
-                            />
-                          </div>
+	                      {editingId === entry.id ? (
+	                        <div className="mt-4 space-y-3">
+	                          <div className="grid gap-3 lg:grid-cols-2">
+	                            <Input
+	                              value={editLink}
+	                              onChange={(event) => setEditLink(event.target.value)}
+	                              placeholder="Referral link"
+	                            />
+	                            <Input
+	                              value={editDiscount}
+	                              onChange={(event) => setEditDiscount(event.target.value)}
+	                              placeholder="Discount %"
+	                              type="number"
+	                            />
+	                          </div>
                           <div className="rounded-2xl border border-border bg-secondary/20 p-3 space-y-2">
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Physio Details</p>
                             <div className="grid gap-2 sm:grid-cols-2">

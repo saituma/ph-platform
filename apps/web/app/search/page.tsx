@@ -49,11 +49,19 @@ function SearchContent() {
 
   const threads = useMemo(() => {
     const list = threadsData?.threads ?? [];
-    if (!q) return [];
-    return list.filter((thread: any) =>
-      [thread.name, thread.preview].filter(Boolean).some((value) => normalize(String(value)).includes(q))
+    const users = usersData?.users ?? [];
+    const premiumUserIds = new Set(
+      users
+        .filter((u: any) => (u.programTier ?? u.guardianProgramTier ?? u.currentProgramTier) === "PHP_Premium")
+        .map((u: any) => u.id)
     );
-  }, [threadsData, q]);
+    if (!q) return [];
+    return list
+      .filter((thread: any) => premiumUserIds.has(thread.userId))
+      .filter((thread: any) =>
+        [thread.name, thread.preview].filter(Boolean).some((value) => normalize(String(value)).includes(q))
+      );
+  }, [threadsData, usersData, q]);
 
   const videos = useMemo(() => {
     const list = videosData?.items ?? [];
