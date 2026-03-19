@@ -168,6 +168,7 @@ export default function UserDetailPage() {
     order: number;
   }>({ open: false, sessionId: null, order: 1 });
   const [isUploadingExerciseVideo, setIsUploadingExerciseVideo] = useState(false);
+  const [exerciseVideoPreviewUrl, setExerciseVideoPreviewUrl] = useState<string | null>(null);
   const [newExerciseDraft, setNewExerciseDraft] = useState<{
     name: string;
     videoUrl: string;
@@ -187,6 +188,14 @@ export default function UserDetailPage() {
     duration: "",
     restSeconds: "",
   });
+
+  useEffect(() => {
+    return () => {
+      if (exerciseVideoPreviewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(exerciseVideoPreviewUrl);
+      }
+    };
+  }, [exerciseVideoPreviewUrl]);
 
   useEffect(() => {
     if (addSessionMode !== "next") return;
@@ -1055,6 +1064,10 @@ export default function UserDetailPage() {
 	                    onChange={async (e) => {
 	                      const file = e.target.files?.[0];
 	                      if (!file) return;
+	                      if (exerciseVideoPreviewUrl?.startsWith("blob:")) {
+	                        URL.revokeObjectURL(exerciseVideoPreviewUrl);
+	                      }
+	                      setExerciseVideoPreviewUrl(URL.createObjectURL(file));
 	                      try {
 	                        setIsUploadingExerciseVideo(true);
 	                        const presigned = await presignMediaUpload({
@@ -1073,6 +1086,7 @@ export default function UserDetailPage() {
 	                          throw new Error(`Upload failed (HTTP ${putRes.status})`);
 	                        }
 	                        setNewExerciseDraft((prev) => ({ ...prev, videoUrl: presigned.publicUrl }));
+	                        setExerciseVideoPreviewUrl(presigned.publicUrl);
 	                        setPlanNotice({ type: "success", message: "Video uploaded. It will be saved with the exercise." });
 	                      } catch (err) {
 	                        setPlanNotice({ type: "error", message: `Video upload failed: ${planErrorMessage(err)}` });
@@ -1088,7 +1102,13 @@ export default function UserDetailPage() {
 	                      type="button"
 	                      variant="outline"
 	                      size="sm"
-	                      onClick={() => setNewExerciseDraft((prev) => ({ ...prev, videoUrl: "" }))}
+	                      onClick={() => {
+	                        if (exerciseVideoPreviewUrl?.startsWith("blob:")) {
+	                          URL.revokeObjectURL(exerciseVideoPreviewUrl);
+	                        }
+	                        setExerciseVideoPreviewUrl(null);
+	                        setNewExerciseDraft((prev) => ({ ...prev, videoUrl: "" }));
+	                      }}
 	                      disabled={isPlanBusy || isUploadingExerciseVideo}
 	                    >
 	                      Remove
@@ -1097,10 +1117,30 @@ export default function UserDetailPage() {
 	                </div>
 	                <Input
 	                  value={newExerciseDraft.videoUrl}
-	                  onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, videoUrl: e.target.value }))}
+	                  onChange={(e) => {
+	                    const url = e.target.value;
+	                    setNewExerciseDraft((prev) => ({ ...prev, videoUrl: url }));
+	                    setExerciseVideoPreviewUrl(url.trim() ? url.trim() : null);
+	                  }}
 	                  placeholder="...or paste a URL"
 	                  disabled={isUploadingExerciseVideo}
 	                />
+	                {exerciseVideoPreviewUrl ? (
+	                  <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-background">
+	                    <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+	                      Preview
+	                    </div>
+	                    <div className="p-3">
+	                      <video
+	                        key={exerciseVideoPreviewUrl}
+	                        src={exerciseVideoPreviewUrl}
+	                        controls
+	                        playsInline
+	                        className="w-full rounded-xl bg-black"
+	                      />
+	                    </div>
+	                  </div>
+	                ) : null}
 	              </div>
 
 	              <div className="grid gap-2 md:grid-cols-2">
