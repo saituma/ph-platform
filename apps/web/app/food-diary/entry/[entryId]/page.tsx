@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../../../components/admin/shell";
 import { Card, CardContent } from "../../../../components/ui/card";
@@ -12,8 +12,13 @@ import { toast } from "../../../../lib/toast";
 
 export default function FoodDiaryEntryDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const entryId = Number(params?.entryId);
-  const { data } = useGetFoodDiaryQuery();
+  const fromAthleteRaw = searchParams.get("fromAthlete");
+  const fromAthleteId = fromAthleteRaw ? Number(fromAthleteRaw) : null;
+  const { data } = useGetFoodDiaryQuery(
+    fromAthleteId && Number.isFinite(fromAthleteId) ? { athleteId: fromAthleteId } : undefined
+  );
   const [reviewFoodDiary, { isLoading: isSubmitting }] = useReviewFoodDiaryMutation();
   const [feedback, setFeedback] = useState("");
 
@@ -73,8 +78,15 @@ export default function FoodDiaryEntryDetailPage() {
     >
       <div className="space-y-6">
         <div>
-          <Link href="/food-diary" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Back to Food Diary
+          <Link
+            href={
+              fromAthleteId && Number.isFinite(fromAthleteId)
+                ? `/food-diary/athletes/${fromAthleteId}`
+                : "/food-diary"
+            }
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Back
           </Link>
         </div>
 
