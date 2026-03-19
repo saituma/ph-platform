@@ -137,7 +137,20 @@ export default function VideoReviewListPage() {
           <div className="text-sm text-muted-foreground">No uploads in this tab yet.</div>
         )}
         {filteredAthletes.map((athlete) => (
-          <Card key={athlete.athleteId} className="border-border/70">
+          <Card
+            key={athlete.athleteId}
+            className="cursor-pointer border-border/70 transition hover:border-primary/40"
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              router.push(`/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              router.push(`/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`);
+            }}
+          >
             <CardHeader className="space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -157,7 +170,9 @@ export default function VideoReviewListPage() {
               </div>
               <Button
                 size="sm"
-                onClick={() => {
+                variant="outline"
+                onClick={(event) => {
+                  event.stopPropagation();
                   router.push(`/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`);
                 }}
               >
