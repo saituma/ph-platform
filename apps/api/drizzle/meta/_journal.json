@@ -260,6 +260,27 @@
       "when": 1773007000000,
       "tag": "0036_remove_story_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1773008000000,
+      "tag": "0037_add_movement_screening_session_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1773009000000,
+      "tag": "0038_program_section_completions",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1773010000000,
+      "tag": "0039_premium_athlete_plan",
+      "breakpoints": true
     }
   ]
 }

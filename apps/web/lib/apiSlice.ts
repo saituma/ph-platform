@@ -503,6 +503,36 @@ export const apiSlice = createApi({
       providesTags: ["Content"],
       transformResponse: (response: any) => ({ exercises: response?.exercises ?? [] }),
     }),
+    createExercise: builder.mutation<
+      { exercise: any },
+      {
+        name: string;
+        cues?: string;
+        sets?: number;
+        reps?: number;
+        duration?: number;
+        restSeconds?: number;
+        notes?: string;
+        videoUrl?: string;
+      }
+    >({
+      query: (body) => ({
+        url: "/admin/exercises",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Content"],
+    }),
+    presignMediaUpload: builder.mutation<
+      { uploadUrl: string; publicUrl: string; key: string },
+      { folder: string; fileName: string; contentType: string; sizeBytes: number }
+    >({
+      query: (body) => ({
+        url: "/media/presign",
+        method: "POST",
+        body,
+      }),
+    }),
     getUserPremiumPlan: builder.query<{ items: any[] }, { userId: number; weekNumber?: number }>({
       query: ({ userId, weekNumber }) => ({
         url: `/admin/users/${userId}/premium-plan`,
@@ -744,6 +774,8 @@ export const {
   useGetUserOnboardingQuery,
   useGetUserProgramSectionCompletionsQuery,
   useGetExercisesQuery,
+  useCreateExerciseMutation,
+  usePresignMediaUploadMutation,
   useGetUserPremiumPlanQuery,
   useCloneUserPremiumPlanMutation,
   useCreateUserPremiumPlanSessionMutation,
