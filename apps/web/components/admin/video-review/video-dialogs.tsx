@@ -18,6 +18,7 @@ type VideoDialogsProps = {
     id: number;
     athlete: string;
     topic: string;
+    notes?: string | null;
     status: string;
     videoUrl?: string | null;
     feedback?: string | null;
@@ -315,7 +316,11 @@ export function VideoDialogs({
               </div>
               <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm">
                 <span className="font-semibold text-foreground">Notes:</span>{" "}
-                <span className="text-muted-foreground">{selectedVideo.topic}</span>
+                <span className="text-muted-foreground">
+                  {selectedVideo.notes?.trim?.()
+                    ? selectedVideo.notes
+                    : "No notes provided."}
+                </span>
               </div>
               <Textarea
                 placeholder="Write coach feedback..."

@@ -20,8 +20,8 @@ import { usePathname } from "expo-router";
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
-  const programTier = useAppSelector((state) => state.user.programTier);
   const token = useAppSelector((state) => state.user.token);
+  const programTier = useAppSelector((state) => state.user.programTier);
   const { isSectionHidden } = useAgeExperience();
   const insets = useSafeAreaInsets();
 
@@ -35,7 +35,6 @@ export default function MessagesScreen() {
     resetOpeningThread,
   } = useMessagesController();
   const pathname = usePathname();
-
   const canMessage = canAccessTier(programTier ?? null, "PHP_Premium");
 
   React.useEffect(() => {
@@ -82,7 +81,14 @@ export default function MessagesScreen() {
     return (
       <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.background }}>
         <View className="flex-1 items-center justify-center px-8">
-          <View className="w-20 h-20 rounded-2xl items-center justify-center mb-6" style={{ backgroundColor: colors.backgroundSecondary, borderWidth: 1, borderColor: colors.border }}>
+          <View
+            className="w-20 h-20 rounded-2xl items-center justify-center mb-6"
+            style={{
+              backgroundColor: colors.backgroundSecondary,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
             <Ionicons name="chatbubbles" size={40} color={colors.accent} />
           </View>
           <Text className="text-2xl font-clash font-bold text-app text-center mb-3">

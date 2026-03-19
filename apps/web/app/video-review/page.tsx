@@ -13,6 +13,7 @@ import { useGetProgramSectionContentQuery, useGetVideoUploadsQuery } from "../..
 
 const SECTION_TABS = [
   { value: "program", label: "Program" },
+  { value: "screening", label: "Movement Screening" },
   { value: "warmup", label: "Warmups" },
   { value: "cooldown", label: "Cool Downs" },
   { value: "stretching", label: "Stretching" },

@@ -74,8 +74,8 @@ export default function AthleteVideoDetailPage() {
           ? "Priority"
           : "Awaiting";
       const sectionTitle = item.programSectionTitle ?? null;
-      const baseTopic = item.notes ?? "Video upload";
-      const topic = sectionTitle ? `${sectionTitle} • ${baseTopic}` : baseTopic;
+      const notes = item.notes ?? null;
+      const topic = sectionTitle ?? "Video upload";
       return {
         id: item.id,
         athlete: item.athleteName ?? "Athlete",
@@ -86,7 +86,7 @@ export default function AthleteVideoDetailPage() {
         sectionTitle,
         sectionType: item.programSectionType ?? "program",
         videoUrl: item.videoUrl ?? null,
-        notes: item.notes ?? null,
+        notes,
         feedback: item.feedback ?? null,
         createdAt: item.createdAt ?? null,
       };

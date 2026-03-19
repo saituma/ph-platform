@@ -19,6 +19,7 @@ const SESSION_TYPES = [
   { value: "warmup", label: "Warmups" },
   { value: "cooldown", label: "Cool Downs" },
   { value: "stretching", label: "Stretching & Foam Rolling" },
+  { value: "screening", label: "Movement Screening" },
   { value: "mobility", label: "Mobility" },
   { value: "recovery", label: "Recovery" },
   { value: "offseason", label: "Off Session Program" },
@@ -35,6 +36,7 @@ type ExerciseMetadata = {
   reps?: number | null;
   duration?: number | null;
   restSeconds?: number | null;
+  steps?: string | null;
   cues?: string | null;
   progression?: string | null;
   regression?: string | null;
@@ -322,6 +324,7 @@ function ExerciseLibraryPageInner() {
   const [reps, setReps] = useState("");
   const [duration, setDuration] = useState("");
   const [restSeconds, setRestSeconds] = useState("");
+  const [steps, setSteps] = useState("");
   const [cues, setCues] = useState("");
   const [progression, setProgression] = useState("");
   const [regression, setRegression] = useState("");
@@ -367,6 +370,7 @@ function ExerciseLibraryPageInner() {
     setReps("");
     setDuration("");
     setRestSeconds("");
+    setSteps("");
     setCues("");
     setProgression("");
     setRegression("");
@@ -381,6 +385,7 @@ function ExerciseLibraryPageInner() {
     if (reps.trim()) meta.reps = Number(reps);
     if (duration.trim()) meta.duration = Number(duration);
     if (restSeconds.trim()) meta.restSeconds = Number(restSeconds);
+    if (steps.trim()) meta.steps = steps.trim();
     if (cues.trim()) meta.cues = cues.trim();
     if (progression.trim()) meta.progression = progression.trim();
     if (regression.trim()) meta.regression = regression.trim();
@@ -447,13 +452,25 @@ function ExerciseLibraryPageInner() {
     setReps(meta.reps != null ? String(meta.reps) : "");
     setDuration(meta.duration != null ? String(meta.duration) : "");
     setRestSeconds(meta.restSeconds != null ? String(meta.restSeconds) : "");
+    setSteps(meta.steps ?? "");
     setCues(meta.cues ?? "");
     setProgression(meta.progression ?? "");
     setRegression(meta.regression ?? "");
     setCategory(meta.category ?? "");
     setEquipment(meta.equipment ?? "");
 
-    const hasExerciseData = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds || meta.cues || meta.progression || meta.regression || meta.category || meta.equipment);
+    const hasExerciseData = !!(
+      meta.sets ||
+      meta.reps ||
+      meta.duration ||
+      meta.restSeconds ||
+      (meta.steps && meta.steps.trim()) ||
+      meta.cues ||
+      meta.progression ||
+      meta.regression ||
+      meta.category ||
+      meta.equipment
+    );
     setShowExerciseFields(hasExerciseData);
   };
 
@@ -540,10 +557,10 @@ function ExerciseLibraryPageInner() {
             {/* Title */}
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Course / Module Title
+                {activeSection === "screening" ? "Screening Name" : "Course / Module Title"}
               </label>
               <Input
-                placeholder="Course title or module name"
+                placeholder={activeSection === "screening" ? "Screening name (e.g. Squat screen)" : "Course title or module name"}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
               />
@@ -647,6 +664,17 @@ function ExerciseLibraryPageInner() {
                       placeholder="Key coaching points..."
                       value={cues}
                       onChange={(e) => setCues(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Steps */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Steps</label>
+                    <Textarea
+                      className="min-h-[80px]"
+                      placeholder="Step-by-step instructions (optional)..."
+                      value={steps}
+                      onChange={(e) => setSteps(e.target.value)}
                     />
                   </div>
 

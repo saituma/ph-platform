@@ -24,6 +24,7 @@ type ExerciseMetadata = {
   reps?: number | null;
   duration?: number | null;
   restSeconds?: number | null;
+  steps?: string | null;
   cues?: string | null;
   progression?: string | null;
   regression?: string | null;
@@ -348,6 +349,21 @@ export default function ProgramContentDetailScreen() {
                     </Text>
                   </View>
                   <Text className="text-[15px] font-outfit text-white leading-[24px]">{meta.cues}</Text>
+                </View>
+              ) : null}
+
+              {/* Steps */}
+              {meta.steps ? (
+                <View className="rounded-3xl bg-[#0F766E] px-6 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
+                  <View className="flex-row items-center gap-2">
+                    <View className="h-8 w-8 rounded-full bg-white/20 items-center justify-center">
+                      <Feather name="list" size={14} color="#FFFFFF" />
+                    </View>
+                    <Text className="text-[12px] font-outfit text-white uppercase tracking-[2px] font-bold">
+                      Steps
+                    </Text>
+                  </View>
+                  <Text className="text-[15px] font-outfit text-white leading-[24px]">{meta.steps}</Text>
                 </View>
               ) : null}
 

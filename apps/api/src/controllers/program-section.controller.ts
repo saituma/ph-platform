@@ -32,6 +32,7 @@ const exerciseMetadataSchema = z.object({
   reps: z.number().int().min(0).optional().nullable(),
   duration: z.number().int().min(0).optional().nullable(),
   restSeconds: z.number().int().min(0).optional().nullable(),
+  steps: z.string().optional().nullable(),
   cues: z.string().optional().nullable(),
   progression: z.string().optional().nullable(),
   regression: z.string().optional().nullable(),
