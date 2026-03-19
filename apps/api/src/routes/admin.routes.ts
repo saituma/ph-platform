@@ -49,6 +49,7 @@ import {
   addPremiumPlanExerciseAdmin,
   updatePremiumPlanExerciseAdmin,
   deletePremiumPlanExerciseAdmin,
+  listTrainingSnapshotAdmin,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -57,6 +58,7 @@ const router = Router();
 router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]));
 
 router.get("/admin/users", listAllUsers);
+router.get("/admin/training-snapshot", listTrainingSnapshotAdmin);
 router.post("/admin/users/:userId/block", blockUser);
 router.delete("/admin/users/:userId", deleteUser);
 router.get("/admin/dashboard", getDashboard);

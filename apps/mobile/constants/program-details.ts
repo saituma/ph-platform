@@ -21,12 +21,30 @@ export type SessionItem = {
 
 export type ProgramId = "php" | "plus" | "premium";
 
+/** Single labels for warm-up / cool-down across all tiers (KISS). */
+export const WARM_UP_TAB = "Warm-up";
+export const COOL_DOWN_TAB = "Cool-down";
+
+/** Map admin/API tab strings to canonical in-app labels. */
+export function normalizeProgramTabLabel(tab: string): string {
+  const key = tab.trim();
+  const map: Record<string, string> = {
+    "Warm Ups": WARM_UP_TAB,
+    "Warm Up": WARM_UP_TAB,
+    Warmups: WARM_UP_TAB,
+    Cooldown: COOL_DOWN_TAB,
+    "Cool Down": COOL_DOWN_TAB,
+    "Cool Downs": COOL_DOWN_TAB,
+  };
+  return map[key] ?? key;
+}
+
 export const PROGRAM_TABS: Record<ProgramId, string[]> = {
-  php: ["Program", "Warm Ups", "Cooldown", "Book In", "Physio Referral"],
+  php: ["Program", WARM_UP_TAB, COOL_DOWN_TAB, "Book In", "Physio Referral"],
   plus: [
     "Program",
-    "Warm Up",
-    "Cool Down",
+    WARM_UP_TAB,
+    COOL_DOWN_TAB,
     "Stretching & Foam Rolling",
     "Off Season Program",
     "Nutrition & Food Diaries",
@@ -34,8 +52,8 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
   ],
   premium: [
     "Program",
-    "Warmups",
-    "Cool Downs",
+    WARM_UP_TAB,
+    COOL_DOWN_TAB,
     "Movement Screening",
     "Mobility",
     "Recovery",
@@ -48,6 +66,8 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
 
 export const TRAINING_TABS = new Set([
   "Program",
+  WARM_UP_TAB,
+  COOL_DOWN_TAB,
   "Warm Ups",
   "Warmups",
   "Warm Up",
@@ -64,9 +84,11 @@ export const TRAINING_TABS = new Set([
 ]);
 const TAB_SESSION_TYPES: Record<string, string[]> = {
   Program: ["program"],
+  [WARM_UP_TAB]: ["warmup"],
   "Warm Ups": ["warmup"],
   Warmups: ["warmup"],
   "Warm Up": ["warmup"],
+  [COOL_DOWN_TAB]: ["cooldown"],
   Cooldown: ["cooldown"],
   "Cool Down": ["cooldown"],
   "Cool Downs": ["cooldown"],
@@ -83,4 +105,18 @@ const TAB_SESSION_TYPES: Record<string, string[]> = {
 
 export function getSessionTypesForTab(tab: string): string[] {
   return TAB_SESSION_TYPES[tab] ?? [];
+}
+
+/** Ordered training steps available in the current tab list (for “today’s training” flow). */
+export function pickTrainingFlowSteps(visibleTabs: string[]): string[] {
+  const warm = visibleTabs.find(
+    (t) => t !== "Program" && (/warm/i.test(t) || t === WARM_UP_TAB),
+  );
+  const cool = visibleTabs.find((t) => /cool/i.test(t) || t === COOL_DOWN_TAB);
+  const hasProgram = visibleTabs.includes("Program");
+  const steps: string[] = [];
+  if (warm) steps.push(warm);
+  if (hasProgram) steps.push("Program");
+  if (cool) steps.push(cool);
+  return steps;
 }

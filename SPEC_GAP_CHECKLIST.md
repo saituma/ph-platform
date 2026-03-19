@@ -65,9 +65,8 @@ Generated: 2026-02-17
   - `apps/web/app/video-review/page.tsx`
 
 ## Missing / Not Found
-- [ ] Push notifications for new messages (server-side trigger)
-  - Booking push exists via webhook: `apps/api/src/services/booking.service.ts`
-  - No message push trigger found in API
+- [x] Push notifications for new messages (server-side trigger)
+  - Implemented in `apps/api/src/services/message.service.ts` via `sendPushNotification` after `sendMessage` (human ↔ human; skipped for AI coach thread).
 - [ ] Premium response-time indicator (optional in spec)
   - No UI or API support found
 
@@ -75,6 +74,12 @@ Generated: 2026-02-17
 1. Legal content management end-to-end (admin -> API -> mobile display)
 2. Replace hardcoded legal/app versions in onboarding with config-driven values
 3. Wire admin Programs page to backend templates/assignments
-4. Add message push notification pipeline
+4. ~~Add message push notification pipeline~~ (done — see `message.service.ts`)
 5. Optional: premium response-time indicator
 6. Optional: coach video reply feature
+
+## Recent product / UX additions
+- [x] Program detail: unified **Warm-up / Cool-down** labels + PHP Plus tab normalization from API (`normalizeProgramTabLabel`)
+- [x] **Today’s training** step row (PHP / Plus) to jump tabs in order
+- [x] **Message coach** from program content cards + Premium plan exercises (prefilled draft; opens thread with `draft` query)
+- [x] Admin **Client training** snapshot: `GET /admin/training-snapshot`, web `/training-snapshot`

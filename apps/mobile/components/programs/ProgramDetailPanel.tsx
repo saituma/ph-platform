@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownText } from "@/components/ui/MarkdownText";
-import { Modal, Pressable, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, Pressable, TouchableOpacity, View } from "react-native";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
@@ -17,6 +17,8 @@ import {
   PROGRAM_TABS,
   TRAINING_TABS,
   getSessionTypesForTab,
+  normalizeProgramTabLabel,
+  pickTrainingFlowSteps,
   ProgramId,
 } from "@/constants/program-details";
 import { PROGRAM_TIERS } from "@/constants/Programs";
@@ -173,7 +175,7 @@ export function ProgramDetailPanel({
     }
     return base;
   }, [programId, role, isSectionHidden, phpPlusTabs]);
-  const [activeTab, setActiveTab] = useState(tabs[0]);
+  const [activeTab, setActiveTab] = useState<string>("Program");
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -236,7 +238,7 @@ export function ProgramDetailPanel({
         { method: "GET", suppressLog: true },
       );
       if (Array.isArray(response.tabs)) {
-        setPhpPlusTabs(response.tabs.map((tab) => String(tab)));
+        setPhpPlusTabs(response.tabs.map((tab) => normalizeProgramTabLabel(String(tab))));
       }
     } catch {
       setPhpPlusTabs(null);
@@ -248,8 +250,47 @@ export function ProgramDetailPanel({
   }, [loadPhpPlusTabs]);
 
   useEffect(() => {
-    setActiveTab(tabs[0]);
+    if (!tabs.length) return;
+    setActiveTab((prev) => (tabs.includes(prev) ? prev : tabs[0]!));
   }, [tabs]);
+
+  const canMessageCoach = useMemo(
+    () => canAccessTier(programTier ?? null, "PHP_Premium"),
+    [programTier],
+  );
+
+  const openCoachMessage = useCallback(
+    async (draftBody: string) => {
+      if (!canMessageCoach) {
+        Alert.alert(
+          "Messaging",
+          "Message your coach on the PHP Premium plan. You can still complete your training here.",
+        );
+        return;
+      }
+      if (!token || !onNavigate) return;
+      try {
+        const data = await apiRequest<{
+          coach?: { id: number };
+          coaches?: { id: number; isAi?: boolean }[];
+        }>("/messages", { token, skipCache: true });
+        const human = (data.coaches ?? []).find((c) => !c.isAi);
+        const coachId = human?.id ?? data.coach?.id;
+        if (!coachId) {
+          Alert.alert("Messaging", "No coach is available yet.");
+          return;
+        }
+        const q = encodeURIComponent(draftBody.slice(0, 1200));
+        onNavigate(`/messages/${coachId}?draft=${q}`);
+      } catch {
+        Alert.alert("Messaging", "Could not open messages. Try again.");
+      }
+    },
+    [canMessageCoach, onNavigate, token],
+  );
+
+  const sectionsHint =
+    "Tabs match your plan. Parent/athlete and age settings may hide some sections.";
 
   const filteredSectionContent = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -486,6 +527,19 @@ export function ProgramDetailPanel({
                     <Feather name="arrow-right" size={14} color="#FFFFFF" />
                   </View>
                 </Transition.Pressable>
+                <Pressable
+                  onPress={() =>
+                    void openCoachMessage(
+                      `Program: ${PROGRAM_TITLES[programId]}\nSection: ${activeTab}\nDrill: ${item.title}\n\nHi coach, quick question:\n`,
+                    )
+                  }
+                  className="flex-row items-center gap-2 mt-3 pt-3 border-t border-white/10"
+                >
+                  <Feather name="message-circle" size={16} color="#FFFFFF" />
+                  <Text className="text-xs font-outfit text-white font-semibold uppercase tracking-[1.1px]">
+                    Message coach about this
+                  </Text>
+                </Pressable>
               </Pressable>
 
               {isExpanded && (
@@ -562,6 +616,17 @@ export function ProgramDetailPanel({
                     </Pressable>
                   ) : null}
 
+                  <Pressable
+                    onPress={() =>
+                      void openCoachMessage(
+                        `Program: ${PROGRAM_TITLES[programId]}\nSection: ${activeTab}\nDrill: ${item.title}\n\nHi coach, quick question:\n`,
+                      )
+                    }
+                    className="rounded-2xl border border-white/20 px-4 py-3 flex-row items-center gap-2 mt-2"
+                  >
+                    <Feather name="message-circle" size={16} color="#FFFFFF" />
+                    <Text className="text-sm font-outfit text-white">Message coach about this drill</Text>
+                  </Pressable>
 
                 </View>
               )}
@@ -613,12 +678,52 @@ export function ProgramDetailPanel({
             mutedSurface={mutedSurface}
             accentSurface={accentSurface}
             borderSoft={borderSoft}
+            onMessageCoach={openCoachMessage}
+            canMessageCoach={canMessageCoach}
           />
         );
       }
       const tier = PROGRAM_TIERS.find((item) => item.id === programId);
+      const flowSteps = pickTrainingFlowSteps(tabs);
       return (
         <View className="gap-4">
+          {programId !== "premium" && flowSteps.length > 0 ? (
+            <View
+              className="rounded-[28px] px-5 py-4 gap-3 border"
+              style={{
+                backgroundColor: accentSurface,
+                borderColor: borderSoft,
+                ...(isDark ? Shadows.none : Shadows.sm),
+              }}
+            >
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
+                Today&apos;s training
+              </Text>
+              <Text className="text-sm font-outfit text-app leading-5">
+                Go in order: warm-up, then main program, then cool-down. Tap a step to jump there.
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {flowSteps.map((step, i) => (
+                  <Pressable
+                    key={step}
+                    onPress={() => setActiveTab(step)}
+                    className="rounded-full px-4 py-2 border"
+                    style={{
+                      backgroundColor: surfaceColor,
+                      borderColor: step === activeTab ? colors.accent : borderSoft,
+                    }}
+                  >
+                    <Text
+                      className="text-xs font-outfit font-semibold"
+                      style={{ color: step === activeTab ? colors.accent : colors.text }}
+                    >
+                      {i + 1}. {step}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           <View 
             className="rounded-[28px] px-6 py-5 gap-3"
@@ -778,6 +883,12 @@ export function ProgramDetailPanel({
           </Transition.View>
         </View>
 
+        {programId === "plus" && phpPlusTabs === null ? (
+          <View className="px-6 mb-2">
+            <Text className="text-xs font-outfit text-secondary">Loading program sections…</Text>
+          </View>
+        ) : null}
+
         <ProgramTabBar
           tabs={tabs}
           activeTab={activeTab}
@@ -785,6 +896,7 @@ export function ProgramDetailPanel({
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           onTabPress={handleTabDetail}
+          hint={sectionsHint}
         />
 
         {searchQuery.trim().length > 0 ? (
@@ -909,6 +1021,8 @@ function PremiumPlanPanel({
   mutedSurface,
   accentSurface,
   borderSoft,
+  onMessageCoach,
+  canMessageCoach,
 }: {
   token: string | null;
   accent: string;
@@ -917,6 +1031,8 @@ function PremiumPlanPanel({
   mutedSurface: string;
   accentSurface: string;
   borderSoft: string;
+  onMessageCoach?: (text: string) => void | Promise<void>;
+  canMessageCoach?: boolean;
 }) {
   const [items, setItems] = useState<PlanSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -977,6 +1093,23 @@ function PremiumPlanPanel({
       .slice()
       .sort((a, b) => Number(a.sessionNumber) - Number(b.sessionNumber));
   }, [activeWeek, items]);
+
+  const weekStats = useMemo(() => {
+    let total = 0;
+    let done = 0;
+    for (const s of visibleSessions) {
+      for (const ex of s.exercises ?? []) {
+        total += 1;
+        if (ex.completed) done += 1;
+      }
+    }
+    return { total, done };
+  }, [visibleSessions]);
+
+  const nextSession = useMemo(() => {
+    const incomplete = visibleSessions.find((s) => (s.exercises ?? []).some((e) => !e.completed));
+    return incomplete ?? visibleSessions[0] ?? null;
+  }, [visibleSessions]);
 
   const toggleExercise = useCallback(
     async (exercise: PlanExercise) => {
@@ -1077,6 +1210,17 @@ function PremiumPlanPanel({
         <Text className="text-sm font-outfit text-secondary">
           Mark exercises complete and log session check-ins so your coach can adjust training load.
         </Text>
+        {weekStats.total > 0 && activeWeek != null ? (
+          <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}>
+            <Text className="text-sm font-outfit text-app font-semibold">
+              Week {activeWeek}: {weekStats.done}/{weekStats.total} exercises done
+              {nextSession ? ` · Next: Session ${nextSession.sessionNumber}` : ""}
+            </Text>
+            <Text className="text-xs font-outfit text-secondary mt-1">
+              Tap an exercise to check it off. Use “Ask coach” if you need help on a move.
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {weeks.length ? (
@@ -1184,6 +1328,22 @@ function PremiumPlanPanel({
                     </View>
                     {ex.coachingNotes ? (
                       <Text className="text-[12px] font-outfit text-secondary mt-2">{ex.coachingNotes}</Text>
+                    ) : null}
+                    {onMessageCoach ? (
+                      <Pressable
+                        onPress={() => {
+                          const name = base?.name ?? "Exercise";
+                          void onMessageCoach(
+                            `PHP Premium · Week ${session.weekNumber} Session ${session.sessionNumber}\nExercise: ${name}\n\nHi coach, quick question:\n`,
+                          );
+                        }}
+                        className="mt-2 flex-row items-center gap-2 self-start"
+                      >
+                        <Feather name="message-circle" size={14} color={accent} />
+                        <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1px]" style={{ color: accent }}>
+                          Ask coach{canMessageCoach ? "" : " (Premium)"}
+                        </Text>
+                      </Pressable>
                     ) : null}
                   </Pressable>
                 );

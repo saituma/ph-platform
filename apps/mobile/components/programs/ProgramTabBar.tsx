@@ -11,6 +11,7 @@ export function ProgramTabBar({
   searchValue,
   onSearchChange,
   onTabPress,
+  hint,
 }: {
   tabs: string[];
   activeTab: string;
@@ -18,6 +19,7 @@ export function ProgramTabBar({
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   onTabPress?: (tab: string) => void;
+  hint?: string;
 }) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -25,8 +27,16 @@ export function ProgramTabBar({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={[styles.label, isDark && styles.labelDark]}>Program Sections</Text>
+        <Text style={[styles.label, isDark && styles.labelDark]}>Sections</Text>
       </View>
+      {hint ? (
+        <Text
+          style={[styles.hint, isDark && styles.hintDark]}
+          numberOfLines={3}
+        >
+          {hint}
+        </Text>
+      ) : null}
       {onSearchChange ? (
         <View style={styles.searchRow}>
           <View style={[styles.searchField, isDark && styles.searchFieldDark]}>
@@ -141,6 +151,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.2,
     color: "#94A3B8",
+    marginBottom: 10,
+    lineHeight: 16,
+  },
+  hintDark: {
+    color: "#A8B8A8",
   },
   searchRow: {
     flexDirection: "row",

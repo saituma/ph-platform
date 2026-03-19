@@ -23,7 +23,11 @@ export function useMessagesController() {
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
 
   const router = useRouter();
-  const { thread, id } = useLocalSearchParams<{ thread?: string; id?: string }>();
+  const { thread, id, draft: draftQuery } = useLocalSearchParams<{
+    thread?: string;
+    id?: string;
+    draft?: string;
+  }>();
   const threadId = thread || id;
   const { token, profile, programTier, athleteUserId } = useAppSelector((state) => state.user);
   const { role } = useRole();
@@ -54,6 +58,7 @@ export function useMessagesController() {
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const draftConsumedRef = useRef<string | null>(null);
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
@@ -77,6 +82,23 @@ export function useMessagesController() {
   }, [threadId, threads]);
 
   const currentThread = activeThread ?? selectedThread;
+
+  useEffect(() => {
+    if (!draftQuery || !threadId) return;
+    if (!currentThread || currentThread.id !== threadId) return;
+    const key = `${threadId}::${String(draftQuery)}`;
+    if (draftConsumedRef.current === key) return;
+    try {
+      const text = decodeURIComponent(String(draftQuery));
+      setDraft(text);
+      draftRef.current = text;
+      draftConsumedRef.current = key;
+    } catch {
+      setDraft(String(draftQuery));
+      draftRef.current = String(draftQuery);
+      draftConsumedRef.current = key;
+    }
+  }, [draftQuery, threadId, currentThread]);
 
   const localMessages = useMemo(() => {
     if (!currentThread) return [];
