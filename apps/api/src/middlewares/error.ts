@@ -41,6 +41,21 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return res.status(status).json({ error: message });
   }
 
+  const cause =
+    typeof err === "object" && err && "cause" in err ? (err as any).cause : undefined;
+  const dbCause =
+    cause && typeof cause === "object"
+      ? {
+          message: typeof (cause as any).message === "string" ? (cause as any).message : undefined,
+          code: typeof (cause as any).code === "string" ? (cause as any).code : undefined,
+          detail: typeof (cause as any).detail === "string" ? (cause as any).detail : undefined,
+          constraint: typeof (cause as any).constraint === "string" ? (cause as any).constraint : undefined,
+          schema: typeof (cause as any).schema === "string" ? (cause as any).schema : undefined,
+          table: typeof (cause as any).table === "string" ? (cause as any).table : undefined,
+          column: typeof (cause as any).column === "string" ? (cause as any).column : undefined,
+        }
+      : undefined;
+
   const defaultMessage = err instanceof Error ? err.message : String(err);
   console.error(
     JSON.stringify({
@@ -49,6 +64,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       statusCode: 500,
       message: defaultMessage,
       stack: err instanceof Error ? err.stack : undefined,
+      cause: dbCause,
       ...context,
     })
   );

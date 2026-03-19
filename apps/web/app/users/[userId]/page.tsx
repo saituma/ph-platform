@@ -12,12 +12,15 @@ import { Button } from "../../../components/ui/button";
 import { Select } from "../../../components/ui/select";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import {
   useBlockUserMutation,
   useDeleteUserMutation,
   useGetUserOnboardingQuery,
   useGetUserProgramSectionCompletionsQuery,
   useGetExercisesQuery,
+  useCreateExerciseMutation,
+  usePresignMediaUploadMutation,
   useGetUserPremiumPlanQuery,
   useCloneUserPremiumPlanMutation,
   useCreateUserPremiumPlanSessionMutation,
@@ -61,6 +64,8 @@ export default function UserDetailPage() {
     isValidId ? { userId, from: fromIso, limit: 200 } : (skipToken as any)
   );
   const { data: exercisesData } = useGetExercisesQuery();
+  const [createExercise, { isLoading: isCreatingExercise }] = useCreateExerciseMutation();
+  const [presignMediaUpload, { isLoading: isPresigningUpload }] = usePresignMediaUploadMutation();
   const [clonePlan, { isLoading: isCloningPlan }] = useCloneUserPremiumPlanMutation();
   const [createPlanSession, { isLoading: isCreatingSession }] = useCreateUserPremiumPlanSessionMutation();
   const [updatePlanSession, { isLoading: isUpdatingSession }] = useUpdateUserPremiumPlanSessionMutation();
@@ -157,6 +162,31 @@ export default function UserDetailPage() {
   >({});
   const [addExerciseSelection, setAddExerciseSelection] = useState<Record<number, string>>({});
   const [planNotice, setPlanNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [createExerciseDialog, setCreateExerciseDialog] = useState<{
+    open: boolean;
+    sessionId: number | null;
+    order: number;
+  }>({ open: false, sessionId: null, order: 1 });
+  const [isUploadingExerciseVideo, setIsUploadingExerciseVideo] = useState(false);
+  const [newExerciseDraft, setNewExerciseDraft] = useState<{
+    name: string;
+    videoUrl: string;
+    cues: string;
+    notes: string;
+    sets: string;
+    reps: string;
+    duration: string;
+    restSeconds: string;
+  }>({
+    name: "",
+    videoUrl: "",
+    cues: "",
+    notes: "",
+    sets: "",
+    reps: "",
+    duration: "",
+    restSeconds: "",
+  });
 
   useEffect(() => {
     if (addSessionMode !== "next") return;
@@ -200,7 +230,9 @@ export default function UserDetailPage() {
     isDeletingSession ||
     isAddingExercise ||
     isUpdatingExercise ||
-    isDeletingExercise;
+    isDeletingExercise ||
+    isCreatingExercise ||
+    isPresigningUpload;
 
   useEffect(() => {
     if (!planNotice) return;
@@ -217,6 +249,12 @@ export default function UserDetailPage() {
       (typeof err === "string" ? err : null) ??
       "Something went wrong";
     return String(msg);
+  }, []);
+
+  const toNumOrUndefined = useCallback((v: string) => {
+    if (!v.trim()) return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
   }, []);
 
   useEffect(() => {
@@ -780,24 +818,45 @@ export default function UserDetailPage() {
 	                            </Button>
 	                          </div>
 
-                          <div className="mt-4 rounded-2xl border border-border bg-secondary/20 p-4">
-                            <div className="flex flex-wrap items-end justify-between gap-2">
-                              <div className="text-sm font-semibold text-foreground">Exercises</div>
-                              <div className="flex flex-wrap items-end gap-2">
-                                <Select
-                                  value={selectedExerciseId}
-                                  onChange={(e) =>
-                                    setAddExerciseSelection((prev) => ({ ...prev, [session.id]: e.target.value }))
-                                  }
-                                  className="min-w-[240px]"
-                                >
-                                  <option value="">Select exercise…</option>
-                                  {exerciseOptions.map((ex: any) => (
-                                    <option key={ex.id} value={String(ex.id)}>
-                                      {ex.name}
-                                    </option>
-                                  ))}
-                                </Select>
+	                          <div className="mt-4 rounded-2xl border border-border bg-secondary/20 p-4">
+	                            <div className="flex flex-wrap items-end justify-between gap-2">
+	                              <div className="text-sm font-semibold text-foreground">Exercises</div>
+	                              <div className="flex flex-wrap items-end gap-2">
+	                                <Select
+	                                  value={selectedExerciseId}
+	                                  onChange={(e) =>
+	                                    setAddExerciseSelection((prev) => ({ ...prev, [session.id]: e.target.value }))
+	                                  }
+	                                  className="min-w-[240px]"
+	                                >
+	                                  <option value="">Select exercise…</option>
+	                                  {exerciseOptions.map((ex: any) => (
+	                                    <option key={ex.id} value={String(ex.id)}>
+	                                      {ex.name}
+	                                    </option>
+	                                  ))}
+	                                </Select>
+	                                <Button
+	                                  type="button"
+	                                  variant="outline"
+	                                  size="sm"
+	                                  onClick={() => {
+	                                    setNewExerciseDraft({
+	                                      name: "",
+	                                      videoUrl: "",
+	                                      cues: "",
+	                                      notes: "",
+	                                      sets: "",
+	                                      reps: "",
+	                                      duration: "",
+	                                      restSeconds: "",
+	                                    });
+	                                    setCreateExerciseDialog({ open: true, sessionId: session.id, order: nextOrder });
+	                                  }}
+	                                  disabled={isPlanBusy}
+	                                >
+	                                  New Exercise
+	                                </Button>
 	                                <Button
 	                                  size="sm"
 	                                  onClick={async () => {
@@ -819,8 +878,8 @@ export default function UserDetailPage() {
 	                                >
 	                                  {isAddingExercise ? "Adding..." : "Add Exercise"}
 	                                </Button>
-                              </div>
-                            </div>
+	                              </div>
+	                            </div>
 
                             <div className="mt-4 grid gap-3">
                               {exercises.length === 0 ? (
@@ -961,14 +1020,190 @@ export default function UserDetailPage() {
                     })
                 )}
               </div>
-            </CardContent>
-          </Card>
-        )}
+	            </CardContent>
+	          </Card>
+	        )}
 
-        {/* Billing */}
-        {billingStatus && (
-          <Card>
-            <CardContent className="pt-6">
+	        <Dialog
+	          open={createExerciseDialog.open}
+	          onOpenChange={(open) => setCreateExerciseDialog((prev) => ({ ...prev, open }))}
+	        >
+	          <DialogContent>
+	            <DialogHeader>
+	              <DialogTitle>Create exercise</DialogTitle>
+	              <DialogDescription>
+	                This creates a new exercise in your Exercise Library, then adds it to this athlete’s session.
+	              </DialogDescription>
+	            </DialogHeader>
+
+	            <div className="mt-4 grid gap-3">
+	              <div className="space-y-2">
+	                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</label>
+	                <Input
+	                  value={newExerciseDraft.name}
+	                  onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, name: e.target.value }))}
+	                  placeholder="e.g. Single-leg squat"
+	                />
+	              </div>
+
+	              <div className="space-y-2">
+	                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Demo video (optional)</label>
+	                <div className="flex flex-wrap items-center gap-2">
+	                  <input
+	                    type="file"
+	                    accept="video/*"
+	                    onChange={async (e) => {
+	                      const file = e.target.files?.[0];
+	                      if (!file) return;
+	                      try {
+	                        setIsUploadingExerciseVideo(true);
+	                        const presigned = await presignMediaUpload({
+	                          folder: "exercises/video",
+	                          fileName: file.name,
+	                          contentType: file.type || "video/mp4",
+	                          sizeBytes: file.size,
+	                        }).unwrap();
+
+	                        const putRes = await fetch(presigned.uploadUrl, {
+	                          method: "PUT",
+	                          headers: { "Content-Type": file.type || "video/mp4" },
+	                          body: file,
+	                        });
+	                        if (!putRes.ok) {
+	                          throw new Error(`Upload failed (HTTP ${putRes.status})`);
+	                        }
+	                        setNewExerciseDraft((prev) => ({ ...prev, videoUrl: presigned.publicUrl }));
+	                        setPlanNotice({ type: "success", message: "Video uploaded. It will be saved with the exercise." });
+	                      } catch (err) {
+	                        setPlanNotice({ type: "error", message: `Video upload failed: ${planErrorMessage(err)}` });
+	                      } finally {
+	                        setIsUploadingExerciseVideo(false);
+	                      }
+	                    }}
+	                    disabled={isPlanBusy || isUploadingExerciseVideo}
+	                    className="block w-full max-w-sm text-sm text-muted-foreground file:mr-3 file:rounded-full file:border file:border-border file:bg-secondary/60 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground hover:file:bg-secondary/80"
+	                  />
+	                  {newExerciseDraft.videoUrl ? (
+	                    <Button
+	                      type="button"
+	                      variant="outline"
+	                      size="sm"
+	                      onClick={() => setNewExerciseDraft((prev) => ({ ...prev, videoUrl: "" }))}
+	                      disabled={isPlanBusy || isUploadingExerciseVideo}
+	                    >
+	                      Remove
+	                    </Button>
+	                  ) : null}
+	                </div>
+	                <Input
+	                  value={newExerciseDraft.videoUrl}
+	                  onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, videoUrl: e.target.value }))}
+	                  placeholder="...or paste a URL"
+	                  disabled={isUploadingExerciseVideo}
+	                />
+	              </div>
+
+	              <div className="grid gap-2 md:grid-cols-2">
+	                <div className="space-y-2">
+	                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cues (optional)</label>
+	                  <Textarea
+	                    className="min-h-[90px]"
+	                    value={newExerciseDraft.cues}
+	                    onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, cues: e.target.value }))}
+	                  />
+	                </div>
+	                <div className="space-y-2">
+	                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes (optional)</label>
+	                  <Textarea
+	                    className="min-h-[90px]"
+	                    value={newExerciseDraft.notes}
+	                    onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, notes: e.target.value }))}
+	                  />
+	                </div>
+	              </div>
+
+	              <div className="grid gap-2 md:grid-cols-4">
+	                <Input
+	                  placeholder="Sets"
+	                  value={newExerciseDraft.sets}
+	                  onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, sets: e.target.value }))}
+	                />
+	                <Input
+	                  placeholder="Reps"
+	                  value={newExerciseDraft.reps}
+	                  onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, reps: e.target.value }))}
+	                />
+	                <Input
+	                  placeholder="Duration sec"
+	                  value={newExerciseDraft.duration}
+	                  onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, duration: e.target.value }))}
+	                />
+	                <Input
+	                  placeholder="Rest sec"
+	                  value={newExerciseDraft.restSeconds}
+	                  onChange={(e) => setNewExerciseDraft((prev) => ({ ...prev, restSeconds: e.target.value }))}
+	                />
+	              </div>
+
+	              <div className="mt-2 flex justify-end gap-2">
+	                <Button
+	                  type="button"
+	                  variant="outline"
+	                  onClick={() => setCreateExerciseDialog((prev) => ({ ...prev, open: false }))}
+	                  disabled={isPlanBusy}
+	                >
+	                  Cancel
+	                </Button>
+	                <Button
+	                  type="button"
+	                  onClick={async () => {
+	                    const sessionId = createExerciseDialog.sessionId;
+	                    if (!sessionId) return;
+	                    const name = newExerciseDraft.name.trim();
+	                    if (!name) {
+	                      setPlanNotice({ type: "error", message: "Exercise name is required." });
+	                      return;
+	                    }
+	                    try {
+	                      const payload = {
+	                        name,
+	                        cues: newExerciseDraft.cues.trim() || undefined,
+	                        notes: newExerciseDraft.notes.trim() || undefined,
+	                        videoUrl: newExerciseDraft.videoUrl.trim() || undefined,
+	                        sets: toNumOrUndefined(newExerciseDraft.sets),
+	                        reps: toNumOrUndefined(newExerciseDraft.reps),
+	                        duration: toNumOrUndefined(newExerciseDraft.duration),
+	                        restSeconds: toNumOrUndefined(newExerciseDraft.restSeconds),
+	                      };
+	                      const created = await createExercise(payload).unwrap();
+	                      const exId = Number(created?.exercise?.id);
+	                      if (!Number.isFinite(exId) || exId <= 0) {
+	                        throw new Error("Exercise created but no id returned.");
+	                      }
+	                      await addPlanExercise({
+	                        userId,
+	                        sessionId,
+	                        body: { exerciseId: exId, order: createExerciseDialog.order },
+	                      }).unwrap();
+	                      setCreateExerciseDialog({ open: false, sessionId: null, order: 1 });
+	                      setPlanNotice({ type: "success", message: "Created a new exercise and added it to the session." });
+	                    } catch (err) {
+	                      setPlanNotice({ type: "error", message: `Create exercise failed: ${planErrorMessage(err)}` });
+	                    }
+	                  }}
+	                  disabled={isPlanBusy}
+	                >
+	                  {isCreatingExercise ? "Creating..." : "Create + Add"}
+	                </Button>
+	              </div>
+	            </div>
+	          </DialogContent>
+	        </Dialog>
+
+	        {/* Billing */}
+	        {billingStatus && (
+	          <Card>
+	            <CardContent className="pt-6">
               <SectionHeader title="Subscription / Billing" description="Latest plan and status." />
               <div className="mt-4 space-y-0">
                 <DetailRow label="Plan tier" value={billingStatus.planTier} />
