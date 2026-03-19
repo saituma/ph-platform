@@ -41,6 +41,7 @@ export const sessionType = pgEnum("session_type", [
   "warmup",
   "cooldown",
   "stretching",
+  "screening",
   "mobility",
   "recovery",
   "offseason",

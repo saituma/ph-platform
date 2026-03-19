@@ -28,7 +28,7 @@ export default function MoreScreen() {
   const { profile, isAuthenticated, programTier } = useAppSelector((state) => state.user);
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
-  const canAccessParentPlatform = canAccessTier(programTier ?? null, "PHP_Premium");
+  const showParentPlatform = Boolean(isAuthenticated);
   const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
   const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Plus");
 
@@ -189,7 +189,7 @@ export default function MoreScreen() {
                     onPress={() => router.navigate("/permissions")}
                     accentColor={colors.accent}
                   />
-                  {canAccessParentPlatform ? (
+                  {showParentPlatform ? (
                     <MenuItem
                       icon="book"
                       label="Parent Platform"

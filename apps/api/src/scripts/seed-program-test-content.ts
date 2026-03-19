@@ -39,7 +39,17 @@ async function main() {
 
   // 4. Seed content for different ages and sections
   const sections: any[] = [
-    "program", "warmup", "cooldown", "stretching", "mobility", "recovery", "offseason", "inseason", "education", "nutrition"
+    "program",
+    "warmup",
+    "cooldown",
+    "stretching",
+    "screening",
+    "mobility",
+    "recovery",
+    "offseason",
+    "inseason",
+    "education",
+    "nutrition",
   ];
 
   const ageGroups = [
