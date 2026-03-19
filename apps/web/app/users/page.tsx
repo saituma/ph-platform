@@ -22,33 +22,39 @@ function UsersPageContent() {
 
   const users = useMemo(() => {
     const source = (usersData?.users ?? []).filter((user: any) => user.role === "guardian");
-    return source
+    const mapped = source.map((user: any) => {
+      const resolvedTier = user.programTier ?? user.guardianProgramTier ?? null;
+      const tierLabel =
+        user.role === "admin" || user.role === "superAdmin"
+          ? "Admin"
+          : resolvedTier === "PHP_Premium"
+            ? "Premium"
+            : resolvedTier === "PHP_Plus"
+              ? "Plus"
+              : "Program";
+      const createdAtMs = user?.createdAt ? new Date(user.createdAt).getTime() : 0;
+      const tierPriority = tierLabel === "Premium" ? 0 : tierLabel === "Plus" ? 1 : 2;
+      return {
+        id: user.id,
+        name: user.name ?? user.email,
+        email: user.email,
+        isBlocked: Boolean(user.isBlocked),
+        tier: tierLabel,
+        status: user.isBlocked ? "Blocked" : "Active",
+        lastActive: "Recently",
+        onboarding: user.onboardingCompleted === false ? "Awaiting review" : "Complete",
+        createdAtMs,
+        tierPriority,
+      };
+    });
+
+    return mapped
       .slice()
       .sort((a: any, b: any) => {
-        const left = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const right = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return right - left;
+        if (a.tierPriority !== b.tierPriority) return a.tierPriority - b.tierPriority;
+        return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
       })
-      .map((user: any) => {
-        const resolvedTier = user.programTier ?? user.guardianProgramTier ?? null;
-        return {
-          id: user.id,
-          name: user.name ?? user.email,
-          email: user.email,
-          isBlocked: Boolean(user.isBlocked),
-          tier:
-            user.role === "admin" || user.role === "superAdmin"
-              ? "Admin"
-              : resolvedTier === "PHP_Premium"
-                ? "Premium"
-                : resolvedTier === "PHP_Plus"
-                  ? "Plus"
-                  : "Program",
-          status: user.isBlocked ? "Blocked" : "Active",
-          lastActive: "Recently",
-          onboarding: user.onboardingCompleted === false ? "Awaiting review" : "Complete",
-        };
-      });
+      .map(({ createdAtMs: _createdAtMs, tierPriority: _tierPriority, ...rest }: any) => rest);
   }, [usersData]);
   const hasUsers = users.length > 0;
   const [activeDialog, setActiveDialog] = useState<UsersDialog>(null);
