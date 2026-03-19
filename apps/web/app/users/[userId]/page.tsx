@@ -241,7 +241,8 @@ export default function UserDetailPage() {
     isUpdatingExercise ||
     isDeletingExercise ||
     isCreatingExercise ||
-    isPresigningUpload;
+    isPresigningUpload ||
+    isUploadingExerciseVideo;
 
   useEffect(() => {
     if (!planNotice) return;
@@ -903,15 +904,41 @@ export default function UserDetailPage() {
                                     restSeconds: "",
                                     coachingNotes: "",
                                   };
-                                  const name = base?.name ?? `Exercise ${ex.exerciseId}`;
-                                  return (
-                                    <div key={ex.id} className="rounded-2xl border border-border bg-background p-3">
-                                      <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <div>
-                                          <div className="text-sm font-semibold text-foreground">{name}</div>
-                                          <div className="text-xs text-muted-foreground">Order: {ex.order}</div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
+	                                  const name = base?.name ?? `Exercise ${ex.exerciseId}`;
+	                                  return (
+	                                    <div key={ex.id} className="rounded-2xl border border-border bg-background p-3">
+	                                      <div className="flex flex-wrap items-center justify-between gap-2">
+	                                        <div>
+	                                          <div className="text-sm font-semibold text-foreground">{name}</div>
+	                                          <div className="text-xs text-muted-foreground">Order: {ex.order}</div>
+	                                          {base?.videoUrl ? (
+	                                            <details className="mt-2">
+	                                              <summary className="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
+	                                                Video preview
+	                                              </summary>
+	                                              <div className="mt-2 overflow-hidden rounded-xl border border-border bg-black/40">
+	                                                <video
+	                                                  key={base.videoUrl}
+	                                                  src={base.videoUrl}
+	                                                  controls
+	                                                  playsInline
+	                                                  className="w-full"
+	                                                />
+	                                              </div>
+	                                              <div className="mt-2">
+	                                                <a
+	                                                  href={base.videoUrl}
+	                                                  target="_blank"
+	                                                  rel="noreferrer"
+	                                                  className="text-xs text-muted-foreground underline hover:text-foreground"
+	                                                >
+	                                                  Open in new tab
+	                                                </a>
+	                                              </div>
+	                                            </details>
+	                                          ) : null}
+	                                        </div>
+	                                        <div className="flex items-center gap-2">
 	                                          <Button
 	                                            variant="outline"
 	                                            size="sm"
