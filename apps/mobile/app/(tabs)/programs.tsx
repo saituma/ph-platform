@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, InteractionManager, Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import {
   setLatestSubscriptionRequest,
@@ -57,18 +57,6 @@ export default function ProgramsScreen() {
     () => new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve())),
     [],
   );
-
-  const openProgramDetail = useCallback(
-    (tierId: "php" | "plus" | "premium") => {
-      const sharedBoundTag = `program-card-${tierId}`;
-      router.push({
-        pathname: "/programs/[id]",
-        params: { id: tierId, sharedBoundTag },
-      } as any);
-    },
-    [router],
-  );
-
   const getDiscountCopy = useCallback((plan?: any | null) => {
     if (!plan?.discountValue || !plan?.discountType) return null;
     const value = String(plan.discountValue).trim();
@@ -313,7 +301,7 @@ export default function ProgramsScreen() {
   }, [refreshBillingStatus, token]);
 
 
-  const loadPlans = useCallback(async (forceRefresh = false) => {
+  const loadPlans = useCallback(async (forceRefresh = true) => {
     const plansResponse = await apiRequest<{ plans: any[] }>("/public/plans", {
       forceRefresh,
     });

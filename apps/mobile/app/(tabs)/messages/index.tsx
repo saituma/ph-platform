@@ -80,56 +80,17 @@ export default function MessagesScreen() {
   // ====================== LOCKED / UPGRADE STATE ======================
   if (!canMessage) {
     return (
-      <SafeAreaView className="flex-1" edges={["top"]}>
-        <View className="flex-1 items-center justify-center px-6 pb-12">
-          <View className="items-center max-w-[340px]">
-            {/* Visual Icon with Lock Overlay */}
-            <View className="mb-12">
-              <View className="w-32 h-32 bg-accent/5 dark:bg-accent/10 rounded-[40px] items-center justify-center border border-accent/10">
-                <Ionicons
-                  name="chatbubbles"
-                  size={64}
-                  color={colors.accent}
-                />
-              </View>
-              <View className="absolute -top-2 -right-2 bg-red-500 w-10 h-10 rounded-full items-center justify-center border-4 border-app shadow-lg">
-                <Ionicons name="lock-closed" size={20} color="white" />
-              </View>
-            </View>
-
-            <Text className="text-4xl font-telma-bold font-bold tracking-tight text-app text-center mb-3">
-              Coaching Chat
-            </Text>
-
-            <Text className="text-[15px] font-outfit text-center text-secondary leading-relaxed max-w-[280px] mb-12">
-              Get direct 1-on-1 access to your coach for personalized feedback, video reviews, and real-time guidance.
-            </Text>
-
-            {/* Benefits */}
-            <View className="w-full space-y-5 mb-12 px-2">
-              {[
-                "Direct 1-on-1 chat with your coach",
-                "Share training videos for quick feedback",
-                "Get answers to questions in real time",
-                "Stay perfectly aligned with your goals",
-              ].map((benefit, i) => (
-                <View key={i} className="flex-row items-start gap-4">
-                  <View className="mt-0.5 h-5 w-5 rounded-full bg-accent/10 items-center justify-center">
-                    <Ionicons name="checkmark" size={12} color={colors.accent} />
-                  </View>
-                  <Text className="font-outfit text-sm text-app flex-1 leading-snug">
-                    {benefit}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            <View className="w-full bg-warning/10 py-4 rounded-2xl border border-warning/20">
-              <Text className="text-[13px] font-semibold text-warning text-center">
-                This feature is for Premium plan users only.
-              </Text>
-            </View>
+      <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.background }}>
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="w-20 h-20 rounded-2xl items-center justify-center mb-6" style={{ backgroundColor: colors.backgroundSecondary, borderWidth: 1, borderColor: colors.border }}>
+            <Ionicons name="chatbubbles" size={40} color={colors.accent} />
           </View>
+          <Text className="text-2xl font-clash font-bold text-app text-center mb-3">
+            Messages
+          </Text>
+          <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
+            Purchase the Premium plan to use messaging.
+          </Text>
         </View>
       </SafeAreaView>
     );

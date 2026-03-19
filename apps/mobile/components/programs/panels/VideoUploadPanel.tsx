@@ -733,7 +733,7 @@ export function VideoUploadPanel({
       </View>
 
       <Text
-        className="mx-5 mb-6 text-[11px] font-outfit uppercase tracking-[1.2px]"
+        className="mx-5 mb-6 text-xs font-outfit"
         style={{ color: colors.textSecondary, opacity: 0.8 }}
       >
         Max video size: {VIDEO_MAX_MB}MB.

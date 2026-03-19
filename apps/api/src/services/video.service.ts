@@ -102,6 +102,7 @@ export async function reviewVideoUpload(input: {
       if (athlete.athleteUserId) recipients.add(athlete.athleteUserId);
       if (athlete.guardianUserId) recipients.add(athlete.guardianUserId);
       const payload = {
+        type: "video_reviewed",
         videoUploadId: upload.id,
         url: upload.programSectionContentId
           ? `/video-upload?sectionContentId=${upload.programSectionContentId}`

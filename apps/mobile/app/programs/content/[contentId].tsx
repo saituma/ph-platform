@@ -94,12 +94,7 @@ const MediaSection = React.memo(function MediaSection({ url, title }: { url: str
 
   return (
     <View className="rounded-3xl overflow-hidden bg-white/5">
-      <VideoPlayer
-        uri={url}
-        title={title}
-        useVideoResolution
-        ignoreTabFocus
-      />
+      <VideoPlayer uri={url} title={title} ignoreTabFocus />
     </View>
   );
 });

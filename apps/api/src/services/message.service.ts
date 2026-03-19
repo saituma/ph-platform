@@ -202,6 +202,7 @@ export async function sendMessage(input: {
       const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
 
       await sendPushNotification(resolvedReceiverId, title, body, {
+        type: "message",
         threadId: String(input.senderId),
         url: "/messages",
       });

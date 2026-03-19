@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 import { ParentShell } from "../../../components/parent/shell";
 import { Button } from "../../../components/ui/button";
@@ -152,7 +154,18 @@ export default function ParentBillingPage() {
     <ParentShell
       title="Billing"
       subtitle="Control subscription pricing and approvals."
-      actions={<Button onClick={loadData}>Refresh</Button>}
+      actions={
+        <div className="flex items-center gap-2">
+          <Link
+            href="/parent"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Portal
+          </Link>
+          <Button onClick={loadData}>Refresh</Button>
+        </div>
+      }
     >
       {actionError ? (
         <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
