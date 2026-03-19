@@ -167,6 +167,11 @@ export default function UserDetailPage() {
     sessionId: number | null;
     order: number;
   }>({ open: false, sessionId: null, order: 1 });
+  const [exerciseVideoDialog, setExerciseVideoDialog] = useState<{
+    open: boolean;
+    title: string;
+    url: string;
+  }>({ open: false, title: "", url: "" });
   const [isUploadingExerciseVideo, setIsUploadingExerciseVideo] = useState(false);
   const [exerciseVideoPreviewUrl, setExerciseVideoPreviewUrl] = useState<string | null>(null);
   const [newExerciseDraft, setNewExerciseDraft] = useState<{
@@ -912,31 +917,34 @@ export default function UserDetailPage() {
 	                                          <div className="text-sm font-semibold text-foreground">{name}</div>
 	                                          <div className="text-xs text-muted-foreground">Order: {ex.order}</div>
 	                                          {base?.videoUrl ? (
-	                                            <details className="mt-2">
-	                                              <summary className="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
-	                                                Video preview
-	                                              </summary>
-	                                              <div className="mt-2 overflow-hidden rounded-xl border border-border bg-black/40">
-	                                                <video
-	                                                  key={base.videoUrl}
-	                                                  src={base.videoUrl}
-	                                                  controls
-	                                                  playsInline
-	                                                  className="w-full"
-	                                                />
-	                                              </div>
-	                                              <div className="mt-2">
-	                                                <a
-	                                                  href={base.videoUrl}
-	                                                  target="_blank"
-	                                                  rel="noreferrer"
-	                                                  className="text-xs text-muted-foreground underline hover:text-foreground"
-	                                                >
-	                                                  Open in new tab
-	                                                </a>
-	                                              </div>
-	                                            </details>
-	                                          ) : null}
+	                                            <div className="mt-2 flex flex-wrap items-center gap-2">
+	                                              <span className="text-[11px] text-muted-foreground">Video attached</span>
+	                                              <Button
+	                                                type="button"
+	                                                size="sm"
+	                                                variant="outline"
+	                                                onClick={() =>
+	                                                  setExerciseVideoDialog({
+	                                                    open: true,
+	                                                    title: name,
+	                                                    url: base.videoUrl as string,
+	                                                  })
+	                                                }
+	                                              >
+	                                                View video
+	                                              </Button>
+	                                              <a
+	                                                href={base.videoUrl}
+	                                                target="_blank"
+	                                                rel="noreferrer"
+	                                                className="text-xs text-muted-foreground underline hover:text-foreground"
+	                                              >
+	                                                Open
+	                                              </a>
+	                                            </div>
+	                                          ) : (
+	                                            <div className="mt-2 text-[11px] text-muted-foreground">No video</div>
+	                                          )}
 	                                        </div>
 	                                        <div className="flex items-center gap-2">
 	                                          <Button
@@ -1264,6 +1272,43 @@ export default function UserDetailPage() {
 	                </Button>
 	              </div>
 	            </div>
+	          </DialogContent>
+	        </Dialog>
+
+	        <Dialog
+	          open={exerciseVideoDialog.open}
+	          onOpenChange={(open) => setExerciseVideoDialog((prev) => ({ ...prev, open }))}
+	        >
+	          <DialogContent>
+	            <DialogHeader>
+	              <DialogTitle>{exerciseVideoDialog.title || "Exercise video"}</DialogTitle>
+	              <DialogDescription>Preview the demo video saved on the exercise.</DialogDescription>
+	            </DialogHeader>
+	            {exerciseVideoDialog.url ? (
+	              <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-black/40">
+	                <video
+	                  key={exerciseVideoDialog.url}
+	                  src={exerciseVideoDialog.url}
+	                  controls
+	                  playsInline
+	                  className="w-full"
+	                />
+	              </div>
+	            ) : (
+	              <div className="mt-4 text-sm text-muted-foreground">No video URL found.</div>
+	            )}
+	            {exerciseVideoDialog.url ? (
+	              <div className="mt-3">
+	                <a
+	                  href={exerciseVideoDialog.url}
+	                  target="_blank"
+	                  rel="noreferrer"
+	                  className="text-sm text-muted-foreground underline hover:text-foreground"
+	                >
+	                  Open in new tab
+	                </a>
+	              </div>
+	            ) : null}
 	          </DialogContent>
 	        </Dialog>
 
