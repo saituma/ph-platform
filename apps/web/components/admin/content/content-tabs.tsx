@@ -16,12 +16,10 @@ type ContentTabsProps = {
     adminStory?: string;
     professionalPhoto?: string;
     testimonials?: any[] | string;
-    stories?: any[] | string;
   } | null;
   onSaveProfile: (data: { adminStory: string; professionalPhoto: string }) => void;
   onSaveTestimonials: (data: { testimonials: any[] }) => void;
   onSaveIntroVideo: (data: { introVideoUrl: string }) => void;
-  onSaveStories: (data: { stories: any[] }) => void;
   testimonialSubmissions?: any[];
   onApproveTestimonial?: (submissionId: number) => void;
   onRejectTestimonial?: (submissionId: number) => void;
@@ -32,7 +30,6 @@ export function ContentTabs({
   onSaveProfile,
   onSaveTestimonials,
   onSaveIntroVideo,
-  onSaveStories,
   testimonialSubmissions = [],
   onApproveTestimonial,
   onRejectTestimonial,
@@ -48,11 +45,6 @@ export function ContentTabs({
   const [testimonialName, setTestimonialName] = useState("");
   const [testimonialQuote, setTestimonialQuote] = useState("");
   const [testimonialPhoto, setTestimonialPhoto] = useState("");
-  const [homeStories, setHomeStories] = useState<any[]>([]);
-  const [storyTitle, setStoryTitle] = useState("");
-  const [storyBadge, setStoryBadge] = useState("");
-  const [storyMediaType, setStoryMediaType] = useState<"image" | "video">("image");
-  const [storyMediaUrl, setStoryMediaUrl] = useState("");
   const [introVideoError, setIntroVideoError] = useState<string | null>(null);
 
   const isBlockedIntroVideoUrl = (value: string) => {
@@ -86,21 +78,6 @@ export function ContentTabs({
         }
       } else {
         setHomeTestimonials([]);
-      }
-    }
-    if (initialHome.stories !== undefined) {
-      const value = initialHome.stories;
-      if (Array.isArray(value)) {
-        setHomeStories(value);
-      } else if (typeof value === "string" && value.trim().length) {
-        try {
-          const parsed = JSON.parse(value);
-          setHomeStories(Array.isArray(parsed) ? parsed : []);
-        } catch {
-          setHomeStories([]);
-        }
-      } else {
-        setHomeStories([]);
       }
     }
   }, [initialHome]);
@@ -204,7 +181,6 @@ export function ContentTabs({
         <TabsTrigger value="profile">Profile</TabsTrigger>
         <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
         <TabsTrigger value="intro">Intro Video</TabsTrigger>
-        <TabsTrigger value="stories">Stories</TabsTrigger>
       </TabsList>
       <TabsContent value="profile">
         <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -532,134 +508,6 @@ export function ContentTabs({
               }}
             >
               Save Intro Video
-            </Button>
-          </div>
-        </div>
-      </TabsContent>
-      <TabsContent value="stories">
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Story Title</Label>
-              <Input
-                placeholder="e.g. Coach Tips"
-                value={storyTitle}
-                onChange={(event) => setStoryTitle(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Media Type</Label>
-              <Select
-                value={storyMediaType}
-                onChange={(event) => setStoryMediaType(event.target.value as "image" | "video")}
-              >
-                <option value="image">Image</option>
-                <option value="video">Video</option>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Story Media</Label>
-              <ParentCourseMediaUpload
-                label={storyMediaUrl ? "Replace Media" : "Upload Media"}
-                folder="home/stories"
-                accept="image/*,video/*"
-                maxSizeMb={200}
-                onUploaded={(url) => setStoryMediaUrl(url)}
-              />
-              {storyMediaUrl ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
-                  <span className="break-all text-muted-foreground">{storyMediaUrl}</span>
-                  <Button size="sm" variant="outline" onClick={() => setStoryMediaUrl("")}>
-                    Remove
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Upload a photo or video for the story bubble.
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Badge (optional)</Label>
-              <Input
-                placeholder="e.g. New"
-                value={storyBadge}
-                onChange={(event) => setStoryBadge(event.target.value)}
-              />
-            </div>
-            <Button
-              className="w-full"
-              onClick={() => {
-                if (!storyTitle.trim() || !storyMediaUrl.trim()) return;
-                const entry = {
-                  id: `s_${Date.now()}`,
-                  title: storyTitle.trim(),
-                  mediaUrl: storyMediaUrl.trim(),
-                  mediaType: storyMediaType,
-                  badge: storyBadge.trim() || undefined,
-                };
-                setHomeStories((prev) => [...prev, entry]);
-                setStoryTitle("");
-                setStoryMediaUrl("");
-                setStoryBadge("");
-                setStoryMediaType("image");
-              }}
-            >
-              Add Story
-            </Button>
-            {homeStories.length ? (
-              <div className="space-y-3">
-                {homeStories.map((item: any, index: number) => (
-                  <div
-                    key={item?.id ?? `story-${index}`}
-                    className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">
-                          {item?.title ?? "Untitled Story"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item?.mediaType ?? "image"}
-                          {item?.badge ? ` • ${item.badge}` : ""}
-                        </p>
-                        <p className="text-xs text-muted-foreground break-all">
-                          {item?.mediaUrl ?? ""}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          setHomeStories((prev) =>
-                            prev.filter((_: any, i: number) => i !== index)
-                          )
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    {item?.mediaUrl && item?.mediaType === "image" ? (
-                      <div className="mt-3 h-20 w-20 overflow-hidden rounded-xl border border-border bg-secondary/40">
-                        <img
-                          src={item.mediaUrl}
-                          alt={`Story ${item?.title ?? ""}`}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <div className="space-y-4">
-            <Button
-              className="w-full"
-              variant="outline"
-              onClick={() => onSaveStories({ stories: homeStories })}
-            >
-              Save Stories
             </Button>
           </div>
         </div>

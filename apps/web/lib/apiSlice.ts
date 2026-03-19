@@ -76,7 +76,6 @@ export const apiSlice = createApi({
     "Programs",
     "AgeExperience",
     "UserLocations",
-    "Stories",
   ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<any, void>({
@@ -106,18 +105,6 @@ export const apiSlice = createApi({
     getDashboard: builder.query<any, void>({
       query: () => "/admin/dashboard",
       providesTags: ["Dashboard"],
-    }),
-    getStories: builder.query<{ items: any[] }, void>({
-      query: () => "/content/stories",
-      providesTags: ["Stories"],
-    }),
-    replaceStories: builder.mutation<{ items: any[] }, { stories: any[] }>({
-      query: (body) => ({
-        url: "/content/stories",
-        method: "PUT",
-        body,
-      }),
-      invalidatesTags: ["Stories"],
     }),
     getUserLocations: builder.query<{ latest: any[]; history: any[]; rangeDays?: number | null }, { days?: number } | void>({
       query: (params) => {
@@ -292,6 +279,14 @@ export const apiSlice = createApi({
         return `/admin/food-diary?${query.toString()}`;
       },
       providesTags: ["FoodDiary"],
+    }),
+    reviewFoodDiary: builder.mutation<{ item: any }, { entryId: number; feedback?: string | null }>({
+      query: ({ entryId, feedback }) => ({
+        url: `/admin/food-diary/${entryId}/review`,
+        method: "POST",
+        body: { feedback: feedback ?? "" },
+      }),
+      invalidatesTags: ["FoodDiary"],
     }),
     getPhysioReferrals: builder.query<{ items: any[] }, void>({
       query: () => "/admin/physio-referrals",
@@ -635,13 +630,12 @@ export const {
   useGetHomeContentQuery,
   useGetLegalContentQuery,
   useGetAnnouncementsQuery,
-  useGetStoriesQuery,
-  useReplaceStoriesMutation,
   useGetTestimonialSubmissionsQuery,
   useApproveTestimonialSubmissionMutation,
   useRejectTestimonialSubmissionMutation,
   useGetParentCoursesQuery,
   useGetFoodDiaryQuery,
+  useReviewFoodDiaryMutation,
   useGetPhysioReferralsQuery,
   useCreatePhysioReferralMutation,
   useUpdatePhysioReferralMutation,
