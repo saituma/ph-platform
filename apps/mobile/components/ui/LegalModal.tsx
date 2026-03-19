@@ -7,7 +7,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
@@ -27,11 +26,9 @@ export function LegalModal({
   children,
 }: LegalModalProps) {
   const { colors } = useAppTheme();
-  const { height: windowHeight } = useWindowDimensions();
   const [isMounted, setIsMounted] = useState(visible);
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetProgress = useRef(new Animated.Value(0)).current;
-  const sheetHeight = Math.max(340, Math.min(windowHeight * 0.8, 720));
 
   useEffect(() => {
     if (visible) {
@@ -88,7 +85,7 @@ export function LegalModal({
       animationType="none"
       onRequestClose={onClose}
     >
-      <View className="flex-1">
+      <View className="flex-1 justify-end">
         <Animated.View
           style={[
             StyleSheet.absoluteFillObject,
@@ -101,63 +98,50 @@ export function LegalModal({
           <Pressable className="flex-1" onPress={onClose} />
         </Animated.View>
 
-        <View
-          style={[
-            StyleSheet.absoluteFillObject,
-            {
-              justifyContent: "flex-end",
-            },
-          ]}
-          pointerEvents="box-none"
+        <Animated.View
+          style={{
+            transform: [{ translateY: sheetTranslateY }],
+          }}
         >
-          <Animated.View
+          <View
+            className="bg-app w-full rounded-t-[32px] overflow-hidden shadow-xl border-t border-l border-r border-app"
             style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              transform: [{ translateY: sheetTranslateY }],
+              height: "52%",
+              maxHeight: 460,
+              minHeight: 340,
             }}
           >
-            <View
-              className="bg-app w-full rounded-t-[32px] overflow-hidden shadow-xl border-t border-l border-r border-app"
-              style={{
-                height: sheetHeight,
-                marginBottom: 0,
-              }}
-            >
-              <View className="px-6 pt-3 pb-4 border-b border-app bg-app">
-                <View className="items-center mb-3">
-                  <View
-                    className="h-1.5 w-12 rounded-full"
-                    style={{ backgroundColor: colors.textSecondary + "33" }}
-                  />
-                </View>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-xl font-clash text-app font-bold">
-                    {title}
-                  </Text>
-                  <Pressable
-                    accessibilityLabel="Close legal sheet"
-                    accessibilityRole="button"
-                    className="w-9 h-9 items-center justify-center bg-secondary rounded-full"
-                    hitSlop={8}
-                    onPress={onClose}
-                  >
-                    <Feather name="x" size={16} color={colors.textSecondary} />
-                  </Pressable>
-                </View>
+            <View className="px-6 pt-3 pb-4 border-b border-app bg-app">
+              <View className="items-center mb-3">
+                <View
+                  className="h-1.5 w-12 rounded-full"
+                  style={{ backgroundColor: colors.textSecondary + "33" }}
+                />
               </View>
-
-              <ScrollView
-                contentContainerStyle={{ padding: 24, paddingBottom: 36 }}
-                showsVerticalScrollIndicator={false}
-              >
-                {children}
-              </ScrollView>
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xl font-clash text-app font-bold">
+                  {title}
+                </Text>
+                <Pressable
+                  accessibilityLabel="Close legal sheet"
+                  accessibilityRole="button"
+                  className="w-9 h-9 items-center justify-center bg-secondary rounded-full"
+                  hitSlop={8}
+                  onPress={onClose}
+                >
+                  <Feather name="x" size={16} color={colors.textSecondary} />
+                </Pressable>
+              </View>
             </View>
-          </Animated.View>
-        </View>
+
+            <ScrollView
+              contentContainerStyle={{ padding: 24, paddingBottom: 36 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </ScrollView>
+          </View>
+        </Animated.View>
       </View>
     </Modal>
   );
