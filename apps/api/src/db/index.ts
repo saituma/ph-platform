@@ -15,17 +15,39 @@ function normalizeConnectionString(raw: string) {
   }
 }
 
+/** Treat common hosted Postgres URLs as TLS even when DATABASE_SSL is unset (avoids ECONNRESET / failed handshakes). */
+function connectionWantsSsl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    const mode = (u.searchParams.get("sslmode") ?? "").toLowerCase();
+    if (mode === "require" || mode === "verify-full" || mode === "verify-ca") return true;
+    if (u.searchParams.get("ssl") === "true") return true;
+    const host = u.hostname.toLowerCase();
+    return (
+      host.includes("neon.tech") ||
+      host.includes("supabase.co") ||
+      host.endsWith(".pooler.supabase.com") ||
+      host.includes("render.com") ||
+      host.includes(".database.azure.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
 if (!env.databaseUrl) {
   throw new Error("DATABASE_URL is required");
 }
 
-const connectionString = env.databaseSsl
-  ? normalizeConnectionString(env.databaseUrl)
-  : env.databaseUrl;
+const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(env.databaseUrl);
+const connectionString = useSsl ? normalizeConnectionString(env.databaseUrl) : env.databaseUrl;
+const sslOption = useSsl ? env.databaseSsl ?? { rejectUnauthorized: false } : undefined;
 
 export const pool = new Pool({
   connectionString,
-  ssl: env.databaseSsl,
+  ssl: sslOption,
+  connectionTimeoutMillis: 60_000,
+  keepAlive: true,
 });
 
 // Ensure public schema is on the search_path for pooled Neon connections.

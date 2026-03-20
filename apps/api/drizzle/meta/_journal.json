@@ -288,6 +288,13 @@
       "when": 1773011000000,
       "tag": "0040_messaging_enabled_tiers",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1773012000000,
+      "tag": "0041_training_progress_achievements",
+      "breakpoints": true
     }
   ]
 }

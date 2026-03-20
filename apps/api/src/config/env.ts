@@ -13,6 +13,12 @@ const envPathCandidates = [
 const resolvedEnvPath = envPathCandidates.find((candidate) => fs.existsSync(candidate));
 dotenv.config({ path: resolvedEnvPath, override: true });
 
+/** DB-only CLI scripts (e.g. seed:demo) only need DATABASE_URL; set PH_API_SCRIPT=1 to skip full app secrets. */
+const phApiScript = process.env.PH_API_SCRIPT === "1";
+
+const optionalWhenScript = (messageWhenRequired: string) =>
+  phApiScript ? z.string().optional() : z.string().min(1, messageWhenRequired);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -29,18 +35,18 @@ const envSchema = z.object({
   ALLOW_JWT_BYPASS: z.string().optional(),
   ALLOW_EXPIRED_TOKENS: z.string().optional(),
   AUTH_MODE: z.string().optional(),
-  JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
+  JWT_SECRET: optionalWhenScript("JWT_SECRET is required"),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
   PUSH_WEBHOOK_URL: z.string().optional(),
-  STRIPE_SECRET_KEY: z.string().min(1, "STRIPE_SECRET_KEY is required"),
+  STRIPE_SECRET_KEY: optionalWhenScript("STRIPE_SECRET_KEY is required"),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
-  STRIPE_SUCCESS_URL: z.string().min(1, "STRIPE_SUCCESS_URL is required"),
-  STRIPE_CANCEL_URL: z.string().min(1, "STRIPE_CANCEL_URL is required"),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1, "STRIPE_WEBHOOK_SECRET is required"),
+  STRIPE_SUCCESS_URL: optionalWhenScript("STRIPE_SUCCESS_URL is required"),
+  STRIPE_CANCEL_URL: optionalWhenScript("STRIPE_CANCEL_URL is required"),
+  STRIPE_WEBHOOK_SECRET: optionalWhenScript("STRIPE_WEBHOOK_SECRET is required"),
   STRIPE_PRICE_PHP: z.string().optional(),
   STRIPE_PRICE_PHP_PLUS: z.string().optional(),
   STRIPE_PRICE_PHP_PREMIUM: z.string().optional(),
@@ -54,9 +60,9 @@ const envSchema = z.object({
   VIDEO_MAX_MB: z.coerce.number().int().positive().optional(),
   PUBLIC_API_BASE_URL: z.string().optional(),
   API_BASE_URL: z.string().optional(),
-  ADMIN_WEB_URL: z.string().min(1, "ADMIN_WEB_URL is required"),
+  ADMIN_WEB_URL: optionalWhenScript("ADMIN_WEB_URL is required"),
   BOOKING_ACTION_SECRET: z.string().optional(),
-  OPEN_AI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
+  OPEN_AI_API_KEY: optionalWhenScript("OPENAI_API_KEY is required"),
   EXPO_ACCESS_TOKEN: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().optional(),
@@ -69,6 +75,8 @@ if (!parsed.success) {
 }
 
 const raw = parsed.data;
+
+const scriptPlaceholder = "__ph_api_script_unused__";
 
 export const env = {
   port: raw.PORT,
@@ -85,18 +93,18 @@ export const env = {
   allowJwtBypass: raw.ALLOW_JWT_BYPASS === "true",
   allowExpiredTokens: raw.ALLOW_EXPIRED_TOKENS === "true",
   authMode: raw.AUTH_MODE ?? "cognito",
-  jwtSecret: raw.JWT_SECRET,
+  jwtSecret: phApiScript ? (raw.JWT_SECRET ?? scriptPlaceholder) : raw.JWT_SECRET!,
   smtpHost: raw.SMTP_HOST ?? "smtp.gmail.com",
   smtpPort: raw.SMTP_PORT ?? 465,
   smtpUser: raw.SMTP_USER ?? "",
   smtpPass: raw.SMTP_PASS ?? "",
   smtpFrom: raw.SMTP_FROM ?? "",
   pushWebhookUrl: raw.PUSH_WEBHOOK_URL ?? "",
-  stripeSecretKey: raw.STRIPE_SECRET_KEY,
+  stripeSecretKey: phApiScript ? (raw.STRIPE_SECRET_KEY ?? scriptPlaceholder) : raw.STRIPE_SECRET_KEY!,
   stripePublishableKey: raw.STRIPE_PUBLISHABLE_KEY ?? "",
-  stripeSuccessUrl: raw.STRIPE_SUCCESS_URL,
-  stripeCancelUrl: raw.STRIPE_CANCEL_URL,
-  stripeWebhookSecret: raw.STRIPE_WEBHOOK_SECRET,
+  stripeSuccessUrl: phApiScript ? (raw.STRIPE_SUCCESS_URL ?? "http://localhost") : raw.STRIPE_SUCCESS_URL!,
+  stripeCancelUrl: phApiScript ? (raw.STRIPE_CANCEL_URL ?? "http://localhost") : raw.STRIPE_CANCEL_URL!,
+  stripeWebhookSecret: phApiScript ? (raw.STRIPE_WEBHOOK_SECRET ?? scriptPlaceholder) : raw.STRIPE_WEBHOOK_SECRET!,
   stripePricePhp: raw.STRIPE_PRICE_PHP ?? "",
   stripePricePlus: raw.STRIPE_PRICE_PHP_PLUS ?? "",
   stripePricePremium: raw.STRIPE_PRICE_PHP_PREMIUM ?? "",
@@ -109,9 +117,10 @@ export const env = {
   mediaMaxMb: raw.MEDIA_MAX_MB ?? 25,
   videoMaxMb: raw.VIDEO_MAX_MB ?? 200,
   publicApiBaseUrl: raw.PUBLIC_API_BASE_URL ?? raw.API_BASE_URL ?? "",
-  adminWebUrl: raw.ADMIN_WEB_URL,
-  bookingActionSecret: raw.BOOKING_ACTION_SECRET ?? raw.JWT_SECRET,
-  openaiApiKey: raw.OPEN_AI_API_KEY,
+  adminWebUrl: phApiScript ? (raw.ADMIN_WEB_URL ?? "http://localhost") : raw.ADMIN_WEB_URL!,
+  bookingActionSecret:
+    raw.BOOKING_ACTION_SECRET ?? (phApiScript ? (raw.JWT_SECRET ?? scriptPlaceholder) : raw.JWT_SECRET!),
+  openaiApiKey: phApiScript ? (raw.OPEN_AI_API_KEY ?? scriptPlaceholder) : raw.OPEN_AI_API_KEY!,
   expoAccessToken: raw.EXPO_ACCESS_TOKEN ?? "",
   corsOrigins: raw.CORS_ORIGINS ?? "",
   requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",

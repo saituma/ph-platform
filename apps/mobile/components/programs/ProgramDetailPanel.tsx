@@ -11,6 +11,7 @@ import {
   FoodDiaryPanel,
   PhysioReferralPanel,
 } from "@/components/programs/ProgramPanels";
+import { AchievementsStrip, type TrainingAchievement } from "@/components/programs/AchievementsStrip";
 import { ProgramSessionPanel } from "@/components/programs/ProgramSessionPanel";
 import { Shadows } from "@/constants/theme";
 import {
@@ -183,6 +184,10 @@ export function ProgramDetailPanel({
   );
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+  const [trainingProgress, setTrainingProgress] = useState<{
+    stats: { exerciseCompletions: number; sessionRuns: number; trainingDays: number };
+    achievements: TrainingAchievement[];
+  } | null>(null);
   const [expandedContent, setExpandedContent] = useState<Set<number>>(new Set());
   const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
   const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
@@ -231,6 +236,26 @@ export function ProgramDetailPanel({
   useEffect(() => {
     void loadPhpPlusTabs();
   }, [loadPhpPlusTabs]);
+
+  const loadTrainingProgress = useCallback(async () => {
+    if (!token) {
+      setTrainingProgress(null);
+      return;
+    }
+    try {
+      const data = await apiRequest<{
+        stats: { exerciseCompletions: number; sessionRuns: number; trainingDays: number };
+        achievements: TrainingAchievement[];
+      }>("/training-progress", { token, forceRefresh: true });
+      setTrainingProgress({ stats: data.stats, achievements: data.achievements });
+    } catch {
+      setTrainingProgress(null);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadTrainingProgress();
+  }, [loadTrainingProgress]);
 
   useEffect(() => {
     if (!token) return;
@@ -359,7 +384,7 @@ export function ProgramDetailPanel({
   }, [searchQuery, tabs, sectionContent]);
 
   const loadSectionContent = useCallback(
-    async (tab: string) => {
+    async (tab: string, options?: { force?: boolean }) => {
       if (!token) {
         setSectionContent([]);
         return;
@@ -369,16 +394,20 @@ export function ProgramDetailPanel({
         setSectionContent([]);
         return;
       }
+      const tier = programIdToTier(programId);
+      const ageQ =
+        activeAthleteAge !== null
+          ? `&age=${encodeURIComponent(String(activeAthleteAge))}`
+          : "";
+      const force = options?.force ?? false;
       setIsLoadingContent(true);
       setContentError(null);
       try {
         const responses = await Promise.all(
           types.map((type) =>
             apiRequest<{ items: ProgramSectionContent[] }>(
-              `/program-section-content?sectionType=${encodeURIComponent(
-                String(type),
-              )}${activeAthleteAge !== null ? `&age=${encodeURIComponent(String(activeAthleteAge))}` : ""}`,
-              { token },
+              `/program-section-content?sectionType=${encodeURIComponent(String(type))}&programTier=${encodeURIComponent(tier)}${ageQ}`,
+              { token, forceRefresh: force },
             ),
           ),
         );
@@ -404,7 +433,7 @@ export function ProgramDetailPanel({
         setIsLoadingContent(false);
       }
     },
-    [token, activeAthleteAge],
+    [token, activeAthleteAge, programId],
   );
 
   useEffect(() => {
@@ -412,7 +441,11 @@ export function ProgramDetailPanel({
   }, [activeTab, loadSectionContent]);
 
   const handlePageRefresh = async () => {
-    await Promise.all([loadSectionContent(activeTab), loadPhpPlusTabs()]);
+    await Promise.all([
+      loadSectionContent(activeTab, { force: true }),
+      loadPhpPlusTabs(),
+      loadTrainingProgress(),
+    ]);
     setRefreshToken((prev) => prev + 1);
   };
 
@@ -728,7 +761,13 @@ export function ProgramDetailPanel({
             const structured = sessionsFromSectionContentForTab(sectionContent, activeTab);
             if (structured?.length) {
               return (
-                <ProgramSessionPanel programId={programId} sessions={structured} onVideoPress={handleVideoPress} />
+                <ProgramSessionPanel
+                  programId={programId}
+                  sessions={structured}
+                  onVideoPress={handleVideoPress}
+                  authToken={token}
+                  onTrainingLogged={loadTrainingProgress}
+                />
               );
             }
             return renderTrainingContent();
@@ -740,7 +779,15 @@ export function ProgramDetailPanel({
     if (TRAINING_TABS.has(activeTab)) {
       const structured = sessionsFromSectionContentForTab(sectionContent, activeTab);
       if (structured?.length) {
-        return <ProgramSessionPanel programId={programId} sessions={structured} onVideoPress={handleVideoPress} />;
+        return (
+          <ProgramSessionPanel
+            programId={programId}
+            sessions={structured}
+            onVideoPress={handleVideoPress}
+            authToken={token}
+            onTrainingLogged={loadTrainingProgress}
+          />
+        );
       }
       return renderTrainingContent();
     }
@@ -854,6 +901,12 @@ export function ProgramDetailPanel({
             ) : null}
           </Transition.View>
         </View>
+
+        {trainingProgress ? (
+          <View className="px-6 mb-4">
+            <AchievementsStrip stats={trainingProgress.stats} achievements={trainingProgress.achievements} />
+          </View>
+        ) : null}
 
         {programId === "plus" && phpPlusTabs === null ? (
           <View className="px-6 mb-2">
