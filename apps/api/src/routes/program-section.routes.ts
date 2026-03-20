@@ -3,8 +3,10 @@ import { Router } from "express";
 import {
   createProgramSectionContentHandler,
   completeProgramSectionContentHandler,
+  completeTrainingSessionHandler,
   deleteProgramSectionContentHandler,
   getProgramSectionContentHandler,
+  getTrainingProgressHandler,
   listProgramSectionContentHandler,
   updateProgramSectionContentHandler,
 } from "../controllers/program-section.controller";
@@ -14,8 +16,10 @@ import { requireRole } from "../middlewares/roles";
 const router = Router();
 
 router.get("/program-section-content", requireAuth, listProgramSectionContentHandler);
+router.get("/training-progress", requireAuth, getTrainingProgressHandler);
 router.get("/program-section-content/:contentId", requireAuth, getProgramSectionContentHandler);
 router.post("/program-section-content/:contentId/complete", requireAuth, completeProgramSectionContentHandler);
+router.post("/program-section-content/complete-session", requireAuth, completeTrainingSessionHandler);
 router.post(
   "/program-section-content",
   requireAuth,

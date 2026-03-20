@@ -28,12 +28,15 @@ export function SessionRunnerModal({
   sessionLabel,
   exercises,
   onVideoPress,
+  onSessionComplete,
 }: {
   visible: boolean;
   onClose: () => void;
   sessionLabel: string;
   exercises: ExerciseItem[];
   onVideoPress?: (url: string) => void;
+  /** Fired when the athlete finishes the last exercise (before the modal closes). */
+  onSessionComplete?: (exerciseIds: string[]) => void;
 }) {
   const { colors, isDark } = useAppTheme();
   const [index, setIndex] = useState(0);
@@ -225,6 +228,7 @@ export function SessionRunnerModal({
             <Pressable
               onPress={() => {
                 stopRest();
+                onSessionComplete?.(safeExercises.map((e) => String(e.id ?? "")).filter(Boolean));
                 onClose();
               }}
               className="flex-1 py-4 rounded-2xl items-center"

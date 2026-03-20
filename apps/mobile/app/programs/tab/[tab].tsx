@@ -6,6 +6,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { getSessionTypesForTab } from "@/constants/program-details";
 import { apiRequest } from "@/lib/api";
+import { normalizeProgramTier } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@expo/vector-icons";
@@ -43,6 +44,7 @@ export default function ProgramTabDetailScreen() {
     return raw ? decodeURIComponent(String(raw)) : "";
   }, [tab]);
   const token = useAppSelector((state) => state.user.token);
+  const programTier = useAppSelector((state) => state.user.programTier);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const { colors, isDark } = useAppTheme();
@@ -88,15 +90,18 @@ export default function ProgramTabDetailScreen() {
       setItems([]);
       return;
     }
+    const tier = normalizeProgramTier(programTier) ?? "PHP";
+    const ageQ =
+      activeAthleteAge !== null
+        ? `&age=${encodeURIComponent(String(activeAthleteAge))}`
+        : "";
     setIsLoading(true);
     setError(null);
     try {
       const responses = await Promise.all(
         types.map((type) =>
           apiRequest<{ items: ProgramSectionContent[] }>(
-            `/program-section-content?sectionType=${encodeURIComponent(
-              String(type),
-            )}${activeAthleteAge !== null ? `&age=${encodeURIComponent(String(activeAthleteAge))}` : ""}`,
+            `/program-section-content?sectionType=${encodeURIComponent(String(type))}&programTier=${encodeURIComponent(tier)}${ageQ}`,
             { token },
           ),
         ),
@@ -116,7 +121,7 @@ export default function ProgramTabDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, tabName, activeAthleteAge]);
+  }, [token, tabName, activeAthleteAge, programTier]);
 
   useEffect(() => {
     void loadContent();

@@ -1,13 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { Alert, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 import { ExerciseCard } from "./ExerciseCard";
 import { SessionRunnerModal } from "./SessionRunnerModal";
 import type { ProgramId } from "@/constants/program-details";
 import { SessionItem } from "@/constants/program-details";
 import { Text } from "@/components/ScaledText";
+import { apiRequest } from "@/lib/api";
+import { formatAchievementNames } from "@/lib/trainingAchievements";
 
 const progressKey = (programId: ProgramId) => `@ph/session-progress/${programId}`;
 
@@ -15,10 +17,15 @@ export function ProgramSessionPanel({
   programId,
   sessions,
   onVideoPress,
+  authToken,
+  onTrainingLogged,
 }: {
   programId: ProgramId;
   sessions: SessionItem[];
   onVideoPress?: (url: string) => void;
+  authToken: string | null;
+  /** Refresh achievements / progress on parent after a session is logged. */
+  onTrainingLogged?: () => void;
 }) {
   const safeSessions = useMemo(() => (Array.isArray(sessions) ? sessions : []), [sessions]);
 
@@ -104,6 +111,48 @@ export function ProgramSessionPanel({
     if ((activeSession?.exercises?.length ?? 0) > 0) setRunnerOpen(true);
   }, [activeSession?.exercises?.length]);
 
+  const handleSessionComplete = useCallback(
+    async (exerciseIds: string[]) => {
+      if (!authToken) return;
+      const contentIds = exerciseIds
+        .map((id) => parseInt(id, 10))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (!contentIds.length) return;
+      try {
+        const res = await apiRequest<{
+          completionsLogged: number;
+          newAchievements: string[];
+        }>("/program-section-content/complete-session", {
+          method: "POST",
+          token: authToken,
+          body: {
+            contentIds,
+            weekNumber: activeSession?.weekNumber ?? activeWeek,
+            sessionLabel: sessionRunnerLabel,
+            programKey: programId,
+          },
+        });
+        onTrainingLogged?.();
+        if (Array.isArray(res.newAchievements) && res.newAchievements.length > 0) {
+          Alert.alert("Achievement unlocked", formatAchievementNames(res.newAchievements));
+        }
+      } catch (err) {
+        Alert.alert(
+          "Could not save session",
+          err instanceof Error ? err.message : "Check your connection and try again.",
+        );
+      }
+    },
+    [
+      authToken,
+      activeSession?.weekNumber,
+      activeWeek,
+      sessionRunnerLabel,
+      programId,
+      onTrainingLogged,
+    ],
+  );
+
   return (
     <View className="gap-5">
       {activeSession?.exercises?.length ? (
@@ -122,6 +171,9 @@ export function ProgramSessionPanel({
         sessionLabel={sessionRunnerLabel}
         exercises={activeSession?.exercises ?? []}
         onVideoPress={onVideoPress}
+        onSessionComplete={(ids) => {
+          void handleSessionComplete(ids);
+        }}
       />
 
       <View className="gap-3">

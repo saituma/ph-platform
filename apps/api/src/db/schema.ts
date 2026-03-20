@@ -264,6 +264,45 @@ export const programSectionCompletionTable = pgTable(
   })
 );
 
+export const athleteTrainingSessionLogTable = pgTable(
+  "athlete_training_session_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    weekNumber: integer(),
+    sessionLabel: varchar({ length: 500 }),
+    programKey: varchar({ length: 32 }),
+    contentIds: jsonb().notNull(),
+    exerciseCount: integer().notNull(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("athlete_training_session_logs_athlete_idx").on(table.athleteId),
+    createdIdx: index("athlete_training_session_logs_created_idx").on(table.createdAt),
+  })
+);
+
+export const athleteAchievementUnlockTable = pgTable(
+  "athlete_achievement_unlocks",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    achievementKey: varchar({ length: 64 }).notNull(),
+    unlockedAt: timestamp().notNull().defaultNow(),
+    metadata: jsonb(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("athlete_achievement_unlocks_athlete_idx").on(table.athleteId),
+    athleteKeyUnique: uniqueIndex("athlete_achievement_unlocks_athlete_key_unique").on(
+      table.athleteId,
+      table.achievementKey,
+    ),
+  })
+);
+
 export const storyTable = pgTable(
   "stories",
   {

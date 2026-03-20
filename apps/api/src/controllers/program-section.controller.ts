@@ -9,6 +9,8 @@ import {
   listProgramSectionContent,
   updateProgramSectionContent,
 } from "../services/program-section.service";
+import { getTrainingProgressPayload, syncAchievementsForAthlete } from "../services/achievement.service";
+import { completeTrainingSession } from "../services/training-session-log.service";
 import { getAthleteForUser } from "../services/user.service";
 import { calculateAge, normalizeDate } from "../lib/age";
 import { createProgramSectionCompletion } from "../services/program-section-completion.service";
@@ -70,6 +72,13 @@ const completionSchema = z.object({
   soreness: z.number().int().min(0).max(10).optional().nullable(),
   fatigue: z.number().int().min(0).max(10).optional().nullable(),
   notes: z.string().max(500).optional().nullable(),
+});
+
+const completeSessionSchema = z.object({
+  contentIds: z.array(z.coerce.number().int().min(1)).min(1).max(80),
+  weekNumber: z.coerce.number().int().min(1).max(52).optional().nullable(),
+  sessionLabel: z.string().max(500).optional().nullable(),
+  programKey: z.string().max(32).optional().nullable(),
 });
 
 export async function listProgramSectionContentHandler(req: Request, res: Response) {
@@ -168,5 +177,48 @@ export async function completeProgramSectionContentHandler(req: Request, res: Re
     fatigue: input.fatigue ?? null,
     notes: input.notes ?? null,
   });
-  return res.status(201).json({ item: row });
+  const newAchievements = await syncAchievementsForAthlete(athlete.id);
+  return res.status(201).json({ item: row, newAchievements });
+}
+
+export async function completeTrainingSessionHandler(req: Request, res: Response) {
+  const input = completeSessionSchema.parse(req.body ?? {});
+  const athlete = await getAthleteForUser(req.user!.id);
+  if (!athlete) {
+    return res.status(400).json({ error: "Onboarding incomplete" });
+  }
+
+  try {
+    const result = await completeTrainingSession({
+      athleteId: athlete.id,
+      contentIds: input.contentIds,
+      weekNumber: input.weekNumber ?? null,
+      sessionLabel: input.sessionLabel ?? null,
+      programKey: input.programKey ?? null,
+    });
+
+    console.info("[training] session_completed", {
+      athleteId: athlete.id,
+      exerciseCount: result.completionsLogged,
+      programKey: input.programKey ?? null,
+      weekNumber: input.weekNumber ?? null,
+    });
+
+    return res.status(201).json(result);
+  } catch (err: unknown) {
+    const code = err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+    if (code === "23503") {
+      return res.status(400).json({ error: "One or more exercises are invalid or were removed." });
+    }
+    throw err;
+  }
+}
+
+export async function getTrainingProgressHandler(req: Request, res: Response) {
+  const athlete = await getAthleteForUser(req.user!.id);
+  if (!athlete) {
+    return res.status(400).json({ error: "Onboarding incomplete" });
+  }
+  const payload = await getTrainingProgressPayload(athlete.id);
+  return res.status(200).json(payload);
 }
