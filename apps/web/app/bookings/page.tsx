@@ -176,7 +176,7 @@ export default function BookingsPage() {
   return (
     <AdminShell
       title="Bookings"
-      subtitle="Manage availability and sessions with Coach Mike Green."
+      subtitle="Offer sessions, open times, and manage client bookings."
     >
       <Card>
         <CardHeader className="space-y-4">
@@ -288,21 +288,32 @@ export default function BookingsPage() {
           </div>
         </div>
       ) : null}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <SectionHeader title="New Booking" description="Create a booking for a guardian." />
+            <SectionHeader
+              title="Bookable sessions"
+              description="Create what clients book and when they can book it — one flow. Opens the same slots families see in the app."
+            />
           </CardHeader>
-          <CardContent>
-            <Button onClick={() => setActiveDialog("new-booking")}>Create Booking</Button>
+          <CardContent className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button onClick={() => setActiveDialog("offer-bookable-session")}>New bookable session</Button>
+            <Button variant="outline" onClick={() => setActiveDialog("open-slots")}>
+              Add times to existing session
+            </Button>
+            <Button variant="ghost" className="text-muted-foreground" onClick={() => setActiveDialog("new-service")}>
+              Session type only
+            </Button>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <SectionHeader title="New Service" description="Add a new booking type." />
+            <SectionHeader title="Book for a client" description="Place a booking as admin (bypasses availability if needed)." />
           </CardHeader>
           <CardContent>
-            <Button onClick={() => setActiveDialog("new-service")}>New Service</Button>
+            <Button variant="outline" onClick={() => setActiveDialog("new-booking")}>
+              Create booking
+            </Button>
           </CardContent>
         </Card>
       </div>

@@ -20,8 +20,100 @@ export type BookingsDialog =
   | "edit-service"
   | "new-booking"
   | "open-slots"
+  | "offer-bookable-session"
   | "calendar"
   | "booking-details";
+
+type CreateAvailabilityTrigger = (args: {
+  serviceTypeId: number;
+  startsAt: string;
+  endsAt: string;
+}) => { unwrap: () => Promise<unknown> };
+
+/** Creates one block or one block per day (fixed-time services). Shared by open-slots and offer flow. */
+async function publishAvailabilityBlocks(
+  createAvailability: CreateAvailabilityTrigger,
+  opts: {
+    serviceTypeId: number;
+    durationMinutes: number;
+    fixedStartTime?: string | null;
+    type: string;
+    startDate: string;
+    endDate: string;
+    startHour: string;
+    startMinute: string;
+    endHour: string;
+    endMinute: string;
+  },
+): Promise<void> {
+  const fixed = opts.fixedStartTime ?? (opts.type === "role_model" ? "13:00" : "");
+  const padValue = (value: string) => value.padStart(2, "0");
+  const duration = opts.durationMinutes;
+  if (!duration || duration <= 0) {
+    throw new Error("Service needs a valid duration.");
+  }
+
+  if (fixed) {
+    const [hour, minute] = fixed.split(":");
+    const startDate = new Date(opts.startDate);
+    const endDate = new Date(opts.endDate);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error("Invalid date.");
+    }
+    if (endDate < startDate) {
+      throw new Error("End date must be after start date.");
+    }
+    const days: Date[] = [];
+    const cursor = new Date(startDate);
+    cursor.setHours(0, 0, 0, 0);
+    const endCursor = new Date(endDate);
+    endCursor.setHours(0, 0, 0, 0);
+    while (cursor <= endCursor) {
+      days.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    for (const day of days) {
+      const startsAt = new Date(day);
+      startsAt.setHours(Number(hour), Number(minute), 0, 0);
+      const endsAt = new Date(startsAt.getTime() + duration * 60000);
+      await createAvailability({
+        serviceTypeId: opts.serviceTypeId,
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+      }).unwrap();
+    }
+    return;
+  }
+
+  if (!opts.startHour || !opts.startMinute || !opts.endHour || !opts.endMinute) {
+    throw new Error("Select a start and end time.");
+  }
+  const startsAt = new Date(`${opts.startDate}T${padValue(opts.startHour)}:${padValue(opts.startMinute)}`);
+  const endsAt = new Date(`${opts.endDate}T${padValue(opts.endHour)}:${padValue(opts.endMinute)}`);
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+    throw new Error("Invalid date or time.");
+  }
+  if (endsAt <= startsAt) {
+    throw new Error("End time must be after start time.");
+  }
+  await createAvailability({
+    serviceTypeId: opts.serviceTypeId,
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+  }).unwrap();
+}
+
+function getRtkErrorMessage(err: unknown, fallback: string): string {
+  if (typeof err === "object" && err !== null && "data" in err) {
+    const data = (err as { data?: { error?: string; issues?: { path: string[]; message: string }[] } }).data;
+    if (data?.error === "Invalid request" && Array.isArray(data.issues)) {
+      return data.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(" | ");
+    }
+    if (typeof data?.error === "string") return data.error;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
 
 type ServiceType = {
   id: number;
@@ -153,6 +245,8 @@ export function BookingsDialogs({
   const [bookingLocation, setBookingLocation] = useState("");
   const [bookingMeetingLink, setBookingMeetingLink] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** Unified offer flow: create service + availability in one step. */
+  const [addAvailabilityNow, setAddAvailabilityNow] = useState(true);
   const [createService, { isLoading: isCreatingService }] = useCreateServiceMutation();
   const [updateService, { isLoading: isUpdatingService }] = useUpdateServiceMutation();
   const [createAvailability, { isLoading: isCreatingAvailability }] = useCreateAvailabilityMutation();
@@ -190,6 +284,30 @@ export function BookingsDialogs({
       setAttendeeVisibility(true);
       setDefaultLocation("");
       setDefaultVideoLink("");
+      return;
+    }
+
+    if (active === "offer-bookable-session") {
+      setServiceName("");
+      setServiceType("group_call");
+      setDurationMinutes("30");
+      setCapacity("");
+      setFixedStartTime("");
+      setFixedStartHour("");
+      setFixedStartMinute("");
+      setProgramTier("");
+      setAttendeeVisibility(true);
+      setDefaultLocation("");
+      setDefaultVideoLink("");
+      setAddAvailabilityNow(true);
+      setAvailabilityServiceId("");
+      setAvailabilityStartDate("");
+      setAvailabilityStartHour("");
+      setAvailabilityStartMinute("");
+      setAvailabilityEndDate("");
+      setAvailabilityEndHour("");
+      setAvailabilityEndMinute("");
+      setError(null);
       return;
     }
 
@@ -291,19 +409,28 @@ export function BookingsDialogs({
 
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent
+        className={
+          active === "offer-bookable-session"
+            ? "max-h-[90vh] max-w-2xl overflow-y-auto sm:w-[92vw]"
+            : undefined
+        }
+      >
         <DialogHeader>
           <DialogTitle>
             {active === "new-service" && "Create New Service"}
             {active === "edit-service" && "Edit Service"}
             {active === "open-slots" && "Open Booking Slots"}
+            {active === "offer-bookable-session" && "New bookable session"}
             {active === "calendar" && "Calendar View"}
             {active === "booking-details" && "Booking Details"}
           </DialogTitle>
           <DialogDescription>
-            {selectedBooking
-              ? `${selectedBooking.name} • ${selectedBooking.athlete}`
-              : "Manage scheduling actions."}
+            {active === "offer-bookable-session"
+              ? "Define what clients book, then when they can book — one flow."
+              : selectedBooking
+                ? `${selectedBooking.name} • ${selectedBooking.athlete}`
+                : "Manage scheduling actions."}
           </DialogDescription>
         </DialogHeader>
         <div className="mt-6 space-y-4">
@@ -458,24 +585,292 @@ export function BookingsDialogs({
                       }
                       onRefresh?.();
                       onClose();
-                    } catch (err: any) {
+                    } catch (err: unknown) {
                       console.error("Service save error:", err);
-                      let msg = "Failed to save service.";
-                      if (err?.data?.error === "Invalid request" && err?.data?.issues) {
-                        const issues = err.data.issues as any[];
-                        const errors = issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
-                        msg = `Validation Error: ${errors.join(" | ")}`;
-                      } else if (err?.data?.error) {
-                        msg = err.data.error;
-                      } else if (err?.message) {
-                        msg = err.message;
-                      }
-                      setError(msg);
+                      setError(getRtkErrorMessage(err, "Failed to save service."));
                     }
                   }}
                   disabled={isCreatingService || isUpdatingService}
                 >
                   {active === "edit-service" ? "Save Changes" : "Create"}
+                </Button>
+              </div>
+            </>
+          ) : null}
+          {active === "offer-bookable-session" ? (
+            <>
+              <div className="rounded-xl border border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
+                Clients pick this in the app under <strong className="text-foreground">Schedule</strong>. You define the
+                session here, then the window when they can book.
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">1. Session type</p>
+              <Input
+                placeholder="Name (e.g. 1:1 Lift Lab)"
+                value={serviceName}
+                onChange={(e) => {
+                  setServiceName(e.target.value);
+                  setError(null);
+                }}
+              />
+              <Select
+                value={serviceType}
+                onChange={(e) => {
+                  setServiceType(e.target.value);
+                  setError(null);
+                }}
+              >
+                <option value="call">Call</option>
+                <option value="group_call">Group Call</option>
+                <option value="individual_call">Individual Call</option>
+                <option value="lift_lab_1on1">Lift Lab 1:1</option>
+                <option value="role_model">Role Model (Premium)</option>
+              </Select>
+              <Input
+                placeholder="Duration (minutes)"
+                value={durationMinutes}
+                onChange={(e) => {
+                  setDurationMinutes(e.target.value);
+                  setError(null);
+                }}
+              />
+              <div className="space-y-1">
+                <Input
+                  placeholder="Slots per window (optional)"
+                  value={capacity}
+                  onChange={(e) => {
+                    setCapacity(e.target.value);
+                    setError(null);
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">Leave blank for unlimited.</p>
+              </div>
+              <div className="grid gap-2">
+                <p className="text-xs text-muted-foreground">Fixed start time (optional)</p>
+                <div className="flex gap-2">
+                  <Select
+                    value={fixedStartHour}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFixedStartHour(value);
+                      if (value && fixedStartMinute) setFixedStartTime(`${value}:${fixedStartMinute}`);
+                      else setFixedStartTime("");
+                    }}
+                    disabled={serviceType === "role_model"}
+                  >
+                    <option value="">Hour</option>
+                    {Array.from({ length: 24 }).map((_, idx) => {
+                      const value = String(idx).padStart(2, "0");
+                      return (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      );
+                    })}
+                  </Select>
+                  <Select
+                    value={fixedStartMinute}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFixedStartMinute(value);
+                      if (fixedStartHour && value) setFixedStartTime(`${fixedStartHour}:${value}`);
+                      else setFixedStartTime("");
+                    }}
+                    disabled={serviceType === "role_model"}
+                  >
+                    <option value="">Min</option>
+                    {["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+              <Select value={programTier} onChange={(e) => setProgramTier(e.target.value)}>
+                <option value="">Program tier (optional)</option>
+                <option value="PHP">PHP</option>
+                <option value="PHP_Plus">PHP Plus</option>
+                <option value="PHP_Premium">PHP Premium</option>
+              </Select>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={attendeeVisibility}
+                  onChange={(e) => setAttendeeVisibility(e.target.checked)}
+                />
+                Show attendee list for group calls
+              </label>
+              <Input
+                placeholder="Default location (optional)"
+                value={defaultLocation}
+                onChange={(e) => setDefaultLocation(e.target.value)}
+              />
+
+              <label className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={addAvailabilityNow}
+                  onChange={(e) => setAddAvailabilityNow(e.target.checked)}
+                />
+                <span>
+                  <strong className="text-foreground">Add bookable times now</strong>
+                  <span className="block text-xs text-muted-foreground">
+                    Uncheck if you only want the session type; you can open slots later.
+                  </span>
+                </span>
+              </label>
+
+              {addAvailabilityNow ? (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    2. When clients can book
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input
+                      type="date"
+                      value={availabilityStartDate}
+                      onChange={(e) => setAvailabilityStartDate(e.target.value)}
+                    />
+                    {serviceType === "role_model" || fixedStartTime ? (
+                      <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+                        Fixed time at {serviceType === "role_model" ? "13:00" : fixedStartTime || "—"}.
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={23}
+                          placeholder="Hour"
+                          value={availabilityStartHour}
+                          onChange={(e) => setAvailabilityStartHour(e.target.value)}
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          max={59}
+                          placeholder="Min"
+                          value={availabilityStartMinute}
+                          onChange={(e) => setAvailabilityStartMinute(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input
+                      type="date"
+                      value={availabilityEndDate}
+                      onChange={(e) => setAvailabilityEndDate(e.target.value)}
+                    />
+                    {serviceType === "role_model" || fixedStartTime ? (
+                      <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+                        End time follows session duration. Range = repeat daily between dates.
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={23}
+                          placeholder="Hour"
+                          value={availabilityEndHour}
+                          onChange={(e) => setAvailabilityEndHour(e.target.value)}
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          max={59}
+                          placeholder="Min"
+                          value={availabilityEndMinute}
+                          onChange={(e) => setAvailabilityEndMinute(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : null}
+
+              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setError(null);
+                    if (!serviceName.trim()) {
+                      setError("Enter a session name.");
+                      return;
+                    }
+                    const dur = Number(durationMinutes);
+                    if (!Number.isFinite(dur) || dur <= 0) {
+                      setError("Enter a valid duration in minutes.");
+                      return;
+                    }
+                    if (addAvailabilityNow) {
+                      if (!availabilityStartDate || !availabilityEndDate) {
+                        setError("Select a start and end date for availability.");
+                        return;
+                      }
+                      const previewFixed = fixedStartTime || (serviceType === "role_model" ? "13:00" : "");
+                      if (!previewFixed) {
+                        if (
+                          !availabilityStartHour ||
+                          !availabilityStartMinute ||
+                          !availabilityEndHour ||
+                          !availabilityEndMinute
+                        ) {
+                          setError("Select start and end times for the availability window.");
+                          return;
+                        }
+                      }
+                    }
+                    try {
+                      const created = await createService({
+                        name: serviceName.trim(),
+                        type: serviceType,
+                        durationMinutes: dur,
+                        capacity: capacity ? Number(capacity) : undefined,
+                        fixedStartTime: fixedStartTime || undefined,
+                        attendeeVisibility,
+                        defaultLocation: defaultLocation || undefined,
+                        defaultMeetingLink: undefined,
+                        programTier: programTier || undefined,
+                      }).unwrap();
+                      const item = created.item as {
+                        id: number;
+                        durationMinutes: number;
+                        fixedStartTime?: string | null;
+                        type: string;
+                      };
+                      if (!item?.id) {
+                        throw new Error("No service id returned.");
+                      }
+                      if (addAvailabilityNow) {
+                        await publishAvailabilityBlocks(createAvailability as CreateAvailabilityTrigger, {
+                          serviceTypeId: item.id,
+                          durationMinutes: item.durationMinutes,
+                          fixedStartTime: item.fixedStartTime,
+                          type: item.type,
+                          startDate: availabilityStartDate,
+                          endDate: availabilityEndDate,
+                          startHour: availabilityStartHour,
+                          startMinute: availabilityStartMinute,
+                          endHour: availabilityEndHour,
+                          endMinute: availabilityEndMinute,
+                        });
+                      }
+                      onRefresh?.();
+                      onClose();
+                    } catch (err: unknown) {
+                      console.error(err);
+                      setError(getRtkErrorMessage(err, "Failed to save."));
+                    }
+                  }}
+                  disabled={isCreatingService || isCreatingAvailability}
+                >
+                  {addAvailabilityNow ? "Create & open times" : "Create bookable session"}
                 </Button>
               </div>
             </>
@@ -612,8 +1007,8 @@ export function BookingsDialogs({
                       }).unwrap();
                       onRefresh?.();
                       onClose();
-                    } catch (err: any) {
-                      setError(err?.data?.error || err?.message || "Failed to create booking");
+                    } catch (err: unknown) {
+                      setError(getRtkErrorMessage(err, "Failed to create booking"));
                     }
                   }}
                   disabled={isCreatingBooking}
@@ -683,69 +1078,23 @@ export function BookingsDialogs({
                       setError("Selected service has no duration.");
                       return;
                     }
-                    const padValue = (value: string) => value.padStart(2, "0");
-                    if (availabilityFixedTime) {
-                      const [hour, minute] = availabilityFixedTime.split(":");
-                      const startDate = new Date(availabilityStartDate);
-                      const endDate = new Date(availabilityEndDate);
-                      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-                        setError("Invalid date.");
-                        return;
-                      }
-                      if (endDate < startDate) {
-                        setError("End date must be after start date.");
-                        return;
-                      }
-                      const days: Date[] = [];
-                      const cursor = new Date(startDate);
-                      cursor.setHours(0, 0, 0, 0);
-                      const endCursor = new Date(endDate);
-                      endCursor.setHours(0, 0, 0, 0);
-                      while (cursor <= endCursor) {
-                        days.push(new Date(cursor));
-                        cursor.setDate(cursor.getDate() + 1);
-                      }
-                      try {
-                        for (const day of days) {
-                          const startsAt = new Date(day);
-                          startsAt.setHours(Number(hour), Number(minute), 0, 0);
-                          const endsAt = new Date(startsAt.getTime() + duration * 60000);
-                          await createAvailability({
-                            serviceTypeId: Number(availabilityServiceId),
-                            startsAt: startsAt.toISOString(),
-                            endsAt: endsAt.toISOString(),
-                          }).unwrap();
-                        }
-                        onClose();
-                      } catch (err: any) {
-                        setError(err.message ?? "Failed to open slots");
-                      }
-                      return;
-                    }
-
-                    if (!availabilityStartHour || !availabilityStartMinute || !availabilityEndHour || !availabilityEndMinute) {
-                      setError("Select a start and end time.");
-                      return;
-                    }
-                    const startsAt = new Date(`${availabilityStartDate}T${padValue(availabilityStartHour)}:${padValue(availabilityStartMinute)}`);
-                    const endsAt = new Date(`${availabilityEndDate}T${padValue(availabilityEndHour)}:${padValue(availabilityEndMinute)}`);
-                    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-                      setError("Invalid date or time.");
-                      return;
-                    }
-                    if (endsAt <= startsAt) {
-                      setError("End time must be after start time.");
-                      return;
-                    }
                     try {
-                      await createAvailability({
+                      await publishAvailabilityBlocks(createAvailability as CreateAvailabilityTrigger, {
                         serviceTypeId: Number(availabilityServiceId),
-                        startsAt: startsAt.toISOString(),
-                        endsAt: endsAt.toISOString(),
-                      }).unwrap();
+                        durationMinutes: duration,
+                        fixedStartTime: availabilityFixedTime || service?.fixedStartTime,
+                        type: service?.type ?? "",
+                        startDate: availabilityStartDate,
+                        endDate: availabilityEndDate,
+                        startHour: availabilityStartHour,
+                        startMinute: availabilityStartMinute,
+                        endHour: availabilityEndHour,
+                        endMinute: availabilityEndMinute,
+                      });
+                      onRefresh?.();
                       onClose();
-                    } catch (err: any) {
-                      setError(err.message ?? "Failed to open slots");
+                    } catch (err: unknown) {
+                      setError(getRtkErrorMessage(err, "Failed to open slots"));
                     }
                   }}
                   disabled={isCreatingAvailability}
@@ -863,8 +1212,8 @@ export function BookingsDialogs({
                         if (!onDeclineBooking) return;
                         try {
                           await onDeclineBooking(selectedBooking.id);
-                        } catch (err: any) {
-                          setError(err.message ?? "Failed to decline booking");
+                        } catch (err: unknown) {
+                          setError(err instanceof Error ? err.message : "Failed to decline booking");
                         }
                       }}
                       disabled={isApproving}
@@ -877,8 +1226,8 @@ export function BookingsDialogs({
                         if (!onApproveBooking) return;
                         try {
                           await onApproveBooking(selectedBooking.id);
-                        } catch (err: any) {
-                          setError(err.message ?? "Failed to approve booking");
+                        } catch (err: unknown) {
+                          setError(err instanceof Error ? err.message : "Failed to approve booking");
                         }
                       }}
                       disabled={isApproving}
