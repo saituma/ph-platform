@@ -73,13 +73,15 @@ export function sessionsFromSectionContentForTab(
     const exercises: SessionItem["exercises"] = groupRows.map((r) => {
       const meta = (r.metadata ?? {}) as Record<string, unknown>;
       const restSeconds = meta.restSeconds != null ? Number(meta.restSeconds) : null;
+      const restNum = restSeconds != null && !Number.isNaN(restSeconds) ? restSeconds : undefined;
       return {
         id: String(r.id),
         name: r.title,
         sets: meta.sets != null ? Number(meta.sets) : undefined,
         reps: meta.reps != null ? Number(meta.reps) : undefined,
         time: meta.duration != null ? `${meta.duration}s` : undefined,
-        rest: restSeconds != null && !Number.isNaN(restSeconds) ? `${restSeconds}s` : undefined,
+        rest: restNum != null ? `${restNum}s` : undefined,
+        restSeconds: restNum,
         notes: r.body || undefined,
         videoUrl: r.videoUrl || undefined,
         progressions: typeof meta.progression === "string" ? meta.progression : undefined,

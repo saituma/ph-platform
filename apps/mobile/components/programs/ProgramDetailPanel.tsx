@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { Alert, Modal, Pressable, TouchableOpacity, View } from "react-native";
-import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
@@ -25,7 +24,6 @@ import {
 import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setMessagingAccessTiers, setProgramTier } from "@/store/slices/userSlice";
-import { useRole } from "@/context/RoleContext";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import {
   canAccessTier,
@@ -136,7 +134,6 @@ export function ProgramDetailPanel({
     latestSubscriptionRequest: latestRequestFromStore,
   } = useAppSelector((state) => state.user);
   const { colors, isDark } = useAppTheme();
-  const { role } = useRole();
   const { isSectionHidden } = useAgeExperience();
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
   const currentAthlete = useMemo(() => {
@@ -162,17 +159,6 @@ export function ProgramDetailPanel({
       return phpPlusTabs ?? [];
     }
     let base = PROGRAM_TABS[programId];
-    if (role === "Athlete") {
-      base = base.filter(
-        (tab) =>
-          tab !== "Parent Education" &&
-          tab !== "Nutrition & Food Diaries" &&
-          tab !== "Submit Diary",
-      );
-    }
-    if (role === "Guardian") {
-      base = base.filter((tab) => tab !== "Video Upload");
-    }
     if (isSectionHidden("videoFeedback")) {
       base = base.filter((tab) => tab !== "Video Upload");
     }
@@ -187,7 +173,7 @@ export function ProgramDetailPanel({
       );
     }
     return base;
-  }, [programId, role, isSectionHidden, phpPlusTabs]);
+  }, [programId, isSectionHidden, phpPlusTabs]);
   const [activeTab, setActiveTab] = useState<string>("Program");
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -202,7 +188,7 @@ export function ProgramDetailPanel({
   const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
   const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const headerAthleteName = currentAthlete?.name ?? (role === "Athlete" ? "You" : "Assigned athlete");
+  const headerAthleteName = currentAthlete?.name ?? "Athlete";
   const athleteMeta = [
     activeAthleteAge ? `${activeAthleteAge} yrs` : null,
     currentAthlete?.level || null,
@@ -218,30 +204,6 @@ export function ProgramDetailPanel({
     requestStatus === "pending_approval";
   const planSubtitle = planDetails?.description ?? PROGRAM_TIERS.find((item) => item.id === programId)?.description;
   const priceHighlights = pricing?.entries?.slice(0, 2) ?? [];
-  const lastBackAtRef = useRef(0);
-  /** Only treat pull-to-close when the drag began at the top (avoids closing while scrolling through content). */
-  const scrollDragStartYRef = useRef(0);
-
-  const handleScrollBeginDrag = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollDragStartYRef.current = event.nativeEvent.contentOffset.y;
-  }, []);
-
-  const handleScrollEndDragForBack = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const offsetY = event.nativeEvent.contentOffset.y;
-      const startedAtTop = scrollDragStartYRef.current <= 12;
-      if (!startedAtTop) return;
-      if (offsetY < -60 && showBack && onBack) {
-        const now = Date.now();
-        if (now - lastBackAtRef.current < 1000) return;
-        lastBackAtRef.current = now;
-        onBack();
-      }
-    },
-    [onBack, showBack],
-  );
-
-
   const toggleContent = useCallback((id: number) => {
     setExpandedContent((prev) => {
       const next = new Set(prev);
@@ -310,10 +272,7 @@ export function ProgramDetailPanel({
   const openCoachMessage = useCallback(
     async (draftBody: string) => {
       if (!canMessageCoach) {
-        Alert.alert(
-          "Messaging",
-          "Messaging isn’t enabled for your plan. You can still complete your training here.",
-        );
+        Alert.alert("Messaging", "Not included on your current plan.");
         return;
       }
       if (!token || !onNavigate) return;
@@ -325,20 +284,18 @@ export function ProgramDetailPanel({
         const human = (data.coaches ?? []).find((c) => !c.isAi);
         const coachId = human?.id ?? data.coach?.id;
         if (!coachId) {
-          Alert.alert("Messaging", "No coach is available yet.");
+          Alert.alert("Messaging", "No coach linked yet.");
           return;
         }
         const q = encodeURIComponent(draftBody.slice(0, 1200));
         onNavigate(`/messages/${coachId}?draft=${q}`);
       } catch {
-        Alert.alert("Messaging", "Could not open messages. Try again.");
+        Alert.alert("Messaging", "Couldn’t open messages.");
       }
     },
     [canMessageCoach, onNavigate, token],
   );
 
-  const sectionsHint =
-    "Tabs match your plan. Parent/athlete and age settings may hide some sections.";
 
   const filteredSectionContent = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -481,9 +438,7 @@ export function ProgramDetailPanel({
           style={isDark ? Shadows.none : Shadows.md}
         >
           <Text className="text-sm font-outfit text-secondary text-center">
-            {searchQuery.trim()
-              ? "No matching content found."
-              : "No content configured for this section yet. Ask your coach/admin to add content in Web Admin."}
+            {searchQuery.trim() ? "Nothing matches that search." : "Nothing here yet."}
           </Text>
         </View>
       );
@@ -495,9 +450,7 @@ export function ProgramDetailPanel({
             className="rounded-3xl bg-card px-6 py-5"
             style={isDark ? Shadows.none : Shadows.md}
           >
-            <Text className="text-sm font-outfit text-secondary text-center">
-              Loading section content...
-            </Text>
+            <Text className="text-sm font-outfit text-secondary text-center">Loading…</Text>
           </View>
         ) : null}
         {showContentError ? (
@@ -556,7 +509,7 @@ export function ProgramDetailPanel({
                 )}
                 <View className="flex-row items-center justify-between mt-1">
                   <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
-                    {isExpanded ? "Hide details" : "View inline"}
+                    {isExpanded ? "Less" : "Details"}
                   </Text>
                   <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
                     <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color="#FFFFFF" />
@@ -569,7 +522,7 @@ export function ProgramDetailPanel({
                   className="flex-row items-center justify-between mt-3 pt-3 border-t border-white/10"
                 >
                   <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
-                    Open full page
+                    Open
                   </Text>
                   <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
                     <Feather name="arrow-right" size={14} color="#FFFFFF" />
@@ -585,7 +538,7 @@ export function ProgramDetailPanel({
                 >
                   <Feather name="message-circle" size={16} color="#FFFFFF" />
                   <Text className="text-xs font-outfit text-white font-semibold uppercase tracking-[1.1px]">
-                    Message coach about this
+                    Message coach
                   </Text>
                 </Pressable>
               </Pressable>
@@ -673,7 +626,7 @@ export function ProgramDetailPanel({
                     className="rounded-2xl border border-white/20 px-4 py-3 flex-row items-center gap-2 mt-2"
                   >
                     <Feather name="message-circle" size={16} color="#FFFFFF" />
-                    <Text className="text-sm font-outfit text-white">Message coach about this drill</Text>
+                    <Text className="text-sm font-outfit text-white">Message coach</Text>
                   </Pressable>
 
                 </View>
@@ -695,10 +648,10 @@ export function ProgramDetailPanel({
           ? "Program locked"
           : "Complete onboarding to unlock programs";
       const body = isPendingApproval
-        ? "Your plan request is waiting for admin approval. We’ll notify you once it’s approved."
+        ? "Waiting for approval."
         : normalizedTier
-          ? "This program is available on a higher tier."
-          : "Once your plan is active, your full program will appear here.";
+          ? "Upgrade your plan to unlock this."
+          : "Complete onboarding to unlock.";
       return (
         <View 
           className="rounded-3xl bg-card px-6 py-5 gap-3"
@@ -707,7 +660,7 @@ export function ProgramDetailPanel({
           <View className="flex-row items-center gap-2">
             <Feather name={isPendingApproval ? "clock" : "lock"} size={16} color={colors.accent} />
             <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-              {isPendingApproval ? "Approval Waiting" : "Pending Access"}
+              {isPendingApproval ? "Pending" : "Locked"}
             </Text>
           </View>
           <Text className="text-lg font-clash text-app font-bold">{title}</Text>
@@ -731,7 +684,6 @@ export function ProgramDetailPanel({
           />
         );
       }
-      const tier = PROGRAM_TIERS.find((item) => item.id === programId);
       const flowSteps = pickTrainingFlowSteps(tabs);
       return (
         <View className="gap-4">
@@ -745,10 +697,10 @@ export function ProgramDetailPanel({
               }}
             >
               <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
-                Today&apos;s training
+                Order
               </Text>
               <Text className="text-sm font-outfit text-app leading-5">
-                Go in order: warm-up, then main program, then cool-down. Tap a step to jump there.
+                Warm-up → Program → Cool-down. Tap to jump.
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {flowSteps.map((step, i) => (
@@ -772,36 +724,11 @@ export function ProgramDetailPanel({
               </View>
             </View>
           ) : null}
-
-          <View 
-            className="rounded-[28px] px-6 py-5 gap-3"
-            style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
-          >
-            <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
-                Program features
-              </Text>
-            </View>
-            <Text className="text-lg font-clash text-app font-bold">Program Features</Text>
-            {tier?.features?.map((feature, index) => (
-              <View
-                key={`${tier.id}-feature-${index}`}
-                className="flex-row items-center gap-3"
-              >
-                <View className="h-5 w-5 rounded-full items-center justify-center" style={{ backgroundColor: accentSurface }}>
-                  <Feather name="check" size={10} color={colors.accent} />
-                </View>
-                <Text className="text-sm font-outfit text-app flex-1">
-                  {feature}
-                </Text>
-              </View>
-            ))}
-          </View>
           {(() => {
             const structured = sessionsFromSectionContentForTab(sectionContent, activeTab);
             if (structured?.length) {
               return (
-                <ProgramSessionPanel sessions={structured} onVideoPress={handleVideoPress} />
+                <ProgramSessionPanel programId={programId} sessions={structured} onVideoPress={handleVideoPress} />
               );
             }
             return renderTrainingContent();
@@ -813,7 +740,7 @@ export function ProgramDetailPanel({
     if (TRAINING_TABS.has(activeTab)) {
       const structured = sessionsFromSectionContentForTab(sectionContent, activeTab);
       if (structured?.length) {
-        return <ProgramSessionPanel sessions={structured} onVideoPress={handleVideoPress} />;
+        return <ProgramSessionPanel programId={programId} sessions={structured} onVideoPress={handleVideoPress} />;
       }
       return renderTrainingContent();
     }
@@ -829,29 +756,15 @@ export function ProgramDetailPanel({
     }
 
     if (activeTab === "Nutrition & Food Diaries" || activeTab === "Submit Diary") {
-      if (role !== "Guardian") {
-        return (
-          <View 
-            className="rounded-3xl bg-card px-6 py-5"
-            style={isDark ? Shadows.none : Shadows.md}
-          >
-            <Text className="text-sm font-outfit text-secondary text-center">
-              Food diaries are managed by guardians.
-            </Text>
-          </View>
-        );
-      }
       return <FoodDiaryPanel />;
     }
 
-    return (
+      return (
       <View 
         className="rounded-3xl bg-card px-6 py-5"
         style={isDark ? Shadows.none : Shadows.md}
       >
-        <Text className="text-sm font-outfit text-secondary text-center">
-          Content coming soon.
-        </Text>
+        <Text className="text-sm font-outfit text-secondary text-center">Coming soon.</Text>
       </View>
     );
   };
@@ -861,8 +774,7 @@ export function ProgramDetailPanel({
       <ThemedScrollView
         onRefresh={handlePageRefresh}
         contentContainerStyle={{ paddingBottom: 40 }}
-        onScrollBeginDrag={handleScrollBeginDrag}
-        onScrollEndDrag={handleScrollEndDragForBack}
+        nestedScrollEnabled
       >
         <View className="px-6 pt-6">
           <Transition.View
@@ -909,7 +821,7 @@ export function ProgramDetailPanel({
             <View className="mt-4 flex-row flex-wrap gap-2">
               <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
                 <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                  Athlete detail: {headerAthleteName}
+                  {headerAthleteName}
                 </Text>
               </View>
               {athleteMeta.map((item) => (
@@ -945,7 +857,7 @@ export function ProgramDetailPanel({
 
         {programId === "plus" && phpPlusTabs === null ? (
           <View className="px-6 mb-2">
-            <Text className="text-xs font-outfit text-secondary">Loading program sections…</Text>
+            <Text className="text-xs font-outfit text-secondary">Loading…</Text>
           </View>
         ) : null}
 
@@ -956,7 +868,7 @@ export function ProgramDetailPanel({
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           onTabPress={handleTabDetail}
-          hint={sectionsHint}
+          showSectionHeader={false}
         />
 
         {searchQuery.trim().length > 0 ? (
@@ -1053,9 +965,7 @@ export function ProgramDetailPanel({
         <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}>
           <View className="rounded-t-3xl p-4 pb-8" style={{ backgroundColor: surfaceColor }}>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-clash text-app font-bold">
-                Exercise Video
-              </Text>
+              <Text className="text-lg font-clash text-app font-bold">Video</Text>
               <TouchableOpacity
                 onPress={() => setActiveVideoUrl(null)}
                 className="h-10 w-10 rounded-full items-center justify-center"
@@ -1266,9 +1176,9 @@ function PremiumPlanPanel({
             Weekly plan
           </Text>
         </View>
-        <Text className="text-lg font-clash text-app font-bold">Your Weekly Schedule</Text>
+        <Text className="text-lg font-clash text-app font-bold">This week</Text>
         <Text className="text-sm font-outfit text-secondary">
-          Mark exercises complete and log session check-ins so your coach can adjust training load.
+          Tap an exercise when you’re done. Use Complete to log a session.
         </Text>
         {weekStats.total > 0 && activeWeek != null ? (
           <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}>
@@ -1276,9 +1186,7 @@ function PremiumPlanPanel({
               Week {activeWeek}: {weekStats.done}/{weekStats.total} exercises done
               {nextSession ? ` · Next: Session ${nextSession.sessionNumber}` : ""}
             </Text>
-            <Text className="text-xs font-outfit text-secondary mt-1">
-              Tap an exercise to check it off. Use “Ask coach” if you need help on a move.
-            </Text>
+            <Text className="text-xs font-outfit text-secondary mt-1">Track progress below.</Text>
           </View>
         ) : null}
       </View>

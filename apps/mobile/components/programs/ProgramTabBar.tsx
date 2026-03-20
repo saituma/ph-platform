@@ -1,6 +1,5 @@
 import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { ScrollView } from "react-native-gesture-handler";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { useColorScheme } from "nativewind";
 import { Text, TextInput } from "@/components/ScaledText";
 
@@ -12,6 +11,7 @@ export function ProgramTabBar({
   onSearchChange,
   onTabPress,
   hint,
+  showSectionHeader = true,
 }: {
   tabs: string[];
   activeTab: string;
@@ -20,15 +20,19 @@ export function ProgramTabBar({
   onSearchChange?: (value: string) => void;
   onTabPress?: (tab: string) => void;
   hint?: string;
+  /** When false, hides the “Sections” label row for a cleaner layout. */
+  showSectionHeader?: boolean;
 }) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={[styles.label, isDark && styles.labelDark]}>Sections</Text>
-      </View>
+      {showSectionHeader ? (
+        <View style={styles.headerRow}>
+          <Text style={[styles.label, isDark && styles.labelDark]}>Plan</Text>
+        </View>
+      ) : null}
       {hint ? (
         <Text
           style={[styles.hint, isDark && styles.hintDark]}
@@ -43,7 +47,7 @@ export function ProgramTabBar({
             <TextInput
               value={searchValue}
               onChangeText={onSearchChange}
-              placeholder="Search exercises or sessions"
+              placeholder="Search…"
               placeholderTextColor={isDark ? "#E2E8F0" : "#94A3B8"}
               style={[styles.searchInput, isDark && styles.searchInputDark]}
             />
@@ -204,9 +208,12 @@ const styles = StyleSheet.create({
     color: "#CBD5E1",
   },
   scrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 14,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    flexGrow: 0,
   },
   tab: {
     borderRadius: 18,
@@ -215,6 +222,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 48,
     justifyContent: "center",
+    flexShrink: 0,
   },
   tabActive: {
     backgroundColor: "#2F8F57",

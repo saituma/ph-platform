@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Modal, Pressable, TouchableOpacity, View } from "react-native";
-import type { NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -124,7 +123,6 @@ export default function ProgramContentDetailScreen() {
   const [checkinSaved, setCheckinSaved] = useState(false);
   const lastLoadedRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
-  const lastBackAtRef = useRef(0);
   const load = useCallback(async (force = false) => {
     if (!token || !contentId) {
       setIsLoading(false);
@@ -200,26 +198,6 @@ export default function ProgramContentDetailScreen() {
     router.replace("/(tabs)/programs");
   }, [router]);
 
-  const scrollDragStartYRef = useRef(0);
-
-  const handleScrollBeginDrag = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollDragStartYRef.current = event.nativeEvent.contentOffset.y;
-  }, []);
-
-  const handleScrollEndDragForBack = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const offsetY = event.nativeEvent.contentOffset.y;
-      const startedAtTop = scrollDragStartYRef.current <= 12;
-      if (!startedAtTop) return;
-      if (offsetY < -60) {
-        const now = Date.now();
-        if (now - lastBackAtRef.current < 1000) return;
-        lastBackAtRef.current = now;
-        handleBack();
-      }
-    },
-    [handleBack],
-  );
   const contentContainerStyle = useMemo(() => ({ paddingBottom: 40 }), []);
   const contentBody = useMemo(() => {
     if (!item?.body) return null;
@@ -248,8 +226,6 @@ export default function ProgramContentDetailScreen() {
         <ThemedScrollView
           onRefresh={() => load(true)}
           contentContainerStyle={contentContainerStyle}
-          onScrollBeginDrag={handleScrollBeginDrag}
-          onScrollEndDrag={handleScrollEndDragForBack}
         >
           <View className="px-6 pt-6">
             <Transition.View

@@ -134,7 +134,7 @@ export function AdminSidebarContent({
     },
     { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
     { label: "Physio Referrals", href: "/physio-referrals", icon: Stethoscope },
-    { label: "Exercise Library", href: "/exercise-library", icon: BadgeCheck },
+    { label: "Training content", href: "/exercise-library", icon: BadgeCheck },
     { label: "Settings", href: "/settings", icon: Settings },
   ];
   return (
