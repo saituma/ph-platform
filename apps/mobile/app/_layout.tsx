@@ -43,24 +43,25 @@ export default function RootLayout() {
                               <Stack.Screen
                                 name="programs/[id]"
                                 options={({ route }: any) => ({
-                                  gestureEnabled: false,
                                   ...Transition.Presets.SharedAppleMusic({
                                     sharedBoundTag: String(
                                       route?.params?.sharedBoundTag ?? "program-card"
                                     ),
                                   }),
+                                  // Preset sets gestureEnabled + vertical gestures; must run after preset
+                                  // or scroll is interpreted as interactive dismiss.
+                                  gestureEnabled: false,
                                 })}
                               />
                               <Stack.Screen
                                 name="programs/content/[contentId]"
                                 options={({ route }: any) => ({
-                                  gestureDirection: ["horizontal"],
-                                  gestureEnabled: false,
                                   ...Transition.Presets.SharedAppleMusic({
                                     sharedBoundTag: String(
                                       route?.params?.sharedBoundTag ?? "program-content"
                                     ),
                                   }),
+                                  gestureEnabled: false,
                                 })}
                               />
                               <Stack.Screen

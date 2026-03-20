@@ -363,6 +363,8 @@ export default function ProgramsScreen() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        directionalLockEnabled
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
       >
         <View className="px-6 pt-6 pb-4">

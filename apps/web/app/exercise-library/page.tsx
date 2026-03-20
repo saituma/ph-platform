@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -31,6 +32,24 @@ const SESSION_TYPE_LABEL = Object.fromEntries(
   SESSION_TYPES.map((item) => [item.value, item.label])
 ) as Record<string, string>;
 
+/** Where this bucket appears in the mobile app (Programs flow). */
+const SECTION_MOBILE_HINT: Record<string, string> = {
+  program: "Mobile: Programs → Program tab — week/session list & Start session.",
+  warmup: "Mobile: Programs → Warm-up tab.",
+  cooldown: "Mobile: Programs → Cool-down tab.",
+  stretching: "Mobile: Programs → Stretching & foam rolling (Plus).",
+  screening: "Mobile: Programs → Movement screening (Premium).",
+  mobility: "Mobile: Programs → Mobility.",
+  recovery: "Mobile: Programs → Recovery.",
+  offseason: "Mobile: Programs → Off-season program.",
+  inseason: "Mobile: Programs → In-season program.",
+  nutrition: "Mobile: flows using this section type (e.g. nutrition/diary).",
+};
+
+const PRIMARY_SECTION_VALUES = new Set(["program", "warmup", "cooldown"]);
+const PRIMARY_SESSION_TYPES = SESSION_TYPES.filter((t) => PRIMARY_SECTION_VALUES.has(t.value));
+const MORE_SESSION_TYPES = SESSION_TYPES.filter((t) => !PRIMARY_SECTION_VALUES.has(t.value));
+
 type ExerciseMetadata = {
   sets?: number | null;
   reps?: number | null;
@@ -42,6 +61,9 @@ type ExerciseMetadata = {
   regression?: string | null;
   category?: string | null;
   equipment?: string | null;
+  weekNumber?: number | null;
+  sessionNumber?: number | null;
+  sessionLabel?: string | null;
 };
 
 type ProgramSectionContent = {
@@ -308,6 +330,7 @@ function ExerciseLibraryPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [moreSectionsOpen, setMoreSectionsOpen] = useState(false);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -330,7 +353,10 @@ function ExerciseLibraryPageInner() {
   const [regression, setRegression] = useState("");
   const [category, setCategory] = useState("");
   const [equipment, setEquipment] = useState("");
-  const [showExerciseFields, setShowExerciseFields] = useState(false);
+  const [weekNumber, setWeekNumber] = useState("");
+  const [sessionNumber, setSessionNumber] = useState("");
+  const [sessionLabel, setSessionLabel] = useState("");
+  const [showExerciseFields, setShowExerciseFields] = useState(true);
 
   const loadItems = async (sectionType = activeSection) => {
     setIsLoading(true);
@@ -356,6 +382,12 @@ function ExerciseLibraryPageInner() {
     void loadItems(activeSection);
   }, [activeSection]);
 
+  useEffect(() => {
+    if (MORE_SESSION_TYPES.some((t) => t.value === activeSection)) {
+      setMoreSectionsOpen(true);
+    }
+  }, [activeSection]);
+
   const resetForm = () => {
     setEditingId(null);
     setTitle("");
@@ -376,7 +408,10 @@ function ExerciseLibraryPageInner() {
     setRegression("");
     setCategory("");
     setEquipment("");
-    setShowExerciseFields(false);
+    setWeekNumber("");
+    setSessionNumber("");
+    setSessionLabel("");
+    setShowExerciseFields(true);
   };
 
   const buildMetadata = (): ExerciseMetadata | null => {
@@ -391,6 +426,15 @@ function ExerciseLibraryPageInner() {
     if (regression.trim()) meta.regression = regression.trim();
     if (category.trim()) meta.category = category.trim();
     if (equipment.trim()) meta.equipment = equipment.trim();
+    if (weekNumber.trim()) {
+      const w = Number(weekNumber);
+      if (Number.isFinite(w)) meta.weekNumber = w;
+    }
+    if (sessionNumber.trim()) {
+      const s = Number(sessionNumber);
+      if (Number.isFinite(s)) meta.sessionNumber = s;
+    }
+    if (sessionLabel.trim()) meta.sessionLabel = sessionLabel.trim();
     return Object.keys(meta).length > 0 ? meta : null;
   };
 
@@ -458,20 +502,11 @@ function ExerciseLibraryPageInner() {
     setRegression(meta.regression ?? "");
     setCategory(meta.category ?? "");
     setEquipment(meta.equipment ?? "");
+    setWeekNumber(meta.weekNumber != null ? String(meta.weekNumber) : "");
+    setSessionNumber(meta.sessionNumber != null ? String(meta.sessionNumber) : "");
+    setSessionLabel(meta.sessionLabel ?? "");
 
-    const hasExerciseData = !!(
-      meta.sets ||
-      meta.reps ||
-      meta.duration ||
-      meta.restSeconds ||
-      (meta.steps && meta.steps.trim()) ||
-      meta.cues ||
-      meta.progression ||
-      meta.regression ||
-      meta.category ||
-      meta.equipment
-    );
-    setShowExerciseFields(hasExerciseData);
+    setShowExerciseFields(true);
   };
 
   const handleAddAge = () => {
@@ -521,26 +556,85 @@ function ExerciseLibraryPageInner() {
     });
   }, [items]);
 
+  const mobileHint =
+    SECTION_MOBILE_HINT[activeSection] ?? "Published to the mobile app for enrolled athletes.";
+
   return (
-    <AdminShell title="Exercise Library" subtitle="Centralized exercise and video management.">
-      <div className="rounded-2xl border border-border bg-card p-4">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Program Section
-          </p>
-          <Tabs value={activeSection} onValueChange={setActiveSection}>
-            <TabsList className="flex w-full flex-wrap gap-2">
-              {SESSION_TYPES.map((sessionType) => (
-                <TabsTrigger
-                  key={sessionType.value}
-                  value={sessionType.value}
-                  className="rounded-full px-3 py-1 text-xs"
-                >
-                  {sessionType.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+    <AdminShell
+      title="Training content"
+      subtitle="What athletes see under Programs in the mobile app."
+    >
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 text-sm">
+          <p className="font-semibold text-foreground">Coach quick path</p>
+          <ul className="mt-2 list-inside list-disc space-y-1.5 text-muted-foreground">
+            <li>
+              <span className="font-medium text-foreground">Most days:</span> use{" "}
+              <strong className="text-foreground">Main program</strong>, <strong className="text-foreground">Warmups</strong>, and{" "}
+              <strong className="text-foreground">Cool downs</strong> below.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">Tiers & templates:</span>{" "}
+              <Link href="/programs" className="text-primary underline-offset-4 hover:underline">
+                Programs
+              </Link>
+            </li>
+            <li>
+              <span className="font-medium text-foreground">One athlete (e.g. Premium):</span>{" "}
+              <Link href="/users" className="text-primary underline-offset-4 hover:underline">
+                Users
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Section type
+            </p>
+            <Tabs value={activeSection} onValueChange={setActiveSection}>
+              <div className="space-y-3">
+                <div>
+                  <p className="mb-2 text-[11px] font-medium text-muted-foreground">Start here (daily)</p>
+                  <TabsList className="flex h-auto w-full flex-wrap gap-2 bg-transparent p-0">
+                    {PRIMARY_SESSION_TYPES.map((sessionType) => (
+                      <TabsTrigger
+                        key={sessionType.value}
+                        value={sessionType.value}
+                        className="rounded-full border border-border bg-background px-3 py-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-primary/10"
+                      >
+                        {sessionType.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setMoreSectionsOpen((o) => !o)}
+                    className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                  >
+                    {moreSectionsOpen ? "▼ Hide" : "▶ More section types"} (Plus / Premium / other)
+                  </button>
+                  {moreSectionsOpen ? (
+                    <TabsList className="mt-2 flex h-auto w-full flex-wrap gap-2 bg-transparent p-0">
+                      {MORE_SESSION_TYPES.map((sessionType) => (
+                        <TabsTrigger
+                          key={sessionType.value}
+                          value={sessionType.value}
+                          className="rounded-full border border-border bg-background px-3 py-1.5 text-xs data-[state=active]:border-primary data-[state=active]:bg-primary/10"
+                        >
+                          {sessionType.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  ) : null}
+                </div>
+              </div>
+            </Tabs>
+            <p className="text-xs leading-relaxed text-muted-foreground">{mobileHint}</p>
+          </div>
         </div>
       </div>
 
@@ -549,8 +643,8 @@ function ExerciseLibraryPageInner() {
         <Card>
           <CardHeader>
             <SectionHeader
-              title={`${SESSION_TYPE_LABEL[activeSection] ?? "Program"} Upload`}
-              description="Create section-specific guidance for athletes."
+              title={`${SESSION_TYPE_LABEL[activeSection] ?? "Program"}`}
+              description={mobileHint}
             />
           </CardHeader>
           <CardContent className="space-y-4">
@@ -592,6 +686,51 @@ function ExerciseLibraryPageInner() {
 
               {showExerciseFields && (
                 <div className="mt-4 space-y-4">
+                  <div className="rounded-xl border border-border/80 bg-background/50 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Week & session (mobile grouping)
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Same week + session # groups rows into one session in the app (e.g. Week 1, Session A).
+                    </p>
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Week
+                        </label>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="e.g. 1"
+                          value={weekNumber}
+                          onChange={(e) => setWeekNumber(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Session # (1=A, 2=B…)
+                        </label>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="e.g. 1"
+                          value={sessionNumber}
+                          onChange={(e) => setSessionNumber(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Session label (optional)
+                        </label>
+                        <Input
+                          placeholder="e.g. Lower body"
+                          value={sessionLabel}
+                          onChange={(e) => setSessionLabel(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Sets / Reps / Duration / Rest grid */}
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div className="space-y-1">
@@ -878,8 +1017,8 @@ function ExerciseLibraryPageInner() {
         <Card>
           <CardHeader>
             <SectionHeader
-              title={`${SESSION_TYPE_LABEL[activeSection] ?? "Program"} Content`}
-              description="Publish age-specific courses and modules for athletes."
+              title={`Published items`}
+              description="Order matches display order in the app (per age filter)."
             />
           </CardHeader>
           <CardContent className="space-y-3">
@@ -891,6 +1030,15 @@ function ExerciseLibraryPageInner() {
             {orderedItems.map((item) => {
               const meta = (item.metadata ?? {}) as ExerciseMetadata;
               const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
+              const weekSessionBits = [
+                meta.weekNumber != null && Number.isFinite(Number(meta.weekNumber))
+                  ? `W${meta.weekNumber}`
+                  : null,
+                meta.sessionNumber != null && Number.isFinite(Number(meta.sessionNumber))
+                  ? `S${meta.sessionNumber}`
+                  : null,
+                meta.sessionLabel?.trim() ? meta.sessionLabel.trim() : null,
+              ].filter(Boolean);
 
               return (
                 <div key={item.id} className="rounded-2xl border border-border bg-background p-4">
@@ -902,6 +1050,11 @@ function ExerciseLibraryPageInner() {
                           ID {item.id}
                         </span>
                         <span className="text-xs text-muted-foreground">Order {item.order ?? 1}</span>
+                        {weekSessionBits.length ? (
+                          <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-foreground">
+                            {weekSessionBits.join(" · ")}
+                          </span>
+                        ) : null}
                         {Array.isArray(item.ageList) && item.ageList.length ? (
                           <span className="text-xs text-muted-foreground">
                             Ages: {item.ageList.join(", ")}

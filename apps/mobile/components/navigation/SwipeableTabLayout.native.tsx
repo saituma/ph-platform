@@ -1,6 +1,6 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import PagerView, {
   PagerViewOnPageScrollEvent,
   PagerViewOnPageSelectedEvent,
@@ -154,6 +154,7 @@ export function SwipeableTabLayout({
         onPageScrollStateChanged={handlePageScrollStateChanged}
         scrollEnabled={true}
         overdrag={false}
+        overScrollMode={Platform.OS === "android" ? "never" : undefined}
         offscreenPageLimit={Math.min(4, Math.max(1, tabs.length - 1))}
       >
         {pagerChildren}

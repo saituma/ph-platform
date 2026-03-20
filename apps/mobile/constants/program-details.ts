@@ -5,6 +5,8 @@ export type ExerciseItem = {
   reps?: number;
   time?: string;
   rest?: string;
+  /** Seconds — used by session runner when `rest` label is missing. */
+  restSeconds?: number;
   notes?: string;
   videoUrl?: string;
   progressions?: string;
