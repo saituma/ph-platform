@@ -675,29 +675,55 @@ export function ProgramDetailPanel({
     const hasAccess = canAccessTier(programTier, programIdToTier(programId));
     const normalizedTier = normalizeProgramTier(programTier);
     if (!hasAccess) {
+      const tierCard = PROGRAM_TIERS.find((t) => t.id === programId);
+      const previewFeatures = (tierCard?.features ?? []).slice(0, 4);
       const title = isPendingApproval
         ? "Plan approval pending"
         : normalizedTier
-          ? "Program locked"
+          ? `${PROGRAM_TITLES[programId]} is locked`
           : "Complete onboarding to unlock programs";
       const body = isPendingApproval
-        ? "Waiting for approval."
+        ? "Payment received — a coach will review and activate your plan shortly. Then you'll get full access to workouts, messaging, and bookings for this program."
         : normalizedTier
-          ? "Upgrade your plan to unlock this."
-          : "Complete onboarding to unlock.";
+          ? `Your current plan doesn't include everything in ${PROGRAM_TITLES[programId]}. Here's what members get — upgrade or switch plans to unlock these tabs.`
+          : "Finish setting up your athlete profile and choose a plan to unlock program content, coach messaging, and session booking.";
       return (
-        <View 
-          className="rounded-3xl bg-card px-6 py-5 gap-3"
+        <View
+          className="rounded-3xl bg-card px-6 py-5 gap-4"
           style={isDark ? Shadows.none : Shadows.md}
         >
           <View className="flex-row items-center gap-2">
             <Feather name={isPendingApproval ? "clock" : "lock"} size={16} color={colors.accent} />
             <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-              {isPendingApproval ? "Pending" : "Locked"}
+              {isPendingApproval ? "Pending" : "Preview"}
             </Text>
           </View>
           <Text className="text-lg font-clash text-app font-bold">{title}</Text>
           <Text className="text-sm font-outfit text-secondary leading-relaxed">{body}</Text>
+          {previewFeatures.length ? (
+            <View className="gap-2.5">
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
+                Included with {PROGRAM_TITLES[programId]}
+              </Text>
+              {previewFeatures.map((line) => (
+                <View key={line} className="flex-row items-start gap-2">
+                  <Feather name="check" size={14} color={colors.accent} style={{ marginTop: 2 }} />
+                  <Text className="flex-1 text-sm font-outfit text-app leading-5">{line}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {onNavigate ? (
+            <Pressable
+              onPress={() => onNavigate("/(tabs)/programs")}
+              className="mt-1 rounded-full bg-accent px-5 py-3 flex-row items-center justify-center gap-2"
+            >
+              <Feather name="layers" size={16} color="#FFFFFF" />
+              <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
+                View plans & pricing
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       );
     }

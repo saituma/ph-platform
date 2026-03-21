@@ -20,7 +20,7 @@ import { cognitoClient } from "../lib/aws";
 import { env } from "../config/env";
 import { db } from "../db";
 import { userTable } from "../db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { createLocalToken } from "../lib/jwt";
 import { sendOtpEmail } from "../lib/mailer";
 import { v4 as uuidv4 } from "uuid";
@@ -271,7 +271,8 @@ function hashPassword(password: string, salt?: string) {
   return { hash, salt: usedSalt };
 }
 
-function verifyPassword(password: string, hash: string, salt: string) {
+export function verifyLocalPassword(password: string, hash: string | null, salt: string | null) {
+  if (!hash || !salt) return false;
   const next = crypto.scryptSync(password, salt, 64).toString("hex");
   return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(next, "hex"));
 }
@@ -281,17 +282,18 @@ function generateOtp() {
 }
 
 export async function registerLocal(input: { email: string; password: string; name: string }) {
-  const existing = await db
+  const active = await db
     .select()
     .from(userTable)
     .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
     .limit(1);
+
   const otp = generateOtp();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   const { hash, salt } = hashPassword(input.password);
 
-  if (existing[0]) {
-    if (existing[0].emailVerified) {
+  if (active[0]) {
+    if (active[0].emailVerified) {
       throw { status: 409, message: "An account with this email already exists." };
     }
     await db
@@ -305,24 +307,57 @@ export async function registerLocal(input: { email: string; password: string; na
         verificationAttempts: 0,
         updatedAt: new Date(),
       })
-      .where(eq(userTable.id, existing[0].id));
-  } else {
+      .where(eq(userTable.id, active[0].id));
+    await sendOtpEmail({ to: input.email, code: otp });
+    return { ok: true };
+  }
+
+  const softDeleted = await db
+    .select()
+    .from(userTable)
+    .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, true)))
+    .orderBy(desc(userTable.id))
+    .limit(1);
+
+  if (softDeleted[0]) {
+    const row = softDeleted[0];
+    const nextSub = row.cognitoSub?.startsWith("local:") ? `local:${uuidv4()}` : row.cognitoSub;
     await db
-      .insert(userTable)
-      .values({
-        cognitoSub: `local:${uuidv4()}`,
+      .update(userTable)
+      .set({
+        isDeleted: false,
         name: input.name,
-        email: input.email,
-        role: "guardian",
         passwordHash: hash,
         passwordSalt: salt,
         emailVerified: false,
         verificationCode: otp,
         verificationExpiresAt: expiresAt,
         verificationAttempts: 0,
+        tokenVersion: (row.tokenVersion ?? 0) + 1,
+        expoPushToken: null,
+        cognitoSub: nextSub,
+        updatedAt: new Date(),
       })
-      .returning();
+      .where(eq(userTable.id, row.id));
+    await sendOtpEmail({ to: input.email, code: otp });
+    return { ok: true };
   }
+
+  await db
+    .insert(userTable)
+    .values({
+      cognitoSub: `local:${uuidv4()}`,
+      name: input.name,
+      email: input.email,
+      role: "guardian",
+      passwordHash: hash,
+      passwordSalt: salt,
+      emailVerified: false,
+      verificationCode: otp,
+      verificationExpiresAt: expiresAt,
+      verificationAttempts: 0,
+    })
+    .returning();
 
   await sendOtpEmail({ to: input.email, code: otp });
   return { ok: true };
@@ -408,7 +443,7 @@ export async function loginLocal(input: { email: string; password: string }) {
   if (!user.emailVerified) {
     throw { status: 403, message: "User is not confirmed. Please verify your email." };
   }
-  const ok = verifyPassword(input.password, user.passwordHash, user.passwordSalt);
+  const ok = verifyLocalPassword(input.password, user.passwordHash, user.passwordSalt);
   if (!ok) {
     throw { status: 401, message: "Invalid credentials." };
   }

@@ -331,7 +331,7 @@ export default function HelpCenterScreen() {
               icon={action.icon}
               label={action.label}
               description={action.description}
-              onPress={() => router.navigate(action.route as never)}
+              onPress={() => router.push(action.route as never)}
               isDark={isDark}
               colors={colors}
             />
@@ -386,7 +386,7 @@ export default function HelpCenterScreen() {
                 article={article}
                 onPressAction={() => {
                   if (article.actionRoute) {
-                    router.navigate(article.actionRoute as never);
+                    router.push(article.actionRoute as never);
                   }
                 }}
                 isDark={isDark}
@@ -411,7 +411,7 @@ export default function HelpCenterScreen() {
               </Text>
               <ActionButton
                 label="Contact Support"
-                onPress={() => router.navigate("/feedback")}
+                onPress={() => router.push("/feedback")}
                 color="bg-accent"
                 icon="message-square"
                 fullWidth={true}
@@ -467,7 +467,7 @@ export default function HelpCenterScreen() {
 
           <ActionButton
             label="Contact Support"
-            onPress={() => router.navigate("/feedback")}
+            onPress={() => router.push("/feedback")}
             color="bg-accent"
             icon="message-square"
             fullWidth={true}

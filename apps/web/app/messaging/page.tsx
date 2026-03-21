@@ -617,13 +617,17 @@ export default function MessagingPage() {
   return (
     <AdminShell
       title="Messaging"
-      subtitle="Priority inbox and coach responses."
+      subtitle="Priority inbox and coach responses. Mobile app feedback (More → Send Feedback) shows up here as direct messages starting with [App feedback — …], even for tiers without normal messaging."
     >
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base">Messaging by plan</CardTitle>
           <p className="text-sm text-muted-foreground">
             Turn plans on or off for <strong>new</strong> client messages. Existing threads stay in the inbox so you can finish conversations.
+          </p>
+          <p className="mt-3 border-l-2 border-primary/30 pl-3 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">In-app feedback:</span> athletes submit from the PHP mobile app; deliveries use the same threads as coach chat—search or scan previews for the{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">[App feedback</code> prefix.
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">

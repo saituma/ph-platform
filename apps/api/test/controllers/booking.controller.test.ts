@@ -11,6 +11,10 @@ jest.mock("../../src/services/user.service", () => ({
   getGuardianAndAthlete: jest.fn(),
 }));
 
+jest.mock("../../src/services/booking-eligibility.service", () => ({
+  assertUserCanCreateBooking: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { listServices, createBookingForUser, listBookings } from "../../src/controllers/booking.controller";
 import { listServiceTypes, createBooking, listBookingsForUser } from "../../src/services/booking.service";
 import { getGuardianAndAthlete } from "../../src/services/user.service";

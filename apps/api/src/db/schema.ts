@@ -133,6 +133,10 @@ export const athleteTable = pgTable("athletes", {
   profilePicture: text(),
   extraResponses: jsonb(),
   currentProgramTier: ProgramType(),
+  /** When paid access ends (monthly/yearly plans). Null = no auto-expiry (e.g. one_time). */
+  planExpiresAt: timestamp(),
+  /** Set when a renewal reminder email/push was sent for the current period. */
+  planRenewalReminderSentAt: timestamp(),
   onboardingCompleted: boolean().notNull().default(false),
   onboardingCompletedAt: timestamp(),
   createdAt: timestamp().notNull().defaultNow(),

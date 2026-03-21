@@ -1,18 +1,22 @@
 import { ActionButton } from "@/components/dashboard/ActionButton";
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
+import { apiRequest } from "@/lib/api";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text, TextInput } from "@/components/ScaledText";
+import { useAppSelector } from "@/store/hooks";
 
 export default function FeedbackScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
+  const token = useAppSelector((s) => s.user.token);
   const [feedback, setFeedback] = useState("");
   const [category, setCategory] = useState("Bug Report");
+  const [isSending, setIsSending] = useState(false);
 
   const categories = [
     "Bug Report",
@@ -94,11 +98,35 @@ export default function FeedbackScreen() {
           </View>
 
           <ActionButton
-            label="Send Feedback"
-            onPress={() => router.navigate("/(tabs)/more")}
+            label={isSending ? "Sending…" : "Send Feedback"}
+            onPress={async () => {
+              const body = feedback.trim();
+              if (!body || isSending) return;
+              if (!token) {
+                Alert.alert("Sign in required", "Please sign in to send feedback.");
+                return;
+              }
+              setIsSending(true);
+              try {
+                await apiRequest("/support/app-feedback", {
+                  method: "POST",
+                  token,
+                  body: { category, message: body },
+                });
+                Alert.alert("Thank you", "Your message was sent to the team.", [
+                  { text: "OK", onPress: () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/more")) },
+                ]);
+                setFeedback("");
+              } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : "Something went wrong. Please try again.";
+                Alert.alert("Could not send", msg);
+              } finally {
+                setIsSending(false);
+              }
+            }}
             color="bg-accent"
             icon="send"
-            disabled={!feedback.trim()}
+            disabled={!feedback.trim() || isSending}
             fullWidth={true}
           />
         </ThemedScrollView>

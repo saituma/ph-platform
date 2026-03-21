@@ -19,6 +19,7 @@ import ageExperienceRoutes from "./age-experience.routes";
 import locationRoutes from "./location.routes";
 import notificationRoutes from "./notification.routes";
 import athletePlanRoutes from "./athlete-plan.routes";
+import supportRoutes from "./support.routes";
 
 const router = Router();
 
@@ -41,5 +42,6 @@ router.use(ageExperienceRoutes);
 router.use(locationRoutes);
 router.use(notificationRoutes);
 router.use(athletePlanRoutes);
+router.use(supportRoutes);
 
 export default router;

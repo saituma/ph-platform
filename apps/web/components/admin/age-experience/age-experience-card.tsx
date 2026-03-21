@@ -218,7 +218,10 @@ export function AgeExperienceCard() {
       <CardContent className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            Define UI density, font scale, and content visibility for each age or range.
+            Define UI density, font scale, and content visibility for each age or range. The rule{" "}
+            <span className="font-medium text-foreground">title</span> is what athletes see on the mobile{" "}
+            <span className="font-medium text-foreground">More</span> tab under{" "}
+            <span className="font-medium text-foreground">Experience</span>.
           </p>
           <Button onClick={() => { resetForm(); setModalOpen(true); }}>New Rule</Button>
         </div>
