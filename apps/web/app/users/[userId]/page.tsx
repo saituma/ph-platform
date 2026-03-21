@@ -7,7 +7,15 @@ import { skipToken } from "@reduxjs/toolkit/query";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Card, CardContent } from "../../../components/ui/card";
-import { SectionHeader } from "../../../components/admin/section-header";
+import {
+  ProfileField,
+  UserDetailBackBar,
+  UserDetailSectionCard,
+  UserDetailStatGrid,
+  UserDetailSummaryStrip,
+  UserProfileSection,
+} from "../../../components/admin/users/user-detail-shell";
+import { Activity, ClipboardList, CreditCard, ShieldAlert, UserCircle, UserRound, Users } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Select } from "../../../components/ui/select";
 import { Input } from "../../../components/ui/input";
@@ -32,18 +40,6 @@ import {
   useGetUsersQuery,
   useUpdateProgramTierMutation,
 } from "../../../lib/apiSlice";
-
-function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
-  if (value === undefined || value === null || value === "") return null;
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-2 py-2 border-b border-border/60 last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground text-right max-w-[70%] break-words">
-        {String(value)}
-      </span>
-    </div>
-  );
-}
 
 export default function UserDetailPage() {
   const params = useParams();
@@ -344,12 +340,10 @@ export default function UserDetailPage() {
   if (!isValidId) {
     return (
       <AdminShell title="User" subtitle="Invalid user ID.">
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="border-dashed">
+          <CardContent className="space-y-4 pt-6">
             <p className="text-muted-foreground">Invalid user ID.</p>
-            <Link href="/users" className="mt-4 inline-block text-sm text-foreground hover:underline">
-              ← Back to Users
-            </Link>
+            <UserDetailBackBar />
           </CardContent>
         </Card>
       </AdminShell>
@@ -359,12 +353,10 @@ export default function UserDetailPage() {
   if (!rawUser && usersData !== undefined) {
     return (
       <AdminShell title="User" subtitle="User not found.">
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="border-dashed">
+          <CardContent className="space-y-4 pt-6">
             <p className="text-muted-foreground">User not found.</p>
-            <Link href="/users" className="mt-4 inline-block text-sm text-foreground hover:underline">
-              ← Back to Users
-            </Link>
+            <UserDetailBackBar />
           </CardContent>
         </Card>
       </AdminShell>
@@ -382,193 +374,198 @@ export default function UserDetailPage() {
           : "Program";
 
   return (
-    <AdminShell
-      title={displayName}
-      subtitle={`User #${userId} · ${tierLabel}`}
-    >
-      <div className="space-y-6">
-        <div>
-          <Link href="/users" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Back to Users
-          </Link>
+    <AdminShell title={displayName} subtitle={`User #${userId} · ${tierLabel}`}>
+      <div className="space-y-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <UserDetailBackBar />
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/training-snapshot">Client training snapshot</Link>
+          </Button>
         </div>
 
+        <UserDetailSummaryStrip
+          userId={userId}
+          email={rawUser?.email}
+          tierLabel={tierLabel}
+          role={rawUser?.role}
+          isBlocked={Boolean(rawUser?.isBlocked)}
+          athleteName={onboarding?.athlete?.name ?? rawUser?.athleteName}
+        />
+
         {actionError ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+          <div className="rounded-2xl border border-red-500/35 bg-red-500/10 px-4 py-3 text-sm text-red-900 dark:text-red-100">
             {actionError}
           </div>
         ) : null}
 
-        {/* Account */}
-        <Card>
-          <CardContent className="pt-6">
-            <SectionHeader title="Account" description="User and auth details." />
-            <div className="mt-4 space-y-0">
-              <DetailRow label="User ID" value={rawUser?.id} />
-              <DetailRow label="Name" value={rawUser?.name} />
-              <DetailRow label="Email" value={rawUser?.email} />
-              <DetailRow label="Role" value={rawUser?.role} />
-              <DetailRow label="Status" value={rawUser?.isBlocked ? "Blocked" : "Active"} />
-              <DetailRow label="Program tier" value={tierLabel} />
-              <DetailRow
-                label="Onboarding"
-                value={
-                  (rawUser?.onboardingCompleted ?? rawUser?.onboarding_completed) === false
-                    ? "Awaiting review"
-                    : "Complete"
-                }
-              />
-              <DetailRow
-                label="Created"
-                value={rawUser?.createdAt ? new Date(rawUser.createdAt).toLocaleString() : null}
-              />
-              <DetailRow
-                label="Updated"
-                value={rawUser?.updatedAt ? new Date(rawUser.updatedAt).toLocaleString() : null}
-              />
-              <DetailRow label="Cognito sub" value={rawUser?.cognitoSub} />
-            </div>
-          </CardContent>
-        </Card>
+        <UserProfileSection
+          title="Account"
+          description="Sign-in identity, role, and account lifecycle."
+          icon={UserCircle}
+        >
+          <ProfileField label="User ID" value={rawUser?.id} />
+          <ProfileField label="Name" value={rawUser?.name} />
+          <ProfileField label="Email" value={rawUser?.email} />
+          <ProfileField label="Role" value={rawUser?.role} />
+          <ProfileField label="Status" value={rawUser?.isBlocked ? "Blocked" : "Active"} />
+          <ProfileField label="Program tier" value={tierLabel} />
+          <ProfileField
+            label="Onboarding"
+            value={
+              (rawUser?.onboardingCompleted ?? rawUser?.onboarding_completed) === false
+                ? "Awaiting review"
+                : "Complete"
+            }
+          />
+          <ProfileField
+            label="Created"
+            value={rawUser?.createdAt ? new Date(rawUser.createdAt).toLocaleString() : null}
+          />
+          <ProfileField
+            label="Updated"
+            value={rawUser?.updatedAt ? new Date(rawUser.updatedAt).toLocaleString() : null}
+          />
+          <ProfileField label="Cognito sub" value={rawUser?.cognitoSub} />
+        </UserProfileSection>
 
-        {/* Guardian */}
         {(onboarding?.guardian || rawUser?.guardianProgramTier != null) && (
-          <Card>
-            <CardContent className="pt-6">
-              <SectionHeader title="Guardian" description="Guardian profile (if applicable)." />
-              {onboardingLoading ? (
-                <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
-              ) : (
-                <div className="mt-4 space-y-0">
-                  <DetailRow label="Guardian ID" value={onboarding?.guardian?.id} />
-                  <DetailRow label="Email" value={onboarding?.guardian?.email} />
-                  <DetailRow label="Phone" value={onboarding?.guardian?.phoneNumber} />
-                  <DetailRow label="Relation to athlete" value={onboarding?.guardian?.relationToAthlete} />
-                  <DetailRow label="Current program tier" value={onboarding?.guardian?.currentProgramTier} />
-                  <DetailRow label="Active athlete ID" value={onboarding?.guardian?.activeAthleteId} />
-                  <DetailRow
-                    label="Created"
-                    value={
-                      onboarding?.guardian?.createdAt
-                        ? new Date(onboarding.guardian.createdAt).toLocaleString()
-                        : null
-                    }
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <UserProfileSection
+            title="Guardian"
+            description="Parent / guardian record linked to this login."
+            icon={Users}
+          >
+            {onboardingLoading ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">Loading…</div>
+            ) : (
+              <>
+                <ProfileField label="Guardian ID" value={onboarding?.guardian?.id} />
+                <ProfileField label="Email" value={onboarding?.guardian?.email} />
+                <ProfileField label="Phone" value={onboarding?.guardian?.phoneNumber} />
+                <ProfileField label="Relation to athlete" value={onboarding?.guardian?.relationToAthlete} />
+                <ProfileField label="Current program tier" value={onboarding?.guardian?.currentProgramTier} />
+                <ProfileField label="Active athlete ID" value={onboarding?.guardian?.activeAthleteId} />
+                <ProfileField
+                  label="Created"
+                  value={
+                    onboarding?.guardian?.createdAt
+                      ? new Date(onboarding.guardian.createdAt).toLocaleString()
+                      : null
+                  }
+                />
+              </>
+            )}
+          </UserProfileSection>
         )}
 
-        {/* Athlete */}
         {(onboarding?.athlete || rawUser?.athleteId) && (
-          <Card>
-            <CardContent className="pt-6">
-              <SectionHeader title="Athlete" description="Athlete profile and onboarding." />
-              {onboardingLoading ? (
-                <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
-              ) : (
-                <div className="mt-4 space-y-0">
-                  <DetailRow label="Athlete ID" value={onboarding?.athlete?.id ?? rawUser?.athleteId} />
-                  <DetailRow label="Name" value={onboarding?.athlete?.name ?? rawUser?.athleteName} />
-                  <DetailRow label="Age" value={onboarding?.athlete?.age} />
-                  <DetailRow
-                    label="Birth date"
-                    value={
-                      onboarding?.athlete?.birthDate
-                        ? new Date(onboarding.athlete.birthDate).toLocaleDateString()
-                        : null
-                    }
-                  />
-                  <DetailRow label="Team" value={onboarding?.athlete?.team} />
-                  <DetailRow label="Training per week" value={onboarding?.athlete?.trainingPerWeek} />
-                  <DetailRow label="Performance goals" value={onboarding?.athlete?.performanceGoals} />
-                  <DetailRow label="Equipment access" value={onboarding?.athlete?.equipmentAccess} />
-                  <DetailRow
-                    label="Injuries"
-                    value={
-                      onboarding?.athlete?.injuries
-                        ? JSON.stringify(onboarding.athlete.injuries)
-                        : null
-                    }
-                  />
-                  <DetailRow label="Growth notes" value={onboarding?.athlete?.growthNotes} />
-                  <DetailRow
-                    label="Onboarding completed"
-                    value={onboarding?.athlete?.onboardingCompleted ? "Yes" : "No"}
-                  />
-                  <DetailRow
-                    label="Onboarding completed at"
-                    value={
-                      onboarding?.athlete?.onboardingCompletedAt
-                        ? new Date(onboarding.athlete.onboardingCompletedAt).toLocaleString()
-                        : null
-                    }
-                  />
-                  <DetailRow label="Current program tier" value={onboarding?.athlete?.currentProgramTier} />
-                  <DetailRow
-                    label="Created"
-                    value={
-                      onboarding?.athlete?.createdAt
-                        ? new Date(onboarding.athlete.createdAt).toLocaleString()
-                        : null
-                    }
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <UserProfileSection
+            title="Athlete"
+            description="The athlete profile this guardian manages — onboarding and training context."
+            icon={UserRound}
+          >
+            {onboardingLoading ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">Loading…</div>
+            ) : (
+              <>
+                <ProfileField label="Athlete ID" value={onboarding?.athlete?.id ?? rawUser?.athleteId} />
+                <ProfileField label="Name" value={onboarding?.athlete?.name ?? rawUser?.athleteName} />
+                <ProfileField label="Age" value={onboarding?.athlete?.age} />
+                <ProfileField
+                  label="Birth date"
+                  value={
+                    onboarding?.athlete?.birthDate
+                      ? new Date(onboarding.athlete.birthDate).toLocaleDateString()
+                      : null
+                  }
+                />
+                <ProfileField label="Team" value={onboarding?.athlete?.team} />
+                <ProfileField label="Training per week" value={onboarding?.athlete?.trainingPerWeek} />
+                <ProfileField label="Performance goals" value={onboarding?.athlete?.performanceGoals} />
+                <ProfileField label="Equipment access" value={onboarding?.athlete?.equipmentAccess} />
+                <ProfileField
+                  label="Injuries"
+                  value={
+                    onboarding?.athlete?.injuries ? JSON.stringify(onboarding.athlete.injuries) : null
+                  }
+                />
+                <ProfileField label="Growth notes" value={onboarding?.athlete?.growthNotes} />
+                <ProfileField
+                  label="Onboarding completed"
+                  value={onboarding?.athlete?.onboardingCompleted ? "Yes" : "No"}
+                />
+                <ProfileField
+                  label="Onboarding completed at"
+                  value={
+                    onboarding?.athlete?.onboardingCompletedAt
+                      ? new Date(onboarding.athlete.onboardingCompletedAt).toLocaleString()
+                      : null
+                  }
+                />
+                <ProfileField label="Current program tier" value={onboarding?.athlete?.currentProgramTier} />
+                <ProfileField
+                  label="Created"
+                  value={
+                    onboarding?.athlete?.createdAt
+                      ? new Date(onboarding.athlete.createdAt).toLocaleString()
+                      : null
+                  }
+                />
+              </>
+            )}
+          </UserProfileSection>
         )}
 
-        {/* Training load (Premium) */}
         {resolvedTier === "PHP_Premium" && (
-          <Card>
-            <CardContent className="pt-6">
-              <SectionHeader
-                title="Training Load (V1)"
-                description="Completions + RPE/soreness/fatigue captured from the mobile app."
+          <UserProfileSection
+            title="Training load"
+            description="Check-ins from the mobile app — last 14 days of completions plus average RPE, soreness, and fatigue when logged."
+            icon={Activity}
+          >
+            {completionsLoading ? (
+              <UserDetailStatGrid
+                items={[
+                  { label: "Completions (14d)", value: "—", loading: true },
+                  { label: "Avg RPE", value: "—", loading: true },
+                  { label: "Avg soreness", value: "—", loading: true },
+                  { label: "Avg fatigue", value: "—", loading: true },
+                ]}
               />
-              <div className="mt-4 space-y-0">
-                {completionsLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading check-ins...</p>
-                ) : (
-                  <>
-                    <DetailRow label="Completions (last 14 days)" value={completionStats.count} />
-                    <DetailRow label="Avg RPE" value={completionStats.avgRpe} />
-                    <DetailRow label="Avg soreness" value={completionStats.avgSoreness} />
-                    <DetailRow label="Avg fatigue" value={completionStats.avgFatigue} />
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            ) : (
+              <UserDetailStatGrid
+                items={[
+                  { label: "Completions (14d)", value: completionStats.count },
+                  { label: "Avg RPE", value: completionStats.avgRpe ?? "—" },
+                  { label: "Avg soreness", value: completionStats.avgSoreness ?? "—" },
+                  { label: "Avg fatigue", value: completionStats.avgFatigue ?? "—" },
+                ]}
+              />
+            )}
+          </UserProfileSection>
         )}
 
-        {/* Premium plan editor */}
         {resolvedTier === "PHP_Premium" && (
-          <Card>
-            <CardContent className="pt-6">
-	              <SectionHeader
-	                title="Premium Plan Editor (V1)"
-	                description="Create and edit a per-athlete weekly schedule. This does not change templates."
-	              />
-
-	              <div className="mt-4 rounded-2xl border border-border bg-secondary/20 p-4 text-sm text-muted-foreground">
-	                <div className="font-semibold text-foreground">What you’re adding</div>
-	                <ul className="mt-2 list-disc space-y-1 pl-5">
-	                  <li>
-	                    A <span className="font-medium text-foreground">Session</span> is one training day for that week (e.g. “Lower Body
-	                    Strength”, “Speed”, “Movement Screen”).
-	                  </li>
-	                  <li>
-	                    Inside each session, you add <span className="font-medium text-foreground">Exercises</span> and optionally override sets,
-	                    reps, rest, and coaching notes for this athlete.
-	                  </li>
-	                  <li>
-	                    Recommended: click <span className="font-medium text-foreground">Clone From Assigned Template</span> first, then tweak.
-	                  </li>
-	                </ul>
-	              </div>
+          <UserDetailSectionCard
+            title="Premium plan editor"
+            description="Per-athlete weekly sessions and exercises. Clone from the assigned template first, then customize — library templates are unchanged."
+            icon={ClipboardList}
+          >
+            <div className="rounded-2xl border border-border/90 bg-secondary/25 p-4 text-sm text-muted-foreground dark:bg-secondary/15">
+              <p className="font-semibold text-foreground">How this works</p>
+              <ul className="mt-2 list-disc space-y-1.5 pl-5 leading-relaxed">
+                <li>
+                  A <span className="font-medium text-foreground">session</span> is one training day in a week (e.g.
+                  Lower body, speed, movement screen).
+                </li>
+                <li>
+                  Add <span className="font-medium text-foreground">exercises</span> per session; override sets, reps,
+                  rest, and coaching notes for this athlete only.
+                </li>
+                <li>
+                  Fastest path: <span className="font-medium text-foreground">Clone from assigned template</span>, then
+                  edit.
+                </li>
+              </ul>
+            </div>
 
 	              {planNotice && (
 	                <div
@@ -1064,9 +1061,8 @@ export default function UserDetailPage() {
                     })
                 )}
               </div>
-	            </CardContent>
-	          </Card>
-	        )}
+          </UserDetailSectionCard>
+        )}
 
 	        <Dialog
 	          open={createExerciseDialog.open}
@@ -1312,66 +1308,58 @@ export default function UserDetailPage() {
 	          </DialogContent>
 	        </Dialog>
 
-	        {/* Billing */}
-	        {billingStatus && (
-	          <Card>
-	            <CardContent className="pt-6">
-              <SectionHeader title="Subscription / Billing" description="Latest plan and status." />
-              <div className="mt-4 space-y-0">
-                <DetailRow label="Plan tier" value={billingStatus.planTier} />
-                <DetailRow label="Display price" value={billingStatus.displayPrice} />
-                <DetailRow label="Billing interval" value={billingStatus.billingInterval} />
-                <DetailRow label="Status" value={billingStatus.status} />
-                <DetailRow label="Payment status" value={billingStatus.paymentStatus} />
-                <DetailRow
-                  label="Created"
-                  value={billingStatus.createdAt ? new Date(billingStatus.createdAt).toLocaleString() : null}
-                />
-              </div>
-            </CardContent>
-          </Card>
+        {billingStatus && (
+          <UserProfileSection
+            title="Subscription & billing"
+            description="Latest subscription request and payment outcome from billing."
+            icon={CreditCard}
+          >
+            <ProfileField label="Plan tier" value={billingStatus.planTier} />
+            <ProfileField label="Display price" value={billingStatus.displayPrice} />
+            <ProfileField label="Billing interval" value={billingStatus.billingInterval} />
+            <ProfileField label="Status" value={billingStatus.status} />
+            <ProfileField label="Payment status" value={billingStatus.paymentStatus} />
+            <ProfileField
+              label="Created"
+              value={billingStatus.createdAt ? new Date(billingStatus.createdAt).toLocaleString() : null}
+            />
+          </UserProfileSection>
         )}
 
-        {/* Actions */}
-        <Card>
-          <CardContent className="pt-6">
-            <SectionHeader title="Actions" description="Change plan, block, or delete user." />
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Select
-                  value={programTier}
-                  onChange={(e) => setProgramTier(e.target.value)}
-                  className="min-w-[160px]"
-                >
-                  <option value="PHP">PHP Program</option>
-                  <option value="PHP_Plus">PHP Plus</option>
-                  <option value="PHP_Premium">PHP Premium</option>
-                </Select>
-                <Button
-                  onClick={handleUpdateTier}
-                  disabled={!athleteId || tierLoading}
-                >
-                  {tierLoading ? "Saving..." : "Update tier"}
-                </Button>
-              </div>
-              <Button
-                variant="outline"
-                onClick={handleBlock}
-                disabled={blockLoading}
+        <UserDetailSectionCard
+          title="Admin actions"
+          description="Change athlete program tier, suspend access, or permanently remove this user."
+          icon={ShieldAlert}
+          variant="danger"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={programTier}
+                onChange={(e) => setProgramTier(e.target.value)}
+                className="min-w-[160px]"
               >
-                {blockLoading ? "Updating..." : rawUser?.isBlocked ? "Unblock user" : "Block user"}
-              </Button>
-              <Button
-                variant="outline"
-                className="border-red-500/40 text-red-200 hover:bg-red-500/10"
-                onClick={handleDelete}
-                disabled={deleteLoading}
-              >
-                {deleteLoading ? "Deleting..." : "Delete user"}
+                <option value="PHP">PHP Program</option>
+                <option value="PHP_Plus">PHP Plus</option>
+                <option value="PHP_Premium">PHP Premium</option>
+              </Select>
+              <Button onClick={handleUpdateTier} disabled={!athleteId || tierLoading}>
+                {tierLoading ? "Saving..." : "Update tier"}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+            <Button variant="outline" onClick={handleBlock} disabled={blockLoading}>
+              {blockLoading ? "Updating..." : rawUser?.isBlocked ? "Unblock user" : "Block user"}
+            </Button>
+            <Button
+              variant="outline"
+              className="border-red-500/50 text-red-700 hover:bg-red-500/10 dark:text-red-300"
+              onClick={handleDelete}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? "Deleting..." : "Delete user"}
+            </Button>
+          </div>
+        </UserDetailSectionCard>
       </div>
     </AdminShell>
   );
