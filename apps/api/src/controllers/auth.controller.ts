@@ -18,6 +18,7 @@ import {
   startForgotPasswordLocal,
 } from "../services/auth.service";
 import { updateUserProfile } from "../services/user.service";
+import { deleteOwnAccount } from "../services/account-deletion.service";
 import { env } from "../config/env";
 
 const registerSchema = z.object({
@@ -57,6 +58,10 @@ const forgotConfirmSchema = z.object({
 const changePasswordSchema = z.object({
   oldPassword: z.string().min(8),
   newPassword: z.string().min(8),
+});
+
+const deleteAccountSchema = z.object({
+  password: z.string().min(8),
 });
 
 const updateMeSchema = z
@@ -171,6 +176,21 @@ export async function updatePassword(req: Request, res: Response) {
 
 export async function getMe(req: Request, res: Response) {
   return res.status(200).json({ user: req.user });
+}
+
+export async function deleteAccount(req: Request, res: Response) {
+  const parsed = deleteAccountSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Enter your current password (at least 8 characters)." });
+  }
+  try {
+    await deleteOwnAccount(req.user!.id, parsed.data.password);
+    return res.status(200).json({ ok: true });
+  } catch (err: any) {
+    const status = typeof err?.status === "number" ? err.status : 500;
+    const message = typeof err?.message === "string" ? err.message : "Could not delete account.";
+    return res.status(status).json({ error: message });
+  }
 }
 
 export async function updateMe(req: Request, res: Response) {

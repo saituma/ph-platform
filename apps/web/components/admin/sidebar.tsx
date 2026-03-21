@@ -12,7 +12,10 @@ import {
   Home,
   MessageCircle,
   PlaySquare,
+  LifeBuoy,
   Settings,
+  Sparkles,
+  SlidersHorizontal,
   Stethoscope,
   UserRound,
 } from "lucide-react";
@@ -135,6 +138,9 @@ export function AdminSidebarContent({
     { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
     { label: "Physio Referrals", href: "/physio-referrals", icon: Stethoscope },
     { label: "Training content", href: "/exercise-library", icon: BadgeCheck },
+    { label: "Age experience", href: "/age-experience", icon: Sparkles },
+    { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
+    { label: "Support", href: "/support", icon: LifeBuoy },
     { label: "Settings", href: "/settings", icon: Settings },
   ];
   return (

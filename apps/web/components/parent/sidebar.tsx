@@ -1,15 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   CalendarDays,
   ClipboardCheck,
   CreditCard,
   Home,
+  LifeBuoy,
   MessageCircle,
   Settings,
   UserRound,
-  BarChart3,
 } from "lucide-react";
 
 import { ParentNav } from "./nav";
@@ -23,6 +25,7 @@ const navItems = [
   { label: "Schedule", href: "/parent/schedule", icon: CalendarDays },
   { label: "Progress", href: "/parent/progress", icon: BarChart3 },
   { label: "Billing", href: "/parent/billing", icon: CreditCard },
+  { label: "Support", href: "/parent/support", icon: LifeBuoy },
   { label: "Settings", href: "/parent/settings", icon: Settings },
 ];
 
@@ -57,7 +60,11 @@ export function ParentSidebarContent({
       <ParentNav items={navItems} currentPath={currentPath} collapsed={collapsed} />
       {!collapsed ? (
         <div className="mt-auto rounded-3xl border border-border bg-secondary/40 p-4 text-xs text-muted-foreground">
-          Need help? Visit the Support Center or message your coach for fast guidance.
+          Need help?{" "}
+          <Link href="/parent/support" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Support & feedback
+          </Link>{" "}
+          or message your coach.
         </div>
       ) : null}
     </div>

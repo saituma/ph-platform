@@ -2,16 +2,27 @@ import { ActionButton } from "@/components/dashboard/ActionButton";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
+import { apiRequest } from "@/lib/api";
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { Image, TouchableOpacity, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { logout } from "../../store/slices/userSlice";
+import {
+  logout,
+  setAthleteUserId,
+  setLatestSubscriptionRequest,
+  setMessagingAccessTiers,
+  setOnboardingCompleted,
+  setProgramTier,
+  updateProfile,
+} from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
 import { canAccessTier } from "@/lib/planAccess";
 import Animated, {
@@ -21,11 +32,27 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+function formatExperienceLabel(cfg: { title?: string | null; uiPreset?: string | null }) {
+  const t = cfg.title?.trim();
+  if (t) return t;
+  const p = cfg.uiPreset;
+  if (p === "playful") return "Playful";
+  if (p === "performance") return "Performance";
+  return "Standard";
+}
+
+const isUnauthorizedError = (error: unknown) => {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return message.startsWith("401 ") || message.startsWith("403 ");
+};
+
 export default function MoreScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated, programTier } = useAppSelector((state) => state.user);
+  const { profile, isAuthenticated, programTier, token } = useAppSelector((state) => state.user);
+  const { config: ageConfig, isLoading: ageExperienceLoading, refreshExperience } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
   const showParentPlatform = Boolean(isAuthenticated);
@@ -48,10 +75,95 @@ export default function MoreScreen() {
     opacity: transition.value,
     transform: [{ translateY: (1 - transition.value) * 10 }],
   }));
-  const handleRefresh = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    console.log("Refreshed More Screen");
-  };
+  const experienceLabel = useMemo(() => formatExperienceLabel(ageConfig), [ageConfig]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!token) {
+      refreshExperience();
+      return;
+    }
+    await Promise.all([
+      (async () => {
+        try {
+          const me = await apiRequest<{
+            user?: { name?: string | null; email?: string | null; profilePicture?: string | null };
+          }>("/auth/me", { token, suppressStatusCodes: [401, 403], skipCache: true, forceRefresh: true });
+          if (me.user) {
+            dispatch(
+              updateProfile({
+                name: me.user.name ?? null,
+                email: me.user.email ?? null,
+                avatar: me.user.profilePicture ?? null,
+              })
+            );
+          }
+        } catch {
+          /* keep existing profile */
+        }
+      })(),
+      (async () => {
+        try {
+          const status = await apiRequest<{
+            currentProgramTier?: string | null;
+            messagingAccessTiers?: string[] | null;
+            latestRequest?: {
+              status?: string | null;
+              paymentStatus?: string | null;
+              planTier?: string | null;
+              createdAt?: string | null;
+            } | null;
+          }>("/billing/status", {
+            token,
+            suppressStatusCodes: [401, 403, 404],
+            skipCache: true,
+            forceRefresh: true,
+          });
+          const nextRequestStatus = status?.latestRequest?.status ?? null;
+          const nextTier =
+            status?.currentProgramTier ??
+            (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
+          dispatch(setProgramTier(nextTier));
+          dispatch(
+            setMessagingAccessTiers(
+              Array.isArray(status?.messagingAccessTiers)
+                ? status!.messagingAccessTiers!
+                : ["PHP", "PHP_Plus", "PHP_Premium"]
+            )
+          );
+          dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
+        } catch {
+          /* keep existing billing snapshot */
+        }
+      })(),
+      (async () => {
+        try {
+          const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
+            "/onboarding",
+            { token, suppressStatusCodes: [401, 403], skipCache: true, forceRefresh: true }
+          );
+          dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
+          dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+        } catch (error) {
+          if (isUnauthorizedError(error)) {
+            dispatch(setOnboardingCompleted(null));
+            dispatch(setAthleteUserId(null));
+          }
+        }
+      })(),
+    ]);
+    refreshExperience();
+  }, [token, dispatch, refreshExperience]);
+
+  const versionLine = useMemo(() => {
+    const appVersion = Constants.expoConfig?.version ?? "—";
+    const expoCfg = Constants.expoConfig as { ios?: { buildNumber?: string }; android?: { versionCode?: string } } | undefined;
+    const build =
+      Constants.nativeBuildVersion ??
+      expoCfg?.ios?.buildNumber ??
+      (expoCfg?.android?.versionCode != null ? String(expoCfg.android.versionCode) : "");
+    return build ? `Version ${appVersion} (Build ${build})` : `Version ${appVersion}`;
+  }, []);
+
   const insets = useSafeAreaInsets();
 
   return (
@@ -138,7 +250,7 @@ export default function MoreScreen() {
                       Experience
                     </Text>
                     <Text className="mt-2 text-lg font-clash text-app">
-                      Tailored
+                      {isAuthenticated && ageExperienceLoading ? "…" : experienceLabel}
                     </Text>
                   </View>
                 </View>
@@ -261,21 +373,21 @@ export default function MoreScreen() {
                     icon="help-circle"
                     label="Help Center"
                     isLast={false}
-                    onPress={() => router.navigate("/help-center")}
+                    onPress={() => router.push("/help-center")}
                     accentColor={colors.accent}
                   />
                   <MenuItem
                     icon="message-square"
                     label="Send Feedback"
                     isLast={false}
-                    onPress={() => router.navigate("/feedback")}
+                    onPress={() => router.push("/feedback")}
                     accentColor={colors.accent}
                   />
                   <MenuItem
                     icon="info"
                     label="About App"
                     isLast={true}
-                    onPress={() => router.navigate("/about")}
+                    onPress={() => router.push("/about")}
                     accentColor={colors.accent}
                   />
                 </View>
@@ -323,7 +435,7 @@ export default function MoreScreen() {
           </View>
 
           <Text className="text-center text-muted font-outfit text-xs mt-2 mb-6">
-            Version 1.0.0 (Build 124)
+            {versionLine}
           </Text>
         </Animated.View>
       </ThemedScrollView>

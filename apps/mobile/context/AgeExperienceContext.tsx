@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -18,6 +18,7 @@ type AgeExperienceContextValue = {
   config: AgeExperienceConfig;
   hiddenSections: string[];
   isSectionHidden: (sectionId: string) => boolean;
+  refreshExperience: () => void;
 };
 
 const defaultConfig: AgeExperienceConfig = {
@@ -36,6 +37,11 @@ export function AgeExperienceProvider({ children }: { children: React.ReactNode 
   const { setFontSizeOption } = useFontScale();
   const [config, setConfig] = useState<AgeExperienceConfig>(defaultConfig);
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+
+  const refreshExperience = useCallback(() => {
+    setRefreshNonce((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -46,7 +52,11 @@ export function AgeExperienceProvider({ children }: { children: React.ReactNode 
       }
       setIsLoading(true);
       try {
-        const response = await apiRequest<{ item?: AgeExperienceConfig | null }>("/experience/age", { token });
+        const response = await apiRequest<{ item?: AgeExperienceConfig | null }>("/experience/age", {
+          token,
+          skipCache: true,
+          forceRefresh: true,
+        });
         if (!mounted) return;
         const nextConfig = response.item ?? defaultConfig;
         setConfig({
@@ -69,7 +79,7 @@ export function AgeExperienceProvider({ children }: { children: React.ReactNode 
     return () => {
       mounted = false;
     };
-  }, [token, athleteUserId, onboardingCompleted]);
+  }, [token, athleteUserId, onboardingCompleted, refreshNonce]);
 
   useEffect(() => {
     if (config.fontSizeOption) {
@@ -88,8 +98,9 @@ export function AgeExperienceProvider({ children }: { children: React.ReactNode 
       config,
       hiddenSections,
       isSectionHidden: (sectionId: string) => hiddenSections.includes(sectionId),
+      refreshExperience,
     }),
-    [config, hiddenSections, isLoading]
+    [config, hiddenSections, isLoading, refreshExperience]
   );
 
   return <AgeExperienceContext.Provider value={value}>{children}</AgeExperienceContext.Provider>;

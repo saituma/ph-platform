@@ -109,6 +109,14 @@ export const apiSlice = createApi({
         body,
       }),
     }),
+    submitAppFeedback: builder.mutation<{ ok: boolean }, { category: string; message: string }>({
+      query: (body) => ({
+        url: "/support/app-feedback",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Threads"],
+    }),
     getDashboard: builder.query<any, void>({
       query: () => "/admin/dashboard",
       providesTags: ["Dashboard"],
@@ -729,6 +737,7 @@ export const {
   useUpdateAdminPreferencesMutation,
   useUpdateMessagingAccessMutation,
   useChangePasswordMutation,
+  useSubmitAppFeedbackMutation,
   useGetDashboardQuery,
   useGetTrainingSnapshotQuery,
   useGetUserLocationsQuery,

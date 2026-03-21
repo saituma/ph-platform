@@ -106,6 +106,8 @@ export async function sendMessage(input: {
   mediaUrl?: string | null;
   videoUploadId?: number | null;
   clientId?: string | null;
+  /** When true, athletes without messaging-enabled tiers can still message a human coach (e.g. app feedback). */
+  bypassMessagingTierForCoach?: boolean;
 }) {
   const safeContent = input.content.trim() || "Attachment";
 
@@ -139,13 +141,15 @@ export async function sendMessage(input: {
         throw new Error("AI_COACH_REQUIRES_PREMIUM");
       }
     } else if (adminIds.includes(resolvedReceiverId)) {
-      const { getAthleteForUser } = await import("./user.service");
-      const { getMessagingAccessTiers } = await import("./messaging-policy.service");
-      const athlete = await getAthleteForUser(input.senderId);
-      const tier = athlete?.currentProgramTier ?? null;
-      const allowed = await getMessagingAccessTiers();
-      if (!tier || !(allowed as readonly string[]).includes(tier)) {
-        throw new Error("MESSAGING_DISABLED_FOR_TIER");
+      if (!input.bypassMessagingTierForCoach) {
+        const { getAthleteForUser } = await import("./user.service");
+        const { getMessagingAccessTiers } = await import("./messaging-policy.service");
+        const athlete = await getAthleteForUser(input.senderId);
+        const tier = athlete?.currentProgramTier ?? null;
+        const allowed = await getMessagingAccessTiers();
+        if (!tier || !(allowed as readonly string[]).includes(tier)) {
+          throw new Error("MESSAGING_DISABLED_FOR_TIER");
+        }
       }
     }
   }

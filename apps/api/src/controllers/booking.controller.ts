@@ -11,6 +11,7 @@ import {
   listServiceTypes,
   updateServiceType,
 } from "../services/booking.service";
+import { assertUserCanCreateBooking } from "../services/booking-eligibility.service";
 import { getGuardianAndAthlete } from "../services/user.service";
 import { ProgramType } from "../db/schema";
 import { verifyBookingActionToken } from "../lib/booking-actions";
@@ -130,6 +131,7 @@ export async function createBookingForUser(req: Request, res: Response) {
   }
 
   try {
+    await assertUserCanCreateBooking(req.user!.id);
     const booking = await createBooking({
       athleteId: athlete.id,
       guardianId: guardian.id,
@@ -144,6 +146,11 @@ export async function createBookingForUser(req: Request, res: Response) {
 
     return res.status(201).json({ booking });
   } catch (error: any) {
+    if (error?.message === "BOOKING_REQUIRES_ACTIVE_PLAN") {
+      return res.status(403).json({
+        error: "An approved paid plan is required to book sessions.",
+      });
+    }
     const knownErrors = [
       "Invalid start time",
       "Capacity reached",

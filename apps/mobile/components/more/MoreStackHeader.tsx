@@ -52,7 +52,11 @@ export function MoreStackHeader({
                 onBack();
                 return;
               }
-              router.navigate(backHref as any);
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace(backHref as any);
+              }
             }}
             className="h-11 w-11 items-center justify-center rounded-2xl active:opacity-80"
             style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.85)" }}

@@ -295,6 +295,13 @@
       "when": 1773012000000,
       "tag": "0041_training_progress_achievements",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1773013000000,
+      "tag": "0042_athlete_plan_expiry",
+      "breakpoints": true
     }
   ]
 }

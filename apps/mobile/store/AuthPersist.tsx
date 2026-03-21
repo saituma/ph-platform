@@ -263,7 +263,10 @@ export function AuthPersist() {
           anyConstants?.default?.expoConfig?.extra?.eas?.projectId ??
           anyConstants?.expoConfig?.extra?.eas?.projectId;
 
-        const expoToken = await Notifications.getExpoPushTokenAsync({ projectId });
+        const expoToken =
+          projectId != null && String(projectId).length > 0
+            ? await Notifications.getExpoPushTokenAsync({ projectId })
+            : await Notifications.getExpoPushTokenAsync();
         const tokenStr = expoToken.data;
 
         if (tokenStr === lastPushToken.current) return;

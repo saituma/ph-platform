@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, guardianTable, userTable } from "../db/schema";
@@ -30,12 +30,55 @@ export async function getUserByEmail(email: string) {
   return users[0] ?? null;
 }
 
+/**
+ * After self-delete (soft), the row stays with isDeleted=true. Re-signup with the same email must revive it
+ * instead of inserting (avoids unique-email failures and orphaned FKs).
+ */
+export async function reviveSoftDeletedUserForCognito(input: {
+  sub: string;
+  email: string;
+  name: string;
+  role?: "guardian" | "athlete" | "coach" | "admin" | "superAdmin";
+}) {
+  const rows = await db
+    .select()
+    .from(userTable)
+    .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, true)))
+    .orderBy(desc(userTable.id))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+
+  const [updated] = await db
+    .update(userTable)
+    .set({
+      cognitoSub: input.sub,
+      name: input.name,
+      role: input.role ?? row.role,
+      isDeleted: false,
+      emailVerified: true,
+      verificationCode: null,
+      verificationExpiresAt: null,
+      verificationAttempts: 0,
+      tokenVersion: (row.tokenVersion ?? 0) + 1,
+      expoPushToken: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, row.id))
+    .returning();
+
+  return updated ?? null;
+}
+
 export async function createUserFromCognito(input: {
   sub: string;
   email: string;
   name: string;
   role?: "guardian" | "athlete" | "coach" | "admin" | "superAdmin";
 }) {
+  const revived = await reviveSoftDeletedUserForCognito(input);
+  if (revived) return revived;
+
   const result = await db
     .insert(userTable)
     .values({

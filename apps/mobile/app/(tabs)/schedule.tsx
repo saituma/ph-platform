@@ -4,6 +4,7 @@ import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
+import { normalizeProgramTier, PROGRAM_TIER_ORDER } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, InteractionManager, Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
@@ -11,7 +12,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
+import { Transition } from "@/components/navigation/TransitionStack";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 
 type ScheduleEvent = {
@@ -63,9 +66,14 @@ const formatDateKey = (date: Date) =>
   ).padStart(2, "0")}`;
 
 export default function ScheduleScreen() {
+  const router = useRouter();
   const { role } = useRole();
   const { colors, isDark } = useAppTheme();
-  const { token } = useAppSelector((state) => state.user);
+  const { token, programTier } = useAppSelector((state) => state.user);
+  const normalizedProgramTier = normalizeProgramTier(programTier);
+  const canCreateBookings =
+    normalizedProgramTier != null &&
+    (PROGRAM_TIER_ORDER as readonly string[]).includes(normalizedProgramTier);
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useIsFocused();
   const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
@@ -1010,6 +1018,28 @@ export default function ScheduleScreen() {
                 </Pressable>
               </View>
 
+              {!bookingConfirmed && !canCreateBookings ? (
+                <View
+                  className="mt-3 rounded-[22px] border px-4 py-3 gap-2"
+                  style={{ borderColor: borderSoft, backgroundColor: accentSurface }}
+                >
+                  <Text className="text-xs font-outfit text-app leading-5">
+                    Browse open times below. Sending a request needs an approved paid plan (PHP, Plus, or Premium).
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setBookingOpen(false);
+                      router.push("/(tabs)/programs");
+                    }}
+                    className="self-start"
+                  >
+                    <Text className="text-xs font-outfit font-semibold" style={{ color: colors.accent }}>
+                      View programs & plans →
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
               {bookingConfirmed ? (
                 <>
                   <Text className="text-sm font-outfit text-secondary mt-2">
@@ -1240,7 +1270,7 @@ export default function ScheduleScreen() {
                             location: bookingLocation || undefined,
                             meetingLink: bookingMeetingLink || undefined,
                           },
-                          suppressStatusCodes: [400],
+                          suppressStatusCodes: [400, 403],
                         });
                         const refreshed = await apiRequest<{ items: any[] }>("/bookings", {
                           token,
@@ -1258,18 +1288,22 @@ export default function ScheduleScreen() {
                         setIsSubmitting(false);
                       }
                     }}
-                    disabled={!selectedService || !selectedSlot || isSubmitting}
+                    disabled={!selectedService || !selectedSlot || isSubmitting || !canCreateBookings}
                     className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
-                      selectedService && selectedSlot ? "bg-accent" : "bg-secondary/20"
+                      selectedService && selectedSlot && canCreateBookings ? "bg-accent" : "bg-secondary/20"
                     }`}
                   >
                     {isSubmitting ? <ActivityIndicator size="small" color="#ffffff" /> : null}
                     <Text
                       className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                        selectedService && selectedSlot ? "text-white" : "text-secondary"
+                        selectedService && selectedSlot && canCreateBookings ? "text-white" : "text-secondary"
                       }`}
                     >
-                      {isSubmitting ? "Sending..." : "Send request"}
+                      {isSubmitting
+                        ? "Sending..."
+                        : !canCreateBookings
+                          ? "Plan required to book"
+                          : "Send request"}
                     </Text>
                   </Pressable>
                   {bookingError ? (

@@ -13,6 +13,17 @@ import {
   userTable,
 } from "../db/schema";
 import { sendPushNotification } from "./push.service";
+import {
+  notifySubscriptionEnteredPendingApproval,
+  notifySubscriptionPlanApproved,
+} from "./subscription-notifications.service";
+
+function schedulePendingApprovalEmails(requestId: number, previousStatus: string, newStatus: string) {
+  if (newStatus !== "pending_approval" || previousStatus === "pending_approval") return;
+  void notifySubscriptionEnteredPendingApproval(requestId).catch((err) => {
+    console.warn("[Billing] notifySubscriptionEnteredPendingApproval failed", err);
+  });
+}
 
 const stripe = env.stripeSecretKey
   ? new Stripe(env.stripeSecretKey, {
@@ -33,6 +44,22 @@ function getSuccessUrl() {
 
 function getCancelUrl() {
   return env.stripeCancelUrl;
+}
+
+/** Next period end from plan billing interval (coach approval time). One-time plans → no auto-expiry. */
+export function computePlanPeriodEnd(billingInterval: string | null | undefined, from: Date): Date | null {
+  const bi = (billingInterval ?? "").trim().toLowerCase();
+  if (!bi || bi === "one_time") return null;
+  const d = new Date(from.getTime());
+  if (bi === "monthly") {
+    d.setMonth(d.getMonth() + 1);
+    return d;
+  }
+  if (bi === "yearly" || bi === "annual") {
+    d.setFullYear(d.getFullYear() + 1);
+    return d;
+  }
+  return null;
 }
 
 function resolveTierFallbackPrice(
@@ -502,6 +529,18 @@ export async function confirmPaymentSheetIntent(input: { paymentIntentId: string
       ? "pending_approval"
       : "pending_payment";
 
+  const prior = await db
+    .select()
+    .from(subscriptionRequestTable)
+    .where(
+      and(
+        eq(subscriptionRequestTable.stripeSessionId, input.paymentIntentId),
+        eq(subscriptionRequestTable.userId, input.userId)
+      )
+    )
+    .limit(1);
+  const previousStatus = prior[0]?.status ?? "pending_payment";
+
   const updated = await db
     .update(subscriptionRequestTable)
     .set({
@@ -517,7 +556,12 @@ export async function confirmPaymentSheetIntent(input: { paymentIntentId: string
     )
     .returning();
 
-  return { intent, request: updated[0] ?? null };
+  const row = updated[0] ?? null;
+  if (row) {
+    schedulePendingApprovalEmails(row.id, previousStatus, row.status);
+  }
+
+  return { intent, request: row };
 }
 
 export async function confirmCheckoutSession(input: { sessionId: string; userId: number }) {
@@ -546,6 +590,8 @@ export async function confirmCheckoutSession(input: { sessionId: string; userId:
       ? "pending_approval"
       : "pending_payment";
 
+  const previousStatus = request.status;
+
   const updated = await db
     .update(subscriptionRequestTable)
     .set({
@@ -556,7 +602,12 @@ export async function confirmCheckoutSession(input: { sessionId: string; userId:
     .where(eq(subscriptionRequestTable.id, request.id))
     .returning();
 
-  return { session, request: updated[0] ?? null };
+  const row = updated[0] ?? null;
+  if (row) {
+    schedulePendingApprovalEmails(row.id, previousStatus, row.status);
+  }
+
+  return { session, request: row };
 }
 
 export async function updateRequestFromStripeSession(sessionId: string, paymentStatus: string) {
@@ -576,6 +627,8 @@ export async function updateRequestFromStripeSession(sessionId: string, paymentS
       ? "pending_approval"
       : "pending_payment";
 
+  const previousStatus = request.status;
+
   const updated = await db
     .update(subscriptionRequestTable)
     .set({
@@ -586,7 +639,12 @@ export async function updateRequestFromStripeSession(sessionId: string, paymentS
     .where(eq(subscriptionRequestTable.id, request.id))
     .returning();
 
-  return updated[0] ?? null;
+  const row = updated[0] ?? null;
+  if (row) {
+    schedulePendingApprovalEmails(row.id, previousStatus, row.status);
+  }
+
+  return row;
 }
 
 export async function listSubscriptionRequests() {
@@ -628,13 +686,14 @@ export async function updateSubscriptionRequestStatus(
 }
 
 export async function approveSubscriptionRequest(requestId: number) {
-  return db.transaction(async (tx) => {
+  const { row, planApprovedEmail } = await db.transaction(async (tx) => {
     const rows = await tx
       .select({
         requestId: subscriptionRequestTable.id,
         userId: subscriptionRequestTable.userId,
         athleteId: subscriptionRequestTable.athleteId,
         planTier: subscriptionPlanTable.tier,
+        billingInterval: subscriptionPlanTable.billingInterval,
         guardianId: athleteTable.guardianId,
       })
       .from(subscriptionRequestTable)
@@ -645,19 +704,21 @@ export async function approveSubscriptionRequest(requestId: number) {
 
     const request = rows[0];
     if (!request?.athleteId || !request.planTier) {
-      return null;
+      return { row: null as null, planApprovedEmail: null as null };
     }
 
+    const planExpiresAt = computePlanPeriodEnd(request.billingInterval, new Date());
+    const tierPayload = {
+      currentProgramTier: request.planTier,
+      planExpiresAt,
+      planRenewalReminderSentAt: null as null,
+      updatedAt: new Date(),
+    };
+
     if (request.guardianId) {
-      await tx
-        .update(athleteTable)
-        .set({ currentProgramTier: request.planTier, updatedAt: new Date() })
-        .where(eq(athleteTable.guardianId, request.guardianId));
+      await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.guardianId, request.guardianId));
     } else {
-      await tx
-        .update(athleteTable)
-        .set({ currentProgramTier: request.planTier, updatedAt: new Date() })
-        .where(eq(athleteTable.id, request.athleteId));
+      await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.id, request.athleteId));
     }
 
     const updated = await tx
@@ -685,6 +746,18 @@ export async function approveSubscriptionRequest(requestId: number) {
       console.error("[Billing] Failed to send plan approval push:", error);
     }
 
-    return updated[0] ?? null;
+    const approvedRow = updated[0] ?? null;
+    const planApprovedEmail = approvedRow
+      ? { userId: request.userId, planTier: request.planTier }
+      : null;
+    return { row: approvedRow, planApprovedEmail };
   });
+
+  if (planApprovedEmail) {
+    void notifySubscriptionPlanApproved(planApprovedEmail.userId, planApprovedEmail.planTier).catch((err) => {
+      console.warn("[Billing] notifySubscriptionPlanApproved failed", err);
+    });
+  }
+
+  return row;
 }
