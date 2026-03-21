@@ -2,26 +2,31 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarDays, Crown, MessageCircle, Users } from "lucide-react";
 
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
+import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { AdminShell } from "../components/admin/shell";
 import { EmptyState } from "../components/admin/empty-state";
 import { SectionHeader } from "../components/admin/section-header";
 import { MiniBars } from "../components/admin/charts";
-import { RechartSparkline } from "../components/admin/recharts";
 import { GreenDoughnutChart, GreenLineChart, GreenStackedBars } from "../components/admin/chartjs";
 import { ActionDialogs, type DashboardDialog } from "../components/admin/dashboard/action-dialogs";
 import { CalendarPanel } from "../components/admin/dashboard/calendar-panel";
+import {
+  BookingTodayRow,
+  DashboardPulseStrip,
+  DashboardQuickLinks,
+  DashboardSectionHeading,
+  HighlightTile,
+  KpiStatTile,
+  TopAthleteRow,
+  TrendInsightCard,
+} from "../components/admin/dashboard/dashboard-overview";
 import { useGetDashboardQuery, useGetHomeContentQuery } from "../lib/apiSlice";
+
+const KPI_ICONS = [Users, Crown, MessageCircle, CalendarDays] as const;
 
 export default function Home() {
   const { data: dashboardData, isLoading } = useGetDashboardQuery();
@@ -57,6 +62,15 @@ export default function Home() {
 
   const hasKpis = dashboardKpis.length > 0;
   const hasBookings = todayBookings.length > 0;
+
+  const kpisWithIcons = useMemo(
+    () =>
+      dashboardKpis.map((kpi: { label: string; value: string; delta: string }, index: number) => ({
+        ...kpi,
+        icon: KPI_ICONS[index % KPI_ICONS.length],
+      })),
+    [dashboardKpis]
+  );
   const [activeDialog, setActiveDialog] = useState<DashboardDialog>(null);
   const [showCalendar, setShowCalendar] = useState(false);
 
@@ -98,7 +112,7 @@ export default function Home() {
     return dashboardData.topAthletes.map((athlete: any) => ({
       name: athlete.name,
       tier: athlete.tier === "PHP_Premium" ? "Premium" : athlete.tier === "PHP_Plus" ? "Plus" : "Program",
-      score: athlete.score,
+      score: athlete.score != null ? String(athlete.score) : "",
     }));
   }, [dashboardData]);
 
@@ -185,33 +199,38 @@ export default function Home() {
     <AdminShell title="Coach Control Center" subtitle={todayLabel}>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-8">
+          <div className="space-y-4">
+            <DashboardPulseStrip />
+            <DashboardQuickLinks />
+          </div>
+
           {isLoading ? (
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {Array.from({ length: 4 }).map((_, index) => (
-                <Card key={`kpi-skeleton-${index}`}>
-                  <CardHeader>
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-9 w-20" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-6 w-24" />
-                  </CardContent>
-                </Card>
+                <div
+                  key={`kpi-skeleton-${index}`}
+                  className="rounded-2xl border border-border/90 bg-card p-5 shadow-sm"
+                >
+                  <div className="flex justify-between gap-3">
+                    <Skeleton className="h-11 w-11 rounded-xl" />
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                  </div>
+                  <Skeleton className="mt-4 h-3 w-24" />
+                  <Skeleton className="mt-2 h-9 w-16" />
+                </div>
               ))}
             </section>
           ) : hasKpis ? (
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {dashboardKpis.map((kpi: any) => (
-                <Card key={kpi.label} className="hover:border-primary/40">
-                  <CardHeader>
-                    <CardDescription>{kpi.label}</CardDescription>
-                    <CardTitle className="text-3xl">{kpi.value}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Badge variant="accent">{kpi.delta}</Badge>
-                  </CardContent>
-                </Card>
-              ))}
+            <section className="space-y-4">
+              <DashboardSectionHeading
+                title="At a glance"
+                description="Headline metrics for your roster and today’s schedule."
+              />
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {kpisWithIcons.map((kpi: { label: string; value: string; delta: string; icon: (typeof KPI_ICONS)[number] }) => (
+                  <KpiStatTile key={kpi.label} label={kpi.label} value={kpi.value} delta={kpi.delta} icon={kpi.icon} />
+                ))}
+              </div>
             </section>
           ) : (
             <EmptyState
@@ -220,30 +239,30 @@ export default function Home() {
             />
           )}
 
-          <section className="grid gap-6 lg:grid-cols-3">
+          <section className="space-y-4">
+            <DashboardSectionHeading
+              title="Engagement trends"
+              description="Seven-day sparklines for load, messaging, and bookings."
+            />
+            <div className="grid gap-6 lg:grid-cols-3">
             {trendCardsData.length ? (
-              trendCardsData.map((card: any) => (
-                <Card key={card.title} className="hover:border-primary/40">
-                  <CardHeader>
-                    <CardDescription>{card.title}</CardDescription>
-                    <CardTitle className="text-3xl">{card.value}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{card.change}</span>
-                      <Badge variant="accent">Live</Badge>
-                    </div>
-                    <RechartSparkline values={card.series} />
-                  </CardContent>
-                </Card>
+              trendCardsData.map((card: { title: string; value: string; change: string; series: number[] }) => (
+                <TrendInsightCard
+                  key={card.title}
+                  title={card.title}
+                  value={card.value}
+                  change={card.change}
+                  series={card.series}
+                />
               ))
             ) : (
-              <Card className="col-span-full">
+              <Card className="col-span-full border-dashed">
                 <CardContent>
                   <EmptyState title="No trend data yet" description="Metrics will appear after activity begins." />
                 </CardContent>
               </Card>
             )}
+            </div>
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -288,22 +307,21 @@ export default function Home() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {topAthletesData.length ? (
-                  topAthletesData.map((athlete: any, index: number) => (
-                    <div
-                      key={`${athlete.name ?? "athlete"}-${index}`}
-                      className="flex items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm"
-                    >
-                      <div>
-                        <p className="font-semibold text-foreground">{athlete.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {athlete.score}
-                        </p>
-                      </div>
-                      <Badge variant={athlete.tier === "Premium" ? "primary" : "default"}>
-                        {athlete.tier}
-                      </Badge>
-                    </div>
-                  ))
+                  topAthletesData.map(
+                    (
+                      athlete: { name: string; tier: string; score: string },
+                      index: number
+                    ) => (
+                      <TopAthleteRow
+                        key={`${athlete.name ?? "athlete"}-${index}`}
+                        rank={index + 1}
+                        name={athlete.name}
+                        score={athlete.score}
+                        tier={athlete.tier}
+                        tierVariant={athlete.tier === "Premium" ? "primary" : "default"}
+                      />
+                    )
+                  )
                 ) : (
                   <EmptyState title="No athlete activity yet" description="Top athletes will appear after bookings and messaging." />
                 )}
@@ -403,17 +421,20 @@ export default function Home() {
                 />
               </CardHeader>
               <CardContent className="space-y-4">
-                {["Retention", "Response Time", "Plan Completion"].map((metric) => (
+                {(["Retention", "Response Time", "Plan Completion"] as const).map((metric, i) => (
                   <div
                     key={metric}
-                    className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm"
+                    className="rounded-2xl border border-border/90 bg-secondary/30 p-4 text-sm transition hover:border-primary/25 dark:bg-secondary/15"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold text-foreground">{metric}</p>
                       <Badge variant="accent">+6%</Badge>
                     </div>
-                    <div className="mt-3 h-2 w-full rounded-full bg-secondary/50">
-                      <div className="h-2 w-3/4 rounded-full bg-primary" />
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary/60 dark:bg-secondary/40">
+                      <div
+                        className="h-2 rounded-full bg-primary transition-all"
+                        style={{ width: `${[78, 62, 71][i]}%` }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -449,29 +470,20 @@ export default function Home() {
                     </div>
                   ))
                 ) : hasBookings ? (
-                  todayBookings.map((booking: any, index: number) => (
-                    <div
-                      key={`${booking.name ?? "booking"}-${index}`}
-                      className="flex items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm transition hover:border-primary/40"
-                    >
-                      <div>
-                        <p className="font-semibold text-foreground">
-                          {booking.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {booking.athlete}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-foreground">
-                          {booking.time}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {booking.type}
-                        </p>
-                      </div>
-                    </div>
-                  ))
+                  todayBookings.map(
+                    (
+                      booking: { name: string; athlete: string; time: string; type: string },
+                      index: number
+                    ) => (
+                      <BookingTodayRow
+                        key={`${booking.name ?? "booking"}-${index}`}
+                        name={booking.name}
+                        athlete={booking.athlete}
+                        time={booking.time}
+                        type={booking.type}
+                      />
+                    )
+                  )
                 ) : (
                   <EmptyState
                     title="No bookings today"
@@ -508,32 +520,27 @@ export default function Home() {
             onOpenSlots={() => setActiveDialog("slots")}
           />
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {highlightsData.length ? (
-              highlightsData.map((item: any) => (
-                <Card key={item.label} className="hover:border-primary/40">
-                  <CardHeader>
-                    <CardDescription>{item.label}</CardDescription>
-                    <CardTitle className="text-3xl">{item.value}</CardTitle>
-                  </CardHeader>
+          <section className="space-y-4">
+            <DashboardSectionHeading title="Highlights" description="Notable wins and milestones this week." />
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {highlightsData.length ? (
+                highlightsData.map((item: { label: string; value: string; detail: string }) => (
+                  <HighlightTile key={item.label} label={item.label} value={item.value} detail={item.detail} />
+                ))
+              ) : (
+                <Card className="col-span-full border-dashed">
                   <CardContent>
-                    <p className="text-xs text-muted-foreground">{item.detail}</p>
+                    <EmptyState title="No highlights yet" description="Weekly highlights will appear once activity is logged." />
                   </CardContent>
                 </Card>
-              ))
-            ) : (
-              <Card className="col-span-full">
-                <CardContent>
-                  <EmptyState title="No highlights yet" description="Weekly highlights will appear once activity is logged." />
-                </CardContent>
-              </Card>
-            )}
+              )}
+            </div>
           </section>
         </div>
 
         <aside className="space-y-6 lg:sticky lg:top-24 h-fit">
-          <Card>
-            <CardHeader>
+          <Card className="overflow-hidden border-border/90 shadow-md dark:shadow-black/25">
+            <CardHeader className="border-b border-border/80 bg-gradient-to-r from-secondary/40 via-secondary/25 to-transparent dark:from-secondary/20">
               <SectionHeader
                 title="Contents"
                 description="Home dashboard content"
