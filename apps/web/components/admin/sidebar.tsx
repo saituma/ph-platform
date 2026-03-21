@@ -12,15 +12,16 @@ import {
   Home,
   MessageCircle,
   PlaySquare,
+  Library,
   LifeBuoy,
   Settings,
   Sparkles,
   SlidersHorizontal,
   Stethoscope,
-  UserRound,
+  Users,
 } from "lucide-react";
 
-import { AdminNav } from "./nav";
+import { AdminNavGrouped, type NavGroup } from "./nav";
 import {
   Card,
   CardContent,
@@ -116,32 +117,72 @@ export function AdminSidebarContent({
   }, 0);
   const pendingVideoCount = (videosData?.items ?? []).filter((item: any) => !item.reviewedAt).length;
 
-  const navItems = [
-    { label: "Overview", href: "/", icon: Home },
-    { label: "Parent Portal", href: "/parent", icon: UserRound },
-    { label: "Content", href: "/content", icon: BookOpen },
-    { label: "Users & Tiers", href: "/users", icon: UserRound },
-    { label: "Client training", href: "/training-snapshot", icon: ClipboardList },
+  const navGroups: NavGroup[] = [
     {
-      label: "Messaging",
-      href: "/messaging",
-      badge: unreadCount > 0 ? String(unreadCount) : undefined,
-      icon: MessageCircle,
+      id: "overview",
+      title: "Overview",
+      description: "Coach dashboard & snapshot KPIs",
+      items: [{ label: "Overview", href: "/", icon: Home }],
     },
-    { label: "Schedule", href: "/bookings", icon: CalendarDays },
     {
-      label: "Video Feedback",
-      href: "/video-review",
-      badge: pendingVideoCount > 0 ? String(pendingVideoCount) : undefined,
-      icon: PlaySquare,
+      id: "people",
+      title: "People & programs",
+      description: "Users, tiers, onboarding, per-athlete training",
+      items: [
+        { label: "Users & Tiers", href: "/users", icon: Users },
+        { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
+        { label: "Client training", href: "/training-snapshot", icon: ClipboardList },
+      ],
     },
-    { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
-    { label: "Physio Referrals", href: "/physio-referrals", icon: Stethoscope },
-    { label: "Training content", href: "/exercise-library", icon: BadgeCheck },
-    { label: "Age experience", href: "/age-experience", icon: Sparkles },
-    { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
-    { label: "Support", href: "/support", icon: LifeBuoy },
-    { label: "Settings", href: "/settings", icon: Settings },
+    {
+      id: "content",
+      title: "Content & parent hub",
+      description: "Home CMS, parent portal, exercises, age UX",
+      items: [
+        { label: "Content", href: "/content", icon: BookOpen },
+        { label: "Parent Portal", href: "/parent", icon: Library },
+        { label: "Training content", href: "/exercise-library", icon: BadgeCheck },
+        { label: "Age experience", href: "/age-experience", icon: Sparkles },
+      ],
+    },
+    {
+      id: "comms",
+      title: "Messages & video",
+      description: "Private threads and client upload reviews",
+      items: [
+        {
+          label: "Messaging",
+          href: "/messaging",
+          badge: unreadCount > 0 ? String(unreadCount) : undefined,
+          icon: MessageCircle,
+        },
+        {
+          label: "Video Feedback",
+          href: "/video-review",
+          badge: pendingVideoCount > 0 ? String(pendingVideoCount) : undefined,
+          icon: PlaySquare,
+        },
+      ],
+    },
+    {
+      id: "schedule",
+      title: "Schedule & athlete care",
+      description: "Bookings, food diary, physio referrals",
+      items: [
+        { label: "Schedule", href: "/bookings", icon: CalendarDays },
+        { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
+        { label: "Physio Referrals", href: "/physio-referrals", icon: Stethoscope },
+      ],
+    },
+    {
+      id: "workspace",
+      title: "Workspace",
+      description: "Support, preferences, account",
+      items: [
+        { label: "Support", href: "/support", icon: LifeBuoy },
+        { label: "Settings", href: "/settings", icon: Settings },
+      ],
+    },
   ];
   return (
     <div className="flex h-full flex-col gap-6">
@@ -151,13 +192,16 @@ export function AdminSidebarContent({
             PH
           </div>
           {collapsed ? null : (
-            <p className="text-xl font-bold tracking-tight text-foreground">
-              PERFORMANCE
-            </p>
+            <div>
+              <p className="text-xl font-bold tracking-tight text-foreground leading-tight">PERFORMANCE</p>
+              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Site map
+              </p>
+            </div>
           )}
         </div>
       </div>
-      <AdminNav items={navItems} currentPath={currentPath} collapsed={collapsed} />
+      <AdminNavGrouped groups={navGroups} currentPath={currentPath} collapsed={collapsed} />
       {collapsed ? null : (
         <Card className="mt-auto border-dashed bg-secondary/40">
           <CardHeader>
