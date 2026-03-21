@@ -23,8 +23,10 @@ export type OnboardingFieldDraft = {
   type: FieldType;
   required: boolean;
   visible: boolean;
-  optionsLines: string;
-  optionsByTeam: Record<string, string>;
+  /** Dropdown choices (dropdown type only). */
+  dropdownOptions: string[];
+  /** Level field: choices per team name. */
+  optionsByTeam: Record<string, string[]>;
 };
 
 export type RequiredDocDraft = {
@@ -36,17 +38,41 @@ export type RequiredDocDraft = {
 const FIELD_TYPES: FieldType[] = ["text", "number", "dropdown", "date"];
 const TIERS = ["PHP", "PHP_Plus", "PHP_Premium"] as const;
 
+/** Stable id for API / mobile (e.g. team, skill_level). */
+export function slugifyFieldId(label: string): string {
+  const t = label
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return t || "field";
+}
+
+function uniqueFieldId(base: string, fields: OnboardingFieldDraft[], exceptIndex: number): string {
+  const taken = new Set(
+    fields
+      .map((f, i) => (exceptIndex >= 0 && i === exceptIndex ? null : f.id.trim()))
+      .filter((x): x is string => Boolean(x))
+  );
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}_${n}`)) n += 1;
+  return `${base}_${n}`;
+}
+
 function normalizeField(raw: unknown): OnboardingFieldDraft {
   const o = raw as Record<string, unknown>;
   const type = FIELD_TYPES.includes(o?.type as FieldType) ? (o.type as FieldType) : "text";
-  const options = Array.isArray(o?.options) ? (o.options as string[]).map(String) : [];
+  const dropdownOptions = Array.isArray(o?.options) ? (o.options as string[]).map(String) : [];
   const obt =
     o?.optionsByTeam && typeof o.optionsByTeam === "object" && !Array.isArray(o.optionsByTeam)
       ? (o.optionsByTeam as Record<string, string[]>)
       : {};
-  const optionsByTeam: Record<string, string> = {};
+  const optionsByTeam: Record<string, string[]> = {};
   for (const [k, v] of Object.entries(obt)) {
-    optionsByTeam[k] = Array.isArray(v) ? v.join("\n") : "";
+    optionsByTeam[k] = Array.isArray(v) ? v.map(String) : [];
   }
   return {
     id: String(o?.id ?? ""),
@@ -54,16 +80,13 @@ function normalizeField(raw: unknown): OnboardingFieldDraft {
     type,
     required: Boolean(o?.required),
     visible: o?.visible !== false,
-    optionsLines: options.join("\n"),
+    dropdownOptions,
     optionsByTeam,
   };
 }
 
 function fieldToApi(f: OnboardingFieldDraft, teamNames: string[]): Record<string, unknown> {
-  const options = f.optionsLines
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const options = f.dropdownOptions.map((s) => s.trim()).filter(Boolean);
   const out: Record<string, unknown> = {
     id: f.id.trim(),
     label: f.label.trim(),
@@ -77,10 +100,7 @@ function fieldToApi(f: OnboardingFieldDraft, teamNames: string[]): Record<string
   if (f.id === "level" && teamNames.length) {
     const obt: Record<string, string[]> = {};
     for (const team of teamNames) {
-      const lines = (f.optionsByTeam[team] ?? "")
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const lines = (f.optionsByTeam[team] ?? []).map((s) => s.trim()).filter(Boolean);
       if (lines.length) obt[team] = lines;
     }
     if (Object.keys(obt).length) {
@@ -88,6 +108,44 @@ function fieldToApi(f: OnboardingFieldDraft, teamNames: string[]): Record<string
     }
   }
   return out;
+}
+
+function StringListEditor({
+  values,
+  onChange,
+  addLabel,
+  placeholder = "Option label",
+}: {
+  values: string[];
+  onChange: (next: string[]) => void;
+  addLabel: string;
+  placeholder?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      {values.map((v, i) => (
+        <div key={i} className="flex gap-2 items-center">
+          <Input
+            className="flex-1"
+            value={v}
+            onChange={(e) => {
+              const next = [...values];
+              next[i] = e.target.value;
+              onChange(next);
+            }}
+            placeholder={placeholder}
+          />
+          <Button type="button" size="sm" variant="ghost" className="shrink-0 text-destructive" onClick={() => onChange(values.filter((_, j) => j !== i))}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button type="button" size="sm" variant="outline" onClick={() => onChange([...values, ""])}>
+        <Plus className="mr-1 h-4 w-4" />
+        {addLabel}
+      </Button>
+    </div>
+  );
 }
 
 function applyConfigRecord(
@@ -167,10 +225,7 @@ export function OnboardingConfigEditor() {
   const teamNames = useMemo(() => {
     const teamField = fields.find((f) => f.id === "team");
     if (!teamField) return [];
-    return teamField.optionsLines
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    return teamField.dropdownOptions.map((s) => s.trim()).filter(Boolean);
   }, [fields]);
 
   if (
@@ -184,8 +239,8 @@ export function OnboardingConfigEditor() {
 
   const handleSave = async () => {
     setMessage(null);
-    if (!fields.length || fields.some((f) => !f.id.trim() || !f.label.trim())) {
-      setMessage({ type: "err", text: "Each field needs an id and label." });
+    if (!fields.length || fields.some((f) => !f.label.trim() || !f.id.trim())) {
+      setMessage({ type: "err", text: "Each field needs a name." });
       return;
     }
     if (!requiredDocuments.length) {
@@ -236,6 +291,14 @@ export function OnboardingConfigEditor() {
 
   const updateField = (index: number, patch: Partial<OnboardingFieldDraft>) => {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...patch } : f)));
+  };
+
+  const updateFieldLabel = (index: number, label: string) => {
+    setFields((prev) => {
+      const base = slugifyFieldId(label);
+      const id = uniqueFieldId(base, prev, index);
+      return prev.map((f, i) => (i === index ? { ...f, label, id } : f));
+    });
   };
 
   const moveField = (index: number, dir: -1 | 1) => {
@@ -349,25 +412,29 @@ export function OnboardingConfigEditor() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <SectionHeader
               title="Form fields"
-              description="Order matches the mobile onboarding steps. Use dropdown + options for team and level; level can narrow choices per team."
+              description="Order matches mobile onboarding. The internal id is derived from the field name (e.g. “Team” → team). Use dropdown + options for team and level; per-team level lists appear when the id is level."
             />
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() =>
-                setFields((prev) => [
-                  ...prev,
-                  {
-                    id: `field_${Date.now()}`,
-                    label: "New field",
-                    type: "text",
-                    required: false,
-                    visible: true,
-                    optionsLines: "",
-                    optionsByTeam: {},
-                  },
-                ])
+                setFields((prev) => {
+                  const label = "New field";
+                  const id = uniqueFieldId(slugifyFieldId(label), prev, -1);
+                  return [
+                    ...prev,
+                    {
+                      id,
+                      label,
+                      type: "text",
+                      required: false,
+                      visible: true,
+                      dropdownOptions: [],
+                      optionsByTeam: {},
+                    },
+                  ];
+                })
               }
             >
               <Plus className="mr-1 h-4 w-4" />
@@ -404,14 +471,17 @@ export function OnboardingConfigEditor() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1">
-                  <Label className="text-xs">Field id</Label>
-                  <Input value={field.id} onChange={(e) => updateField(index, { id: e.target.value })} placeholder="e.g. team" />
-                </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1 sm:col-span-2">
-                  <Label className="text-xs">Label</Label>
-                  <Input value={field.label} onChange={(e) => updateField(index, { label: e.target.value })} />
+                  <Label className="text-xs">Field name</Label>
+                  <Input
+                    value={field.label}
+                    onChange={(e) => updateFieldLabel(index, e.target.value)}
+                    placeholder="e.g. Team"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Internal id: <code className="rounded bg-muted px-1 py-0.5 text-[11px]">{field.id || "—"}</code>
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Type</Label>
@@ -445,13 +515,13 @@ export function OnboardingConfigEditor() {
                 </label>
               </div>
               {field.type === "dropdown" ? (
-                <div className="space-y-1">
-                  <Label className="text-xs">Options (one per line)</Label>
-                  <Textarea
-                    value={field.optionsLines}
-                    onChange={(e) => updateField(index, { optionsLines: e.target.value })}
-                    rows={4}
-                    placeholder="Team A&#10;Team B"
+                <div className="space-y-2">
+                  <Label className="text-xs">Dropdown choices</Label>
+                  <StringListEditor
+                    values={field.dropdownOptions}
+                    onChange={(next) => updateField(index, { dropdownOptions: next })}
+                    addLabel="Add option"
+                    placeholder="e.g. Red squad"
                   />
                 </div>
               ) : null}
@@ -460,19 +530,19 @@ export function OnboardingConfigEditor() {
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Level options per team (from team field)
                   </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {teamNames.map((team) => (
-                      <div key={team} className="space-y-1">
+                      <div key={team} className="space-y-2">
                         <Label className="text-xs">{team}</Label>
-                        <Textarea
-                          value={field.optionsByTeam[team] ?? ""}
-                          onChange={(e) =>
+                        <StringListEditor
+                          values={field.optionsByTeam[team] ?? []}
+                          onChange={(next) =>
                             updateField(index, {
-                              optionsByTeam: { ...field.optionsByTeam, [team]: e.target.value },
+                              optionsByTeam: { ...field.optionsByTeam, [team]: next },
                             })
                           }
-                          rows={3}
-                          placeholder="U12&#10;U14"
+                          addLabel="Add level"
+                          placeholder="e.g. U14"
                         />
                       </div>
                     ))}
