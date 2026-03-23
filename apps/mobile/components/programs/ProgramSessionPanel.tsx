@@ -10,6 +10,7 @@ import { SessionItem } from "@/constants/program-details";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { formatAchievementNames } from "@/lib/trainingAchievements";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 const progressKey = (programId: ProgramId) => `@ph/session-progress/${programId}`;
 
@@ -27,6 +28,7 @@ export function ProgramSessionPanel({
   /** Refresh achievements / progress on parent after a session is logged. */
   onTrainingLogged?: () => void;
 }) {
+  const { colors, isDark } = useAppTheme();
   const safeSessions = useMemo(() => (Array.isArray(sessions) ? sessions : []), [sessions]);
 
   const weekOptions = useMemo(() => {
@@ -154,14 +156,15 @@ export function ProgramSessionPanel({
   );
 
   return (
-    <View className="gap-5">
+    <View className="gap-6">
       {activeSession?.exercises?.length ? (
         <Pressable
           onPress={openRunner}
-          className="rounded-2xl bg-accent py-4 px-4 flex-row items-center justify-center gap-2 active:opacity-90"
+          className="rounded-full py-4 flex-row items-center justify-center gap-2 active:opacity-90 shadow-sm"
+          style={{ backgroundColor: colors.accent }}
         >
-          <Feather name="play-circle" size={22} color="#fff" />
-          <Text className="text-white font-outfit font-bold text-base">Start session</Text>
+          <Feather name="play-circle" size={20} color="#FFFFFF" />
+          <Text className="font-outfit font-bold text-[15px]" style={{ color: "#FFFFFF" }}>Start session</Text>
         </Pressable>
       ) : null}
 
@@ -177,8 +180,8 @@ export function ProgramSessionPanel({
       />
 
       <View className="gap-3">
-        <Text className="text-lg font-clash text-app">Week</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+        <Text className="text-[17px] font-clash font-bold" style={{ color: colors.text }}>Week</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {weekOptions.map((week, index) => {
             const isActive = week === activeWeek;
             return (
@@ -188,9 +191,13 @@ export function ProgramSessionPanel({
                   setActiveWeek(week);
                   setActiveSessionIndex(0);
                 }}
-                className={`px-4 py-2 rounded-full border ${isActive ? "bg-accent border-accent" : "bg-input border-app"}`}
+                className={`px-4 py-2 rounded-full border`}
+                style={{
+                  backgroundColor: isActive ? colors.text : "transparent",
+                  borderColor: isActive ? colors.text : (isDark ? "rgba(255,255,255,0.15)" : "rgba(15,23,42,0.1)"),
+                }}
               >
-              <Text className={`${isActive ? "text-white" : "text-app"} text-sm font-outfit`}>Week {week}</Text>
+                <Text className={`text-[13px] font-outfit font-semibold`} style={{ color: isActive ? colors.background : colors.textSecondary }}>Week {week}</Text>
               </TouchableOpacity>
             );
           })}
@@ -198,17 +205,21 @@ export function ProgramSessionPanel({
       </View>
 
       <View className="gap-3">
-        <Text className="text-lg font-clash text-app">Session</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+        <Text className="text-[17px] font-clash font-bold" style={{ color: colors.text }}>Session</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {sessionsForWeek.map((session, index) => {
             const isActive = index === activeSessionIndex;
             return (
               <TouchableOpacity
                 key={`session-${String(session.id ?? session.name ?? "session")}-${index}`}
                 onPress={() => setActiveSessionIndex(index)}
-                className={`px-4 py-2 rounded-full border ${isActive ? "bg-accent border-accent" : "bg-input border-app"}`}
+                className={`px-4 py-2 rounded-full border`}
+                style={{
+                  backgroundColor: isActive ? colors.text : "transparent",
+                  borderColor: isActive ? colors.text : (isDark ? "rgba(255,255,255,0.15)" : "rgba(15,23,42,0.1)"),
+                }}
               >
-                <Text className={`${isActive ? "text-white" : "text-app"} text-sm font-outfit`}>
+                <Text className={`text-[13px] font-outfit font-semibold`} style={{ color: isActive ? colors.background : colors.textSecondary }}>
                   {String(session.name ?? `Session ${index + 1}`)}
                 </Text>
               </TouchableOpacity>
@@ -217,10 +228,10 @@ export function ProgramSessionPanel({
         </ScrollView>
       </View>
 
-      <View className="gap-4">
-        <Text className="text-lg font-clash text-app">Exercises</Text>
+      <View className="gap-3">
+        <Text className="text-[17px] font-clash font-bold" style={{ color: colors.text }}>Exercises</Text>
         {!activeSession?.exercises?.length ? (
-          <Text className="text-sm font-outfit text-secondary">No exercises for this session.</Text>
+          <Text className="text-[14px] font-outfit text-secondary">No exercises assigned for this session.</Text>
         ) : null}
         {activeSession?.exercises?.map((exercise, index) => (
           <ExerciseCard
