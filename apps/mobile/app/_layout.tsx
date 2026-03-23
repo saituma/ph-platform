@@ -72,6 +72,7 @@ export default function RootLayout() {
                                       route?.params?.sharedBoundTag ?? "thread-card"
                                     ),
                                   }),
+                                  gestureEnabled: false,
                                 })}
                               />
                               <Stack.Screen

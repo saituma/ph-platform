@@ -1,9 +1,22 @@
 import { Feather } from "@/components/ui/theme-icons";
 import { ChatMessage } from "@/constants/messages";
 import React from "react";
-import { ActivityIndicator, Animated, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
+import Animated, { 
+  FadeInDown, 
+  FadeOutDown, 
+  Layout, 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing
+} from "react-native-reanimated";
 
 import { MessageBubble } from "./MessageBubble";
 import { MessageThread, TypingStatus } from "@/types/messages";
@@ -49,6 +62,8 @@ function getThreadTone(thread: MessageThread) {
   return "Direct chat";
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 const MemoizedComposer = React.memo(({ 
   isDark, 
   colors, 
@@ -71,21 +86,41 @@ const MemoizedComposer = React.memo(({
   onFocus,
   onBlur
 }: any) => {
+  const plusButtonScale = useSharedValue(1);
+  const sendButtonScale = useSharedValue(1);
+
+  const plusAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: plusButtonScale.value }]
+  }));
+
+  const sendAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: sendButtonScale.value }]
+  }));
+
+  const handlePlusPressIn = () => { plusButtonScale.value = withSpring(0.9); };
+  const handlePlusPressOut = () => { plusButtonScale.value = withSpring(1); };
+  const handleSendPressIn = () => { sendButtonScale.value = withSpring(0.85); };
+  const handleSendPressOut = () => { sendButtonScale.value = withSpring(1); };
+
   return (
     <View
       style={{
         backgroundColor: colors.background,
-        paddingBottom: isKeyboardVisible ? 0 : Math.max(10, insets.bottom),
-        paddingTop: 8,
-        paddingHorizontal: 8,
+        paddingBottom: isKeyboardVisible ? 12 : Math.max(12, insets.bottom),
+        paddingTop: 10,
+        paddingHorizontal: 12,
+        borderTopWidth: 1,
+        borderTopColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
       }}
     >
       {pendingAttachment ? (
-        <View
-          className="mb-2 mx-1 rounded-[24px] border p-3"
+        <Animated.View
+          entering={FadeInDown.springify().damping(20)}
+          exiting={FadeOutDown}
+          className="mb-3 mx-1 rounded-[24px] border p-3"
           style={{
             backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-            borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
             ...(isDark ? Shadows.none : Shadows.md),
           }}
         >
@@ -107,77 +142,99 @@ const MemoizedComposer = React.memo(({
               )}
 
               <View className="flex-1">
-                <Text className="text-sm font-outfit font-semibold" numberOfLines={1} style={{ color: colors.text }}>
-                  {pendingAttachment.fileName}
+                <Text className="text-sm font-outfit font-bold" numberOfLines={1} style={{ color: colors.text }}>
+                  {pendingAttachment.isImage ? "Image" : "Attachment"}
                 </Text>
                 {attachmentMeta ? (
-                  <Text className="mt-1 text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
-                    {attachmentMeta}
+                  <Text className="mt-0.5 text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
+                    {attachmentMeta.split(' • ')[1]}
                   </Text>
                 ) : null}
               </View>
             </View>
 
             <Pressable onPress={onRemovePendingAttachment} disabled={isUploadingAttachment}>
-              <Ionicons name="close-circle" size={22} color="#EF4444" />
+              <Ionicons name="close-circle" size={24} color="#EF4444" />
             </Pressable>
           </View>
 
           {isUploadingAttachment ? (
-            <>
-              <Text className="mt-3 text-[11px] font-outfit font-medium" style={{ color: colors.accent }}>
-                Uploading attachment...
+            <View className="mt-3">
+              <Text className="text-[11px] font-outfit font-medium mb-2" style={{ color: colors.accent }}>
+                Uploading...
               </Text>
-              <View className="mt-2 h-1.5 bg-accent/10 rounded-full overflow-hidden">
-                <View className="h-full bg-accent w-1/3" />
+              <View className="h-1 bg-accent/10 rounded-full overflow-hidden">
+                <Animated.View 
+                  className="h-full bg-accent" 
+                  style={{ width: '40%' }} 
+                />
               </View>
-            </>
+            </View>
           ) : null}
-        </View>
+        </Animated.View>
       ) : null}
 
-      <View className="flex-row items-end gap-2">
-        <View
-          className="flex-1 rounded-[28px] border flex-row items-end px-1 py-1"
-          style={{
-            backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
-            ...(isDark ? Shadows.none : Shadows.sm),
-          }}
+      <View className="flex-row items-end gap-2.5">
+        <Animated.View
+          style={[
+            {
+              flex: 1,
+              borderRadius: 28,
+              borderWidth: 1,
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              paddingHorizontal: 4,
+              paddingVertical: 4,
+              backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)",
+              ...(isDark ? Shadows.none : Shadows.sm),
+            }
+          ]}
         >
-          <Pressable
+          <AnimatedPressable
+            onPressIn={handlePlusPressIn}
+            onPressOut={handlePlusPressOut}
             onPress={composerDisabled ? onDisabledPress : isUploadingAttachment ? undefined : onOpenComposerMenu}
             className="h-10 w-10 rounded-full items-center justify-center active:opacity-70"
+            style={[plusAnimatedStyle, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(34,197,94,0.08)" }]}
           >
             <Feather name="plus" size={22} color={colors.accent} />
-          </Pressable>
+          </AnimatedPressable>
 
           <TextInput
-            className="flex-1 text-[16px] font-outfit text-app mx-1 my-2"
+            className="flex-1 text-[16px] font-outfit text-app mx-2 my-2"
             placeholder={composerPlaceholder}
             placeholderTextColor={textSecondaryColor}
             value={draft}
             onChangeText={onDraftChange}
             multiline
-            style={{ minHeight: 24, maxHeight: 120, textAlignVertical: 'center' }}
+            style={{ minHeight: 24, maxHeight: 150, textAlignVertical: 'center' }}
             editable={!composerDisabled && !isUploadingAttachment}
             onFocus={onFocus}
             onBlur={onBlur}
           />
-        </View>
+        </Animated.View>
 
-        <Pressable
+        <AnimatedPressable
+          onPressIn={handleSendPressIn}
+          onPressOut={handleSendPressOut}
           onPress={onSendPress}
-          className={`h-12 w-12 rounded-full items-center justify-center ${
-            !composerBusy ? "active:opacity-80" : "opacity-40"
-          }`}
-          style={{ 
-            backgroundColor: sendButtonColor,
-            ...(isDark ? Shadows.none : Shadows.sm),
-          }}
+          className="h-12 w-12 rounded-full items-center justify-center"
+          style={[
+            sendAnimatedStyle,
+            { 
+              backgroundColor: sendButtonColor,
+              ...(isDark ? Shadows.none : Shadows.sm),
+              opacity: !composerBusy ? 1 : 0.4
+            }
+          ]}
         >
-          <Ionicons name="send" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
-        </Pressable>
+          {composerBusy ? (
+             <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Ionicons name="send" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
+          )}
+        </AnimatedPressable>
       </View>
     </View>
   );
@@ -204,6 +261,12 @@ function ThreadChatBodyBase({
   isUploadingAttachment = false,
 }: ThreadChatBodyProps) {
   const { colors, isDark } = useAppTheme();
+  let headerHeight = 0;
+  try {
+    headerHeight = useHeaderHeight();
+  } catch (e) {
+    // Ignore if not in a header context
+  }
   const typingKey = thread.id.startsWith("group:") ? thread.id : `user:${thread.id}`;
   const typing = typingStatus[typingKey];
   const hasInitialScrolled = React.useRef<string | null>(null);
@@ -211,7 +274,6 @@ function ThreadChatBodyBase({
   const insets = useSafeAreaInsets();
   const isNearBottomRef = React.useRef(true);
   const latestMessageIdRef = React.useRef<string | null>(null);
-  const hintScale = React.useRef(new Animated.Value(1)).current;
   const [newIncomingCount, setNewIncomingCount] = React.useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = React.useState(false);
   
@@ -243,6 +305,37 @@ function ThreadChatBodyBase({
       ? "rgba(255,255,255,0.1)"
       : "rgba(15,23,42,0.08)";
 
+  // Typing indicator dots animation
+  const dot1 = useSharedValue(0);
+  const dot2 = useSharedValue(0);
+  const dot3 = useSharedValue(0);
+
+  React.useEffect(() => {
+    if (typing?.isTyping) {
+      const animateDot = (sv: any, delay: number) => {
+        sv.value = withRepeat(
+          withSequence(
+            withTiming(1, { duration: 400, easing: Easing.bezier(0.4, 0, 0.2, 1), delay }),
+            withTiming(0, { duration: 400, easing: Easing.bezier(0.4, 0, 0.2, 1) })
+          ),
+          -1,
+          true
+        );
+      };
+      animateDot(dot1, 0);
+      animateDot(dot2, 200);
+      animateDot(dot3, 400);
+    } else {
+      dot1.value = 0;
+      dot2.value = 0;
+      dot3.value = 0;
+    }
+  }, [typing?.isTyping, dot1, dot2, dot3]);
+
+  const dot1Style = useAnimatedStyle(() => ({ transform: [{ translateY: -dot1.value * 4 }], opacity: 0.3 + dot1.value * 0.7 }));
+  const dot2Style = useAnimatedStyle(() => ({ transform: [{ translateY: -dot2.value * 4 }], opacity: 0.3 + dot2.value * 0.7 }));
+  const dot3Style = useAnimatedStyle(() => ({ transform: [{ translateY: -dot3.value * 4 }], opacity: 0.3 + dot3.value * 0.7 }));
+
   const handlePrimaryAction = React.useCallback(() => {
     if (composerBusy) return;
     onSend();
@@ -256,8 +349,6 @@ function ThreadChatBodyBase({
 
   const handleBlur = React.useCallback(() => {
     if (Platform.OS === 'android') {
-      // Small delay on blur to prevent flickering if toggling between inputs
-      // though here we only have one primary input.
       setIsKeyboardVisible(false);
     }
   }, []);
@@ -309,38 +400,31 @@ function ThreadChatBodyBase({
 
     if (isIncoming) {
       setNewIncomingCount((count) => Math.min(count + 1, 99));
-      Animated.sequence([
-        Animated.timing(hintScale, {
-          toValue: 1.08,
-          duration: 120,
-          useNativeDriver: true,
-        }),
-        Animated.timing(hintScale, {
-          toValue: 1,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-      ]).start();
     }
-  }, [hintScale, latestMessage]);
+  }, [latestMessage]);
 
   const keyExtractor = React.useCallback((message: ChatMessage) => String(message.id), []);
   const renderItem = React.useCallback(
-    ({ item }: { item: ChatMessage }) => (
-      <MessageBubble
-        message={item}
-        onLongPress={onLongPressMessage}
-        onReactionPress={onReactionPress}
-      />
+    ({ item, index }: { item: ChatMessage, index: number }) => (
+      <Animated.View 
+        entering={FadeInDown.delay(Math.min(index * 50, 400)).springify().damping(20)}
+        layout={Layout.springify().damping(20)}
+      >
+        <MessageBubble
+          message={item}
+          onLongPress={onLongPressMessage}
+          onReactionPress={onReactionPress}
+        />
+      </Animated.View>
     ),
     [onLongPressMessage, onReactionPress]
   );
   const contentContainerStyle = React.useMemo(
     () => ({
-      paddingHorizontal: 16,
+      paddingHorizontal: 12,
       paddingTop: 14,
       paddingBottom: 18,
-      rowGap: 10,
+      rowGap: 12,
     }),
     []
   );
@@ -348,10 +432,11 @@ function ThreadChatBodyBase({
     (event: { nativeEvent: { contentOffset: { y: number } } }) => {
       const { contentOffset } = event.nativeEvent;
       isNearBottomRef.current = contentOffset.y < 60;
-      // Note: We don't clear newIncomingCount here to avoid re-triggering 
-      // render cycles on every scroll tick.
+      if (isNearBottomRef.current && newIncomingCount > 0) {
+        setNewIncomingCount(0);
+      }
     },
-    []
+    [newIncomingCount]
   );
   const listFooterComponent = React.useMemo(
     () => (
@@ -370,85 +455,69 @@ function ThreadChatBodyBase({
         ) : null}
 
         <View
-          className="mb-4 overflow-hidden rounded-[28px] border px-4 py-4"
+          className="mb-6 overflow-hidden rounded-[32px] border px-6 py-6"
           style={{
             backgroundColor: isDark ? colors.cardElevated : "#F8FFFA",
             borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+            ...(isDark ? Shadows.none : Shadows.sm),
           }}
         >
           <View
-            className="absolute -right-10 -top-8 h-24 w-24 rounded-full"
-            style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
+            className="absolute -right-10 -top-8 h-32 w-32 rounded-full"
+            style={{ backgroundColor: isDark ? "rgba(34,197,94,0.1)" : "rgba(34,197,94,0.06)" }}
           />
-          <View className="flex-row items-start gap-3">
+          <View className="flex-row items-start gap-4">
             <View
-              className="h-12 w-12 rounded-2xl items-center justify-center"
+              className="h-14 w-14 rounded-[22px] items-center justify-center"
               style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)" }}
             >
-              <Feather name={isGroupThread ? "users" : "message-circle"} size={20} color={colors.accent} />
+              <Feather name={isGroupThread ? "users" : "message-circle"} size={24} color={colors.accent} />
             </View>
 
             <View className="flex-1">
-              <Text className="font-clash text-[18px] font-bold" style={{ color: colors.text }}>
+              <Text className="font-clash text-[20px] font-bold" style={{ color: colors.text }}>
                 {introTitle}
               </Text>
-              <Text className="mt-1 text-[13px] leading-5 font-outfit" style={{ color: colors.textSecondary }}>
+              <Text className="mt-1.5 text-[14px] leading-6 font-outfit" style={{ color: colors.textSecondary }}>
                 {introSubtitle}
               </Text>
-              <View className="mt-3 self-start rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}>
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+              <View className="mt-4 self-start rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}>
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
                   {threadStatus}
                 </Text>
               </View>
             </View>
-
-            {thread.premium ? (
-              <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: colors.accent }}>
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-white">
-                  Premium
-                </Text>
-              </View>
-            ) : null}
           </View>
 
-          <View className="mt-4 flex-row flex-wrap gap-2">
-            <View
-              className="rounded-full px-3 py-2"
-              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
-            >
-              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                {getThreadTone(thread)}
-              </Text>
-            </View>
-            <View
-              className="rounded-full px-3 py-2"
-              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
-            >
-              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                {thread.responseTime ?? "Fast replies"}
-              </Text>
-            </View>
-            <View
-              className="rounded-full px-3 py-2"
-              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
-            >
-              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                {messages.length > 0 ? `${messages.length} updates` : "Fresh thread"}
-              </Text>
-            </View>
+          <View className="mt-6 flex-row flex-wrap gap-2.5">
+            {[
+              getThreadTone(thread),
+              thread.responseTime ?? "Fast replies",
+              messages.length > 0 ? `${messages.length} updates` : "Fresh thread"
+            ].map((tag) => (
+              <View
+                key={tag}
+                className="rounded-full px-4 py-2"
+                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
+              >
+                <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                  {tag}
+                </Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        <View className="items-center my-1">
+        <View className="items-center mb-2">
           <View
-            className="px-4 py-1.5 rounded-full border"
+            className="px-5 py-2 rounded-full border"
             style={{
               backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.72)",
               borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
             }}
           >
             <Text
-              className="text-[10px] font-semibold font-outfit uppercase tracking-[1.2px]"
+              className="text-[10px] font-bold font-outfit uppercase tracking-[1.5px]"
               style={{ color: colors.textSecondary }}
             >
               Latest messages
@@ -476,41 +545,41 @@ function ThreadChatBodyBase({
   const listEmptyComponent = React.useMemo(
     () =>
       isThreadLoading || isLoading ? (
-        <View className="gap-4 pt-4">
+        <View className="gap-5 pt-4">
           {[1, 2, 3].map((item) => (
             <View
               key={item}
-              className={`rounded-[24px] border px-4 py-4 ${item % 2 === 0 ? "mr-12" : "ml-12"}`}
+              className={`rounded-[24px] border px-5 py-5 ${item % 2 === 0 ? "mr-16" : "ml-16"}`}
               style={{
                 backgroundColor: colors.card,
                 borderColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
               }}
             >
               <View className="h-3 w-3/4 rounded-full bg-secondary/10" />
-              <View className="h-3 w-full rounded-full bg-secondary/10 mt-2.5" />
+              <View className="h-3 w-full rounded-full bg-secondary/10 mt-3" />
             </View>
           ))}
         </View>
       ) : (
-        <View className="items-center py-12 px-5">
+        <View className="items-center py-16 px-6">
           <View
-            className="h-24 w-24 rounded-[28px] items-center justify-center mb-5"
+            className="h-28 w-28 rounded-[36px] items-center justify-center mb-6"
             style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.10)" }}
           >
             <View
-              className="h-16 w-16 rounded-[22px] items-center justify-center"
-              style={{ backgroundColor: colors.card }}
+              className="h-18 w-18 rounded-[28px] items-center justify-center"
+              style={{ backgroundColor: colors.card, width: 72, height: 72 }}
             >
-              <Feather name="message-square" size={28} color={colors.accent} />
+              <Feather name="message-square" size={32} color={colors.accent} />
             </View>
           </View>
-          <Text className="text-[22px] font-clash font-bold text-center" style={{ color: colors.text }}>
+          <Text className="text-[24px] font-clash font-bold text-center" style={{ color: colors.text }}>
             Kick off the thread
           </Text>
-          <Text className="text-sm leading-6 font-outfit text-center mt-2 max-w-[280px]" style={{ color: colors.textSecondary }}>
+          <Text className="text-base leading-7 font-outfit text-center mt-3 max-w-[300px]" style={{ color: colors.textSecondary }}>
             Share your workout notes, ask for form feedback, or send a quick check-in to keep the coaching loop moving.
           </Text>
-          <View className="mt-5 flex-row flex-wrap justify-center gap-2">
+          <View className="mt-8 flex-row flex-wrap justify-center gap-2.5">
             {[
               "Session recap",
               "Technique question",
@@ -518,10 +587,13 @@ function ThreadChatBodyBase({
             ].map((item) => (
               <View
                 key={item}
-                className="rounded-full px-3 py-2"
-                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
+                className="rounded-full px-4 py-2.5 border"
+                style={{ 
+                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)",
+                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)"
+                }}
               >
-                <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                <Text className="text-xs font-outfit font-semibold" style={{ color: colors.text }}>
                   {item}
                 </Text>
               </View>
@@ -535,23 +607,21 @@ function ThreadChatBodyBase({
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : "padding"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
     >
       <View className="flex-1 overflow-hidden" style={{ backgroundColor: colors.background }}>
         <View
-          className="absolute -left-10 top-10 h-32 w-32 rounded-full"
-          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.06)" : "rgba(34,197,94,0.07)" }}
+          className="absolute -left-20 top-10 h-64 w-64 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.04)" : "rgba(34,197,94,0.05)" }}
         />
         <View
-          className="absolute -right-12 top-24 h-28 w-28 rounded-full"
-          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.035)" }}
+          className="absolute -right-24 top-40 h-80 w-80 rounded-full"
+          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(15,23,42,0.025)" }}
         />
 
         <FlatList
-          ref={(node) => {
-            listRef.current = node;
-          }}
+          ref={(node) => { listRef.current = node; }}
           inverted
           className="flex-1"
           style={{ backgroundColor: "transparent" }}
@@ -567,83 +637,80 @@ function ThreadChatBodyBase({
           }}
           contentContainerStyle={contentContainerStyle}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={10}
+          initialNumToRender={12}
           windowSize={7}
-          maxToRenderPerBatch={5}
-          updateCellsBatchingPeriod={30}
+          maxToRenderPerBatch={6}
+          updateCellsBatchingPeriod={40}
           removeClippedSubviews={Platform.OS === 'android'}
           ListFooterComponent={listFooterComponent}
           ListEmptyComponent={listEmptyComponent}
           renderItem={renderItem}
         />
-      </View>
 
-      {newIncomingCount > 0 ? (
-        <View className="px-6 pb-2">
-          <Animated.View style={{ transform: [{ scale: hintScale }] }}>
+        {newIncomingCount > 0 ? (
+          <Animated.View 
+            entering={FadeInDown.springify()} 
+            exiting={FadeOutDown}
+            className="absolute bottom-4 left-0 right-0 items-center"
+            style={{ zIndex: 10 }}
+          >
             <Pressable
               onPress={() => {
                 listRef.current?.scrollToOffset({ offset: 0, animated: true });
                 isNearBottomRef.current = true;
                 setNewIncomingCount(0);
               }}
-              className="self-center rounded-full px-4 py-2.5 flex-row items-center gap-2 border"
+              className="rounded-full px-5 py-3 flex-row items-center gap-2.5 shadow-xl"
               style={{
                 backgroundColor: colors.accent,
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.2)",
-                ...(isDark ? Shadows.none : Shadows.sm),
+                ...(isDark ? Shadows.none : Shadows.lg),
               }}
             >
-              <Feather name="arrow-down" size={14} color="#fff" />
-              <Text className="text-xs font-outfit font-semibold text-white">
+              <Feather name="arrow-down" size={16} color="#fff" />
+              <Text className="text-sm font-outfit font-bold text-white uppercase tracking-wider">
                 {newIncomingCount > 1 ? `${newIncomingCount} new messages` : "New message"}
               </Text>
             </Pressable>
           </Animated.View>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
 
       {typing?.isTyping ? (
-        <View className="px-6 pb-2">
+        <Animated.View 
+          entering={FadeInDown} 
+          exiting={FadeOutDown}
+          className="px-5 pb-3"
+        >
           <View
-            className="self-start rounded-full border px-3 py-2 flex-row items-center gap-2"
+            className="self-start rounded-[20px] border px-4 py-2.5 flex-row items-center gap-3"
             style={{
-              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.78)",
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.9)",
+              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.07)",
             }}
           >
-            <View className="flex-row items-center gap-1">
-              {[0, 1, 2].map((dot) => (
-                <View
-                  key={dot}
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: dot === 1 ? colors.accent : colors.textSecondary }}
-                />
-              ))}
+            <View className="flex-row items-center gap-1.5 h-4">
+              <Animated.View className="h-2 w-2 rounded-full bg-accent" style={dot1Style} />
+              <Animated.View className="h-2 w-2 rounded-full bg-accent" style={dot2Style} />
+              <Animated.View className="h-2 w-2 rounded-full bg-accent" style={dot3Style} />
             </View>
-            <Text className="text-[11px] font-bold font-outfit uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+            <Text className="text-[11px] font-bold font-outfit uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
               {typing.name} is typing
             </Text>
           </View>
-        </View>
+        </Animated.View>
       ) : null}
 
-      <View
-        style={{
-          backgroundColor: colors.background,
-          paddingBottom: 0,
-        }}
-      >
+      <View style={{ backgroundColor: colors.background }}>
         {composerDisabled && disabledMessage ? (
-          <View className="px-3 pb-2">
+          <View className="px-4 pb-3">
             <View
-              className="rounded-[18px] border px-4 py-2.5"
+              className="rounded-[20px] border px-5 py-3"
               style={{
-                backgroundColor: isDark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.08)",
-                borderColor: isDark ? "rgba(245,158,11,0.18)" : "rgba(245,158,11,0.16)",
+                backgroundColor: isDark ? "rgba(245,158,11,0.1)" : "rgba(245,158,11,0.06)",
+                borderColor: isDark ? "rgba(245,158,11,0.2)" : "rgba(245,158,11,0.14)",
               }}
             >
-              <Text className="text-[11px] font-medium font-outfit text-warning text-center">
+              <Text className="text-[12px] font-medium font-outfit text-warning text-center leading-5">
                 {disabledMessage}
               </Text>
             </View>
