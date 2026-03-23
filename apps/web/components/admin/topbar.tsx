@@ -50,27 +50,29 @@ export function AdminTopbar({
     return `${first}${second}`.toUpperCase() || "AD";
   }, [displayName]);
   return (
-    <header className="hidden flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-6 lg:flex lg:px-10">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onToggleSidebar}>
+    <header className="hidden flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-4 lg:flex lg:px-10">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={onToggleSidebar} className="h-8 w-8 rounded-none border-border hover:bg-primary hover:text-primary-foreground">
           {isSidebarCollapsed ? (
             <ChevronRight className="h-4 w-4" />
           ) : (
             <ChevronLeft className="h-4 w-4" />
           )}
         </Button>
-        {subtitle ? (
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
-        ) : null}
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+        <div className="flex flex-col">
+          {subtitle ? (
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary leading-none mb-1">{subtitle}</p>
+          ) : null}
+          <h1 className="text-xl font-black tracking-tight text-foreground leading-none">{title}</h1>
+        </div>
       </div>
-      <div className="flex flex-1 items-center justify-end gap-3">
+      <div className="flex flex-1 items-center justify-end gap-4">
         <div className="hidden w-full max-w-sm md:block">
-          <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm">
-            <Search className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 rounded-none border border-border bg-background px-3 py-1.5 text-xs font-mono">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <input
-              placeholder="Search athletes, messages, bookings"
-              className="w-full bg-transparent text-sm outline-none"
+              placeholder="SYSTEM SEARCH..."
+              className="w-full bg-transparent outline-none placeholder:text-muted-foreground/50 uppercase"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               onKeyDown={(event) => {
@@ -83,27 +85,23 @@ export function AdminTopbar({
             />
           </div>
         </div>
-        <div className="hidden md:block" />
-        <Button variant="ghost" size="icon" onClick={() => setOpenNotify(true)}>
-          <Bell className="h-4 w-4" />
-        </Button>
         <ThemeToggle />
         {actions ?? null}
         <Button
           variant="ghost"
-          className="flex items-center gap-2"
+          className="flex items-center gap-3 rounded-none hover:bg-secondary px-2"
           onClick={() => setOpenProfile(true)}
         >
-          <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary text-xs font-semibold text-foreground">
+          <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-none border border-border bg-secondary text-xs font-black text-foreground font-mono">
             {profilePicture ? (
               <img src={profilePicture} alt={displayName} className="h-full w-full object-cover" />
             ) : (
               initials
             )}
-            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-success" />
+            <span className="absolute bottom-0 right-0 h-2 w-2 bg-primary" />
           </div>
-          <span className="hidden text-sm md:inline">{displayName}</span>
-          <ChevronDown className="h-3 w-3" />
+          <span className="hidden text-xs font-bold uppercase tracking-wider md:inline">{displayName}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </Button>
       </div>
       <Dialog open={openNotify} onOpenChange={setOpenNotify}>

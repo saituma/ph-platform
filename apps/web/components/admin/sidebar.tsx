@@ -187,15 +187,15 @@ export function AdminSidebarContent({
   return (
     <div className="flex h-full flex-col gap-6">
       <div className={cn("px-2", collapsed ? "text-center" : undefined)}>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-primary font-black text-primary-foreground text-xl">
             PH
           </div>
           {collapsed ? null : (
-            <div>
-              <p className="text-xl font-bold tracking-tight text-foreground leading-tight">PERFORMANCE</p>
-              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Site map
+            <div className="border-l border-border pl-3">
+              <p className="text-xl font-black tracking-tighter text-foreground leading-none">PERFORMANCE</p>
+              <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-primary">
+                OPERATIONS HUB
               </p>
             </div>
           )}
