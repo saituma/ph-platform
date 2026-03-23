@@ -223,8 +223,8 @@ export default function Home() {
           ) : hasKpis ? (
             <section className="space-y-4">
               <DashboardSectionHeading
-                title="At a glance"
-                description="Headline metrics for your roster and today’s schedule."
+                title="KPI READOUT"
+                description="HEADLINE METRICS FOR ROSTER AND SCHEDULE."
               />
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {kpisWithIcons.map((kpi: { label: string; value: string; delta: string; icon: (typeof KPI_ICONS)[number] }) => (
@@ -241,8 +241,8 @@ export default function Home() {
 
           <section className="space-y-4">
             <DashboardSectionHeading
-              title="Engagement trends"
-              description="Seven-day sparklines for load, messaging, and bookings."
+              title="ENGAGEMENT TRENDS"
+              description="SEVEN-DAY SPARKINES FOR LOAD, MESSAGING, AND BOOKINGS."
             />
             <div className="grid gap-6 lg:grid-cols-3">
             {trendCardsData.length ? (
@@ -269,8 +269,8 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <SectionHeader
-                  title="Weekly Volume"
-                  description="Messages, bookings, and uploads."
+                  title="WEEKLY VOLUME"
+                  description="MESSAGES, BOOKINGS, AND UPLOADS."
                 />
               </CardHeader>
               <CardContent className="space-y-4">
@@ -301,8 +301,8 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <SectionHeader
-                  title="Top Athletes"
-                  description="Most active this week."
+                  title="TOP ATHLETES"
+                  description="MOST ACTIVE THIS PERIOD."
                 />
               </CardHeader>
               <CardContent className="space-y-3">
@@ -333,8 +333,8 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <SectionHeader
-                  title="Tier Distribution"
-                  description="Active athlete breakdown."
+                  title="TIER DISTRIBUTION"
+                  description="ACTIVE ATHLETE BREAKDOWN."
                 />
               </CardHeader>
               <CardContent className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
@@ -372,9 +372,10 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <SectionHeader
-                  title="Activity Mix"
-                  description="Premium vs Plus vs Program."
+                  title="ACTIVITY MIX"
+                  description="PREMIUM VS PLUS VS PROGRAM."
                 />
+
               </CardHeader>
               <CardContent>
                 {activityMixData.length ? (
@@ -399,8 +400,8 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <SectionHeader
-                  title="Weekly Progress"
-                  description="Athlete engagement trend."
+                  title="WEEKLY PROGRESS"
+                  description="ATHLETE ENGAGEMENT TREND."
                 />
               </CardHeader>
               <CardContent>
@@ -416,8 +417,8 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <SectionHeader
-                  title="Momentum"
-                  description="Rolling 7-day improvements."
+                  title="SYSTEM MOMENTUM"
+                  description="ROLLING 7-DAY IMPROVEMENTS."
                 />
               </CardHeader>
               <CardContent className="space-y-4">
@@ -446,9 +447,9 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <SectionHeader
-                  title="Bookings Today"
-                  description="All confirmed sessions."
-                  actionLabel={showCalendar ? "Hide calendar" : "Open calendar"}
+                  title="BOOKINGS TODAY"
+                  description="ALL CONFIRMED SESSIONS."
+                  actionLabel={showCalendar ? "HIDE CALENDAR" : "OPEN CALENDAR"}
                   onAction={() => setShowCalendar((prev) => !prev)}
                 />
               </CardHeader>
@@ -496,8 +497,8 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <SectionHeader
-                  title="Program Operations"
-                  description="Templates and library updates."
+                  title="SYSTEM OPS"
+                  description="TEMPLATES AND LIBRARY UPDATES."
                 />
               </CardHeader>
               <CardContent className="space-y-3">
@@ -521,7 +522,7 @@ export default function Home() {
           />
 
           <section className="space-y-4">
-            <DashboardSectionHeading title="Highlights" description="Notable wins and milestones this week." />
+            <DashboardSectionHeading title="SYSTEM HIGHLIGHTS" description="NOTABLE WINS AND MILESTONES THIS WEEK." />
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {highlightsData.length ? (
                 highlightsData.map((item: { label: string; value: string; detail: string }) => (
@@ -539,12 +540,12 @@ export default function Home() {
         </div>
 
         <aside className="space-y-6 lg:sticky lg:top-24 h-fit">
-          <Card className="overflow-hidden border-border/90 shadow-md dark:shadow-black/25">
-            <CardHeader className="border-b border-border/80 bg-gradient-to-r from-secondary/40 via-secondary/25 to-transparent dark:from-secondary/20">
+          <Card className="overflow-hidden border-border shadow-none">
+            <CardHeader className="border-b border-border bg-secondary/10">
               <SectionHeader
-                title="Contents"
-                description="Home dashboard content"
-                actionLabel="Manage"
+                title="CMS CONTENT"
+                description="HOME DASHBOARD CONTROL"
+                actionLabel="MANAGE"
                 onAction={() => router.push("/content")}
               />
             </CardHeader>

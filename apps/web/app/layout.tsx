@@ -1,24 +1,24 @@
 import type { Metadata } from "next";
-import { Sora, Space_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 import "./fullcalendar.css";
 import "./globals.css";
 import { Providers } from "./providers";
 import { SileoToaster } from "../components/ui/sileo-toaster";
 
-const sora = Sora({
+const geistSans = Geist({
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-display",
+const geistMono = Geist_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Lift Lab Admin",
-  description: "Admin dashboard for Lift Lab / PHP coaching platform.",
+  title: "PH Performance Admin",
+  description: "Elite Coaching Operations Hub",
 };
 
 export default function RootLayout({
@@ -46,7 +46,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${sora.variable} ${spaceGrotesk.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
         <Providers>
           {children}
