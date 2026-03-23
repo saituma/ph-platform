@@ -37,7 +37,8 @@ import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { Transition } from "@/components/navigation/TransitionStack";
-import { ActivityIndicator, TextInput } from "react-native";
+import { ActivityIndicator, TextInput, SafeAreaView } from "react-native";
+import { useHeaderHeight } from "@react-navigation/elements";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -137,6 +138,7 @@ export function ProgramDetailPanel({
   const { colors, isDark } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
+  
   const currentAthlete = useMemo(() => {
     if (!managedAthletes.length) return null;
     return (
@@ -145,6 +147,7 @@ export function ProgramDetailPanel({
       ) ?? managedAthletes[0]
     );
   }, [athleteUserId, managedAthletes]);
+
   const activeAthleteAge = useMemo(() => {
     if (!managedAthletes.length) return null;
     const selected =
@@ -155,6 +158,7 @@ export function ProgramDetailPanel({
       managedAthletes[0];
     return selected?.age ?? null;
   }, [managedAthletes, athleteUserId]);
+
   const tabs = useMemo(() => {
     if (programId === "plus") {
       return phpPlusTabs ?? [];
@@ -175,10 +179,10 @@ export function ProgramDetailPanel({
     }
     return base;
   }, [programId, isSectionHidden, phpPlusTabs]);
+
   const [activeTab, setActiveTab] = useState<string>("Program");
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
   const [sectionContent, setSectionContent] = useState<ProgramSectionContent[]>(
     [],
   );
@@ -189,17 +193,10 @@ export function ProgramDetailPanel({
     achievements: TrainingAchievement[];
   } | null>(null);
   const [expandedContent, setExpandedContent] = useState<Set<number>>(new Set());
-  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
-  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
+  
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const headerAthleteName = currentAthlete?.name ?? "Athlete";
-  const athleteMeta = [
-    activeAthleteAge ? `${activeAthleteAge} yrs` : null,
-    currentAthlete?.level || null,
-    currentAthlete?.team || null,
-    currentAthlete?.trainingPerWeek ? `${currentAthlete.trainingPerWeek}x weekly` : null,
-  ].filter(Boolean);
+  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9";
+  
   const currentTierLabel = normalizeProgramTier(programTier)?.replace("PHP_", "").replace("_", " ") || "Starter";
   const requiredTier = programIdToTier(programId);
   const latestRequest = latestSubscriptionRequest ?? latestRequestFromStore ?? null;
@@ -207,8 +204,7 @@ export function ProgramDetailPanel({
   const isPendingApproval =
     latestRequest?.planTier === requiredTier &&
     requestStatus === "pending_approval";
-  const planSubtitle = planDetails?.description ?? PROGRAM_TIERS.find((item) => item.id === programId)?.description;
-  const priceHighlights = pricing?.entries?.slice(0, 2) ?? [];
+
   const toggleContent = useCallback((id: number) => {
     setExpandedContent((prev) => {
       const next = new Set(prev);
@@ -321,68 +317,6 @@ export function ProgramDetailPanel({
     [canMessageCoach, onNavigate, token],
   );
 
-
-  const filteredSectionContent = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return sectionContent;
-    return sectionContent.filter((item) => {
-      const fields = [item.title, item.body];
-      return fields.some((field) =>
-        String(field ?? "").toLowerCase().includes(query),
-      );
-    });
-  }, [searchQuery, sectionContent]);
-
-  const searchSuggestions = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return [];
-
-    const tabByType = new Map<string, string>();
-    tabs.forEach((tab) => {
-      getSessionTypesForTab(tab).forEach((type) => {
-        tabByType.set(String(type), tab);
-      });
-    });
-
-    const results: {
-      id: string;
-      title: string;
-      subtitle: string;
-      tab: string;
-    }[] = [];
-
-    tabs.forEach((tab) => {
-      if (tab.toLowerCase().includes(query)) {
-        results.push({
-          id: `tab-${tab}`,
-          title: tab,
-          subtitle: "Section",
-          tab,
-        });
-      }
-    });
-
-    sectionContent.forEach((item) => {
-      const tab = tabByType.get(String(item.sectionType ?? ""));
-      if (!tab) return;
-      const contentTitle = String(item.title ?? "");
-      const contentBody = String(item.body ?? "");
-      if (
-        contentTitle.toLowerCase().includes(query) ||
-        contentBody.toLowerCase().includes(query)
-      ) {
-        results.push({
-          id: `content-${item.id}`,
-          title: contentTitle || "Program content",
-          subtitle: `Content • ${tab}`,
-          tab,
-        });
-      }
-    });
-
-    return results.slice(0, 8);
-  }, [searchQuery, tabs, sectionContent]);
-
   const loadSectionContent = useCallback(
     async (tab: string, options?: { force?: boolean }) => {
       if (!token) {
@@ -453,45 +387,30 @@ export function ProgramDetailPanel({
     setActiveVideoUrl(url);
   };
 
-  const handleTabDetail = (tab: string) => {
-    // Intentionally left blank to avoid redirecting the whole page
-  };
-
   const renderTrainingContent = () => {
-    const visibleContent = searchQuery.trim()
-      ? filteredSectionContent
-      : sectionContent;
+    const visibleContent = sectionContent;
     const showContentLoading = isLoadingContent;
     const showContentError = contentError;
 
     if (visibleContent.length === 0) {
       return (
-        <View 
-          className="rounded-3xl bg-card px-6 py-5"
-          style={isDark ? Shadows.none : Shadows.md}
-        >
+        <View className="py-10 items-center justify-center">
           <Text className="text-sm font-outfit text-secondary text-center">
-            {searchQuery.trim() ? "Nothing matches that search." : "Nothing here yet."}
+            No training content available for this section.
           </Text>
         </View>
       );
     }
     return (
-      <View className="gap-4">
+      <View className="gap-3">
         {showContentLoading ? (
-          <View 
-            className="rounded-3xl bg-card px-6 py-5"
-            style={isDark ? Shadows.none : Shadows.md}
-          >
-            <Text className="text-sm font-outfit text-secondary text-center">Loading…</Text>
+          <View className="py-5 items-center justify-center">
+            <ActivityIndicator size="small" color={colors.accent} />
           </View>
         ) : null}
         {showContentError ? (
-          <View 
-            className="rounded-3xl bg-card px-6 py-5"
-            style={isDark ? Shadows.none : Shadows.md}
-          >
-            <Text className="text-sm font-outfit text-secondary text-center">
+          <View className="rounded-2xl bg-red-500/10 px-5 py-4">
+            <Text className="text-sm font-outfit text-red-500 text-center">
               {showContentError}
             </Text>
           </View>
@@ -503,165 +422,136 @@ export function ProgramDetailPanel({
           return (
             <View
               key={`content-${item.id}`}
-              className="rounded-3xl bg-[#2F8F57] overflow-hidden"
-              style={isDark ? Shadows.none : Shadows.md}
+              className="rounded-[24px] overflow-hidden border"
+              style={{
+                backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+                borderColor: borderSoft,
+                ...(isDark ? Shadows.none : Shadows.sm),
+              }}
             >
               <Pressable
                 onPress={() => toggleContent(item.id)}
-                className="px-6 py-5 gap-3"
+                className="px-5 py-4"
               >
-                <Text className="text-lg font-clash text-white font-bold">{item.title}</Text>
-                {hasExercise && (
-                  <View className="flex-row flex-wrap gap-2">
-                    {meta.sets != null && (
-                      <View className="rounded-full bg-white/15 px-3 py-1">
-                        <Text className="text-[11px] font-outfit text-white">{meta.sets} sets</Text>
-                      </View>
-                    )}
-                    {meta.reps != null && (
-                      <View className="rounded-full bg-white/15 px-3 py-1">
-                        <Text className="text-[11px] font-outfit text-white">{meta.reps} reps</Text>
-                      </View>
-                    )}
-                    {meta.duration != null && (
-                      <View className="rounded-full bg-white/15 px-3 py-1">
-                        <Text className="text-[11px] font-outfit text-white">{meta.duration}s</Text>
-                      </View>
-                    )}
-                    {meta.restSeconds != null && (
-                      <View className="rounded-full bg-white/15 px-3 py-1">
-                        <Text className="text-[11px] font-outfit text-white">{meta.restSeconds}s rest</Text>
-                      </View>
-                    )}
+                <View className="flex-row items-center justify-between gap-3">
+                  <View className="flex-1">
+                    <Text className="text-[17px] font-clash font-bold" style={{ color: colors.text }}>
+                      {item.title}
+                    </Text>
                     {meta.category && (
-                      <View className="rounded-full bg-white/25 px-3 py-1">
-                        <Text className="text-[11px] font-outfit text-white font-semibold">{meta.category}</Text>
-                      </View>
+                      <Text className="text-[12px] font-outfit text-secondary mt-0.5">
+                        {meta.category}
+                      </Text>
                     )}
                   </View>
-                )}
-                <View className="flex-row items-center justify-between mt-1">
-                  <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
-                    {isExpanded ? "Less" : "Details"}
-                  </Text>
-                  <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
-                    <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color="#FFFFFF" />
+                  <View className="h-8 w-8 rounded-full items-center justify-center" style={{ backgroundColor: mutedSurface }}>
+                    <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textSecondary} />
                   </View>
                 </View>
 
-                <Transition.Pressable
-                  sharedBoundTag={`program-content-${item.id}`}
-                  onPress={() => onNavigate?.(`/programs/content/${item.id}?sharedBoundTag=${encodeURIComponent(`program-content-${item.id}`)}`)}
-                  className="flex-row items-center justify-between mt-3 pt-3 border-t border-white/10"
-                >
-                  <Text className="text-xs font-outfit text-white/80 uppercase tracking-[1.2px]">
-                    Open
-                  </Text>
-                  <View className="h-7 w-7 rounded-full bg-white/15 items-center justify-center">
-                    <Feather name="arrow-right" size={14} color="#FFFFFF" />
+                {hasExercise && (
+                  <View className="flex-row flex-wrap gap-1.5 mt-3 pt-3 border-t" style={{ borderColor: borderSoft }}>
+                    {[
+                      meta.sets != null ? `${meta.sets} sets` : null,
+                      meta.reps != null ? `${meta.reps} reps` : null,
+                      meta.duration != null ? `${meta.duration}s` : null,
+                      meta.restSeconds != null ? `${meta.restSeconds}s rest` : null,
+                    ].filter(Boolean).map((stat, i) => (
+                      <View key={i} className="rounded-md px-2 py-1" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)" }}>
+                        <Text className="text-[11px] font-outfit font-medium" style={{ color: colors.textSecondary }}>{stat}</Text>
+                      </View>
+                    ))}
                   </View>
-                </Transition.Pressable>
-                <Pressable
-                  onPress={() =>
-                    void openCoachMessage(
-                      `Program: ${PROGRAM_TITLES[programId]}\nSection: ${activeTab}\nDrill: ${item.title}\n\nHi coach, quick question:\n`,
-                    )
-                  }
-                  className="flex-row items-center gap-2 mt-3 pt-3 border-t border-white/10"
-                >
-                  <Feather name="message-circle" size={16} color="#FFFFFF" />
-                  <Text className="text-xs font-outfit text-white font-semibold uppercase tracking-[1.1px]">
-                    Message coach
-                  </Text>
-                </Pressable>
+                )}
               </Pressable>
 
               {isExpanded && (
-                <View className="px-6 pb-6 pt-2 gap-4 border-t border-white/10 mt-1">
+                <View className="px-5 pb-5 gap-5 border-t" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(0,0,0,0.1)" : "#F8FAFC" }}>
                   {item.body ? (
-                    <MarkdownText
-                      text={item.body}
-                      baseStyle={{ fontSize: 15, lineHeight: 24, color: "#FFFFFF" }}
-                      headingStyle={{ fontSize: 18, lineHeight: 26, color: "#FFFFFF", fontWeight: "700" }}
-                      subheadingStyle={{ fontSize: 16, lineHeight: 24, color: "#FFFFFF", fontWeight: "700" }}
-                      listItemStyle={{ paddingLeft: 6 }}
-                    />
-                  ) : null}
+                    <View className="pt-4">
+                      <MarkdownText
+                        text={item.body}
+                        baseStyle={{ fontSize: 14, lineHeight: 22, color: colors.text }}
+                        headingStyle={{ fontSize: 16, lineHeight: 24, color: colors.text, fontWeight: "600", marginBottom: 8 }}
+                        subheadingStyle={{ fontSize: 15, lineHeight: 22, color: colors.text, fontWeight: "600", marginBottom: 6 }}
+                        listItemStyle={{ paddingLeft: 4, marginBottom: 4 }}
+                      />
+                    </View>
+                  ) : <View className="pt-2" />}
 
                   {meta.cues ? (
-                     <View className="rounded-2xl bg-white/10 border border-white/10 p-4 gap-3">
-                       <View className="flex-row items-center gap-2">
-                         <View className="h-6 w-6 rounded-full bg-white/20 items-center justify-center">
-                           <Feather name="message-circle" size={12} color="#FFFFFF" />
-                         </View>
-                         <Text className="text-[10px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
+                     <View className="rounded-2xl p-4 gap-2 border" style={{ backgroundColor: colors.background, borderColor: borderSoft }}>
+                       <View className="flex-row items-center gap-1.5">
+                         <Feather name="info" size={14} color={colors.accent} />
+                         <Text className="text-[11px] font-outfit uppercase tracking-[1px] font-bold" style={{ color: colors.accent }}>
                            Coaching Cues
                          </Text>
                        </View>
-                       <Text className="text-[14px] font-outfit text-white leading-[22px]">{meta.cues}</Text>
+                       <Text className="text-[14px] font-outfit" style={{ color: colors.text }}>{meta.cues}</Text>
                      </View>
                   ) : null}
 
                   {(meta.progression || meta.regression) ? (
                     <View className="flex-row gap-3">
                       {meta.progression ? (
-                        <View className="flex-1 rounded-2xl bg-white/10 border border-white/10 p-4 gap-3">
-                          <View className="flex-row items-center gap-2">
-                            <View className="h-6 w-6 rounded-full bg-[#22C55E] items-center justify-center">
-                              <Feather name="trending-up" size={12} color="#FFFFFF" />
-                            </View>
-                            <Text className="text-[10px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
-                              Progression
+                        <View className="flex-1 rounded-2xl p-3 gap-2 border" style={{ backgroundColor: colors.background, borderColor: borderSoft }}>
+                          <View className="flex-row items-center gap-1.5">
+                            <Feather name="trending-up" size={14} color="#10B981" />
+                            <Text className="text-[10px] font-outfit uppercase tracking-[1px] font-bold" style={{ color: "#10B981" }}>
+                              Make harder
                             </Text>
                           </View>
-                          <Text className="text-sm font-outfit text-white leading-relaxed">{meta.progression}</Text>
+                          <Text className="text-[13px] font-outfit" style={{ color: colors.text }}>{meta.progression}</Text>
                         </View>
                       ) : null}
                       {meta.regression ? (
-                        <View className="flex-1 rounded-2xl bg-white/10 border border-white/10 p-4 gap-3">
-                          <View className="flex-row items-center gap-2">
-                            <View className="h-6 w-6 rounded-full bg-[#F97316] items-center justify-center">
-                              <Feather name="trending-down" size={12} color="#FFFFFF" />
-                            </View>
-                            <Text className="text-[10px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
-                              Regression
+                        <View className="flex-1 rounded-2xl p-3 gap-2 border" style={{ backgroundColor: colors.background, borderColor: borderSoft }}>
+                          <View className="flex-row items-center gap-1.5">
+                            <Feather name="trending-down" size={14} color="#F59E0B" />
+                            <Text className="text-[10px] font-outfit uppercase tracking-[1px] font-bold" style={{ color: "#F59E0B" }}>
+                              Make easier
                             </Text>
                           </View>
-                          <Text className="text-sm font-outfit text-white leading-relaxed">{meta.regression}</Text>
+                          <Text className="text-[13px] font-outfit" style={{ color: colors.text }}>{meta.regression}</Text>
                         </View>
                       ) : null}
                     </View>
                   ) : null}
 
-                  {item.videoUrl ? (
+                  <View className="flex-row gap-2 mt-1">
+                    {item.videoUrl ? (
+                      <Pressable
+                        onPress={() => handleVideoPress(item.videoUrl!)}
+                        className="flex-1 rounded-2xl py-3 flex-row items-center justify-center gap-2"
+                        style={{ backgroundColor: colors.accent }}
+                      >
+                        <Feather name="play-circle" size={16} color="#FFFFFF" />
+                        <Text className="text-sm font-outfit font-bold text-white">Watch</Text>
+                      </Pressable>
+                    ) : null}
                     <Pressable
-                      onPress={() => handleVideoPress(item.videoUrl!)}
-                      className="rounded-2xl px-5 py-4 flex-row items-center gap-3 mt-1"
-                      style={{ backgroundColor: mutedSurface }}
+                      onPress={() =>
+                        void openCoachMessage(
+                          `Program: ${PROGRAM_TITLES[programId]}\nSection: ${activeTab}\nDrill: ${item.title}\n\nHi coach, quick question:\n`,
+                        )
+                      }
+                      className="flex-1 rounded-2xl py-3 flex-row items-center justify-center gap-2 border"
+                      style={{ borderColor: borderSoft, backgroundColor: colors.background }}
                     >
-                      <View className="h-10 w-10 rounded-full bg-white/20 items-center justify-center">
-                        <Feather name="play" size={16} color="#FFFFFF" />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-outfit text-white font-semibold">Watch Video</Text>
-                        <Text className="text-[11px] font-outfit text-white/70 mt-0.5" numberOfLines={1}>{item.videoUrl}</Text>
-                      </View>
-                      <Feather name="external-link" size={16} color="#FFFFFF" />
+                      <Feather name="message-circle" size={16} color={colors.text} />
+                      <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>Ask coach</Text>
                     </Pressable>
-                  ) : null}
-
-                  <Pressable
-                    onPress={() =>
-                      void openCoachMessage(
-                        `Program: ${PROGRAM_TITLES[programId]}\nSection: ${activeTab}\nDrill: ${item.title}\n\nHi coach, quick question:\n`,
-                      )
-                    }
-                    className="rounded-2xl border border-white/20 px-4 py-3 flex-row items-center gap-2 mt-2"
+                  </View>
+                  
+                  <Transition.Pressable
+                    sharedBoundTag={`program-content-${item.id}`}
+                    onPress={() => onNavigate?.(`/programs/content/${item.id}?sharedBoundTag=${encodeURIComponent(`program-content-${item.id}`)}`)}
+                    className="py-2 items-center"
                   >
-                    <Feather name="message-circle" size={16} color="#FFFFFF" />
-                    <Text className="text-sm font-outfit text-white">Message coach</Text>
-                  </Pressable>
-
+                    <Text className="text-xs font-outfit font-semibold" style={{ color: colors.accent }}>
+                      Open full page
+                    </Text>
+                  </Transition.Pressable>
                 </View>
               )}
             </View>
@@ -683,31 +573,27 @@ export function ProgramDetailPanel({
           ? `${PROGRAM_TITLES[programId]} is locked`
           : "Complete onboarding to unlock programs";
       const body = isPendingApproval
-        ? "Payment received — a coach will review and activate your plan shortly. Then you'll get full access to workouts, messaging, and bookings for this program."
+        ? "Payment received — a coach will review and activate your plan shortly."
         : normalizedTier
-          ? `Your current plan doesn't include everything in ${PROGRAM_TITLES[programId]}. Here's what members get — upgrade or switch plans to unlock these tabs.`
-          : "Finish setting up your athlete profile and choose a plan to unlock program content, coach messaging, and session booking.";
+          ? `Your current plan doesn't include everything in ${PROGRAM_TITLES[programId]}.`
+          : "Finish setting up your athlete profile and choose a plan to unlock content.";
       return (
         <View
-          className="rounded-3xl bg-card px-6 py-5 gap-4"
-          style={isDark ? Shadows.none : Shadows.md}
+          className="rounded-[32px] bg-card px-6 py-8 gap-5 border"
+          style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.md) }}
         >
-          <View className="flex-row items-center gap-2">
-            <Feather name={isPendingApproval ? "clock" : "lock"} size={16} color={colors.accent} />
-            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-              {isPendingApproval ? "Pending" : "Preview"}
-            </Text>
+          <View className="h-14 w-14 rounded-2xl items-center justify-center" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.15)" : "#F0FDF4" }}>
+            <Feather name={isPendingApproval ? "clock" : "lock"} size={28} color={colors.accent} />
           </View>
-          <Text className="text-lg font-clash text-app font-bold">{title}</Text>
-          <Text className="text-sm font-outfit text-secondary leading-relaxed">{body}</Text>
+          <View>
+            <Text className="text-2xl font-clash text-app font-bold">{title}</Text>
+            <Text className="text-sm font-outfit text-secondary mt-2 leading-relaxed">{body}</Text>
+          </View>
           {previewFeatures.length ? (
-            <View className="gap-2.5">
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
-                Included with {PROGRAM_TITLES[programId]}
-              </Text>
+            <View className="gap-3 pt-2">
               {previewFeatures.map((line) => (
                 <View key={line} className="flex-row items-start gap-2">
-                  <Feather name="check" size={14} color={colors.accent} style={{ marginTop: 2 }} />
+                  <Feather name="check-circle" size={16} color={colors.accent} style={{ marginTop: 2 }} />
                   <Text className="flex-1 text-sm font-outfit text-app leading-5">{line}</Text>
                 </View>
               ))}
@@ -716,10 +602,9 @@ export function ProgramDetailPanel({
           {onNavigate ? (
             <Pressable
               onPress={() => onNavigate("/(tabs)/programs")}
-              className="mt-1 rounded-full bg-accent px-5 py-3 flex-row items-center justify-center gap-2"
+              className="mt-2 rounded-full bg-accent px-5 py-4 flex-row items-center justify-center gap-2"
             >
-              <Feather name="layers" size={16} color="#FFFFFF" />
-              <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
+              <Text className="text-sm font-outfit text-white font-bold uppercase tracking-[1.2px]">
                 View plans & pricing
               </Text>
             </Pressable>
@@ -734,9 +619,9 @@ export function ProgramDetailPanel({
             token={token}
             accent={colors.accent}
             isDark={isDark}
-            surfaceColor={surfaceColor}
+            surfaceColor={colors.card}
             mutedSurface={mutedSurface}
-            accentSurface={accentSurface}
+            accentSurface={isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4"}
             borderSoft={borderSoft}
             onMessageCoach={openCoachMessage}
             canMessageCoach={canMessageCoach}
@@ -745,21 +630,17 @@ export function ProgramDetailPanel({
       }
       const flowSteps = pickTrainingFlowSteps(tabs);
       return (
-        <View className="gap-4">
+        <View className="gap-5">
           {flowSteps.length > 0 ? (
             <View
-              className="rounded-[28px] px-5 py-4 gap-3 border"
+              className="rounded-[24px] px-5 py-4 gap-3 border"
               style={{
-                backgroundColor: accentSurface,
+                backgroundColor: isDark ? "rgba(34,197,94,0.05)" : "#F0FDF4",
                 borderColor: borderSoft,
-                ...(isDark ? Shadows.none : Shadows.sm),
               }}
             >
               <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
-                Order
-              </Text>
-              <Text className="text-sm font-outfit text-app leading-5">
-                Warm-up → Program → Cool-down. Tap to jump.
+                Training Order
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {flowSteps.map((step, i) => (
@@ -768,7 +649,7 @@ export function ProgramDetailPanel({
                     onPress={() => setActiveTab(step)}
                     className="rounded-full px-4 py-2 border"
                     style={{
-                      backgroundColor: surfaceColor,
+                      backgroundColor: colors.card,
                       borderColor: step === activeTab ? colors.accent : borderSoft,
                     }}
                   >
@@ -834,8 +715,7 @@ export function ProgramDetailPanel({
 
       return (
       <View 
-        className="rounded-3xl bg-card px-6 py-5"
-        style={isDark ? Shadows.none : Shadows.md}
+        className="py-10 items-center justify-center"
       >
         <Text className="text-sm font-outfit text-secondary text-center">Coming soon.</Text>
       </View>
@@ -843,196 +723,68 @@ export function ProgramDetailPanel({
   };
 
   return (
-    <>
-      <ThemedScrollView
-        onRefresh={handlePageRefresh}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        nestedScrollEnabled
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
+      <View 
+        style={{ 
+          backgroundColor: colors.card,
+          zIndex: 10,
+          ...(isDark ? Shadows.none : Shadows.sm)
+        }}
       >
-        <View className="px-6 pt-6">
-          <Transition.View
-            sharedBoundTag={sharedBoundTag}
-            className="overflow-hidden rounded-[30px] border px-5 py-5 mb-6"
-            style={{
-              backgroundColor: surfaceColor,
-              borderColor: borderSoft,
-              ...(isDark ? Shadows.none : Shadows.md),
-            }}
-          >
-            <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: accentSurface }} />
-            <View className="absolute -bottom-10 left-10 h-24 w-24 rounded-full" style={{ backgroundColor: mutedSurface }} />
-
-            <View className="flex-row items-center justify-between mb-4">
-              {showBack ? (
-                <TouchableOpacity
-                  onPress={() => (onBack ? onBack() : undefined)}
-                  className="h-11 w-11 items-center justify-center rounded-[18px]"
-                  style={{ backgroundColor: mutedSurface }}
-                >
-                  <Feather name="arrow-left" size={20} color={colors.accent} />
-                </TouchableOpacity>
-              ) : (
-                <View className="w-11" />
-              )}
-              <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
-                  {currentTierLabel}
-                </Text>
-              </View>
-              <View className="w-11" />
-            </View>
-
-            <Text className="text-3xl font-telma-bold text-app font-bold">
-              {PROGRAM_TITLES[programId]}
-            </Text>
-            {planSubtitle ? (
-              <Text className="text-base font-outfit text-secondary mt-2 leading-6">
-                {planSubtitle}
+        <View 
+          className="px-4 py-3 flex-row items-center justify-between"
+        >
+          <View className="flex-row items-center gap-3">
+            {showBack && (
+              <TouchableOpacity
+                onPress={() => (onBack ? onBack() : undefined)}
+                className="h-10 w-10 items-center justify-center rounded-full"
+                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.03)" }}
+              >
+                <Feather name="chevron-left" size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
+            <View>
+              <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>
+                {PROGRAM_TITLES[programId]}
               </Text>
-            ) : null}
-
-            <View className="mt-4 flex-row flex-wrap gap-2">
-              <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
-                <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                  {headerAthleteName}
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1px]" style={{ color: colors.accent }}>
+                {currentTierLabel}
+              </Text>
+            </View>
+          </View>
+          
+          <View className="flex-row items-center gap-2">
+            {trainingProgress && (
+              <View className="rounded-full bg-accent/10 px-3 py-1.5">
+                <Text className="text-[10px] font-outfit font-bold text-accent">
+                  {trainingProgress.stats.sessionRuns} sessions
                 </Text>
               </View>
-              {athleteMeta.map((item) => (
-                <View key={item} className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
-                  <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                    {item}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {priceHighlights.length ? (
-              <View className="mt-4 flex-row gap-3">
-                {priceHighlights.map((entry: any) => (
-                  <View key={entry.label} className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: mutedSurface }}>
-                    <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
-                      {entry.label}
-                    </Text>
-                    <Text className="mt-2 text-lg font-clash text-app" numberOfLines={1}>
-                      {entry.discounted ?? entry.original}
-                    </Text>
-                    {entry.discounted ? (
-                      <Text className="text-xs font-outfit text-secondary mt-1 line-through">
-                        {entry.original}
-                      </Text>
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </Transition.View>
+            )}
+          </View>
         </View>
-
-        {trainingProgress ? (
-          <View className="px-6 mb-4">
-            <AchievementsStrip stats={trainingProgress.stats} achievements={trainingProgress.achievements} />
-          </View>
-        ) : null}
-
-        {programId === "plus" && phpPlusTabs === null ? (
-          <View className="px-6 mb-2">
-            <Text className="text-xs font-outfit text-secondary">Loading…</Text>
-          </View>
-        ) : null}
 
         <ProgramTabBar
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          onTabPress={handleTabDetail}
           showSectionHeader={false}
         />
+      </View>
 
-        {searchQuery.trim().length > 0 ? (
-          <View className="px-6 mb-6">
-            <View 
-              className="rounded-[28px] px-4 py-4"
-              style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
-            >
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-xs font-outfit uppercase tracking-[1.6px] text-secondary">
-                  Suggestions
-                </Text>
-                <View className="px-2.5 py-1 rounded-full" style={{ backgroundColor: accentSurface }}>
-                  <Text className="text-[10px] font-outfit" style={{ color: colors.accent }}>
-                    {searchSuggestions.length} result
-                    {searchSuggestions.length === 1 ? "" : "s"}
-                  </Text>
-                </View>
-              </View>
-              {searchSuggestions.length === 0 ? (
-                <View className="rounded-2xl border border-dashed px-3 py-3" style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}>
-                  <Text className="text-sm font-outfit text-secondary">
-                    No matching sections found.
-                  </Text>
-                  <Text className="text-xs font-outfit text-secondary mt-1">
-                    Try a different keyword or browse the tabs below.
-                  </Text>
-                </View>
-              ) : (
-                <View className="gap-2">
-                  {searchSuggestions.map((item) => {
-                    const isSection = item.subtitle === "Section";
-                    return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => {
-                          if (item.id.startsWith("content-")) {
-                            setActiveTab(item.tab);
-                            setSearchQuery("");
-                            const contentId = parseInt(item.id.replace("content-", ""), 10);
-                            setExpandedContent((prev) => new Set(prev).add(contentId));
-                          } else {
-                            setActiveTab(item.tab);
-                            setSearchQuery("");
-                          }
-                        }}
-                        className="rounded-2xl border px-3 py-3"
-                        style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}
-                      >
-                        <View className="flex-row items-center gap-3">
-                          <View
-                            className={`h-9 w-9 rounded-xl items-center justify-center ${
-                              isSection ? "bg-[#2F8F57]" : "bg-[#2F8F57]/15"
-                            }`}
-                          >
-                            <Feather
-                              name={isSection ? "layers" : "file-text"}
-                              size={16}
-                              color={isSection ? "white" : "#2F8F57"}
-                            />
-                          </View>
-                          <View className="flex-1">
-                            <Text className="text-base font-outfit text-app">
-                              {item.title}
-                            </Text>
-                            <Text className="text-xs font-outfit text-secondary mt-1">
-                              {item.subtitle}
-                            </Text>
-                          </View>
-                          <View className="px-2.5 py-1 rounded-full bg-secondary/10">
-                            <Text className="text-[10px] font-outfit text-secondary">
-                              {item.tab}
-                            </Text>
-                          </View>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
+      <ThemedScrollView
+        onRefresh={handlePageRefresh}
+        contentContainerStyle={{ paddingBottom: 40, paddingTop: 20 }}
+        nestedScrollEnabled
+      >
+        {trainingProgress && activeTab === "Program" ? (
+          <View className="px-5 mb-6">
+            <AchievementsStrip stats={trainingProgress.stats} achievements={trainingProgress.achievements} />
           </View>
         ) : null}
 
-        <View className="px-6">{renderTab()}</View>
+        <View className="px-5">{renderTab()}</View>
       </ThemedScrollView>
 
       <Modal
@@ -1041,24 +793,22 @@ export function ProgramDetailPanel({
         animationType="slide"
         onRequestClose={() => setActiveVideoUrl(null)}
       >
-        <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}>
-          <View className="rounded-t-3xl p-4 pb-8" style={{ backgroundColor: surfaceColor }}>
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-clash text-app font-bold">Video</Text>
+        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <View className="rounded-t-[32px] p-5 pb-8" style={{ backgroundColor: colors.card }}>
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-xl font-clash text-app font-bold">Exercise Video</Text>
               <TouchableOpacity
                 onPress={() => setActiveVideoUrl(null)}
-                className="h-10 w-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: mutedSurface }}
+                className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
               >
-                <Feather name="x" size={20} color={colors.accent} />
+                <Feather name="x" size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
             {activeVideoUrl ? <VideoPlayer uri={activeVideoUrl} useVideoResolution /> : null}
           </View>
         </View>
       </Modal>
-
-    </>
+    </SafeAreaView>
   );
 }
 
@@ -1083,6 +833,7 @@ function PremiumPlanPanel({
   onMessageCoach?: (text: string) => void | Promise<void>;
   canMessageCoach?: boolean;
 }) {
+  const { colors } = useAppTheme();
   const [items, setItems] = useState<PlanSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1239,7 +990,7 @@ function PremiumPlanPanel({
 
   if (!token) {
     return (
-      <View className="rounded-3xl bg-card px-6 py-5" style={isDark ? Shadows.none : Shadows.md}>
+      <View className="py-10 items-center justify-center">
         <Text className="text-sm font-outfit text-secondary text-center">
           Log in to view your Premium plan.
         </Text>
@@ -1248,26 +999,23 @@ function PremiumPlanPanel({
   }
 
   return (
-    <View className="gap-4">
-      <View className="rounded-[28px] px-6 py-5 gap-3" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}>
-        <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: accent }}>
-            Weekly plan
-          </Text>
-        </View>
-        <Text className="text-lg font-clash text-app font-bold">This week</Text>
-        <Text className="text-sm font-outfit text-secondary">
-          Tap an exercise when you’re done. Use Complete to log a session.
-        </Text>
+    <View className="gap-5">
+      <View className="rounded-[24px] px-5 py-5 gap-3 border" style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}>
+        <Text className="text-xl font-clash text-app font-bold">This week's plan</Text>
         {weekStats.total > 0 && activeWeek != null ? (
-          <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}>
+          <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
             <Text className="text-sm font-outfit text-app font-semibold">
               Week {activeWeek}: {weekStats.done}/{weekStats.total} exercises done
-              {nextSession ? ` · Next: Session ${nextSession.sessionNumber}` : ""}
             </Text>
-            <Text className="text-xs font-outfit text-secondary mt-1">Track progress below.</Text>
+            {nextSession ? (
+              <Text className="text-xs font-outfit text-secondary mt-1">Up next: Session {nextSession.sessionNumber}</Text>
+            ) : null}
           </View>
-        ) : null}
+        ) : (
+          <Text className="text-sm font-outfit text-secondary">
+            Tap an exercise when you're done. Use Complete to log a session.
+          </Text>
+        )}
       </View>
 
       {weeks.length ? (
@@ -1280,11 +1028,11 @@ function PremiumPlanPanel({
                 onPress={() => setActiveWeek(week)}
                 className="px-4 py-2 rounded-full border"
                 style={{
-                  backgroundColor: active ? accent : mutedSurface,
-                  borderColor: active ? accent : borderSoft,
+                  backgroundColor: active ? colors.text : "transparent",
+                  borderColor: active ? colors.text : borderSoft,
                 }}
               >
-                <Text className={`text-xs font-outfit uppercase tracking-[1.4px] ${active ? "text-white" : "text-secondary"}`}>
+                <Text className={`text-[11px] font-outfit font-bold uppercase tracking-[1.4px] ${active ? "text-app" : "text-secondary"}`} style={{ color: active ? colors.background : colors.textSecondary }}>
                   Week {week}
                 </Text>
               </Pressable>
@@ -1294,26 +1042,26 @@ function PremiumPlanPanel({
       ) : null}
 
       {isLoading ? (
-        <View className="rounded-3xl bg-card px-6 py-6 items-center" style={isDark ? Shadows.none : Shadows.sm}>
+        <View className="py-10 items-center justify-center">
           <ActivityIndicator color={accent} />
-          <Text className="text-sm font-outfit text-secondary mt-2">Loading plan…</Text>
+          <Text className="text-sm font-outfit text-secondary mt-3">Loading your plan…</Text>
         </View>
       ) : error ? (
-        <View className="rounded-3xl bg-card px-6 py-6" style={isDark ? Shadows.none : Shadows.sm}>
-          <Text className="text-sm font-outfit text-secondary text-center">{error}</Text>
+        <View className="py-10 items-center justify-center">
+          <Text className="text-sm font-outfit text-red-500 text-center">{error}</Text>
         </View>
       ) : visibleSessions.length === 0 ? (
-        <View className="rounded-3xl bg-card px-6 py-6" style={isDark ? Shadows.none : Shadows.sm}>
+        <View className="py-10 items-center justify-center">
           <Text className="text-sm font-outfit text-secondary text-center">
             No sessions assigned yet. Your coach will build your plan soon.
           </Text>
         </View>
       ) : (
         visibleSessions.map((session) => (
-          <View key={session.id} className="rounded-[28px] px-6 py-5 gap-4" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
+          <View key={session.id} className="rounded-[24px] px-5 py-5 gap-4 border" style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}>
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1">
-                <Text className="text-base font-clash text-app font-bold">
+                <Text className="text-lg font-clash text-app font-bold">
                   Session {session.sessionNumber}
                   {session.title ? ` • ${session.title}` : ""}
                 </Text>
@@ -1323,16 +1071,16 @@ function PremiumPlanPanel({
               </View>
               <Pressable
                 onPress={() => openCheckin(session)}
-                className="px-3 py-2 rounded-full"
-                style={{ backgroundColor: accentSurface, borderWidth: 1, borderColor: `${accent}33` }}
+                className="px-3 py-1.5 rounded-full"
+                style={{ backgroundColor: isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4" }}
               >
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: accent }}>
-                  Complete
+                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px]" style={{ color: accent }}>
+                  Check-in
                 </Text>
               </Pressable>
             </View>
 
-            <View className="gap-2">
+            <View className="gap-2.5">
               {(session.exercises ?? []).map((ex) => {
                 const base = ex.exercise ?? null;
                 const displaySets = ex.sets ?? base?.sets ?? null;
@@ -1353,28 +1101,33 @@ function PremiumPlanPanel({
                     onPress={() => toggleExercise(ex)}
                     className="rounded-2xl border px-4 py-3"
                     style={{
-                      backgroundColor: ex.completed ? `${accent}14` : mutedSurface,
-                      borderColor: ex.completed ? `${accent}55` : borderSoft,
+                      backgroundColor: ex.completed ? (isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4") : "transparent",
+                      borderColor: ex.completed ? (isDark ? "rgba(34,197,94,0.3)" : "#86EFAC") : borderSoft,
                     }}
                   >
-                    <View className="flex-row items-center justify-between gap-2">
+                    <View className="flex-row items-center justify-between gap-3">
                       <View className="flex-1">
                         <Text className="text-sm font-outfit text-app font-semibold">
                           {base?.name ?? "Exercise"}
                         </Text>
                         {badge ? (
-                          <Text className="text-[11px] font-outfit text-secondary mt-0.5">{badge}</Text>
+                          <Text className="text-[12px] font-outfit text-secondary mt-0.5">{badge}</Text>
                         ) : null}
                       </View>
                       <View
-                        className="h-7 w-7 rounded-full items-center justify-center"
-                        style={{ backgroundColor: ex.completed ? accent : "rgba(15,23,42,0.10)" }}
+                        className="h-6 w-6 rounded-full items-center justify-center border"
+                        style={{ 
+                          backgroundColor: ex.completed ? accent : "transparent",
+                          borderColor: ex.completed ? accent : colors.textSecondary 
+                        }}
                       >
-                        <Feather name={ex.completed ? "check" : "circle"} size={14} color={ex.completed ? "#ffffff" : accent} />
+                        {ex.completed ? <Feather name="check" size={12} color="#ffffff" /> : null}
                       </View>
                     </View>
                     {ex.coachingNotes ? (
-                      <Text className="text-[12px] font-outfit text-secondary mt-2">{ex.coachingNotes}</Text>
+                      <View className="mt-3 pt-3 border-t" style={{ borderColor: borderSoft }}>
+                        <Text className="text-[13px] font-outfit text-secondary">{ex.coachingNotes}</Text>
+                      </View>
                     ) : null}
                     {onMessageCoach ? (
                       <Pressable
@@ -1384,10 +1137,10 @@ function PremiumPlanPanel({
                             `PHP Premium · Week ${session.weekNumber} Session ${session.sessionNumber}\nExercise: ${name}\n\nHi coach, quick question:\n`,
                           );
                         }}
-                        className="mt-2 flex-row items-center gap-2 self-start"
+                        className="mt-3 flex-row items-center gap-1.5 self-start"
                       >
-                        <Feather name="message-circle" size={14} color={accent} />
-                        <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1px]" style={{ color: accent }}>
+                        <Feather name="message-circle" size={14} color={colors.textSecondary} />
+                        <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.textSecondary }}>
                           Ask coach{canMessageCoach ? "" : " (Premium)"}
                         </Text>
                       </Pressable>
@@ -1401,54 +1154,54 @@ function PremiumPlanPanel({
       )}
 
       <Modal visible={checkinOpen} transparent animationType="slide" onRequestClose={() => (isSubmitting ? null : setCheckinOpen(false))}>
-        <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}>
-          <View className="rounded-t-3xl p-4 pb-6" style={{ backgroundColor: surfaceColor }}>
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-clash text-app font-bold">Session Check-in</Text>
+        <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.3)" }}>
+          <View className="rounded-t-[32px] p-5 pb-8" style={{ backgroundColor: colors.card }}>
+            <View className="flex-row items-center justify-between mb-6">
+              <Text className="text-xl font-clash text-app font-bold">Session Check-in</Text>
               <TouchableOpacity
                 onPress={() => {
                   if (isSubmitting) return;
                   setCheckinOpen(false);
                 }}
-                className="h-10 w-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: mutedSurface }}
+                className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
               >
-                <Feather name="x" size={20} color={accent} />
+                <Feather name="x" size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            <View className="gap-3">
+            <View className="gap-4">
               {[
-                { label: "RPE (1–10)", value: rpe, onChange: setRpe },
-                { label: "Soreness (0–10)", value: soreness, onChange: setSoreness },
-                { label: "Fatigue (0–10)", value: fatigue, onChange: setFatigue },
+                { label: "RPE (1–10)", value: rpe, onChange: setRpe, placeholder: "How hard was it?" },
+                { label: "Soreness (0–10)", value: soreness, onChange: setSoreness, placeholder: "Muscle soreness?" },
+                { label: "Fatigue (0–10)", value: fatigue, onChange: setFatigue, placeholder: "Overall tiredness?" },
               ].map((field) => (
-                <View key={field.label} className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                  <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">{field.label}</Text>
+                <View key={field.label} className="rounded-2xl border px-4 py-2" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
+                  <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mt-1">{field.label}</Text>
                   <TextInput
                     value={field.value}
                     onChangeText={field.onChange}
-                    placeholder="0"
-                    placeholderTextColor={isDark ? "rgba(255,255,255,0.45)" : "rgba(15,23,42,0.45)"}
+                    placeholder={field.placeholder}
+                    placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
                     keyboardType="number-pad"
-                    style={{ marginTop: 6, color: isDark ? "#fff" : "#0f172a", fontSize: 16 }}
+                    style={{ paddingVertical: 8, color: colors.text, fontSize: 16, fontFamily: "Outfit_500Medium" }}
                   />
                 </View>
               ))}
 
-              <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">Notes (optional)</Text>
+              <View className="rounded-2xl border px-4 py-2" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
+                <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mt-1">Notes (optional)</Text>
                 <TextInput
                   value={notes}
                   onChangeText={setNotes}
                   placeholder="Anything your coach should know…"
-                  placeholderTextColor={isDark ? "rgba(255,255,255,0.45)" : "rgba(15,23,42,0.45)"}
-                  style={{ marginTop: 6, color: isDark ? "#fff" : "#0f172a", fontSize: 16 }}
+                  placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
+                  multiline
+                  style={{ paddingVertical: 8, color: colors.text, fontSize: 16, fontFamily: "Outfit_400Regular", minHeight: 60 }}
                 />
               </View>
 
               {checkinError ? (
-                <Text className="text-xs font-outfit" style={{ color: isDark ? "#FCA5A5" : "#DC2626" }}>
+                <Text className="text-sm font-outfit text-center text-red-500 mt-2">
                   {checkinError}
                 </Text>
               ) : null}
@@ -1456,12 +1209,12 @@ function PremiumPlanPanel({
               <Pressable
                 onPress={submitCheckin}
                 disabled={isSubmitting}
-                className="rounded-2xl px-4 py-4 flex-row items-center justify-center gap-2"
-                style={{ backgroundColor: accent, opacity: isSubmitting ? 0.7 : 1 }}
+                className="mt-4 rounded-full px-4 py-4 flex-row items-center justify-center gap-2"
+                style={{ backgroundColor: colors.accent, opacity: isSubmitting ? 0.7 : 1 }}
               >
-                {isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Feather name="save" size={18} color="#ffffff" />}
-                <Text className="text-white font-outfit font-bold text-sm uppercase tracking-[1.3px]">
-                  {isSubmitting ? "Saving…" : "Save Check-in"}
+                {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                <Text className="font-outfit font-bold text-[15px]" style={{ color: "#FFFFFF" }}>
+                  {isSubmitting ? "Saving Check-in…" : "Submit Check-in"}
                 </Text>
               </Pressable>
             </View>
