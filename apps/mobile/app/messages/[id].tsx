@@ -6,14 +6,12 @@ import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { Alert, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert, ActivityIndicator, View } from "react-native";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { apiRequest } from "@/lib/api";
 import { setMessagingAccessTiers, setProgramTier } from "@/store/slices/userSlice";
 import { useLocalSearchParams } from "expo-router";
-import { SafeMaskedView } from "@/components/navigation/TransitionStack";
 
 export default function ThreadScreen() {
   const { colors } = useAppTheme();
@@ -112,57 +110,55 @@ export default function ThreadScreen() {
 
   if (!currentThread) {
     return (
-      <SafeAreaView className="flex-1 bg-app items-center justify-center">
+      <View className="flex-1 bg-app items-center justify-center">
         <ActivityIndicator size="large" color={colors.accent} />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <SafeMaskedView style={{ flex: 1 }}>
-        <ThreadHeader
-          thread={currentThread}
-          onBack={clearThread}
-          sharedBoundTag={sharedBoundTag}
-          sharedAvatarTag={sharedAvatarTag}
-        />
-        <ThreadChatBody
-          thread={currentThread}
-          messages={localMessages}
-          draft={draft}
-          isLoading={isLoading}
-          isThreadLoading={isThreadLoading}
-          typingStatus={typingStatus}
-          textSecondaryColor={colors.textSecondary}
-          onDraftChange={setDraft}
-          onSend={handleSend}
-          onOpenComposerMenu={() => setComposerMenuOpen(true)}
-          onLongPressMessage={handleLongPressMessage}
-          onReactionPress={handleToggleReaction}
-          composerDisabled={!canMessage}
-          pendingAttachment={pendingAttachment}
-          onRemovePendingAttachment={handleRemovePendingAttachment}
-          isUploadingAttachment={isUploadingAttachment}
-          disabledMessage={!canMessage ? "Messaging isn’t enabled for your plan." : undefined}
-          onDisabledPress={handleLockedPress}
-        />
-        <ReactionPickerModal
-          reactionTarget={reactionTarget}
-          options={reactionOptions}
-          onClose={() => setReactionTarget(null)}
-          onSelect={handleToggleReaction}
-        />
-        <ComposerActionsModal
-          open={composerMenuOpen}
-          onClose={() => setComposerMenuOpen(false)}
-          onAttachFile={handleAttachFile}
-          onAttachImage={handleAttachImage}
-          onAttachVideo={handleAttachVideo}
-          onTakePhoto={handleTakePhoto}
-          onRecordVideo={handleRecordVideo}
-        />
-      </SafeMaskedView>
-    </SafeAreaView>
+    <View className="flex-1 bg-app" style={{ backgroundColor: colors.background }}>
+      <ThreadHeader
+        thread={currentThread}
+        onBack={clearThread}
+        sharedBoundTag={sharedBoundTag}
+        sharedAvatarTag={sharedAvatarTag}
+      />
+      <ThreadChatBody
+        thread={currentThread}
+        messages={localMessages}
+        draft={draft}
+        isLoading={isLoading}
+        isThreadLoading={isThreadLoading}
+        typingStatus={typingStatus}
+        textSecondaryColor={colors.textSecondary}
+        onDraftChange={setDraft}
+        onSend={handleSend}
+        onOpenComposerMenu={() => setComposerMenuOpen(true)}
+        onLongPressMessage={handleLongPressMessage}
+        onReactionPress={handleToggleReaction}
+        composerDisabled={!canMessage}
+        pendingAttachment={pendingAttachment}
+        onRemovePendingAttachment={handleRemovePendingAttachment}
+        isUploadingAttachment={isUploadingAttachment}
+        disabledMessage={!canMessage ? "Messaging isn’t enabled for your plan." : undefined}
+        onDisabledPress={handleLockedPress}
+      />
+      <ReactionPickerModal
+        reactionTarget={reactionTarget}
+        options={reactionOptions}
+        onClose={() => setReactionTarget(null)}
+        onSelect={handleToggleReaction}
+      />
+      <ComposerActionsModal
+        open={composerMenuOpen}
+        onClose={() => setComposerMenuOpen(false)}
+        onAttachFile={handleAttachFile}
+        onAttachImage={handleAttachImage}
+        onAttachVideo={handleAttachVideo}
+        onTakePhoto={handleTakePhoto}
+        onRecordVideo={handleRecordVideo}
+      />
+    </View>
   );
 }

@@ -674,7 +674,7 @@ export function useMessagesController() {
         upload = await uploadAttachment(attachmentToSend);
       }
       await sendMessagePayload({
-        text: trimmed || (attachmentToSend ? attachmentToSend.fileName : ""),
+        text: trimmed || (attachmentToSend ? "Attachment" : ""),
         contentType: upload?.contentType ?? "text",
         mediaUrl: upload?.mediaUrl,
       });
