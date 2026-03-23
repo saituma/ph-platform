@@ -2,97 +2,100 @@ import styles from "./page.module.css";
 import { ShowcaseLanding } from "./showcase-landing";
 
 const heroStats = [
-  { value: "3", label: "training plans" },
-  { value: "1:1", label: "coach support" },
-  { value: "24/7", label: "family access" },
+  { value: "3", label: "PHASED PROGRAMS" },
+  { value: "1:1", label: "PRO FEEDBACK" },
+  { value: "24/7", label: "FAMILY HUB" },
 ];
 
 const featurePillars = [
   {
-    eyebrow: "Home",
-    title: "Everything important is clear the moment you open the app.",
-    body: "Athletes and parents can see the next session, current plan, and key updates without digging through menus.",
+    eyebrow: "01. DASHBOARD",
+    title: "Intelligence built around your training day.",
+    body: "The central hub prioritizes sessions, coach updates, and recovery protocols so you're always prepared for the pitch.",
   },
   {
-    eyebrow: "Schedule",
-    title: "Training sessions, calls, and recovery all live in one place.",
-    body: "The schedule keeps weekly coaching simple, with bookings, reminders, and session details organized in one view.",
+    eyebrow: "02. PROGRAMS",
+    title: "Structured delivery for every athlete level.",
+    body: "Top-tabbed navigation for Warmups, Cooldowns, and Sessions. Includes integrated video demonstrations for every movement.",
   },
   {
-    eyebrow: "Messages",
-    title: "Direct coaching support feels personal, fast, and easy to use.",
-    body: "Premium members can message their coach, ask questions, and receive feedback without leaving the app.",
+    eyebrow: "03. CONNECT",
+    title: "Direct pathways to elite coaching feedback.",
+    body: "Secure messaging and video review loops bridge the gap between amateur play and professional performance pathways.",
   },
   {
-    eyebrow: "Parents",
-    title: "Parents stay informed without slowing the athlete down.",
-    body: "Billing, support, training guidance, and plan information are easy to manage from the same app experience.",
+    eyebrow: "04. PARENT HUB",
+    title: "Education grounded in athletic science.",
+    body: "A dedicated library for parents covering growth, maturation, nutrition, and injury prevention for young athletes.",
   },
 ];
 
 const planTiers = [
   {
-    name: "PHP Program",
-    label: "Starter",
-    summary: "A structured starting point for young footballers building confidence and consistency.",
-    price: "Structured plan",
+    name: "PHP PROGRAM",
+    label: "FOUNDATION",
+    summary: "Age-appropriate structured sessions for building consistency and mastery.",
+    price: "BASE ACCESS",
     features: [
-      "Age-appropriate weekly training",
-      "Warm-up and cooldown support",
-      "Simple access to session booking",
+      "5 Top Tabs: Program, Warmups, Cooldown, Book In, Physio Referral",
+      "2-3 Structured Phased Sessions",
+      "Integrated Exercise Video Library",
+      "Standard Physio Referral Access",
     ],
   },
   {
-    name: "PHP Plus",
-    label: "Most Popular",
-    summary: "More support for families who want training, recovery, and education together.",
-    price: "More support",
+    name: "PHP PLUS",
+    label: "PERFORMANCE",
+    summary: "Advanced support featuring nutrition science and parent education protocols.",
+    price: "ENHANCED ACCESS",
     features: [
-      "Recovery and food diary tools",
-      "Mobility and off-season guidance",
-      "Parent education content",
+      "8 Top Tabs: Nutrition, Stretching, Off-Season, Parent Ed",
+      "Food Diary with Text/Photo Logging",
+      "Onboarding-based Program Assignment",
+      "Physio Referral Discounts (X%)",
     ],
   },
   {
-    name: "PHP Premium",
-    label: "Elite",
-    summary: "The most personal coaching experience, with direct support and deeper feedback.",
-    price: "Personal coaching",
+    name: "PHP PREMIUM",
+    label: "ELITE",
+    summary: "1:1 Pro mentorship with fully individualized movement screening and video reviews.",
+    price: "PRO PATHWAY",
     features: [
-      "Priority coach messaging",
-      "Video review from your coach",
-      "Priority booking access",
+      "10 Top Tabs: Mobility, Video Upload, Custom Bookings",
+      "Client Video Upload for Direct Feedback",
+      "Individualized Phased Programming",
+      "Priority 1:1 Messaging & Calls",
     ],
   },
 ];
 
 const proofPoints = [
   {
-    title: "Built for families",
-    text: "The app is designed for both young athletes and the parents supporting their progress.",
+    title: "V1 DEPLOYMENT",
+    text: "Engineered for iOS and Android with secure authentication and role-based family access.",
   },
   {
-    title: "Built for coaching",
-    text: "Training plans, sessions, messages, and feedback work together as one connected coaching experience.",
+    title: "PRO PATHWAYS",
+    text: "Built by Piers Hatcliff to bridge the gap between amateur play and elite professional standards.",
   },
   {
-    title: "Built for progress",
-    text: "Every part of the app is focused on helping athletes improve with structure, support, and accountability.",
+    title: "UNIFIED HUB",
+    text: "One environment for programs, messaging, scheduling, and parent education.",
   },
 ];
 
 const quotes = [
   {
     role: "Guardian",
-    quote: "I can see what my child needs to do next and I always know where to go for updates or support.",
+    quote: "PH Performance gives us a clear roadmap. We always know exactly what needs to happen next.",
   },
   {
     role: "Athlete",
-    quote: "It feels like having my training, coach feedback, and schedule all in one place.",
+    quote: "The direct video feedback has completely changed how I approach my drive phase mechanics.",
   },
   {
     role: "Coach",
-    quote: "The app gives athletes and parents a clearer, calmer way to stay connected to the coaching journey.",
+    quote: "Our mission is to provide professional-grade development to the next generation of athletes.",
   },
 ];
 
