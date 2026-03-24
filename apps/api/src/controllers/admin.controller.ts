@@ -58,6 +58,7 @@ import {
 import { db } from "../db";
 import { notificationTable, serviceTypeTable } from "../db/schema";
 import { ProgramType, sessionType } from "../db/schema";
+import { sendPushNotification } from "../services/push.service";
 import { env } from "../config/env";
 
 const updateTierSchema = z.object({
@@ -345,6 +346,14 @@ export async function clonePremiumPlanAdmin(req: Request, res: Response) {
     coachId: req.user!.id,
     replaceExisting: body.replaceExisting ?? true,
   });
+
+  sendPushNotification(
+    userId,
+    "Your training plan is ready",
+    "Your coach has built a personalized plan for you. Open Programs to get started.",
+    { type: "premium-plan", screen: "programs" },
+  ).catch(() => {});
+
   return res.status(201).json({ result });
 }
 
