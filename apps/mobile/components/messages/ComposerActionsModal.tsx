@@ -113,20 +113,19 @@ export function ComposerActionsModal({
                 isDark={isDark} 
               />
               <ActionItem 
-                icon="mic" 
-                label="Record" 
-                onPress={() => { onRecordVideo(); onClose(); }} 
-                color="#EF4444" 
-                isDark={isDark} 
-              />
-              <ActionItem 
                 icon="file-text" 
                 label="Files" 
                 onPress={() => { onAttachFile(); onClose(); }} 
                 color="#F59E0B" 
                 isDark={isDark} 
               />
-              <View className="w-[30%]" /> 
+              <ActionItem 
+                icon="video" 
+                label="Record" 
+                onPress={() => { onRecordVideo(); onClose(); }} 
+                color="#EF4444" 
+                isDark={isDark} 
+              />
             </View>
           </Animated.View>
         </View>

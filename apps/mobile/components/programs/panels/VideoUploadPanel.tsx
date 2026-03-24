@@ -131,7 +131,7 @@ export function VideoUploadPanel({
   const { socket } = useSocket();
   const VIDEO_MAX_MB = 200;
   const VIDEO_MAX_BYTES = VIDEO_MAX_MB * 1024 * 1024;
-  const canUploadForSection = Boolean(sectionContentId);
+  const canUploadForSection = true;
 
   const pendingKey = useMemo(() => {
     const base = athleteUserId ?? profile.id ?? "me";
@@ -249,7 +249,7 @@ export function VideoUploadPanel({
         setLoadingVideos(false);
       }
     },
-    [athleteUserId, scheduleLocalNotification, token],
+    [athleteUserId, scheduleLocalNotification, sectionContentId, token],
   );
 
   const loadCoachResponses = useCallback(
@@ -316,7 +316,7 @@ export function VideoUploadPanel({
         setLoadingResponses(false);
       }
     },
-    [athleteUserId, profile.id, scheduleLocalNotification, token],
+    [athleteUserId, profile.id, scheduleLocalNotification, sectionContentId, token],
   );
 
   useEffect(() => {

@@ -16,7 +16,7 @@ const _listeners = new Set<Listener>();
 
 export function setGlobalActiveTab(index: number) {
   if (_activeIndex !== index) {
-    console.warn(`[ActiveTabContext] setGlobalActiveTab called with index: ${index}. Notifying ${_listeners.size} listeners.`);
+    if (__DEV__) console.log(`[ActiveTabContext] setGlobalActiveTab called with index: ${index}. Notifying ${_listeners.size} listeners.`);
   }
   _activeIndex = index;
   _listeners.forEach((fn) => fn(index));
@@ -51,7 +51,7 @@ export function useActiveTabIndex(): number {
     const routes = ["programs", "messages", "index", "schedule", "more"];
     const foundIndex = routes.indexOf(routeName);
     if (foundIndex >= 0 && _activeIndex !== foundIndex) {
-      console.warn(`[ActiveTabContext] PATHNAME CHANGED: ${pathname} -> Setting activeIndex to ${foundIndex}`);
+      if (__DEV__) console.log(`[ActiveTabContext] PATHNAME CHANGED: ${pathname} -> Setting activeIndex to ${foundIndex}`);
       setGlobalActiveTab(foundIndex);
     }
   }, [pathname]);

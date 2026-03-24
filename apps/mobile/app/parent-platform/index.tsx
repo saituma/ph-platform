@@ -8,12 +8,12 @@ import { useRole } from "@/context/RoleContext";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { setParentContentCache } from "@/lib/parentContentCache";
-import { canAccessTier, tierRank } from "@/lib/planAccess";
+import { canAccessTier, hasPaidProgramTier, tierRank } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Image, TouchableOpacity, View } from "react-native";
+import { Alert, Image, TouchableOpacity, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const CATEGORIES = [
@@ -66,10 +66,6 @@ export default function ParentPlatformScreen() {
   const lockedMessage = isAthlete
     ? "Athlete education content is restricted for this age."
     : "Parent education content is restricted for this age.";
-
-  if (isSectionHidden("parentPlatform")) {
-    return <AgeGate title={lockedTitle} message={lockedMessage} />;
-  }
 
   const fetchCourses = useCallback(async (options?: { refreshing?: boolean }) => {
     if (!token) {
@@ -157,6 +153,34 @@ export default function ParentPlatformScreen() {
     });
     router.push(`/parent-platform/${item.id}`);
   };
+
+  if (isSectionHidden("parentPlatform")) {
+    return <AgeGate title={lockedTitle} message={lockedMessage} />;
+  }
+
+  if (!hasPaidProgramTier(programTier)) {
+    return (
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <MoreStackHeader
+          title={platformTitle}
+          subtitle="Support your athlete with practical education and planning insight."
+          badge={isAthlete ? "Athlete" : "Parents"}
+        />
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="text-2xl font-clash font-bold text-app text-center mb-3">Parent education</Text>
+          <Text className="text-base font-outfit text-secondary text-center max-w-[300px]">
+            Choose a training plan in the Programs tab to unlock parent platform content.
+          </Text>
+          <Pressable
+            onPress={() => router.push("/(tabs)/programs")}
+            className="mt-8 rounded-full px-8 py-3 bg-accent"
+          >
+            <Text className="text-sm font-outfit font-semibold text-white">Open Programs</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>

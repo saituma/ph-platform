@@ -88,7 +88,7 @@ export default function RootLayout() {
                                 })}
                               />
                             </Stack>
-                            <StatusBar style="dark" />
+                            <StatusBar style="auto" />
                           </View>
                         </RefreshProvider>
                       </SocketProvider>

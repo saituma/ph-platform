@@ -492,10 +492,10 @@ export function FoodDiaryPanel() {
             <Text
               className={`text-sm font-outfit ${
                 status.tone === "error"
-                  ? "text-red-200"
+                  ? "text-red-500 dark:text-red-200"
                   : status.tone === "success"
-                    ? "text-emerald-200"
-                    : "text-secondary"
+                  ? "text-emerald-600 dark:text-emerald-200"
+                  : "text-secondary"
               }`}
             >
               {status.message}

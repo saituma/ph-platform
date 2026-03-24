@@ -51,6 +51,7 @@ import {
   deletePlanExercise,
   deletePlanSession,
   getAthletePremiumPlan,
+  listPlanSessionCompletions,
   updatePlanExercise,
   updatePlanSession,
 } from "../services/athlete-plan.service";
@@ -208,7 +209,8 @@ const onboardingConfigSchema = z.object({
   ),
   welcomeMessage: z.string().optional().nullable(),
   coachMessage: z.string().optional().nullable(),
-  defaultProgramTier: z.enum(ProgramType.enumValues),
+  /** Deprecated: tier is chosen when the user pays in the app. Omit to keep the stored DB value. */
+  defaultProgramTier: z.enum(ProgramType.enumValues).optional(),
   approvalWorkflow: z.enum(["manual", "auto"]).default("manual"),
   notes: z.string().optional().nullable(),
   phpPlusProgramTabs: z.array(z.string().min(1)).optional().nullable(),
@@ -315,6 +317,18 @@ export async function getPremiumPlanAdmin(req: Request, res: Response) {
     return res.status(200).json({ items: [] });
   }
   const items = await getAthletePremiumPlan({ athleteId, weekNumber: query.weekNumber ?? null });
+  return res.status(200).json({ items });
+}
+
+export async function listPremiumSessionCheckinsAdmin(req: Request, res: Response) {
+  const userId = z.coerce.number().int().min(1).parse(req.params.userId);
+  const query = z.object({ limit: z.coerce.number().int().min(1).max(200).optional() }).parse(req.query);
+  const onboarding = await getUserOnboarding(userId);
+  const athleteId = onboarding?.athlete?.id ?? null;
+  if (!athleteId) {
+    return res.status(200).json({ items: [] });
+  }
+  const items = await listPlanSessionCompletions({ athleteId, limit: query.limit ?? 50 });
   return res.status(200).json({ items });
 }
 

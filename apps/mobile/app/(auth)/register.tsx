@@ -332,7 +332,7 @@ export default function RegisterScreen() {
             )}
           />
           {errors.isChecked && (
-            <Text className="text-danger text-xs font-outfit ml-2 mt-[-24] mb-8">
+            <Text className="text-danger text-xs font-outfit ml-2 -mt-6 mb-8">
               {errors.isChecked.message}
             </Text>
           )}

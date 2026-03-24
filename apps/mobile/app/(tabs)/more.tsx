@@ -24,7 +24,7 @@ import {
   updateProfile,
 } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
-import { canAccessTier } from "@/lib/planAccess";
+import { canAccessTier, hasPaidProgramTier } from "@/lib/planAccess";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -55,7 +55,7 @@ export default function MoreScreen() {
   const { config: ageConfig, isLoading: ageExperienceLoading, refreshExperience } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
-  const showParentPlatform = Boolean(isAuthenticated);
+  const showParentPlatform = Boolean(isAuthenticated && hasPaidProgramTier(programTier));
   const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
   const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Plus");
 

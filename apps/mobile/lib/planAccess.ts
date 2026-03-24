@@ -42,3 +42,8 @@ export function canAccessTier(userTier: string | null, requiredTier?: string | n
 export function isPremium(userTier?: string | null): boolean {
   return normalizeProgramTier(userTier) === "PHP_Premium";
 }
+
+/** Any coach-approved paid plan (PHP / Plus / Premium). Until then the user is on the free path. */
+export function hasPaidProgramTier(tier?: string | null): boolean {
+  return normalizeProgramTier(tier ?? null) !== null;
+}

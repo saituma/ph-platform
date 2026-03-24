@@ -10,6 +10,8 @@ import {
   BookingsPanel,
   FoodDiaryPanel,
   PhysioReferralPanel,
+  ParentEducationPanel,
+  VideoUploadPanel,
 } from "@/components/programs/ProgramPanels";
 import { AchievementsStrip, type TrainingAchievement } from "@/components/programs/AchievementsStrip";
 import { ProgramSessionPanel } from "@/components/programs/ProgramSessionPanel";
@@ -161,7 +163,7 @@ export function ProgramDetailPanel({
 
   const tabs = useMemo(() => {
     if (programId === "plus") {
-      return phpPlusTabs ?? [];
+      return phpPlusTabs ?? PROGRAM_TABS.plus;
     }
     let base = PROGRAM_TABS[programId];
     if (isSectionHidden("videoFeedback")) {
@@ -711,6 +713,14 @@ export function ProgramDetailPanel({
 
     if (activeTab === "Nutrition & Food Diaries" || activeTab === "Submit Diary") {
       return <FoodDiaryPanel />;
+    }
+
+    if (activeTab === "Video Upload") {
+      return <VideoUploadPanel sectionContentId={null} />;
+    }
+
+    if (activeTab === "Education" || activeTab === "Parent Education") {
+      return <ParentEducationPanel onOpen={() => onNavigate?.("/parent-platform")} />;
     }
 
       return (

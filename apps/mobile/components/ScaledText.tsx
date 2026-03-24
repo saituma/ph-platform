@@ -50,8 +50,10 @@ const getTypeAdjustments = (style: any): TextStyle => {
   return next;
 };
 
+const MIN_FONT_SIZE = 13;
+
 const scaleStyle = (style: any, scale: number): any => {
-  if (!style || scale === 1) return style;
+  if (!style && scale === 1) return style;
   if (Array.isArray(style)) {
     return style.map((item) => scaleStyle(item, scale));
   }
@@ -59,7 +61,8 @@ const scaleStyle = (style: any, scale: number): any => {
 
   const next = { ...style } as TextStyle;
   if (typeof next.fontSize === "number") {
-    next.fontSize = Math.round(next.fontSize * scale);
+    const scaled = Math.round(next.fontSize * scale);
+    next.fontSize = Math.max(scaled, MIN_FONT_SIZE);
   }
   if (typeof next.lineHeight === "number") {
     next.lineHeight = Math.round(next.lineHeight * scale);

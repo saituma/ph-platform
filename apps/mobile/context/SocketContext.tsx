@@ -39,7 +39,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (!token) {
-      console.log("[Socket] Skipping connect: missing token");
+      if (__DEV__) console.log("[Socket] Skipping connect: missing token");
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -52,12 +52,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
     const socketUrl = baseUrl ? baseUrl.replace(/\/api\/?$/, "") : "";
     if (!socketUrl) {
-      console.log("[Socket] Skipping connect: missing EXPO_PUBLIC_API_BASE_URL");
+      if (__DEV__) console.log("[Socket] Skipping connect: missing EXPO_PUBLIC_API_BASE_URL");
       return;
     }
 
     if (socketRef.current) return;
-    console.log("[Socket] Connecting", { socketUrl });
+    if (__DEV__) console.log("[Socket] Connecting", { socketUrl });
 
     const newSocket: Socket = io(socketUrl, {
       auth: { token },
@@ -68,19 +68,42 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     newSocket.on("connect", () => {
-      console.log("[Socket] Global connected");
+      if (__DEV__) console.log("[Socket] Global connected");
       setIsConnected(true);
     });
 
     newSocket.on("disconnect", (reason) => {
-      console.log("[Socket] Global disconnected", reason);
+      if (__DEV__) console.log("[Socket] Global disconnected", reason);
       setIsConnected(false);
     });
     newSocket.on("connect_error", (error) => {
-      console.log("[Socket] connect_error", error?.message ?? error);
+      if (__DEV__) console.log("[Socket] connect_error", error?.message ?? error);
     });
 
-    const scheduleRealtimeNotification = async () => {};
+    const scheduleRealtimeNotification = async (payload: {
+      threadId: string;
+      title: string;
+      body: string;
+      data?: Record<string, unknown>;
+    }) => {
+      try {
+        const { getNotifications } = await import("@/lib/notifications");
+        const Notifications = await getNotifications();
+        if (!Notifications) return;
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: payload.title,
+            body: payload.body,
+            data: payload.data ?? {},
+            sound: "default",
+          },
+          trigger: null, // fire immediately
+        });
+      } catch (err) {
+        if (__DEV__) console.warn("[Socket] Failed to schedule notification:", err);
+      }
+    };
 
     newSocket.on("message:new", async (payload: any) => {
       const selfId = effectiveProfileIdRef.current;
@@ -107,6 +130,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         body,
         data: {
           type: "message",
+          threadId: String(threadId),
           senderId,
           receiverId,
         },
@@ -128,6 +152,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         body,
         data: {
           type: "group-message",
+          threadId,
           groupId: payload.groupId,
           senderId: payload.senderId,
         },

@@ -91,7 +91,7 @@ export function useVideoCache(
     return () => {
       isMounted = false;
     };
-  }, [url]);
+  }, [url, cacheKey]);
 
   return { cachedUri, isCaching };
 }

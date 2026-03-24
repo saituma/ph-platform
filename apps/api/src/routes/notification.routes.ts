@@ -7,5 +7,6 @@ const router = Router();
 router.get("/notifications", requireAuth, listNotifications);
 router.post("/notifications/read", requireAuth, markNotificationRead);
 router.post("/users/push-token", requireAuth, savePushToken);
+router.post("/notifications/test-push", requireAuth, testPushNotification);
 
 export default router;

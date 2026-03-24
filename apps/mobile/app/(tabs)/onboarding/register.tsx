@@ -124,7 +124,6 @@ export default function RegisterScreen() {
       try {
         setIsPaying(true);
         setPayingTier(tierKey);
-        setValue("desiredProgramType", tierKey);
 
         await new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve()));
         const data = await apiRequest<{
@@ -184,7 +183,7 @@ export default function RegisterScreen() {
         setPayingTier(null);
       }
     },
-    [dispatch, isPaying, planByTier, router, setValue, token],
+    [dispatch, isPaying, planByTier, router, token],
   );
 
   const insets = useSafeAreaInsets();

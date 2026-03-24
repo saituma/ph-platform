@@ -5,7 +5,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { canAccessTier } from "@/lib/planAccess";
 import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
-import { Feather } from "@expo/vector-icons";
+import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";

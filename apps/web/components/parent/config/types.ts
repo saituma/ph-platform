@@ -39,22 +39,6 @@ export const initialFields: FieldConfig[] = [
   { id: "equipmentAccess", label: "Equipment Access", type: "text", required: true, visible: true },
   { id: "parentEmail", label: "Guardian Email", type: "text", required: true, visible: true },
   { id: "parentPhone", label: "Guardian Phone", type: "text", required: false, visible: true },
-  {
-    id: "relationToAthlete",
-    label: "Relation to Athlete",
-    type: "dropdown",
-    required: true,
-    visible: true,
-    options: ["Parent", "Guardian", "Coach"],
-  },
-  {
-    id: "desiredProgramType",
-    label: "Program Tier Selection",
-    type: "dropdown",
-    required: true,
-    visible: true,
-    options: ["PHP", "PHP_Plus", "PHP_Premium"],
-  },
 ];
 
 export const documentRequirements: DocumentConfig[] = [

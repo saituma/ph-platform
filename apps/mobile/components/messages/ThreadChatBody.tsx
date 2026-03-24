@@ -163,11 +163,8 @@ const MemoizedComposer = React.memo(({
               <Text className="text-[11px] font-outfit font-medium mb-2" style={{ color: colors.accent }}>
                 Uploading...
               </Text>
-              <View className="h-1 bg-accent/10 rounded-full overflow-hidden">
-                <Animated.View 
-                  className="h-full bg-accent" 
-                  style={{ width: '40%' }} 
-                />
+              <View className="h-1.5 bg-accent/10 rounded-full overflow-hidden">
+                <UploadProgressBar accentColor={colors.accent} />
               </View>
             </View>
           ) : null}
@@ -743,4 +740,29 @@ function ThreadChatBodyBase({
     </KeyboardAvoidingView>
   );
 }
+function UploadProgressBar({ accentColor }: { accentColor: string }) {
+  const progress = useSharedValue(0);
+
+  React.useEffect(() => {
+    progress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      false,
+    );
+  }, [progress]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    width: `${20 + progress.value * 60}%`,
+  }));
+
+  return (
+    <Animated.View
+      style={[{ height: "100%", borderRadius: 4, backgroundColor: accentColor }, animatedStyle]}
+    />
+  );
+}
+
 export const ThreadChatBody = React.memo(ThreadChatBodyBase);

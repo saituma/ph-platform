@@ -4,11 +4,11 @@ import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
-import { normalizeProgramTier, PROGRAM_TIER_ORDER } from "@/lib/planAccess";
+import { hasPaidProgramTier, normalizeProgramTier, PROGRAM_TIER_ORDER } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, InteractionManager, Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
@@ -110,7 +110,34 @@ export default function ScheduleScreen() {
     () => formatDateKey(new Date()),
   );
 
-  const notifyBookingConfirmed = useCallback(async () => {}, []);
+  const notifyBookingConfirmed = useCallback(async (startsAt?: Date | null) => {
+    try {
+      const { getNotifications } = await import("@/lib/notifications");
+      const Notifications = await getNotifications();
+      if (!Notifications) return;
+
+      const dateLabel = startsAt
+        ? startsAt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })
+        : "your selected date";
+      const timeLabel = startsAt
+        ? startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "";
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Booking request sent",
+          body: timeLabel
+            ? `Your session on ${dateLabel} at ${timeLabel} is awaiting coach approval.`
+            : `Your session request for ${dateLabel} is awaiting coach approval.`,
+          data: { type: "booking", screen: "schedule" },
+          sound: "default",
+        },
+        trigger: null,
+      });
+    } catch {
+      // notification is best-effort
+    }
+  }, []);
 
   const resetBookingDraft = useCallback(() => {
     setBookingConfirmed(false);
@@ -458,11 +485,30 @@ export default function ScheduleScreen() {
     };
   }, [token, role, mapBookingsToEvents, isFocused]);
 
+  const insets = useSafeAreaInsets();
+
   // Age gate check — placed after all hooks to avoid rules-of-hooks violation
   if (isSectionHidden("schedule")) {
     return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
   }
-  const insets = useSafeAreaInsets();
+  if (!hasPaidProgramTier(programTier)) {
+    return (
+      <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.background }}>
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="text-2xl font-clash font-bold text-app text-center mb-3">Schedule</Text>
+          <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
+            Choose a training plan in the Programs tab to book sessions and manage your schedule.
+          </Text>
+          <Pressable
+            onPress={() => router.push("/(tabs)/programs")}
+            className="mt-8 rounded-full px-8 py-3 bg-accent"
+          >
+            <Text className="text-sm font-outfit font-semibold text-white">Open Programs</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View className="flex-1" style={{ paddingTop: insets.top }}>
@@ -1279,7 +1325,7 @@ export default function ScheduleScreen() {
                         setEvents(mapBookingsToEvents(refreshed.items ?? []));
                         setConfirmedStartsAt(startsAt);
                         setBookingConfirmed(true);
-                        await notifyBookingConfirmed();
+                        await notifyBookingConfirmed(startsAt);
                       } catch (err: any) {
                         const rawMessage = err?.message ?? "Failed to submit booking";
                         const cleanedMessage = String(rawMessage).replace(/^\d+\s+/, "");

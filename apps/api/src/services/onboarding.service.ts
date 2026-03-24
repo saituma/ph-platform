@@ -49,28 +49,13 @@ const defaultPublicConfig = {
     { id: "equipmentAccess", label: "Equipment Access", type: "text", required: true, visible: true },
     { id: "parentEmail", label: "Guardian Email", type: "text", required: true, visible: true },
     { id: "parentPhone", label: "Guardian Phone", type: "text", required: false, visible: true },
-    {
-      id: "relationToAthlete",
-      label: "Relation to Athlete",
-      type: "dropdown",
-      required: true,
-      visible: true,
-      options: ["Parent", "Guardian", "Coach"],
-    },
-    {
-      id: "desiredProgramType",
-      label: "Program Tier Selection",
-      type: "dropdown",
-      required: true,
-      visible: true,
-      options: ["PHP", "PHP_Plus", "PHP_Premium"],
-    },
   ],
   requiredDocuments: [
     { id: "consent", label: "Guardian Consent Form", required: true },
   ],
   welcomeMessage: "Welcome to PH Performance. Let's get your athlete set up.",
   coachMessage: "Need help? Your coach is ready to support you.",
+  /** DB default only; not exposed on public onboarding config API. */
   defaultProgramTier: "PHP" as (typeof ProgramType.enumValues)[number],
   approvalWorkflow: "manual",
   notes: "",
@@ -218,7 +203,7 @@ export async function submitOnboarding(input: {
   parentEmail: string;
   parentPhone?: string | null;
   relationToAthlete?: string | null;
-  desiredProgramType: (typeof ProgramType.enumValues)[number];
+  desiredProgramType?: (typeof ProgramType.enumValues)[number];
   termsVersion: string;
   privacyVersion: string;
   appVersion: string;
@@ -324,7 +309,7 @@ export async function submitOnboarding(input: {
         extraResponses: input.extraResponses ?? null,
         onboardingCompleted: true,
         onboardingCompletedAt: now,
-        currentProgramTier: input.desiredProgramType === "PHP" ? "PHP" : null,
+        currentProgramTier: null,
       })
       .returning()) as (typeof athleteTable.$inferSelect)[];
     athleteRow = inserted[0] ?? null;
@@ -350,24 +335,28 @@ export async function submitOnboarding(input: {
     appVersion: input.appVersion,
   });
 
-  const status = input.desiredProgramType === "PHP" ? "active" : "pending";
+  let responseStatus: string = "completed";
+  if (input.desiredProgramType) {
+    const enrollmentStatus = input.desiredProgramType === "PHP" ? "active" : "pending";
+    responseStatus = enrollmentStatus;
 
-  const existingEnrollment = await db
-    .select()
-    .from(enrollmentTable)
-    .where(and(eq(enrollmentTable.athleteId, athleteId), eq(enrollmentTable.programType, input.desiredProgramType)))
-    .limit(1);
+    const existingEnrollment = await db
+      .select()
+      .from(enrollmentTable)
+      .where(and(eq(enrollmentTable.athleteId, athleteId), eq(enrollmentTable.programType, input.desiredProgramType)))
+      .limit(1);
 
-  if (!existingEnrollment[0]) {
-    await db.insert(enrollmentTable).values({
-      athleteId,
-      programType: input.desiredProgramType,
-      status,
-      assignedByCoach: input.desiredProgramType === "PHP" ? input.userId : null,
-    });
+    if (!existingEnrollment[0]) {
+      await db.insert(enrollmentTable).values({
+        athleteId,
+        programType: input.desiredProgramType,
+        status: enrollmentStatus,
+        assignedByCoach: input.desiredProgramType === "PHP" ? input.userId : null,
+      });
+    }
   }
 
-  return { athleteId, athleteUserId: updatedAthlete.userId, status };
+  return { athleteId, athleteUserId: updatedAthlete.userId, status: responseStatus };
 }
 
 export async function updateAthleteProfilePicture(input: {
@@ -479,18 +468,22 @@ async function maybeSendBirthdayNotifications(athlete: (typeof athleteTable.$inf
   );
 }
 
+const LEGACY_ONBOARDING_FIELD_IDS = new Set(["relationToAthlete", "desiredProgramType"]);
+
 function normalizeConfigFields(fields: any[] | null | undefined) {
   if (!Array.isArray(fields)) return [];
   const hasBirthDate = fields.some((field) => field?.id === "birthDate");
-  return fields.map((field) => {
-    if (field?.id === "age" && !hasBirthDate) {
-      return { ...field, id: "birthDate", label: field.label || "Birth Date", type: "date" };
-    }
-    if (field?.id === "growthNotes") {
-      return { ...field, required: false };
-    }
-    return field;
-  });
+  return fields
+    .filter((field) => field?.id && !LEGACY_ONBOARDING_FIELD_IDS.has(String(field.id)))
+    .map((field) => {
+      if (field?.id === "age" && !hasBirthDate) {
+        return { ...field, id: "birthDate", label: field.label || "Birth Date", type: "date" };
+      }
+      if (field?.id === "growthNotes") {
+        return { ...field, required: false };
+      }
+      return field;
+    });
 }
 
 export async function getPublicOnboardingConfig() {

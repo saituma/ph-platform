@@ -15,6 +15,7 @@ export default function VerifyScreen() {
   const [otp, setOtp] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [resendSuccess, setResendSuccess] = useState(false);
   const router = useRouter();
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
@@ -154,6 +155,7 @@ export default function VerifyScreen() {
           </Text>
           <Pressable
             onPress={async () => {
+              if (resendSuccess) return;
               setFormError(null);
               if (!email) {
                 setFormError("Missing email address");
@@ -165,6 +167,8 @@ export default function VerifyScreen() {
                   method: "POST",
                   body: { email },
                 });
+                setResendSuccess(true);
+                setTimeout(() => setResendSuccess(false), 5000);
               } catch (err: any) {
                 setFormError(getFriendlyAuthErrorMessage(err, "resend"));
               } finally {
@@ -173,7 +177,7 @@ export default function VerifyScreen() {
             }}
           >
             <Text className="text-accent font-bold text-base font-outfit">
-              Resend
+              {resendSuccess ? "Code sent!" : "Resend"}
             </Text>
           </Pressable>
         </View>

@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
+import { Shadows } from "@/constants/theme";
 
 export default function OnboardingScreen() {
   const { colors, isDark } = useAppTheme();
@@ -27,7 +28,8 @@ export default function OnboardingScreen() {
           backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
           borderWidth: 1,
           borderColor: colors.border,
-          boxShadow: isDark ? "0 0 0 rgba(0,0,0,0)" : "0 24px 48px rgba(15, 23, 42, 0.08)",
+          boxShadow: undefined,
+          ...(isDark ? Shadows.none : Shadows.lg),
           gap: 18,
         }}
       >

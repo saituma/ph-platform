@@ -5,11 +5,11 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useRole } from "@/context/RoleContext";
-import { Feather } from "@expo/vector-icons";
+import { Feather } from "@/components/ui/theme-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Pressable, TouchableOpacity, View, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -17,11 +17,13 @@ import { updateProfile } from "@/store/slices/userSlice";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
+import { getNotifications } from "@/lib/notifications";
+import { Shadows } from "@/constants/theme";
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
   const { role } = useRole();
-  const { isDark } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { isLoading } = useRefreshContext();
   const { profile, token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
@@ -64,11 +66,38 @@ export default function ProfileSettingsScreen() {
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [position, setPosition] = useState("");
+  const [pushToken, setPushToken] = useState<string | null>(null);
+  const [isSendingTestPush, setIsSendingTestPush] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [activeAthleteId, setActiveAthleteId] = useState<number | null>(null);
 
   useEffect(() => {
     setName(profile.name ?? "");
     setEmail(profile.email ?? "");
   }, [profile.name, profile.email]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const Notifications = await getNotifications();
+        if (Notifications) {
+          const perm = await Notifications.getPermissionsAsync();
+          if (perm.status === "granted") {
+            const Constants = await import("expo-constants");
+            const anyConstants = Constants as any;
+            const projectId =
+              anyConstants?.default?.expoConfig?.extra?.eas?.projectId ??
+              anyConstants?.expoConfig?.extra?.eas?.projectId;
+            
+            const expoToken = await Notifications.getExpoPushTokenAsync({ projectId });
+            setPushToken(expoToken.data);
+          }
+        }
+      } catch (e) {
+        if (__DEV__) console.warn("[Debug] Failed to get push token", e);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -100,6 +129,7 @@ export default function ProfileSettingsScreen() {
         const activeAthlete =
           athleteList.find((item) => item.id === data.guardian?.activeAthleteId) ?? athleteList[0] ?? null;
         setManagedAthlete(activeAthlete ?? null);
+        setActiveAthleteId(activeAthlete?.id ?? null);
         setManagedAthleteCount(athleteList.length);
       } catch {
         if (!active) return;
@@ -114,13 +144,41 @@ export default function ProfileSettingsScreen() {
     };
   }, [role, token]);
 
+  // BUG-20: Load athlete details (height, weight, position) from the server
+  useEffect(() => {
+    if (!token || !activeAthleteId) return;
+    let active = true;
+    (async () => {
+      try {
+        const data = await apiRequest<{
+          athlete?: {
+            height?: string | null;
+            weight?: string | null;
+            position?: string | null;
+          } | null;
+        }>(`/onboarding/athletes/${activeAthleteId}`, {
+          token,
+          suppressStatusCodes: [401, 403, 404],
+        });
+        if (!active) return;
+        if (data.athlete) {
+          setHeight(data.athlete.height ?? "");
+          setWeight(data.athlete.weight ?? "");
+          setPosition(data.athlete.position ?? "");
+        }
+      } catch {
+        // Fields stay empty if we can't load — that's fine
+      }
+    })();
+    return () => { active = false; };
+  }, [token, activeAthleteId]);
+
   if (isSectionHidden("settings")) {
     return <AgeGate title="Settings locked" message="Settings are restricted for this age." />;
   }
 
   const handleRefresh = async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    console.log("Refreshed Profile Settings");
   };
 
   const uploadAvatar = async (uri: string) => {
@@ -183,6 +241,19 @@ export default function ProfileSettingsScreen() {
     }
   };
 
+  const handleTestPush = async () => {
+    if (!token || isSendingTestPush) return;
+    setIsSendingTestPush(true);
+    try {
+      await apiRequest("/notifications/test-push", { method: "POST", token });
+      Alert.alert("Success", "Test notification sent! It should arrive in a few seconds.");
+    } catch (err: any) {
+      Alert.alert("Test Push Failed", err.message);
+    } finally {
+      setIsSendingTestPush(false);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <MoreStackHeader
@@ -205,17 +276,7 @@ export default function ProfileSettingsScreen() {
           <View className="gap-6">
             <View
               className="bg-input rounded-3xl p-6 shadow-sm border border-app"
-              style={
-                isDark
-                  ? undefined
-                  : {
-                      shadowColor: "#0F172A",
-                      shadowOpacity: 0.08,
-                      shadowRadius: 12,
-                      shadowOffset: { width: 0, height: 6 },
-                      elevation: 6,
-                    }
-              }
+              style={isDark ? Shadows.none : Shadows.sm}
             >
               <View className="flex-row items-center gap-4 mb-6">
                 <View className="relative">
@@ -225,7 +286,7 @@ export default function ProfileSettingsScreen() {
                     </View>
                   ) : (
                     <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center border-2 border-accent">
-                      <Feather name="user" size={40} className="text-secondary" />
+                      <Feather name="user" size={40} color={colors.textSecondary} />
                     </View>
                   )}
                   <TouchableOpacity
@@ -271,17 +332,7 @@ export default function ProfileSettingsScreen() {
             {role === "Guardian" && (
               <View
                 className="bg-input rounded-3xl p-6 shadow-sm border border-app"
-                style={
-                  isDark
-                    ? undefined
-                    : {
-                        shadowColor: "#0F172A",
-                        shadowOpacity: 0.08,
-                        shadowRadius: 12,
-                        shadowOffset: { width: 0, height: 6 },
-                        elevation: 6,
-                      }
-                }
+                style={isDark ? Shadows.none : Shadows.sm}
               >
                 <SectionHeader
                   title="Guardian Settings"
@@ -304,7 +355,7 @@ export default function ProfileSettingsScreen() {
                     <Feather
                       name="chevron-right"
                       size={20}
-                      className="text-muted"
+                      color={colors.textSecondary}
                     />
                   </View>
                 </TouchableOpacity>
@@ -314,17 +365,7 @@ export default function ProfileSettingsScreen() {
             {role === "Athlete" && (
               <View
                 className="bg-input rounded-3xl p-6 shadow-sm border border-app"
-                style={
-                  isDark
-                    ? undefined
-                    : {
-                        shadowColor: "#0F172A",
-                        shadowOpacity: 0.08,
-                        shadowRadius: 12,
-                        shadowOffset: { width: 0, height: 6 },
-                        elevation: 6,
-                      }
-                }
+                style={isDark ? Shadows.none : Shadows.sm}
               >
                 <SectionHeader
                   title="Player Details"
@@ -359,7 +400,7 @@ export default function ProfileSettingsScreen() {
                     icon="map-pin"
                   />
                   <TouchableOpacity
-                    onPress={() => {}}
+                    onPress={() => Alert.alert("Coming Soon", "Emergency contact management will be available in a future update.")}
                     className="flex-row items-center justify-between py-4 border-t border-app"
                   >
                     <Text className="text-base font-medium font-outfit text-app">
@@ -368,7 +409,7 @@ export default function ProfileSettingsScreen() {
                     <Feather
                       name="chevron-right"
                       size={20}
-                      className="text-muted"
+                      color={colors.textSecondary}
                     />
                   </TouchableOpacity>
                 </View>
@@ -376,13 +417,80 @@ export default function ProfileSettingsScreen() {
             )}
 
             <ActionButton
-              label="Save Changes"
+              label={isSaving ? "Saving..." : "Save Changes"}
               icon="check"
               color="bg-accent"
               iconColor="text-white"
-              onPress={() => router.navigate("/(tabs)/more")}
+              onPress={async () => {
+                if (!token || isSaving) return;
+                setIsSaving(true);
+                try {
+                  // Save name to user profile
+                  if (name !== profile.name) {
+                    const response = await apiRequest<{ user: { name?: string | null; profilePicture?: string | null } }>("/auth/me", {
+                      method: "PATCH",
+                      token,
+                      body: { name },
+                    });
+                    dispatch(updateProfile({ name: response.user.name ?? name }));
+                  }
+                  // Save athlete-specific fields if we have an athlete ID
+                  if (activeAthleteId && role === "Athlete") {
+                    await apiRequest(`/onboarding/athletes/${activeAthleteId}`, {
+                      method: "PATCH",
+                      token,
+                      body: { height, weight, position },
+                      suppressStatusCodes: [404],
+                    });
+                  }
+                  Alert.alert("Success", "Your changes have been saved.");
+                } catch (err: any) {
+                  Alert.alert("Save Failed", err.message ?? "Something went wrong.");
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
               fullWidth={true}
             />
+
+            <View
+              className="bg-input rounded-3xl p-6 shadow-sm border border-app mt-4"
+              style={isDark ? Shadows.none : Shadows.sm}
+            >
+              <SectionHeader
+                title="Debug & Notifications"
+                subtitle="Verify push notification status."
+                icon="bell"
+                iconColor="text-orange-500"
+              />
+              
+              <View className="gap-4">
+                <View>
+                  <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mb-2">Expo Push Token</Text>
+                  <View className="bg-app border border-app rounded-xl p-3">
+                    <Text className="text-[11px] font-mono text-secondary" numberOfLines={2}>
+                      {pushToken || "Token not available (check permissions)"}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleTestPush}
+                  disabled={isSendingTestPush}
+                  className="rounded-2xl border border-app py-4 flex-row items-center justify-center gap-2"
+                  style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F8FAFC" }}
+                >
+                  {isSendingTestPush ? (
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  ) : (
+                    <Feather name="send" size={16} color={colors.accent} />
+                  )}
+                  <Text className="text-sm font-outfit font-bold text-accent uppercase tracking-wider">
+                    {isSendingTestPush ? "Sending..." : "Send Test Push"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         )}
       </ThemedScrollView>
@@ -404,8 +512,8 @@ export default function ProfileSettingsScreen() {
             </Text>
             {managedAthletes.length ? (
               <View className="gap-3">
-                {managedAthletes.map((athlete) => (
-                  <View key={athlete.id ?? athlete.name ?? Math.random()} className="gap-3">
+                {managedAthletes.map((athlete, index) => (
+                  <View key={athlete.id ?? athlete.name ?? `athlete-${index}`} className="gap-3">
                     <View className="flex-row items-center gap-3">
                       {athlete.profilePicture ? (
                         <View className="w-14 h-14 rounded-full overflow-hidden border-2 border-accent">
@@ -413,7 +521,7 @@ export default function ProfileSettingsScreen() {
                         </View>
                       ) : (
                         <View className="w-14 h-14 rounded-full bg-secondary items-center justify-center border-2 border-accent">
-                          <Feather name="user" size={26} className="text-secondary" />
+                          <Feather name="user" size={26} color={colors.textSecondary} />
                         </View>
                       )}
                       <View className="flex-1">
@@ -562,10 +670,11 @@ function SectionHeader({
   icon: any;
   iconColor: string;
 }) {
+  const { colors } = useAppTheme();
   return (
     <View className="flex-row items-center gap-4 mb-6">
       <View className="w-12 h-12 bg-secondary/10 rounded-2xl items-center justify-center">
-        <Feather name={icon} size={20} className={iconColor} />
+        <Feather name={icon} size={20} color={colors.text} />
       </View>
       <View className="flex-1">
         <View className="flex-row items-center gap-3 mb-1">
