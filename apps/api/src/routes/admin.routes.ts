@@ -51,6 +51,7 @@ import {
   updatePremiumPlanExerciseAdmin,
   deletePremiumPlanExerciseAdmin,
   listTrainingSnapshotAdmin,
+  listPremiumSessionCheckinsAdmin,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -87,6 +88,7 @@ router.post("/admin/messages/:userId/read", markThreadRead);
 router.get("/admin/users/:userId/onboarding", getOnboarding);
 router.get("/admin/users/:userId/program-section-completions", listProgramSectionCompletionsAdmin);
 router.get("/admin/users/:userId/premium-plan", getPremiumPlanAdmin);
+router.get("/admin/users/:userId/premium-session-checkins", listPremiumSessionCheckinsAdmin);
 router.post("/admin/users/:userId/premium-plan/clone", clonePremiumPlanAdmin);
 router.post("/admin/users/:userId/premium-plan/sessions", createPremiumPlanSessionAdmin);
 router.patch("/admin/users/:userId/premium-plan/sessions/:sessionId", updatePremiumPlanSessionAdmin);

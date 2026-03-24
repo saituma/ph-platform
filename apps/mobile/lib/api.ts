@@ -193,8 +193,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       cacheHydrationPromise = null;
     }
     const cached = apiCache.get(cacheKey);
-    if (cached) {
+    const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+    if (cached && Date.now() - cached.savedAt < CACHE_TTL_MS) {
       return cached.data as T;
+    }
+    if (cached) {
+      apiCache.delete(cacheKey);
     }
   }
 

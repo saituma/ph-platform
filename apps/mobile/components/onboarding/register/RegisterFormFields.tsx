@@ -400,7 +400,53 @@ export function RegisterFormFields({
         </View>
       ) : null}
 
-      {null}
+      {isGuardianStep && isVisible("desiredProgramType") ? (
+        <View>
+          <Text className="text-secondary text-sm font-outfit mb-2 ml-1">
+            Which program are you interested in?
+          </Text>
+          <Controller
+            control={control}
+            name="desiredProgramType"
+            render={({ field: { onChange, value } }) => (
+              <View className="gap-2">
+                {PROGRAM_TIERS.map((tier) => {
+                  const tierKey =
+                    tier.id === "php" ? "PHP" : tier.id === "plus" ? "PHP_Plus" : "PHP_Premium";
+                  const isSelected = value === tierKey;
+                  return (
+                    <Pressable
+                      key={tier.id}
+                      onPress={() => onChange(tierKey)}
+                      className={`rounded-2xl border px-4 py-3 flex-row items-center gap-3 ${
+                        isSelected ? "border-accent bg-accent/10" : "border-app bg-input"
+                      }`}
+                    >
+                      <View
+                        className={`h-5 w-5 rounded-full border items-center justify-center ${
+                          isSelected ? "border-accent bg-accent" : "border-app"
+                        }`}
+                      >
+                        {isSelected ? (
+                          <Feather name="check" size={12} color="white" />
+                        ) : null}
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-app font-outfit font-semibold text-base">
+                          {tier.name}
+                        </Text>
+                        <Text className="text-secondary font-outfit text-xs mt-0.5">
+                          {tier.description}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          />
+        </View>
+      ) : null}
 
       {isGuardianStep ? customFields.map((field) => (
         <View key={field.id}>

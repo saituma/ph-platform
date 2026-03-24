@@ -9,19 +9,32 @@ import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Image,
   InteractionManager,
   RefreshControl,
   ScrollView,
   TouchableOpacity,
   View,
+  Dimensions,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useRouter } from "expo-router";
+import { hasPaidProgramTier } from "@/lib/planAccess";
+import Animated, { 
+  FadeInDown, 
+  FadeInRight, 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withSpring,
+  withDelay 
+} from "react-native-reanimated";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type HomeTestimonial = {
   id: string;
@@ -47,11 +60,37 @@ type HomeContentPayload = {
   professionalPhotos?: string[] | string | null;
 };
 
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
+const QuickLink = ({ icon, label, sublabel, onPress, index, colors, isDark }: any) => {
+  return (
+    <AnimatedTouchableOpacity
+      entering={FadeInRight.delay(400 + index * 100).springify()}
+      onPress={onPress}
+      activeOpacity={0.8}
+      className="flex-1 rounded-[32px] p-5 h-[160px] justify-between border"
+      style={{
+        backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)",
+        ...(isDark ? Shadows.none : Shadows.md),
+      }}
+    >
+      <View className="h-12 w-12 rounded-[20px] items-center justify-center" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "#F0FDF4" }}>
+        <Feather name={icon} size={22} color={colors.accent} />
+      </View>
+      <View>
+        <Text className="text-[16px] font-clash font-bold text-app mb-0.5" numberOfLines={1}>{label}</Text>
+        <Text className="text-[11px] font-outfit text-secondary" numberOfLines={1}>{sublabel}</Text>
+      </View>
+    </AnimatedTouchableOpacity>
+  );
+};
+
 export default function HomeScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, token } = useAppSelector((state) => state.user);
+  const { profile, token, programTier } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
@@ -61,16 +100,12 @@ export default function HomeScreen() {
   const lastLoadAtRef = useRef(0);
   const hasLoadedRef = useRef(false);
 
-  if (isSectionHidden("dashboard")) {
-    return <AgeGate title="Dashboard locked" message="Dashboard content is restricted for this age." />;
-  }
-
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
     if (hour < 18) return "Good Afternoon";
     return "Good Evening";
-  }, []);
+  }, [isRefreshing]);
 
   useEffect(() => {
     return () => {
@@ -86,44 +121,28 @@ export default function HomeScreen() {
       const item = (data.items ?? [])[0];
       if (!item) {
         if (!isMountedRef.current) return;
-        if (!hasLoadedRef.current) {
-          setHomeContent(null);
-        }
+        if (!hasLoadedRef.current) setHomeContent(null);
       } else {
         let body: HomeContentPayload = {};
         if (item.body) {
           if (typeof item.body === "string" && item.body.trim().length) {
-            try {
-              body = JSON.parse(item.body) as HomeContentPayload;
-            } catch {
-              body = {};
-            }
+            try { body = JSON.parse(item.body) as HomeContentPayload; } catch { body = {}; }
           } else if (typeof item.body === "object") {
             body = item.body as HomeContentPayload;
           }
         }
-        const parsedTestimonials =
-          typeof body.testimonials === "string" && (body.testimonials as string).trim().length
-            ? (() => {
-                try {
-                  const parsed = JSON.parse(body.testimonials);
-                  return Array.isArray(parsed) ? parsed : null;
-                } catch {
-                  return null;
-                }
-              })()
+        const parsedTestimonials = typeof body.testimonials === "string" && (body.testimonials as string).trim().length
+            ? (() => { try { const parsed = JSON.parse(body.testimonials); return Array.isArray(parsed) ? parsed : null; } catch { return null; } })()
             : null;
-        const professionalPhoto =
-          typeof body.professionalPhoto === "string" && body.professionalPhoto.trim()
+        
+        const professionalPhoto = typeof body.professionalPhoto === "string" && body.professionalPhoto.trim()
             ? body.professionalPhoto.trim()
             : Array.isArray(body.professionalPhotos)
               ? body.professionalPhotos[0] ?? null
               : typeof body.professionalPhotos === "string"
-                ? body.professionalPhotos
-                    .split(/\r?\n|,/)
-                    .map((entry) => entry.trim())
-                    .filter(Boolean)[0] ?? null
+                ? body.professionalPhotos.split(/\r?\n|,/).map((entry) => entry.trim()).filter(Boolean)[0] ?? null
                 : null;
+
         if (!isMountedRef.current) return;
         setHomeContent({
           headline: body.headline ?? item.content ?? item.title ?? null,
@@ -148,7 +167,7 @@ export default function HomeScreen() {
     }
   }, [token]);
 
-  const scheduleLoad = React.useCallback(() => {
+  useEffect(() => {
     const now = Date.now();
     if (now - lastLoadAtRef.current < 500) return;
     lastLoadAtRef.current = now;
@@ -158,20 +177,19 @@ export default function HomeScreen() {
     return () => task?.cancel?.();
   }, [loadHomeContent]);
 
-  useEffect(() => {
-    return scheduleLoad();
-  }, [scheduleLoad]);
-
   const showSkeleton = isLoadingContent && !homeContentError;
 
+  if (isSectionHidden("dashboard")) {
+    return <AgeGate title="Dashboard locked" message="Dashboard content is restricted for this age." />;
+  }
+
   return (
-    <View className="flex-1" style={{ paddingTop: insets.top }}>
+    <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <ScrollView
-        className="flex-1 bg-transparent"
+        className="flex-1"
         contentContainerStyle={{
-          paddingTop: 10,
-          paddingBottom: insets.bottom + 100, // Extra padding to clear floating tab bar
-          paddingHorizontal: 24,
+          paddingTop: insets.top + 10,
+          paddingBottom: insets.bottom + 100,
         }}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -183,180 +201,174 @@ export default function HomeScreen() {
                 setTimeout(() => setIsRefreshing(false), 400);
               });
             }}
-            tintColor={colors.textSecondary}
+            tintColor={colors.accent}
           />
         }
       >
-        <View className="mb-10">
-          <View className="relative bg-card rounded-[32px] p-6 overflow-hidden" style={isDark ? Shadows.none : Shadows.md}>
-            <View
-              style={{
-                position: "absolute",
-                top: -40,
-                right: -40,
-                width: 160,
-                height: 160,
-                borderRadius: 80,
-                backgroundColor: colors.accentLight,
-                opacity: 0.6,
-              }}
-            />
-            <View
-              style={{
-                position: "absolute",
-                bottom: -48,
-                left: -48,
-                width: 200,
-                height: 200,
-                borderRadius: 100,
-                backgroundColor: colors.backgroundSecondary,
-                opacity: 0.9,
-              }}
-            />
-
-            <View className="flex-row justify-between items-start">
-              <View className="flex-1">
-                <View className="flex-row items-center gap-2 mb-3">
-                  <View className="h-2 w-2 rounded-full bg-success" />
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">
-                    Today
-                  </Text>
+        {/* Modern Hero Header */}
+        <Animated.View 
+          entering={FadeInDown.duration(600).springify()}
+          className="px-6 mb-8"
+        >
+          <View className="flex-row justify-between items-center mb-6">
+            <View>
+              <View className="flex-row items-center gap-2 mb-1">
+                <View className="h-1.5 w-1.5 rounded-full bg-accent" />
+                <Text className="text-[10px] font-outfit font-bold text-secondary uppercase tracking-[2px]">
+                  {greeting}
+                </Text>
+              </View>
+              <Text className="font-clash text-[32px] font-bold text-app leading-none">
+                Hi, {profile?.name?.split(" ")[0] || "Athlete"}
+              </Text>
+            </View>
+            
+            <TouchableOpacity 
+              onPress={() => router.push("/profile-settings")}
+              className="h-14 w-14 rounded-[20px] overflow-hidden border-2"
+              style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(34,197,94,0.1)" }}
+            >
+              {profile?.avatar ? (
+                <Image source={{ uri: profile.avatar }} className="h-full w-full" />
+              ) : (
+                <View className="h-full w-full items-center justify-center bg-accent/10">
+                  <Feather name="user" size={24} color={colors.accent} />
                 </View>
-                {showSkeleton ? (
-                  <>
-                    <Skeleton width={220} height={36} borderRadius={18} style={{ marginBottom: 10 }} />
-                    <Skeleton width={180} height={30} borderRadius={16} />
-                    <Skeleton width={200} height={16} borderRadius={10} style={{ marginTop: 16 }} />
-                  </>
-                ) : (
-                  <>
-                    <Text className="font-telma-bold text-4xl text-app leading-[1.05]">
-                      {greeting},{"\n"}
-                      <Text className="text-accent">
-                        {profile?.name || "Guardian"}
-                      </Text>
-                    </Text>
-                    {homeContent?.welcome ? (
-                      <Text className="text-secondary font-outfit text-sm mt-3 max-w-[240px]">
-                        {homeContent.welcome}
-                      </Text>
-                    ) : null}
-                  </>
-                )}
-              </View>
+              )}
+            </TouchableOpacity>
+          </View>
 
-              <View className="h-14 w-14 bg-card rounded-[22px] items-center justify-center relative overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
-                {showSkeleton ? (
-                  <Skeleton width={56} height={56} circle />
-                ) : profile?.avatar ? (
-                  <Image
-                    source={{ uri: profile.avatar }}
-                    resizeMode="cover"
-                    className="h-full w-full"
-                  />
-                ) : (
-                  <Feather name="user" size={24} className="text-app" />
-                )}
-                <View className="absolute bottom-0 right-0 h-4 w-4 bg-success rounded-full" />
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => router.push("/(tabs)/programs")}
+            className="rounded-[32px] overflow-hidden p-6 relative"
+            style={{ 
+              backgroundColor: isDark ? colors.cardElevated : "#111827",
+              ...(isDark ? Shadows.none : Shadows.lg)
+            }}
+          >
+            <View className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent/10" />
+            <View className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-white/5" />
+            
+            <View className="relative z-10">
+              <View className="self-start rounded-full px-3 py-1 mb-4" style={{ backgroundColor: "rgba(34,197,94,0.2)" }}>
+                <Text className="text-[10px] font-outfit font-bold text-accent uppercase tracking-[1px]">
+                  Current Status
+                </Text>
+              </View>
+              <Text className="text-white font-clash text-2xl font-bold">
+                {programTier ? "Elite Training Active" : "Ready to start?"}
+              </Text>
+              <Text className="text-white/60 font-outfit text-sm mt-2 max-w-[220px]">
+                {programTier 
+                  ? "Your personalized program is waiting. Hit your targets today."
+                  : "Unlock your full potential with a professional training plan."}
+              </Text>
+              
+              <View className="mt-6 flex-row items-center gap-2">
+                <View className="rounded-full bg-accent px-5 py-2.5 flex-row items-center gap-2">
+                  <Text className="text-white font-outfit font-bold text-xs uppercase tracking-wider">
+                    {programTier ? "Continue Training" : "View Plans"}
+                  </Text>
+                  <Feather name="arrow-right" size={14} color="#FFF" />
+                </View>
               </View>
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </Animated.View>
 
-        <View className="mb-10">
-          <View className="flex-row items-center gap-2 mb-4">
-            <View className="h-2 w-2 rounded-full bg-accent" />
-            <Text className="text-xs font-outfit text-secondary uppercase tracking-[2px]">Quick Links</Text>
-          </View>
-          <View className="flex-row flex-wrap gap-3">
-            <TouchableOpacity
+        {/* Command Center - Refined Two-Column Layout */}
+        <View className="mb-10 px-6">
+          <Animated.View 
+            entering={FadeInDown.delay(300).duration(600)}
+            className="flex-row items-center justify-between mb-4"
+          >
+            <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2.5px]">Command Center</Text>
+          </Animated.View>
+          
+          <View className="flex-row gap-4">
+            <QuickLink 
+              index={0}
+              icon="edit-3" 
+              label="Submit Diary" 
+              sublabel="Log your fuel" 
               onPress={() => router.push("/food-diary")}
-              className="flex-1 min-w-[140px] rounded-[20px] border px-4 py-4"
-              style={{
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
-                ...(isDark ? Shadows.none : Shadows.sm),
+              colors={colors}
+              isDark={isDark}
+            />
+            <QuickLink 
+              index={1}
+              icon="users" 
+              label="Parent Platform" 
+              sublabel="Family support" 
+              onPress={() => {
+                if (!hasPaidProgramTier(programTier)) {
+                  Alert.alert(
+                    "Choose a plan",
+                    "Pick a training plan in the Programs tab to unlock parent education content.",
+                    [
+                      { text: "Not now", style: "cancel" },
+                      { text: "Programs", onPress: () => router.push("/(tabs)/programs") },
+                    ],
+                  );
+                  return;
+                }
+                router.push("/parent-platform");
               }}
-            >
-              <View className="h-10 w-10 rounded-2xl items-center justify-center mb-3" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : colors.accentLight }}>
-                <Feather name="coffee" size={18} color={colors.accent} />
-              </View>
-              <Text className="text-sm font-outfit font-semibold text-app">Food Diary</Text>
-              <Text className="text-xs font-outfit text-secondary mt-1">Log meals</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push("/parent-platform")}
-              className="flex-1 min-w-[140px] rounded-[24px] border px-5 py-5"
-              style={{
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
-                ...(isDark ? Shadows.none : Shadows.sm),
-              }}
-            >
-              <View className="h-12 w-12 rounded-[18px] items-center justify-center mb-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : colors.accentLight }}>
-                <Feather name="users" size={18} color={colors.accent} />
-              </View>
-              <Text className="text-sm font-outfit font-semibold text-app">Parent Platform</Text>
-              <Text className="text-xs font-outfit text-secondary mt-1">Family support</Text>
-            </TouchableOpacity>
+              colors={colors}
+              isDark={isDark}
+            />
           </View>
         </View>
 
-        {homeContentError ? (
-          <View className="mb-8 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
-            <Text className="text-sm font-outfit text-red-400">{homeContentError}</Text>
+        {/* Dynamic Content Sections */}
+        <View className="px-6 gap-12">
+          {showSkeleton ? (
+            <View className="gap-8">
+              <Skeleton width="100%" height={200} borderRadius={32} />
+              <Skeleton width="100%" height={140} borderRadius={32} />
+            </View>
+          ) : (
+            <>
+              {homeContent?.introVideoUrl && (
+                <Animated.View entering={FadeInDown.delay(600).springify()}>
+                  <View className="flex-row items-center gap-2 mb-4">
+                    <View className="h-1.5 w-1.5 rounded-full bg-accent" />
+                    <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2px]">Featured Highlight</Text>
+                  </View>
+                  <IntroVideoSection
+                    introVideoUrl={homeContent.introVideoUrl}
+                    posterUrl={homeContent.heroImageUrl ?? null}
+                  />
+                </Animated.View>
+              )}
+
+              <Animated.View entering={FadeInDown.delay(700).springify()}>
+                <GuardianDashboard />
+              </Animated.View>
+
+              {homeContent?.adminStory && (
+                <Animated.View entering={FadeInDown.delay(800).springify()}>
+                  <AdminStorySection
+                    story={homeContent.adminStory}
+                    photoUrl={homeContent.professionalPhoto ?? null}
+                  />
+                </Animated.View>
+              )}
+
+              {homeContent?.testimonials && (
+                <Animated.View entering={FadeInDown.delay(900).springify()} className="mb-10">
+                  <TestimonialsSection items={homeContent.testimonials} />
+                </Animated.View>
+              )}
+            </>
+          )}
+        </View>
+
+        {homeContentError && (
+          <View className="mx-6 mt-4 rounded-2xl bg-red-500/10 p-4 border border-red-500/20">
+            <Text className="text-xs font-outfit text-red-500 text-center">{homeContentError}</Text>
           </View>
-        ) : !showSkeleton && !homeContent ? (
-          <View className="mb-8 rounded-2xl border border-white/10 bg-card p-4">
-            <Text className="text-sm font-outfit text-secondary">
-              Home content will appear here once it is available.
-            </Text>
-          </View>
-        ) : null}
-
-        {showSkeleton ? (
-          <>
-            <View className="mb-6">
-              <Skeleton width="100%" height={180} borderRadius={28} />
-            </View>
-            <View className="mb-8">
-              <Skeleton width="100%" height={140} borderRadius={24} />
-            </View>
-            <View className="mt-6 gap-6">
-              <Skeleton width="100%" height={120} borderRadius={24} />
-              <Skeleton width="100%" height={180} borderRadius={24} />
-              <Skeleton width="100%" height={160} borderRadius={24} />
-            </View>
-          </>
-        ) : (
-          <>
-            {homeContent?.introVideoUrl ? (
-              <View className="mb-14">
-                <IntroVideoSection
-                  introVideoUrl={homeContent.introVideoUrl}
-                  posterUrl={homeContent.heroImageUrl ?? null}
-                />
-              </View>
-            ) : null}
-
-            <View className="mb-8">
-              <GuardianDashboard />
-            </View>
-
-            <View className="mt-16 gap-16">
-              <View>
-                <AdminStorySection
-                  story={homeContent?.adminStory}
-                  photoUrl={homeContent?.professionalPhoto ?? null}
-                />
-              </View>
-
-              <View>
-                <TestimonialsSection items={homeContent?.testimonials ?? null} />
-              </View>
-            </View>
-          </>
         )}
       </ScrollView>
     </View>

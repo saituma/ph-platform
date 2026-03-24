@@ -6,8 +6,26 @@ export function useProgramPanel() {
   const { isDark, colors } = useAppTheme();
 
   const scheduleLocalNotification = useCallback(
-    async () => {},
-    []
+    async (title: string, body: string, data?: Record<string, unknown>) => {
+      try {
+        const { getNotifications } = await import("@/lib/notifications");
+        const Notifications = await getNotifications();
+        if (!Notifications) return;
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: data ?? {},
+            sound: "default",
+          },
+          trigger: null,
+        });
+      } catch (err) {
+        if (__DEV__) console.warn("[useProgramPanel] Failed to schedule notification:", err);
+      }
+    },
+    [],
   );
 
   const formatDate = useCallback((value?: string | null) => {

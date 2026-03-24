@@ -313,3 +313,30 @@ export async function completePlanSession(input: {
   return row ?? null;
 }
 
+export async function listPlanSessionCompletions(input: {
+  athleteId: number;
+  limit?: number;
+}) {
+  const rows = await db
+    .select({
+      id: athletePlanSessionCompletionTable.id,
+      planSessionId: athletePlanSessionCompletionTable.planSessionId,
+      rpe: athletePlanSessionCompletionTable.rpe,
+      soreness: athletePlanSessionCompletionTable.soreness,
+      fatigue: athletePlanSessionCompletionTable.fatigue,
+      notes: athletePlanSessionCompletionTable.notes,
+      completedAt: athletePlanSessionCompletionTable.completedAt,
+      weekNumber: athletePlanSessionTable.weekNumber,
+      sessionNumber: athletePlanSessionTable.sessionNumber,
+      sessionTitle: athletePlanSessionTable.title,
+    })
+    .from(athletePlanSessionCompletionTable)
+    .innerJoin(
+      athletePlanSessionTable,
+      eq(athletePlanSessionCompletionTable.planSessionId, athletePlanSessionTable.id),
+    )
+    .where(eq(athletePlanSessionCompletionTable.athleteId, input.athleteId))
+    .orderBy(desc(athletePlanSessionCompletionTable.completedAt))
+    .limit(input.limit ?? 50);
+  return rows;
+}

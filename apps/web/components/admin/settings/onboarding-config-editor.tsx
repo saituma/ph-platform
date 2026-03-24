@@ -36,7 +36,6 @@ export type RequiredDocDraft = {
 };
 
 const FIELD_TYPES: FieldType[] = ["text", "number", "dropdown", "date"];
-const TIERS = ["PHP", "PHP_Plus", "PHP_Premium"] as const;
 
 /** Stable id for API / mobile (e.g. team, skill_level). */
 export function slugifyFieldId(label: string): string {
@@ -156,7 +155,6 @@ function applyConfigRecord(
     setRequiredDocuments: (d: RequiredDocDraft[]) => void;
     setWelcomeMessage: (s: string) => void;
     setCoachMessage: (s: string) => void;
-    setDefaultProgramTier: (s: string) => void;
     setApprovalWorkflow: (w: "manual" | "auto") => void;
     setNotes: (s: string) => void;
     setPhpPlusTabsLines: (s: string) => void;
@@ -178,10 +176,6 @@ function applyConfigRecord(
   );
   setters.setWelcomeMessage(typeof cfg.welcomeMessage === "string" ? cfg.welcomeMessage : "");
   setters.setCoachMessage(typeof cfg.coachMessage === "string" ? cfg.coachMessage : "");
-  const tier = cfg.defaultProgramTier;
-  setters.setDefaultProgramTier(
-    typeof tier === "string" && TIERS.includes(tier as (typeof TIERS)[number]) ? tier : "PHP"
-  );
   setters.setApprovalWorkflow(cfg.approvalWorkflow === "auto" ? "auto" : "manual");
   setters.setNotes(typeof cfg.notes === "string" ? cfg.notes : "");
   const tabs = Array.isArray(cfg.phpPlusProgramTabs) ? cfg.phpPlusProgramTabs : [];
@@ -197,7 +191,6 @@ export function OnboardingConfigEditor() {
   const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocDraft[]>([]);
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [coachMessage, setCoachMessage] = useState("");
-  const [defaultProgramTier, setDefaultProgramTier] = useState<string>("PHP");
   const [approvalWorkflow, setApprovalWorkflow] = useState<"manual" | "auto">("manual");
   const [notes, setNotes] = useState("");
   const [phpPlusTabsLines, setPhpPlusTabsLines] = useState("");
@@ -215,7 +208,6 @@ export function OnboardingConfigEditor() {
       setRequiredDocuments,
       setWelcomeMessage,
       setCoachMessage,
-      setDefaultProgramTier,
       setApprovalWorkflow,
       setNotes,
       setPhpPlusTabsLines,
@@ -257,7 +249,6 @@ export function OnboardingConfigEditor() {
       })),
       welcomeMessage: welcomeMessage.trim() || null,
       coachMessage: coachMessage.trim() || null,
-      defaultProgramTier,
       approvalWorkflow,
       notes: notes.trim() || null,
       phpPlusProgramTabs:
@@ -349,7 +340,7 @@ export function OnboardingConfigEditor() {
         <CardHeader>
           <SectionHeader
             title="Global settings"
-            description="Messages and defaults shown during mobile onboarding."
+            description="Messages and defaults shown during mobile onboarding. Program tier is chosen when the user pays in the mobile app (Programs tab), not here."
           />
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -362,16 +353,6 @@ export function OnboardingConfigEditor() {
               onChange={(e) => setVersion(Math.max(1, Number(e.target.value) || 1))}
             />
             <p className="text-xs text-muted-foreground">Bump when you make breaking changes; stored with the config row.</p>
-          </div>
-          <div className="space-y-2">
-            <Label>Default program tier</Label>
-            <Select value={defaultProgramTier} onChange={(e) => setDefaultProgramTier(e.target.value)}>
-              {TIERS.map((t) => (
-                <option key={t} value={t}>
-                  {t.replace(/_/g, " ")}
-                </option>
-              ))}
-            </Select>
           </div>
           <div className="space-y-2">
             <Label>Approval workflow</Label>

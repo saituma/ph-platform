@@ -559,6 +559,13 @@ export const apiSlice = createApi({
       }),
       providesTags: ["Users"],
     }),
+    getUserPremiumSessionCheckins: builder.query<{ items: any[] }, { userId: number; limit?: number }>({
+      query: ({ userId, limit }) => ({
+        url: `/admin/users/${userId}/premium-session-checkins`,
+        params: limit ? { limit } : undefined,
+      }),
+      providesTags: ["Users"],
+    }),
     cloneUserPremiumPlan: builder.mutation<{ result: any }, { userId: number; replaceExisting?: boolean }>({
       query: ({ userId, replaceExisting }) => ({
         url: `/admin/users/${userId}/premium-plan/clone`,
@@ -799,6 +806,7 @@ export const {
   useCreateExerciseMutation,
   usePresignMediaUploadMutation,
   useGetUserPremiumPlanQuery,
+  useGetUserPremiumSessionCheckinsQuery,
   useCloneUserPremiumPlanMutation,
   useCreateUserPremiumPlanSessionMutation,
   useUpdateUserPremiumPlanSessionMutation,

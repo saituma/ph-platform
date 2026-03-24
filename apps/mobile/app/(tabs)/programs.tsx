@@ -226,9 +226,6 @@ export default function ProgramsScreen() {
       }
       const requiredTier =
         tierId === "plus" ? "PHP_Plus" : tierId === "premium" ? "PHP_Premium" : "PHP";
-      if (requiredTier === "PHP") {
-        return;
-      }
 
       const planId = plansByTier[requiredTier];
       const plan = planDetailsByTier[requiredTier];
@@ -347,6 +344,8 @@ export default function ProgramsScreen() {
     }
   }, [loadPlans, refreshBillingStatus, token]);
 
+  const insets = useSafeAreaInsets();
+
   if (isSectionHidden("programs")) {
     return (
       <AgeGate
@@ -357,7 +356,6 @@ export default function ProgramsScreen() {
   }
 
   // Otherwise, show the plan cards
-  const insets = useSafeAreaInsets();
   return (
     <View className="flex-1" style={{ paddingTop: insets.top }}>
       <ScrollView

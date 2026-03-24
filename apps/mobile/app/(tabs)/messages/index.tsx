@@ -2,7 +2,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { InboxScreen } from "@/components/messages/InboxScreen";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
@@ -16,8 +16,8 @@ import {
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { Ionicons } from "@expo/vector-icons";
-import { usePathname } from "expo-router";
-
+import { usePathname, useRouter } from "expo-router";
+import { hasPaidProgramTier } from "@/lib/planAccess";
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
@@ -37,7 +37,9 @@ export default function MessagesScreen() {
     resetOpeningThread,
   } = useMessagesController();
   const pathname = usePathname();
+  const router = useRouter();
   const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
+  const paidPlan = hasPaidProgramTier(programTier);
 
   React.useEffect(() => {
     if (!token) return;
@@ -105,8 +107,18 @@ export default function MessagesScreen() {
             Messages
           </Text>
           <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
-            Messaging isn&apos;t enabled for your current plan. Ask your coach if you need access.
+            {paidPlan
+              ? "Messaging is not enabled for your current plan. Ask your coach if you need access."
+              : "Choose a training plan in the Programs tab to unlock messaging with your coach."}
           </Text>
+          {!paidPlan ? (
+            <Pressable
+              onPress={() => router.push("/(tabs)/programs")}
+              className="mt-8 rounded-full px-8 py-3 bg-accent"
+            >
+              <Text className="text-sm font-outfit font-semibold text-white">Open Programs</Text>
+            </Pressable>
+          ) : null}
         </View>
       </SafeAreaView>
     );

@@ -26,7 +26,8 @@ const onboardingSchema = z.object({
   parentEmail: z.string().email(),
   parentPhone: z.string().optional(),
   relationToAthlete: z.string().optional(),
-  desiredProgramType: z.enum(ProgramType.enumValues),
+  /** Legacy / optional. New signups choose and pay for a plan in the app; tier is set via billing, not onboarding. */
+  desiredProgramType: z.enum(ProgramType.enumValues).optional(),
   termsVersion: z.string().min(1),
   privacyVersion: z.string().min(1),
   appVersion: z.string().min(1),
@@ -72,7 +73,7 @@ export async function submitOnboarding(req: Request, res: Response) {
     parentEmail: input.parentEmail,
     parentPhone: input.parentPhone,
     relationToAthlete: input.relationToAthlete,
-    desiredProgramType: input.desiredProgramType,
+    desiredProgramType: input.desiredProgramType ?? undefined,
     termsVersion: input.termsVersion,
     privacyVersion: input.privacyVersion,
     appVersion: input.appVersion,
@@ -86,7 +87,10 @@ export async function submitOnboarding(req: Request, res: Response) {
 
 export async function getOnboardingConfig(_req: Request, res: Response) {
   const config = await getPublicOnboardingConfig();
-  return res.status(200).json({ config });
+  const { defaultProgramTier: _defaultTier, ...publicConfig } = config as Record<string, unknown> & {
+    defaultProgramTier?: unknown;
+  };
+  return res.status(200).json({ config: publicConfig });
 }
 
 export async function getPhpPlusTabs(_req: Request, res: Response) {

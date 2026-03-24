@@ -26,7 +26,6 @@ type OnboardingConfig = {
   fields?: ConfigField[];
   welcomeMessage?: string;
   coachMessage?: string;
-  defaultProgramTier?: string;
   phpPlusProgramTabs?: string[];
   termsVersion?: string;
   privacyVersion?: string;
@@ -100,8 +99,6 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
       performanceGoals: "",
       equipmentAccess: "",
       parentPhone: "",
-      relationToAthlete: "Guardian",
-      desiredProgramType: "PHP",
       isChecked: false,
     },
     mode: "onChange",
@@ -303,11 +300,13 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
           extraResponses[field.id] = String((data as Record<string, unknown>)[field.id] ?? "");
         });
 
-        const programTier = String((data as Record<string, unknown>).desiredProgramType || config?.defaultProgramTier || "PHP");
-        const relation = String((data as Record<string, unknown>).relationToAthlete || "Guardian");
         const parentPhone = ((data as Record<string, unknown>).parentPhone as string) || undefined;
 
         const teamValueForSubmit = data.team || (isVisible("team") ? "" : "Unknown");
+
+        const levelValue = ((data as Record<string, unknown>).level as string) || undefined;
+        const relationToAthleteValue = data.relationToAthlete || undefined;
+        const desiredProgramTypeValue = data.desiredProgramType || undefined;
 
         const response = await Promise.race([
           apiRequest<{ athleteUserId?: number }>("/onboarding", {
@@ -317,6 +316,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
               athleteName: data.name,
               birthDate: data.birthDate,
               team: teamValueForSubmit,
+              level: levelValue,
               trainingPerWeek: trainingValue,
               injuries: data.injuries,
               growthNotes: data.growthNotes || null,
@@ -324,8 +324,8 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
               equipmentAccess: data.equipmentAccess,
               parentEmail: profile.email,
               parentPhone,
-              relationToAthlete: relation,
-              desiredProgramType: programTier,
+              relationToAthlete: relationToAthleteValue,
+              desiredProgramType: desiredProgramTypeValue,
               termsVersion: config?.termsVersion ?? "1.0",
               privacyVersion: config?.privacyVersion ?? "1.0",
               appVersion: Constants.expoConfig?.version ?? "mobile-unknown",
@@ -365,7 +365,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
           ? ["athleteName", "birthDate", "team", "level"]
           : step === 1
             ? ["trainingPerWeek", "trainingDaysPerWeek", "injuries", "growthNotes", "performanceGoals", "equipmentAccess"]
-            : ["parentPhone", "relationToAthlete", "desiredProgramType", ...customFields.map((field) => field.id), "isChecked"];
+            : ["parentPhone", ...customFields.map((field) => field.id), "isChecked"];
 
       const requiredFields = visibleFields.filter(
         (field) => field.required && stepFieldIds.includes(field.id)

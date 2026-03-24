@@ -62,22 +62,6 @@ const defaultOnboardingConfig = {
     { id: "equipmentAccess", label: "Equipment Access", type: "text", required: true, visible: true },
     { id: "parentEmail", label: "Guardian Email", type: "text", required: true, visible: true },
     { id: "parentPhone", label: "Guardian Phone", type: "text", required: false, visible: true },
-    {
-      id: "relationToAthlete",
-      label: "Relation to Athlete",
-      type: "dropdown",
-      required: true,
-      visible: true,
-      options: ["Parent", "Guardian", "Coach"],
-    },
-    {
-      id: "desiredProgramType",
-      label: "Program Tier Selection",
-      type: "dropdown",
-      required: true,
-      visible: true,
-      options: ["PHP", "PHP_Plus", "PHP_Premium"],
-    },
   ],
   requiredDocuments: [
     { id: "consent", label: "Guardian Consent Form", required: true },
@@ -325,7 +309,7 @@ export async function updateOnboardingConfig(
     requiredDocuments: any;
     welcomeMessage?: string | null;
     coachMessage?: string | null;
-    defaultProgramTier: (typeof ProgramType.enumValues)[number];
+    defaultProgramTier?: (typeof ProgramType.enumValues)[number];
     approvalWorkflow: string;
     notes?: string | null;
     phpPlusProgramTabs?: string[] | null;
@@ -334,6 +318,8 @@ export async function updateOnboardingConfig(
   await ensureOnboardingConfigTable();
   const normalizedPhpPlusTabs = normalizePhpPlusTabs(input.phpPlusProgramTabs);
   const existing = await db.select().from(onboardingConfigTable).limit(1);
+  const resolvedDefaultTier =
+    input.defaultProgramTier ?? existing[0]?.defaultProgramTier ?? ("PHP" as (typeof ProgramType.enumValues)[number]);
   if (existing[0]) {
     const updated = await db
       .update(onboardingConfigTable)
@@ -343,7 +329,7 @@ export async function updateOnboardingConfig(
         requiredDocuments: input.requiredDocuments,
         welcomeMessage: input.welcomeMessage ?? null,
         coachMessage: input.coachMessage ?? null,
-        defaultProgramTier: input.defaultProgramTier,
+        defaultProgramTier: resolvedDefaultTier,
         approvalWorkflow: input.approvalWorkflow,
         notes: input.notes ?? null,
         phpPlusProgramTabs: normalizedPhpPlusTabs,
@@ -363,7 +349,7 @@ export async function updateOnboardingConfig(
       requiredDocuments: input.requiredDocuments,
       welcomeMessage: input.welcomeMessage ?? null,
       coachMessage: input.coachMessage ?? null,
-      defaultProgramTier: input.defaultProgramTier,
+      defaultProgramTier: resolvedDefaultTier,
       approvalWorkflow: input.approvalWorkflow,
       notes: input.notes ?? null,
       phpPlusProgramTabs: normalizedPhpPlusTabs,

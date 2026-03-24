@@ -8,7 +8,8 @@ import { Redirect, Slot, usePathname, useRouter, useSegments } from "expo-router
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, Platform, View, useColorScheme } from "react-native";
 import { useAppSelector } from "@/store/hooks";
-import { canAccessTier } from "@/lib/planAccess";
+import { canUseCoachMessaging } from "@/lib/messagingAccess";
+import { FirstLoginWalkthrough } from "@/components/onboarding/FirstLoginWalkthrough";
 
 import HomeScreen from "./index";
 import MessagesScreen from "./messages";
@@ -52,6 +53,7 @@ export default function TabLayout() {
   const profile = useAppSelector((state) => state.user.profile);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const programTier = useAppSelector((state) => state.user.programTier);
+  const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
@@ -72,7 +74,7 @@ export default function TabLayout() {
     if (onboardingCompleted === false && !isOnboarding) {
       router.replace("/(tabs)/onboarding");
     }
-  }, [isAuthenticated, onboardingCompleted, isOnboarding, router]);
+  }, [effectiveAuth, onboardingCompleted, isOnboarding, router]);
 
   useEffect(() => {
     if (!hydrated || !effectiveAuth || isOnboarding) return;
@@ -170,10 +172,12 @@ export default function TabLayout() {
     return () => {
       sub?.remove();
     };
-  }, [hydrated, isAuthenticated, router]);
+  }, [hydrated, effectiveAuth, router]);
+
+  const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
 
   const syncUnread = useCallback(async () => {
-    if (!token || !effectiveAuth || !canAccessTier(programTier ?? null, "PHP_Premium")) {
+    if (!token || !effectiveAuth || !hasMessaging) {
       setMessagesUnread(0);
       return;
     }
@@ -195,10 +199,10 @@ export default function TabLayout() {
     } catch {
       setMessagesUnread(0);
     }
-  }, [athleteUserId, isAuthenticated, profile.id, programTier, role, token]);
+  }, [athleteUserId, effectiveAuth, hasMessaging, profile.id, role, token]);
 
   useEffect(() => {
-    if (!token || !effectiveAuth || !canAccessTier(programTier ?? null, "PHP_Premium")) {
+    if (!token || !effectiveAuth || !hasMessaging) {
       setMessagesUnread(0);
       return;
     }
@@ -219,7 +223,7 @@ export default function TabLayout() {
       clearInterval(timer);
       task?.cancel?.();
     };
-  }, [isAuthenticated, programTier, syncUnread, token]);
+  }, [effectiveAuth, hasMessaging, syncUnread, token]);
 
   useEffect(() => {
     if (!token || !effectiveAuth) return;
@@ -237,16 +241,16 @@ export default function TabLayout() {
       prefetchApi("/bookings", { token });
       prefetchApi("/bookings/services", { token });
       prefetchApi("/public/plans");
-      if (canAccessTier(programTier ?? null, "PHP_Premium")) {
+      if (hasMessaging) {
         prefetchApi("/messages", { token, headers });
       }
     });
 
     return () => task?.cancel?.();
-  }, [athleteUserId, isAuthenticated, programTier, role, token]);
+  }, [athleteUserId, effectiveAuth, programTier, role, token]);
 
   useEffect(() => {
-    if (!socket || !token || !effectiveAuth || !canAccessTier(programTier ?? null, "PHP_Premium")) return;
+    if (!socket || !token || !effectiveAuth || !hasMessaging) return;
 
     const effectiveUserId =
       role === "Athlete" && athleteUserId ? String(athleteUserId) : String(profile.id ?? "");
@@ -278,7 +282,7 @@ export default function TabLayout() {
       socket.off("message:new", handleDirectMessage);
       socket.off("group:message", handleGroupMessage);
     };
-  }, [athleteUserId, isAuthenticated, pathname, profile.id, programTier, role, socket, token]);
+  }, [athleteUserId, effectiveAuth, pathname, profile.id, programTier, role, socket, token]);
 
   useEffect(() => {
     if (!pathname.startsWith("/messages")) return;
@@ -399,6 +403,7 @@ export default function TabLayout() {
       >
         {screens}
       </SwipeableTabLayout>
+      <FirstLoginWalkthrough />
     </View>
   );
 }

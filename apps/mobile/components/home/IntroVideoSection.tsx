@@ -1,11 +1,12 @@
 import React from "react";
-import { AppState, Image, Pressable, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { AppState, Image, Linking, Pressable, TouchableOpacity, View } from "react-native";
+import { Feather } from "@/components/ui/theme-icons";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useActiveTabIndex } from "@/context/ActiveTabContext";
 import { Text } from "@/components/ScaledText";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
+import { Shadows } from "@/constants/theme";
 
 type IntroVideoSectionProps = {
   introVideoUrl?: string | null;
@@ -19,15 +20,15 @@ export function IntroVideoSection({
   posterUrl,
   tabIndex = 2,
 }: IntroVideoSectionProps) {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const globalActiveTab = useActiveTabIndex();
   const [appActive, setAppActive] = React.useState(AppState.currentState === "active");
   const [hasUserStarted, setHasUserStarted] = React.useState(false);
-  const [aspectRatio, setAspectRatio] = React.useState(16 / 9);
+  const [aspectRatio, setAspectRatio] = React.useState(16 / 10);
 
   const isTabActive = globalActiveTab === tabIndex;
   const shouldPlay = appActive && isTabActive && hasUserStarted;
-  const isUnsupportedSource = isYoutubeUrl(introVideoUrl);
+  const isUnsupportedSource = isYoutubeUrl(introVideoUrl ?? undefined);
 
   React.useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
@@ -41,7 +42,7 @@ export function IntroVideoSection({
     Image.getSize(
       posterUrl,
       (width, height) => {
-        if (width && height) setAspectRatio(width / height);
+        if (width && height) setAspectRatio(Math.max(width / height, 0.8));
       },
       () => {},
     );
@@ -51,16 +52,18 @@ export function IntroVideoSection({
 
   return (
     <View
-      className="overflow-hidden rounded-[28px]"
+      className="overflow-hidden rounded-[32px] border"
       style={{
         backgroundColor: "#000",
         width: "100%",
         aspectRatio,
+        borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.06)",
+        ...(isDark ? Shadows.none : Shadows.lg),
       }}
     >
       {hasUserStarted ? (
         isUnsupportedSource ? (
-          <UnsupportedIntroVideo posterUrl={posterUrl} accentColor={colors.accent} />
+          <UnsupportedIntroVideo posterUrl={posterUrl} accentColor={colors.accent} introVideoUrl={introVideoUrl} />
         ) : (
           <VideoPlayer
             uri={introVideoUrl}
@@ -76,13 +79,7 @@ export function IntroVideoSection({
         )
       ) : (
         <Pressable
-          onPress={() => {
-            if (isUnsupportedSource) {
-              setHasUserStarted(true);
-              return;
-            }
-            setHasUserStarted(true);
-          }}
+          onPress={() => setHasUserStarted(true)}
           style={{ flex: 1 }}
         >
           {posterUrl ? (
@@ -94,58 +91,44 @@ export function IntroVideoSection({
           ) : (
             <View style={{ flex: 1, backgroundColor: "#0B0E12" }} />
           )}
+          
           <View
             style={{
               position: "absolute",
               inset: 0,
-              backgroundColor: "rgba(0,0,0,0.28)",
+              backgroundColor: "rgba(0,0,0,0.35)",
               justifyContent: "center",
               alignItems: "center",
             }}
           >
             <View
+              className="h-20 w-20 rounded-full items-center justify-center border-2"
               style={{
-                width: 72,
-                height: 72,
-                borderRadius: 36,
-                backgroundColor: "rgba(255,255,255,0.2)",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 14,
+                backgroundColor: "rgba(255,255,255,0.15)",
+                borderColor: "rgba(255,255,255,0.3)",
               }}
             >
-              <Feather name="play" size={28} color="#FFFFFF" />
+              <View className="h-14 w-14 rounded-full bg-white items-center justify-center shadow-2xl">
+                <Feather name="play" size={24} color="#000" style={{ marginLeft: 4 }} />
+              </View>
             </View>
-            <Text
-              className="font-outfit-semibold"
-              style={{ color: "#FFFFFF", fontSize: 15 }}
-            >
-              Play Intro Video
-            </Text>
-            <Text
-              className="font-outfit"
-              style={{ color: "rgba(255,255,255,0.82)", fontSize: 12, marginTop: 4 }}
-            >
-              {isUnsupportedSource ? "Direct hosted video required" : "Ready to play"}
-            </Text>
+            
+            <View className="mt-6 items-center">
+              <Text className="text-white font-clash text-xl font-bold">Watch Introduction</Text>
+              <Text className="text-white/70 font-outfit text-sm mt-1">Start your journey here</Text>
+            </View>
           </View>
+
           <View
-            style={{
-              position: "absolute",
-              top: 14,
-              right: 14,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 999,
-              backgroundColor: "rgba(0,0,0,0.45)",
-            }}
+            className="absolute top-5 left-5 rounded-full px-3 py-1.5"
+            style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
           >
-            <Text
-              className="font-outfit-semibold"
-              style={{ color: colors.accent, fontSize: 11 }}
-            >
-              INTRO
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <View className="h-1.5 w-1.5 rounded-full bg-accent" />
+              <Text className="text-[10px] font-outfit font-bold text-white uppercase tracking-widest">
+                Featured
+              </Text>
+            </View>
           </View>
         </Pressable>
       )}
@@ -156,9 +139,11 @@ export function IntroVideoSection({
 function UnsupportedIntroVideo({
   posterUrl,
   accentColor,
+  introVideoUrl,
 }: {
   posterUrl?: string | null;
   accentColor: string;
+  introVideoUrl?: string | null;
 }) {
   return (
     <View style={{ flex: 1 }}>
@@ -175,55 +160,37 @@ function UnsupportedIntroVideo({
         style={{
           position: "absolute",
           inset: 0,
-          backgroundColor: "rgba(0,0,0,0.52)",
+          backgroundColor: "rgba(0,0,0,0.65)",
           justifyContent: "center",
           alignItems: "center",
-          paddingHorizontal: 24,
+          paddingHorizontal: 32,
         }}
       >
         <View
+          className="h-16 w-16 rounded-3xl items-center justify-center border"
           style={{
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            backgroundColor: "rgba(255,255,255,0.12)",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 14,
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.16)",
-          }}
-        >
-          <Feather name="alert-circle" size={28} color="#FFFFFF" />
-        </View>
-        <Text
-          className="font-outfit-semibold"
-          style={{ color: "#FFFFFF", fontSize: 15, textAlign: "center" }}
-        >
-          Intro Video Source Unsupported
-        </Text>
-        <Text
-          className="font-outfit"
-          style={{ color: "rgba(255,255,255,0.82)", fontSize: 12, marginTop: 6, textAlign: "center" }}
-        >
-          Replace this intro video with an uploaded file or direct `.mp4` URL to play it inside the app.
-        </Text>
-        <View
-          style={{
-            marginTop: 14,
-            paddingHorizontal: 12,
-            paddingVertical: 7,
-            borderRadius: 999,
             backgroundColor: "rgba(255,255,255,0.1)",
+            borderColor: "rgba(255,255,255,0.2)",
           }}
         >
-          <Text
-            className="font-outfit-semibold"
-            style={{ color: accentColor, fontSize: 11 }}
-          >
-            HOSTED VIDEO ONLY
-          </Text>
+          <Feather name="external-link" size={24} color="#FFFFFF" />
         </View>
+        <Text className="text-white font-clash text-xl font-bold mt-6 text-center">
+          Open in Browser
+        </Text>
+        <Text className="text-white/70 font-outfit text-sm mt-2 text-center leading-5">
+          This video source is optimized for web viewing. Tap to open the full experience.
+        </Text>
+        
+        <TouchableOpacity 
+          className="mt-8 rounded-full bg-white px-8 py-3"
+          activeOpacity={0.8}
+          onPress={() => {
+            if (introVideoUrl) Linking.openURL(introVideoUrl).catch(() => {});
+          }}
+        >
+          <Text className="text-black font-outfit font-bold text-sm uppercase tracking-wider">Open Video</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
