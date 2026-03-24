@@ -615,24 +615,23 @@ export function ProgramDetailPanel({
       );
     }
     if (activeTab === "Program") {
-      if (programId === "premium") {
-        return (
-          <PremiumPlanPanel
-            token={token}
-            accent={colors.accent}
-            isDark={isDark}
-            surfaceColor={colors.card}
-            mutedSurface={mutedSurface}
-            accentSurface={isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4"}
-            borderSoft={borderSoft}
-            onMessageCoach={openCoachMessage}
-            canMessageCoach={canMessageCoach}
-          />
-        );
-      }
       const flowSteps = pickTrainingFlowSteps(tabs);
       return (
         <View className="gap-5">
+          {programId === "premium" ? (
+            <PremiumPlanPanel
+              token={token}
+              accent={colors.accent}
+              isDark={isDark}
+              surfaceColor={colors.card}
+              mutedSurface={mutedSurface}
+              accentSurface={isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4"}
+              borderSoft={borderSoft}
+              onMessageCoach={openCoachMessage}
+              canMessageCoach={canMessageCoach}
+            />
+          ) : null}
+
           {flowSteps.length > 0 ? (
             <View
               className="rounded-[24px] px-5 py-4 gap-3 border"
@@ -998,19 +997,19 @@ function PremiumPlanPanel({
     }
   }, [checkinSession, fatigue, notes, rpe, soreness, token]);
 
-  if (!token) {
-    return (
-      <View className="py-10 items-center justify-center">
-        <Text className="text-sm font-outfit text-secondary text-center">
-          Log in to view your Premium plan.
-        </Text>
-      </View>
-    );
+  if (!token || (!isLoading && items.length === 0)) {
+    return null;
   }
 
   return (
     <View className="gap-5">
-      <View className="rounded-[24px] px-5 py-5 gap-3 border" style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}>
+      <View className="rounded-[24px] px-5 py-5 gap-3 border" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#ECFDF5", borderColor: isDark ? "rgba(34,197,94,0.2)" : "#A7F3D0", ...(isDark ? Shadows.none : Shadows.sm) }}>
+        <View className="flex-row items-center gap-2">
+          <Feather name="star" size={16} color={accent} />
+          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: accent }}>
+            Your Personalized Plan
+          </Text>
+        </View>
         <Text className="text-xl font-clash text-app font-bold">This week's plan</Text>
         {weekStats.total > 0 && activeWeek != null ? (
           <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
@@ -1060,13 +1059,7 @@ function PremiumPlanPanel({
         <View className="py-10 items-center justify-center">
           <Text className="text-sm font-outfit text-red-500 text-center">{error}</Text>
         </View>
-      ) : visibleSessions.length === 0 ? (
-        <View className="py-10 items-center justify-center">
-          <Text className="text-sm font-outfit text-secondary text-center">
-            No sessions assigned yet. Your coach will build your plan soon.
-          </Text>
-        </View>
-      ) : (
+      ) : visibleSessions.length === 0 ? null : (
         visibleSessions.map((session) => (
           <View key={session.id} className="rounded-[24px] px-5 py-5 gap-4 border" style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}>
             <View className="flex-row items-start justify-between gap-3">
