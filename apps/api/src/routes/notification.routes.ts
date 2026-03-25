@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth";
-import { listNotifications, markNotificationRead, savePushToken } from "../controllers/notification.controller";
+import { listNotifications, markNotificationRead, savePushToken, testPushNotification } from "../controllers/notification.controller";
 
 const router = Router();
 
