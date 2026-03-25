@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-const apiBase = rawBase.replace(/\/api\/?$/, "");
+/** Resolve at request time so Vercel env changes apply without relying only on build-time NEXT_PUBLIC. */
+function getApiBase(): string {
+  const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+  return rawBase.replace(/\/api\/?$/, "");
+}
+
 const csrfCookieName = "csrfToken";
 
 function validateCsrf(req: NextRequest) {
@@ -13,6 +17,7 @@ function validateCsrf(req: NextRequest) {
 }
 
 async function forward(req: NextRequest) {
+  const apiBase = getApiBase();
   if (!apiBase) {
     return NextResponse.json({ error: "API base URL not configured" }, { status: 500 });
   }
