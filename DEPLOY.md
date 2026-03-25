@@ -112,13 +112,19 @@ out of the box.
 3. Settings:
    - **Root directory**: `apps/web`
    - **Framework**: Next.js (auto-detected)
-4. Environment variables:
-   - `API_BASE_URL` = `https://ph-api.onrender.com`
-   - `NEXT_PUBLIC_API_BASE_URL` = `https://ph-api.onrender.com/api`
-   - `NEXT_PUBLIC_SOCKET_URL` = `https://ph-api.onrender.com`
-5. Click **Deploy**
+4. Environment variables (use your real Render hostname, e.g. `ph-api2.onrender.com`):
+   - `API_BASE_URL` = `https://YOUR-SERVICE.onrender.com` (no `/api` suffix)
+   - `NEXT_PUBLIC_API_BASE_URL` = `https://YOUR-SERVICE.onrender.com/api`
+   - `NEXT_PUBLIC_SOCKET_URL` = `https://YOUR-SERVICE.onrender.com`
+5. Click **Deploy**, then **Redeploy** whenever you change these (especially `NEXT_PUBLIC_*`).
 
 Your web admin URL: `https://your-app.vercel.app`
+
+### If the admin shows 404 on `/api/backend/...` or WebSockets fail
+
+1. **Vercel** — Confirm the three variables above match your Render URL exactly. Missing or stale values (e.g. still pointing at Fly.io) break the proxy and sockets.
+2. **Render** — `ADMIN_WEB_URL` and `CORS_ORIGINS` must include the **exact** Vercel origin you use in the browser (e.g. `https://ph-performance-admin.vercel.app`). If you use two domains (preview + production), list both comma-separated in `CORS_ORIGINS`. Socket.IO only allows origins listed here.
+3. Redeploy Vercel after env changes.
 
 > **Alternative: Cloudflare Pages** — If you prefer Cloudflare, you need
 > the `@opennextjs/cloudflare` adapter since the web admin uses Next.js
