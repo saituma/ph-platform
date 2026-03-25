@@ -6,6 +6,7 @@ import { listPlans } from "../controllers/billing.controller";
 const router = Router();
 
 router.get("/health", healthCheck);
+router.post("/health", healthCheck);
 // Public plans endpoint (no auth) for mobile clients.
 router.get("/public/plans", listPlans);
 
