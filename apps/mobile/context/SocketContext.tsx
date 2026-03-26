@@ -61,10 +61,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     const newSocket: Socket = io(socketUrl, {
       auth: { token },
-      transports: ["websocket"],
+      // WebSocket-only often fails on mobile networks / proxies; polling keeps chat realtime.
+      transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 5,
-      timeout: 10000,
+      reconnectionAttempts: 25,
+      reconnectionDelay: 1000,
+      timeout: 20000,
     });
 
     newSocket.on("connect", () => {

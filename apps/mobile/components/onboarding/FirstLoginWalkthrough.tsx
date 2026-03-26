@@ -20,8 +20,8 @@ const STEPS: Step[] = [
   {
     icon: "home",
     iconColor: "#22C55E",
-    title: "Welcome Home",
-    body: "This is your hub — check in on your training, read coach updates, and see testimonials from other athletes.",
+    title: "Your dashboard",
+    body: "Your hub for training updates, coach stories, and what to do next — all in one place.",
   },
   {
     icon: "pulse",

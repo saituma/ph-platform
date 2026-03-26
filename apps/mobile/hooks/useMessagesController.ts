@@ -59,6 +59,7 @@ export function useMessagesController() {
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const draftConsumedRef = useRef<string | null>(null);
+  const loadMessagesInFlightRef = useRef(false);
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
@@ -110,9 +111,9 @@ export function useMessagesController() {
       setIsLoading(false);
       return;
     }
-    // Prevent multiple in-flight requests
-    if (isLoading && threads.length > 0) return;
-    
+    if (loadMessagesInFlightRef.current) return;
+    loadMessagesInFlightRef.current = true;
+
     setIsLoading(true);
     try {
       const [data, groupsData] = await Promise.all([
@@ -200,6 +201,7 @@ export function useMessagesController() {
     } catch (error) {
       console.warn("Failed to load messages", error);
     } finally {
+      loadMessagesInFlightRef.current = false;
       setIsLoading(false);
     }
   }, [effectiveProfileId, programTier, token, actingHeaders]);
@@ -825,6 +827,17 @@ export function useMessagesController() {
   }, [currentThread, isUploadingAttachment, token]);
 
   const { socket, setActiveThreadId } = useSocket();
+
+  // Inbox list: poll when Socket.IO is not connected so threads still update without opening a thread.
+  useEffect(() => {
+    if (!token || threadId) return;
+    const id = setInterval(() => {
+      if (socket?.connected) return;
+      void loadMessages();
+    }, 20000);
+    return () => clearInterval(id);
+  }, [token, threadId, socket?.connected, loadMessages]);
+
   useMessagesRealtime({
     token,
     role,
