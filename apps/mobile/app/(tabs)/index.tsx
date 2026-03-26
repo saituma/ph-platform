@@ -210,19 +210,34 @@ export default function HomeScreen() {
           entering={FadeInDown.duration(600).springify()}
           className="px-6 mb-8"
         >
-          <View className="flex-row justify-between items-center mb-6">
-            <View>
-              <View className="flex-row items-center gap-2 mb-1">
+          <View className="flex-row justify-between items-start mb-4">
+            <View className="flex-1 pr-3">
+              <View className="flex-row items-center gap-2 mb-2">
                 <View className="h-1.5 w-1.5 rounded-full bg-accent" />
-                <Text className="text-[10px] font-outfit font-bold text-secondary uppercase tracking-[2px]">
+                <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2px]">
                   {greeting}
                 </Text>
               </View>
-              <Text className="font-clash text-[32px] font-bold text-app leading-none">
+              <Text className="font-clash text-[36px] font-bold text-app leading-tight">
                 Hi, {profile?.name?.split(" ")[0] || "Athlete"}
               </Text>
+              {homeContent?.welcome ? (
+                <Text
+                  className="mt-4 text-[17px] font-outfit leading-7"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {homeContent.welcome}
+                </Text>
+              ) : homeContent?.headline && !showSkeleton ? (
+                <Text
+                  className="mt-3 text-[15px] font-outfit font-semibold leading-6"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {homeContent.headline}
+                </Text>
+              ) : null}
             </View>
-            
+
             <TouchableOpacity 
               onPress={() => router.push("/profile-settings")}
               className="h-14 w-14 rounded-[20px] overflow-hidden border-2"
@@ -237,44 +252,6 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => router.push("/(tabs)/programs")}
-            className="rounded-[32px] overflow-hidden p-6 relative"
-            style={{ 
-              backgroundColor: isDark ? colors.cardElevated : "#111827",
-              ...(isDark ? Shadows.none : Shadows.lg)
-            }}
-          >
-            <View className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent/10" />
-            <View className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-white/5" />
-            
-            <View className="relative z-10">
-              <View className="self-start rounded-full px-3 py-1 mb-4" style={{ backgroundColor: "rgba(34,197,94,0.2)" }}>
-                <Text className="text-[10px] font-outfit font-bold text-accent uppercase tracking-[1px]">
-                  Current Status
-                </Text>
-              </View>
-              <Text className="text-white font-clash text-2xl font-bold">
-                {programTier ? "Elite Training Active" : "Ready to start?"}
-              </Text>
-              <Text className="text-white/60 font-outfit text-sm mt-2 max-w-[220px]">
-                {programTier 
-                  ? "Your personalized program is waiting. Hit your targets today."
-                  : "Unlock your full potential with a professional training plan."}
-              </Text>
-              
-              <View className="mt-6 flex-row items-center gap-2">
-                <View className="rounded-full bg-accent px-5 py-2.5 flex-row items-center gap-2">
-                  <Text className="text-white font-outfit font-bold text-xs uppercase tracking-wider">
-                    {programTier ? "Continue Training" : "View Plans"}
-                  </Text>
-                  <Feather name="arrow-right" size={14} color="#FFF" />
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
         </Animated.View>
 
         {/* Command Center - Refined Two-Column Layout */}
