@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { useAppSelector } from "@/store/hooks";
 import { useRole } from "@/context/RoleContext";
 
@@ -49,7 +50,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
+    const baseUrl = getApiBaseUrl();
     const socketUrl = baseUrl ? baseUrl.replace(/\/api\/?$/, "") : "";
     if (!socketUrl) {
       if (__DEV__) console.log("[Socket] Skipping connect: missing EXPO_PUBLIC_API_BASE_URL");
