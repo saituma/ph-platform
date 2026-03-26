@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { store } from "@/store";
 import { setCredentials, logout } from "@/store/slices/userSlice";
 
@@ -144,7 +145,7 @@ async function refreshAuthToken(normalizedBaseUrl: string): Promise<string | nul
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
+  const baseUrl = getApiBaseUrl();
   if (!baseUrl) {
     throw new Error("API base URL not configured");
   }

@@ -26,3 +26,12 @@ jest.mock("expo-secure-store", () => {
 });
 
 jest.mock("react-native-css-interop", () => ({}));
+
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: {},
+    },
+  },
+}));
