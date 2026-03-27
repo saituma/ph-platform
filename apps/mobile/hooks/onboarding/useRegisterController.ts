@@ -344,6 +344,11 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
         }
         clearApiCache();
         setRole("Guardian");
+        if (__DEV__) {
+          console.log("[Register] Onboarding submitted; navigating to tabs", {
+            athleteUserId: response?.athleteUserId,
+          });
+        }
         router?.replace("/(tabs)");
       } catch (error) {
         console.error("Onboarding failed:", error);

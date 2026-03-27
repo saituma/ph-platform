@@ -8,6 +8,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
@@ -141,8 +142,12 @@ export default function MoreScreen() {
             "/onboarding",
             { token, suppressStatusCodes: [401, 403], skipCache: true, forceRefresh: true }
           );
-          dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
-          dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+          if (onboarding.athlete == null) {
+            return;
+          }
+          const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
+          dispatch(setOnboardingCompleted(next.onboardingCompleted));
+          dispatch(setAthleteUserId(next.athleteUserId));
         } catch (error) {
           if (isUnauthorizedError(error)) {
             dispatch(setOnboardingCompleted(null));

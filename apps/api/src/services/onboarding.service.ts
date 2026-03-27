@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -11,7 +11,6 @@ import {
   ProgramType,
   userTable,
 } from "../db/schema";
-import { sql } from "drizzle-orm";
 import { getUserById } from "./user.service";
 import { calculateAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
 import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
@@ -123,7 +122,12 @@ export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;
   if (user.role === "athlete") {
-    const athletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
+    const athletes = await db
+      .select()
+      .from(athleteTable)
+      .where(eq(athleteTable.userId, userId))
+      .orderBy(desc(athleteTable.createdAt))
+      .limit(1);
     const athlete = athletes[0] ?? null;
     const decorated = decorateAthlete(athlete);
     await maybeSendBirthdayNotifications(decorated);
@@ -132,7 +136,15 @@ export async function getOnboardingByUser(userId: number) {
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0];
   if (!guardian) return null;
-  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1);
+  const athletes = await db
+    .select()
+    .from(athleteTable)
+    .where(eq(athleteTable.guardianId, guardian.id))
+    .orderBy(
+      sql`CASE WHEN ${guardian.activeAthleteId} IS NOT NULL AND ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`,
+      desc(athleteTable.createdAt),
+    )
+    .limit(1);
   const athlete = athletes[0] ?? null;
   if (!athlete) return null;
   const ensured = await ensureAthleteUserRecord(athlete);

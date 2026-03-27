@@ -44,7 +44,6 @@ export function SwipeableTabLayout({
 
   setGlobalActiveTab(activeIndex);
   useEffect(() => {
-    console.warn(`[SwipeableTabLayout] activeIndex effect fired: ${activeIndex}`);
     setGlobalActiveTab(activeIndex);
   }, [activeIndex]);
 

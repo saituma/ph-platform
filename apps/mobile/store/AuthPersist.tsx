@@ -16,6 +16,7 @@ import {
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
+import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
 
 const STORAGE_KEYS = {
   token: "authToken",
@@ -24,6 +25,8 @@ const STORAGE_KEYS = {
   name: "profileName",
   email: "profileEmail",
   avatar: "profileAvatar",
+  onboardingCompleted: "onboardingCompleted",
+  athleteUserId: "athleteUserId",
 };
 
 const isUnauthorizedError = (error: unknown) => {
@@ -38,6 +41,8 @@ export function AuthPersist() {
   const token = useAppSelector((state) => state.user.token);
   const refreshToken = useAppSelector((state) => state.user.refreshToken);
   const profile = useAppSelector((state) => state.user.profile);
+  const onboardingCompleted = useAppSelector((state) => state.user.onboardingCompleted);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const isAuthRoute = false;
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
@@ -59,6 +64,8 @@ export function AuthPersist() {
           await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
           await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
           await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.onboardingCompleted);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.athleteUserId);
           dispatch(logout());
           return;
         }
@@ -100,13 +107,18 @@ export function AuthPersist() {
           await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
           await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
           await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.onboardingCompleted);
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.athleteUserId);
           dispatch(logout());
           return;
         }
 
+        const storedOnboarding = await SecureStore.getItemAsync(STORAGE_KEYS.onboardingCompleted);
+        const storedAthleteUserId = await SecureStore.getItemAsync(STORAGE_KEYS.athleteUserId);
+
         dispatch(
           setCredentials({
-            token: storedToken,
+            token: storedToken!,
             refreshToken: storedRefreshToken ?? null,
             profile: {
               id: storedId ?? null,
@@ -116,6 +128,19 @@ export function AuthPersist() {
             },
           })
         );
+        const parsedAid = (() => {
+          const raw = storedAthleteUserId?.trim();
+          if (!raw) return null;
+          const n = parseInt(raw, 10);
+          return Number.isFinite(n) ? n : null;
+        })();
+        if (storedOnboarding === "1") {
+          dispatch(setOnboardingCompleted(true));
+          dispatch(setAthleteUserId(parsedAid));
+        } else if (storedOnboarding === "0") {
+          dispatch(setOnboardingCompleted(false));
+          dispatch(setAthleteUserId(parsedAid));
+        }
         lastSavedToken.current = storedToken;
         lastSavedRefreshToken.current = storedRefreshToken ?? null;
       } finally {
@@ -160,8 +185,18 @@ export function AuthPersist() {
           { token, suppressStatusCodes: [401, 403], skipCache: true, forceRefresh: true }
         );
         if (!active) return;
-        dispatch(setOnboardingCompleted(Boolean(onboarding.athlete?.onboardingCompleted)));
-        dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+        if (onboarding.athlete == null) {
+          if (__DEV__) {
+            console.log("[AuthPersist] GET /onboarding returned no athlete; keeping existing onboarding state");
+          }
+          return;
+        }
+        const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
+        dispatch(setOnboardingCompleted(next.onboardingCompleted));
+        dispatch(setAthleteUserId(next.athleteUserId));
+        if (__DEV__) {
+          console.log("[AuthPersist] onboarding synced", next);
+        }
       } catch (error) {
         if (!active) return;
         if (isUnauthorizedError(error)) {
@@ -314,21 +349,29 @@ export function AuthPersist() {
     if (!hydrated) return;
     (async () => {
       if (isAuthenticated && token) {
-        if (lastSavedToken.current === token && lastSavedRefreshToken.current === (refreshToken ?? null)) {
-          return;
+        const tokenUnchanged =
+          lastSavedToken.current === token && lastSavedRefreshToken.current === (refreshToken ?? null);
+        if (!tokenUnchanged) {
+          await SecureStore.setItemAsync(STORAGE_KEYS.token, token);
+          if (refreshToken) {
+            await SecureStore.setItemAsync(STORAGE_KEYS.refreshToken, refreshToken);
+          } else {
+            await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
+          }
+          await SecureStore.setItemAsync(STORAGE_KEYS.id, profile.id ?? "");
+          await SecureStore.setItemAsync(STORAGE_KEYS.name, profile.name ?? "");
+          await SecureStore.setItemAsync(STORAGE_KEYS.email, profile.email ?? "");
+          await SecureStore.setItemAsync(STORAGE_KEYS.avatar, profile.avatar ?? "");
+          lastSavedToken.current = token;
+          lastSavedRefreshToken.current = refreshToken ?? null;
         }
-        await SecureStore.setItemAsync(STORAGE_KEYS.token, token);
-        if (refreshToken) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.refreshToken, refreshToken);
-        } else {
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
+        if (onboardingCompleted !== null) {
+          await SecureStore.setItemAsync(STORAGE_KEYS.onboardingCompleted, onboardingCompleted ? "1" : "0");
+          await SecureStore.setItemAsync(
+            STORAGE_KEYS.athleteUserId,
+            athleteUserId != null ? String(athleteUserId) : ""
+          );
         }
-        await SecureStore.setItemAsync(STORAGE_KEYS.id, profile.id ?? "");
-        await SecureStore.setItemAsync(STORAGE_KEYS.name, profile.name ?? "");
-        await SecureStore.setItemAsync(STORAGE_KEYS.email, profile.email ?? "");
-        await SecureStore.setItemAsync(STORAGE_KEYS.avatar, profile.avatar ?? "");
-        lastSavedToken.current = token;
-        lastSavedRefreshToken.current = refreshToken ?? null;
       } else {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
@@ -336,13 +379,15 @@ export function AuthPersist() {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
+        await SecureStore.deleteItemAsync(STORAGE_KEYS.onboardingCompleted);
+        await SecureStore.deleteItemAsync(STORAGE_KEYS.athleteUserId);
         lastSavedToken.current = null;
         lastSavedRefreshToken.current = null;
         clearApiCache();
         // navigation disabled outside router context
       }
     })();
-  }, [hydrated, isAuthenticated, token, refreshToken, profile, isAuthRoute]);
+  }, [hydrated, isAuthenticated, token, refreshToken, profile, onboardingCompleted, athleteUserId, isAuthRoute]);
 
   return null;
 }
