@@ -11,7 +11,7 @@ type UseMessagesRealtimeParams = {
   draft: string;
   currentThread: MessageThread | null;
   groupMembers: Record<number, Record<number, { name: string; avatar?: string | null }>>;
-  loadMessages: () => void;
+  loadMessages: (options?: { silent?: boolean }) => void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   setThreads: React.Dispatch<React.SetStateAction<MessageThread[]>>;
   setTypingStatus: React.Dispatch<React.SetStateAction<TypingStatus>>;
@@ -224,13 +224,7 @@ export function useMessagesRealtime({
     const handleMessageDeleted = (payload: { messageId: number }) => {
       const id = String(payload.messageId);
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
-      setThreadsRef.current((prev) => {
-        const currentThreadId = currentThreadIdRef.current;
-        return prev.map((thread) =>
-          thread.id === currentThreadId ? { ...thread, preview: thread.preview, time: thread.time } : thread
-        );
-      });
-      loadMessagesRef.current();
+      loadMessagesRef.current({ silent: true });
     };
 
     const handleGroupMessageDeleted = (payload: { messageId: number }) => {

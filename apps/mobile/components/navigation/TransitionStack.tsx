@@ -10,10 +10,7 @@ import { View } from "react-native";
 
 const { Navigator } = createBlankStackNavigator();
 
-export const Stack = withLayoutContext<
-  BlankStackNavigationOptions,
-  typeof Navigator
->(Navigator);
+export const Stack = withLayoutContext(Navigator as any);
 
 export { Transition };
 
@@ -33,7 +30,7 @@ export function SafeMaskedView({
 }
 
 export const slideFromRight = {
-  screenStyleInterpolator: ({ progress, layouts: { screen } }) => {
+  screenStyleInterpolator: ({ progress, layouts: { screen } }: any) => {
     "worklet";
     return {
       contentStyle: {

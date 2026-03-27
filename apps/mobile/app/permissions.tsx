@@ -8,6 +8,8 @@ import { Linking, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { getNotifications } from "@/lib/notifications";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { registerDevicePushToken } from "@/lib/pushRegistration";
 
 type PermissionStatus = "granted" | "denied" | "undetermined";
 
@@ -17,6 +19,9 @@ const formatStatus = (status: PermissionStatus) =>
 export default function PermissionsScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const token = useAppSelector((state) => state.user.token);
+  const pushRegistration = useAppSelector((state) => state.app.pushRegistration);
   const [notificationStatus, setNotificationStatus] = useState<PermissionStatus>("undetermined");
   const [notificationsSupported, setNotificationsSupported] = useState(true);
 
@@ -37,15 +42,21 @@ export default function PermissionsScreen() {
   }, [refreshStatuses]);
 
   const requestNotifications = async () => {
-    const notifications = await getNotifications();
-    if (!notifications) {
+    if (!token) {
+      return;
+    }
+    const result = await registerDevicePushToken({
+      token,
+      dispatch,
+      requestPermission: true,
+    });
+    if (result.support !== "supported") {
       setNotificationsSupported(false);
       await Linking.openURL("https://docs.expo.dev/develop/development-builds/introduction/");
       return;
     }
     setNotificationsSupported(true);
-    const result = await notifications.requestPermissionsAsync();
-    setNotificationStatus(result.status);
+    setNotificationStatus(result.permissionStatus);
   };
 
   return (
@@ -73,6 +84,27 @@ export default function PermissionsScreen() {
             accentColor={colors.accent}
             isDark={isDark}
           />
+
+          <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app p-5 gap-3">
+            <Text className="text-lg font-clash text-app">Push Debug</Text>
+            <Text className="text-xs font-outfit text-secondary">
+              Current native build push status for this device.
+            </Text>
+            {[
+              ["Support", pushRegistration.support],
+              ["Permission", pushRegistration.permissionStatus],
+              ["Project ID", pushRegistration.projectId || "Missing"],
+              ["Expo token", pushRegistration.expoPushToken || "Not available"],
+              ["Last error", pushRegistration.lastError || "None"],
+            ].map(([label, value]) => (
+              <View key={label} className="rounded-2xl border border-app px-4 py-3">
+                <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px] text-secondary">
+                  {label}
+                </Text>
+                <Text className="mt-1 text-xs font-outfit text-app">{value}</Text>
+              </View>
+            ))}
+          </View>
 
           <Pressable
             onPress={() => Linking.openSettings()}

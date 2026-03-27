@@ -377,10 +377,7 @@ export function VideoPlayer({
 
   const safePlay = useCallback(() => {
     try {
-      const result = player.play();
-      if (result && typeof (result as Promise<void>).then === "function") {
-        (result as Promise<void>).catch(() => {});
-      }
+      player.play();
     } catch {
       // Ignore errors from released native instances.
     }

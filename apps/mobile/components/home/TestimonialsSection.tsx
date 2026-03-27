@@ -50,7 +50,7 @@ function TestimonialCard({ item, colors, isDark, cardWidth }: { item: Testimonia
               />
             ))}
           </View>
-          <Feather name="quote" size={24} color={colors.accent} style={{ opacity: 0.2 }} />
+          <Ionicons name="chatbubble-ellipses" size={24} color={colors.accent} style={{ opacity: 0.2 }} />
         </View>
 
         <Text 

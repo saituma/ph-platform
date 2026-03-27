@@ -72,7 +72,7 @@ export default function FoodDiaryEntryScreen() {
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <View className="flex-row items-center border-b px-4 py-3" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" }}>
         <TouchableOpacity onPress={() => router.back()} className="mr-3 p-2 -ml-2">
-          <Feather name="arrow-left" size={24} color={colors.app} />
+          <Feather name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text className="text-lg font-semibold text-app flex-1">Food diary entry</Text>
       </View>

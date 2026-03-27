@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
+import { Expo } from "expo-server-sdk";
 
 import { db } from "../db";
 import { notificationTable, userTable } from "../db/schema";
@@ -47,6 +48,9 @@ export async function savePushToken(req: Request, res: Response) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const { token } = pushTokenSchema.parse(req.body);
+  if (!Expo.isExpoPushToken(token)) {
+    return res.status(400).json({ error: "Invalid Expo push token" });
+  }
   console.log(`[PushToken] Attempting to save token for user ${req.user.id}: ${token.slice(0, 10)}...`);
   
   const result = await db
@@ -69,7 +73,7 @@ export async function testPushNotification(req: Request, res: Response) {
     req.user.id,
     "Test Notification",
     "If you see this, push notifications are working correctly!",
-    { type: "system", test: true }
+    { type: "system", test: true, url: "/notifications" }
   );
   
   return res.status(200).json({ success: true, message: "Test notification sent" });

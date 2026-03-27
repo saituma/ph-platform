@@ -25,7 +25,8 @@ export default function ParallaxScrollView({
   headerBackgroundColor,
 }: Props) {
   const backgroundColor = useThemeColor({}, "background");
-  const colorScheme = useColorScheme() ?? "light";
+  const colorScheme: "dark" | "light" =
+    useColorScheme() === "dark" ? "dark" : "light";
   const [ReanimatedModule, setReanimatedModule] = useState<any>(null);
 
   useEffect(() => {

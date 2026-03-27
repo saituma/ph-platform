@@ -43,17 +43,30 @@ type AthleteCard = {
   lastUploadAt?: string | null;
 };
 
+type RawVideoUpload = {
+  id: number;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  reviewedAt?: string | null;
+  createdAt?: string | null;
+  programSectionContentId?: number | null;
+  programSectionTitle?: string | null;
+  programSectionType?: string | null;
+};
+
 export default function VideoReviewListPage() {
   const router = useRouter();
   const { data: videosData, isLoading } = useGetVideoUploadsQuery();
   const [activeTab, setActiveTab] = useState<string>("program");
+  const [referenceNow] = useState(() => Date.now());
 
   const videos = useMemo<VideoItem[]>(() => {
-    const items = videosData?.items ?? [];
-    return items.map((item: any) => {
+    const items = (videosData?.items ?? []) as RawVideoUpload[];
+    return items.map((item) => {
       const reviewed = Boolean(item.reviewedAt);
       const createdAt = item.createdAt ? new Date(item.createdAt) : null;
-      const daysOpen = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24) : 0;
+      const daysOpen =
+        createdAt ? (referenceNow - createdAt.getTime()) / (1000 * 60 * 60 * 24) : 0;
       const status = reviewed
         ? "Reviewed"
         : daysOpen >= 7
@@ -70,7 +83,7 @@ export default function VideoReviewListPage() {
         createdAt: item.createdAt ?? null,
       };
     });
-  }, [videosData]);
+  }, [referenceNow, videosData]);
 
   const athletes = useMemo<AthleteCard[]>(() => {
     const map = new Map<number, AthleteCard>();

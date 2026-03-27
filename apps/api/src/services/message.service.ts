@@ -227,7 +227,7 @@ export async function sendMessage(input: {
       await sendPushNotification(resolvedReceiverId, title, body, {
         type: "message",
         threadId: String(input.senderId),
-        url: "/messages",
+        url: `/messages/${String(input.senderId)}`,
       });
     } catch (error) {
       console.error("[Push] Failed to send message push notification:", error);

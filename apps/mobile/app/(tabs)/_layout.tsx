@@ -49,6 +49,7 @@ export default function TabLayout() {
   const effectiveAuth = forceLogout ? false : isAuthenticated;
   const onboardingCompleted = useAppSelector((state) => state.user.onboardingCompleted);
   const hydrated = useAppSelector((state) => state.user.hydrated);
+  const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const token = useAppSelector((state) => state.user.token);
   const profile = useAppSelector((state) => state.user.profile);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
@@ -61,7 +62,6 @@ export default function TabLayout() {
   const { socket } = useSocket();
   const pendingNavToken = useRef(0);
   const lastHandledNotificationRef = useRef<string | null>(null);
-  const bootRedirectedRef = useRef(false);
   const [messagesUnread, setMessagesUnread] = useState(0);
   const lastPrefetchAt = useRef(0);
 
@@ -77,32 +77,7 @@ export default function TabLayout() {
   }, [effectiveAuth, onboardingCompleted, isOnboarding, router]);
 
   useEffect(() => {
-    if (!hydrated || !effectiveAuth || isOnboarding) return;
-    if (bootRedirectedRef.current) return;
-
-    const normalizedPath = pathname.replace(/\/+$/, "");
-    const isProgramsPath =
-      normalizedPath === "/(tabs)/programs" ||
-      normalizedPath === "/programs" ||
-      (segments?.[0] === "(tabs)" && segments?.[1] === "programs");
-
-    if (isProgramsPath || normalizedPath === "/(tabs)") {
-      if (__DEV__) {
-        console.log("[TabBoot]", {
-          pathname,
-          segments,
-          normalizedPath,
-          isProgramsPath,
-        });
-      }
-      bootRedirectedRef.current = true;
-      lastTabKey = "index";
-      router.replace("/(tabs)");
-    }
-  }, [effectiveAuth, hydrated, isOnboarding, pathname, router, segments]);
-
-  useEffect(() => {
-    if (!hydrated || !effectiveAuth) return;
+    if (!hydrated || !bootstrapReady || !effectiveAuth) return;
     let sub: { remove: () => void } | null = null;
 
     const handleNotificationResponse = (response: any) => {
@@ -165,6 +140,9 @@ export default function TabLayout() {
         const response = await Notifications.getLastNotificationResponseAsync();
         if (response) {
           handleNotificationResponse(response);
+          if (typeof Notifications.clearLastNotificationResponseAsync === "function") {
+            await Notifications.clearLastNotificationResponseAsync();
+          }
         }
       }
     });
@@ -172,12 +150,12 @@ export default function TabLayout() {
     return () => {
       sub?.remove();
     };
-  }, [hydrated, effectiveAuth, router]);
+  }, [bootstrapReady, hydrated, effectiveAuth, router]);
 
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
 
   const syncUnread = useCallback(async () => {
-    if (!token || !effectiveAuth || !hasMessaging) {
+    if (!token || !effectiveAuth || !bootstrapReady || !hasMessaging) {
       setMessagesUnread(0);
       return;
     }
@@ -199,10 +177,10 @@ export default function TabLayout() {
     } catch {
       setMessagesUnread(0);
     }
-  }, [athleteUserId, effectiveAuth, hasMessaging, profile.id, role, token]);
+  }, [athleteUserId, bootstrapReady, effectiveAuth, hasMessaging, profile.id, role, token]);
 
   useEffect(() => {
-    if (!token || !effectiveAuth || !hasMessaging) {
+    if (!token || !effectiveAuth || !bootstrapReady || !hasMessaging) {
       setMessagesUnread(0);
       return;
     }
@@ -223,10 +201,10 @@ export default function TabLayout() {
       clearInterval(timer);
       task?.cancel?.();
     };
-  }, [effectiveAuth, hasMessaging, syncUnread, token]);
+  }, [bootstrapReady, effectiveAuth, hasMessaging, syncUnread, token]);
 
   useEffect(() => {
-    if (!token || !effectiveAuth) return;
+    if (!token || !effectiveAuth || !bootstrapReady) return;
     const now = Date.now();
     if (now - lastPrefetchAt.current < 60_000) return;
     lastPrefetchAt.current = now;
@@ -247,10 +225,10 @@ export default function TabLayout() {
     });
 
     return () => task?.cancel?.();
-  }, [athleteUserId, effectiveAuth, programTier, role, token]);
+  }, [athleteUserId, bootstrapReady, effectiveAuth, programTier, role, token]);
 
   useEffect(() => {
-    if (!socket || !token || !effectiveAuth || !hasMessaging) return;
+    if (!socket || !token || !effectiveAuth || !bootstrapReady || !hasMessaging) return;
 
     const effectiveUserId =
       role === "Athlete" && athleteUserId ? String(athleteUserId) : String(profile.id ?? "");
@@ -282,7 +260,7 @@ export default function TabLayout() {
       socket.off("message:new", handleDirectMessage);
       socket.off("group:message", handleGroupMessage);
     };
-  }, [athleteUserId, effectiveAuth, pathname, profile.id, programTier, role, socket, token]);
+  }, [athleteUserId, bootstrapReady, effectiveAuth, pathname, profile.id, programTier, role, socket, token]);
 
   useEffect(() => {
     if (!pathname.startsWith("/messages")) return;
@@ -320,10 +298,6 @@ export default function TabLayout() {
     const isProgramsPath =
       pathname.replace(/\/+$/, "") === "/(tabs)/programs" ||
       pathname.replace(/\/+$/, "") === "/programs";
-    if (isProgramsPath && !bootRedirectedRef.current && lastTabKey === "index") {
-      const homeIndex = visibleTabs.findIndex((tab) => tab.key === "index");
-      return homeIndex >= 0 ? homeIndex : 0;
-    }
     const routeName = normalizedPath.split("/")[0] || "index";
 
     const index = visibleTabs.findIndex((tab) => tab.key === routeName);
@@ -381,7 +355,7 @@ export default function TabLayout() {
     },
   ];
 
-  if (!hydrated) {
+  if (!hydrated || (effectiveAuth && !bootstrapReady)) {
     return null;
   }
 
