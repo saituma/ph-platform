@@ -10,9 +10,11 @@ import { useEffect, useState } from "react";
  */
 
 type Listener = (index: number) => void;
+type RequestListener = (index: number) => void;
 
 let _activeIndex = 0;
 const _listeners = new Set<Listener>();
+const _requestListeners = new Set<RequestListener>();
 
 export function setGlobalActiveTab(index: number) {
   if (_activeIndex !== index) {
@@ -20,6 +22,17 @@ export function setGlobalActiveTab(index: number) {
   }
   _activeIndex = index;
   _listeners.forEach((fn) => fn(index));
+}
+
+export function requestGlobalTabChange(index: number) {
+  _requestListeners.forEach((fn) => fn(index));
+}
+
+export function subscribeToGlobalTabRequests(listener: RequestListener) {
+  _requestListeners.add(listener);
+  return () => {
+    _requestListeners.delete(listener);
+  };
 }
 
 import { usePathname } from 'expo-router';

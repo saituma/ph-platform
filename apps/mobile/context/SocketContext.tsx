@@ -25,6 +25,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const socketRef = useRef<Socket | null>(null);
   const activeThreadIdRef = useRef<string | null>(null);
   const effectiveProfileIdRef = useRef<string>("");
+  const connectErrorCountRef = useRef(0);
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -62,16 +63,21 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     const newSocket: Socket = io(socketUrl, {
       auth: { token },
-      // WebSocket-only often fails on mobile networks / proxies; polling keeps chat realtime.
-      transports: ["websocket", "polling"],
+      // Prefer polling first on native/mobile networks so chat still connects
+      // when websocket upgrades are blocked by proxies or hosting layers.
+      transports: ["polling", "websocket"],
+      tryAllTransports: true,
       reconnection: true,
-      reconnectionAttempts: 25,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 8,
+      reconnectionDelay: 1500,
+      reconnectionDelayMax: 12000,
+      randomizationFactor: 0.5,
       timeout: 20000,
     });
 
     newSocket.on("connect", () => {
       if (__DEV__) console.log("[Socket] Global connected");
+      connectErrorCountRef.current = 0;
       setIsConnected(true);
     });
 
@@ -80,7 +86,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setIsConnected(false);
     });
     newSocket.on("connect_error", (error) => {
-      if (__DEV__) console.log("[Socket] connect_error", error?.message ?? error);
+      connectErrorCountRef.current += 1;
+      if (__DEV__) {
+        console.log("[Socket] connect_error", {
+          attempt: connectErrorCountRef.current,
+          message: error?.message ?? error,
+        });
+      }
     });
 
     const scheduleRealtimeNotification = async (payload: {

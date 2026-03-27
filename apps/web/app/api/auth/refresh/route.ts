@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
 
   const data = await res.json();
   const accessToken = (data.accessToken as string | undefined) ?? (data.idToken as string | undefined);
+  const nextRefreshToken = data.refreshToken as string | undefined;
   const expiresIn = data.expiresIn as number | undefined;
 
   if (!accessToken) {
@@ -62,6 +63,15 @@ export async function POST(req: NextRequest) {
     path: "/",
     maxAge,
   });
+  if (typeof nextRefreshToken === "string" && nextRefreshToken.trim().length > 0) {
+    response.cookies.set("refreshToken", nextRefreshToken, {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
 
   return response;
 }

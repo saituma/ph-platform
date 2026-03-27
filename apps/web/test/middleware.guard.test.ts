@@ -10,23 +10,23 @@ function makeRequest(pathname: string, token?: string) {
 }
 
 describe("web middleware", () => {
-  test("redirects to /login when token missing for protected route", () => {
+  test("redirects to /login when token missing for protected route", async () => {
     const req = makeRequest("/parent/dashboard");
-    const res = middleware(req);
+    const res = await middleware(req);
     expect(res).toBeInstanceOf(NextResponse);
     expect(res.headers.get("location")).toBe("http://localhost/login");
   });
 
-  test("allows public paths without token", () => {
+  test("allows public paths without token", async () => {
     const req = makeRequest("/login");
-    const res = middleware(req);
+    const res = await middleware(req);
     // NextResponse.next() returns a response with no location header
     expect(res.headers.get("location")).toBeNull();
   });
 
-  test("redirects authenticated users away from /login", () => {
+  test("redirects authenticated users away from /login", async () => {
     const req = makeRequest("/login", "token");
-    const res = middleware(req);
+    const res = await middleware(req);
     expect(res.headers.get("location")).toBe("http://localhost/");
   });
 });

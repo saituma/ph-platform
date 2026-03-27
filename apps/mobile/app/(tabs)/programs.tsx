@@ -541,6 +541,26 @@ export default function ProgramsScreen() {
                     </View>
                   </View>
 
+                  {getDiscountCopy(plan) ? (
+                    <View
+                      className="mb-4 rounded-2xl border px-4 py-3"
+                      style={{
+                        backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
+                        borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.16)",
+                      }}
+                    >
+                      <Text
+                        className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                        style={{ color: colors.accent }}
+                      >
+                        Discount
+                      </Text>
+                      <Text className="mt-1 text-[13px] font-outfit" style={{ color: colors.text }}>
+                        {getDiscountCopy(plan)}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   {pricing ? (
                     <View className="mb-4">{renderPricingLines(pricing)}</View>
                   ) : null}

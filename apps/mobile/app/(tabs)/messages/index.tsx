@@ -18,6 +18,7 @@ import { AgeGate } from "@/components/AgeGate";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import { hasPaidProgramTier } from "@/lib/planAccess";
+import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
@@ -113,7 +114,10 @@ export default function MessagesScreen() {
           </Text>
           {!paidPlan ? (
             <Pressable
-              onPress={() => router.push("/(tabs)/programs")}
+              onPress={() => {
+                requestGlobalTabChange(0);
+                router.replace("/(tabs)/programs");
+              }}
               className="mt-8 rounded-full px-8 py-3 bg-accent"
             >
               <Text className="text-sm font-outfit font-semibold text-white">Open Programs</Text>
