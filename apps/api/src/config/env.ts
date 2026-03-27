@@ -41,6 +41,8 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  /** When set, transactional email uses Resend HTTP API (recommended on Render). SMTP_* still optional. */
+  RESEND_API_KEY: z.string().optional(),
   PUSH_WEBHOOK_URL: z.string().optional(),
   STRIPE_SECRET_KEY: optionalWhenScript("STRIPE_SECRET_KEY is required"),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
@@ -99,6 +101,7 @@ export const env = {
   smtpUser: raw.SMTP_USER ?? "",
   smtpPass: raw.SMTP_PASS ?? "",
   smtpFrom: raw.SMTP_FROM ?? "",
+  resendApiKey: raw.RESEND_API_KEY ?? "",
   pushWebhookUrl: raw.PUSH_WEBHOOK_URL ?? "",
   stripeSecretKey: phApiScript ? (raw.STRIPE_SECRET_KEY ?? scriptPlaceholder) : raw.STRIPE_SECRET_KEY!,
   stripePublishableKey: raw.STRIPE_PUBLISHABLE_KEY ?? "",

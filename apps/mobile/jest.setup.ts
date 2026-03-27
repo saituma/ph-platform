@@ -16,6 +16,7 @@ jest.mock("expo-secure-store", () => {
   const mock = {
     getItemAsync: jest.fn(),
     setItemAsync: jest.fn(),
+    deleteItemAsync: jest.fn(async () => undefined),
   };
 
   return {

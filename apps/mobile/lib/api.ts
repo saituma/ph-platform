@@ -15,6 +15,7 @@ type ApiRequestOptions = {
   skipAuthRefresh?: boolean;
   skipCache?: boolean;
   forceRefresh?: boolean;
+  timeoutMs?: number;
 };
 type ApiCacheEntry = { data: any; savedAt: number };
 const apiCache = new Map<string, ApiCacheEntry>();
@@ -170,18 +171,28 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   const fetchRequest = async (requestUrl: string, authToken?: string | null) =>
-    fetch(requestUrl, {
-      method: options.method ?? "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0",
-        ...(authToken ? { Authorization: `Bearer ${authToken.trim()}` } : {}),
-        ...(options.headers ?? {}),
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    });
+    {
+      const controller = new AbortController();
+      const timeoutMs = Number.isFinite(options.timeoutMs) ? (options.timeoutMs as number) : 30000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(requestUrl, {
+          method: options.method ?? "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            ...(authToken ? { Authorization: `Bearer ${authToken.trim()}` } : {}),
+            ...(options.headers ?? {}),
+          },
+          body: options.body ? JSON.stringify(options.body) : undefined,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
 
   const method = options.method ?? "GET";
   const tokenKey = resolvedToken ? hashString(resolvedToken) : "anon";
@@ -208,7 +219,17 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     try {
       res = await fetchRequest(url, authToken);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Network request failed";
+      const isAbortError =
+        Boolean(error) &&
+        typeof error === "object" &&
+        "name" in error &&
+        (error as { name?: unknown }).name === "AbortError";
+      const timeoutMs = Number.isFinite(options.timeoutMs) ? (options.timeoutMs as number) : 30000;
+      const message = isAbortError
+        ? `Request timed out after ${timeoutMs}ms`
+        : error instanceof Error
+          ? error.message
+          : "Network request failed";
       throw new Error(`Cannot reach API at ${url}. ${message}`);
     }
 

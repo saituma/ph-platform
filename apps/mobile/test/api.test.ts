@@ -1,6 +1,7 @@
 const mockSecureStore = {
   getItemAsync: jest.fn(),
   setItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(async () => undefined),
 };
 
 const mockAsyncStorage = {
