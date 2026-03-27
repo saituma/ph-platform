@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
-import { AppState, InteractionManager } from "react-native";
+import { AppState } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
 import { setBootstrapReady } from "./slices/appSlice";
 import {
@@ -16,6 +16,7 @@ import {
   setManagedAthletes,
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
 
@@ -34,6 +35,23 @@ const isUnauthorizedError = (error: unknown) => {
   const message =
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
   return message.startsWith("401 ") || message.startsWith("403 ");
+};
+
+const scheduleIdleTask = (callback: () => void) => {
+  if (typeof globalThis.requestIdleCallback === "function") {
+    const id = globalThis.requestIdleCallback(() => callback());
+    return {
+      cancel: () => {
+        if (typeof globalThis.cancelIdleCallback === "function") {
+          globalThis.cancelIdleCallback(id);
+        }
+      },
+    };
+  }
+  const timeoutId = setTimeout(callback, 16);
+  return {
+    cancel: () => clearTimeout(timeoutId),
+  };
 };
 
 export function AuthPersist() {
@@ -77,13 +95,52 @@ export function AuthPersist() {
         const storedName = await SecureStore.getItemAsync(STORAGE_KEYS.name);
         const storedEmail = await SecureStore.getItemAsync(STORAGE_KEYS.email);
         const storedAvatar = await SecureStore.getItemAsync(STORAGE_KEYS.avatar);
-        const storedToken = storedTokenRaw?.trim() ?? null;
-        const hasValidToken =
+        let storedToken = storedTokenRaw?.trim() ?? null;
+        const hasRefreshToken =
+          Boolean(storedRefreshToken) &&
+          storedRefreshToken !== "null" &&
+          storedRefreshToken !== "undefined";
+        let hasValidToken =
           Boolean(storedToken) &&
           storedToken !== "null" &&
           storedToken !== "undefined";
 
         if (!mounted) return;
+        if (!hasValidToken && hasRefreshToken) {
+          try {
+            const baseUrl = getApiBaseUrl();
+            const normalizedBaseUrl = baseUrl?.replace(/\/+$/, "").endsWith("/api")
+              ? baseUrl.replace(/\/+$/, "")
+              : `${baseUrl?.replace(/\/+$/, "")}/api`;
+            const refreshResponse = await fetch(`${normalizedBaseUrl}/auth/refresh`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ refreshToken: storedRefreshToken }),
+            });
+            if (refreshResponse.ok) {
+              const payload = await refreshResponse.json().catch(() => null);
+              const refreshedToken =
+                typeof payload?.idToken === "string"
+                  ? payload.idToken
+                  : typeof payload?.accessToken === "string"
+                    ? payload.accessToken
+                    : null;
+              const refreshedRefreshToken =
+                typeof payload?.refreshToken === "string" && payload.refreshToken.trim().length
+                  ? payload.refreshToken.trim()
+                  : storedRefreshToken;
+              if (refreshedToken) {
+                await SecureStore.setItemAsync(STORAGE_KEYS.token, refreshedToken);
+                await SecureStore.setItemAsync(STORAGE_KEYS.refreshToken, refreshedRefreshToken ?? "");
+                storedToken = refreshedToken;
+                hasValidToken = true;
+              }
+            }
+          } catch {
+            // Continue to logout path if refresh fails.
+          }
+        }
+
         if (!hasValidToken) {
           dispatch(logout());
           return;
@@ -115,13 +172,17 @@ export function AuthPersist() {
           return;
         }
 
+        const currentTokenRaw = await SecureStore.getItemAsync(STORAGE_KEYS.token);
+        const currentRefreshToken = await SecureStore.getItemAsync(STORAGE_KEYS.refreshToken);
+        const activeToken = currentTokenRaw?.trim() || storedToken;
+
         const storedOnboarding = await SecureStore.getItemAsync(STORAGE_KEYS.onboardingCompleted);
         const storedAthleteUserId = await SecureStore.getItemAsync(STORAGE_KEYS.athleteUserId);
 
         dispatch(
           setCredentials({
-            token: storedToken!,
-            refreshToken: storedRefreshToken ?? null,
+            token: activeToken!,
+            refreshToken: currentRefreshToken ?? storedRefreshToken ?? null,
             profile: {
               id: storedId ?? null,
               name: storedName ?? null,
@@ -143,8 +204,8 @@ export function AuthPersist() {
           dispatch(setOnboardingCompleted(false));
           dispatch(setAthleteUserId(parsedAid));
         }
-        lastSavedToken.current = storedToken;
-        lastSavedRefreshToken.current = storedRefreshToken ?? null;
+        lastSavedToken.current = activeToken;
+        lastSavedRefreshToken.current = currentRefreshToken ?? storedRefreshToken ?? null;
       } finally {
         if (!mounted) return;
         setHydratedState(true);
@@ -185,7 +246,7 @@ export function AuthPersist() {
       try {
         const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
           "/onboarding",
-          { token, suppressStatusCodes: [401, 403], skipCache: true, forceRefresh: true }
+          { token, suppressStatusCodes: [401, 403, 500], skipCache: true, forceRefresh: true }
         );
         if (!active) return;
         if (onboarding.athlete == null) {
@@ -305,7 +366,7 @@ export function AuthPersist() {
       if (!active) return;
       dispatch(setBootstrapReady(true));
       initialized = true;
-      pushTask = InteractionManager.runAfterInteractions(() => {
+      pushTask = scheduleIdleTask(() => {
         void syncPushToken();
       });
     });

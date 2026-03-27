@@ -8,7 +8,10 @@ import PagerView, {
 } from "react-native-pager-view";
 import { useSharedValue } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
-import { setGlobalActiveTab } from "@/context/ActiveTabContext";
+import {
+  setGlobalActiveTab,
+  subscribeToGlobalTabRequests,
+} from "@/context/ActiveTabContext";
 
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
@@ -56,6 +59,13 @@ export function SwipeableTabLayout({
 
     pagerRef.current?.setPageWithoutAnimation(initialIndex);
   }, [initialIndex, activeIndex]);
+
+  useEffect(() => {
+    return subscribeToGlobalTabRequests((index) => {
+      if (index === lastSelectedIndex.current) return;
+      handleTabPress(index);
+    });
+  }, []);
 
   const handlePageScrollStateChanged = useCallback(
     (e: PageScrollStateChangedNativeEvent) => {

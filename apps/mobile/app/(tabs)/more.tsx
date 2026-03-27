@@ -140,7 +140,7 @@ export default function MoreScreen() {
         try {
           const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
             "/onboarding",
-            { token, suppressStatusCodes: [401, 403], skipCache: true, forceRefresh: true }
+            { token, suppressStatusCodes: [401, 403, 500], skipCache: true, forceRefresh: true }
           );
           if (onboarding.athlete == null) {
             return;

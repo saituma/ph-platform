@@ -15,7 +15,11 @@ import type {
 import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
 import { useTabVisibility } from "@/context/TabVisibilityContext";
-import { ActiveTabProvider, setGlobalActiveTab } from "@/context/ActiveTabContext";
+import {
+  ActiveTabProvider,
+  setGlobalActiveTab,
+  subscribeToGlobalTabRequests,
+} from "@/context/ActiveTabContext";
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
   children: React.ReactNode[];
@@ -91,6 +95,13 @@ export function SwipeableTabLayout({
 
     pagerRef.current?.setPageWithoutAnimation(initialIndex);
   }, [initialIndex, activeIndex]);
+
+  useEffect(() => {
+    return subscribeToGlobalTabRequests((index) => {
+      if (index === lastSelectedIndex.current) return;
+      handleTabPress(index);
+    });
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;

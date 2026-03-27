@@ -130,7 +130,11 @@ export async function getOnboardingByUser(userId: number) {
       .limit(1);
     const athlete = athletes[0] ?? null;
     const decorated = decorateAthlete(athlete);
-    await maybeSendBirthdayNotifications(decorated);
+    try {
+      await maybeSendBirthdayNotifications(decorated);
+    } catch (error) {
+      console.warn("[Onboarding] Failed birthday notification side effect for athlete onboarding status", error);
+    }
     return decorated;
   }
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
@@ -147,9 +151,18 @@ export async function getOnboardingByUser(userId: number) {
     .limit(1);
   const athlete = athletes[0] ?? null;
   if (!athlete) return null;
-  const ensured = await ensureAthleteUserRecord(athlete);
+  let ensured = athlete;
+  try {
+    ensured = await ensureAthleteUserRecord(athlete);
+  } catch (error) {
+    console.warn("[Onboarding] Failed to ensure athlete user record during status lookup", error);
+  }
   const decorated = decorateAthlete(ensured);
-  await maybeSendBirthdayNotifications(decorated);
+  try {
+    await maybeSendBirthdayNotifications(decorated);
+  } catch (error) {
+    console.warn("[Onboarding] Failed birthday notification side effect for guardian onboarding status", error);
+  }
   return decorated;
 }
 
@@ -393,9 +406,26 @@ export async function listGuardianAthletesWithUsers(userId: number) {
   if (!guardian) {
     return { guardian: null, athletes: [] as (typeof athleteTable.$inferSelect)[] };
   }
-  const ensured = await Promise.all(athletes.map((athlete) => ensureAthleteUserRecord(athlete)));
+  const ensured = await Promise.all(
+    athletes.map(async (athlete) => {
+      try {
+        return await ensureAthleteUserRecord(athlete);
+      } catch (error) {
+        console.warn("[Onboarding] Failed to ensure athlete user record while listing guardian athletes", error);
+        return athlete;
+      }
+    })
+  );
   const decorated = ensured.map((athlete) => decorateAthlete(athlete)).filter(Boolean) as typeof ensured;
-  await Promise.all(decorated.map((athlete) => maybeSendBirthdayNotifications(athlete)));
+  await Promise.all(
+    decorated.map(async (athlete) => {
+      try {
+        await maybeSendBirthdayNotifications(athlete);
+      } catch (error) {
+        console.warn("[Onboarding] Failed birthday notification side effect while listing guardian athletes", error);
+      }
+    })
+  );
   return { guardian, athletes: decorated };
 }
 
