@@ -86,13 +86,13 @@ function escapeAttr(s: string): string {
 }
 
 const E = {
-  outerBg: "#0a0a0b",
+  /** Let the mail app use its own canvas (light/dark) — no full-bleed tint. */
+  outerBg: "transparent",
   card: "#ffffff",
   accent: "#16a34a",
-  accentBar: "#14532d",
   text: "#18181b",
   muted: "#52525b",
-  soft: "#a1a1aa",
+  soft: "#71717a",
   rule: "#e4e4e7",
   font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif",
 };
@@ -115,32 +115,35 @@ function emailLayout(input: {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <title>${headline}</title>
 </head>
 <body style="margin:0;padding:0;background-color:${E.outerBg};">
   ${
     pre
-      ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${E.outerBg};">${pre}</div>`
+      ? `<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:transparent;opacity:0;">${pre}</div>`
       : ""
   }
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${E.outerBg};">
     <tr>
-      <td align="center" style="padding:40px 16px 48px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;border-collapse:separate;">
+      <td align="center" style="padding:32px 16px 40px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;border-collapse:separate;background-color:${E.card};border:1px solid ${E.rule};border-radius:16px;border-spacing:0;">
           <tr>
-            <td style="background-color:${E.accentBar};border-radius:16px 16px 0 0;padding:28px 36px 24px;">
-              <p style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.72);font-family:${E.font};">${eyebrow}</p>
-              <h1 style="margin:0;font-size:24px;font-weight:700;line-height:1.3;color:#ffffff;font-family:${E.font};">${headline}</h1>
+            <td style="background-color:${E.card};border-radius:16px 16px 0 0;padding:28px 36px 20px;border-bottom:1px solid ${E.rule};">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${E.accent};font-family:${E.font};">${eyebrow}</p>
+              <h1 style="margin:0;font-size:22px;font-weight:700;line-height:1.3;color:${E.text};font-family:${E.font};">${headline}</h1>
             </td>
           </tr>
           <tr>
-            <td style="background-color:${E.card};padding:36px 36px 40px;border:1px solid ${E.rule};border-top:0;border-radius:0 0 16px 16px;font-family:${E.font};">
+            <td style="background-color:${E.card};padding:36px 36px 40px;border-radius:0 0 16px 16px;font-family:${E.font};">
               ${input.bodyHtml}
             </td>
           </tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
           <tr>
-            <td style="padding:28px 12px 0;text-align:center;">
+            <td style="padding:24px 8px 0;text-align:center;">
               <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:${E.soft};font-family:${E.font};">PH Performance</p>
               <p style="margin:0;font-size:11px;color:${E.muted};line-height:1.65;font-family:${E.font};">© ${year} · Professional coaching &amp; training</p>
               <p style="margin:14px 0 0;font-size:11px;color:${E.muted};line-height:1.65;font-family:${E.font};">This email was sent regarding your PH Performance account.<br/>If you did not expect it, you can ignore this message or contact your coach.</p>
