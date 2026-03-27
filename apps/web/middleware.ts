@@ -12,6 +12,24 @@ const generateCsrfToken = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
 
+const getTokenExpiryMs = (token?: string | null) => {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as { exp?: number };
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+};
+
+const shouldRefreshAccessToken = (token?: string | null) => {
+  const expiryMs = getTokenExpiryMs(token);
+  if (!expiryMs) return !token;
+  return expiryMs - Date.now() < 60_000;
+};
+
 const applyCsrfCookie = (req: NextRequest, response: NextResponse) => {
   const csrfToken = req.cookies.get(csrfCookieName)?.value;
   if (csrfToken) return response;
@@ -78,6 +96,7 @@ async function tryRefreshSession(req: NextRequest) {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("accessToken")?.value;
+  const refreshToken = req.cookies.get("refreshToken")?.value;
 
   if (pathname === "/login" && token) {
     const url = req.nextUrl.clone();
@@ -94,7 +113,7 @@ export async function middleware(req: NextRequest) {
     return applyCsrfCookie(req, NextResponse.next());
   }
 
-  if (!token) {
+  if (!token || (refreshToken && shouldRefreshAccessToken(token))) {
     const refreshed = await tryRefreshSession(req);
     if (refreshed) {
       const response = applyCsrfCookie(req, NextResponse.next());
@@ -116,6 +135,16 @@ export async function middleware(req: NextRequest) {
       });
       return response;
     }
+    if (refreshToken && token) {
+      const response = NextResponse.redirect(new URL("/login", req.url));
+      response.cookies.set("accessToken", "", { path: "/", maxAge: 0 });
+      response.cookies.set("accessTokenClient", "", { path: "/", maxAge: 0 });
+      response.cookies.set("refreshToken", "", { path: "/", maxAge: 0 });
+      return response;
+    }
+  }
+
+  if (!token) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
