@@ -27,8 +27,18 @@ export function getFriendlyAuthErrorMessage(
     message.includes("network request failed") ||
     message.includes("failed to fetch") ||
     message.includes("network error") ||
-    message.includes("timeout")
+    message.includes("timeout") ||
+    message.includes("cannot reach api at")
   ) {
+    const reachMatch = raw.match(/Cannot reach API at\s+(https?:\/\/\S+)\./i);
+    if (reachMatch?.[1]) {
+      try {
+        const host = new URL(reachMatch[1]).host;
+        return `We couldn't reach the server (${host}). Please check your connection and try again.`;
+      } catch {
+        // ignore invalid URL
+      }
+    }
     return "We couldn't reach the server. Please check your connection and try again.";
   }
 
