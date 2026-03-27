@@ -17,7 +17,7 @@ import { updateProfile } from "@/store/slices/userSlice";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
-import { getNotifications } from "@/lib/notifications";
+import { registerDevicePushToken } from "@/lib/pushRegistration";
 import { Shadows } from "@/constants/theme";
 
 export default function ProfileSettingsScreen() {
@@ -26,6 +26,7 @@ export default function ProfileSettingsScreen() {
   const { colors, isDark } = useAppTheme();
   const { isLoading } = useRefreshContext();
   const { profile, token } = useAppSelector((state) => state.user);
+  const pushRegistration = useAppSelector((state) => state.app.pushRegistration);
   const { isSectionHidden } = useAgeExperience();
   const dispatch = useAppDispatch();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -78,26 +79,17 @@ export default function ProfileSettingsScreen() {
 
   useEffect(() => {
     void (async () => {
-      try {
-        const Notifications = await getNotifications();
-        if (Notifications) {
-          const perm = await Notifications.getPermissionsAsync();
-          if (perm.status === "granted") {
-            const Constants = await import("expo-constants");
-            const anyConstants = Constants as any;
-            const projectId =
-              anyConstants?.default?.expoConfig?.extra?.eas?.projectId ??
-              anyConstants?.expoConfig?.extra?.eas?.projectId;
-            
-            const expoToken = await Notifications.getExpoPushTokenAsync({ projectId });
-            setPushToken(expoToken.data);
-          }
-        }
-      } catch (e) {
-        if (__DEV__) console.warn("[Debug] Failed to get push token", e);
+      if (!token) return;
+      const result = await registerDevicePushToken({
+        token,
+        dispatch,
+        requestPermission: false,
+      });
+      if (result.expoPushToken) {
+        setPushToken(result.expoPushToken);
       }
     })();
-  }, []);
+  }, [dispatch, token]);
 
   useEffect(() => {
     let active = true;
@@ -466,10 +458,52 @@ export default function ProfileSettingsScreen() {
               
               <View className="gap-4">
                 <View>
+                  <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mb-2">Push Support</Text>
+                  <View className="bg-app border border-app rounded-xl p-3">
+                    <Text className="text-[11px] font-mono text-secondary">
+                      {pushRegistration.support}
+                    </Text>
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mb-2">Permission</Text>
+                  <View className="bg-app border border-app rounded-xl p-3">
+                    <Text className="text-[11px] font-mono text-secondary">
+                      {pushRegistration.permissionStatus}
+                    </Text>
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mb-2">Expo Project ID</Text>
+                  <View className="bg-app border border-app rounded-xl p-3">
+                    <Text className="text-[11px] font-mono text-secondary" numberOfLines={2}>
+                      {pushRegistration.projectId || "Missing"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View>
                   <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mb-2">Expo Push Token</Text>
                   <View className="bg-app border border-app rounded-xl p-3">
                     <Text className="text-[11px] font-mono text-secondary" numberOfLines={2}>
-                      {pushToken || "Token not available (check permissions)"}
+                      {pushToken || pushRegistration.expoPushToken || "Token not available (check permissions)"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mb-2">Last Sync State</Text>
+                  <View className="bg-app border border-app rounded-xl p-3">
+                    <Text className="text-[11px] font-mono text-secondary" numberOfLines={3}>
+                      {pushRegistration.lastError
+                        ? `Error: ${pushRegistration.lastError}`
+                        : pushRegistration.lastSyncedAt
+                        ? `Synced at ${pushRegistration.lastSyncedAt}`
+                        : pushRegistration.lastAttemptAt
+                        ? `Attempted at ${pushRegistration.lastAttemptAt}`
+                        : "Not attempted"}
                     </Text>
                   </View>
                 </View>

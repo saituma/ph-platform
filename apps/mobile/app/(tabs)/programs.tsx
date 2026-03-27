@@ -459,7 +459,7 @@ export default function ProgramsScreen() {
                 sharedBoundTag={`program-card-${tier.id}`}
                 className="rounded-[30px] overflow-hidden"
                 style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
-                onPress={() => openProgramDetail(tier.id)}
+                onPress={() => openProgramDetail(tier.id as "premium" | "plus" | "php")}
               >
                 {/* Card Header */}
                 <View className={`${tier.color} p-5 rounded-b-[24px]`}>

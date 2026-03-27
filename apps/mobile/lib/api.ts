@@ -220,7 +220,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       res = await fetchRequest(url, authToken);
     } catch (error) {
       const isAbortError =
-        Boolean(error) &&
+        !!error &&
         typeof error === "object" &&
         "name" in error &&
         (error as { name?: unknown }).name === "AbortError";

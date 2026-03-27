@@ -166,9 +166,9 @@ export async function createGroupMessage(input: {
     for (const member of members) {
       if (member.expoPushToken) {
         await sendPushNotification(member.id, title, body, {
-          type: "schedule",
+          type: "group-message",
           threadId: `group:${input.groupId}`,
-          url: "/(tabs)/schedule",
+          url: `/messages/group:${input.groupId}`,
         });
       }
     }

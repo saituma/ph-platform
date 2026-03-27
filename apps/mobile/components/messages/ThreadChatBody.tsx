@@ -301,6 +301,10 @@ function ThreadChatBodyBase({
     : isDark
       ? "rgba(255,255,255,0.1)"
       : "rgba(15,23,42,0.08)";
+  const keyboardOffset =
+    Platform.OS === "ios"
+      ? headerHeight + insets.top
+      : Math.max(insets.bottom, 12);
 
   // Typing indicator dots animation
   const dot1 = useSharedValue(0);
@@ -312,7 +316,8 @@ function ThreadChatBodyBase({
       const animateDot = (sv: any, delay: number) => {
         sv.value = withRepeat(
           withSequence(
-            withTiming(1, { duration: 400, easing: Easing.bezier(0.4, 0, 0.2, 1), delay }),
+            withTiming(0, { duration: delay }),
+            withTiming(1, { duration: 400, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
             withTiming(0, { duration: 400, easing: Easing.bezier(0.4, 0, 0.2, 1) })
           ),
           -1,
@@ -604,8 +609,8 @@ function ThreadChatBodyBase({
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={keyboardOffset}
     >
       <View className="flex-1 overflow-hidden" style={{ backgroundColor: colors.background }}>
         <View
@@ -648,8 +653,11 @@ function ThreadChatBodyBase({
           <Animated.View 
             entering={FadeInDown.springify()} 
             exiting={FadeOutDown}
-            className="absolute bottom-4 left-0 right-0 items-center"
-            style={{ zIndex: 10 }}
+            className="absolute left-0 right-0 items-center"
+            style={{
+              zIndex: 10,
+              bottom: isKeyboardVisible ? 92 : Math.max(insets.bottom + 78, 92),
+            }}
           >
             <Pressable
               onPress={() => {

@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
 import { AppState, InteractionManager } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
+import { setBootstrapReady } from "./slices/appSlice";
 import {
   setCredentials,
   logout,
@@ -15,8 +16,8 @@ import {
   setManagedAthletes,
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
-import { getNotifications } from "@/lib/notifications";
 import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
+import { registerDevicePushToken } from "@/lib/pushRegistration";
 
 const STORAGE_KEYS = {
   token: "authToken",
@@ -52,6 +53,7 @@ export function AuthPersist() {
 
   useEffect(() => {
     let mounted = true;
+    dispatch(setBootstrapReady(false));
     (async () => {
       try {
         const forceLogout =
@@ -158,6 +160,7 @@ export function AuthPersist() {
     if (!hydrated || !isAuthenticated || !token) return;
     let active = true;
     let initialized = false;
+    let pushTask: { cancel?: () => void } | undefined;
 
     const syncProfile = async () => {
       try {
@@ -281,51 +284,32 @@ export function AuthPersist() {
 
     const syncPushToken = async () => {
       try {
-        const Notifications = await getNotifications();
-        if (!Notifications || typeof Notifications.getExpoPushTokenAsync !== "function") return;
-
-        const perm = await Notifications.getPermissionsAsync();
-        if (perm.status !== "granted") {
-          // You might not want to auto-request here if you have a dedicated permissions screen
-          // but for messaging engagement, we usually want to ensure it's requested.
-          const req = await Notifications.requestPermissionsAsync();
-          if (req.status !== "granted") return;
-        }
-
-        const Constants = await import("expo-constants");
-        const anyConstants = Constants as any;
-        const projectId =
-          anyConstants?.default?.expoConfig?.extra?.eas?.projectId ??
-          anyConstants?.expoConfig?.extra?.eas?.projectId;
-
-        const expoToken =
-          projectId != null && String(projectId).length > 0
-            ? await Notifications.getExpoPushTokenAsync({ projectId })
-            : await Notifications.getExpoPushTokenAsync();
-        const tokenStr = expoToken.data;
-
-        if (tokenStr === lastPushToken.current) return;
-
-        await apiRequest("/users/push-token", {
-          method: "POST",
-          body: { token: tokenStr },
+        const result = await registerDevicePushToken({
           token,
-          suppressStatusCodes: [401, 403],
+          dispatch,
         });
-        lastPushToken.current = tokenStr;
+        if (result.expoPushToken) {
+          lastPushToken.current = result.expoPushToken;
+        }
       } catch (error) {
         if (__DEV__) console.warn("[PushTokenSync] Failed:", error);
       }
     };
 
-    void syncBillingStatus(false);
-    void syncProfile();
-    void syncOnboarding();
-    void syncManagedAthletes();
-    const pushTask = InteractionManager.runAfterInteractions(() => {
-      void syncPushToken();
+    void Promise.allSettled([
+      syncBillingStatus(false),
+      syncProfile(),
+      syncOnboarding(),
+      syncManagedAthletes(),
+    ]).then(() => {
+      if (!active) return;
+      dispatch(setBootstrapReady(true));
+      initialized = true;
+      pushTask = InteractionManager.runAfterInteractions(() => {
+        void syncPushToken();
+      });
     });
-    initialized = true;
+
     const interval = setInterval(() => {
       void syncBillingStatus(initialized);
     }, 30000);
@@ -373,6 +357,7 @@ export function AuthPersist() {
           );
         }
       } else {
+        dispatch(setBootstrapReady(false));
         await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.id);

@@ -36,7 +36,6 @@ export default function RootLayout() {
                             <AuthPersist />
                             <Stack
                               screenOptions={{
-                                headerShown: false,
                                 ...slideFromRight,
                               }}
                             >

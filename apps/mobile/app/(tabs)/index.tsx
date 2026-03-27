@@ -84,6 +84,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile, token, programTier } = useAppSelector((state) => state.user);
+  const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const { isSectionHidden } = useAgeExperience();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
@@ -107,7 +108,7 @@ export default function HomeScreen() {
   }, []);
 
   const loadHomeContent = React.useCallback(async (forceRefresh = false) => {
-    if (!token) return;
+    if (!token || !bootstrapReady) return;
     setIsLoadingContent(true);
     try {
       const data = await apiRequest<{ items?: any[] }>("/content/home", { token, forceRefresh });
@@ -158,22 +159,32 @@ export default function HomeScreen() {
         hasLoadedRef.current = true;
       }
     }
-  }, [token]);
+  }, [bootstrapReady, token]);
 
   useEffect(() => {
+    if (!bootstrapReady || !token) return;
     const now = Date.now();
     if (now - lastLoadAtRef.current < 500) return;
     lastLoadAtRef.current = now;
+    setIsLoadingContent(true);
     const task = InteractionManager.runAfterInteractions(() => {
-      loadHomeContent();
+      void loadHomeContent();
     });
     return () => task?.cancel?.();
-  }, [loadHomeContent]);
+  }, [bootstrapReady, loadHomeContent, token]);
 
   const showSkeleton = isLoadingContent && !homeContentError;
 
   if (isSectionHidden("dashboard")) {
     return <AgeGate title="Dashboard locked" message="Dashboard content is restricted for this age." />;
+  }
+
+  if (!bootstrapReady) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
+        <Skeleton width={160} height={40} borderRadius={999} />
+      </View>
+    );
   }
 
   return (

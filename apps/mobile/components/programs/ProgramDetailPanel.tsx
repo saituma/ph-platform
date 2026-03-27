@@ -184,6 +184,8 @@ export function ProgramDetailPanel({
 
   const [activeTab, setActiveTab] = useState<string>("Program");
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
+  const [activeUploadContent, setActiveUploadContent] = useState<ProgramSectionContent | null>(null);
+  const [uploadPickerOpen, setUploadPickerOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const [sectionContent, setSectionContent] = useState<ProgramSectionContent[]>(
     [],
@@ -389,6 +391,24 @@ export function ProgramDetailPanel({
     setActiveVideoUrl(url);
   };
 
+  const uploadEnabledContent = useMemo(
+    () => sectionContent.filter((item) => Boolean(item.allowVideoUpload)),
+    [sectionContent],
+  );
+
+  const openUploadFlow = useCallback((content: ProgramSectionContent) => {
+    setActiveUploadContent(content);
+    setUploadPickerOpen(false);
+  }, []);
+
+  const openFloatingUpload = useCallback(() => {
+    if (uploadEnabledContent.length === 1) {
+      openUploadFlow(uploadEnabledContent[0]!);
+      return;
+    }
+    setUploadPickerOpen(true);
+  }, [openUploadFlow, uploadEnabledContent]);
+
   const renderTrainingContent = () => {
     const visibleContent = sectionContent;
     const showContentLoading = isLoadingContent;
@@ -543,6 +563,18 @@ export function ProgramDetailPanel({
                       <Feather name="message-circle" size={16} color={colors.text} />
                       <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>Ask coach</Text>
                     </Pressable>
+                    {item.allowVideoUpload ? (
+                      <Pressable
+                        onPress={() => openUploadFlow(item)}
+                        className="flex-1 rounded-2xl py-3 flex-row items-center justify-center gap-2 border"
+                        style={{ borderColor: colors.accent, backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4" }}
+                      >
+                        <Feather name="video" size={16} color={colors.accent} />
+                        <Text className="text-sm font-outfit font-semibold" style={{ color: colors.accent }}>
+                          Send video
+                        </Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                   
                   <Transition.Pressable
@@ -784,7 +816,7 @@ export function ProgramDetailPanel({
 
       <ThemedScrollView
         onRefresh={handlePageRefresh}
-        contentContainerStyle={{ paddingBottom: 40, paddingTop: 20 }}
+        contentContainerStyle={{ paddingBottom: uploadEnabledContent.length ? 120 : 40, paddingTop: 20 }}
         nestedScrollEnabled
       >
         {trainingProgress && activeTab === "Program" ? (
@@ -795,6 +827,19 @@ export function ProgramDetailPanel({
 
         <View className="px-5">{renderTab()}</View>
       </ThemedScrollView>
+
+      {uploadEnabledContent.length > 0 ? (
+        <TouchableOpacity
+          onPress={openFloatingUpload}
+          className="absolute bottom-6 right-5 h-16 w-16 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: colors.accent,
+            ...(isDark ? Shadows.none : Shadows.lg),
+          }}
+        >
+          <Feather name="video" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      ) : null}
 
       <Modal
         visible={Boolean(activeVideoUrl)}
@@ -814,6 +859,77 @@ export function ProgramDetailPanel({
               </TouchableOpacity>
             </View>
             {activeVideoUrl ? <VideoPlayer uri={activeVideoUrl} useVideoResolution /> : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={uploadPickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setUploadPickerOpen(false)}
+      >
+        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
+          <View className="rounded-t-[32px] p-5 pb-8" style={{ backgroundColor: colors.card }}>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-xl font-clash text-app font-bold">Choose upload target</Text>
+              <TouchableOpacity
+                onPress={() => setUploadPickerOpen(false)}
+                className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
+              >
+                <Feather name="x" size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View className="mt-5 gap-3">
+              {uploadEnabledContent.map((item) => (
+                <TouchableOpacity
+                  key={`upload-target-${item.id}`}
+                  onPress={() => openUploadFlow(item)}
+                  className="rounded-3xl border px-4 py-4"
+                  style={{ borderColor: borderSoft, backgroundColor: colors.background }}
+                >
+                  <Text className="text-base font-clash text-app">{item.title}</Text>
+                  <Text className="mt-1 text-xs font-outfit text-secondary">
+                    Open video upload for this section item.
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={Boolean(activeUploadContent)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActiveUploadContent(null)}
+      >
+        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
+          <View className="rounded-t-[32px] pt-5" style={{ backgroundColor: colors.card, maxHeight: "92%" }}>
+            <View className="mb-2 flex-row items-center justify-between px-5">
+              <View>
+                <Text className="text-xl font-clash text-app font-bold">Send section video</Text>
+                <Text className="mt-1 text-xs font-outfit text-secondary">
+                  {activeUploadContent?.title ?? "Upload a focused clip for review."}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setActiveUploadContent(null)}
+                className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
+              >
+                <Feather name="x" size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            {activeUploadContent ? (
+              <ThemedScrollView contentContainerStyle={{ paddingBottom: 28 }}>
+                <VideoUploadPanel
+                  refreshToken={refreshToken}
+                  sectionContentId={activeUploadContent.id}
+                  sectionTitle={activeUploadContent.title}
+                />
+              </ThemedScrollView>
+            ) : null}
           </View>
         </View>
       </Modal>

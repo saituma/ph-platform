@@ -106,15 +106,18 @@ export function useMessagesController() {
     return messages.filter((msg) => msg.threadId === currentThread.id);
   }, [currentThread, messages]);
 
-  const loadMessages = useCallback(async () => {
+  const loadMessages = useCallback(async (options?: { silent?: boolean }) => {
     if (!token) {
       setIsLoading(false);
       return;
     }
     if (loadMessagesInFlightRef.current) return;
     loadMessagesInFlightRef.current = true;
+    const silent = options?.silent ?? false;
 
-    setIsLoading(true);
+    if (!silent) {
+      setIsLoading(true);
+    }
     try {
       const [data, groupsData] = await Promise.all([
         apiRequest<{
@@ -202,14 +205,19 @@ export function useMessagesController() {
       console.warn("Failed to load messages", error);
     } finally {
       loadMessagesInFlightRef.current = false;
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, [effectiveProfileId, programTier, token, actingHeaders]);
 
   const loadGroupMessages = useCallback(
-    async (groupId: number) => {
+    async (groupId: number, options?: { silent?: boolean }) => {
       if (!token) return;
-      setIsThreadLoading(true);
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        setIsThreadLoading(true);
+      }
       try {
         const [data, membersData] = await Promise.all([
           apiRequest<{ messages: any[] }>(`/chat/groups/${groupId}/messages`, { 
@@ -274,10 +282,12 @@ export function useMessagesController() {
       } catch (error) {
         console.warn("Failed to load group messages", error);
       } finally {
-        setIsThreadLoading(false);
+        if (!silent) {
+          setIsThreadLoading(false);
+        }
       }
     },
-    [effectiveProfileId, token]
+    [actingHeaders, effectiveProfileId, token]
   );
 
   const sendReplyToThread = useCallback(
@@ -292,7 +302,7 @@ export function useMessagesController() {
           headers: actingHeaders,
           body: { content: text.trim() },
         });
-        await loadGroupMessages(groupId);
+        await loadGroupMessages(groupId, { silent: true });
       } else {
         await apiRequest("/messages", {
           method: "POST",
@@ -303,10 +313,10 @@ export function useMessagesController() {
             receiverId: isNaN(Number(threadId)) ? undefined : Number(threadId)
           },
         });
-        await loadMessages();
+        await loadMessages({ silent: true });
       }
     },
-    [loadGroupMessages, loadMessages, token]
+    [actingHeaders, loadGroupMessages, loadMessages, token]
   );
 
   const clearThread = useCallback(() => {
@@ -833,7 +843,7 @@ export function useMessagesController() {
     if (!token || threadId) return;
     const id = setInterval(() => {
       if (socket?.connected) return;
-      void loadMessages();
+      void loadMessages({ silent: true });
     }, 20000);
     return () => clearInterval(id);
   }, [token, threadId, socket?.connected, loadMessages]);
@@ -874,14 +884,14 @@ export function useMessagesController() {
   }, [threadId, openingThreadId]);
 
   useEffect(() => {
-    loadMessages();
+    void loadMessages();
   }, [loadMessages]);
 
   useEffect(() => {
     if (!currentThread || !currentThread.id.startsWith("group:")) return;
     const groupId = Number(currentThread.id.replace("group:", ""));
     if (Number.isFinite(groupId)) {
-      loadGroupMessages(groupId);
+      void loadGroupMessages(groupId);
     }
   }, [currentThread, loadGroupMessages]);
 
@@ -892,10 +902,10 @@ export function useMessagesController() {
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));
         if (Number.isFinite(groupId)) {
-          loadGroupMessages(groupId);
+          void loadGroupMessages(groupId, { silent: true });
         }
       } else {
-        loadMessages();
+        void loadMessages({ silent: true });
       }
     }, 12000);
     return () => clearInterval(interval);
