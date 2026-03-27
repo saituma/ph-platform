@@ -25,14 +25,7 @@ import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useRouter } from "expo-router";
 import { hasPaidProgramTier } from "@/lib/planAccess";
-import Animated, { 
-  FadeInDown, 
-  FadeInRight, 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring,
-  withDelay 
-} from "react-native-reanimated";
+import Animated, { Easing, FadeInDown, FadeInRight } from "react-native-reanimated";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -65,7 +58,7 @@ const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpaci
 const QuickLink = ({ icon, label, sublabel, onPress, index, colors, isDark }: any) => {
   return (
     <AnimatedTouchableOpacity
-      entering={FadeInRight.delay(400 + index * 100).springify()}
+      entering={FadeInRight.delay(400 + index * 100).duration(380).easing(Easing.out(Easing.cubic))}
       onPress={onPress}
       activeOpacity={0.8}
       className="flex-1 rounded-[32px] p-5 h-[160px] justify-between border"
@@ -206,8 +199,8 @@ export default function HomeScreen() {
         }
       >
         {/* Modern Hero Header */}
-        <Animated.View 
-          entering={FadeInDown.duration(600).springify()}
+        <Animated.View
+          entering={FadeInDown.duration(420).easing(Easing.out(Easing.cubic))}
           className="px-6 mb-8"
         >
           <View className="flex-row justify-between items-start mb-4">
@@ -308,7 +301,7 @@ export default function HomeScreen() {
           ) : (
             <>
               {homeContent?.introVideoUrl && (
-                <Animated.View entering={FadeInDown.delay(600).springify()}>
+                <Animated.View entering={FadeInDown.delay(600).duration(400).easing(Easing.out(Easing.cubic))}>
                   <View className="flex-row items-center gap-2 mb-4">
                     <View className="h-1.5 w-1.5 rounded-full bg-accent" />
                     <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2px]">Featured Highlight</Text>
@@ -320,12 +313,12 @@ export default function HomeScreen() {
                 </Animated.View>
               )}
 
-              <Animated.View entering={FadeInDown.delay(700).springify()}>
+              <Animated.View entering={FadeInDown.delay(700).duration(400).easing(Easing.out(Easing.cubic))}>
                 <GuardianDashboard />
               </Animated.View>
 
               {homeContent?.adminStory && (
-                <Animated.View entering={FadeInDown.delay(800).springify()}>
+                <Animated.View entering={FadeInDown.delay(800).duration(400).easing(Easing.out(Easing.cubic))}>
                   <AdminStorySection
                     story={homeContent.adminStory}
                     photoUrl={homeContent.professionalPhoto ?? null}
@@ -334,7 +327,7 @@ export default function HomeScreen() {
               )}
 
               {homeContent?.testimonials && (
-                <Animated.View entering={FadeInDown.delay(900).springify()} className="mb-10">
+                <Animated.View entering={FadeInDown.delay(900).duration(400).easing(Easing.out(Easing.cubic))} className="mb-10">
                   <TestimonialsSection items={homeContent.testimonials} />
                 </Animated.View>
               )}

@@ -28,6 +28,7 @@ import {
   setProgramTier,
   setLatestSubscriptionRequest,
 } from "../../store/slices/userSlice";
+import { reduxStateFromOnboardingAthlete, shouldOpenTabsAfterAuth } from "@/lib/onboardingFromApi";
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -97,9 +98,9 @@ export default function LoginScreen() {
         "/onboarding",
         { token, suppressStatusCodes: [401], skipCache: true, forceRefresh: true }
       );
-      const completed = Boolean(onboarding.athlete?.onboardingCompleted);
-      dispatch(setOnboardingCompleted(completed));
-      dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
+      const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
+      dispatch(setOnboardingCompleted(next.onboardingCompleted));
+      dispatch(setAthleteUserId(next.athleteUserId));
       try {
         const status = await apiRequest<{
           currentProgramTier?: string | null;
@@ -120,7 +121,7 @@ export default function LoginScreen() {
         dispatch(setProgramTier(null));
         dispatch(setLatestSubscriptionRequest(null));
       }
-      router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
+      router.replace(shouldOpenTabsAfterAuth(onboarding.athlete) ? "/(tabs)" : "/(tabs)/onboarding");
     } catch (err: any) {
       const message = extractAuthErrorMessage(err);
       if (message.toLowerCase().includes("not confirmed")) {

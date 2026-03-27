@@ -9,6 +9,7 @@ import { apiRequest } from "../../lib/api";
 import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { useAppDispatch } from "../../store/hooks";
 import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
+import { reduxStateFromOnboardingAthlete, shouldOpenTabsAfterAuth } from "@/lib/onboardingFromApi";
 import { Text, TextInput } from "@/components/ScaledText";
 
 export default function VerifyScreen() {
@@ -123,10 +124,10 @@ export default function VerifyScreen() {
                   "/onboarding",
                   { token, suppressStatusCodes: [401], skipCache: true, forceRefresh: true }
                 );
-                const completed = Boolean(onboarding.athlete?.onboardingCompleted);
-                dispatch(setOnboardingCompleted(completed));
-                dispatch(setAthleteUserId(onboarding.athlete?.userId ?? null));
-                router.replace(completed ? "/(tabs)" : "/(tabs)/onboarding");
+                const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
+                dispatch(setOnboardingCompleted(next.onboardingCompleted));
+                dispatch(setAthleteUserId(next.athleteUserId));
+                router.replace(shouldOpenTabsAfterAuth(onboarding.athlete) ? "/(tabs)" : "/(tabs)/onboarding");
                 return;
               }
               router.replace("/(auth)/login");

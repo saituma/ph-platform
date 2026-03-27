@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Dimensions, Modal, Pressable, View } from "react-native";
-import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutLeft } from "react-native-reanimated";
+import { Dimensions, InteractionManager, Modal, Pressable, View } from "react-native";
+import Animated, { Easing, FadeIn, FadeOut, SlideInRight, SlideOutLeft } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -55,10 +55,13 @@ export function FirstLoginWalkthrough() {
   const [step, setStep] = useState(0);
 
   React.useEffect(() => {
-    (async () => {
-      const seen = await AsyncStorage.getItem(WALKTHROUGH_KEY);
-      if (!seen) setVisible(true);
-    })();
+    const task = InteractionManager.runAfterInteractions(() => {
+      void (async () => {
+        const seen = await AsyncStorage.getItem(WALKTHROUGH_KEY);
+        if (!seen) setVisible(true);
+      })();
+    });
+    return () => task?.cancel?.();
   }, []);
 
   const dismiss = useCallback(async () => {
@@ -92,7 +95,7 @@ export function FirstLoginWalkthrough() {
       >
         <Animated.View
           key={step}
-          entering={SlideInRight.springify().damping(20)}
+          entering={SlideInRight.duration(280).easing(Easing.out(Easing.cubic))}
           exiting={SlideOutLeft.duration(200)}
           className="w-full max-w-[360px] rounded-[32px] overflow-hidden border"
           style={{
