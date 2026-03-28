@@ -455,6 +455,13 @@ export async function loginLocal(input: { email: string; password: string }) {
     role: user.role,
     userId: user.id,
     tokenVersion: nextTokenVersion,
+    expiresIn: "30d",
   });
-  return { accessToken: token, idToken: token, refreshToken: null, expiresIn: 3600, tokenType: "Bearer" };
+  return {
+    accessToken: token,
+    idToken: token,
+    refreshToken: null,
+    expiresIn: 60 * 60 * 24 * 30,
+    tokenType: "Bearer",
+  };
 }
