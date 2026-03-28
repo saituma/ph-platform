@@ -4,7 +4,7 @@ import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
 import { useRole } from "@/context/RoleContext";
 import { apiRequest } from "@/lib/api";
-import { hasPaidProgramTier, normalizeProgramTier, PROGRAM_TIER_ORDER } from "@/lib/planAccess";
+import { hasPaidProgramTier } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, InteractionManager, Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
@@ -65,15 +65,20 @@ const formatDateKey = (date: Date) =>
     date.getDate(),
   ).padStart(2, "0")}`;
 
+/** Align slot ↔ booking counts (API timestamps may differ by ms). */
+const toBookingSlotKey = (d: Date) => {
+  const x = new Date(d.getTime());
+  x.setSeconds(0, 0);
+  x.setMilliseconds(0);
+  return String(x.getTime());
+};
+
 export default function ScheduleScreen() {
   const router = useRouter();
   const { role } = useRole();
   const { colors, isDark } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
-  const normalizedProgramTier = normalizeProgramTier(programTier);
-  const canCreateBookings =
-    normalizedProgramTier != null &&
-    (PROGRAM_TIER_ORDER as readonly string[]).includes(normalizedProgramTier);
+  const canCreateBookings = hasPaidProgramTier(programTier);
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useIsFocused();
   const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
@@ -247,7 +252,7 @@ export default function ScheduleScreen() {
     const map = new Map<string, number>();
     (availabilityData?.bookings ?? []).forEach((booking: any) => {
       if (!booking?.startsAt) return;
-      const key = new Date(booking.startsAt).toISOString();
+      const key = toBookingSlotKey(new Date(booking.startsAt));
       map.set(key, (map.get(key) ?? 0) + 1);
     });
     return map;
@@ -256,6 +261,7 @@ export default function ScheduleScreen() {
   const availableSlots = useMemo(() => {
     if (!selectedService || !availabilityData?.items?.length) return [] as Date[];
     const durationMs = selectedService.durationMinutes * 60 * 1000;
+    const dayKey = formatDateKey(bookingDate);
     const slotMap = new Map<string, Date>();
     for (const block of availabilityData.items) {
       const start = new Date(block.startsAt);
@@ -266,13 +272,14 @@ export default function ScheduleScreen() {
         cursor.getTime() + durationMs <= end.getTime();
         cursor = new Date(cursor.getTime() + durationMs)
       ) {
-        const timeLabel = `${String(cursor.getHours()).padStart(2, "0")}:${String(cursor.getMinutes()).padStart(2, "0")}`;
-        if (fixedTimeLabel && timeLabel !== fixedTimeLabel) continue;
-        slotMap.set(cursor.toISOString(), cursor);
+        if (formatDateKey(cursor) !== dayKey) continue;
+        // Do not filter by fixedStartTime here: that value is coach/UTC-oriented; comparing to
+        // device-local HH:mm hid every slot in other timezones. Server validates on submit.
+        slotMap.set(toBookingSlotKey(cursor), cursor);
       }
     }
     return Array.from(slotMap.values()).sort((a, b) => a.getTime() - b.getTime());
-  }, [availabilityData, selectedService, fixedTimeLabel]);
+  }, [availabilityData, selectedService, bookingDate]);
 
   const selectedDateLabel = useMemo(
     () => selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }),
@@ -403,6 +410,7 @@ export default function ScheduleScreen() {
     let active = true;
     setAvailabilityLoading(true);
     setAvailabilityError(null);
+    setAvailabilityData(null);
     const start = new Date(bookingDate);
     start.setHours(0, 0, 0, 0);
     const end = new Date(bookingDate);
@@ -442,15 +450,16 @@ export default function ScheduleScreen() {
     setSelectedSlot((prev) => {
       const capacity = selectedService?.capacity ?? null;
       const isPrevValid =
-        prev != null && availableSlots.some((slot) => slot.toISOString() === prev.toISOString());
+        prev != null &&
+        availableSlots.some((slot) => toBookingSlotKey(slot) === toBookingSlotKey(prev));
       if (isPrevValid && prev != null) {
         if (!capacity) return prev;
-        const prevCount = bookingCounts.get(prev.toISOString()) ?? 0;
+        const prevCount = bookingCounts.get(toBookingSlotKey(prev)) ?? 0;
         if (prevCount < capacity) return prev;
       }
       const firstAvailable = availableSlots.find((slot) => {
         if (!capacity) return true;
-        const count = bookingCounts.get(slot.toISOString()) ?? 0;
+        const count = bookingCounts.get(toBookingSlotKey(slot)) ?? 0;
         return count < capacity;
       });
       return firstAvailable ?? null;
@@ -1193,7 +1202,8 @@ export default function ScheduleScreen() {
                     </Pressable>
                     {fixedTimeLabel ? (
                       <Text className="text-xs font-outfit text-secondary mt-3">
-                        This type always starts at {fixedTimeLabel} (coach local time).
+                        This session type has a fixed start time ({fixedTimeLabel}) on the coach side — choose a slot
+                        below; only valid start times are listed.
                       </Text>
                     ) : null}
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mt-4">
@@ -1218,13 +1228,14 @@ export default function ScheduleScreen() {
                       <View className="mt-3 flex-row flex-wrap gap-2">
                         {availableSlots.map((slot) => {
                           const cap = selectedService?.capacity ?? null;
-                          const taken = bookingCounts.get(slot.toISOString()) ?? 0;
+                          const taken = bookingCounts.get(toBookingSlotKey(slot)) ?? 0;
                           const atCap = cap != null && taken >= cap;
                           const active =
-                            selectedSlot != null && selectedSlot.toISOString() === slot.toISOString();
+                            selectedSlot != null &&
+                            toBookingSlotKey(selectedSlot) === toBookingSlotKey(slot);
                           return (
                             <Pressable
-                              key={slot.toISOString()}
+                              key={toBookingSlotKey(slot)}
                               disabled={atCap}
                               onPress={() => setSelectedSlot(slot)}
                               className="px-4 py-2 rounded-full border"
@@ -1251,9 +1262,28 @@ export default function ScheduleScreen() {
                         })}
                       </View>
                     ) : null}
+                    {selectedSlot && selectedService ? (
+                      <View
+                        className="mt-4 rounded-2xl border px-3 py-3"
+                        style={{ borderColor: colors.accent, backgroundColor: accentSurface }}
+                      >
+                        <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                          Your selection
+                        </Text>
+                        <Text className="text-sm font-outfit text-app font-semibold mt-1">
+                          {selectedService.name}
+                        </Text>
+                        <Text className="text-xs font-outfit text-secondary mt-1">
+                          {bookingDate.toLocaleDateString([], {
+                            weekday: "long",
+                            month: "short",
+                            day: "numeric",
+                          })}{" "}
+                          · {selectedSlot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
-
-
 
                   <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">

@@ -12,11 +12,11 @@ import {
   Alert,
   Image,
   InteractionManager,
+  Pressable,
   RefreshControl,
   ScrollView,
   TouchableOpacity,
   View,
-  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -26,8 +26,6 @@ import { Skeleton } from "@/components/Skeleton";
 import { useRouter } from "expo-router";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import Animated, { Easing, FadeInDown, FadeInRight } from "react-native-reanimated";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type HomeTestimonial = {
   id: string;
@@ -54,6 +52,8 @@ type HomeContentPayload = {
 };
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
+type WelcomeHeroState = "loading" | "ready" | "fallback" | "error";
 
 const QuickLink = ({ icon, label, sublabel, onPress, index, colors, isDark }: any) => {
   return (
@@ -96,10 +96,46 @@ export default function HomeScreen() {
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning";
-    if (hour < 18) return "Good Afternoon";
-    return "Good Evening";
-  }, [isRefreshing]);
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
+  const firstName = useMemo(() => {
+    const candidate = profile?.name?.trim()?.split(/\s+/)[0];
+    return candidate || "Athlete";
+  }, [profile?.name]);
+
+  const fallbackWelcome = useMemo(() => {
+    const opening =
+      greeting === "Good morning"
+        ? "You're set up for a strong start today."
+        : greeting === "Good afternoon"
+          ? "Keep your momentum going and stay locked in."
+          : "Finish the day strong and stay connected to your plan.";
+
+    return `${opening} Check your next steps, stay consistent, and keep building.`;
+  }, [greeting]);
+
+  const normalizedWelcome = useMemo(() => {
+    const welcome = homeContent?.welcome?.trim();
+    if (welcome) return welcome;
+
+    const headline = homeContent?.headline?.trim();
+    if (headline) return headline;
+
+    return null;
+  }, [homeContent?.headline, homeContent?.welcome]);
+
+  const welcomeHeroState = useMemo<WelcomeHeroState>(() => {
+    if (isLoadingContent && !homeContent && !homeContentError) return "loading";
+    if (homeContentError) return "error";
+    if (normalizedWelcome) return "ready";
+    return "fallback";
+  }, [homeContent, homeContentError, isLoadingContent, normalizedWelcome]);
+
+  const resolvedWelcomeMessage =
+    welcomeHeroState === "ready" ? normalizedWelcome : fallbackWelcome;
 
   useEffect(() => {
     return () => {
@@ -214,47 +250,130 @@ export default function HomeScreen() {
           entering={FadeInDown.duration(420).easing(Easing.out(Easing.cubic))}
           className="px-6 mb-8"
         >
-          <View className="flex-row justify-between items-start mb-4">
-            <View className="flex-1 pr-3">
-              <View className="flex-row items-center gap-2 mb-2">
-                <View className="h-1.5 w-1.5 rounded-full bg-accent" />
-                <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2px]">
-                  {greeting}
+          <View
+            className="rounded-[36px] border p-5"
+            style={{
+              backgroundColor: isDark ? colors.heroSurfaceStrong : colors.card,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.12)",
+              ...(isDark ? Shadows.none : Shadows.lg),
+            }}
+          >
+            <View
+              className="absolute right-0 top-0 h-40 w-40 rounded-full"
+              style={{
+                backgroundColor: isDark
+                  ? "rgba(34,197,94,0.12)"
+                  : "rgba(34,197,94,0.10)",
+                transform: [{ translateX: 44 }, { translateY: -40 }],
+              }}
+            />
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 pr-4">
+                <View className="mb-3 self-start rounded-full px-3 py-2" style={{ backgroundColor: colors.accentLight }}>
+                  <View className="flex-row items-center gap-2">
+                    <View className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.accent }} />
+                    <Text
+                      className="text-[11px] font-outfit font-bold uppercase tracking-[1.8px]"
+                      style={{ color: colors.accent }}
+                    >
+                      {greeting}
+                    </Text>
+                  </View>
+                </View>
+                <Text className="font-clash text-[34px] font-bold leading-tight text-app">
+                  Welcome back, {firstName}
                 </Text>
+
+                {welcomeHeroState === "loading" ? (
+                  <View className="mt-4 gap-2">
+                    <Skeleton width="82%" height={18} borderRadius={999} />
+                    <Skeleton width="96%" height={18} borderRadius={999} />
+                    <Skeleton width="66%" height={18} borderRadius={999} />
+                  </View>
+                ) : (
+                  <>
+                    <Text
+                      className="mt-4 text-[16px] font-outfit leading-7"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      {resolvedWelcomeMessage}
+                    </Text>
+
+                    {welcomeHeroState === "error" ? (
+                      <Pressable
+                        onPress={() => {
+                          setIsRefreshing(true);
+                          void loadHomeContent(true).finally(() => {
+                            setTimeout(() => setIsRefreshing(false), 400);
+                          });
+                        }}
+                        className="mt-4 self-start rounded-full px-4 py-2.5"
+                        style={{
+                          backgroundColor: isDark ? colors.backgroundSecondary : colors.accentLight,
+                          borderWidth: 1,
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(34,197,94,0.14)",
+                        }}
+                      >
+                        <View className="flex-row items-center gap-2">
+                          <Feather name="refresh-cw" size={15} color={colors.accent} />
+                          <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                            Try again
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ) : null}
+                  </>
+                )}
               </View>
-              <Text className="font-clash text-[36px] font-bold text-app leading-tight">
-                Hi, {profile?.name?.split(" ")[0] || "Athlete"}
-              </Text>
-              {homeContent?.welcome ? (
-                <Text
-                  className="mt-4 text-[17px] font-outfit leading-7"
-                  style={{ color: colors.textSecondary }}
-                >
-                  {homeContent.welcome}
-                </Text>
-              ) : homeContent?.headline && !showSkeleton ? (
-                <Text
-                  className="mt-3 text-[15px] font-outfit font-semibold leading-6"
-                  style={{ color: colors.textSecondary }}
-                >
-                  {homeContent.headline}
-                </Text>
-              ) : null}
+
+              <TouchableOpacity
+                onPress={() => router.push("/profile-settings")}
+                activeOpacity={0.85}
+                className="h-16 w-16 rounded-[24px] overflow-hidden border p-1"
+                style={{
+                  backgroundColor: isDark ? colors.heroSurfaceMuted : colors.backgroundSecondary,
+                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(34,197,94,0.12)",
+                }}
+              >
+                {profile?.avatar ? (
+                  <Image source={{ uri: profile.avatar }} className="h-full w-full rounded-[20px]" />
+                ) : (
+                  <View
+                    className="h-full w-full items-center justify-center rounded-[20px]"
+                    style={{ backgroundColor: colors.accentLight }}
+                  >
+                    <Feather name="user" size={24} color={colors.accent} />
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity 
-              onPress={() => router.push("/profile-settings")}
-              className="h-14 w-14 rounded-[20px] overflow-hidden border-2"
-              style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(34,197,94,0.1)" }}
-            >
-              {profile?.avatar ? (
-                <Image source={{ uri: profile.avatar }} className="h-full w-full" />
-              ) : (
-                <View className="h-full w-full items-center justify-center bg-accent/10">
-                  <Feather name="user" size={24} color={colors.accent} />
-                </View>
-              )}
-            </TouchableOpacity>
+            <View className="mt-5 flex-row items-center gap-3">
+              <View
+                className="rounded-full px-3 py-2"
+                style={{
+                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : colors.backgroundSecondary,
+                }}
+              >
+                <Text
+                  className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {welcomeHeroState === "ready"
+                    ? "Personalized welcome"
+                    : welcomeHeroState === "error"
+                      ? "Using offline fallback"
+                      : "Daily focus"}
+                </Text>
+              </View>
+              <Text className="flex-1 text-[12px] font-outfit" style={{ color: colors.textSecondary }}>
+                {welcomeHeroState === "ready"
+                  ? "Your latest home message is ready."
+                  : "Your plan is still here and ready even when content needs a moment."}
+              </Text>
+            </View>
           </View>
         </Animated.View>
 
@@ -345,12 +464,6 @@ export default function HomeScreen() {
             </>
           )}
         </View>
-
-        {homeContentError && (
-          <View className="mx-6 mt-4 rounded-2xl bg-red-500/10 p-4 border border-red-500/20">
-            <Text className="text-xs font-outfit text-red-500 text-center">{homeContentError}</Text>
-          </View>
-        )}
       </ScrollView>
     </View>
   );

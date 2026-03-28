@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Modal, Pressable, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, type RelativePathString } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -13,7 +13,6 @@ import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
-import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
 import { useRole } from "@/context/RoleContext";
 import { canAccessTier } from "@/lib/planAccess";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -143,7 +142,6 @@ export default function PremiumExerciseDetailScreen() {
   const [item, setItem] = useState<PremiumExerciseDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
   const lastLoadedRef = useRef<string | null>(null);
 
@@ -496,7 +494,19 @@ export default function PremiumExerciseDetailScreen() {
 
         {showUploadFab ? (
           <Pressable
-            onPress={() => setShowUploadModal(true)}
+            onPress={() => {
+              const params = new URLSearchParams();
+              if (item?.linkedProgramSectionContentId != null) {
+                params.set(
+                  "sectionContentId",
+                  String(item.linkedProgramSectionContentId),
+                );
+              }
+              if (title) {
+                params.set("sectionTitle", title);
+              }
+              router.push(`/video-upload?${params.toString()}` as any);
+            }}
             className="absolute bottom-6 right-6 h-14 w-14 rounded-full items-center justify-center"
             style={{
               bottom: hasSessionNavigation ? 96 : 24,
@@ -507,34 +517,6 @@ export default function PremiumExerciseDetailScreen() {
             <Feather name="plus" size={24} color="#ffffff" />
           </Pressable>
         ) : null}
-
-        <Modal
-          visible={showUploadModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowUploadModal(false)}
-        >
-          <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}>
-            <View className="rounded-t-3xl p-4 pb-6" style={{ backgroundColor: surfaceColor }}>
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-lg font-clash text-app font-bold">Upload your form video</Text>
-                <TouchableOpacity
-                  onPress={() => setShowUploadModal(false)}
-                  className="h-10 w-10 rounded-full items-center justify-center"
-                  style={{ backgroundColor: mutedSurface }}
-                >
-                  <Feather name="x" size={20} color={colors.accent} />
-                </TouchableOpacity>
-              </View>
-              {showUploadModal && item ? (
-                <VideoUploadPanel
-                  sectionContentId={item.linkedProgramSectionContentId ?? null}
-                  sectionTitle={title}
-                />
-              ) : null}
-            </View>
-          </View>
-        </Modal>
       </SafeMaskedView>
     </SafeAreaView>
   );

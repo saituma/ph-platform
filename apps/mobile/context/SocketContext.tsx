@@ -95,84 +95,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
 
-    const scheduleRealtimeNotification = async (payload: {
-      threadId: string;
-      title: string;
-      body: string;
-      data?: Record<string, unknown>;
-    }) => {
-      try {
-        const { getNotifications } = await import("@/lib/notifications");
-        const Notifications = await getNotifications();
-        if (!Notifications) return;
-
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: payload.title,
-            body: payload.body,
-            data: payload.data ?? {},
-            sound: "default",
-          },
-          trigger: null, // fire immediately
-        });
-      } catch (err) {
-        if (__DEV__) console.warn("[Socket] Failed to schedule notification:", err);
-      }
-    };
-
-    newSocket.on("message:new", async (payload: any) => {
-      const selfId = effectiveProfileIdRef.current;
-      const senderId = String(payload.senderId);
-      const receiverId = String(payload.receiverId);
-      const threadId = senderId === selfId ? receiverId : senderId;
-
-      // Skip notification if we are the sender OR if we are currently looking at this thread
-      if (senderId === selfId || threadId === activeThreadIdRef.current) {
-        return;
-      }
-
-      const senderName = payload.senderName ?? "Coach";
-      const isResponseVideo = payload.contentType === "video" && Number.isFinite(payload.videoUploadId);
-      const previewText = typeof payload.content === "string" ? payload.content.trim() : "";
-      const body = isResponseVideo
-        ? "Sent a response video"
-        : previewText.length
-        ? previewText.slice(0, 120)
-        : "Sent you a message";
-      await scheduleRealtimeNotification({
-        threadId: String(threadId),
-        title: senderName,
-        body,
-        data: {
-          type: "message",
-          threadId: String(threadId),
-          senderId,
-          receiverId,
-        },
-      });
-    });
-
-    newSocket.on("group:message", async (payload: any) => {
-      const selfId = effectiveProfileIdRef.current;
-      if (!payload?.groupId || String(payload.senderId) === selfId) return;
-      const threadId = `group:${payload.groupId}`;
-      if (threadId === activeThreadIdRef.current) return;
-      const senderName = payload.senderName ?? "Coach";
-      const groupName = payload.groupName ?? "Group chat";
-      const previewText = typeof payload.content === "string" ? payload.content.trim() : "";
-      const body = previewText.length ? `${senderName}: ${previewText.slice(0, 110)}` : `${senderName} sent a message`;
-      await scheduleRealtimeNotification({
-        threadId,
-        title: groupName,
-        body,
-        data: {
-          type: "group-message",
-          threadId,
-          groupId: payload.groupId,
-          senderId: payload.senderId,
-        },
-      });
-    });
+    // Message and group chat alerts are delivered via server-side Expo push so they appear
+    // in the system tray when the app is backgrounded or killed. Foreground handling uses
+    // addNotificationReceivedListener in InAppNotificationsContext (no duplicate local socket notifications).
 
     socketRef.current = newSocket;
     setSocket(newSocket);

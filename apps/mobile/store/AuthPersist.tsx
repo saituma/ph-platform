@@ -37,23 +37,6 @@ const isUnauthorizedError = (error: unknown) => {
   return message.startsWith("401 ") || message.startsWith("403 ");
 };
 
-const scheduleIdleTask = (callback: () => void) => {
-  if (typeof globalThis.requestIdleCallback === "function") {
-    const id = globalThis.requestIdleCallback(() => callback());
-    return {
-      cancel: () => {
-        if (typeof globalThis.cancelIdleCallback === "function") {
-          globalThis.cancelIdleCallback(id);
-        }
-      },
-    };
-  }
-  const timeoutId = setTimeout(callback, 16);
-  return {
-    cancel: () => clearTimeout(timeoutId),
-  };
-};
-
 export function AuthPersist() {
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
@@ -221,7 +204,6 @@ export function AuthPersist() {
     if (!hydrated || !isAuthenticated || !token) return;
     let active = true;
     let initialized = false;
-    let pushTask: { cancel?: () => void } | undefined;
 
     const syncProfile = async () => {
       try {
@@ -362,13 +344,11 @@ export function AuthPersist() {
       syncProfile(),
       syncOnboarding(),
       syncManagedAthletes(),
+      syncPushToken(),
     ]).then(() => {
       if (!active) return;
       dispatch(setBootstrapReady(true));
       initialized = true;
-      pushTask = scheduleIdleTask(() => {
-        void syncPushToken();
-      });
     });
 
     const interval = setInterval(() => {
@@ -379,6 +359,7 @@ export function AuthPersist() {
       if (state === "active") {
         void syncBillingStatus(initialized);
         void syncProfile();
+        void syncPushToken();
       }
     });
 
@@ -386,7 +367,6 @@ export function AuthPersist() {
       active = false;
       clearInterval(interval);
       appStateSub.remove();
-      pushTask?.cancel?.();
     };
   }, [dispatch, hydrated, isAuthenticated, token]);
 

@@ -1,6 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { MarkdownText } from "@/components/ui/MarkdownText";
-import { Alert, Modal, Pressable, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
@@ -39,8 +54,6 @@ import { apiRequest } from "@/lib/api";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { Transition } from "@/components/navigation/TransitionStack";
-import { ActivityIndicator, TextInput, SafeAreaView } from "react-native";
-import { useHeaderHeight } from "@react-navigation/elements";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -149,15 +162,6 @@ export function ProgramDetailPanel({
   const { isSectionHidden } = useAgeExperience();
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
   
-  const currentAthlete = useMemo(() => {
-    if (!managedAthletes.length) return null;
-    return (
-      managedAthletes.find(
-        (athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId,
-      ) ?? managedAthletes[0]
-    );
-  }, [athleteUserId, managedAthletes]);
-
   const activeAthleteAge = useMemo(() => {
     if (!managedAthletes.length) return null;
     const selected =
@@ -192,7 +196,6 @@ export function ProgramDetailPanel({
 
   const [activeTab, setActiveTab] = useState<string>("Program");
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
-  const [activeUploadContent, setActiveUploadContent] = useState<ProgramSectionContent | null>(null);
   const [uploadPickerOpen, setUploadPickerOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const [sectionContent, setSectionContent] = useState<ProgramSectionContent[]>(
@@ -405,9 +408,13 @@ export function ProgramDetailPanel({
   );
 
   const openUploadFlow = useCallback((content: ProgramSectionContent) => {
-    setActiveUploadContent(content);
     setUploadPickerOpen(false);
-  }, []);
+    onNavigate?.(
+      `/video-upload?sectionContentId=${content.id}&sectionTitle=${encodeURIComponent(
+        content.title,
+      )}&refreshToken=${refreshToken}`,
+    );
+  }, [onNavigate, refreshToken]);
 
   const openFloatingUpload = useCallback(() => {
     if (uploadEnabledContent.length === 1) {
@@ -904,43 +911,13 @@ export function ProgramDetailPanel({
         </View>
       </Modal>
 
-      <Modal
-        visible={Boolean(activeUploadContent)}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setActiveUploadContent(null)}
-      >
-        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
-          <View className="rounded-t-[32px] pt-5" style={{ backgroundColor: colors.card, maxHeight: "92%" }}>
-            <View className="mb-2 flex-row items-center justify-between px-5">
-              <View>
-                <Text className="text-xl font-clash text-app font-bold">Send section video</Text>
-                <Text className="mt-1 text-xs font-outfit text-secondary">
-                  {activeUploadContent?.title ?? "Upload a focused clip for review."}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setActiveUploadContent(null)}
-                className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
-              >
-                <Feather name="x" size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            {activeUploadContent ? (
-              <ThemedScrollView contentContainerStyle={{ paddingBottom: 28 }}>
-                <VideoUploadPanel
-                  refreshToken={refreshToken}
-                  sectionContentId={activeUploadContent.id}
-                  sectionTitle={activeUploadContent.title}
-                />
-              </ThemedScrollView>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
+
+const checkinModalStyles = StyleSheet.create({
+  root: { flex: 1 },
+});
 
 function PremiumPlanPanel({
   token,
@@ -966,6 +943,7 @@ function PremiumPlanPanel({
   canMessageCoach?: boolean;
 }) {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<PlanSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1124,7 +1102,7 @@ function PremiumPlanPanel({
             Your Personalized Plan
           </Text>
         </View>
-        <Text className="text-xl font-clash text-app font-bold">This week's plan</Text>
+        <Text className="text-xl font-clash text-app font-bold">This week&apos;s plan</Text>
         {weekStats.total > 0 && activeWeek != null ? (
           <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
             <Text className="text-sm font-outfit text-app font-semibold">
@@ -1136,7 +1114,7 @@ function PremiumPlanPanel({
           </View>
         ) : (
           <Text className="text-sm font-outfit text-secondary">
-            Tap an exercise when you're done. Use Complete to log a session.
+            Tap an exercise when you&apos;re done. Use Complete to log a session.
           </Text>
         )}
       </View>
@@ -1263,72 +1241,136 @@ function PremiumPlanPanel({
       )}
 
       <Modal visible={checkinOpen} transparent animationType="slide" onRequestClose={() => (isSubmitting ? null : setCheckinOpen(false))}>
-        <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.3)" }}>
-          <View className="rounded-t-[32px] p-5 pb-8" style={{ backgroundColor: colors.card }}>
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-xl font-clash text-app font-bold">Session Check-in</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  if (isSubmitting) return;
-                  setCheckinOpen(false);
+        <KeyboardAvoidingView
+          style={checkinModalStyles.root}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={0}
+        >
+          <View
+            className="flex-1 justify-end"
+            style={{ backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.3)" }}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={() => {
+                if (isSubmitting) return;
+                Keyboard.dismiss();
+                setCheckinOpen(false);
+              }}
+              accessibilityLabel="Dismiss check-in"
+            />
+            <View
+              className="rounded-t-[32px]"
+              style={{
+                backgroundColor: colors.card,
+                maxHeight: "88%",
+              }}
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                showsVerticalScrollIndicator={false}
+                bounces={Platform.OS === "ios"}
+                contentContainerStyle={{
+                  paddingHorizontal: 20,
+                  paddingTop: 20,
+                  paddingBottom: Math.max(insets.bottom, 12) + 20,
                 }}
-                className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
               >
-                <Feather name="x" size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <View className="gap-4">
-              {[
-                { label: "RPE (1–10)", value: rpe, onChange: setRpe, placeholder: "How hard was it?" },
-                { label: "Soreness (0–10)", value: soreness, onChange: setSoreness, placeholder: "Muscle soreness?" },
-                { label: "Fatigue (0–10)", value: fatigue, onChange: setFatigue, placeholder: "Overall tiredness?" },
-              ].map((field) => (
-                <View key={field.label} className="rounded-2xl border px-4 py-2" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
-                  <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mt-1">{field.label}</Text>
-                  <TextInput
-                    value={field.value}
-                    onChangeText={field.onChange}
-                    placeholder={field.placeholder}
-                    placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
-                    keyboardType="number-pad"
-                    style={{ paddingVertical: 8, color: colors.text, fontSize: 16, fontFamily: "Outfit_500Medium" }}
-                  />
+                <View className="flex-row items-center justify-between mb-6">
+                  <Text className="text-xl font-clash text-app font-bold">Session Check-in</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (isSubmitting) return;
+                      Keyboard.dismiss();
+                      setCheckinOpen(false);
+                    }}
+                    className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
+                  >
+                    <Feather name="x" size={20} color={colors.text} />
+                  </TouchableOpacity>
                 </View>
-              ))}
 
-              <View className="rounded-2xl border px-4 py-2" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
-                <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mt-1">Notes (optional)</Text>
-                <TextInput
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder="Anything your coach should know…"
-                  placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
-                  multiline
-                  style={{ paddingVertical: 8, color: colors.text, fontSize: 16, fontFamily: "Outfit_400Regular", minHeight: 60 }}
-                />
-              </View>
+                <View className="gap-4">
+                  {[
+                    { label: "RPE (1–10)", value: rpe, onChange: setRpe, placeholder: "How hard was it?" },
+                    { label: "Soreness (0–10)", value: soreness, onChange: setSoreness, placeholder: "Muscle soreness?" },
+                    { label: "Fatigue (0–10)", value: fatigue, onChange: setFatigue, placeholder: "Overall tiredness?" },
+                  ].map((field) => (
+                    <View
+                      key={field.label}
+                      className="rounded-2xl border px-4 py-2"
+                      style={{
+                        borderColor: borderSoft,
+                        backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC",
+                      }}
+                    >
+                      <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mt-1">
+                        {field.label}
+                      </Text>
+                      <TextInput
+                        value={field.value}
+                        onChangeText={field.onChange}
+                        placeholder={field.placeholder}
+                        placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
+                        keyboardType="number-pad"
+                        style={{
+                          paddingVertical: 8,
+                          color: colors.text,
+                          fontSize: 16,
+                          fontFamily: "Outfit_500Medium",
+                        }}
+                      />
+                    </View>
+                  ))}
 
-              {checkinError ? (
-                <Text className="text-sm font-outfit text-center text-red-500 mt-2">
-                  {checkinError}
-                </Text>
-              ) : null}
+                  <View
+                    className="rounded-2xl border px-4 py-2"
+                    style={{
+                      borderColor: borderSoft,
+                      backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC",
+                    }}
+                  >
+                    <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mt-1">
+                      Notes (optional)
+                    </Text>
+                    <TextInput
+                      value={notes}
+                      onChangeText={setNotes}
+                      placeholder="Anything your coach should know…"
+                      placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
+                      multiline
+                      textAlignVertical="top"
+                      style={{
+                        paddingVertical: 8,
+                        color: colors.text,
+                        fontSize: 16,
+                        fontFamily: "Outfit_400Regular",
+                        minHeight: 60,
+                      }}
+                    />
+                  </View>
 
-              <Pressable
-                onPress={submitCheckin}
-                disabled={isSubmitting}
-                className="mt-4 rounded-full px-4 py-4 flex-row items-center justify-center gap-2"
-                style={{ backgroundColor: colors.accent, opacity: isSubmitting ? 0.7 : 1 }}
-              >
-                {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
-                <Text className="font-outfit font-bold text-[15px]" style={{ color: "#FFFFFF" }}>
-                  {isSubmitting ? "Saving Check-in…" : "Submit Check-in"}
-                </Text>
-              </Pressable>
+                  {checkinError ? (
+                    <Text className="text-sm font-outfit text-center text-red-500 mt-2">{checkinError}</Text>
+                  ) : null}
+
+                  <Pressable
+                    onPress={submitCheckin}
+                    disabled={isSubmitting}
+                    className="mt-4 rounded-full px-4 py-4 flex-row items-center justify-center gap-2"
+                    style={{ backgroundColor: colors.accent, opacity: isSubmitting ? 0.7 : 1 }}
+                  >
+                    {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                    <Text className="font-outfit font-bold text-[15px]" style={{ color: "#FFFFFF" }}>
+                      {isSubmitting ? "Saving Check-in…" : "Submit Check-in"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

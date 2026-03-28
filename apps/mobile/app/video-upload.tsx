@@ -12,37 +12,21 @@ import React from "react";
 import { TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const HOW_IT_WORKS = [
-  {
-    title: "Choose the right clip",
-    body: "Record one clear rep, drill, or movement pattern you want your coach to review.",
-    icon: "video",
-  },
-  {
-    title: "Add coaching context",
-    body: "Mention what feels off, what changed, or the exact cue you want feedback on.",
-    icon: "message-square",
-  },
-  {
-    title: "Review and apply",
-    body: "Once your coach responds, use the notes and response video to guide your next session.",
-    icon: "check-circle",
-  },
-];
-
-const READINESS_TIPS = [
-  "Keep the full movement in frame.",
-  "Use good light and a steady angle.",
-  "Send one clear focus point per clip.",
-  "Keep the file under 200MB.",
-];
-
 export default function VideoUploadScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ sectionContentId?: string }>();
+  const params = useLocalSearchParams<{
+    sectionContentId?: string;
+    sectionTitle?: string;
+    refreshToken?: string;
+  }>();
   const sectionContentId = params.sectionContentId
     ? Number(params.sectionContentId)
     : null;
+  const sectionTitle =
+    typeof params.sectionTitle === "string" && params.sectionTitle.trim()
+      ? params.sectionTitle
+      : null;
+  const refreshToken = params.refreshToken ? Number(params.refreshToken) : 0;
   const { colors, isDark } = useAppTheme();
   const programTier = useAppSelector((state) => state.user.programTier);
   const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
@@ -125,21 +109,31 @@ export default function VideoUploadScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <MoreStackHeader
-        title="Video Upload"
-        subtitle="Drop in your best reps, movement clips, or match footage for faster coach review."
+        title={sectionTitle ? "Section Video Upload" : "Video Upload"}
+        subtitle={
+          sectionTitle
+            ? `Upload a focused clip for ${sectionTitle}.`
+            : "Drop in your best reps, movement clips, or match footage for faster coach review."
+        }
         badge="Premium"
       />
 
       <ThemedScrollView
-        contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 12, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 32 }}
       >
-        <View className="px-4 pb-2">
+        <View className="px-4 pt-3 pb-2">
           <Text className="text-sm font-outfit text-secondary">
-            Upload one focused clip and add a short note for your coach.
+            {sectionTitle
+              ? `Record or upload one clear clip for ${sectionTitle}, then add a short note for your coach.`
+              : "Upload one focused clip and add a short note for your coach."}
           </Text>
         </View>
 
-        <VideoUploadPanel sectionContentId={Number.isFinite(sectionContentId) ? sectionContentId : null} />
+        <VideoUploadPanel
+          refreshToken={Number.isFinite(refreshToken) ? refreshToken : 0}
+          sectionContentId={Number.isFinite(sectionContentId) ? sectionContentId : null}
+          sectionTitle={sectionTitle}
+        />
       </ThemedScrollView>
     </SafeAreaView>
   );

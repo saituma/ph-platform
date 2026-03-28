@@ -161,6 +161,8 @@ export function AdminTopbar({
                   method: "POST",
                   headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
                 });
+                const { clearDesktopNotificationPromptFlag } = await import("@/lib/desktop-notifications");
+                clearDesktopNotificationPromptFlag();
                 router.replace("/login");
               }}
             >
