@@ -19,8 +19,8 @@ type PlanFormState = {
   monthlyPrice: string;
   yearlyPrice: string;
   discountType: string;
-  discountValue: string;
-  discountAppliesTo: string;
+  monthlyDiscountValue: string;
+  yearlyDiscountValue: string;
   isActive: boolean;
 };
 
@@ -54,8 +54,8 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
     monthlyPrice: "",
     yearlyPrice: "",
     discountType: "percent",
-    discountValue: "",
-    discountAppliesTo: "both",
+    monthlyDiscountValue: "",
+    yearlyDiscountValue: "",
     isActive: true,
   },
   {
@@ -66,8 +66,8 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
     monthlyPrice: "",
     yearlyPrice: "",
     discountType: "percent",
-    discountValue: "",
-    discountAppliesTo: "both",
+    monthlyDiscountValue: "",
+    yearlyDiscountValue: "",
     isActive: true,
   },
   {
@@ -78,11 +78,34 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
     monthlyPrice: "",
     yearlyPrice: "",
     discountType: "percent",
-    discountValue: "",
-    discountAppliesTo: "both",
+    monthlyDiscountValue: "",
+    yearlyDiscountValue: "",
     isActive: true,
   },
 ];
+
+function parseDiscountFields(plan: any) {
+  const rawValue = String(plan?.discountValue ?? "").trim();
+  const appliesTo = String(plan?.discountAppliesTo ?? "").trim().toLowerCase();
+  if (!rawValue) {
+    return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+  }
+  if (appliesTo === "custom") {
+    try {
+      const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown };
+      return {
+        monthlyDiscountValue: parsed.monthly == null ? "" : String(parsed.monthly),
+        yearlyDiscountValue: parsed.yearly == null ? "" : String(parsed.yearly),
+      };
+    } catch {
+      return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+    }
+  }
+  if (appliesTo === "monthly") return { monthlyDiscountValue: rawValue, yearlyDiscountValue: "" };
+  if (appliesTo === "yearly") return { monthlyDiscountValue: "", yearlyDiscountValue: rawValue };
+  if (appliesTo === "both") return { monthlyDiscountValue: rawValue, yearlyDiscountValue: rawValue };
+  return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+}
 
 function buildDisplayPrice(plan: PlanFormState) {
   const monthly = plan.monthlyPrice?.trim();
@@ -100,8 +123,8 @@ function normalizePlan(plan: PlanFormState) {
     monthlyPrice: plan.monthlyPrice ?? "",
     yearlyPrice: plan.yearlyPrice ?? "",
     discountType: plan.discountType ?? "percent",
-    discountValue: plan.discountValue ?? "",
-    discountAppliesTo: plan.discountAppliesTo ?? "both",
+    monthlyDiscountValue: plan.monthlyDiscountValue ?? "",
+    yearlyDiscountValue: plan.yearlyDiscountValue ?? "",
     billingInterval: plan.billingInterval ?? "monthly",
     displayPrice: buildDisplayPrice(plan),
   };
@@ -146,8 +169,7 @@ export function BillingSection() {
             monthlyPrice: existing.monthlyPrice ?? "",
             yearlyPrice: existing.yearlyPrice ?? "",
             discountType: existing.discountType ?? "percent",
-            discountValue: existing.discountValue ?? "",
-            discountAppliesTo: existing.discountAppliesTo ?? "both",
+            ...parseDiscountFields(existing),
             isActive: existing.isActive ?? true,
           };
           return normalizePlan(merged);
@@ -188,8 +210,11 @@ export function BillingSection() {
             monthlyPrice: plan.monthlyPrice,
             yearlyPrice: plan.yearlyPrice,
             discountType: "percent",
-            discountValue: plan.discountValue,
-            discountAppliesTo: plan.discountAppliesTo,
+            discountValue: JSON.stringify({
+              monthly: plan.monthlyDiscountValue.trim() || undefined,
+              yearly: plan.yearlyDiscountValue.trim() || undefined,
+            }),
+            discountAppliesTo: "custom",
             isActive: plan.isActive,
             stripePriceId: "manual",
           }),
@@ -351,25 +376,20 @@ export function BillingSection() {
                       <Input value="Percent" readOnly />
                     </div>
                     <div className="space-y-2">
-                      <Label>Discount Value (%)</Label>
+                      <Label>Monthly Discount (%)</Label>
                       <Input
-                        value={plan.discountValue ?? ""}
-                        onChange={(event) => updatePlanAt(index, (item) => ({ ...item, discountValue: event.target.value }))}
-                        placeholder="10"
+                        value={plan.monthlyDiscountValue ?? ""}
+                        onChange={(event) => updatePlanAt(index, (item) => ({ ...item, monthlyDiscountValue: event.target.value }))}
+                        placeholder="0"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Discount Applies To</Label>
-                      <Select
-                        value={plan.discountAppliesTo}
-                        onChange={(event) =>
-                          updatePlanAt(index, (item) => ({ ...item, discountAppliesTo: event.target.value }))
-                        }
-                      >
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                        <option value="both">Both</option>
-                      </Select>
+                      <Label>Yearly Discount (%)</Label>
+                      <Input
+                        value={plan.yearlyDiscountValue ?? ""}
+                        onChange={(event) => updatePlanAt(index, (item) => ({ ...item, yearlyDiscountValue: event.target.value }))}
+                        placeholder="0"
+                      />
                     </div>
                   </div>
                 </div>

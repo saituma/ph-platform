@@ -308,8 +308,10 @@ export default function PlansScreen() {
             const baseTier = tierMap.get(plan.tier);
             const pricing = buildPlanPricing(plan);
             const normalizedTier = resolvedTier;
+            const isInactive = plan?.isActive === false;
             const isCurrentPlan = normalizedTier === plan.tier;
             const isPendingRequest =
+              !isInactive &&
               !isCurrentPlan &&
               latestSubscriptionRequest?.planTier === plan.tier &&
               ["pending_payment", "pending_approval"].includes(
@@ -327,9 +329,19 @@ export default function PlansScreen() {
               priceLines: pricing.lines,
               priceEntries: pricing.entries,
               discountNote: pricing.discountNote,
-              highlight: isCurrentPlan ? "Current Plan" : isPendingRequest ? "Pending Approval" : baseTier?.highlight,
+              highlight: isInactive
+                ? "Locked"
+                : isCurrentPlan
+                  ? "Current Plan"
+                  : isPendingRequest
+                    ? "Pending Approval"
+                    : baseTier?.highlight,
             };
             const handleSelect = () => {
+              if (isInactive) {
+                Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
+                return;
+              }
               if (plan.isPlaceholder) {
                 if (isDowngrade) {
                   Alert.alert(
@@ -409,6 +421,8 @@ export default function PlansScreen() {
                 key={plan.id}
                 tier={tier}
                 index={index}
+                primaryLabel={isInactive ? "Locked" : undefined}
+                helperNote={isInactive ? "This plan is inactive in admin billing and cannot be selected." : undefined}
                 onPress={handleSelect}
               />
             );

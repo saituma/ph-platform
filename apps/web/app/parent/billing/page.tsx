@@ -38,8 +38,8 @@ type PlanFormState = {
   monthlyPrice: string;
   yearlyPrice: string;
   discountType: string;
-  discountValue: string;
-  discountAppliesTo: string;
+  monthlyDiscountValue: string;
+  yearlyDiscountValue: string;
   isActive: boolean;
 };
 
@@ -53,10 +53,33 @@ const defaultForm: PlanFormState = {
   monthlyPrice: "",
   yearlyPrice: "",
   discountType: "percent",
-  discountValue: "",
-  discountAppliesTo: "both",
+  monthlyDiscountValue: "",
+  yearlyDiscountValue: "",
   isActive: true,
 };
+
+function parseDiscountFields(plan: any) {
+  const rawValue = String(plan?.discountValue ?? "").trim();
+  const appliesTo = String(plan?.discountAppliesTo ?? "").trim().toLowerCase();
+  if (!rawValue) {
+    return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+  }
+  if (appliesTo === "custom") {
+    try {
+      const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown };
+      return {
+        monthlyDiscountValue: parsed.monthly == null ? "" : String(parsed.monthly),
+        yearlyDiscountValue: parsed.yearly == null ? "" : String(parsed.yearly),
+      };
+    } catch {
+      return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+    }
+  }
+  if (appliesTo === "monthly") return { monthlyDiscountValue: rawValue, yearlyDiscountValue: "" };
+  if (appliesTo === "yearly") return { monthlyDiscountValue: "", yearlyDiscountValue: rawValue };
+  if (appliesTo === "both") return { monthlyDiscountValue: rawValue, yearlyDiscountValue: rawValue };
+  return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+}
 
 const getCsrfToken = () =>
   document.cookie
@@ -133,8 +156,11 @@ export default function ParentBillingPage() {
         monthlyPrice: form.monthlyPrice,
         yearlyPrice: form.yearlyPrice,
         discountType: form.discountType,
-        discountValue: form.discountValue,
-        discountAppliesTo: form.discountAppliesTo,
+        discountValue: JSON.stringify({
+          monthly: form.monthlyDiscountValue.trim() || undefined,
+          yearly: form.yearlyDiscountValue.trim() || undefined,
+        }),
+        discountAppliesTo: "custom",
         isActive: form.isActive,
       };
       const res = await fetch(`/api/backend/admin/subscription-plans/${form.id}`, {
@@ -169,8 +195,7 @@ export default function ParentBillingPage() {
       monthlyPrice: plan.monthlyPrice ?? "",
       yearlyPrice: plan.yearlyPrice ?? "",
       discountType: plan.discountType ?? "percent",
-      discountValue: plan.discountValue ?? "",
-      discountAppliesTo: plan.discountAppliesTo ?? "both",
+      ...parseDiscountFields(plan),
       isActive: Boolean(plan.isActive),
     });
     setIsEditorOpen(true);
@@ -384,25 +409,20 @@ export default function ParentBillingPage() {
               <Input value="Percent" readOnly />
             </div>
             <div className="space-y-2">
-              <Label>Discount Value (%)</Label>
+              <Label>Monthly Discount (%)</Label>
               <Input
-                value={form.discountValue}
-                onChange={(event) => setForm((prev) => ({ ...prev, discountValue: event.target.value }))}
-                placeholder="10"
+                value={form.monthlyDiscountValue}
+                onChange={(event) => setForm((prev) => ({ ...prev, monthlyDiscountValue: event.target.value }))}
+                placeholder="0"
               />
             </div>
             <div className="space-y-2">
-              <Label>Discount Applies To</Label>
-              <Select
-                value={form.discountAppliesTo}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, discountAppliesTo: event.target.value }))
-                }
-              >
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-                <option value="both">Both</option>
-              </Select>
+              <Label>Yearly Discount (%)</Label>
+              <Input
+                value={form.yearlyDiscountValue}
+                onChange={(event) => setForm((prev) => ({ ...prev, yearlyDiscountValue: event.target.value }))}
+                placeholder="0"
+              />
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
