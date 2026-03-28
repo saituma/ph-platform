@@ -56,6 +56,7 @@ export async function createLocalToken(input: {
   role: string;
   userId: number;
   tokenVersion: number;
+  expiresIn?: string | number;
 }) {
   const secret = new TextEncoder().encode(env.jwtSecret);
   const signer = new SignJWT({
@@ -70,7 +71,7 @@ export async function createLocalToken(input: {
     .setIssuedAt();
 
   if (!env.allowExpiredTokens) {
-    signer.setExpirationTime("1h");
+    signer.setExpirationTime(input.expiresIn ?? "30d");
   }
 
   return await signer.sign(secret);
