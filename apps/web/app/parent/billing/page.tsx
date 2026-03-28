@@ -38,7 +38,9 @@ type PlanFormState = {
   monthlyPrice: string;
   yearlyPrice: string;
   discountType: string;
+  monthlyDiscountEnabled: boolean;
   monthlyDiscountValue: string;
+  yearlyDiscountEnabled: boolean;
   yearlyDiscountValue: string;
   isActive: boolean;
 };
@@ -53,7 +55,9 @@ const defaultForm: PlanFormState = {
   monthlyPrice: "",
   yearlyPrice: "",
   discountType: "percent",
+  monthlyDiscountEnabled: false,
   monthlyDiscountValue: "",
+  yearlyDiscountEnabled: false,
   yearlyDiscountValue: "",
   isActive: true,
 };
@@ -62,23 +66,48 @@ function parseDiscountFields(plan: any) {
   const rawValue = String(plan?.discountValue ?? "").trim();
   const appliesTo = String(plan?.discountAppliesTo ?? "").trim().toLowerCase();
   if (!rawValue) {
-    return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+    return {
+      monthlyDiscountEnabled: false,
+      monthlyDiscountValue: "",
+      yearlyDiscountEnabled: false,
+      yearlyDiscountValue: "",
+    };
   }
   if (appliesTo === "custom") {
     try {
       const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown };
+      const monthlyValue = parsed.monthly == null ? "" : String(parsed.monthly);
+      const yearlyValue = parsed.yearly == null ? "" : String(parsed.yearly);
       return {
-        monthlyDiscountValue: parsed.monthly == null ? "" : String(parsed.monthly),
-        yearlyDiscountValue: parsed.yearly == null ? "" : String(parsed.yearly),
+        monthlyDiscountEnabled: Boolean(monthlyValue.trim()),
+        monthlyDiscountValue: monthlyValue,
+        yearlyDiscountEnabled: Boolean(yearlyValue.trim()),
+        yearlyDiscountValue: yearlyValue,
       };
     } catch {
-      return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+      return {
+        monthlyDiscountEnabled: false,
+        monthlyDiscountValue: "",
+        yearlyDiscountEnabled: false,
+        yearlyDiscountValue: "",
+      };
     }
   }
-  if (appliesTo === "monthly") return { monthlyDiscountValue: rawValue, yearlyDiscountValue: "" };
-  if (appliesTo === "yearly") return { monthlyDiscountValue: "", yearlyDiscountValue: rawValue };
-  if (appliesTo === "both") return { monthlyDiscountValue: rawValue, yearlyDiscountValue: rawValue };
-  return { monthlyDiscountValue: "", yearlyDiscountValue: "" };
+  if (appliesTo === "monthly") {
+    return { monthlyDiscountEnabled: true, monthlyDiscountValue: rawValue, yearlyDiscountEnabled: false, yearlyDiscountValue: "" };
+  }
+  if (appliesTo === "yearly") {
+    return { monthlyDiscountEnabled: false, monthlyDiscountValue: "", yearlyDiscountEnabled: true, yearlyDiscountValue: rawValue };
+  }
+  if (appliesTo === "both") {
+    return { monthlyDiscountEnabled: true, monthlyDiscountValue: rawValue, yearlyDiscountEnabled: true, yearlyDiscountValue: rawValue };
+  }
+  return {
+    monthlyDiscountEnabled: false,
+    monthlyDiscountValue: "",
+    yearlyDiscountEnabled: false,
+    yearlyDiscountValue: "",
+  };
 }
 
 const getCsrfToken = () =>
@@ -157,8 +186,8 @@ export default function ParentBillingPage() {
         yearlyPrice: form.yearlyPrice,
         discountType: form.discountType,
         discountValue: JSON.stringify({
-          monthly: form.monthlyDiscountValue.trim() || undefined,
-          yearly: form.yearlyDiscountValue.trim() || undefined,
+          monthly: form.monthlyDiscountEnabled ? form.monthlyDiscountValue.trim() || undefined : undefined,
+          yearly: form.yearlyDiscountEnabled ? form.yearlyDiscountValue.trim() || undefined : undefined,
         }),
         discountAppliesTo: "custom",
         isActive: form.isActive,
@@ -410,18 +439,40 @@ export default function ParentBillingPage() {
             </div>
             <div className="space-y-2">
               <Label>Monthly Discount (%)</Label>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.monthlyDiscountEnabled}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, monthlyDiscountEnabled: event.target.checked }))
+                  }
+                />
+                <span>Enable monthly discount</span>
+              </label>
               <Input
                 value={form.monthlyDiscountValue}
                 onChange={(event) => setForm((prev) => ({ ...prev, monthlyDiscountValue: event.target.value }))}
                 placeholder="0"
+                disabled={!form.monthlyDiscountEnabled}
               />
             </div>
             <div className="space-y-2">
               <Label>Yearly Discount (%)</Label>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.yearlyDiscountEnabled}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, yearlyDiscountEnabled: event.target.checked }))
+                  }
+                />
+                <span>Enable yearly discount</span>
+              </label>
               <Input
                 value={form.yearlyDiscountValue}
                 onChange={(event) => setForm((prev) => ({ ...prev, yearlyDiscountValue: event.target.value }))}
                 placeholder="0"
+                disabled={!form.yearlyDiscountEnabled}
               />
             </div>
             <div className="space-y-2">
