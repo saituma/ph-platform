@@ -21,6 +21,7 @@ import { AdminShell } from "../../components/admin/shell";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { cn } from "../../lib/utils";
@@ -191,6 +192,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
   const { data: checkinsData, isLoading: checkinsLoading } = useGetUserPremiumSessionCheckinsQuery({ userId, limit: 30 });
   const { data: completionsData, isLoading: completionsLoading } = useGetUserProgramSectionCompletionsQuery({ userId, limit: 30 });
   const { data: videosData } = useGetVideoUploadsQuery();
+  const [activeVideo, setActiveVideo] = useState<any | null>(null);
 
   const athleteName = onboarding?.athlete?.name ?? "Athlete";
   const athleteAge = onboarding?.athlete?.age ?? null;
@@ -565,12 +567,15 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
                           {reviewed ? "Reviewed" : "Pending"}
                         </Badge>
                         {v.videoUrl && (
-                          <a href={v.videoUrl} target="_blank" rel="noreferrer">
-                            <Button size="sm" variant="outline" className="rounded-full">
-                              <Eye className="mr-1 h-3.5 w-3.5" />
-                              Watch
-                            </Button>
-                          </a>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full"
+                            onClick={() => setActiveVideo(v)}
+                          >
+                            <Eye className="mr-1 h-3.5 w-3.5" />
+                            Watch
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -587,6 +592,36 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={Boolean(activeVideo)} onOpenChange={(open) => (open ? null : setActiveVideo(null))}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{activeVideo?.sectionTitle ?? activeVideo?.title ?? "Training video"}</DialogTitle>
+            <DialogDescription>
+              Review the athlete&apos;s uploaded clip without leaving the coaching dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          {activeVideo?.videoUrl ? (
+            <div className="space-y-3">
+              <video
+                key={activeVideo.videoUrl}
+                src={activeVideo.videoUrl}
+                controls
+                playsInline
+                className="w-full rounded-xl border border-border bg-black"
+              />
+              {activeVideo?.notes ? (
+                <div className="rounded-lg bg-secondary/40 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                    Athlete Notes
+                  </p>
+                  <p className="text-sm text-foreground">{activeVideo.notes}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
