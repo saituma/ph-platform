@@ -12,6 +12,7 @@ import {
 
 export type TrainingSnapshotRow = {
   athleteId: number;
+  athleteUserId: number | null;
   athleteName: string;
   programTier: string | null;
   guardianUserId: number;
@@ -27,6 +28,7 @@ export async function listTrainingSnapshotForAdmin(): Promise<TrainingSnapshotRo
   const athletes = await db
     .select({
       athleteId: athleteTable.id,
+      athleteUserId: athleteTable.userId,
       athleteName: athleteTable.name,
       programTier: athleteTable.currentProgramTier,
       guardianUserId: guardianTable.userId,
@@ -76,6 +78,7 @@ export async function listTrainingSnapshotForAdmin(): Promise<TrainingSnapshotRo
     const prem = premiumMap.get(a.athleteId) ?? { total: 0, done: 0 };
     return {
       athleteId: a.athleteId,
+      athleteUserId: a.athleteUserId ?? null,
       athleteName: a.athleteName,
       programTier: a.programTier ?? null,
       guardianUserId: a.guardianUserId,
