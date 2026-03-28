@@ -1,4 +1,5 @@
 import { ProgramTier } from "@/components/ProgramCard";
+import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -129,51 +130,13 @@ export default function ProgramsScreen() {
   }, []);
 
   const tiers = useMemo<ProgramTier[]>(
-    () => [
-      {
-        id: "php",
-        name: "PHP Program",
-        description: "Weekly structured training for developing athletes.",
-        features: [
-          "Age-appropriate training plan",
-          "Weekly session guidance",
-          "Warm-up & cooldown included",
-          "Coach notes & video cues",
-        ],
-        color: "bg-[#2F8F57]",
-        icon: "pulse",
-        popular: false,
-      },
-      {
-        id: "plus",
-        name: "PHP Plus",
-        description: "Enhanced support with nutrition and off-season guidance.",
-        features: [
-          "Everything in PHP Program",
-          "Parent education & nutrition guidance",
-          "Stretching & mobility routines",
-          "Off-season program access",
-        ],
-        color: "bg-[#2B7E4F]",
-        icon: "layers",
-        popular: true,
-      },
-      {
-        id: "premium",
-        name: "PHP Premium",
-        description: "Fully personalized 1:1 coaching experience.",
-        features: [
-          "Personalized programming & adjustments",
-          "Priority coach messaging",
-          "Video analysis & detailed feedback",
-          "1:1 role model meetings",
-        ],
-        color: "bg-[#256B44]",
-        icon: "star",
-        highlight: "Limited spots",
-        popular: false,
-      },
-    ],
+    () =>
+      PROGRAM_TIERS.map((tier) => ({
+        ...tier,
+        icon: tier.id === "php" ? "pulse" : tier.id === "plus" ? "layers" : "star",
+        popular: tier.id === "plus",
+        highlight: tier.id === "premium" ? "Limited spots" : tier.highlight,
+      })),
     [],
   );
 
@@ -522,12 +485,9 @@ export default function ProgramsScreen() {
                         className="text-[1.375rem] leading-tight font-telma-bold font-bold mb-1"
                         style={{ color: "#F2F6F2" }}
                       >
-                        {tier.name}
+                        {plan?.name ?? tier.name}
                       </Text>
-                      <Text
-                        className="font-outfit text-sm leading-snug"
-                        style={{ color: "#E6F2E6" }}
-                      >
+                      <Text className="font-outfit text-sm leading-snug" style={{ color: "#E6F2E6" }}>
                         {tier.description}
                       </Text>
                     </View>

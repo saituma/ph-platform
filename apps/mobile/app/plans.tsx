@@ -321,6 +321,8 @@ export default function PlansScreen() {
             const tier: ProgramTier = {
               ...(baseTier ?? PROGRAM_TIERS[0]),
               name: plan.name,
+              description: baseTier?.description ?? PROGRAM_TIERS[0].description,
+              features: baseTier?.features ?? PROGRAM_TIERS[0].features,
               priceBadge: pricing.badge,
               priceLines: pricing.lines,
               priceEntries: pricing.entries,

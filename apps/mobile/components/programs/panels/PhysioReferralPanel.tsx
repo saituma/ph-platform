@@ -7,7 +7,7 @@ import { Text } from "@/components/ScaledText";
 import { useSocket } from "@/context/SocketContext";
 import { ProgramPanelCard } from "./shared/ProgramPanelCard";
 
-export function PhysioReferralPanel({ discount }: { discount?: string }) {
+export function PhysioReferralPanel() {
   const { token } = useAppSelector((state) => state.user);
   const { socket } = useSocket();
   const [loading, setLoading] = useState(false);
@@ -60,7 +60,7 @@ export function PhysioReferralPanel({ discount }: { discount?: string }) {
 
   const resolvedDiscount = referral?.discountPercent
     ? `${referral.discountPercent}%`
-    : discount;
+    : null;
   const referralLink = referral?.referalLink ?? null;
   const statusCopy = referralLink
     ? "Your referral is ready. Tap to book your physio session."

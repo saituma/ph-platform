@@ -749,9 +749,7 @@ export function ProgramDetailPanel({
     }
 
     if (activeTab === "Physio Referral" || activeTab === "Physio Referrals") {
-      return (
-        <PhysioReferralPanel discount={programId === "plus" ? "10%" : undefined} />
-      );
+      return <PhysioReferralPanel />;
     }
 
     if (activeTab === "Nutrition & Food Diaries" || activeTab === "Submit Diary") {
