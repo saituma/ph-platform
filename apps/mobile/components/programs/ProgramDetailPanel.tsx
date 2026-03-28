@@ -9,7 +9,6 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -17,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
@@ -1266,7 +1266,10 @@ function PremiumPlanPanel({
                 maxHeight: "88%",
               }}
             >
-              <ScrollView
+              <KeyboardAwareScrollView
+                enableOnAndroid
+                extraHeight={Platform.OS === "ios" ? 120 : 160}
+                extraScrollHeight={Platform.OS === "ios" ? 40 : 96}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
                 showsVerticalScrollIndicator={false}
@@ -1367,7 +1370,7 @@ function PremiumPlanPanel({
                     </Text>
                   </Pressable>
                 </View>
-              </ScrollView>
+              </KeyboardAwareScrollView>
             </View>
           </View>
         </KeyboardAvoidingView>

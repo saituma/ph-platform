@@ -29,6 +29,11 @@ export async function listServiceTypes(options?: { includeInactive?: boolean }) 
   return db.select().from(serviceTypeTable).where(eq(serviceTypeTable.isActive, true));
 }
 
+export async function getServiceTypeById(id: number) {
+  const rows = await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
 export async function createServiceType(input: {
   name: string;
   type: ServiceTypeKind;
@@ -169,6 +174,33 @@ export async function listAvailabilityBlocks(serviceTypeId: number, from: Date, 
         gte(availabilityBlockTable.endsAt, from),
       ),
     );
+}
+
+export function buildAvailabilitySlots(input: {
+  blocks: { startsAt: Date; endsAt: Date }[];
+  durationMinutes: number;
+  from: Date;
+  to: Date;
+}) {
+  const durationMs = Math.max(1, input.durationMinutes) * 60 * 1000;
+  const slotMap = new Map<string, string>();
+
+  for (const block of input.blocks) {
+    const start = new Date(block.startsAt);
+    const end = new Date(block.endsAt);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+
+    for (
+      let cursor = new Date(start.getTime());
+      cursor.getTime() + durationMs <= end.getTime();
+      cursor = new Date(cursor.getTime() + durationMs)
+    ) {
+      if (cursor.getTime() < input.from.getTime() || cursor.getTime() > input.to.getTime()) continue;
+      slotMap.set(cursor.toISOString(), cursor.toISOString());
+    }
+  }
+
+  return Array.from(slotMap.values()).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 }
 
 export async function listBookingsForServiceInRange(serviceTypeId: number, from: Date, to: Date) {

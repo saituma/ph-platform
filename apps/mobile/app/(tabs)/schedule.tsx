@@ -65,6 +65,18 @@ const formatDateKey = (date: Date) =>
     date.getDate(),
   ).padStart(2, "0")}`;
 
+const startOfLocalDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const endOfLocalDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+};
+
 /** Align slot ↔ booking counts (API timestamps may differ by ms). */
 const toBookingSlotKey = (d: Date) => {
   const x = new Date(d.getTime());
@@ -94,7 +106,7 @@ export default function ScheduleScreen() {
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [bookingDate, setBookingDate] = useState<Date>(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [availabilityData, setAvailabilityData] = useState<{ items: any[]; bookings?: any[] } | null>(null);
+  const [availabilityData, setAvailabilityData] = useState<{ items: any[]; bookings?: any[]; slots?: string[] } | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
@@ -259,20 +271,30 @@ export default function ScheduleScreen() {
   }, [availabilityData]);
 
   const availableSlots = useMemo(() => {
+    if (availabilityData?.slots?.length) {
+      return availabilityData.slots
+        .map((slot) => new Date(slot))
+        .filter((slot) => !Number.isNaN(slot.getTime()))
+        .sort((a, b) => a.getTime() - b.getTime());
+    }
     if (!selectedService || !availabilityData?.items?.length) return [] as Date[];
     const durationMs = selectedService.durationMinutes * 60 * 1000;
-    const dayKey = formatDateKey(bookingDate);
+    const dayStart = startOfLocalDay(bookingDate);
+    const dayEnd = endOfLocalDay(bookingDate);
     const slotMap = new Map<string, Date>();
     for (const block of availabilityData.items) {
       const start = new Date(block.startsAt);
       const end = new Date(block.endsAt);
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+
+      if (end.getTime() < dayStart.getTime() || start.getTime() > dayEnd.getTime()) continue;
+
       for (
         let cursor = new Date(start.getTime());
         cursor.getTime() + durationMs <= end.getTime();
         cursor = new Date(cursor.getTime() + durationMs)
       ) {
-        if (formatDateKey(cursor) !== dayKey) continue;
+        if (cursor.getTime() < dayStart.getTime() || cursor.getTime() > dayEnd.getTime()) continue;
         // Do not filter by fixedStartTime here: that value is coach/UTC-oriented; comparing to
         // device-local HH:mm hid every slot in other timezones. Server validates on submit.
         slotMap.set(toBookingSlotKey(cursor), cursor);
@@ -411,16 +433,16 @@ export default function ScheduleScreen() {
     setAvailabilityLoading(true);
     setAvailabilityError(null);
     setAvailabilityData(null);
-    const start = new Date(bookingDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(bookingDate);
-    end.setHours(23, 59, 59, 999);
+    // Ask for a wider window than the selected local day so timezone conversion
+    // cannot hide valid blocks that overlap the day on the device.
+    const start = startOfLocalDay(new Date(bookingDate.getTime() - 24 * 60 * 60 * 1000));
+    const end = endOfLocalDay(new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000));
     const params = new URLSearchParams({
       serviceTypeId: String(selectedServiceId),
       from: start.toISOString(),
       to: end.toISOString(),
     });
-    apiRequest<{ items: any[]; bookings?: any[] }>(`/bookings/availability?${params.toString()}`, {
+    apiRequest<{ items: any[]; bookings?: any[]; slots?: string[] }>(`/bookings/availability?${params.toString()}`, {
       token,
       skipCache: true,
     })

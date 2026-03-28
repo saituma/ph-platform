@@ -72,6 +72,8 @@ interface OptimisticUpload {
   submittedAt?: string;
 }
 
+type UploadPhase = "presign" | "uploading" | "finalizing";
+
 export function VideoUploadPanel({
   refreshToken = 0,
   sectionContentId,
@@ -97,6 +99,10 @@ export function VideoUploadPanel({
 
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase | null>(null);
+  const [uploadingPreviewUri, setUploadingPreviewUri] = useState<string | null>(null);
+  const [uploadByteProgressUnknown, setUploadByteProgressUnknown] = useState(false);
+  const uploadByteUnknownRef = useRef(false);
   const [preparingVideo, setPreparingVideo] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
@@ -386,6 +392,13 @@ export function VideoUploadPanel({
   const totalUploads = videoItems.length + optimisticUploads.length;
   const feedbackReadyCount = reviewedVideos.length + coachResponses.length;
 
+  const inFlightOptimistic = useMemo(
+    () => optimisticUploads.find((u) => !u.publicUrl),
+    [optimisticUploads],
+  );
+  const showUploadBanner = uploading;
+  const bannerProgress = inFlightOptimistic?.progress ?? 0;
+
   // Media Selection & Upload
   const pickVideo = async (source: "library" | "camera") => {
     if (!token) return;
@@ -462,9 +475,10 @@ export function VideoUploadPanel({
       const now = Date.now();
       const shouldSkip =
         !force &&
+        clamped > 0 &&
         clamped < 1 &&
-        now - uploadProgressRef.current.ts < 180 &&
-        Math.abs(clamped - uploadProgressRef.current.value) < 0.05;
+        now - uploadProgressRef.current.ts < 120 &&
+        Math.abs(clamped - uploadProgressRef.current.value) < 0.03;
 
       if (shouldSkip) return;
 
@@ -478,6 +492,10 @@ export function VideoUploadPanel({
 
     try {
       setUploading(true);
+      setUploadPhase("presign");
+      setUploadingPreviewUri(currentVideo.uri);
+      uploadByteUnknownRef.current = false;
+      setUploadByteProgressUnknown(false);
       setStatus("Preparing upload...");
       const headers = athleteUserId
         ? { "X-Acting-User-Id": String(athleteUserId) }
@@ -495,6 +513,7 @@ export function VideoUploadPanel({
         },
         ...prev,
       ]);
+      updateOptimisticProgress(0, true);
       setSelectedVideo(null);
       setNotes("");
 
@@ -513,6 +532,7 @@ export function VideoUploadPanel({
         },
       });
 
+      setUploadPhase("uploading");
       setStatus("Uploading video...");
       uploadProgressRef.current = { value: 0, ts: Date.now() };
 
@@ -526,10 +546,20 @@ export function VideoUploadPanel({
           },
         },
         (progress) => {
-          if (!progress.totalBytesExpectedToSend) return;
-          updateOptimisticProgress(
-            progress.totalBytesSent / progress.totalBytesExpectedToSend,
-          );
+          const total = progress.totalBytesExpectedToSend;
+          if (!total || total <= 0) {
+            if (!uploadByteUnknownRef.current) {
+              uploadByteUnknownRef.current = true;
+              setUploadByteProgressUnknown(true);
+            }
+            updateOptimisticProgress(0, true);
+            return;
+          }
+          if (uploadByteUnknownRef.current) {
+            uploadByteUnknownRef.current = false;
+            setUploadByteProgressUnknown(false);
+          }
+          updateOptimisticProgress(progress.totalBytesSent / total);
         },
       );
 
@@ -541,6 +571,9 @@ export function VideoUploadPanel({
       }
 
       updateOptimisticProgress(1, true);
+      uploadByteUnknownRef.current = false;
+      setUploadByteProgressUnknown(false);
+      setUploadPhase("finalizing");
       setStatus("Finalizing upload...");
 
       await apiRequest("/videos", {
@@ -581,6 +614,10 @@ export function VideoUploadPanel({
       setSelectedVideo(currentVideo);
       setNotes(uploadNotes);
     } finally {
+      uploadByteUnknownRef.current = false;
+      setUploadByteProgressUnknown(false);
+      setUploadPhase(null);
+      setUploadingPreviewUri(null);
       setUploading(false);
     }
   };
@@ -879,30 +916,92 @@ export function VideoUploadPanel({
         </View>
       ) : null}
 
-      {/* Submit CTA */}
-      {selectedVideo && (
-        <UIButton
-          onPress={handleSubmitVideo}
-          isDisabled={uploading}
-          className={`mx-5 mb-8 flex-row items-center justify-center gap-3 rounded-3xl py-5 ${
-            uploading ? "opacity-60" : ""
-          }`}
+      {showUploadBanner ? (
+        <UICard
+          className="mx-5 mb-5 overflow-hidden rounded-[26px] px-4 py-3"
+          style={{
+            backgroundColor: colors.cardElevated,
+            borderColor: colors.border,
+            ...shadows.md,
+          }}
         >
-          {uploading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Feather name="send" size={20} color="#ffffff" />
-          )}
-          <Text className="text-base font-outfit font-bold text-white tracking-[1.2px] uppercase">
-            {uploading ? "Sending..." : "Send to Coach"}
-          </Text>
-        </UIButton>
-      )}
+          <View className="flex-row items-center gap-3">
+            <View
+              className="h-12 w-12 overflow-hidden rounded-2xl items-center justify-center"
+              style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+            >
+              {uploadingPreviewUri ? (
+                <VideoPlayer
+                  uri={uploadingPreviewUri}
+                  height={48}
+                  autoPlay={false}
+                  shouldPlay={false}
+                  initialMuted
+                  ignoreTabFocus
+                  showLoadingOverlay={false}
+                  useVideoResolution={false}
+                  contentFitOverride="cover"
+                  hideCenterControls
+                  hideTopChrome
+                />
+              ) : (
+                <Feather name="film" size={26} color={colors.accent} />
+              )}
+            </View>
+            <View className="flex-1">
+              <Text className="font-outfit text-[13px] font-semibold" style={{ color: colors.text }}>
+                {uploadPhase === "presign"
+                  ? "Getting upload link…"
+                  : uploadPhase === "finalizing"
+                    ? "Saving to your coach…"
+                    : uploadByteProgressUnknown
+                      ? "Uploading…"
+                      : "Uploading to secure storage…"}
+              </Text>
+              {uploadByteProgressUnknown && uploadPhase === "uploading" ? (
+                <Text className="mt-0.5 font-outfit text-[11px]" style={{ color: colors.textSecondary }}>
+                  Progress will appear when your device reports file size.
+                </Text>
+              ) : null}
+              {uploadByteProgressUnknown && uploadPhase === "uploading" ? (
+                <View className="mt-2 flex-row items-center gap-2">
+                  <ActivityIndicator size="small" color={colors.accent} />
+                  <Text className="font-outfit text-[11px]" style={{ color: colors.textSecondary }}>
+                    Working…
+                  </Text>
+                </View>
+              ) : (
+                <View
+                  className="mt-2 h-1.5 w-full overflow-hidden rounded-full"
+                  style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)" }}
+                >
+                  <View
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, Math.round(bannerProgress * 100)))}%`,
+                      backgroundColor: colors.accent,
+                    }}
+                  />
+                </View>
+              )}
+              {!uploadByteProgressUnknown || uploadPhase !== "uploading" ? (
+                <Text className="mt-1.5 font-outfit text-[11px] font-semibold" style={{ color: colors.accent }}>
+                  {uploadPhase === "finalizing"
+                    ? "Almost done"
+                    : uploadPhase === "presign"
+                      ? "Starting…"
+                      : `${Math.round(bannerProgress * 100)}%`}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </UICard>
+      ) : null}
 
-      {/* Video Preview */}
+      {/* Video Preview — above send so users review the clip first */}
       {selectedVideo && !preparingVideo && (
         <UICard
-          className="mx-5 mb-8 overflow-hidden rounded-3xl px-0 py-0"
+          className="mx-5 mb-6 overflow-hidden rounded-3xl px-0 py-0"
           style={{
             backgroundColor: colors.cardElevated,
             borderColor: colors.border,
@@ -922,42 +1021,32 @@ export function VideoUploadPanel({
                   Preview Clip
                 </Text>
                 <Text className="mt-1 font-outfit text-sm" style={{ color: colors.textSecondary }}>
-                  Review framing and notes before sending.
+                  Tap the video to open full screen before you send.
                 </Text>
               </View>
               <UIChip label="Ready to send" color="accent" />
             </View>
           </View>
-          <Pressable
-            onPress={() =>
+          <VideoPlayer
+            uri={selectedVideo.uri}
+            height={Math.min(previewHeight, 260)}
+            autoPlay={false}
+            shouldPlay={false}
+            initialMuted
+            ignoreTabFocus
+            previewOnly
+            onPreviewPress={() =>
               setReelPreview({
                 id: selectedVideo.fileName,
                 uri: selectedVideo.uri,
                 title: "Selected clip",
               })
             }
-          >
-            <View
-              className="items-center justify-center"
-              style={{
-                height: Math.min(previewHeight, 260),
-                backgroundColor: isDark ? "#050505" : colors.heroSurfaceMuted,
-              }}
-            >
-              <Feather
-                name="play-circle"
-                size={64}
-                color={isDark ? "#ffffff" : colors.text}
-                style={{ opacity: isDark ? 0.85 : 0.72 }}
-              />
-              <Text
-                className="mt-3 font-outfit text-sm"
-                style={{ color: isDark ? "rgba(255,255,255,0.85)" : colors.textSecondary }}
-              >
-                Tap for full-screen preview
-              </Text>
-            </View>
-          </Pressable>
+            showLoadingOverlay
+            useVideoResolution={false}
+            contentFitOverride="contain"
+            hideTopChrome
+          />
           <View className="p-5 flex-row items-center justify-between">
             <View className="flex-row gap-3">
               <UIChip label="MP4" className="rounded-xl px-3 py-1.5" textClassName="text-xs font-medium normal-case tracking-normal" />
@@ -972,6 +1061,35 @@ export function VideoUploadPanel({
             </UIButton>
           </View>
         </UICard>
+      )}
+
+      {/* Submit CTA — strong green when a clip is ready */}
+      {selectedVideo && (
+        <UIButton
+          onPress={handleSubmitVideo}
+          isDisabled={uploading}
+          className={`mx-5 mb-8 flex-row items-center justify-center gap-3 rounded-3xl py-5 ${
+            uploading ? "opacity-60" : ""
+          }`}
+          style={{
+            backgroundColor: isDark ? colors.accent : "#166534",
+            borderColor: isDark ? colors.accent : "#166534",
+            shadowColor: isDark ? "#00000000" : "#166534",
+            shadowOpacity: isDark ? 0 : 0.2,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: isDark ? 0 : 6,
+          }}
+        >
+          {uploading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Feather name="send" size={20} color="#ffffff" />
+          )}
+          <Text className="text-base font-outfit font-bold text-white tracking-[1.2px] uppercase">
+            {uploading ? "Sending..." : "Send to Coach"}
+          </Text>
+        </UIButton>
       )}
 
       {/* Upload History */}

@@ -323,6 +323,7 @@ export default function PlansScreen() {
               name: plan.name,
               priceBadge: pricing.badge,
               priceLines: pricing.lines,
+              priceEntries: pricing.entries,
               discountNote: pricing.discountNote,
               highlight: isCurrentPlan ? "Current Plan" : isPendingRequest ? "Pending Approval" : baseTier?.highlight,
             };

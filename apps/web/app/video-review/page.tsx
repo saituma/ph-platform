@@ -65,8 +65,9 @@ export default function VideoReviewListPage() {
     return items.map((item) => {
       const reviewed = Boolean(item.reviewedAt);
       const createdAt = item.createdAt ? new Date(item.createdAt) : null;
-      const daysOpen =
-        createdAt ? (referenceNow - createdAt.getTime()) / (1000 * 60 * 60 * 24) : 0;
+      const daysOpen = createdAt
+        ? (referenceNow - createdAt.getTime()) / (1000 * 60 * 60 * 24)
+        : 0;
       const status = reviewed
         ? "Reviewed"
         : daysOpen >= 7
@@ -105,7 +106,8 @@ export default function VideoReviewListPage() {
           awaiting: existing.awaiting + awaiting,
           uploads: existing.uploads + 1,
           lastUploadAt:
-            video.createdAt && (!existing.lastUploadAt || video.createdAt > existing.lastUploadAt)
+            video.createdAt &&
+            (!existing.lastUploadAt || video.createdAt > existing.lastUploadAt)
               ? video.createdAt
               : existing.lastUploadAt,
         });
@@ -113,7 +115,10 @@ export default function VideoReviewListPage() {
     });
     return Array.from(map.values()).sort((a, b) => {
       if (a.awaiting !== b.awaiting) return b.awaiting - a.awaiting;
-      return (b.lastUploadAt ? new Date(b.lastUploadAt).getTime() : 0) - (a.lastUploadAt ? new Date(a.lastUploadAt).getTime() : 0);
+      return (
+        (b.lastUploadAt ? new Date(b.lastUploadAt).getTime() : 0) -
+        (a.lastUploadAt ? new Date(a.lastUploadAt).getTime() : 0)
+      );
     });
   }, [videos]);
 
@@ -122,7 +127,7 @@ export default function VideoReviewListPage() {
       const hasInTab = videos.some(
         (video) =>
           video.athleteId === athlete.athleteId &&
-          (video.sectionType ?? "program") === activeTab
+          (video.sectionType ?? "program") === activeTab,
       );
       return hasInTab;
     });
@@ -133,11 +138,18 @@ export default function VideoReviewListPage() {
       title="Video Review"
       subtitle="Pick an athlete, then review their upload history."
     >
-      <SectionHeader title="Athletes" description="Each tab shows athletes who uploaded videos for that section." />
+      <SectionHeader
+        title="Athletes"
+        description="Each tab shows athletes who uploaded videos for that section."
+      />
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="flex w-full flex-wrap justify-start gap-2 bg-transparent">
           {SECTION_TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="rounded-full px-4">
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="rounded-full px-4"
+            >
               {tab.label}
             </TabsTrigger>
           ))}
@@ -145,9 +157,13 @@ export default function VideoReviewListPage() {
       </Tabs>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        {isLoading && <div className="text-sm text-muted-foreground">Loading athletes…</div>}
+        {isLoading && (
+          <div className="text-sm text-muted-foreground">Loading athletes…</div>
+        )}
         {!isLoading && filteredAthletes.length === 0 && (
-          <div className="text-sm text-muted-foreground">No uploads in this tab yet.</div>
+          <div className="text-sm text-muted-foreground">
+            No uploads in this tab yet.
+          </div>
         )}
         {filteredAthletes.map((athlete) => (
           <Card
@@ -156,19 +172,25 @@ export default function VideoReviewListPage() {
             role="button"
             tabIndex={0}
             onClick={() => {
-              router.push(`/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`);
+              router.push(
+                `/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`,
+              );
             }}
             onKeyDown={(event) => {
               if (event.key !== "Enter" && event.key !== " ") return;
               event.preventDefault();
-              router.push(`/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`);
+              router.push(
+                `/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`,
+              );
             }}
           >
             <CardHeader className="space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-base font-semibold">{athlete.name}</div>
-                  <div className="text-xs text-muted-foreground">{athlete.uploads} uploads</div>
+                  <div className="text-xs text-muted-foreground">
+                    {athlete.uploads} uploads
+                  </div>
                 </div>
                 {athlete.awaiting > 0 ? (
                   <Badge variant="accent">{athlete.awaiting} awaiting</Badge>
@@ -179,14 +201,19 @@ export default function VideoReviewListPage() {
             </CardHeader>
             <CardContent className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground">
-                Last upload: {athlete.lastUploadAt ? new Date(athlete.lastUploadAt).toLocaleString() : "Unknown"}
+                Last upload:{" "}
+                {athlete.lastUploadAt
+                  ? new Date(athlete.lastUploadAt).toLocaleString()
+                  : "Unknown"}
               </div>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={(event) => {
                   event.stopPropagation();
-                  router.push(`/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`);
+                  router.push(
+                    `/video-review/athletes/${athlete.athleteId}?tab=${encodeURIComponent(activeTab)}`,
+                  );
                 }}
               >
                 View athlete

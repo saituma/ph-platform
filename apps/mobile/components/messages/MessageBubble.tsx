@@ -4,6 +4,7 @@ import React from "react";
 import { Image, Linking, Modal, Pressable, View, useWindowDimensions } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Text } from "@/components/ScaledText";
+import { isYoutubeUrl, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import { Ionicons } from "@expo/vector-icons";
 import { Shadows } from "@/constants/theme";
 import Animated, { 
@@ -121,17 +122,22 @@ function MessageBubbleBase({
   const maxMediaWidth = screenWidth * (isUser ? 0.85 : 0.8);
   const mediaDimensions = React.useMemo(() => {
     if (!imageSize) return { width: maxMediaWidth, height: 220 };
-    
+
     const aspectRatio = imageSize.width / imageSize.height;
     const calculatedHeight = maxMediaWidth / aspectRatio;
-    
+
     // Cap height at 400 to prevent extremely long vertical images
     const finalHeight = Math.min(calculatedHeight, 400);
     // Recalculate width if height was capped to maintain aspect ratio
     const finalWidth = finalHeight === calculatedHeight ? maxMediaWidth : finalHeight * aspectRatio;
-    
+
     return { width: finalWidth, height: finalHeight };
   }, [imageSize, maxMediaWidth]);
+
+  const youtubeBubbleHeight = React.useMemo(
+    () => Math.max(180, Math.round((maxMediaWidth * 9) / 16)),
+    [maxMediaWidth],
+  );
   
   const bubbleScale = useSharedValue(1);
   const animatedBubbleStyle = useAnimatedStyle(() => ({
@@ -236,26 +242,39 @@ function MessageBubbleBase({
 
               {message.mediaUrl && message.contentType === "video" ? (
                 <Pressable onPress={() => setMediaOpen(true)} className="mb-3 -mx-1">
-                  <View style={{ width: mediaDimensions.width, height: mediaDimensions.height, borderRadius: 18, overflow: 'hidden' }}>
-                    <MessageVideoSurface
-                      uri={message.mediaUrl}
-                      height={mediaDimensions.height}
-                      onDurationMs={(durationMs) =>
-                        setVideoMeta((prev) => (prev?.durationMs === durationMs ? prev : { durationMs }))
-                      }
-                    />
-                    <View className="absolute inset-0 items-center justify-center">
-                      <View className="h-12 w-12 rounded-full bg-black/40 items-center justify-center border border-white/20">
-                        <Ionicons name="play" size={24} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                      </View>
-                    </View>
-                    {videoMeta?.durationMs ? (
-                      <View className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60">
-                        <Text className="text-[10px] font-bold font-outfit text-white">
-                          {formatDuration(videoMeta.durationMs)}
-                        </Text>
-                      </View>
-                    ) : null}
+                  <View
+                    style={{
+                      width: isYoutubeUrl(message.mediaUrl) ? maxMediaWidth : mediaDimensions.width,
+                      height: isYoutubeUrl(message.mediaUrl) ? youtubeBubbleHeight : mediaDimensions.height,
+                      borderRadius: 18,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {isYoutubeUrl(message.mediaUrl) ? (
+                      <YouTubeEmbed url={message.mediaUrl} shouldPlay={false} initialMuted />
+                    ) : (
+                      <>
+                        <MessageVideoSurface
+                          uri={message.mediaUrl}
+                          height={mediaDimensions.height}
+                          onDurationMs={(durationMs) =>
+                            setVideoMeta((prev) => (prev?.durationMs === durationMs ? prev : { durationMs }))
+                          }
+                        />
+                        <View className="absolute inset-0 items-center justify-center">
+                          <View className="h-12 w-12 rounded-full bg-black/40 items-center justify-center border border-white/20">
+                            <Ionicons name="play" size={24} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                          </View>
+                        </View>
+                        {videoMeta?.durationMs ? (
+                          <View className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60">
+                            <Text className="text-[10px] font-bold font-outfit text-white">
+                              {formatDuration(videoMeta.durationMs)}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </>
+                    )}
                   </View>
                 </Pressable>
               ) : null}
@@ -350,6 +369,10 @@ function MessageBubbleBase({
                     height: screenHeight - 150,
                   }}
                 />
+              ) : message.mediaUrl && isYoutubeUrl(message.mediaUrl) ? (
+                <View style={{ flex: 1, width: screenWidth, minHeight: screenHeight - 160 }}>
+                  <YouTubeEmbed url={message.mediaUrl} shouldPlay initialMuted={false} />
+                </View>
               ) : (
                 <View style={{ width: screenWidth, height: screenHeight - 150 }}>
                   <MessageVideoSurface

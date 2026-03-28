@@ -25,6 +25,36 @@ function formatAmount(symbol: string, amount: number) {
 }
 
 export function buildPlanPricing(plan: any): PlanPricing {
+  const apiPricing = plan?.pricing;
+  if (apiPricing && (apiPricing.monthly || apiPricing.yearly)) {
+    const entries: NonNullable<PlanPricing["entries"]> = [];
+    const lines: string[] = [];
+
+    const addStructuredEntry = (entry: any) => {
+      if (!entry) return;
+      entries.push({
+        label: entry.label,
+        original: entry.original,
+        discounted: entry.hasDiscount ? entry.discounted : undefined,
+        discountLabel: entry.discountLabel ?? undefined,
+      });
+      lines.push(
+        entry.hasDiscount
+          ? `${entry.label} ${entry.original} -> ${entry.discounted}`
+          : `${entry.label} ${entry.original}`,
+      );
+    };
+
+    addStructuredEntry(apiPricing.monthly);
+    addStructuredEntry(apiPricing.yearly);
+
+    return {
+      badge: apiPricing.badge ?? plan?.displayPrice ?? lines[0],
+      lines,
+      entries,
+    };
+  }
+
   const lines: string[] = [];
   const entries: PlanPricing["entries"] = [];
   const monthlyRaw = plan?.monthlyPrice ? String(plan.monthlyPrice) : "";

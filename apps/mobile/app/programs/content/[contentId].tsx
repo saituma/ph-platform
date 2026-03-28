@@ -7,7 +7,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, type RelativePathString } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text, TextInput } from "@/components/ScaledText";
@@ -573,7 +573,10 @@ export default function ProgramContentDetailScreen() {
                 className="rounded-t-3xl"
                 style={{ backgroundColor: surfaceColor, maxHeight: "88%" }}
               >
-                <ScrollView
+                <KeyboardAwareScrollView
+                  enableOnAndroid
+                  extraHeight={Platform.OS === "ios" ? 120 : 160}
+                  extraScrollHeight={Platform.OS === "ios" ? 40 : 96}
                   keyboardShouldPersistTaps="handled"
                   keyboardDismissMode="on-drag"
                   showsVerticalScrollIndicator={false}
@@ -724,7 +727,7 @@ export default function ProgramContentDetailScreen() {
                       </Text>
                     </Pressable>
                   </View>
-                </ScrollView>
+                </KeyboardAwareScrollView>
               </View>
             </View>
           </KeyboardAvoidingView>

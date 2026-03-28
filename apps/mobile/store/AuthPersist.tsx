@@ -134,11 +134,14 @@ export function AuthPersist() {
           await apiRequest("/auth/me", {
             token: storedToken,
             suppressStatusCodes: [401, 403],
+            // Hydration owns clearing SecureStore on invalid session; avoid duplicate global logout.
+            skipSessionInvalidateOn401: true,
           });
         } catch (error) {
           if (isUnauthorizedError(error)) {
             tokenIsValid = false;
           }
+          // Network / timeout: keep stored session so the user stays signed in offline or flaky networks.
         }
 
         if (!mounted) return;

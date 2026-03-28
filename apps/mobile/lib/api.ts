@@ -13,6 +13,8 @@ type ApiRequestOptions = {
   suppressLog?: boolean;
   suppressStatusCodes?: number[];
   skipAuthRefresh?: boolean;
+  /** When true, a 401 after failed refresh does not wipe SecureStore or dispatch logout (caller owns session). */
+  skipSessionInvalidateOn401?: boolean;
   skipCache?: boolean;
   forceRefresh?: boolean;
   timeoutMs?: number;
@@ -98,6 +100,25 @@ const parseJsonSafe = (text: string) => {
   }
 };
 
+/** True when failure is likely offline / transient transport — do not treat as invalid refresh or wipe session. */
+function isTransportFailure(error: unknown): boolean {
+  if (error == null) return false;
+  if (typeof error === "object" && error !== null && "name" in error && (error as { name?: string }).name === "AbortError") {
+    return true;
+  }
+  if (error instanceof TypeError) return true;
+  if (error instanceof Error) {
+    const m = error.message;
+    return (
+      m.includes("Network request failed") ||
+      m.includes("Failed to fetch") ||
+      m.includes("Cannot reach API") ||
+      m.includes("Request timed out")
+    );
+  }
+  return false;
+}
+
 async function refreshAuthToken(normalizedBaseUrl: string): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
@@ -133,7 +154,10 @@ async function refreshAuthToken(normalizedBaseUrl: string): Promise<string | nul
         })
       );
       return nextToken;
-    } catch {
+    } catch (e) {
+      if (isTransportFailure(e)) {
+        throw e instanceof Error ? e : new Error(String(e));
+      }
       return null;
     }
   })();
@@ -258,16 +282,28 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     !options.skipAuthRefresh &&
     normalizedPath !== "/auth/refresh";
   if (shouldTryRefresh) {
-    const refreshedToken = await refreshAuthToken(apiBaseUrl);
-    if (refreshedToken) {
-      ({ res, requestUrl, text } = await performRequest(refreshedToken));
+    try {
+      const refreshedToken = await refreshAuthToken(apiBaseUrl);
+      if (refreshedToken) {
+        ({ res, requestUrl, text } = await performRequest(refreshedToken));
+      }
+    } catch (e) {
+      if (isTransportFailure(e)) {
+        const message = e instanceof Error ? e.message : "Network request failed";
+        throw new Error(`Cannot reach API at ${url}. ${message}`);
+      }
     }
   }
 
   const payload = parseJsonSafe(text);
   if (!res.ok) {
-    if (res.status === 401 && !options.skipAuthRefresh && normalizedPath !== "/auth/login") {
-      // Force logout on 401 so the user is prompted to log in again.
+    const shouldInvalidateSession =
+      res.status === 401 &&
+      !options.skipAuthRefresh &&
+      normalizedPath !== "/auth/login" &&
+      !options.skipSessionInvalidateOn401;
+    if (shouldInvalidateSession) {
+      // Invalid or expired session after refresh attempt — clear stored credentials.
       SecureStore.deleteItemAsync(AUTH_TOKEN_KEY).catch(() => {});
       SecureStore.deleteItemAsync(AUTH_REFRESH_KEY).catch(() => {});
       store.dispatch(logout());

@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.dawitworkujima.footballcoachingapp'
+    namespace 'com.clientreachai.phperformance'
     defaultConfig {
-        applicationId 'com.dawitworkujima.footballcoachingapp'
+        applicationId 'com.clientreachai.phperformance'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
