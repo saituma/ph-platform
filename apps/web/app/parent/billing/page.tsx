@@ -143,6 +143,7 @@ export default function ParentBillingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [approvalSearch, setApprovalSearch] = useState("");
 
   const resetEditor = useCallback(() => {
     setForm(defaultForm);
@@ -266,6 +267,12 @@ export default function ParentBillingPage() {
     }
   };
 
+  const filteredRequests = requests.filter((request) =>
+    String(request?.userName ?? "")
+      .toLowerCase()
+      .includes(approvalSearch.trim().toLowerCase())
+  );
+
   return (
     <ParentShell
       title="Billing"
@@ -343,6 +350,15 @@ export default function ParentBillingPage() {
             <CardTitle>Pending Approvals</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="guardian-approval-search">Search guardian</Label>
+              <Input
+                id="guardian-approval-search"
+                value={approvalSearch}
+                onChange={(event) => setApprovalSearch(event.target.value)}
+                placeholder="Search by guardian name"
+              />
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -359,14 +375,16 @@ export default function ParentBillingPage() {
                       Loading requests...
                     </TableCell>
                   </TableRow>
-                ) : requests.length === 0 ? (
+                ) : filteredRequests.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-muted-foreground">
-                      No requests awaiting approval.
+                      {approvalSearch.trim()
+                        ? "No approvals match that guardian name."
+                        : "No requests awaiting approval."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  requests.map((request) => (
+                  filteredRequests.map((request) => (
                     <TableRow key={request.requestId}>
                       <TableCell>
                         <div className="font-medium">{request.userName}</div>
