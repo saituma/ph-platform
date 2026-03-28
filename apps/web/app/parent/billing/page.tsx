@@ -359,13 +359,9 @@ export default function ParentBillingPage() {
           </DialogHeader>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Plan Name</Label>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Plan</Label>
               <Input value={form.name} readOnly />
-            </div>
-            <div className="space-y-2">
-              <Label>Program Tier</Label>
-              <Input value={form.tier} readOnly />
             </div>
             <div className="space-y-2">
               <Label>Monthly Price</Label>
