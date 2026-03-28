@@ -223,6 +223,14 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
 
   const checkins = checkinsData?.items ?? [];
   const programCompletions = completionsData?.items ?? [];
+  const fallbackCheckins = useMemo(
+    () =>
+      programCompletions.filter(
+        (c: any) => c.rpe != null || c.soreness != null || c.fatigue != null || c.notes,
+      ),
+    [programCompletions],
+  );
+  const displayCheckins = checkins.length > 0 ? checkins : fallbackCheckins;
 
   const athleteVideos = useMemo(() => {
     const athleteId = onboarding?.athlete?.id;
@@ -233,19 +241,19 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
   }, [onboarding?.athlete?.id, videosData]);
 
   const avgRpe = useMemo(() => {
-    const vals = checkins.filter((c: any) => c.rpe != null).map((c: any) => c.rpe);
+    const vals = displayCheckins.filter((c: any) => c.rpe != null).map((c: any) => c.rpe);
     return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(1) : "—";
-  }, [checkins]);
+  }, [displayCheckins]);
 
   const avgSoreness = useMemo(() => {
-    const vals = checkins.filter((c: any) => c.soreness != null).map((c: any) => c.soreness);
+    const vals = displayCheckins.filter((c: any) => c.soreness != null).map((c: any) => c.soreness);
     return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(1) : "—";
-  }, [checkins]);
+  }, [displayCheckins]);
 
   const avgFatigue = useMemo(() => {
-    const vals = checkins.filter((c: any) => c.fatigue != null).map((c: any) => c.fatigue);
+    const vals = displayCheckins.filter((c: any) => c.fatigue != null).map((c: any) => c.fatigue);
     return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(1) : "—";
-  }, [checkins]);
+  }, [displayCheckins]);
 
   const totalExercises = useMemo(() => {
     let total = 0;
@@ -319,7 +327,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
       <Tabs defaultValue="plan">
         <TabsList>
           <TabsTrigger value="plan">Training Plan</TabsTrigger>
-          <TabsTrigger value="checkins">Check-ins ({checkins.length})</TabsTrigger>
+          <TabsTrigger value="checkins">Check-ins ({displayCheckins.length})</TabsTrigger>
           <TabsTrigger value="videos">Videos ({athleteVideos.length})</TabsTrigger>
         </TabsList>
 
@@ -453,21 +461,23 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
         <TabsContent value="checkins">
           {checkinsLoading ? (
             <div className="text-sm text-muted-foreground">Loading check-ins...</div>
-          ) : checkins.length === 0 ? (
+          ) : displayCheckins.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               No session check-ins yet. The athlete will log RPE, soreness, and fatigue after each session.
             </div>
           ) : (
             <div className="space-y-2">
-              {checkins.map((c: any) => {
+              {displayCheckins.map((c: any) => {
                 const date = c.completedAt ? new Date(c.completedAt) : null;
+                const isPremiumPlanCheckin = c.weekNumber != null || c.sessionNumber != null;
                 return (
                   <div key={c.id} className="rounded-xl border border-border bg-card px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-foreground">
-                          Week {c.weekNumber} · Session {c.sessionNumber}
-                          {c.sessionTitle ? ` — ${c.sessionTitle}` : ""}
+                          {isPremiumPlanCheckin
+                            ? `Week ${c.weekNumber} · Session ${c.sessionNumber}${c.sessionTitle ? ` — ${c.sessionTitle}` : ""}`
+                            : "Mobile training check-in"}
                         </p>
                         {date && (
                           <p className="text-xs text-muted-foreground mt-0.5">
