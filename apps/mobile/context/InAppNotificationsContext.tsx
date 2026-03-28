@@ -164,9 +164,11 @@ export function InAppNotificationsProvider({
         handlerConfiguredRef.current = true;
         Notifications.setNotificationHandler({
           handleNotification: async () => ({
-            shouldShowAlert: false,
-            shouldShowBanner: false,
-            shouldShowList: false,
+            // Let the OS present remote notifications while the app is foregrounded
+            // so they behave like real push notifications instead of in-app only toasts.
+            shouldShowAlert: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
             shouldPlaySound: true,
             shouldSetBadge: true,
           }),

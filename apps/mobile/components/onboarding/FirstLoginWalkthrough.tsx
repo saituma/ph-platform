@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from "react";
-import { Dimensions, InteractionManager, Modal, Pressable, View } from "react-native";
+import { InteractionManager, Modal, Pressable, View } from "react-native";
 import Animated, { Easing, FadeIn, FadeOut, SlideInRight, SlideOutLeft } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const WALKTHROUGH_KEY = "ph-app:walkthrough-seen";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type Step = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -51,6 +51,7 @@ const STEPS: Step[] = [
 
 export function FirstLoginWalkthrough() {
   const { colors, isDark } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
 
@@ -85,68 +86,89 @@ export function FirstLoginWalkthrough() {
 
   const current = STEPS[step];
 
+  const footerPad = Math.max(insets.bottom, 12) + 16;
+
   return (
     <Modal visible={visible} transparent animationType="none">
       <Animated.View
         entering={FadeIn}
         exiting={FadeOut}
-        className="flex-1 items-center justify-center px-6"
-        style={{ backgroundColor: isDark ? "rgba(0,0,0,0.85)" : "rgba(15,23,42,0.7)" }}
+        className="flex-1"
+        style={{
+          backgroundColor: isDark ? "rgba(0,0,0,0.88)" : "rgba(15,23,42,0.72)",
+          paddingTop: insets.top + 10,
+          paddingHorizontal: 16,
+          paddingBottom: insets.bottom + 10,
+        }}
       >
         <Animated.View
           key={step}
           entering={SlideInRight.duration(280).easing(Easing.out(Easing.cubic))}
           exiting={SlideOutLeft.duration(200)}
-          className="w-full max-w-[360px] rounded-[32px] overflow-hidden border"
+          className="flex-1 rounded-[28px] overflow-hidden border"
           style={{
             backgroundColor: colors.card,
             borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
           }}
         >
-          <View className="items-center pt-10 pb-6 px-8">
+          <View className="flex-1 items-center justify-center px-7 pt-6 pb-4">
             <View
-              className="h-20 w-20 rounded-[28px] items-center justify-center mb-6"
+              className="h-[88px] w-[88px] rounded-[30px] items-center justify-center mb-7"
               style={{ backgroundColor: `${current.iconColor}18` }}
             >
-              <Ionicons name={current.icon} size={36} color={current.iconColor} />
+              <Ionicons name={current.icon} size={42} color={current.iconColor} />
             </View>
 
-            <Text className="text-2xl font-clash font-bold text-app text-center mb-3">
+            <Text className="text-3xl font-clash font-bold text-app text-center mb-4 px-1">
               {current.title}
             </Text>
-            <Text className="text-base font-outfit text-secondary text-center leading-relaxed">
+            <Text className="text-lg font-outfit text-secondary text-center leading-relaxed px-1">
               {current.body}
             </Text>
+
+            <View className="flex-row items-center justify-center gap-2.5 mt-8">
+              {STEPS.map((_, i) => (
+                <View
+                  key={i}
+                  className="rounded-full"
+                  style={{
+                    width: i === step ? 28 : 9,
+                    height: 9,
+                    backgroundColor:
+                      i === step ? colors.accent : isDark ? "rgba(255,255,255,0.15)" : "rgba(15,23,42,0.12)",
+                  }}
+                />
+              ))}
+            </View>
           </View>
 
-          <View className="flex-row items-center justify-center gap-2 mb-5">
-            {STEPS.map((_, i) => (
-              <View
-                key={i}
-                className="rounded-full"
-                style={{
-                  width: i === step ? 24 : 8,
-                  height: 8,
-                  backgroundColor: i === step ? colors.accent : (isDark ? "rgba(255,255,255,0.15)" : "rgba(15,23,42,0.1)"),
-                }}
-              />
-            ))}
-          </View>
-
-          <View className="flex-row gap-3 px-6 pb-8">
+          <View className="gap-3 px-5 pt-2" style={{ paddingBottom: footerPad }}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Skip walkthrough"
               onPress={skip}
-              className="flex-1 rounded-full py-3.5 items-center border"
-              style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)" }}
+              className="w-full rounded-2xl items-center justify-center border-2 active:opacity-80"
+              style={{
+                minHeight: 56,
+                paddingVertical: 16,
+                borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(15,23,42,0.12)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+              }}
             >
-              <Text className="text-sm font-outfit font-semibold text-secondary">Skip</Text>
+              <Text className="text-lg font-outfit font-semibold text-secondary">Skip</Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={step === STEPS.length - 1 ? "Get started" : "Next step"}
               onPress={next}
-              className="flex-1 rounded-full py-3.5 items-center"
-              style={{ backgroundColor: colors.accent }}
+              className="w-full rounded-2xl items-center justify-center active:opacity-90"
+              style={{
+                minHeight: 60,
+                paddingVertical: 18,
+                backgroundColor: colors.accent,
+              }}
             >
-              <Text className="text-sm font-outfit font-semibold text-white">
+              <Text className="text-lg font-outfit font-bold text-white">
                 {step === STEPS.length - 1 ? "Get Started" : "Next"}
               </Text>
             </Pressable>

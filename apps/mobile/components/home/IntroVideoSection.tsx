@@ -1,11 +1,11 @@
 import React from "react";
-import { AppState, Image, Linking, Pressable, TouchableOpacity, View } from "react-native";
+import { AppState, Image, Pressable, View } from "react-native";
 import { Feather } from "@/components/ui/theme-icons";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useActiveTabIndex } from "@/context/ActiveTabContext";
 import { Text } from "@/components/ScaledText";
-import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
+import { VideoPlayer, isYoutubeUrl, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import { Shadows } from "@/constants/theme";
 
 type IntroVideoSectionProps = {
@@ -20,7 +20,7 @@ export function IntroVideoSection({
   posterUrl,
   tabIndex = 2,
 }: IntroVideoSectionProps) {
-  const { colors, isDark } = useAppTheme();
+  const { isDark } = useAppTheme();
   const globalActiveTab = useActiveTabIndex();
   const [appActive, setAppActive] = React.useState(AppState.currentState === "active");
   const [hasUserStarted, setHasUserStarted] = React.useState(false);
@@ -28,7 +28,6 @@ export function IntroVideoSection({
 
   const isTabActive = globalActiveTab === tabIndex;
   const shouldPlay = appActive && isTabActive && hasUserStarted;
-  const isUnsupportedSource = isYoutubeUrl(introVideoUrl ?? undefined);
 
   React.useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
@@ -62,8 +61,10 @@ export function IntroVideoSection({
       }}
     >
       {hasUserStarted ? (
-        isUnsupportedSource ? (
-          <UnsupportedIntroVideo posterUrl={posterUrl} accentColor={colors.accent} introVideoUrl={introVideoUrl} />
+        isYoutubeUrl(introVideoUrl) ? (
+          <View style={{ flex: 1 }}>
+            <YouTubeEmbed url={introVideoUrl} shouldPlay={shouldPlay} initialMuted={false} />
+          </View>
         ) : (
           <VideoPlayer
             uri={introVideoUrl}
@@ -132,66 +133,6 @@ export function IntroVideoSection({
           </View>
         </Pressable>
       )}
-    </View>
-  );
-}
-
-function UnsupportedIntroVideo({
-  posterUrl,
-  accentColor,
-  introVideoUrl,
-}: {
-  posterUrl?: string | null;
-  accentColor: string;
-  introVideoUrl?: string | null;
-}) {
-  return (
-    <View style={{ flex: 1 }}>
-      {posterUrl ? (
-        <Image
-          source={{ uri: posterUrl }}
-          style={{ width: "100%", height: "100%" }}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={{ flex: 1, backgroundColor: "#0B0E12" }} />
-      )}
-      <View
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundColor: "rgba(0,0,0,0.65)",
-          justifyContent: "center",
-          alignItems: "center",
-          paddingHorizontal: 32,
-        }}
-      >
-        <View
-          className="h-16 w-16 rounded-3xl items-center justify-center border"
-          style={{
-            backgroundColor: "rgba(255,255,255,0.1)",
-            borderColor: "rgba(255,255,255,0.2)",
-          }}
-        >
-          <Feather name="external-link" size={24} color="#FFFFFF" />
-        </View>
-        <Text className="text-white font-clash text-xl font-bold mt-6 text-center">
-          Open in Browser
-        </Text>
-        <Text className="text-white/70 font-outfit text-sm mt-2 text-center leading-5">
-          This video source is optimized for web viewing. Tap to open the full experience.
-        </Text>
-        
-        <TouchableOpacity 
-          className="mt-8 rounded-full bg-white px-8 py-3"
-          activeOpacity={0.8}
-          onPress={() => {
-            if (introVideoUrl) Linking.openURL(introVideoUrl).catch(() => {});
-          }}
-        >
-          <Text className="text-black font-outfit font-bold text-sm uppercase tracking-wider">Open Video</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }

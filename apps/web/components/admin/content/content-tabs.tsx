@@ -52,7 +52,7 @@ export function ContentTabs({
 
   const isBlockedIntroVideoUrl = (value: string) => {
     const normalized = value.trim().toLowerCase();
-    return normalized.includes("youtube.com") || normalized.includes("youtu.be") || normalized.includes("vimeo.com");
+    return normalized.includes("vimeo.com");
   };
   useEffect(() => {
     if (!initialHome) return;
@@ -536,7 +536,7 @@ export function ContentTabs({
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Or paste a direct video file URL</Label>
                 <Input
-                  placeholder="https://cdn.example.com/home-intro.mp4"
+                  placeholder="https://…mp4 or https://youtube.com/watch?v=…"
                   value={homeIntroVideo}
                   onChange={(event) => {
                     setHomeIntroVideo(event.target.value);
@@ -559,7 +559,8 @@ export function ContentTabs({
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Upload an intro video or paste a direct hosted video URL such as `.mp4`. YouTube and Vimeo links do not play inline in the mobile app.
+                  Upload an intro video, paste a direct <code className="rounded bg-muted px-1">.mp4</code> URL, or a{" "}
+                  <strong>YouTube</strong> link (plays in the mobile app). Vimeo links are not supported for intro yet.
                 </p>
               )}
             </div>
@@ -570,7 +571,7 @@ export function ContentTabs({
               onClick={() => {
                 const normalized = homeIntroVideo.trim();
                 if (normalized && isBlockedIntroVideoUrl(normalized)) {
-                  setIntroVideoError("Use an uploaded video or direct .mp4 URL. YouTube/Vimeo links are blocked for intro video because they do not play inline in the mobile app.");
+                  setIntroVideoError("Vimeo URLs are not supported for intro video. Use an upload, a direct .mp4 URL, or YouTube.");
                   return;
                 }
                 onSaveIntroVideo({ introVideoUrl: normalized });

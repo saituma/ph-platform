@@ -2,9 +2,11 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import {
+  buildAvailabilitySlots,
   createAvailabilityBlock,
   createBooking,
   createServiceType,
+  getServiceTypeById,
   listAvailabilityBlocks,
   listBookingsForServiceInRange,
   listBookingsForUser,
@@ -118,9 +120,19 @@ export async function listAvailability(req: Request, res: Response) {
   const query = availabilityQuerySchema.parse(req.query);
   const from = new Date(query.from);
   const to = new Date(query.to);
+  const service = await getServiceTypeById(query.serviceTypeId);
   const items = await listAvailabilityBlocks(query.serviceTypeId, from, to);
   const bookings = await listBookingsForServiceInRange(query.serviceTypeId, from, to);
-  return res.status(200).json({ items, bookings });
+  const slots =
+    service?.durationMinutes && Number.isFinite(service.durationMinutes)
+      ? buildAvailabilitySlots({
+          blocks: items,
+          durationMinutes: service.durationMinutes,
+          from,
+          to,
+        })
+      : [];
+  return res.status(200).json({ items, bookings, slots });
 }
 
 export async function createBookingForUser(req: Request, res: Response) {

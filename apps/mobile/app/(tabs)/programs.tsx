@@ -65,6 +65,17 @@ export default function ProgramsScreen() {
     [],
   );
   const getDiscountCopy = useCallback((plan?: any | null) => {
+    const pricing = plan?.pricing;
+    const discountedEntries = [pricing?.monthly, pricing?.yearly].filter((entry: any) => entry?.hasDiscount);
+    if (discountedEntries.length > 0) {
+      return discountedEntries
+        .map((entry: any) =>
+          entry.discountLabel
+            ? `${entry.label}: ${entry.discountLabel}`
+            : `${entry.label}: ${entry.original} -> ${entry.discounted}`,
+        )
+        .join(" • ");
+    }
     if (!plan?.discountValue || !plan?.discountType) return null;
     const value = String(plan.discountValue).trim();
     if (!value) return null;

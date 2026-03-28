@@ -116,6 +116,18 @@ function parsePriceToCents(value?: string | null): number | null {
   return Math.round(amount * 100);
 }
 
+function getCurrencySymbol(value?: string | null) {
+  if (!value) return "£";
+  const match = value.match(/[£$€]/);
+  return match?.[0] ?? "£";
+}
+
+function formatPriceFromCents(cents: number, symbol = "£") {
+  const amount = cents / 100;
+  const fixed = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+  return `${symbol}${fixed}`;
+}
+
 function applyDiscountToAmount(input: {
   originalCents: number;
   discountType?: string | null;
@@ -152,6 +164,69 @@ function applyDiscountToAmount(input: {
   return originalCents;
 }
 
+function buildPublicPlanPricing(plan: {
+  displayPrice?: string | null;
+  monthlyPrice?: string | null;
+  yearlyPrice?: string | null;
+  discountType?: string | null;
+  discountValue?: string | null;
+  discountAppliesTo?: string | null;
+}) {
+  const buildEntry = (label: "Monthly" | "Yearly", rawValue: string | null | undefined, interval: "monthly" | "yearly") => {
+    if (!rawValue?.trim()) return null;
+    const originalCents = parsePriceToCents(rawValue);
+    if (!originalCents) {
+      return {
+        label,
+        interval,
+        original: rawValue,
+        discounted: rawValue,
+        hasDiscount: false,
+        discountLabel: null,
+      };
+    }
+    const symbol = getCurrencySymbol(rawValue);
+    const discountedCents = applyDiscountToAmount({
+      originalCents,
+      discountType: plan.discountType,
+      discountValue: plan.discountValue,
+      discountAppliesTo: plan.discountAppliesTo,
+      interval,
+    });
+    const hasDiscount = discountedCents < originalCents;
+    const discountLabel =
+      hasDiscount && plan.discountType === "percent" && plan.discountValue
+        ? `${String(plan.discountValue).trim()}% off`
+        : hasDiscount && plan.discountType === "amount"
+        ? "Discount applied"
+        : null;
+    return {
+      label,
+      interval,
+      original: formatPriceFromCents(originalCents, symbol),
+      discounted: formatPriceFromCents(discountedCents, symbol),
+      hasDiscount,
+      discountLabel,
+      originalCents,
+      discountedCents,
+    };
+  };
+
+  const monthly = buildEntry("Monthly", plan.monthlyPrice, "monthly");
+  const yearly = buildEntry("Yearly", plan.yearlyPrice, "yearly");
+  const featured = monthly ?? yearly;
+
+  return {
+    badge: featured
+      ? featured.hasDiscount
+        ? `${featured.label} ${featured.discounted}`
+        : featured.original
+      : plan.displayPrice ?? null,
+    monthly,
+    yearly,
+  };
+}
+
 async function createStripePriceForPlan(input: {
   name: string;
   tier: (typeof ProgramType.enumValues)[number];
@@ -177,14 +252,18 @@ async function createStripePriceForPlan(input: {
 
 export async function listSubscriptionPlans(options?: { includeInactive?: boolean }) {
   const includeInactive = options?.includeInactive ?? false;
-  if (includeInactive) {
-    return db.select().from(subscriptionPlanTable).orderBy(subscriptionPlanTable.id);
-  }
-  return db
-    .select()
-    .from(subscriptionPlanTable)
-    .where(eq(subscriptionPlanTable.isActive, true))
-    .orderBy(subscriptionPlanTable.id);
+  const rows = includeInactive
+    ? await db.select().from(subscriptionPlanTable).orderBy(subscriptionPlanTable.id)
+    : await db
+        .select()
+        .from(subscriptionPlanTable)
+        .where(eq(subscriptionPlanTable.isActive, true))
+        .orderBy(subscriptionPlanTable.id);
+
+  return rows.map((plan) => ({
+    ...plan,
+    pricing: buildPublicPlanPricing(plan),
+  }));
 }
 
 export async function getLatestSubscriptionRequest(input: { userId: number; athleteId: number }) {
