@@ -38,7 +38,7 @@ export default function CoachingPage() {
   const { data: usersData } = useGetUsersQuery();
   const { data: videosData } = useGetVideoUploadsQuery();
   const [search, setSearch] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedAthleteUserId, setSelectedAthleteUserId] = useState<number | null>(null);
 
   const premiumAthletes = useMemo(() => {
     const items = snapshotData?.items ?? [];
@@ -99,7 +99,8 @@ export default function CoachingPage() {
               </div>
             ) : (
               filtered.map((athlete: any) => {
-                const isActive = selectedUserId === athlete.guardianUserId;
+                const athleteUserId = athlete.athleteUserId ?? athlete.guardianUserId;
+                const isActive = selectedAthleteUserId === athleteUserId;
                 const progress = athlete.premiumExercisesTotal
                   ? Math.round((athlete.premiumExercisesDone / athlete.premiumExercisesTotal) * 100)
                   : 0;
@@ -108,7 +109,7 @@ export default function CoachingPage() {
                 return (
                   <button
                     key={athlete.athleteId}
-                    onClick={() => setSelectedUserId(athlete.guardianUserId)}
+                    onClick={() => setSelectedAthleteUserId(athleteUserId)}
                     className={cn(
                       "w-full text-left rounded-xl border p-3.5 transition-all",
                       isActive
@@ -164,8 +165,8 @@ export default function CoachingPage() {
 
         {/* Right panel — athlete detail */}
         <div className="flex-1 min-w-0">
-          {selectedUserId ? (
-            <AthleteCoachingPanel userId={selectedUserId} />
+          {selectedAthleteUserId ? (
+            <AthleteCoachingPanel userId={selectedAthleteUserId} />
           ) : (
             <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border bg-card">
               <div className="text-center space-y-3 px-6">
