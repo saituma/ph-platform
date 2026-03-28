@@ -106,6 +106,11 @@ export default function CoachingPage() {
                 const progress = athlete.premiumExercisesTotal
                   ? Math.round((athlete.premiumExercisesDone / athlete.premiumExercisesTotal) * 100)
                   : 0;
+                const exerciseSummary = athlete.premiumExercisesTotal > 0
+                  ? `${athlete.premiumExercisesDone}/${athlete.premiumExercisesTotal} exercises`
+                  : athlete.sectionCompletions30d > 0
+                    ? `${athlete.sectionCompletions30d} completed`
+                    : "No completed training yet";
                 const pendingVideos = pendingVideosByAthlete.get(athlete.athleteId) ?? 0;
 
                 return (
@@ -134,7 +139,7 @@ export default function CoachingPage() {
                             {athlete.athleteName}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {athlete.premiumExercisesDone}/{athlete.premiumExercisesTotal} exercises
+                            {exerciseSummary}
                           </p>
                         </div>
                       </div>
