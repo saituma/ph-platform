@@ -8,9 +8,66 @@ import {
   athletePlanSessionTable,
   enrollmentTable,
   exerciseTable,
+  programSectionContentTable,
+  ProgramType,
   sessionExerciseTable,
   sessionTable,
 } from "../db/schema";
+
+const normalizeLookupValue = (value: string | null | undefined) =>
+  value
+    ?.trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[^\w\s-]/g, "") ?? "";
+
+type PremiumContentItem = typeof programSectionContentTable.$inferSelect;
+
+async function getPremiumProgramSectionContent() {
+  return db
+    .select()
+    .from(programSectionContentTable)
+    .where(
+      eq(
+        programSectionContentTable.programTier,
+        ProgramType.enumValues.find((value) => value === "PHP_Premium")!,
+      ),
+    )
+    .orderBy(programSectionContentTable.order, desc(programSectionContentTable.updatedAt));
+}
+
+function buildPremiumContentLookup(items: PremiumContentItem[]) {
+  const contentByVideoUrl = new Map<string, PremiumContentItem[]>();
+  const contentByTitle = new Map<string, PremiumContentItem[]>();
+  for (const item of items) {
+    const normalizedTitle = normalizeLookupValue(item.title);
+    if (normalizedTitle) {
+      const list = contentByTitle.get(normalizedTitle) ?? [];
+      list.push(item);
+      contentByTitle.set(normalizedTitle, list);
+    }
+    const normalizedVideoUrl = normalizeLookupValue(item.videoUrl);
+    if (normalizedVideoUrl) {
+      const list = contentByVideoUrl.get(normalizedVideoUrl) ?? [];
+      list.push(item);
+      contentByVideoUrl.set(normalizedVideoUrl, list);
+    }
+  }
+  return { contentByVideoUrl, contentByTitle };
+}
+
+function resolveLinkedPremiumContent(
+  base: (typeof exerciseTable.$inferSelect) | null,
+  lookup: ReturnType<typeof buildPremiumContentLookup>,
+) {
+  const normalizedExerciseVideoUrl = normalizeLookupValue(base?.videoUrl);
+  const normalizedExerciseTitle = normalizeLookupValue(base?.name);
+  return (
+    (normalizedExerciseVideoUrl ? lookup.contentByVideoUrl.get(normalizedExerciseVideoUrl)?.[0] : null) ??
+    (normalizedExerciseTitle ? lookup.contentByTitle.get(normalizedExerciseTitle)?.[0] : null) ??
+    null
+  );
+}
 
 export async function getAthletePremiumPlan(input: { athleteId: number; weekNumber?: number | null }) {
   const sessions = await db
@@ -38,6 +95,9 @@ export async function getAthletePremiumPlan(input: { athleteId: number; weekNumb
     ? await db.select().from(exerciseTable).where(inArray(exerciseTable.id, exerciseIds))
     : [];
 
+  const premiumContent = await getPremiumProgramSectionContent();
+  const lookup = buildPremiumContentLookup(premiumContent);
+
   const completionRows = exercises.length
     ? await db
         .select()
@@ -60,16 +120,100 @@ export async function getAthletePremiumPlan(input: { athleteId: number; weekNumb
       .filter((e) => e.planSessionId === session.id)
       .map((e) => {
         const base = masterExercises.find((x) => x.id === e.exerciseId) ?? null;
+        const linkedContent = resolveLinkedPremiumContent(base, lookup);
         return {
           ...e,
           exercise: base,
           completed: completedSet.has(e.id),
+          linkedProgramSectionContentId: linkedContent?.id ?? null,
+          linkedProgramSectionContent: linkedContent
+            ? {
+                id: linkedContent.id,
+                title: linkedContent.title,
+                allowVideoUpload: linkedContent.allowVideoUpload,
+                videoUrl: linkedContent.videoUrl ?? null,
+              }
+            : null,
         };
       })
       .sort((a, b) => a.order - b.order);
 
     return { ...session, exercises: sessionExercises };
   });
+}
+
+export async function getAthletePremiumPlanExerciseDetail(input: {
+  athleteId: number;
+  planExerciseId: number;
+}) {
+  const rows = await db
+    .select()
+    .from(athletePlanExerciseTable)
+    .innerJoin(
+      athletePlanSessionTable,
+      eq(athletePlanExerciseTable.planSessionId, athletePlanSessionTable.id),
+    )
+    .where(
+      and(
+        eq(athletePlanExerciseTable.id, input.planExerciseId),
+        eq(athletePlanSessionTable.athleteId, input.athleteId),
+      ),
+    )
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  const baseExerciseRows = await db
+    .select()
+    .from(exerciseTable)
+    .where(eq(exerciseTable.id, row.athlete_plan_exercises.exerciseId))
+    .limit(1);
+  const base = baseExerciseRows[0] ?? null;
+  const premiumContent = await getPremiumProgramSectionContent();
+  const linkedContent = resolveLinkedPremiumContent(base, buildPremiumContentLookup(premiumContent));
+  const completionRows = await db
+    .select()
+    .from(athletePlanExerciseCompletionTable)
+    .where(
+      and(
+        eq(athletePlanExerciseCompletionTable.athleteId, input.athleteId),
+        eq(athletePlanExerciseCompletionTable.planExerciseId, input.planExerciseId),
+      ),
+    )
+    .limit(1);
+
+  return {
+    id: row.athlete_plan_exercises.id,
+    order: row.athlete_plan_exercises.order,
+    sets: row.athlete_plan_exercises.sets ?? base?.sets ?? null,
+    reps: row.athlete_plan_exercises.reps ?? base?.reps ?? null,
+    duration: row.athlete_plan_exercises.duration ?? base?.duration ?? null,
+    restSeconds: row.athlete_plan_exercises.restSeconds ?? base?.restSeconds ?? null,
+    coachingNotes: row.athlete_plan_exercises.coachingNotes ?? base?.notes ?? null,
+    progressionNotes: row.athlete_plan_exercises.progressionNotes ?? base?.progression ?? null,
+    regressionNotes: row.athlete_plan_exercises.regressionNotes ?? base?.regression ?? null,
+    completed: completionRows.length > 0,
+    exercise: base,
+    session: {
+      id: row.athlete_plan_sessions.id,
+      weekNumber: row.athlete_plan_sessions.weekNumber,
+      sessionNumber: row.athlete_plan_sessions.sessionNumber,
+      title: row.athlete_plan_sessions.title,
+      notes: row.athlete_plan_sessions.notes,
+    },
+    linkedProgramSectionContentId: linkedContent?.id ?? null,
+    linkedProgramSectionContent: linkedContent
+      ? {
+          id: linkedContent.id,
+          title: linkedContent.title,
+          body: linkedContent.body,
+          allowVideoUpload: linkedContent.allowVideoUpload,
+          videoUrl: linkedContent.videoUrl ?? null,
+          metadata: linkedContent.metadata ?? null,
+        }
+      : null,
+  };
 }
 
 export async function clonePremiumPlanFromAssignedTemplate(input: {

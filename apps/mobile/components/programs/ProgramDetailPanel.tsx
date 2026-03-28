@@ -82,6 +82,7 @@ type ProgramSectionContent = {
   title: string;
   body: string;
   videoUrl?: string | null;
+  completed?: boolean | null;
   allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
   order?: number | null;
@@ -97,6 +98,13 @@ type PlanExercise = {
   restSeconds?: number | null;
   coachingNotes?: string | null;
   completed?: boolean;
+  linkedProgramSectionContentId?: number | null;
+  linkedProgramSectionContent?: {
+    id: number;
+    title?: string | null;
+    allowVideoUpload?: boolean | null;
+    videoUrl?: string | null;
+  } | null;
   exercise?: {
     id: number;
     name: string;
@@ -659,6 +667,7 @@ export function ProgramDetailPanel({
               mutedSurface={mutedSurface}
               accentSurface={isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4"}
               borderSoft={borderSoft}
+              onNavigate={onNavigate}
               onMessageCoach={openCoachMessage}
               canMessageCoach={canMessageCoach}
             />
@@ -704,9 +713,7 @@ export function ProgramDetailPanel({
                 <ProgramSessionPanel
                   programId={programId}
                   sessions={structured}
-                  onVideoPress={handleVideoPress}
-                  authToken={token}
-                  onTrainingLogged={loadTrainingProgress}
+                  onNavigate={onNavigate}
                 />
               );
             }
@@ -723,9 +730,7 @@ export function ProgramDetailPanel({
           <ProgramSessionPanel
             programId={programId}
             sessions={structured}
-            onVideoPress={handleVideoPress}
-            authToken={token}
-            onTrainingLogged={loadTrainingProgress}
+            onNavigate={onNavigate}
           />
         );
       }
@@ -945,6 +950,7 @@ function PremiumPlanPanel({
   mutedSurface,
   accentSurface,
   borderSoft,
+  onNavigate,
   onMessageCoach,
   canMessageCoach,
 }: {
@@ -955,6 +961,7 @@ function PremiumPlanPanel({
   mutedSurface: string;
   accentSurface: string;
   borderSoft: string;
+  onNavigate?: (path: string) => void;
   onMessageCoach?: (text: string) => void | Promise<void>;
   canMessageCoach?: boolean;
 }) {
@@ -1036,35 +1043,26 @@ function PremiumPlanPanel({
     return incomplete ?? visibleSessions[0] ?? null;
   }, [visibleSessions]);
 
-  const toggleExercise = useCallback(
-    async (exercise: PlanExercise) => {
-      if (!token) return;
-      const nextCompleted = !exercise.completed;
-      setItems((prev) =>
-        prev.map((session) => ({
-          ...session,
-          exercises: (session.exercises ?? []).map((ex) => (ex.id === exercise.id ? { ...ex, completed: nextCompleted } : ex)),
-        })),
+  const openSessionExercise = useCallback(
+    (session: PlanSession, requestedIndex?: number) => {
+      if (!onNavigate) return;
+      const exercises = session.exercises ?? [];
+      if (!exercises.length) return;
+      const incompleteIndex = exercises.findIndex((exercise) => !exercise.completed);
+      const targetIndex =
+        requestedIndex != null && requestedIndex >= 0 && requestedIndex < exercises.length
+          ? requestedIndex
+          : incompleteIndex >= 0
+            ? incompleteIndex
+            : 0;
+      const target = exercises[targetIndex];
+      if (!target) return;
+      const sessionIds = exercises.map((exercise) => String(exercise.id)).join(",");
+      onNavigate(
+        `/programs/exercise/${target.id}?sessionIds=${encodeURIComponent(sessionIds)}&index=${targetIndex}`,
       );
-      try {
-        if (nextCompleted) {
-          await apiRequest(`/premium-plan/exercises/${exercise.id}/complete`, { method: "POST", token });
-        } else {
-          await apiRequest(`/premium-plan/exercises/${exercise.id}/complete`, { method: "DELETE", token });
-        }
-      } catch {
-        // revert on failure
-        setItems((prev) =>
-          prev.map((session) => ({
-            ...session,
-            exercises: (session.exercises ?? []).map((ex) =>
-              ex.id === exercise.id ? { ...ex, completed: !nextCompleted } : ex,
-            ),
-          })),
-        );
-      }
     },
-    [token],
+    [onNavigate],
   );
 
   const openCheckin = (session: PlanSession) => {
@@ -1188,36 +1186,34 @@ function PremiumPlanPanel({
                   <Text className="text-sm font-outfit text-secondary mt-1">{session.notes}</Text>
                 ) : null}
               </View>
-              <Pressable
-                onPress={() => openCheckin(session)}
-                className="px-3 py-1.5 rounded-full"
-                style={{ backgroundColor: isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4" }}
-              >
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px]" style={{ color: accent }}>
-                  Check-in
-                </Text>
-              </Pressable>
+              <View className="flex-row items-center gap-2">
+                <Pressable
+                  onPress={() => openSessionExercise(session)}
+                  className="px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: accent }}
+                >
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px] text-white">
+                    Start Session
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => openCheckin(session)}
+                  className="px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4" }}
+                >
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px]" style={{ color: accent }}>
+                    Check-in
+                  </Text>
+                </Pressable>
+              </View>
             </View>
 
             <View className="gap-2.5">
               {(session.exercises ?? []).map((ex) => {
                 const base = ex.exercise ?? null;
-                const displaySets = ex.sets ?? base?.sets ?? null;
-                const displayReps = ex.reps ?? base?.reps ?? null;
-                const displayDuration = ex.duration ?? base?.duration ?? null;
-                const displayRest = ex.restSeconds ?? base?.restSeconds ?? null;
-                const badge = [
-                  displaySets != null ? `${displaySets} sets` : null,
-                  displayReps != null ? `${displayReps} reps` : null,
-                  displayDuration != null ? `${displayDuration}s` : null,
-                  displayRest != null ? `${displayRest}s rest` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" • ");
                 return (
-                  <Pressable
+                  <View
                     key={ex.id}
-                    onPress={() => toggleExercise(ex)}
                     className="rounded-2xl border px-4 py-3"
                     style={{
                       backgroundColor: ex.completed ? (isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4") : "transparent",
@@ -1225,46 +1221,40 @@ function PremiumPlanPanel({
                     }}
                   >
                     <View className="flex-row items-center justify-between gap-3">
-                      <View className="flex-1">
+                      <View className="flex-1 gap-2">
                         <Text className="text-sm font-outfit text-app font-semibold">
                           {base?.name ?? "Exercise"}
                         </Text>
-                        {badge ? (
-                          <Text className="text-[12px] font-outfit text-secondary mt-0.5">{badge}</Text>
-                        ) : null}
+                        <View
+                          className="self-start rounded-full px-3 py-1.5"
+                          style={{
+                            backgroundColor: ex.completed
+                              ? (isDark ? "rgba(34,197,94,0.16)" : "#ECFDF5")
+                              : mutedSurface,
+                          }}
+                        >
+                          <Text
+                            className="text-[10px] font-outfit font-semibold uppercase tracking-[1px]"
+                            style={{ color: ex.completed ? accent : colors.textSecondary }}
+                          >
+                            {ex.completed ? "Completed" : "Not completed"}
+                          </Text>
+                        </View>
                       </View>
-                      <View
-                        className="h-6 w-6 rounded-full items-center justify-center border"
-                        style={{ 
-                          backgroundColor: ex.completed ? accent : "transparent",
-                          borderColor: ex.completed ? accent : colors.textSecondary 
-                        }}
-                      >
-                        {ex.completed ? <Feather name="check" size={12} color="#ffffff" /> : null}
-                      </View>
-                    </View>
-                    {ex.coachingNotes ? (
-                      <View className="mt-3 pt-3 border-t" style={{ borderColor: borderSoft }}>
-                        <Text className="text-[13px] font-outfit text-secondary">{ex.coachingNotes}</Text>
-                      </View>
-                    ) : null}
-                    {onMessageCoach ? (
                       <Pressable
                         onPress={() => {
-                          const name = base?.name ?? "Exercise";
-                          void onMessageCoach(
-                            `PHP Premium · Week ${session.weekNumber} Session ${session.sessionNumber}\nExercise: ${name}\n\nHi coach, quick question:\n`,
-                          );
+                          const exerciseIndex = (session.exercises ?? []).findIndex((item) => item.id === ex.id);
+                          openSessionExercise(session, exerciseIndex >= 0 ? exerciseIndex : 0);
                         }}
-                        className="mt-3 flex-row items-center gap-1.5 self-start"
+                        className="rounded-full px-4 py-2"
+                        style={{ backgroundColor: accent }}
                       >
-                        <Feather name="message-circle" size={14} color={colors.textSecondary} />
-                        <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.textSecondary }}>
-                          Ask coach{canMessageCoach ? "" : " (Premium)"}
+                        <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px] text-white">
+                          View Detail
                         </Text>
                       </Pressable>
-                    ) : null}
-                  </Pressable>
+                    </View>
+                  </View>
                 );
               })}
             </View>

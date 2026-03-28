@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getAthleteForUser } from "../services/user.service";
 import {
   completePlanSession,
+  getAthletePremiumPlanExerciseDetail,
   getAthletePremiumPlan,
   markPlanExerciseComplete,
   unmarkPlanExerciseComplete,
@@ -31,6 +32,19 @@ export async function getMyPremiumPlan(req: Request, res: Response) {
     weekNumber: query.weekNumber ?? null,
   });
   return res.status(200).json({ items });
+}
+
+export async function getMyPremiumPlanExercise(req: Request, res: Response) {
+  const planExerciseId = z.coerce.number().int().min(1).parse(req.params.planExerciseId);
+  const athlete = await getAthleteForUser(req.user!.id);
+  if (!athlete) {
+    return res.status(400).json({ error: "Onboarding incomplete" });
+  }
+  const item = await getAthletePremiumPlanExerciseDetail({ athleteId: athlete.id, planExerciseId });
+  if (!item) {
+    return res.status(404).json({ error: "Exercise not found" });
+  }
+  return res.status(200).json({ item });
 }
 
 export async function completeMyPlanExercise(req: Request, res: Response) {
@@ -70,4 +84,3 @@ export async function completeMyPlanSession(req: Request, res: Response) {
   });
   return res.status(201).json({ item: row });
 }
-

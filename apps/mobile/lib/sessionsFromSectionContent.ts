@@ -6,6 +6,7 @@ type ContentRow = {
   title: string;
   body: string;
   videoUrl?: string | null;
+  completed?: boolean | null;
   metadata?: Record<string, unknown> | null;
   sectionType: string;
   order?: number | null;
@@ -70,13 +71,15 @@ export function sessionsFromSectionContentForTab(
       name = `Session ${sessions.length + 1}`;
     }
 
-    const exercises: SessionItem["exercises"] = groupRows.map((r) => {
+    const sessionIds = groupRows.map((r) => String(r.id)).join(",");
+    const exercises: SessionItem["exercises"] = groupRows.map((r, index) => {
       const meta = (r.metadata ?? {}) as Record<string, unknown>;
       const restSeconds = meta.restSeconds != null ? Number(meta.restSeconds) : null;
       const restNum = restSeconds != null && !Number.isNaN(restSeconds) ? restSeconds : undefined;
       return {
         id: String(r.id),
         name: r.title,
+        completed: Boolean(r.completed),
         sets: meta.sets != null ? Number(meta.sets) : undefined,
         reps: meta.reps != null ? Number(meta.reps) : undefined,
         time: meta.duration != null ? `${meta.duration}s` : undefined,
@@ -86,6 +89,7 @@ export function sessionsFromSectionContentForTab(
         videoUrl: r.videoUrl || undefined,
         progressions: typeof meta.progression === "string" ? meta.progression : undefined,
         regressions: typeof meta.regression === "string" ? meta.regression : undefined,
+        detailPath: `/programs/content/${r.id}?exerciseDetail=1&sessionIds=${encodeURIComponent(sessionIds)}&index=${index}`,
       };
     });
 

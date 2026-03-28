@@ -1,6 +1,7 @@
 export type ExerciseItem = {
   id: string;
   name: string;
+  completed?: boolean;
   sets?: number;
   reps?: number;
   time?: string;
@@ -11,6 +12,7 @@ export type ExerciseItem = {
   videoUrl?: string;
   progressions?: string;
   regressions?: string;
+  detailPath?: string;
 };
 
 export type SessionItem = {
