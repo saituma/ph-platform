@@ -8,17 +8,10 @@ import React, {
 import {
   View,
   Pressable,
-  Animated,
-  AppState,
-  Image,
   ActivityIndicator,
-  Linking,
   Dimensions,
-  ScrollView,
-  RefreshControl,
   TouchableOpacity,
   Modal,
-  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -26,8 +19,15 @@ import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
-import { Text, TextInput } from "@/components/ScaledText";
-import { useRole } from "@/context/RoleContext";
+import { Text } from "@/components/ScaledText";
+import {
+  UIButton,
+  UICard,
+  UIChip,
+  UIEmptyState,
+  UISectionHeader,
+  UITextArea,
+} from "@/components/ui/hero";
 import { useSocket } from "@/context/SocketContext";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useProgramPanel } from "./shared/useProgramPanel";
@@ -84,7 +84,6 @@ export function VideoUploadPanel({
   const { token, profile, athleteUserId } = useAppSelector(
     (state) => state.user,
   );
-  const { role } = useRole();
   const {
     isDark,
     colors,
@@ -94,7 +93,7 @@ export function VideoUploadPanel({
     scheduleLocalNotification,
   } = useProgramPanel();
 
-  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  const { height: screenHeight } = Dimensions.get("window");
 
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -102,7 +101,6 @@ export function VideoUploadPanel({
   const [status, setStatus] = useState<string | null>(null);
   const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
-  const [loadingResponses, setLoadingResponses] = useState(false);
   const [coachResponses, setCoachResponses] = useState<CoachResponse[]>([]);
 
   const previousVideoItemsRef = useRef<
@@ -113,10 +111,6 @@ export function VideoUploadPanel({
   const [selectedVideo, setSelectedVideo] = useState<SelectedVideo | null>(
     null,
   );
-  const previewAspectRatio =
-    selectedVideo?.width && selectedVideo?.height
-      ? selectedVideo.width / selectedVideo.height
-      : undefined;
   const previewHeight = selectedVideo?.height ?? 240;
   const [optimisticUploads, setOptimisticUploads] = useState<
     OptimisticUpload[]
@@ -127,6 +121,10 @@ export function VideoUploadPanel({
     uri: string;
     title?: string;
   } | null>(null);
+  const uploadProgressRef = useRef<{ value: number; ts: number }>({
+    value: 0,
+    ts: 0,
+  });
 
   const { socket } = useSocket();
   const VIDEO_MAX_MB = 200;
@@ -256,7 +254,6 @@ export function VideoUploadPanel({
     async (forceRefresh = false) => {
       if (!token) return;
       try {
-        setLoadingResponses(true);
         const effectiveUserId = athleteUserId
           ? Number(athleteUserId)
           : Number(profile.id);
@@ -312,8 +309,6 @@ export function VideoUploadPanel({
           (item: CoachResponse) => item.id,
         );
       } catch {
-      } finally {
-        setLoadingResponses(false);
       }
     },
     [athleteUserId, profile.id, scheduleLocalNotification, sectionContentId, token],
@@ -378,6 +373,18 @@ export function VideoUploadPanel({
     () => videoItems.filter((item) => Boolean(item.feedback)),
     [videoItems],
   );
+  const coachResponsesByUploadId = useMemo(() => {
+    const map = new Map<string, CoachResponse[]>();
+    coachResponses.forEach((response) => {
+      const key = String(response.videoUploadId);
+      const items = map.get(key) ?? [];
+      items.push(response);
+      map.set(key, items);
+    });
+    return map;
+  }, [coachResponses]);
+  const totalUploads = videoItems.length + optimisticUploads.length;
+  const feedbackReadyCount = reviewedVideos.length + coachResponses.length;
 
   // Media Selection & Upload
   const pickVideo = async (source: "library" | "camera") => {
@@ -446,151 +453,148 @@ export function VideoUploadPanel({
       setStatus("Select a training section to upload a video.");
       return;
     }
-    Alert.alert(
-      "Confirm Send",
-      "Send this video and notes to your coach for review?",
-      [
-        { text: "Cancel", style: "cancel" },
+    const tempId = `temp-${Date.now()}`;
+    const uploadNotes = notes.trim();
+    const currentVideo = selectedVideo;
+
+    const updateOptimisticProgress = (nextProgress: number, force = false) => {
+      const clamped = Math.max(0, Math.min(1, nextProgress));
+      const now = Date.now();
+      const shouldSkip =
+        !force &&
+        clamped < 1 &&
+        now - uploadProgressRef.current.ts < 180 &&
+        Math.abs(clamped - uploadProgressRef.current.value) < 0.05;
+
+      if (shouldSkip) return;
+
+      uploadProgressRef.current = { value: clamped, ts: now };
+      setOptimisticUploads((prev) =>
+        prev.map((u) =>
+          u.id === tempId ? { ...u, progress: clamped } : u,
+        ),
+      );
+    };
+
+    try {
+      setUploading(true);
+      setStatus("Preparing upload...");
+      const headers = athleteUserId
+        ? { "X-Acting-User-Id": String(athleteUserId) }
+        : undefined;
+
+      setOptimisticUploads((prev) => [
         {
-          text: "Send",
-          onPress: async () => {
-            const tempId = `temp-${Date.now()}`;
-            const uploadNotes = notes.trim();
-            let currentVideo: SelectedVideo | null = selectedVideo;
+          id: tempId,
+          uri: currentVideo.uri,
+          progress: 0,
+          fileName: currentVideo.fileName,
+          notes: uploadNotes || undefined,
+          width: currentVideo.width,
+          height: currentVideo.height,
+        },
+        ...prev,
+      ]);
+      setSelectedVideo(null);
+      setNotes("");
 
-            try {
-              setUploading(true);
-              setStatus(null);
-              const headers = athleteUserId
-                ? { "X-Acting-User-Id": String(athleteUserId) }
-                : undefined;
+      const presign = await apiRequest<{
+        uploadUrl: string;
+        publicUrl: string;
+      }>("/media/presign", {
+        method: "POST",
+        token,
+        headers,
+        body: {
+          folder: "video-uploads",
+          fileName: currentVideo.fileName,
+          contentType: currentVideo.contentType,
+          sizeBytes: currentVideo.sizeBytes,
+        },
+      });
 
-              setOptimisticUploads((prev) => [
-                {
-                  id: tempId,
-                  uri: selectedVideo.uri,
-                  progress: 0,
-                  fileName: selectedVideo.fileName,
-                  notes: uploadNotes || undefined,
-                  width: selectedVideo.width,
-                  height: selectedVideo.height,
-                },
-                ...prev,
-              ]);
-              setSelectedVideo(null);
-              setNotes("");
+      setStatus("Uploading video...");
+      uploadProgressRef.current = { value: 0, ts: Date.now() };
 
-              const blob = await (await fetch(currentVideo.uri)).blob();
-
-              const presign = await apiRequest<{
-                uploadUrl: string;
-                publicUrl: string;
-              }>("/media/presign", {
-                method: "POST",
-                token,
-                headers,
-                body: {
-                  folder: "video-uploads",
-                  fileName: currentVideo.fileName,
-                  contentType: currentVideo.contentType,
-                  sizeBytes: currentVideo.sizeBytes,
-                },
-              });
-
-              await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open("PUT", presign.uploadUrl);
-                xhr.setRequestHeader("Content-Type", currentVideo.contentType);
-
-                xhr.upload.onprogress = (event) => {
-                  if (event.lengthComputable) {
-                    setOptimisticUploads((prev) =>
-                      prev.map((u) =>
-                        u.id === tempId
-                          ? { ...u, progress: event.loaded / event.total }
-                          : u,
-                      ),
-                    );
-                  }
-                };
-
-                xhr.onload = () =>
-                  xhr.status >= 200 && xhr.status < 300
-                    ? resolve(true)
-                    : reject(new Error(`Status ${xhr.status}`));
-                xhr.onerror = () => reject(new Error("Storage upload failed"));
-                xhr.send(blob);
-              });
-
-              await apiRequest("/videos", {
-                method: "POST",
-                token,
-                headers,
-                body: {
-                  videoUrl: presign.publicUrl,
-                  notes: uploadNotes || undefined,
-                  programSectionContentId: sectionContentId ?? undefined,
-                },
-              });
-
-              await scheduleLocalNotification(
-                "Video uploaded",
-                "Your video was submitted for review.",
-                { type: "video-upload" },
-              );
-
-              await loadVideos();
-
-              setOptimisticUploads((prev) =>
-                prev.map((u) =>
-                  u.id === tempId
-                    ? {
-                        ...u,
-                        progress: 1,
-                        publicUrl: presign.publicUrl,
-                        uri: presign.publicUrl,
-                        submittedAt: new Date().toISOString(),
-                      }
-                    : u,
-                ),
-              );
-              setStatus("Video submitted for coach review.");
-            } catch (error: any) {
-              setOptimisticUploads((prev) =>
-                prev.filter((u) => u.id !== tempId),
-              );
-              setStatus(error?.message ?? "Upload failed.");
-              setSelectedVideo(currentVideo);
-            } finally {
-              setUploading(false);
-            }
+      const uploadTask = FileSystem.createUploadTask(
+        presign.uploadUrl,
+        currentVideo.uri,
+        {
+          httpMethod: "PUT",
+          headers: {
+            "Content-Type": currentVideo.contentType,
           },
         },
-      ],
-    );
+        (progress) => {
+          if (!progress.totalBytesExpectedToSend) return;
+          updateOptimisticProgress(
+            progress.totalBytesSent / progress.totalBytesExpectedToSend,
+          );
+        },
+      );
+
+      const uploadResult = await uploadTask.uploadAsync();
+      if (!uploadResult || uploadResult.status < 200 || uploadResult.status >= 300) {
+        throw new Error(
+          uploadResult ? `Upload failed (${uploadResult.status}).` : "Upload failed.",
+        );
+      }
+
+      updateOptimisticProgress(1, true);
+      setStatus("Finalizing upload...");
+
+      await apiRequest("/videos", {
+        method: "POST",
+        token,
+        headers,
+        body: {
+          videoUrl: presign.publicUrl,
+          notes: uploadNotes || undefined,
+          programSectionContentId: sectionContentId ?? undefined,
+        },
+      });
+
+      setOptimisticUploads((prev) =>
+        prev.map((u) =>
+          u.id === tempId
+            ? {
+                ...u,
+                progress: 1,
+                publicUrl: presign.publicUrl,
+                uri: presign.publicUrl,
+                submittedAt: new Date().toISOString(),
+              }
+            : u,
+        ),
+      );
+      setStatus("Video submitted for coach review.");
+
+      void scheduleLocalNotification(
+        "Video uploaded",
+        "Your video was submitted for review.",
+        { type: "video-upload" },
+      );
+      void loadVideos();
+    } catch (error: any) {
+      setOptimisticUploads((prev) => prev.filter((u) => u.id !== tempId));
+      setStatus(error?.message ?? "Upload failed.");
+      setSelectedVideo(currentVideo);
+      setNotes(uploadNotes);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <ProgramPanelCard className="p-0">
       {/* Header */}
       <View className="px-5 pt-6 pb-5">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <Text
-              className="text-[11px] font-outfit font-semibold uppercase tracking-[1.8px]"
-              style={{ color: colors.textSecondary }}
-            >
-              Premium Review
-            </Text>
-            <Text
-              className="mt-1 text-3xl font-telma-bold font-bold tracking-tight"
-              style={{ color: colors.text }}
-            >
-              Video Review
-            </Text>
-          </View>
-          <ProgramPanelStatusBadge label="Coach Review" variant="default" />
-        </View>
+        <UISectionHeader
+          eyebrow="Premium Review"
+          title="Video Review"
+          description="One focused clip per upload. Tell your coach exactly what to look for."
+          rightSlot={<ProgramPanelStatusBadge label="Coach Review" variant="default" />}
+        />
         {sectionTitle ? (
           <Text
             className="mt-3 text-xs font-outfit uppercase tracking-widest"
@@ -599,20 +603,18 @@ export function VideoUploadPanel({
             Uploading for: {sectionTitle}
           </Text>
         ) : null}
-        <Text
-          className="mt-2 text-sm font-outfit leading-6"
-          style={{ color: colors.textSecondary }}
-        >
-          One focused clip per upload. Tell your coach exactly what to look for.
-        </Text>
       </View>
 
       {!canUploadForSection ? (
         <View
-          className="mx-5 mb-6 rounded-3xl p-4 border"
+          className="mx-5 mb-6 rounded-3xl p-4"
           style={{
             backgroundColor: colors.warningSoft,
-            borderColor: colors.warning,
+            shadowColor: isDark ? "#00000000" : "#f59e0b",
+            shadowOpacity: isDark ? 0 : 0.08,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: isDark ? 0 : 2,
           }}
         >
           <Text className="text-sm font-outfit" style={{ color: colors.warning }}>
@@ -621,56 +623,137 @@ export function VideoUploadPanel({
         </View>
       ) : null}
 
-      {/* Quick Tips Banner */}
-      <View
-        className="mx-5 mb-6 rounded-3xl p-5 border"
-        style={{
-          backgroundColor: colors.cardElevated,
-          borderColor: colors.border,
-        }}
-      >
-        <View className="flex-row items-center gap-3 mb-4">
-          <View
-            className="h-10 w-10 rounded-2xl items-center justify-center"
-            style={{ backgroundColor: colors.accentLight }}
-          >
-            <Feather name="target" size={20} color={colors.accent} />
-          </View>
-          <Text
-            className="text-sm font-outfit font-semibold uppercase tracking-[1.6px]"
-            style={{ color: colors.text }}
-          >
-            Keep it focused
-          </Text>
-        </View>
-
-        <View className="flex-row flex-wrap gap-2">
-          {["Full rep visible", "Good lighting", "< 200 MB"].map((tip) => (
-            <View
-              key={tip}
-              className="rounded-xl px-3 py-1.5 border"
-              style={{
-                backgroundColor: colors.backgroundSecondary,
-                borderColor: colors.border,
-              }}
-            >
+      <View className="mx-5 mb-6 gap-4">
+        <UICard className="rounded-3xl px-5 py-5">
+          <View className="flex-row items-start justify-between gap-4">
+            <View className="flex-1">
               <Text
-                className="text-xs font-outfit font-medium"
+                className="text-[11px] font-outfit font-semibold uppercase tracking-[1.6px]"
                 style={{ color: colors.textSecondary }}
               >
-                {tip}
+                Session Snapshot
+              </Text>
+              <Text
+                className="mt-1 font-clash text-2xl"
+                style={{ color: colors.text }}
+              >
+                Upload with clarity
+              </Text>
+              <Text
+                className="mt-2 font-outfit text-sm leading-6"
+                style={{ color: colors.textSecondary }}
+              >
+                Coaches give better feedback when the rep is visible, the goal is obvious, and your note is specific.
               </Text>
             </View>
-          ))}
-        </View>
+            <View
+              className="h-12 w-12 items-center justify-center rounded-[20px]"
+              style={{ backgroundColor: colors.accentLight }}
+            >
+              <Feather name="zap" size={20} color={colors.accent} />
+            </View>
+          </View>
+
+          <View className="mt-5 flex-row flex-wrap gap-3">
+            <View
+              className="min-w-[31%] flex-1 rounded-[22px] border px-4 py-4"
+              style={{
+                backgroundColor: colors.backgroundSecondary,
+                borderColor: "transparent",
+                shadowColor: isDark ? "#00000000" : "#0f172a",
+                shadowOpacity: isDark ? 0 : 0.04,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: isDark ? 0 : 2,
+              }}
+            >
+              <Text className="font-clash text-2xl" style={{ color: colors.text }}>
+                {totalUploads}
+              </Text>
+              <Text className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]" style={{ color: colors.textSecondary }}>
+                Total Uploads
+              </Text>
+            </View>
+            <View
+              className="min-w-[31%] flex-1 rounded-[22px] border px-4 py-4"
+              style={{
+                backgroundColor: colors.warningSoft,
+                borderColor: "transparent",
+                shadowColor: isDark ? "#00000000" : "#f59e0b",
+                shadowOpacity: isDark ? 0 : 0.06,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: isDark ? 0 : 2,
+              }}
+            >
+              <Text className="font-clash text-2xl" style={{ color: colors.warning }}>
+                {awaitingVideos.length + optimisticUploads.length}
+              </Text>
+              <Text className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]" style={{ color: colors.warning }}>
+                Waiting
+              </Text>
+            </View>
+            <View
+              className="min-w-[31%] flex-1 rounded-[22px] border px-4 py-4"
+              style={{
+                backgroundColor: colors.successSoft,
+                borderColor: "transparent",
+                shadowColor: isDark ? "#00000000" : "#10b981",
+                shadowOpacity: isDark ? 0 : 0.06,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: isDark ? 0 : 2,
+              }}
+            >
+              <Text className="font-clash text-2xl" style={{ color: colors.success }}>
+                {feedbackReadyCount}
+              </Text>
+              <Text className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]" style={{ color: colors.success }}>
+                Feedback Items
+              </Text>
+            </View>
+          </View>
+        </UICard>
+
+        <UICard className="rounded-3xl px-5 py-5">
+          <View className="mb-4 flex-row items-center gap-3">
+            <View
+              className="h-10 w-10 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: colors.accentLight }}
+            >
+              <Feather name="target" size={20} color={colors.accent} />
+            </View>
+            <Text
+              className="text-sm font-outfit font-semibold uppercase tracking-[1.6px]"
+              style={{ color: colors.text }}
+            >
+              Keep it focused
+            </Text>
+          </View>
+
+          <View className="flex-row flex-wrap gap-2">
+            {["Full rep visible", "Good lighting", "< 200 MB"].map((tip) => (
+              <UIChip
+                key={tip}
+                label={tip}
+                className="rounded-xl px-3 py-1.5"
+                textClassName="text-xs font-medium normal-case tracking-normal"
+              />
+            ))}
+          </View>
+        </UICard>
       </View>
 
       {/* Notes Input */}
       <View
-        className="mx-5 mb-6 rounded-3xl p-5 border"
+        className="mx-5 mb-6 rounded-3xl p-5"
         style={{
           backgroundColor: colors.inputBackground,
-          borderColor: colors.border,
+          shadowColor: isDark ? "#00000000" : "#0f172a",
+          shadowOpacity: isDark ? 0 : 0.08,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: isDark ? 0 : 4,
         }}
       >
         <Text
@@ -679,57 +762,84 @@ export function VideoUploadPanel({
         >
           Coach Notes
         </Text>
-        <TextInput
+        <UITextArea
           value={notes}
           onChangeText={setNotes}
           placeholder="What should your coach focus on? (optional)"
           placeholderTextColor={colors.placeholder}
-          multiline
-          className="text-base font-outfit min-h-[100px]"
-          style={{
-            backgroundColor: "transparent",
-            color: colors.text,
-            textAlignVertical: "top", // ensure alignment for multiline
-          }}
+          className="text-base"
         />
       </View>
 
       {/* Upload / Record Buttons */}
-      <View className="flex-row gap-4 px-5 mb-6">
-        <TouchableOpacity
+      <View className="px-5 mb-6">
+        <Text
+          className="mb-3 text-[11px] font-outfit font-semibold uppercase tracking-[1.4px]"
+          style={{ color: colors.textSecondary }}
+        >
+          Choose capture mode
+        </Text>
+        <View className="flex-row gap-4">
+        <UIButton
           onPress={() => pickVideo("camera")}
-          disabled={uploading || !canUploadForSection}
-          className="flex-1 rounded-3xl py-5 items-center border"
+          isDisabled={uploading || !canUploadForSection}
+          className="flex-1 items-center rounded-3xl py-5"
           style={{
-            backgroundColor: colors.accent,
-            borderColor: colors.accent,
+            backgroundColor: isDark ? colors.accent : "#f0fdf4",
+            shadowColor: isDark ? "#00000000" : "#166534",
+            shadowOpacity: isDark ? 0 : 0.14,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: isDark ? 0 : 6,
           }}
         >
-          <Feather name="video" size={22} color="#ffffff" />
+          <View
+            className="h-12 w-12 items-center justify-center rounded-[20px]"
+            style={{
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.15)"
+                : "#166534",
+            }}
+          >
+            <Feather name="video" size={22} color="#ffffff" />
+          </View>
           <Text
             className="mt-3 text-sm font-outfit font-bold uppercase tracking-[1.6px]"
-            style={{ color: "#ffffff" }}
+            style={{ color: isDark ? "#ffffff" : "#14532d" }}
           >
             Record
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+          <Text
+            className="mt-1 text-center font-outfit text-xs"
+            style={{
+              color: isDark
+                ? "rgba(255,255,255,0.78)"
+                : "rgba(20,83,45,0.82)",
+            }}
+          >
+            Capture a new rep right now
+          </Text>
+        </UIButton>
+        <UIButton
           onPress={() => pickVideo("library")}
-          disabled={uploading || !canUploadForSection}
-          className="flex-1 rounded-3xl py-5 items-center border"
-          style={{
-            backgroundColor: colors.backgroundSecondary,
-            borderColor: colors.border,
-          }}
+          variant="secondary"
+          isDisabled={uploading || !canUploadForSection}
+          className="flex-1 items-center rounded-3xl py-5"
         >
-          <Feather name="upload" size={22} color={colors.accent} />
+          <View className="h-12 w-12 items-center justify-center rounded-[20px]" style={{ backgroundColor: colors.accentLight }}>
+            <Feather name="upload" size={22} color={colors.accent} />
+          </View>
           <Text
             className="mt-3 text-sm font-outfit font-semibold uppercase tracking-[1.4px]"
             style={{ color: colors.text }}
           >
             Upload
           </Text>
-        </TouchableOpacity>
+          <Text className="mt-1 text-center font-outfit text-xs" style={{ color: colors.textSecondary }}>
+            Choose a clip from your library
+          </Text>
+        </UIButton>
+        </View>
       </View>
 
       <Text
@@ -738,16 +848,45 @@ export function VideoUploadPanel({
       >
         Max video size: {VIDEO_MAX_MB}MB.
       </Text>
+      {status ? (
+        <View
+          className="mx-5 mb-6 rounded-2xl px-4 py-3"
+          style={{
+            backgroundColor: status.toLowerCase().includes("failed")
+              ? colors.dangerSoft
+              : colors.accentLight,
+            shadowColor: isDark
+              ? "#00000000"
+              : status.toLowerCase().includes("failed")
+                ? "#ef4444"
+                : "#22c55e",
+            shadowOpacity: isDark ? 0 : 0.07,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: isDark ? 0 : 2,
+          }}
+        >
+          <Text
+            className="font-outfit text-sm"
+            style={{
+              color: status.toLowerCase().includes("failed")
+                ? colors.danger
+                : colors.accent,
+            }}
+          >
+            {status}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Submit CTA */}
       {selectedVideo && (
-        <TouchableOpacity
+        <UIButton
           onPress={handleSubmitVideo}
-          disabled={uploading}
-          className={`mx-5 mb-8 rounded-3xl py-5 items-center flex-row justify-center gap-3 ${
+          isDisabled={uploading}
+          className={`mx-5 mb-8 flex-row items-center justify-center gap-3 rounded-3xl py-5 ${
             uploading ? "opacity-60" : ""
           }`}
-          style={{ backgroundColor: colors.accent }}
         >
           {uploading ? (
             <ActivityIndicator color="#ffffff" />
@@ -757,13 +896,13 @@ export function VideoUploadPanel({
           <Text className="text-base font-outfit font-bold text-white tracking-[1.2px] uppercase">
             {uploading ? "Sending..." : "Send to Coach"}
           </Text>
-        </TouchableOpacity>
+        </UIButton>
       )}
 
       {/* Video Preview */}
       {selectedVideo && !preparingVideo && (
-        <View
-          className="mx-5 mb-8 rounded-3xl overflow-hidden border"
+        <UICard
+          className="mx-5 mb-8 overflow-hidden rounded-3xl px-0 py-0"
           style={{
             backgroundColor: colors.cardElevated,
             borderColor: colors.border,
@@ -774,58 +913,65 @@ export function VideoUploadPanel({
             className="p-5 border-b"
             style={{ borderBottomColor: colors.separator }}
           >
-            <Text
-              className="text-base font-outfit font-semibold uppercase tracking-[1.6px]"
-              style={{ color: colors.text }}
-            >
-              Preview Clip
-            </Text>
+            <View className="flex-row items-center justify-between gap-3">
+              <View>
+                <Text
+                  className="text-base font-outfit font-semibold uppercase tracking-[1.6px]"
+                  style={{ color: colors.text }}
+                >
+                  Preview Clip
+                </Text>
+                <Text className="mt-1 font-outfit text-sm" style={{ color: colors.textSecondary }}>
+                  Review framing and notes before sending.
+                </Text>
+              </View>
+              <UIChip label="Ready to send" color="accent" />
+            </View>
           </View>
-          <VideoPlayer
-            uri={selectedVideo.uri}
-            cinematic={false}
-            height={previewHeight}
-            contentFitOverride="contain"
-            showLoadingOverlay
-            ignoreTabFocus
-            initialAspectRatio={previewAspectRatio}
-          />
+          <Pressable
+            onPress={() =>
+              setReelPreview({
+                id: selectedVideo.fileName,
+                uri: selectedVideo.uri,
+                title: "Selected clip",
+              })
+            }
+          >
+            <View
+              className="items-center justify-center"
+              style={{
+                height: Math.min(previewHeight, 260),
+                backgroundColor: isDark ? "#050505" : colors.heroSurfaceMuted,
+              }}
+            >
+              <Feather
+                name="play-circle"
+                size={64}
+                color={isDark ? "#ffffff" : colors.text}
+                style={{ opacity: isDark ? 0.85 : 0.72 }}
+              />
+              <Text
+                className="mt-3 font-outfit text-sm"
+                style={{ color: isDark ? "rgba(255,255,255,0.85)" : colors.textSecondary }}
+              >
+                Tap for full-screen preview
+              </Text>
+            </View>
+          </Pressable>
           <View className="p-5 flex-row items-center justify-between">
             <View className="flex-row gap-3">
-              <View
-                className="rounded-xl px-3 py-1.5 border"
-                style={{
-                  backgroundColor: colors.backgroundSecondary,
-                  borderColor: colors.border,
-                }}
-              >
-                <Text
-                  className="text-xs font-outfit font-medium"
-                  style={{ color: colors.textSecondary }}
-                >
-                  MP4
-                </Text>
-              </View>
-              <View
-                className="rounded-xl px-3 py-1.5 border"
-                style={{
-                  backgroundColor: colors.backgroundSecondary,
-                  borderColor: colors.border,
-                }}
-              >
-                <Text
-                  className="text-xs font-outfit font-medium"
-                  style={{ color: colors.textSecondary }}
-                >
-                  {formatBytes(selectedVideo.sizeBytes)}
-                </Text>
-              </View>
+              <UIChip label="MP4" className="rounded-xl px-3 py-1.5" textClassName="text-xs font-medium normal-case tracking-normal" />
+              <UIChip
+                label={formatBytes(selectedVideo.sizeBytes)}
+                className="rounded-xl px-3 py-1.5"
+                textClassName="text-xs font-medium normal-case tracking-normal"
+              />
             </View>
-            <TouchableOpacity onPress={() => setSelectedVideo(null)}>
+            <UIButton onPress={() => setSelectedVideo(null)} variant="ghost" className="min-h-0 rounded-2xl px-2 py-2">
               <Feather name="trash-2" size={22} color={colors.danger} />
-            </TouchableOpacity>
+            </UIButton>
           </View>
-        </View>
+        </UICard>
       )}
 
       {/* Upload History */}
@@ -836,19 +982,7 @@ export function VideoUploadPanel({
         >
           Your Uploads
         </Text>
-        <ScrollView
-          className="max-h-[520px]"
-          refreshControl={
-            <RefreshControl
-              tintColor={colors.tint}
-              refreshing={loadingVideos || loadingResponses}
-              onRefresh={() => {
-                void loadVideos(true);
-                void loadCoachResponses(true);
-              }}
-            />
-          }
-        >
+        <View>
           {loadingVideos &&
           videoItems.length === 0 &&
           optimisticUploads.length === 0 ? (
@@ -859,125 +993,145 @@ export function VideoUploadPanel({
               Loading...
             </Text>
           ) : videoItems.length === 0 && optimisticUploads.length === 0 ? (
-            <Text
-              className="text-center py-10 italic"
-              style={{ color: colors.textSecondary }}
-            >
-              No videos yet. Start recording or uploading.
-            </Text>
+            <UIEmptyState
+              className="mb-4"
+              title="No videos yet"
+              description="Start recording or uploading to create your review thread."
+            />
           ) : (
             <View className="space-y-6 pb-10">
               {/* Awaiting Review */}
               {(awaitingVideos.length > 0 || optimisticUploads.length > 0) && (
                 <View>
-                  <View className="flex-row items-center justify-between mb-4">
+                  <View className="mb-4 flex-row items-center justify-between">
                     <Text
                       className="text-[11px] font-outfit font-bold uppercase tracking-[2px]"
                       style={{ color: colors.warning }}
                     >
                       Awaiting Review
                     </Text>
-                    <View
-                      className="rounded-full px-3 py-1"
-                      style={{ backgroundColor: colors.warningSoft }}
-                    >
-                      <Text
-                        className="text-[11px] font-bold"
-                        style={{ color: colors.warning }}
-                      >
-                        {awaitingVideos.length + optimisticUploads.length}
-                      </Text>
-                    </View>
+                    <UIChip
+                      label={String(awaitingVideos.length + optimisticUploads.length)}
+                      color="warning"
+                    />
                   </View>
 
                   {optimisticUploads.map((u) => (
-                    <TouchableOpacity
+                    <UICard
                       key={u.id}
-                      onPress={() =>
-                        setReelPreview({
-                          id: u.id,
-                          uri: u.uri,
-                          title: "Uploading preview",
-                        })
-                      }
-                      className="rounded-3xl overflow-hidden mb-4 border"
+                      className="mb-4 overflow-hidden rounded-3xl px-0 py-0"
                       style={{
                         backgroundColor: colors.cardElevated,
                         borderColor: colors.border,
                         ...shadows.sm,
                       }}
                     >
-                      <View className="h-56 bg-black/80 items-center justify-center relative">
-                        <Feather
-                          name="play-circle"
-                          size={64}
-                          color="#ffffff"
-                          style={{ opacity: 0.8 }}
-                        />
-                      </View>
+                      <Pressable
+                        onPress={() =>
+                          setReelPreview({
+                            id: u.id,
+                            uri: u.uri,
+                            title: "Uploading preview",
+                          })
+                        }
+                      >
+                        <View
+                          className="h-56 items-center justify-center relative"
+                          style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+                        >
+                          <Feather
+                            name="play-circle"
+                            size={64}
+                            color={isDark ? "#ffffff" : colors.text}
+                            style={{ opacity: isDark ? 0.8 : 0.68 }}
+                          />
+                        </View>
+                      </Pressable>
                       <View className="p-5">
-                        <Text
-                          className="text-sm font-outfit font-semibold mb-1"
-                          style={{ color: colors.text }}
-                        >
-                          {u.progress < 1 ? "Uploading..." : "Submitted"}
-                        </Text>
-                        <Text
-                          className="text-sm"
-                          style={{ color: colors.textSecondary }}
-                        >
-                          {u.notes || "No notes"}
-                        </Text>
+                        <View className="mb-3 flex-row items-start justify-between gap-3">
+                          <View className="flex-1">
+                            <Text
+                              className="text-sm font-outfit font-semibold mb-1"
+                              style={{ color: colors.text }}
+                            >
+                              {u.progress < 1 ? "Uploading..." : "Submitted"}
+                            </Text>
+                            <Text
+                              className="text-sm"
+                              style={{ color: colors.textSecondary }}
+                            >
+                              {u.notes || "No notes"}
+                            </Text>
+                          </View>
+                          <UIChip
+                            label={u.progress < 1 ? `${Math.round(u.progress * 100)}%` : "Pending"}
+                            color="warning"
+                          />
+                        </View>
                       </View>
-                    </TouchableOpacity>
+                    </UICard>
                   ))}
 
                   {awaitingVideos.map((item: VideoItem) => (
-                    <TouchableOpacity
+                    <UICard
                       key={item.id}
-                      onPress={() =>
-                        setReelPreview({
-                          id: item.id,
-                          uri: item.videoUrl,
-                          title: "Awaiting review",
-                        })
-                      }
-                      className="rounded-3xl overflow-hidden mb-4 border"
+                      className="mb-4 overflow-hidden rounded-3xl px-0 py-0"
                       style={{
                         backgroundColor: colors.cardElevated,
                         borderColor: colors.border,
                         ...shadows.sm,
                       }}
                     >
-                      <View className="h-56 bg-black/80 items-center justify-center">
-                        <Feather
-                          name="play-circle"
-                          size={64}
-                          color="#ffffff"
-                          style={{ opacity: 0.8 }}
-                        />
-                      </View>
+                      <Pressable
+                        onPress={() =>
+                          setReelPreview({
+                            id: item.id,
+                            uri: item.videoUrl,
+                            title: "Awaiting review",
+                          })
+                        }
+                      >
+                        <View
+                          className="h-56 items-center justify-center"
+                          style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+                        >
+                          <Feather
+                            name="play-circle"
+                            size={64}
+                            color={isDark ? "#ffffff" : colors.text}
+                            style={{ opacity: isDark ? 0.8 : 0.68 }}
+                          />
+                        </View>
+                      </Pressable>
                       <View className="p-5">
-                        <Text
-                          className="text-sm font-outfit font-semibold mb-1"
-                          style={{ color: colors.text }}
-                        >
-                          Awaiting Feedback
-                        </Text>
-                        <Text
-                          className="text-sm"
-                          style={{ color: colors.textSecondary }}
-                        >
-                          {item.notes || "No notes added"}
-                        </Text>
-                        <Text
-                          className="text-[11px] mt-2 uppercase tracking-[1.2px]"
-                          style={{ color: colors.textSecondary, opacity: 0.7 }}
-                        >
-                          {formatDate(item.createdAt)}
-                        </Text>
+                        <View className="mb-3 flex-row items-start justify-between gap-3">
+                          <View className="flex-1">
+                            <Text
+                              className="text-sm font-outfit font-semibold mb-1"
+                              style={{ color: colors.text }}
+                            >
+                              Awaiting Feedback
+                            </Text>
+                            <Text
+                              className="text-sm"
+                              style={{ color: colors.textSecondary }}
+                            >
+                              {item.notes || "No notes added"}
+                            </Text>
+                          </View>
+                          <UIChip label="Waiting" color="warning" />
+                        </View>
+                        <View className="flex-row items-center justify-between">
+                          <Text
+                            className="text-[11px] uppercase tracking-[1.2px]"
+                            style={{ color: colors.textSecondary, opacity: 0.7 }}
+                          >
+                            {formatDate(item.createdAt)}
+                          </Text>
+                          <UIChip label="Tap to preview" />
+                        </View>
                       </View>
-                    </TouchableOpacity>
+                    </UICard>
                   ))}
                 </View>
               )}
@@ -985,76 +1139,78 @@ export function VideoUploadPanel({
               {/* Reviewed */}
               {reviewedVideos.length > 0 && (
                 <View>
-                  <View className="flex-row items-center justify-between mb-4">
+                  <View className="mb-4 flex-row items-center justify-between">
                     <Text
                       className="text-[11px] font-outfit font-bold uppercase tracking-[2px]"
                       style={{ color: colors.success }}
                     >
                       Reviewed
                     </Text>
-                    <View
-                      className="rounded-full px-3 py-1"
-                      style={{ backgroundColor: colors.successSoft }}
-                    >
-                      <Text
-                        className="text-[11px] font-bold"
-                        style={{ color: colors.success }}
-                      >
-                        {reviewedVideos.length}
-                      </Text>
-                    </View>
+                    <UIChip
+                      label={String(reviewedVideos.length)}
+                      color="success"
+                    />
                   </View>
 
                   {reviewedVideos.map((item: VideoItem) => (
-                    // Attach coach replies that match this upload
-                    // (videoUploadId is numeric in CoachResponse)
-                    // Map to simple lookup for rendering below.
-                    <TouchableOpacity
+                    <UICard
                       key={item.id}
-                      onPress={() =>
-                        setReelPreview({
-                          id: item.id,
-                          uri: item.videoUrl,
-                          title: "Reviewed video",
-                        })
-                      }
-                      className="rounded-3xl overflow-hidden mb-4 border"
+                      className="mb-4 overflow-hidden rounded-3xl px-0 py-0"
                       style={{
                         backgroundColor: colors.cardElevated,
                         borderColor: colors.border,
                         ...shadows.sm,
                       }}
                     >
-                      <View className="h-56 bg-black/80 items-center justify-center">
-                        <Feather
-                          name="play-circle"
-                          size={64}
-                          color="#ffffff"
-                          style={{ opacity: 0.8 }}
-                        />
-                      </View>
-                      <View className="p-5">
-                        <Text
-                          className="text-sm font-outfit font-semibold mb-2"
-                          style={{ color: colors.text }}
+                      <Pressable
+                        onPress={() =>
+                          setReelPreview({
+                            id: item.id,
+                            uri: item.videoUrl,
+                            title: "Reviewed video",
+                          })
+                        }
+                      >
+                        <View
+                          className="h-56 items-center justify-center"
+                          style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
                         >
-                          Coach Feedback
-                        </Text>
+                          <Feather
+                            name="play-circle"
+                            size={64}
+                            color={isDark ? "#ffffff" : colors.text}
+                            style={{ opacity: isDark ? 0.8 : 0.68 }}
+                          />
+                        </View>
+                      </Pressable>
+                      <View className="p-5">
+                        <View className="mb-3 flex-row items-start justify-between gap-3">
+                          <View className="flex-1">
+                            <Text
+                              className="text-sm font-outfit font-semibold mb-2"
+                              style={{ color: colors.text }}
+                            >
+                              Coach Feedback
+                            </Text>
+                          </View>
+                          <UIChip label="Reviewed" color="success" />
+                        </View>
                         <Text
                           className="text-sm leading-6"
                           style={{ color: colors.textSecondary }}
                         >
                           {item.feedback}
                         </Text>
-                        {coachResponses
-                          .filter(
-                            (resp) =>
-                              resp.videoUploadId != null &&
-                              String(resp.videoUploadId) === String(item.id),
-                          )
-                          .map((resp) => (
-                            <TouchableOpacity
-                              key={resp.id}
+                        {(coachResponsesByUploadId.get(String(item.id)) ?? []).map((resp) => (
+                          <UICard
+                            key={resp.id}
+                            className="mt-4 overflow-hidden rounded-2xl px-0 py-0"
+                            style={{
+                              backgroundColor: colors.backgroundSecondary,
+                              borderColor: colors.border,
+                            }}
+                          >
+                            <Pressable
                               onPress={() =>
                                 setReelPreview({
                                   id: resp.id,
@@ -1062,56 +1218,58 @@ export function VideoUploadPanel({
                                   title: "Coach reply",
                                 })
                               }
-                              className="mt-4 rounded-2xl overflow-hidden border"
-                              style={{
-                                backgroundColor: colors.backgroundSecondary,
-                                borderColor: colors.border,
-                              }}
                             >
-                              <View className="h-40 bg-black/80 items-center justify-center">
+                              <View
+                                className="h-40 items-center justify-center"
+                                style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+                              >
                                 <Feather
                                   name="play-circle"
                                   size={48}
-                                  color="#ffffff"
-                                  style={{ opacity: 0.8 }}
+                                  color={isDark ? "#ffffff" : colors.text}
+                                  style={{ opacity: isDark ? 0.8 : 0.68 }}
                                 />
                               </View>
-                              <View className="p-4">
+                            </Pressable>
+                            <View className="p-4">
+                              <View className="mb-2 flex-row items-center justify-between gap-3">
                                 <Text
-                                  className="text-[11px] font-outfit font-semibold uppercase tracking-[1.6px] mb-1"
+                                  className="text-[11px] font-outfit font-semibold uppercase tracking-[1.6px]"
                                   style={{ color: colors.text }}
                                 >
                                   Coach Reply
                                 </Text>
-                                {resp.text ? (
-                                  <Text
-                                    className="text-sm"
-                                    style={{ color: colors.textSecondary }}
-                                  >
-                                    {resp.text}
-                                  </Text>
-                                ) : (
-                                  <Text
-                                    className="text-sm italic"
-                                    style={{ color: colors.textSecondary }}
-                                  >
-                                    Video response
-                                  </Text>
-                                )}
-                                {resp.createdAt && (
-                                  <Text
-                                    className="text-[11px] mt-2 uppercase tracking-[1.2px]"
-                                    style={{
-                                      color: colors.textSecondary,
-                                      opacity: 0.7,
-                                    }}
-                                  >
-                                    {formatDate(resp.createdAt)}
-                                  </Text>
-                                )}
+                                <UIChip label="Video response" color="accent" />
                               </View>
-                            </TouchableOpacity>
-                          ))}
+                              {resp.text ? (
+                                <Text
+                                  className="text-sm"
+                                  style={{ color: colors.textSecondary }}
+                                >
+                                  {resp.text}
+                                </Text>
+                              ) : (
+                                <Text
+                                  className="text-sm italic"
+                                  style={{ color: colors.textSecondary }}
+                                >
+                                  Video response
+                                </Text>
+                              )}
+                              {resp.createdAt && (
+                                <Text
+                                  className="text-[11px] mt-2 uppercase tracking-[1.2px]"
+                                  style={{
+                                    color: colors.textSecondary,
+                                    opacity: 0.7,
+                                  }}
+                                >
+                                  {formatDate(resp.createdAt)}
+                                </Text>
+                              )}
+                            </View>
+                          </UICard>
+                        ))}
                         {item.notes && (
                           <Text
                             className="text-xs mt-3 italic"
@@ -1123,20 +1281,23 @@ export function VideoUploadPanel({
                             Notes: {item.notes}
                           </Text>
                         )}
-                        <Text
-                          className="text-[11px] mt-3 uppercase tracking-[1.2px]"
-                          style={{ color: colors.textSecondary, opacity: 0.7 }}
-                        >
-                          {formatDate(item.createdAt)}
-                        </Text>
+                        <View className="mt-3 flex-row items-center justify-between">
+                          <Text
+                            className="text-[11px] uppercase tracking-[1.2px]"
+                            style={{ color: colors.textSecondary, opacity: 0.7 }}
+                          >
+                            {formatDate(item.createdAt)}
+                          </Text>
+                          <UIChip label="Tap to replay" />
+                        </View>
                       </View>
-                    </TouchableOpacity>
+                    </UICard>
                   ))}
                 </View>
               )}
             </View>
           )}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Full-screen Preview Modal */}

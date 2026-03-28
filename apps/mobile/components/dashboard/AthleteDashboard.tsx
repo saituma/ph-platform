@@ -5,6 +5,7 @@ import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
 import { Text } from "@/components/ScaledText";
+import { UIButton, UICard, UIChip } from "@/components/ui/hero";
 export function AthleteDashboard() {
   const { isLoading, setIsLoading } = useRefreshContext();
   const { token } = useAppSelector((state) => state.user);
@@ -58,7 +59,7 @@ export function AthleteDashboard() {
     <View className="gap-8">
       <View>
         {athlete?.isBirthday ? (
-          <View className="mb-4 rounded-3xl border border-accent/30 bg-accent/10 p-4">
+          <UICard className="mb-4 border-accent/20 px-4 py-4">
             <Text className="text-accent font-outfit text-sm uppercase tracking-[1.4px] mb-1">
               Celebration
             </Text>
@@ -68,9 +69,9 @@ export function AthleteDashboard() {
             <Text className="text-sm font-outfit text-secondary mt-1">
               New age, new training content unlocked today.
             </Text>
-          </View>
+          </UICard>
         ) : null}
-        <View className="p-8 rounded-[40px] shadow-2xl relative overflow-hidden border border-white/20 min-h-[220px] bg-input">
+        <UICard className="relative min-h-[220px] overflow-hidden rounded-[40px] border-white/20 bg-input p-8">
           <View className="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
           <View className="absolute -left-20 -bottom-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
 
@@ -113,18 +114,19 @@ export function AthleteDashboard() {
                 <MissionTag icon="activity" label={athlete?.age ? `${athlete.age} yrs` : "Age —"} />
               </View>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                className="bg-white h-16 rounded-2xl items-center justify-center shadow-xl flex-row gap-2"
+              <UIButton
+                variant="secondary"
+                className="h-16 flex-row items-center justify-center gap-2 rounded-2xl border-white/20 bg-white"
+                textClassName="text-lg font-bold"
               >
                 <Text className="text-accent font-bold font-outfit text-lg">
                   View Profile
                 </Text>
                 <Feather name="arrow-right" size={20} className="text-accent" />
-              </TouchableOpacity>
+              </UIButton>
             </>
           )}
-        </View>
+        </UICard>
       </View>
 
       {/* 📊 High-Performance Metrics */}
@@ -180,29 +182,29 @@ export function AthleteDashboard() {
 
 function MissionTag({ icon, label }: { icon: any; label: string }) {
   return (
-    <View className="bg-white/10 px-4 py-2.5 rounded-2xl border border-white/10 items-center flex-row gap-2">
+    <UIChip
+      label=""
+      className="flex-row items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-2.5"
+    >
       <Feather name={icon} size={14} color="white" />
       <Text className="text-white font-bold font-outfit text-xs">{label}</Text>
-    </View>
+    </UIChip>
   );
 }
 
 function MetricCard({ label, value, trend, good, icon }: any) {
   return (
-    <View className="bg-input p-5 rounded-[28px] border border-app shadow-sm w-[48%] min-h-[140px] justify-between">
+    <UICard className="min-h-[140px] w-[48%] justify-between rounded-[28px] bg-input p-5">
       <View className="flex-row justify-between items-start">
         <View className="bg-accent/10 p-2.5 rounded-xl">
           <Feather name={icon} size={18} className="text-accent" />
         </View>
-        <View
-          className={`px-2 py-0.5 rounded-lg ${good ? "bg-success-soft" : "bg-danger-soft"}`}
-        >
-          <Text
-            className={`text-[0.625rem] font-bold ${good ? "text-success" : "text-danger"}`}
-          >
-            {trend}
-          </Text>
-        </View>
+        <UIChip
+          label={trend}
+          color={good ? "success" : "danger"}
+          className="rounded-lg px-2 py-0.5"
+          textClassName={`text-[0.625rem] ${good ? "text-success" : "text-danger"}`}
+        />
       </View>
       <View>
         <Text className="text-2xl font-bold font-clash text-app">{value}</Text>
@@ -210,13 +212,13 @@ function MetricCard({ label, value, trend, good, icon }: any) {
           {label}
         </Text>
       </View>
-    </View>
+    </UICard>
   );
 }
 
 function StatusTile({ label, value, icon, color, suffix = "%" }: any) {
   return (
-    <View className="bg-input p-4 rounded-[24px] border border-app shadow-sm w-[48%] h-[96px] items-center justify-between">
+    <UICard className="h-[96px] w-[48%] items-center justify-between rounded-[24px] bg-input p-4">
       <View
         className={`${color} w-10 h-10 rounded-2xl items-center justify-center shadow-lg shadow-app/5`}
       >
@@ -231,6 +233,6 @@ function StatusTile({ label, value, icon, color, suffix = "%" }: any) {
           {label}
         </Text>
       </View>
-    </View>
+    </UICard>
   );
 }

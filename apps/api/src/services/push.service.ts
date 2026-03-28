@@ -1,10 +1,24 @@
-import { Expo } from "expo-server-sdk";
+import { Expo, type ExpoPushMessage, type ExpoPushTicket } from "expo-server-sdk";
 import { env } from "../config/env";
 import { db } from "../db";
 import { userTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 const expo = new Expo({ accessToken: env.expoAccessToken });
+
+let warnedMissingExpoAccessToken = false;
+
+function warnMissingExpoAccessTokenOnce() {
+  if (warnedMissingExpoAccessToken) return;
+  warnedMissingExpoAccessToken = true;
+  if (!env.expoAccessToken?.trim()) {
+    const suffix =
+      env.nodeEnv === "production"
+        ? " Production sends may be rejected; set EXPO_ACCESS_TOKEN (see DEPLOY.md)."
+        : " Set EXPO_ACCESS_TOKEN for reliable delivery in development.";
+    console.warn(`[Push Service] EXPO_ACCESS_TOKEN is empty.${suffix}`);
+  }
+}
 
 function getChannelId(type?: string) {
   const value = String(type ?? "").toLowerCase();
@@ -17,11 +31,33 @@ function getChannelId(type?: string) {
   return "default";
 }
 
+async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
+  for (const ticket of tickets) {
+    if (ticket.status === "ok") {
+      console.log(`[Push Service] Expo accepted push for user ${userId} (receipt ${ticket.id})`);
+      continue;
+    }
+
+    const code = ticket.details?.error;
+    console.error(
+      `[Push Service] Expo push ticket error for user ${userId}: ${ticket.message}`,
+      code ? { error: code } : ticket.details,
+    );
+
+    if (code === "DeviceNotRegistered") {
+      await db
+        .update(userTable)
+        .set({ expoPushToken: null, updatedAt: new Date() })
+        .where(eq(userTable.id, userId));
+      console.warn(`[Push Service] Cleared expo push token for user ${userId} (device not registered)`);
+    }
+  }
+}
+
 export async function sendPushNotification(userId: number, title: string, body: string, data?: Record<string, any>) {
   try {
-    // 1. Log to history if needed (optional, we already have notificationTable)
-    
-    // 2. Send via webhook if configured
+    warnMissingExpoAccessTokenOnce();
+
     if (env.pushWebhookUrl) {
       await fetch(env.pushWebhookUrl, {
         method: "POST",
@@ -32,10 +68,9 @@ export async function sendPushNotification(userId: number, title: string, body: 
           body,
           link: data?.url || "/notifications",
         }),
-      }).catch(err => console.error("[Push Service] Webhook failed:", err));
+      }).catch((err) => console.error("[Push Service] Webhook failed:", err));
     }
 
-    // 3. Send via Expo
     const [user] = await db
       .select({ expoPushToken: userTable.expoPushToken })
       .from(userTable)
@@ -57,17 +92,19 @@ export async function sendPushNotification(userId: number, title: string, body: 
       return;
     }
 
-    if (token && Expo.isExpoPushToken(token)) {
-      await expo.sendPushNotificationsAsync([{
-        to: token,
-        title,
-        body,
-        data,
-        sound: "default",
-        channelId: getChannelId(data?.type),
-      }]);
-      console.log(`[Push Service] Notification sent to user ${userId}`);
-    }
+    const channelId = getChannelId(data?.type);
+    const message: ExpoPushMessage = {
+      to: token,
+      title,
+      body,
+      data,
+      sound: "default",
+      channelId,
+      priority: "high",
+    };
+
+    const tickets = await expo.sendPushNotificationsAsync([message]);
+    await applyPushTickets(userId, tickets);
   } catch (err) {
     console.error(`[Push Service] Failed to send push to user ${userId}:`, err);
   }

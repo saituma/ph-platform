@@ -4,6 +4,12 @@ import { initSocket } from "./socket";
 import http from "http";
 
 export function startServer() {
+  if (env.nodeEnv === "production" && !env.expoAccessToken?.trim()) {
+    console.warn(
+      "[Startup] EXPO_ACCESS_TOKEN is not set. Remote push to mobile clients will fail until it is configured (Expo dashboard → Access tokens; see DEPLOY.md).",
+    );
+  }
+
   const app = createApp();
   const server = http.createServer(app);
   initSocket(server);

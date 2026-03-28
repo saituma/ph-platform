@@ -8,12 +8,13 @@ process.env.STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL ?? "http://localho
 process.env.OPEN_AI_API_KEY = process.env.OPEN_AI_API_KEY ?? "test-openai";
 process.env.ADMIN_WEB_URL = process.env.ADMIN_WEB_URL ?? "http://localhost:3000";
 
-jest.mock("expo-server-sdk", () => ({
-  Expo: class {
+jest.mock("expo-server-sdk", () => {
+  class ExpoMock {
     static isExpoPushToken() {
       return false;
     }
 
-    sendPushNotificationsAsync = jest.fn(async () => []);
-  },
-}));
+    sendPushNotificationsAsync = jest.fn(async () => [{ status: "ok", id: "test-receipt" }]);
+  }
+  return { __esModule: true, default: ExpoMock, Expo: ExpoMock };
+});

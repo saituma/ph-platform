@@ -43,8 +43,9 @@ export async function POST(req: Request) {
   const host = req.headers.get("host") ?? "";
   const isLocalhost = host.includes("localhost") || host.startsWith("127.0.0.1");
   const secure = process.env.NODE_ENV === "production" && !isLocalhost;
-  // 7-day cookie lifetime; auto-refresh keeps it fresh before actual expiry.
-  const cookieMaxAge = 60 * 60 * 24 * 7;
+  // Keep cookies for up to 30 days so closing the browser/PC does not drop the session while
+  // refreshToken remains valid; JWT expiry is enforced by the API — middleware/session refresh rotates tokens.
+  const cookieMaxAge = 60 * 60 * 24 * 30;
   response.cookies.set("accessToken", accessToken, {
     httpOnly: true,
     secure,

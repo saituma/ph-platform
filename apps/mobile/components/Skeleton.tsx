@@ -1,12 +1,7 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { ViewStyle } from "react-native";
-import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming
-} from "react-native-reanimated";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+
+import { UISkeleton } from "@/components/ui/hero";
 
 interface SkeletonProps {
   width?: number | string;
@@ -23,32 +18,20 @@ export function Skeleton({
   style,
   circle,
 }: SkeletonProps) {
-  const { colors, isDark } = useAppTheme();
-  const opacity = useSharedValue(isDark ? 0.24 : 0.35);
-
-  useEffect(() => {
-    // UI polish: gentler pulse range for less visual noise while loading.
-    opacity.value = withRepeat(withTiming(isDark ? 0.48 : 0.7, { duration: 900 }), -1, true);
-  }, [isDark, opacity]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-    };
-  });
-
   return (
-    <Animated.View
+    <UISkeleton
+      className={circle ? "rounded-full" : "rounded-2xl"}
       style={[
         {
           width: width as any,
           height: height as any,
           borderRadius: circle ? 999 : borderRadius,
-          backgroundColor: isDark ? colors.backgroundSecondary : colors.cardElevated,
         },
-        animatedStyle,
         style,
       ]}
-    />
+    >
+      {/* HeroUI skeleton needs a child frame to size the placeholder consistently. */}
+      <></>
+    </UISkeleton>
   );
 }

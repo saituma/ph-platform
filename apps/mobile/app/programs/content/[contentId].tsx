@@ -1,6 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Modal, Pressable, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, type RelativePathString } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
@@ -13,7 +25,6 @@ import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { SafeMaskedView, Transition } from "@/components/navigation/TransitionStack";
-import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
 import { useRole } from "@/context/RoleContext";
 import { canAccessTier } from "@/lib/planAccess";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -100,6 +111,10 @@ const MediaSection = React.memo(function MediaSection({ url, title }: { url: str
   );
 });
 
+const contentCheckinModalStyles = StyleSheet.create({
+  root: { flex: 1 },
+});
+
 export default function ProgramContentDetailScreen() {
   const { contentId, sharedBoundTag, exerciseDetail, sessionIds, index } = useLocalSearchParams<{
     contentId: string;
@@ -113,13 +128,13 @@ export default function ProgramContentDetailScreen() {
   const { role } = useRole();
   const programTier = useAppSelector((state) => state.user.programTier);
   const { isDark, colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<ContentItem | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [rpe, setRpe] = useState("");
   const [soreness, setSoreness] = useState("");
@@ -504,7 +519,16 @@ export default function ProgramContentDetailScreen() {
 
         {showUploadFab ? (
           <Pressable
-            onPress={() => setShowUploadModal(true)}
+            onPress={() => {
+              const params = new URLSearchParams();
+              if (Number.isFinite(Number(contentId))) {
+                params.set("sectionContentId", String(contentId));
+              }
+              if (item?.title) {
+                params.set("sectionTitle", item.title);
+              }
+              router.push(`/video-upload?${params.toString()}` as any);
+            }}
             className="absolute bottom-6 right-6 h-14 w-14 rounded-full items-center justify-center"
             style={{
               bottom: hasSessionNavigation ? 96 : 24,
@@ -519,36 +543,6 @@ export default function ProgramContentDetailScreen() {
         
 
         <Modal
-          visible={showUploadModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowUploadModal(false)}
-        >
-          <View className="flex-1 justify-end" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}>
-            <View className="rounded-t-3xl p-4 pb-6" style={{ backgroundColor: surfaceColor }}>
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-lg font-clash text-app font-bold">
-                  {isExerciseDetail ? "Upload your form video" : "Training Video Upload"}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowUploadModal(false)}
-                  className="h-10 w-10 rounded-full items-center justify-center"
-                  style={{ backgroundColor: mutedSurface }}
-                >
-                  <Feather name="x" size={20} color={colors.accent} />
-                </TouchableOpacity>
-              </View>
-              {showUploadModal ? (
-                <VideoUploadPanel
-                  sectionContentId={Number.isFinite(Number(contentId)) ? Number(contentId) : null}
-                  sectionTitle={item?.title ?? null}
-                />
-              ) : null}
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
           visible={showCompleteModal}
           transparent
           animationType="slide"
@@ -557,149 +551,183 @@ export default function ProgramContentDetailScreen() {
             setShowCompleteModal(false);
           }}
         >
-          <View
-            className="flex-1 justify-end"
-            style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}
+          <KeyboardAvoidingView
+            style={contentCheckinModalStyles.root}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={0}
           >
-            <View className="rounded-t-3xl p-4 pb-6" style={{ backgroundColor: surfaceColor }}>
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-lg font-clash text-app font-bold">Session Check-in</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (isSubmittingCheckin) return;
-                    setShowCompleteModal(false);
+            <View
+              className="flex-1 justify-end"
+              style={{ backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)" }}
+            >
+              <Pressable
+                style={StyleSheet.absoluteFillObject}
+                onPress={() => {
+                  if (isSubmittingCheckin) return;
+                  Keyboard.dismiss();
+                  setShowCompleteModal(false);
+                }}
+                accessibilityLabel="Dismiss check-in"
+              />
+              <View
+                className="rounded-t-3xl"
+                style={{ backgroundColor: surfaceColor, maxHeight: "88%" }}
+              >
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="on-drag"
+                  showsVerticalScrollIndicator={false}
+                  bounces={Platform.OS === "ios"}
+                  contentContainerStyle={{
+                    paddingHorizontal: 16,
+                    paddingTop: 16,
+                    paddingBottom: Math.max(insets.bottom, 12) + 16,
                   }}
-                  className="h-10 w-10 rounded-full items-center justify-center"
-                  style={{ backgroundColor: mutedSurface }}
                 >
-                  <Feather name="x" size={20} color={colors.accent} />
-                </TouchableOpacity>
-              </View>
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-lg font-clash text-app font-bold">Session Check-in</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (isSubmittingCheckin) return;
+                        Keyboard.dismiss();
+                        setShowCompleteModal(false);
+                      }}
+                      className="h-10 w-10 rounded-full items-center justify-center"
+                      style={{ backgroundColor: mutedSurface }}
+                    >
+                      <Feather name="x" size={20} color={colors.accent} />
+                    </TouchableOpacity>
+                  </View>
 
-              <Text className="text-sm font-outfit text-secondary mb-4">
-                Log intensity and how your body feels so your coach can adjust training load.
-              </Text>
-
-              <View className="gap-3">
-                <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                  <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">RPE (1–10)</Text>
-                  <TextInput
-                    value={rpe}
-                    onChangeText={setRpe}
-                    placeholder="e.g. 7"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="number-pad"
-                    className="text-base font-outfit text-app mt-1"
-                  />
-                </View>
-                <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                  <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">Soreness (0–10)</Text>
-                  <TextInput
-                    value={soreness}
-                    onChangeText={setSoreness}
-                    placeholder="e.g. 3"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="number-pad"
-                    className="text-base font-outfit text-app mt-1"
-                  />
-                </View>
-                <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                  <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">Fatigue (0–10)</Text>
-                  <TextInput
-                    value={fatigue}
-                    onChangeText={setFatigue}
-                    placeholder="e.g. 4"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="number-pad"
-                    className="text-base font-outfit text-app mt-1"
-                  />
-                </View>
-                <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                  <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">Notes (optional)</Text>
-                  <TextInput
-                    value={checkinNotes}
-                    onChangeText={setCheckinNotes}
-                    placeholder="Anything your coach should know…"
-                    placeholderTextColor={colors.textSecondary}
-                    className="text-base font-outfit text-app mt-1"
-                  />
-                </View>
-
-                {checkinError ? (
-                  <Text className="text-xs font-outfit" style={{ color: isDark ? "#FCA5A5" : colors.danger }}>
-                    {checkinError}
+                  <Text className="text-sm font-outfit text-secondary mb-4">
+                    Log intensity and how your body feels so your coach can adjust training load.
                   </Text>
-                ) : null}
-                {checkinSaved ? (
-                  <Text className="text-xs font-outfit" style={{ color: colors.accent }}>
-                    Saved. Nice work.
-                  </Text>
-                ) : null}
 
-                <Pressable
-                  onPress={async () => {
-                    if (!token || !contentId) return;
-                    if (isSubmittingCheckin) return;
-                    const parseBoundedInt = (value: string, min: number, max: number) => {
-                      if (!value.trim()) return null;
-                      const num = Math.round(Number(value));
-                      if (!Number.isFinite(num) || num < min || num > max) return "invalid";
-                      return num;
-                    };
-                    const parsedRpe = parseBoundedInt(rpe, 1, 10);
-                    const parsedSoreness = parseBoundedInt(soreness, 0, 10);
-                    const parsedFatigue = parseBoundedInt(fatigue, 0, 10);
-                    if (parsedRpe === "invalid" || parsedSoreness === "invalid" || parsedFatigue === "invalid") {
-                      setCheckinError("Please enter valid numbers (RPE 1–10, soreness/fatigue 0–10).");
-                      return;
-                    }
-                    setIsSubmittingCheckin(true);
-                    setCheckinError(null);
-                    try {
-                      await apiRequest(
-                        `/program-section-content/${encodeURIComponent(String(contentId))}/complete`,
-                        {
-                          method: "POST",
-                          token,
-                          body: {
-                            rpe: parsedRpe,
-                            soreness: parsedSoreness,
-                            fatigue: parsedFatigue,
-                            notes: checkinNotes.trim() || null,
-                          },
+                  <View className="gap-3">
+                    <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
+                      <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">RPE (1–10)</Text>
+                      <TextInput
+                        value={rpe}
+                        onChangeText={setRpe}
+                        placeholder="e.g. 7"
+                        placeholderTextColor={colors.textSecondary}
+                        keyboardType="number-pad"
+                        className="text-base font-outfit text-app mt-1"
+                      />
+                    </View>
+                    <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
+                      <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">Soreness (0–10)</Text>
+                      <TextInput
+                        value={soreness}
+                        onChangeText={setSoreness}
+                        placeholder="e.g. 3"
+                        placeholderTextColor={colors.textSecondary}
+                        keyboardType="number-pad"
+                        className="text-base font-outfit text-app mt-1"
+                      />
+                    </View>
+                    <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
+                      <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">Fatigue (0–10)</Text>
+                      <TextInput
+                        value={fatigue}
+                        onChangeText={setFatigue}
+                        placeholder="e.g. 4"
+                        placeholderTextColor={colors.textSecondary}
+                        keyboardType="number-pad"
+                        className="text-base font-outfit text-app mt-1"
+                      />
+                    </View>
+                    <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
+                      <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">Notes (optional)</Text>
+                      <TextInput
+                        value={checkinNotes}
+                        onChangeText={setCheckinNotes}
+                        placeholder="Anything your coach should know…"
+                        placeholderTextColor={colors.textSecondary}
+                        multiline
+                        textAlignVertical="top"
+                        className="text-base font-outfit text-app mt-1"
+                        style={{ minHeight: 56 }}
+                      />
+                    </View>
+
+                    {checkinError ? (
+                      <Text className="text-xs font-outfit" style={{ color: isDark ? "#FCA5A5" : colors.danger }}>
+                        {checkinError}
+                      </Text>
+                    ) : null}
+                    {checkinSaved ? (
+                      <Text className="text-xs font-outfit" style={{ color: colors.accent }}>
+                        Saved. Nice work.
+                      </Text>
+                    ) : null}
+
+                    <Pressable
+                      onPress={async () => {
+                        if (!token || !contentId) return;
+                        if (isSubmittingCheckin) return;
+                        const parseBoundedInt = (value: string, min: number, max: number) => {
+                          if (!value.trim()) return null;
+                          const num = Math.round(Number(value));
+                          if (!Number.isFinite(num) || num < min || num > max) return "invalid";
+                          return num;
+                        };
+                        const parsedRpe = parseBoundedInt(rpe, 1, 10);
+                        const parsedSoreness = parseBoundedInt(soreness, 0, 10);
+                        const parsedFatigue = parseBoundedInt(fatigue, 0, 10);
+                        if (parsedRpe === "invalid" || parsedSoreness === "invalid" || parsedFatigue === "invalid") {
+                          setCheckinError("Please enter valid numbers (RPE 1–10, soreness/fatigue 0–10).");
+                          return;
                         }
-                      );
-                      setCheckinSaved(true);
-                      setItem((prev) => (prev ? { ...prev, completed: true } : prev));
-                      setTimeout(() => setShowCompleteModal(false), 800);
-                      setRpe("");
-                      setSoreness("");
-                      setFatigue("");
-                      setCheckinNotes("");
-                    } catch (err: any) {
-                      setCheckinError(err?.message ?? "Failed to save check-in.");
-                    } finally {
-                      setIsSubmittingCheckin(false);
-                    }
-                  }}
-                  disabled={isSubmittingCheckin}
-                  className={`mt-1 rounded-2xl px-4 py-4 flex-row items-center justify-center gap-2 ${
-                    isSubmittingCheckin ? "opacity-70" : ""
-                  }`}
-                  style={{ backgroundColor: colors.accent }}
-                >
-                  {isSubmittingCheckin ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Feather name="save" size={18} color="#ffffff" />
-                  )}
-                  <Text className="text-white font-outfit font-bold text-sm uppercase tracking-[1.3px]">
-                    {isSubmittingCheckin ? "Saving…" : "Save Check-in"}
-                  </Text>
-                </Pressable>
+                        setIsSubmittingCheckin(true);
+                        setCheckinError(null);
+                        try {
+                          await apiRequest(
+                            `/program-section-content/${encodeURIComponent(String(contentId))}/complete`,
+                            {
+                              method: "POST",
+                              token,
+                              body: {
+                                rpe: parsedRpe,
+                                soreness: parsedSoreness,
+                                fatigue: parsedFatigue,
+                                notes: checkinNotes.trim() || null,
+                              },
+                            }
+                          );
+                          setCheckinSaved(true);
+                          setItem((prev) => (prev ? { ...prev, completed: true } : prev));
+                          setTimeout(() => setShowCompleteModal(false), 800);
+                          setRpe("");
+                          setSoreness("");
+                          setFatigue("");
+                          setCheckinNotes("");
+                        } catch (err: any) {
+                          setCheckinError(err?.message ?? "Failed to save check-in.");
+                        } finally {
+                          setIsSubmittingCheckin(false);
+                        }
+                      }}
+                      disabled={isSubmittingCheckin}
+                      className={`mt-1 rounded-2xl px-4 py-4 flex-row items-center justify-center gap-2 ${
+                        isSubmittingCheckin ? "opacity-70" : ""
+                      }`}
+                      style={{ backgroundColor: colors.accent }}
+                    >
+                      {isSubmittingCheckin ? (
+                        <ActivityIndicator color="#ffffff" />
+                      ) : (
+                        <Feather name="save" size={18} color="#ffffff" />
+                      )}
+                      <Text className="text-white font-outfit font-bold text-sm uppercase tracking-[1.3px]">
+                        {isSubmittingCheckin ? "Saving…" : "Save Check-in"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </ScrollView>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </SafeMaskedView>
     </SafeAreaView>

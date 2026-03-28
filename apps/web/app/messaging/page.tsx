@@ -5,6 +5,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { io, Socket } from "socket.io-client";
 import { useSound } from "@/hooks/use-sound";
 import { notificationPopSound } from "@/lib/notification-pop";
+import { maybeRequestDesktopNotificationPermissionOnce } from "@/lib/desktop-notifications";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -251,9 +252,7 @@ export default function MessagingPage() {
   // --- Stable socket connection: connect once, never reconnect on state changes ---
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => undefined);
-    }
+    maybeRequestDesktopNotificationPermissionOnce();
     const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
     const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
     const localDevHost =
