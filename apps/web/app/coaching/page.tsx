@@ -28,6 +28,7 @@ import {
   useGetTrainingSnapshotQuery,
   useGetUserPremiumPlanQuery,
   useGetUserPremiumSessionCheckinsQuery,
+  useGetUserProgramSectionCompletionsQuery,
   useGetVideoUploadsQuery,
   useGetUsersQuery,
   useGetUserOnboardingQuery,
@@ -188,6 +189,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
   const { data: onboarding, isLoading: onboardingLoading } = useGetUserOnboardingQuery(userId);
   const { data: planData, isLoading: planLoading } = useGetUserPremiumPlanQuery({ userId });
   const { data: checkinsData, isLoading: checkinsLoading } = useGetUserPremiumSessionCheckinsQuery({ userId, limit: 30 });
+  const { data: completionsData, isLoading: completionsLoading } = useGetUserProgramSectionCompletionsQuery({ userId, limit: 30 });
   const { data: videosData } = useGetVideoUploadsQuery();
 
   const athleteName = onboarding?.athlete?.name ?? "Athlete";
@@ -220,6 +222,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
   );
 
   const checkins = checkinsData?.items ?? [];
+  const programCompletions = completionsData?.items ?? [];
 
   const athleteVideos = useMemo(() => {
     const athleteId = onboarding?.athlete?.id;
@@ -256,6 +259,13 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
     return { total, done };
   }, [sessions]);
 
+  const statExercisesValue =
+    totalExercises.total > 0
+      ? `${totalExercises.done}/${totalExercises.total}`
+      : programCompletions.length > 0
+        ? `${programCompletions.length} completed`
+        : "0/0";
+
   if (onboardingLoading) {
     return <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">Loading athlete...</div>;
   }
@@ -281,7 +291,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard icon={Dumbbell} label="Exercises Done" value={`${totalExercises.done}/${totalExercises.total}`} />
+        <StatCard icon={Dumbbell} label="Exercises Done" value={statExercisesValue} />
         <StatCard icon={Activity} label="Avg RPE" value={String(avgRpe)} color={Number(avgRpe) >= 8 ? "text-red-500" : undefined} />
         <StatCard icon={TrendingUp} label="Avg Soreness" value={String(avgSoreness)} />
         <StatCard icon={Clock} label="Avg Fatigue" value={String(avgFatigue)} />
@@ -318,8 +328,39 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
           {planLoading ? (
             <div className="text-sm text-muted-foreground">Loading plan...</div>
           ) : sessions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              No plan assigned yet. Assign a template from the athlete's profile page.
+            <div className="space-y-4">
+              <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                No 1:1 premium plan assigned yet. Assign a template from the athlete&apos;s profile page.
+              </div>
+              {completionsLoading ? (
+                <div className="text-sm text-muted-foreground">Loading completed mobile training...</div>
+              ) : programCompletions.length > 0 ? (
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Completed Mobile Training
+                  </p>
+                  <div className="space-y-2">
+                    {programCompletions.slice(0, 10).map((completion: any) => {
+                      const completedAt = completion.completedAt ? new Date(completion.completedAt) : null;
+                      return (
+                        <div key={completion.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {completion.contentTitle ?? completion.title ?? "Completed session"}
+                            </p>
+                            {completion.sectionTitle ? (
+                              <p className="text-xs text-muted-foreground">{completion.sectionTitle}</p>
+                            ) : null}
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {completedAt ? completedAt.toLocaleDateString() : "Completed"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-4">
