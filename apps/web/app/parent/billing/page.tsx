@@ -7,6 +7,13 @@ import { ArrowLeft } from "lucide-react";
 import { ParentShell } from "../../../components/parent/shell";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Select } from "../../../components/ui/select";
@@ -19,23 +26,38 @@ import {
   TableRow,
 } from "../../../components/ui/table";
 
+type PlanTier = "PHP" | "PHP_Plus" | "PHP_Premium";
+
 type PlanFormState = {
+  id: number | null;
   name: string;
-  tier: "PHP" | "PHP_Plus" | "PHP_Premium";
+  tier: PlanTier;
   stripePriceId: string;
   displayPrice: string;
   billingInterval: string;
+  monthlyPrice: string;
+  yearlyPrice: string;
+  discountType: string;
+  discountValue: string;
+  discountAppliesTo: string;
   isActive: boolean;
 };
 
 const defaultForm: PlanFormState = {
+  id: null,
   name: "",
   tier: "PHP",
   stripePriceId: "manual",
   displayPrice: "",
-  billingInterval: "monthly",
+  billingInterval: "",
+  monthlyPrice: "",
+  yearlyPrice: "",
+  discountType: "percent",
+  discountValue: "",
+  discountAppliesTo: "both",
   isActive: true,
 };
+
 const getCsrfToken = () =>
   document.cookie
     .split(";")
@@ -43,13 +65,37 @@ const getCsrfToken = () =>
     .find((part) => part.startsWith("csrfToken="))
     ?.split("=")[1] ?? "";
 
+function buildDisplayPrice(plan: Pick<PlanFormState, "monthlyPrice" | "yearlyPrice">) {
+  const parts: string[] = [];
+  const monthly = plan.monthlyPrice.trim();
+  const yearly = plan.yearlyPrice.trim();
+  if (monthly) parts.push(`Monthly ${monthly}`);
+  if (yearly) parts.push(`Yearly ${yearly}`);
+  return parts.length ? parts.join(" • ") : "Free";
+}
+
+function normalizeBillingInterval(plan: Pick<PlanFormState, "monthlyPrice" | "yearlyPrice" | "billingInterval">) {
+  const hasMonthly = Boolean(plan.monthlyPrice.trim());
+  const hasYearly = Boolean(plan.yearlyPrice.trim());
+  if (hasMonthly && hasYearly) return "monthly, yearly";
+  if (hasMonthly) return "monthly";
+  if (hasYearly) return "yearly";
+  return plan.billingInterval.trim() || "free";
+}
+
 export default function ParentBillingPage() {
   const [plans, setPlans] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [form, setForm] = useState<PlanFormState>(defaultForm);
-  const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const resetEditor = useCallback(() => {
+    setForm(defaultForm);
+    setIsEditorOpen(false);
+  }, []);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -73,44 +119,61 @@ export default function ParentBillingPage() {
   }, [loadData]);
 
   const handleSavePlan = async () => {
+    if (!form.id) return;
     setActionError(null);
+    setIsSaving(true);
     try {
       const csrfToken = getCsrfToken();
-      const res = await fetch(
-        editingPlanId
-          ? `/api/backend/admin/subscription-plans/${editingPlanId}`
-          : "/api/backend/admin/subscription-plans",
-        {
-          method: editingPlanId ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-          },
-          body: JSON.stringify(form),
-        }
-      );
+      const payload = {
+        name: form.name,
+        tier: form.tier,
+        stripePriceId: form.stripePriceId || "manual",
+        displayPrice: buildDisplayPrice(form),
+        billingInterval: normalizeBillingInterval(form),
+        monthlyPrice: form.monthlyPrice,
+        yearlyPrice: form.yearlyPrice,
+        discountType: form.discountType,
+        discountValue: form.discountValue,
+        discountAppliesTo: form.discountAppliesTo,
+        isActive: form.isActive,
+      };
+      const res = await fetch(`/api/backend/admin/subscription-plans/${form.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload?.error || "Failed to save plan.");
       }
-      setForm(defaultForm);
-      setEditingPlanId(null);
       await loadData();
+      resetEditor();
     } catch (error: any) {
       setActionError(error?.message || "Failed to save plan.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleEditPlan = (plan: any) => {
-    setEditingPlanId(plan.id);
     setForm({
+      id: plan.id ?? null,
       name: plan.name ?? "",
-      tier: plan.tier ?? "PHP",
-      stripePriceId: plan.stripePriceId ?? "",
+      tier: (plan.tier ?? "PHP") as PlanTier,
+      stripePriceId: plan.stripePriceId ?? "manual",
       displayPrice: plan.displayPrice ?? "",
-      billingInterval: plan.billingInterval ?? "monthly",
+      billingInterval: plan.billingInterval ?? "",
+      monthlyPrice: plan.monthlyPrice ?? "",
+      yearlyPrice: plan.yearlyPrice ?? "",
+      discountType: plan.discountType ?? "percent",
+      discountValue: plan.discountValue ?? "",
+      discountAppliesTo: plan.discountAppliesTo ?? "both",
       isActive: Boolean(plan.isActive),
     });
+    setIsEditorOpen(true);
   };
 
   const handleApprove = async (requestId: number) => {
@@ -178,78 +241,6 @@ export default function ParentBillingPage() {
             <CardTitle>Subscription Plans</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Plan Name</Label>
-                <Input
-                  value={form.name}
-                  onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                  placeholder="PHP Plus"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Program Tier</Label>
-                <Select
-                  value={form.tier}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, tier: event.target.value as PlanFormState["tier"] }))
-                  }
-                >
-                  <option value="PHP">PHP Program</option>
-                  <option value="PHP_Plus">PHP Plus</option>
-                  <option value="PHP_Premium">PHP Premium</option>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Display Price</Label>
-                <Input
-                  value={form.displayPrice}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, displayPrice: event.target.value }))
-                  }
-                  placeholder="$29 / month"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Billing Interval</Label>
-                <Input
-                  value={form.billingInterval}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, billingInterval: event.target.value }))
-                  }
-                  placeholder="monthly"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={form.isActive ? "active" : "inactive"}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, isActive: event.target.value === "active" }))
-                  }
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={handleSavePlan}>
-                {editingPlanId ? "Update Plan" : "Create Plan"}
-              </Button>
-              {editingPlanId ? (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setEditingPlanId(null);
-                    setForm(defaultForm);
-                  }}
-                >
-                  Cancel
-                </Button>
-              ) : null}
-            </div>
-
             <Table>
               <TableHeader>
                 <TableRow>
@@ -270,7 +261,7 @@ export default function ParentBillingPage() {
                 ) : plans.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-muted-foreground">
-                      No plans yet.
+                      No plans available.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -339,11 +330,7 @@ export default function ParentBillingPage() {
                           <Button size="sm" onClick={() => handleApprove(request.requestId)}>
                             Approve
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReject(request.requestId)}
-                          >
+                          <Button size="sm" variant="outline" onClick={() => handleReject(request.requestId)}>
                             Reject
                           </Button>
                         </div>
@@ -356,6 +343,99 @@ export default function ParentBillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={isEditorOpen}
+        onOpenChange={(open) => {
+          if (!open) resetEditor();
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Plan Pricing</DialogTitle>
+            <DialogDescription>
+              Update the selected plan&apos;s pricing, discounts, billing interval, and status.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Plan Name</Label>
+              <Input value={form.name} readOnly />
+            </div>
+            <div className="space-y-2">
+              <Label>Program Tier</Label>
+              <Input value={form.tier} readOnly />
+            </div>
+            <div className="space-y-2">
+              <Label>Monthly Price</Label>
+              <Input
+                value={form.monthlyPrice}
+                onChange={(event) => setForm((prev) => ({ ...prev, monthlyPrice: event.target.value }))}
+                placeholder="$29"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Yearly Price</Label>
+              <Input
+                value={form.yearlyPrice}
+                onChange={(event) => setForm((prev) => ({ ...prev, yearlyPrice: event.target.value }))}
+                placeholder="$290"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Discount Type</Label>
+              <Input value="Percent" readOnly />
+            </div>
+            <div className="space-y-2">
+              <Label>Discount Value (%)</Label>
+              <Input
+                value={form.discountValue}
+                onChange={(event) => setForm((prev) => ({ ...prev, discountValue: event.target.value }))}
+                placeholder="10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Discount Applies To</Label>
+              <Select
+                value={form.discountAppliesTo}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, discountAppliesTo: event.target.value }))
+                }
+              >
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+                <option value="both">Both</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={form.isActive ? "active" : "inactive"}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, isActive: event.target.value === "active" }))
+                }
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </Select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Display Price Preview</Label>
+              <Input value={buildDisplayPrice(form)} readOnly />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={resetEditor}>
+              Cancel
+            </Button>
+            <Button onClick={handleSavePlan} disabled={!form.id || isSaving}>
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </ParentShell>
   );
 }
