@@ -15,6 +15,7 @@ import { getUserById } from "./user.service";
 import { calculateAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
 import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
 import { sendPushNotification } from "./push.service";
+import { getActiveSubscriptionPlanByTier, isSubscriptionPlanFree } from "./billing.service";
 
 const defaultPublicConfig = {
   version: 1,
@@ -244,6 +245,12 @@ export async function submitOnboarding(input: {
     throw new Error("Birth date must result in an age of 5 or older.");
   }
   const birthDateValue = input.birthDate ?? null;
+  const desiredTier =
+    input.desiredProgramType ??
+    ("PHP" as (typeof ProgramType.enumValues)[number]);
+  const starterPlan = await getActiveSubscriptionPlanByTier(desiredTier);
+  const shouldAutoAssignStarterTier =
+    desiredTier === "PHP" && Boolean(starterPlan) && isSubscriptionPlanFree(starterPlan);
 
   let guardianId: number;
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
@@ -334,7 +341,7 @@ export async function submitOnboarding(input: {
         extraResponses: input.extraResponses ?? null,
         onboardingCompleted: true,
         onboardingCompletedAt: now,
-        currentProgramTier: null,
+        currentProgramTier: shouldAutoAssignStarterTier ? "PHP" : null,
       })
       .returning()) as (typeof athleteTable.$inferSelect)[];
     athleteRow = inserted[0] ?? null;
@@ -361,22 +368,23 @@ export async function submitOnboarding(input: {
   });
 
   let responseStatus: string = "completed";
-  if (input.desiredProgramType) {
-    const enrollmentStatus = input.desiredProgramType === "PHP" ? "active" : "pending";
+  if (desiredTier) {
+    const enrollmentStatus =
+      desiredTier === "PHP" && shouldAutoAssignStarterTier ? "active" : desiredTier === "PHP" ? "active" : "pending";
     responseStatus = enrollmentStatus;
 
     const existingEnrollment = await db
       .select()
       .from(enrollmentTable)
-      .where(and(eq(enrollmentTable.athleteId, athleteId), eq(enrollmentTable.programType, input.desiredProgramType)))
+      .where(and(eq(enrollmentTable.athleteId, athleteId), eq(enrollmentTable.programType, desiredTier)))
       .limit(1);
 
     if (!existingEnrollment[0]) {
       await db.insert(enrollmentTable).values({
         athleteId,
-        programType: input.desiredProgramType,
+        programType: desiredTier,
         status: enrollmentStatus,
-        assignedByCoach: input.desiredProgramType === "PHP" ? input.userId : null,
+        assignedByCoach: desiredTier === "PHP" ? input.userId : null,
       });
     }
   }

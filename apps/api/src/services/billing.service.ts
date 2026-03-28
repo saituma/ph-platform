@@ -116,6 +116,37 @@ function parsePriceToCents(value?: string | null): number | null {
   return Math.round(amount * 100);
 }
 
+export function isSubscriptionPlanFree(plan: {
+  displayPrice?: string | null;
+  monthlyPrice?: string | null;
+  yearlyPrice?: string | null;
+  stripePriceId?: string | null;
+  stripePriceIdMonthly?: string | null;
+  stripePriceIdYearly?: string | null;
+}) {
+  const monthlyAmount = parsePriceToCents(plan.monthlyPrice);
+  const yearlyAmount = parsePriceToCents(plan.yearlyPrice);
+  if (monthlyAmount || yearlyAmount) {
+    return false;
+  }
+
+  const display = String(plan.displayPrice ?? "").trim().toLowerCase();
+  if (display === "free" || display === "included") {
+    return true;
+  }
+
+  const hasStripePrice = [
+    plan.stripePriceId,
+    plan.stripePriceIdMonthly,
+    plan.stripePriceIdYearly,
+  ].some((value) => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    return Boolean(normalized) && normalized !== "manual";
+  });
+
+  return !hasStripePrice;
+}
+
 function getCurrencySymbol(value?: string | null) {
   if (!value) return "£";
   const match = value.match(/[£$€]/);
@@ -264,6 +295,18 @@ export async function listSubscriptionPlans(options?: { includeInactive?: boolea
     ...plan,
     pricing: buildPublicPlanPricing(plan),
   }));
+}
+
+export async function getActiveSubscriptionPlanByTier(
+  tier: (typeof ProgramType.enumValues)[number]
+) {
+  const rows = await db
+    .select()
+    .from(subscriptionPlanTable)
+    .where(and(eq(subscriptionPlanTable.tier, tier), eq(subscriptionPlanTable.isActive, true)))
+    .orderBy(desc(subscriptionPlanTable.updatedAt), desc(subscriptionPlanTable.id))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 export async function getLatestSubscriptionRequest(input: { userId: number; athleteId: number }) {

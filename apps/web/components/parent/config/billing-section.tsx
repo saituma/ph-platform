@@ -90,6 +90,7 @@ function buildDisplayPrice(plan: PlanFormState) {
   const parts: string[] = [];
   if (monthly) parts.push(`Monthly ${monthly}`);
   if (yearly) parts.push(`Yearly ${yearly}`);
+  if (parts.length === 0) return "Free";
   return parts.join(" • ");
 }
 
