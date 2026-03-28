@@ -594,30 +594,78 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
       </Tabs>
 
       <Dialog open={Boolean(activeVideo)} onOpenChange={(open) => (open ? null : setActiveVideo(null))}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{activeVideo?.sectionTitle ?? activeVideo?.title ?? "Training video"}</DialogTitle>
-            <DialogDescription>
-              Review the athlete&apos;s uploaded clip without leaving the coaching dashboard.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-5xl overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-50">
+          <div className="border-b border-zinc-800 bg-zinc-950/95 px-6 py-4">
+            <DialogHeader className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <DialogTitle className="text-xl font-semibold text-white">
+                  {activeVideo?.sectionTitle ?? activeVideo?.title ?? "Training video"}
+                </DialogTitle>
+                <Badge
+                  variant="outline"
+                  className="border-zinc-700 bg-zinc-900 text-zinc-200"
+                >
+                  {activeVideo?.reviewedAt ? "Reviewed" : "Pending review"}
+                </Badge>
+              </div>
+              <DialogDescription className="text-sm text-zinc-400">
+                Review the athlete&apos;s uploaded clip without leaving the coaching dashboard.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
           {activeVideo?.videoUrl ? (
-            <div className="space-y-3">
-              <video
-                key={activeVideo.videoUrl}
-                src={activeVideo.videoUrl}
-                controls
-                playsInline
-                className="w-full rounded-xl border border-border bg-black"
-              />
-              {activeVideo?.notes ? (
-                <div className="rounded-lg bg-secondary/40 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                    Athlete Notes
-                  </p>
-                  <p className="text-sm text-foreground">{activeVideo.notes}</p>
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="bg-black p-4 sm:p-6">
+                <div className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl">
+                  <div className="aspect-video bg-black">
+                    <video
+                      key={activeVideo.videoUrl}
+                      src={activeVideo.videoUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full bg-black object-contain"
+                    />
+                  </div>
                 </div>
-              ) : null}
+              </div>
+              <aside className="border-t border-zinc-800 bg-zinc-950/80 p-5 lg:border-l lg:border-t-0">
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
+                      Upload Details
+                    </p>
+                    <div className="mt-3 space-y-3 text-sm">
+                      <div>
+                        <p className="text-zinc-500">Uploaded</p>
+                        <p className="text-zinc-100">
+                          {activeVideo?.createdAt
+                            ? new Date(activeVideo.createdAt).toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })
+                            : "Unknown"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-500">Status</p>
+                        <p className="text-zinc-100">
+                          {activeVideo?.reviewedAt ? "Reviewed by coach" : "Waiting for review"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
+                      Athlete Notes
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-zinc-200">
+                      {activeVideo?.notes?.trim() || "No notes were added with this upload."}
+                    </p>
+                  </div>
+                </div>
+              </aside>
             </div>
           ) : null}
         </DialogContent>
