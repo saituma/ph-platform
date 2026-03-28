@@ -403,6 +403,7 @@ export default function ProgramsScreen() {
               tier.id === "plus" ? "PHP_Plus" : tier.id === "premium" ? "PHP_Premium" : "PHP";
             const pricing = pricingByTier[requiredTier];
             const plan = planDetailsByTier[requiredTier];
+            const isPlanInactive = plan?.isActive === false;
             const hasBothIntervals =
               plan?.billingInterval?.includes("monthly") &&
               plan?.billingInterval?.includes("yearly");
@@ -410,14 +411,18 @@ export default function ProgramsScreen() {
             const hasTierAccess = canAccessTier(programTier, requiredTier);
             const requestStatus = String(latestSubscriptionRequest?.status ?? "");
             const isPendingApproval =
+              !isPlanInactive &&
               !isTierEnrolled &&
               latestSubscriptionRequest?.planTier === requiredTier &&
               requestStatus === "pending_approval";
             const isPendingPayment =
+              !isPlanInactive &&
               !isTierEnrolled &&
               latestSubscriptionRequest?.planTier === requiredTier &&
               requestStatus === "pending_payment";
-            const primaryLabel = isTierEnrolled
+            const primaryLabel = isPlanInactive
+              ? "Locked"
+              : isTierEnrolled
               ? "Current"
               : isPendingApproval
                 ? "Pending"
@@ -460,6 +465,16 @@ export default function ProgramsScreen() {
                             </Text>
                           </View>
                         )}
+                        {isPlanInactive ? (
+                          <View className="px-3 py-1 rounded-full bg-white/15">
+                            <Text
+                              className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                              style={{ color: "#F2F6F2" }}
+                            >
+                              Inactive
+                            </Text>
+                          </View>
+                        ) : null}
                         {!hasTierAccess && tier.id !== "php" ? (
                           <View className="px-3 py-1 rounded-full bg-white/15">
                             <Text
@@ -507,7 +522,7 @@ export default function ProgramsScreen() {
                     </View>
                     <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
                       <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-secondary">
-                        {hasTierAccess ? "Available" : "Upgrade path"}
+                        {isPlanInactive ? "Locked in admin" : hasTierAccess ? "Available" : "Upgrade path"}
                       </Text>
                     </View>
                   </View>
@@ -565,17 +580,27 @@ export default function ProgramsScreen() {
                     {/* Subscribe / Apply buttons */}
                     {hasBothIntervals && !isTierEnrolled && !isPendingApproval && !isPendingPayment ? (
                       <Pressable
-                        onPress={() => openPaymentPicker(tier.id as "php" | "plus" | "premium")}
-                        className={`rounded-full py-3 items-center bg-[#2F8F57] ${isProcessingPayment ? "opacity-60" : ""}`}
-                        disabled={isProcessingPayment}
+                        onPress={() => {
+                          if (isPlanInactive) {
+                            Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
+                            return;
+                          }
+                          openPaymentPicker(tier.id as "php" | "plus" | "premium");
+                        }}
+                        className={`rounded-full py-3 items-center ${isPlanInactive ? "bg-secondary/20" : "bg-[#2F8F57]"} ${isProcessingPayment ? "opacity-60" : ""}`}
+                        disabled={isProcessingPayment || isPlanInactive}
                       >
-                        <Text className="text-sm font-outfit text-white font-semibold">
+                        <Text className={`text-sm font-outfit font-semibold ${isPlanInactive ? "text-secondary" : "text-white"}`}>
                           Pay Now
                         </Text>
                       </Pressable>
                     ) : (
                       <Pressable
                         onPress={() => {
+                          if (isPlanInactive) {
+                            Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
+                            return;
+                          }
                           if (isPendingPayment) {
                             openPaymentPicker(tier.id as "php" | "plus" | "premium");
                             return;
@@ -583,14 +608,14 @@ export default function ProgramsScreen() {
                           handleApply(tier.id as "php" | "plus" | "premium");
                         }}
                         className={`rounded-full py-3 items-center ${
-                          isTierEnrolled || isPendingApproval
+                          isPlanInactive || isTierEnrolled || isPendingApproval
                             ? "bg-secondary/20"
                             : "bg-[#2F8F57]"
                         } ${isProcessingPayment ? "opacity-60" : ""}`}
-                        disabled={isTierEnrolled || isPendingApproval || isProcessingPayment}
+                        disabled={isPlanInactive || isTierEnrolled || isPendingApproval || isProcessingPayment}
                       >
                         <Text className={`text-sm font-outfit font-semibold ${
-                          isTierEnrolled || isPendingApproval ? "text-secondary" : "text-white"
+                          isPlanInactive || isTierEnrolled || isPendingApproval ? "text-secondary" : "text-white"
                         }`}>
                           {primaryLabel}
                         </Text>

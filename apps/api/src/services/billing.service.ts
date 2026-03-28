@@ -116,6 +116,49 @@ function parsePriceToCents(value?: string | null): number | null {
   return Math.round(amount * 100);
 }
 
+function parseDiscountConfig(input: {
+  discountType?: string | null;
+  discountValue?: string | null;
+  discountAppliesTo?: string | null;
+}) {
+  const legacyType = input.discountType ?? null;
+  const rawValue = String(input.discountValue ?? "").trim();
+  const appliesTo = String(input.discountAppliesTo ?? "").trim().toLowerCase();
+
+  const empty = {
+    monthly: null as string | null,
+    yearly: null as string | null,
+    discountType: legacyType,
+  };
+
+  if (!rawValue) return empty;
+
+  if (appliesTo === "custom") {
+    try {
+      const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown };
+      return {
+        monthly: parsed.monthly == null ? null : String(parsed.monthly).trim() || null,
+        yearly: parsed.yearly == null ? null : String(parsed.yearly).trim() || null,
+        discountType: legacyType,
+      };
+    } catch {
+      return empty;
+    }
+  }
+
+  if (appliesTo === "monthly") {
+    return { monthly: rawValue, yearly: null, discountType: legacyType };
+  }
+  if (appliesTo === "yearly") {
+    return { monthly: null, yearly: rawValue, discountType: legacyType };
+  }
+  if (appliesTo === "both") {
+    return { monthly: rawValue, yearly: rawValue, discountType: legacyType };
+  }
+
+  return empty;
+}
+
 export function isSubscriptionPlanFree(plan: {
   displayPrice?: string | null;
   monthlyPrice?: string | null;
@@ -166,29 +209,21 @@ function applyDiscountToAmount(input: {
   discountAppliesTo?: string | null;
   interval: "monthly" | "yearly";
 }) {
-  const { originalCents, discountType, discountValue, discountAppliesTo, interval } = input;
-  const appliesTo =
-    discountAppliesTo === "monthly"
-      ? "monthly"
-      : discountAppliesTo === "yearly"
-      ? "yearly"
-      : discountAppliesTo === "both"
-      ? "both"
-      : null;
-  if (!appliesTo || (appliesTo !== "both" && appliesTo !== interval)) {
-    return originalCents;
-  }
-  if (!discountType || !discountValue) {
+  const { originalCents, interval } = input;
+  const parsedDiscounts = parseDiscountConfig(input);
+  const discountType = parsedDiscounts.discountType;
+  const intervalDiscountValue = interval === "monthly" ? parsedDiscounts.monthly : parsedDiscounts.yearly;
+  if (!discountType || !intervalDiscountValue) {
     return originalCents;
   }
   if (discountType === "percent") {
-    const percent = Number(discountValue);
+    const percent = Number(intervalDiscountValue);
     if (!Number.isFinite(percent) || percent <= 0) return originalCents;
     const discounted = Math.round(originalCents * (1 - percent / 100));
     return discounted > 0 ? discounted : originalCents;
   }
   if (discountType === "amount") {
-    const discounted = parsePriceToCents(discountValue);
+    const discounted = parsePriceToCents(intervalDiscountValue);
     if (!discounted || discounted <= 0) return originalCents;
     return discounted;
   }
@@ -217,6 +252,8 @@ function buildPublicPlanPricing(plan: {
       };
     }
     const symbol = getCurrencySymbol(rawValue);
+    const parsedDiscounts = parseDiscountConfig(plan);
+    const intervalDiscountValue = interval === "monthly" ? parsedDiscounts.monthly : parsedDiscounts.yearly;
     const discountedCents = applyDiscountToAmount({
       originalCents,
       discountType: plan.discountType,
@@ -226,8 +263,8 @@ function buildPublicPlanPricing(plan: {
     });
     const hasDiscount = discountedCents < originalCents;
     const discountLabel =
-      hasDiscount && plan.discountType === "percent" && plan.discountValue
-        ? `${String(plan.discountValue).trim()}% off`
+      hasDiscount && plan.discountType === "percent" && intervalDiscountValue
+        ? `${String(intervalDiscountValue).trim()}% off`
         : hasDiscount && plan.discountType === "amount"
         ? "Discount applied"
         : null;

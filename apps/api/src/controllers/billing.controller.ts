@@ -57,7 +57,7 @@ const downgradeSchema = z.object({
 });
 
 export async function listPlans(_req: Request, res: Response) {
-  const plans = await listSubscriptionPlans({ includeInactive: false });
+  const plans = await listSubscriptionPlans({ includeInactive: true });
   return res.status(200).json({ plans });
 }
 

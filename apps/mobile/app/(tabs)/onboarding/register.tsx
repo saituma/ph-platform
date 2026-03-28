@@ -116,6 +116,10 @@ export default function RegisterScreen() {
         Alert.alert("Plan unavailable", "Pricing is not available right now.");
         return;
       }
+      if (plan?.isActive === false) {
+        Alert.alert("Plan locked", "This plan is currently inactive and unavailable.");
+        return;
+      }
       if (!token) {
         Alert.alert("Login required", "Please log in as a guardian to purchase a plan.");
         router.replace("/(auth)/login");
