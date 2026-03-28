@@ -21,7 +21,7 @@ import {
 
 type PlanFormState = {
   name: string;
-  tier: "PHP_Plus" | "PHP_Premium";
+  tier: "PHP" | "PHP_Plus" | "PHP_Premium";
   stripePriceId: string;
   displayPrice: string;
   billingInterval: string;
@@ -30,7 +30,7 @@ type PlanFormState = {
 
 const defaultForm: PlanFormState = {
   name: "",
-  tier: "PHP_Plus",
+  tier: "PHP",
   stripePriceId: "manual",
   displayPrice: "",
   billingInterval: "monthly",
@@ -103,10 +103,9 @@ export default function ParentBillingPage() {
 
   const handleEditPlan = (plan: any) => {
     setEditingPlanId(plan.id);
-    if (plan.tier === "PHP") return;
     setForm({
       name: plan.name ?? "",
-      tier: plan.tier ?? "PHP_Plus",
+      tier: plan.tier ?? "PHP",
       stripePriceId: plan.stripePriceId ?? "",
       displayPrice: plan.displayPrice ?? "",
       billingInterval: plan.billingInterval ?? "monthly",
@@ -196,6 +195,7 @@ export default function ParentBillingPage() {
                     setForm((prev) => ({ ...prev, tier: event.target.value as PlanFormState["tier"] }))
                   }
                 >
+                  <option value="PHP">PHP Program</option>
                   <option value="PHP_Plus">PHP Plus</option>
                   <option value="PHP_Premium">PHP Premium</option>
                 </Select>
@@ -274,9 +274,7 @@ export default function ParentBillingPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  plans
-                    .filter((plan) => plan.tier !== "PHP")
-                    .map((plan) => (
+                  plans.map((plan) => (
                     <TableRow key={plan.id}>
                       <TableCell className="font-medium">{plan.name}</TableCell>
                       <TableCell>{plan.tier}</TableCell>
