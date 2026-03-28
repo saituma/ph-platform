@@ -64,6 +64,17 @@ export default function RootLayout() {
                                 })}
                               />
                               <Stack.Screen
+                                name="programs/exercise/[planExerciseId]"
+                                options={({ route }: any) => ({
+                                  ...Transition.Presets.SharedAppleMusic({
+                                    sharedBoundTag: String(
+                                      route?.params?.sharedBoundTag ?? "program-exercise"
+                                    ),
+                                  }),
+                                  gestureEnabled: false,
+                                })}
+                              />
+                              <Stack.Screen
                                 name="messages/[id]"
                                 options={({ route }: any) => ({
                                   ...Transition.Presets.SharedAppleMusic({

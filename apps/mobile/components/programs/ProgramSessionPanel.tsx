@@ -1,15 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 import { ExerciseCard } from "./ExerciseCard";
-import { SessionRunnerModal } from "./SessionRunnerModal";
 import type { ProgramId } from "@/constants/program-details";
 import { SessionItem } from "@/constants/program-details";
 import { Text } from "@/components/ScaledText";
-import { apiRequest } from "@/lib/api";
-import { formatAchievementNames } from "@/lib/trainingAchievements";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 const progressKey = (programId: ProgramId) => `@ph/session-progress/${programId}`;
@@ -17,16 +14,11 @@ const progressKey = (programId: ProgramId) => `@ph/session-progress/${programId}
 export function ProgramSessionPanel({
   programId,
   sessions,
-  onVideoPress,
-  authToken,
-  onTrainingLogged,
+  onNavigate,
 }: {
   programId: ProgramId;
   sessions: SessionItem[];
-  onVideoPress?: (url: string) => void;
-  authToken: string | null;
-  /** Refresh achievements / progress on parent after a session is logged. */
-  onTrainingLogged?: () => void;
+  onNavigate?: (path: string) => void;
 }) {
   const { colors, isDark } = useAppTheme();
   const safeSessions = useMemo(() => (Array.isArray(sessions) ? sessions : []), [sessions]);
@@ -43,7 +35,6 @@ export function ProgramSessionPanel({
   }, [safeSessions]);
   const [activeWeek, setActiveWeek] = useState<number>(weekOptions[0] ?? 1);
   const [activeSessionIndex, setActiveSessionIndex] = useState(0);
-  const [runnerOpen, setRunnerOpen] = useState(false);
   const [progressHydrated, setProgressHydrated] = useState(false);
 
   useEffect(() => {
@@ -103,63 +94,22 @@ export function ProgramSessionPanel({
     [sessionsForWeek, activeSessionIndex]
   );
 
-  const sessionRunnerLabel = useMemo(() => {
-    const w = activeSession?.weekNumber ?? activeWeek;
-    const name = activeSession?.name ?? `Session ${activeSessionIndex + 1}`;
-    return `Week ${w} · ${name}`;
-  }, [activeSession, activeWeek, activeSessionIndex]);
-
-  const openRunner = useCallback(() => {
-    if ((activeSession?.exercises?.length ?? 0) > 0) setRunnerOpen(true);
-  }, [activeSession?.exercises?.length]);
-
-  const handleSessionComplete = useCallback(
-    async (exerciseIds: string[]) => {
-      if (!authToken) return;
-      const contentIds = exerciseIds
-        .map((id) => parseInt(id, 10))
-        .filter((n) => Number.isFinite(n) && n > 0);
-      if (!contentIds.length) return;
-      try {
-        const res = await apiRequest<{
-          completionsLogged: number;
-          newAchievements: string[];
-        }>("/program-section-content/complete-session", {
-          method: "POST",
-          token: authToken,
-          body: {
-            contentIds,
-            weekNumber: activeSession?.weekNumber ?? activeWeek,
-            sessionLabel: sessionRunnerLabel,
-            programKey: programId,
-          },
-        });
-        onTrainingLogged?.();
-        if (Array.isArray(res.newAchievements) && res.newAchievements.length > 0) {
-          Alert.alert("Achievement unlocked", formatAchievementNames(res.newAchievements));
-        }
-      } catch (err) {
-        Alert.alert(
-          "Could not save session",
-          err instanceof Error ? err.message : "Check your connection and try again.",
-        );
-      }
-    },
-    [
-      authToken,
-      activeSession?.weekNumber,
-      activeWeek,
-      sessionRunnerLabel,
-      programId,
-      onTrainingLogged,
-    ],
-  );
+  const openFirstIncompleteExercise = useCallback(() => {
+    if (!onNavigate) return;
+    const exercises = activeSession?.exercises ?? [];
+    const target =
+      exercises.find((exercise) => exercise.completed !== true && exercise.detailPath) ??
+      exercises.find((exercise) => Boolean(exercise.detailPath));
+    if (target?.detailPath) {
+      onNavigate(target.detailPath);
+    }
+  }, [activeSession?.exercises, onNavigate]);
 
   return (
     <View className="gap-6">
       {activeSession?.exercises?.length ? (
         <Pressable
-          onPress={openRunner}
+          onPress={openFirstIncompleteExercise}
           className="rounded-full py-4 flex-row items-center justify-center gap-2 active:opacity-90 shadow-sm"
           style={{ backgroundColor: colors.accent }}
         >
@@ -167,17 +117,6 @@ export function ProgramSessionPanel({
           <Text className="font-outfit font-bold text-[15px]" style={{ color: "#FFFFFF" }}>Start session</Text>
         </Pressable>
       ) : null}
-
-      <SessionRunnerModal
-        visible={runnerOpen}
-        onClose={() => setRunnerOpen(false)}
-        sessionLabel={sessionRunnerLabel}
-        exercises={activeSession?.exercises ?? []}
-        onVideoPress={onVideoPress}
-        onSessionComplete={(ids) => {
-          void handleSessionComplete(ids);
-        }}
-      />
 
       <View className="gap-3">
         <Text className="text-[17px] font-clash font-bold" style={{ color: colors.text }}>Week</Text>
@@ -237,7 +176,11 @@ export function ProgramSessionPanel({
           <ExerciseCard
             key={`exercise-${String(exercise.id ?? exercise.name ?? "item")}-${index}`}
             exercise={exercise}
-            onVideoPress={onVideoPress}
+            onPress={
+              exercise.detailPath && onNavigate
+                ? () => onNavigate(exercise.detailPath!)
+                : undefined
+            }
           />
         ))}
       </View>

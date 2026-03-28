@@ -52,3 +52,27 @@ export async function listProgramSectionCompletionsForAthlete(input: {
   return query;
 }
 
+export async function getCompletedProgramSectionContentIdsForAthlete(athleteId: number) {
+  const rows = await db
+    .select({ programSectionContentId: programSectionCompletionTable.programSectionContentId })
+    .from(programSectionCompletionTable)
+    .where(eq(programSectionCompletionTable.athleteId, athleteId));
+  return new Set(rows.map((row) => row.programSectionContentId));
+}
+
+export async function isProgramSectionContentCompletedForAthlete(input: {
+  athleteId: number;
+  contentId: number;
+}) {
+  const rows = await db
+    .select({ id: programSectionCompletionTable.id })
+    .from(programSectionCompletionTable)
+    .where(
+      and(
+        eq(programSectionCompletionTable.athleteId, input.athleteId),
+        eq(programSectionCompletionTable.programSectionContentId, input.contentId),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}

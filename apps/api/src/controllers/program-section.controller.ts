@@ -13,7 +13,11 @@ import { getTrainingProgressPayload, syncAchievementsForAthlete } from "../servi
 import { completeTrainingSession } from "../services/training-session-log.service";
 import { getAthleteForUser } from "../services/user.service";
 import { calculateAge, normalizeDate } from "../lib/age";
-import { createProgramSectionCompletion } from "../services/program-section-completion.service";
+import {
+  createProgramSectionCompletion,
+  getCompletedProgramSectionContentIdsForAthlete,
+  isProgramSectionContentCompletedForAthlete,
+} from "../services/program-section-completion.service";
 
 function resolveAgeFromAthlete(row: any) {
   if (!row) return null;
@@ -102,7 +106,20 @@ export async function listProgramSectionContentHandler(req: Request, res: Respon
     age: age,
     bypassAgeFilter: isAdmin,
   });
-  return res.status(200).json({ items });
+  if (!req.user || isAdmin) {
+    return res.status(200).json({ items });
+  }
+  const athlete = await getAthleteForUser(req.user.id);
+  if (!athlete) {
+    return res.status(200).json({ items });
+  }
+  const completedIds = await getCompletedProgramSectionContentIdsForAthlete(athlete.id);
+  return res.status(200).json({
+    items: items.map((item) => ({
+      ...item,
+      completed: completedIds.has(item.id),
+    })),
+  });
 }
 
 export async function getProgramSectionContentHandler(req: Request, res: Response) {
@@ -111,7 +128,22 @@ export async function getProgramSectionContentHandler(req: Request, res: Respons
   if (!item) {
     return res.status(404).json({ error: "Content not found" });
   }
-  return res.status(200).json({ item });
+  if (!req.user) {
+    return res.status(200).json({ item });
+  }
+  const isAdmin = ["admin", "superAdmin", "coach"].includes(req.user.role);
+  if (isAdmin) {
+    return res.status(200).json({ item });
+  }
+  const athlete = await getAthleteForUser(req.user.id);
+  if (!athlete) {
+    return res.status(200).json({ item });
+  }
+  const completed = await isProgramSectionContentCompletedForAthlete({
+    athleteId: athlete.id,
+    contentId: id,
+  });
+  return res.status(200).json({ item: { ...item, completed } });
 }
 
 export async function createProgramSectionContentHandler(req: Request, res: Response) {

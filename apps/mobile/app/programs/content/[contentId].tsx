@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Modal, Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, type RelativePathString } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
@@ -34,6 +34,7 @@ type ExerciseMetadata = {
 type ContentItem = {
   title: string;
   body: string;
+  completed?: boolean | null;
   videoUrl?: string | null;
   allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
@@ -100,7 +101,13 @@ const MediaSection = React.memo(function MediaSection({ url, title }: { url: str
 });
 
 export default function ProgramContentDetailScreen() {
-  const { contentId, sharedBoundTag } = useLocalSearchParams<{ contentId: string; sharedBoundTag?: string }>();
+  const { contentId, sharedBoundTag, exerciseDetail, sessionIds, index } = useLocalSearchParams<{
+    contentId: string;
+    sharedBoundTag?: string;
+    exerciseDetail?: string;
+    sessionIds?: string;
+    index?: string;
+  }>();
   const router = useRouter();
   const { token } = useAppSelector((state) => state.user);
   const { role } = useRole();
@@ -150,6 +157,7 @@ export default function ProgramContentDetailScreen() {
       setItem({
         title: data.item.title ?? "Program Content",
         body: data.item.body ?? "",
+        completed: Boolean(data.item.completed),
         videoUrl: data.item.videoUrl ?? null,
         allowVideoUpload: data.item.allowVideoUpload ?? false,
         metadata: data.item.metadata ?? null,
@@ -170,6 +178,7 @@ export default function ProgramContentDetailScreen() {
 
   const meta = (item?.metadata ?? {}) as ExerciseMetadata;
   const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
+  const isExerciseDetail = exerciseDetail === "1" || exerciseDetail === "true";
   const activeAthlete = useMemo(() => {
     if (!managedAthletes.length) return null;
     return managedAthletes.find((athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId) ?? managedAthletes[0];
@@ -183,9 +192,27 @@ export default function ProgramContentDetailScreen() {
     canAccessTier(programTier ?? null, "PHP_Premium") &&
     !isSectionHidden("videoFeedback");
   const canLogCompletion =
-    (role === "Athlete" || role === "Guardian") &&
-    canAccessTier(programTier ?? null, "PHP_Premium");
+    role === "Athlete" || role === "Guardian";
   const showUploadFab = Boolean(item?.allowVideoUpload) && canUploadVideos;
+  const sessionExerciseIds = useMemo(
+    () =>
+      String(sessionIds ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    [sessionIds],
+  );
+  const sessionIndex = useMemo(() => {
+    const parsed = Number(index);
+    if (!Number.isFinite(parsed) || parsed < 0) return 0;
+    return parsed;
+  }, [index]);
+  const hasSessionNavigation = isExerciseDetail && sessionExerciseIds.length > 1;
+  const previousExerciseId = hasSessionNavigation && sessionIndex > 0 ? sessionExerciseIds[sessionIndex - 1] ?? null : null;
+  const nextExerciseId =
+    hasSessionNavigation && sessionIndex < sessionExerciseIds.length - 1
+      ? sessionExerciseIds[sessionIndex + 1] ?? null
+      : null;
   useEffect(() => {
     if (router.canGoBack()) return;
     router.replace("/(tabs)");
@@ -197,8 +224,16 @@ export default function ProgramContentDetailScreen() {
     }
     router.replace("/(tabs)/programs");
   }, [router]);
+  const buildExercisePath = useCallback(
+    (targetId: string, targetIndex: number) =>
+      `/programs/content/${targetId}?exerciseDetail=1&sessionIds=${encodeURIComponent(sessionExerciseIds.join(","))}&index=${targetIndex}` as RelativePathString,
+    [sessionExerciseIds],
+  );
 
-  const contentContainerStyle = useMemo(() => ({ paddingBottom: 40 }), []);
+  const contentContainerStyle = useMemo(
+    () => ({ paddingBottom: hasSessionNavigation ? 136 : 40 }),
+    [hasSessionNavigation],
+  );
   const contentBody = useMemo(() => {
     if (!item?.body) return null;
     return (
@@ -244,7 +279,7 @@ export default function ProgramContentDetailScreen() {
                 </Pressable>
                 <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
                   <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
-                    Content detail
+                    {isExerciseDetail ? "Exercise detail" : "Content detail"}
                   </Text>
                 </View>
               </View>
@@ -290,7 +325,9 @@ export default function ProgramContentDetailScreen() {
             <View className="gap-4">
               {/* Main content card */}
               <View className="rounded-[28px] px-6 py-6 gap-4" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
-                <Text className="text-2xl font-clash text-app font-bold">Overview</Text>
+                <Text className="text-2xl font-clash text-app font-bold">
+                  {isExerciseDetail ? "Exercise overview" : "Overview"}
+                </Text>
 
                 {/* Exercise metadata badges */}
                 {hasExercise && (
@@ -343,7 +380,7 @@ export default function ProgramContentDetailScreen() {
                   >
                     <Feather name="check-circle" size={18} color="#ffffff" />
                     <Text className="text-white font-outfit font-bold text-sm uppercase tracking-[1.3px]">
-                      Mark as Complete
+                      {isExerciseDetail ? "Mark exercise complete" : "Mark as Complete"}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -420,11 +457,60 @@ export default function ProgramContentDetailScreen() {
          </View>
        </ThemedScrollView>
 
+        {hasSessionNavigation ? (
+          <View
+            className="absolute left-6 right-6 flex-row items-center gap-3 rounded-[28px] border px-4 py-4"
+            style={{
+              bottom: 20,
+              backgroundColor: surfaceColor,
+              borderColor: borderSoft,
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            <Pressable
+              onPress={() => {
+                if (!previousExerciseId) return;
+                router.replace(buildExercisePath(previousExerciseId, sessionIndex - 1));
+              }}
+              disabled={!previousExerciseId}
+              className={`flex-1 rounded-2xl px-4 py-4 items-center justify-center ${previousExerciseId ? "" : "opacity-50"}`}
+              style={{ backgroundColor: mutedSurface }}
+            >
+              <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.text }}>
+                Previous
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (nextExerciseId) {
+                  router.replace(buildExercisePath(nextExerciseId, sessionIndex + 1));
+                  return;
+                }
+                if (router.canGoBack()) {
+                  router.back();
+                  return;
+                }
+                router.replace("/(tabs)/programs");
+              }}
+              className="flex-1 rounded-2xl px-4 py-4 items-center justify-center"
+              style={{ backgroundColor: colors.accent }}
+            >
+              <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px] text-white">
+                {nextExerciseId ? "Next" : "Finish Session"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {showUploadFab ? (
           <Pressable
             onPress={() => setShowUploadModal(true)}
             className="absolute bottom-6 right-6 h-14 w-14 rounded-full items-center justify-center"
-            style={{ backgroundColor: colors.accent, ...(isDark ? Shadows.none : Shadows.md) }}
+            style={{
+              bottom: hasSessionNavigation ? 96 : 24,
+              backgroundColor: colors.accent,
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
           >
             <Feather name="plus" size={24} color="#ffffff" />
           </Pressable>
@@ -442,7 +528,7 @@ export default function ProgramContentDetailScreen() {
             <View className="rounded-t-3xl p-4 pb-6" style={{ backgroundColor: surfaceColor }}>
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-lg font-clash text-app font-bold">
-                  Training Video Upload
+                  {isExerciseDetail ? "Upload your form video" : "Training Video Upload"}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowUploadModal(false)}
@@ -584,6 +670,7 @@ export default function ProgramContentDetailScreen() {
                         }
                       );
                       setCheckinSaved(true);
+                      setItem((prev) => (prev ? { ...prev, completed: true } : prev));
                       setTimeout(() => setShowCompleteModal(false), 800);
                       setRpe("");
                       setSoreness("");
