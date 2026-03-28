@@ -18,6 +18,7 @@ type VideoDialogsProps = {
     id: number;
     athlete: string;
     topic: string;
+    createdAt?: string | null;
     notes?: string | null;
     status: string;
     videoUrl?: string | null;
@@ -283,164 +284,209 @@ export function VideoDialogs({
 
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {active === "review" && "Video Review"}
-            {active === "queue" && "Review Queue"}
-          </DialogTitle>
-          <DialogDescription>
-            {selectedVideo ? `${selectedVideo.athlete} • ${selectedVideo.topic}` : "Review uploads in priority order."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="mt-6 space-y-4">
+      <DialogContent
+        className={active === "review"
+          ? "max-h-[92vh] max-w-6xl overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-50"
+          : "max-h-[85vh] overflow-y-auto"
+        }
+      >
+        {active !== "review" ? (
+          <DialogHeader>
+            <DialogTitle>
+              {active === "queue" && "Review Queue"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedVideo ? `${selectedVideo.athlete} • ${selectedVideo.topic}` : "Review uploads in priority order."}
+            </DialogDescription>
+          </DialogHeader>
+        ) : null}
+        <div className={active === "review" ? "" : "mt-6 space-y-4"}>
           {active === "review" && selectedVideo ? (
             <>
-              {selectedVideo.videoUrl ? (
-                <video
-                  className="aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
-                  src={selectedVideo.videoUrl}
-                  controls
-                  muted
-                />
-              ) : (
-                <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border bg-secondary/40 text-sm text-muted-foreground">
-                  Video Preview
-                </div>
-              )}
-              <div className="flex items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm">
-                <span className="font-semibold text-foreground">{selectedVideo.topic}</span>
-                <Badge variant={selectedVideo.status === "Priority" ? "primary" : "outline"}>
-                  {selectedVideo.status}
-                </Badge>
-              </div>
-              <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm">
-                <span className="font-semibold text-foreground">Notes:</span>{" "}
-                <span className="text-muted-foreground">
-                  {selectedVideo.notes?.trim?.()
-                    ? selectedVideo.notes
-                    : "No notes provided."}
-                </span>
-              </div>
-              <Textarea
-                placeholder="Write coach feedback..."
-                value={feedback}
-                onChange={(event) => setFeedback(event.target.value)}
-              />
-              <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-4 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-foreground">Coach Response Video</span>
+              <div className="border-b border-zinc-800 bg-zinc-950/95 px-6 py-4">
+                <DialogHeader className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button size="sm" variant="outline" onClick={handlePick} disabled={isUploading || isRecording}>
-                      Upload Video
-                    </Button>
-                    {isRecording ? (
-                      <Button size="sm" variant="destructive" onClick={stopRecording}>
-                        Stop Recording
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={handleStartRecording} disabled={isUploading}>
-                        Record Video
-                      </Button>
-                    )}
+                    <DialogTitle className="text-xl font-semibold text-white">
+                      {selectedVideo.topic}
+                    </DialogTitle>
+                    <Badge
+                      variant="outline"
+                      className="border-zinc-700 bg-zinc-900 text-zinc-200"
+                    >
+                      {selectedVideo.status}
+                    </Badge>
                   </div>
-                </div>
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <div className="mt-3 space-y-3">
-                  {responseError ? <p className="text-xs text-destructive">{responseError}</p> : null}
-                  {isUploading ? (
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
-                    </div>
-                  ) : null}
-                  <div className="space-y-2">
-                    <div className="text-xs text-muted-foreground">Live Preview</div>
-                    <div className="relative">
-                      <video
-                        ref={livePreviewRef}
-                        className="aspect-video w-full rounded-2xl border border-border bg-black/10 object-cover"
-                        muted
-                        playsInline
-                        autoPlay
-                      />
-                      {!hasLivePreview ? (
-                        <div className="absolute inset-0 flex items-center justify-center rounded-2xl border border-dashed border-border bg-secondary/20 text-xs text-muted-foreground">
-                          Start recording to see live camera
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  {recordedPreview ? (
-                    <div className="space-y-2">
-                      <video
-                        className="aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
-                        src={recordedPreview}
-                        controls
-                        muted
-                      />
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={handleUploadRecording} disabled={isUploading}>
-                          Upload Recording
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setRecordedBlob(null);
-                            if (recordedPreview) {
-                              URL.revokeObjectURL(recordedPreview);
-                            }
-                            setRecordedPreview(null);
-                          }}
-                        >
-                          Remove Recording
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {responseUrl ? (
-                    <div className="space-y-2">
-                      <video
-                        className="aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
-                        src={responseUrl}
-                        controls
-                        muted
-                      />
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            setResponseUrl(null);
-                          }}
-                        >
-                          Remove Upload
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                  <DialogDescription className="text-sm text-zinc-400">
+                    {selectedVideo.athlete}
+                  </DialogDescription>
+                </DialogHeader>
               </div>
-              <Input
-                placeholder="Status"
-                value={`Status: ${selectedVideo.status}`}
-                readOnly
-              />
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Save Draft
-                </Button>
-                <Button
-                  onClick={handleMarkReviewed}
-                  disabled={isSubmitting || isSendingResponse || (feedback.trim().length === 0 && !responseUrl)}
-                >
-                  Mark Reviewed
-                </Button>
+              <div className="grid max-h-[calc(92vh-88px)] gap-0 overflow-hidden lg:grid-cols-[minmax(0,1.2fr)_380px]">
+                <div className="flex min-h-0 items-center justify-center bg-black p-4 sm:p-6">
+                  {selectedVideo.videoUrl ? (
+                    <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl">
+                      <div className="aspect-video bg-black">
+                        <video
+                          className="h-full w-full bg-black object-contain"
+                          src={selectedVideo.videoUrl}
+                          controls
+                          playsInline
+                          preload="metadata"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex aspect-video w-full max-w-4xl items-center justify-center rounded-2xl border border-dashed border-zinc-700 bg-zinc-900 text-sm text-zinc-400">
+                      Video Preview
+                    </div>
+                  )}
+                </div>
+                <div className="min-h-0 overflow-y-auto border-t border-zinc-800 bg-zinc-950/80 p-5 lg:border-l lg:border-t-0">
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-zinc-100">Upload Details</span>
+                        <Badge
+                          variant="outline"
+                          className="border-zinc-700 bg-zinc-950 text-zinc-300"
+                        >
+                          {selectedVideo.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 space-y-2 text-zinc-300">
+                        <p>{selectedVideo.createdAt ? new Date(selectedVideo.createdAt).toLocaleString() : "Unknown time"}</p>
+                        <p>{selectedVideo.notes?.trim?.() ? selectedVideo.notes : "No notes provided."}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-4 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold text-zinc-100">Coach Feedback</span>
+                      </div>
+                      <Textarea
+                        placeholder="Write coach feedback..."
+                        value={feedback}
+                        onChange={(event) => setFeedback(event.target.value)}
+                        className="mt-3 min-h-24 border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
+                      />
+                    </div>
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-4 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold text-zinc-100">Coach Response Video</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={handlePick} disabled={isUploading || isRecording}>
+                            Upload Video
+                          </Button>
+                          {isRecording ? (
+                            <Button size="sm" variant="destructive" onClick={stopRecording}>
+                              Stop Recording
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={handleStartRecording} disabled={isUploading}>
+                              Record Video
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <input
+                        ref={inputRef}
+                        type="file"
+                        accept="video/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <div className="mt-3 space-y-3">
+                        {responseError ? <p className="text-xs text-red-400">{responseError}</p> : null}
+                        {isUploading ? (
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+                            <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+                          </div>
+                        ) : null}
+                        <div className="space-y-2">
+                          <div className="text-xs text-zinc-500">Live Preview</div>
+                          <div className="relative">
+                            <video
+                              ref={livePreviewRef}
+                              className="aspect-video w-full rounded-2xl border border-zinc-800 bg-black object-cover"
+                              muted
+                              playsInline
+                              autoPlay
+                            />
+                            {!hasLivePreview ? (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/70 text-xs text-zinc-500">
+                                Start recording to see live camera
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        {recordedPreview ? (
+                          <div className="space-y-2">
+                            <video
+                              className="aspect-video w-full rounded-2xl border border-zinc-800 bg-black object-contain"
+                              src={recordedPreview}
+                              controls
+                              muted
+                            />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button size="sm" variant="outline" onClick={handleUploadRecording} disabled={isUploading}>
+                                Upload Recording
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setRecordedBlob(null);
+                                  if (recordedPreview) {
+                                    URL.revokeObjectURL(recordedPreview);
+                                  }
+                                  setRecordedPreview(null);
+                                }}
+                              >
+                                Remove Recording
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+                        {responseUrl ? (
+                          <div className="space-y-2">
+                            <video
+                              className="aspect-video w-full rounded-2xl border border-zinc-800 bg-black object-contain"
+                              src={responseUrl}
+                              controls
+                              muted
+                            />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                onClick={() => {
+                                  setResponseUrl(null);
+                                }}
+                              >
+                                Remove Upload
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    <Input
+                      placeholder="Status"
+                      value={`Status: ${selectedVideo.status}`}
+                      readOnly
+                      className="border-zinc-700 bg-zinc-950 text-zinc-100"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={onClose}>
+                        Save Draft
+                      </Button>
+                      <Button
+                        onClick={handleMarkReviewed}
+                        disabled={isSubmitting || isSendingResponse || (feedback.trim().length === 0 && !responseUrl)}
+                      >
+                        Mark Reviewed
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           ) : null}
