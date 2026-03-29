@@ -271,16 +271,21 @@ export default function ScheduleScreen() {
   }, [availabilityData]);
 
   const availableSlots = useMemo(() => {
+    const dayStart = startOfLocalDay(bookingDate);
+    const dayEnd = endOfLocalDay(bookingDate);
     if (availabilityData?.slots?.length) {
       return availabilityData.slots
         .map((slot) => new Date(slot))
-        .filter((slot) => !Number.isNaN(slot.getTime()))
+        .filter(
+          (slot) =>
+            !Number.isNaN(slot.getTime()) &&
+            slot.getTime() >= dayStart.getTime() &&
+            slot.getTime() <= dayEnd.getTime(),
+        )
         .sort((a, b) => a.getTime() - b.getTime());
     }
     if (!selectedService || !availabilityData?.items?.length) return [] as Date[];
     const durationMs = selectedService.durationMinutes * 60 * 1000;
-    const dayStart = startOfLocalDay(bookingDate);
-    const dayEnd = endOfLocalDay(bookingDate);
     const slotMap = new Map<string, Date>();
     for (const block of availabilityData.items) {
       const start = new Date(block.startsAt);
