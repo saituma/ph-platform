@@ -38,6 +38,7 @@ const serviceTypeSchema = z.object({
   defaultLocation: z.string().optional().nullable(),
   defaultMeetingLink: z.string().optional().nullable(),
   programTier: z.enum(ProgramType.enumValues).optional().nullable(),
+  isActive: z.boolean().optional(),
 });
 
 const serviceTypeUpdateSchema = serviceTypeSchema.partial().extend({
@@ -86,6 +87,7 @@ export async function createService(req: Request, res: Response) {
     defaultLocation: input.defaultLocation,
     defaultMeetingLink: input.defaultMeetingLink,
     programTier: input.programTier,
+    isActive: input.isActive,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });

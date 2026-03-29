@@ -97,38 +97,13 @@ export function YouTubeEmbed({
     const videoId = extractYoutubeVideoId(url);
     return videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
   }, [url]);
-  const webHtml = useMemo(() => {
-    if (!embedUrl) return "";
-    return `<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: #000;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
-      iframe {
-        border: 0;
-        width: 100%;
-        height: 100%;
-      }
-    </style>
-  </head>
-  <body>
-    <iframe
-      src="${embedUrl}"
-      title="YouTube video player"
-      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-      allowfullscreen
-      referrerpolicy="strict-origin-when-cross-origin"
-    ></iframe>
-  </body>
-</html>`;
+
+  useEffect(() => {
+    setIsReady(false);
+    setHasEmbedError(false);
+    if (!embedUrl) return;
+    const fallback = setTimeout(() => setIsReady(true), 12_000);
+    return () => clearTimeout(fallback);
   }, [embedUrl]);
 
   if (!embedUrl) {
@@ -171,8 +146,8 @@ export function YouTubeEmbed({
       ) : null}
       {!hasEmbedError ? (
         <WebView
-          source={{ html: webHtml }}
-          style={{ flex: 1, backgroundColor: "transparent" }}
+          source={{ uri: embedUrl }}
+          style={{ flex: 1, backgroundColor: "#000" }}
           originWhitelist={["*"]}
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
@@ -431,6 +406,33 @@ export function VideoPlayer({
     }
   });
 
+  useEffect(() => {
+    try {
+      const status = player.status;
+      if (status === "readyToPlay") {
+        setIsLoading(false);
+        fadeAnim.setValue(1);
+      }
+      if (status === "error") {
+        setError("Unable to play video. Tap to open externally.");
+        setIsLoading(false);
+      }
+    } catch {
+      /* player not ready */
+    }
+  }, [player, sourceForPlayer, fadeAnim]);
+
+  useEventListener(player, "sourceLoad", (payload) => {
+    if (payload.duration > 0) {
+      setIsLoading(false);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  });
+
   useEventListener(player, "statusChange", (e) => {
     const status = e.status;
     if (status === "readyToPlay") {
@@ -445,8 +447,6 @@ export function VideoPlayer({
       setError("Unable to play video. Tap to open externally.");
       setIsLoading(false);
     }
-    // Buffering is inferred from status === 'loading' or long 'loading' duration
-    // Removed invalid string comparison → no more TS error
     setIsBuffering(status === "loading");
   });
 
@@ -462,6 +462,17 @@ export function VideoPlayer({
     }, 400);
     return () => clearInterval(id);
   }, [safeGetTimeInfo]);
+
+  /** If native status events lag, duration becoming valid means the asset is readable — hide the spinner. */
+  useEffect(() => {
+    if (duration <= 0 || !isLoading) return;
+    setIsLoading(false);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [duration, isLoading, fadeAnim]);
 
   const lastDurationRef = useRef(0);
   const endedRef = useRef(false);
