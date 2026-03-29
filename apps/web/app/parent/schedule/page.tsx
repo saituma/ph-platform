@@ -13,6 +13,32 @@ import {
   useGetUserBookingsQuery,
 } from "../../../lib/apiSlice";
 
+function parseYmd(dateStr: string): { y: number; mo: number; d: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
+  if (!m) return null;
+  return { y: Number(m[1]), mo: Number(m[2]) - 1, d: Number(m[3]) };
+}
+
+function startOfLocalDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function endOfLocalDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+}
+
+/** Align slot ↔ booking counts (API timestamps may differ by ms). */
+function toBookingSlotKey(d: Date) {
+  const x = new Date(d.getTime());
+  x.setSeconds(0, 0);
+  x.setMilliseconds(0);
+  return String(x.getTime());
+}
+
 export default function ParentSchedulePage() {
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -45,16 +71,25 @@ export default function ParentSchedulePage() {
     return null;
   }, [selectedService]);
 
+  /** Wider than one calendar day so timezone boundaries do not drop overlapping availability (same idea as mobile). */
   const availabilityRange = useMemo(() => {
-    if (!selectedDate) return null;
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(selectedDate.trim());
-    if (!m) return null;
-    const y = Number(m[1]);
-    const mo = Number(m[2]) - 1;
-    const d = Number(m[3]);
-    const start = new Date(y, mo, d, 0, 0, 0, 0);
-    const end = new Date(y, mo, d, 23, 59, 59, 999);
+    const parsed = parseYmd(selectedDate ?? "");
+    if (!parsed) return null;
+    const { y, mo, d } = parsed;
+    const dayMid = new Date(y, mo, d, 12, 0, 0, 0);
+    const start = startOfLocalDay(new Date(dayMid.getTime() - 24 * 60 * 60 * 1000));
+    const end = endOfLocalDay(new Date(dayMid.getTime() + 24 * 60 * 60 * 1000));
     return { from: start.toISOString(), to: end.toISOString() };
+  }, [selectedDate]);
+
+  const selectedDayBounds = useMemo(() => {
+    const parsed = parseYmd(selectedDate ?? "");
+    if (!parsed) return null;
+    const { y, mo, d } = parsed;
+    return {
+      dayStart: new Date(y, mo, d, 0, 0, 0, 0),
+      dayEnd: new Date(y, mo, d, 23, 59, 59, 999),
+    };
   }, [selectedDate]);
 
   const { data: availabilityData, isLoading: availabilityLoading } = useGetBookingAvailabilityQuery(
@@ -68,28 +103,48 @@ export default function ParentSchedulePage() {
     const map = new Map<string, number>();
     (availabilityData?.bookings ?? []).forEach((booking: any) => {
       if (!booking?.startsAt) return;
-      const key = new Date(booking.startsAt).toISOString();
+      const key = toBookingSlotKey(new Date(booking.startsAt));
       map.set(key, (map.get(key) ?? 0) + 1);
     });
     return map;
   }, [availabilityData]);
 
   const availableSlots = useMemo(() => {
-    if (!selectedService || !availabilityData?.items?.length) return [] as Date[];
+    if (!selectedService || !selectedDayBounds) return [] as Date[];
+    const { dayStart, dayEnd } = selectedDayBounds;
+
+    const inSelectedDay = (slot: Date) =>
+      slot.getTime() >= dayStart.getTime() && slot.getTime() <= dayEnd.getTime();
+
+    if (availabilityData?.slots?.length) {
+      return availabilityData.slots
+        .map((s: string) => new Date(s))
+        .filter((slot) => !Number.isNaN(slot.getTime()) && inSelectedDay(slot))
+        .sort((a, b) => a.getTime() - b.getTime());
+    }
+
+    if (!availabilityData?.items?.length) return [] as Date[];
+
     const durationMs = selectedService.durationMinutes * 60 * 1000;
     const slotMap = new Map<string, Date>();
     for (const block of availabilityData.items) {
       const start = new Date(block.startsAt);
       const end = new Date(block.endsAt);
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-      for (let cursor = new Date(start.getTime()); cursor.getTime() + durationMs <= end.getTime(); cursor = new Date(cursor.getTime() + durationMs)) {
-        const timeLabel = `${String(cursor.getHours()).padStart(2, "0")}:${String(cursor.getMinutes()).padStart(2, "0")}`;
-        if (fixedTimeLabel && timeLabel !== fixedTimeLabel) continue;
-        slotMap.set(cursor.toISOString(), cursor);
+      if (end.getTime() < dayStart.getTime() || start.getTime() > dayEnd.getTime()) continue;
+
+      for (
+        let cursor = new Date(start.getTime());
+        cursor.getTime() + durationMs <= end.getTime();
+        cursor = new Date(cursor.getTime() + durationMs)
+      ) {
+        if (cursor.getTime() < dayStart.getTime() || cursor.getTime() > dayEnd.getTime()) continue;
+        // Do not filter by fixedStartTime here: coach wall time vs viewer timezone hid every slot; server validates on submit (matches mobile).
+        slotMap.set(toBookingSlotKey(cursor), cursor);
       }
     }
     return Array.from(slotMap.values()).sort((a, b) => a.getTime() - b.getTime());
-  }, [availabilityData, selectedService, fixedTimeLabel]);
+  }, [availabilityData, selectedService, selectedDayBounds]);
 
   useEffect(() => {
     if (!services.length || selectedServiceId) return;
@@ -110,15 +165,16 @@ export default function ParentSchedulePage() {
     }
     setSelectedSlot((prev) => {
       const capacity = selectedService?.capacity ?? null;
-      const isPrevValid = prev && availableSlots.some((slot) => slot.toISOString() === prev.toISOString());
+      const isPrevValid =
+        prev && availableSlots.some((slot) => toBookingSlotKey(slot) === toBookingSlotKey(prev));
       if (isPrevValid) {
         if (!capacity) return prev;
-        const prevCount = bookingCounts.get(prev.toISOString()) ?? 0;
+        const prevCount = bookingCounts.get(toBookingSlotKey(prev)) ?? 0;
         if (prevCount < capacity) return prev;
       }
       const firstAvailable = availableSlots.find((slot) => {
         if (!capacity) return true;
-        const count = bookingCounts.get(slot.toISOString()) ?? 0;
+        const count = bookingCounts.get(toBookingSlotKey(slot)) ?? 0;
         return count < capacity;
       });
       return firstAvailable ?? null;
@@ -243,20 +299,21 @@ export default function ParentSchedulePage() {
             ) : null}
             {availableSlots.length > 0 ? (
               <Select
-                value={selectedSlot ? selectedSlot.toISOString() : ""}
+                value={selectedSlot ? toBookingSlotKey(selectedSlot) : ""}
                 onChange={(event) => {
                   const value = event.target.value;
-                  setSelectedSlot(value ? new Date(value) : null);
+                  setSelectedSlot(value ? new Date(Number(value)) : null);
                 }}
               >
                 <option value="">Select a time</option>
                 {availableSlots.map((slot) => {
                   const cap = selectedService?.capacity ?? null;
-                  const taken = bookingCounts.get(slot.toISOString()) ?? 0;
+                  const slotKey = toBookingSlotKey(slot);
+                  const taken = bookingCounts.get(slotKey) ?? 0;
                   const atCap = cap != null && taken >= cap;
                   const label = slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                   return (
-                    <option key={slot.toISOString()} value={slot.toISOString()} disabled={atCap}>
+                    <option key={slotKey} value={slotKey} disabled={atCap}>
                       {label}
                       {cap != null ? ` (${Math.max(cap - taken, 0)} spots left)` : ""}
                       {atCap ? " — full" : ""}

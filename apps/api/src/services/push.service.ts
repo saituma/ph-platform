@@ -1,8 +1,9 @@
 import { Expo, type ExpoPushMessage, type ExpoPushTicket } from "expo-server-sdk";
+import { eq } from "drizzle-orm";
+
 import { env } from "../config/env";
 import { db } from "../db";
 import { userTable } from "../db/schema";
-import { eq } from "drizzle-orm";
 
 const expo = new Expo({ accessToken: env.expoAccessToken });
 

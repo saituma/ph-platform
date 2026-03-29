@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "../db";
 import { programSectionContentTable, ProgramType, sessionType } from "../db/schema";
@@ -31,7 +31,14 @@ export async function listProgramSectionContent(input: {
     filters.push(eq(programSectionContentTable.sectionType, input.sectionType));
   }
   if (input.programTier) {
-    filters.push(eq(programSectionContentTable.programTier, input.programTier));
+    // Admin exercise library often omits programTier → NULL in DB. Those rows must appear for
+    // every athlete tier; only rows with an explicit tier are restricted to that tier.
+    filters.push(
+      or(
+        eq(programSectionContentTable.programTier, input.programTier),
+        isNull(programSectionContentTable.programTier),
+      )!,
+    );
   }
 
   const query = filters.length
