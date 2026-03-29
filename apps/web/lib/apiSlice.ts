@@ -481,6 +481,13 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Services", "Bookings"],
     }),
+    deleteService: builder.mutation<{ deleted: unknown }, number>({
+      query: (id) => ({
+        url: `/bookings/services/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Services", "Bookings", "Availability"],
+    }),
     createAvailability: builder.mutation<any, any>({
       query: (body) => ({
         url: "/bookings/availability",
@@ -809,6 +816,7 @@ export const {
   useDeleteThreadMutation,
   useCreateServiceMutation,
   useUpdateServiceMutation,
+  useDeleteServiceMutation,
   useCreateAvailabilityMutation,
   useCreateContentMutation,
   useDeleteContentMutation,
