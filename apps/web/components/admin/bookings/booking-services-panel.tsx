@@ -3,8 +3,17 @@
 import { useMemo, useState } from "react";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { useUpdateServiceMutation } from "../../../lib/apiSlice";
+import { useDeleteServiceMutation, useUpdateServiceMutation } from "../../../lib/apiSlice";
 import { BOOKING_TYPE_LABELS } from "./bookings-dialogs";
+
+function deleteServiceErrorMessage(err: unknown): string {
+  if (typeof err === "object" && err !== null && "data" in err) {
+    const data = (err as { data?: { error?: string } }).data;
+    if (typeof data?.error === "string") return data.error;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return "Could not delete service.";
+}
 
 export type BookingServiceRow = {
   id: number;
@@ -43,14 +52,35 @@ export function BookingServicesPanel({
   onRefetch,
 }: BookingServicesPanelProps) {
   const [updateService] = useUpdateServiceMutation();
+  const [deleteService, { isLoading: isDeleting }] = useDeleteServiceMutation();
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const sorted = useMemo(
     () => [...services].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
     [services],
   );
 
+  const onDelete = async (row: BookingServiceRow) => {
+    const ok = window.confirm(
+      `Delete “${row.name}”? This removes all open times for this service. You cannot delete it if any bookings still reference it.`,
+    );
+    if (!ok) return;
+    setDeleteError(null);
+    setDeletingId(row.id);
+    try {
+      await deleteService(row.id).unwrap();
+      onRefetch();
+    } catch (err: unknown) {
+      setDeleteError(deleteServiceErrorMessage(err));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const onToggleActive = async (row: BookingServiceRow) => {
+    setDeleteError(null);
     const next = !(row.isActive ?? true);
     setTogglingId(row.id);
     try {
@@ -78,6 +108,12 @@ export function BookingServicesPanel({
         </div>
       </div>
 
+      {deleteError ? (
+        <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {deleteError}
+        </p>
+      ) : null}
+
       {isLoading ? (
         <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
           Loading services…
@@ -88,7 +124,7 @@ export function BookingServicesPanel({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="border-b border-border bg-secondary/30 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Name</th>
@@ -141,6 +177,15 @@ export function BookingServicesPanel({
                         </Button>
                         <Button type="button" variant="secondary" size="sm" onClick={() => onOpenSlots(row.id)}>
                           Open times
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          disabled={isDeleting && deletingId === row.id}
+                          onClick={() => onDelete(row)}
+                        >
+                          Delete
                         </Button>
                       </div>
                     </td>

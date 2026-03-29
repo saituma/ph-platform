@@ -12,6 +12,7 @@ import {
   listBookingsForUser,
   listServiceTypes,
   updateServiceType,
+  deleteServiceType,
 } from "../services/booking.service";
 import { assertUserCanCreateBooking } from "../services/booking-eligibility.service";
 import { getGuardianAndAthlete } from "../services/user.service";
@@ -91,6 +92,27 @@ export async function createService(req: Request, res: Response) {
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });
+}
+
+export async function deleteService(req: Request, res: Response) {
+  const serviceId = Number(req.params.id);
+  if (!serviceId) {
+    return res.status(400).json({ error: "Invalid service id" });
+  }
+  try {
+    const deleted = await deleteServiceType(serviceId);
+    return res.status(200).json({ deleted });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to delete";
+    if (msg === "Service type not found") {
+      return res.status(404).json({ error: msg });
+    }
+    if (msg.startsWith("Cannot delete")) {
+      return res.status(409).json({ error: msg });
+    }
+    console.error(err);
+    return res.status(500).json({ error: "Failed to delete service" });
+  }
 }
 
 export async function updateService(req: Request, res: Response) {

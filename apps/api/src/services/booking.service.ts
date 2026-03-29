@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, inArray } from "drizzle-orm";
+import { and, count, eq, gte, lte, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -144,6 +144,31 @@ export async function updateServiceType(
     .returning();
 
   return updated;
+}
+
+export async function deleteServiceType(id: number) {
+  const existing = await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.id, id)).limit(1);
+  if (!existing[0]) {
+    throw new Error("Service type not found");
+  }
+
+  const [bookingAgg] = await db
+    .select({ n: count() })
+    .from(bookingTable)
+    .where(eq(bookingTable.serviceTypeId, id));
+  const bookingCount = Number(bookingAgg?.n ?? 0);
+  if (bookingCount > 0) {
+    throw new Error(
+      "Cannot delete this service because it has bookings. Deactivate it instead, or remove or reassign those bookings first.",
+    );
+  }
+
+  await db.delete(availabilityBlockTable).where(eq(availabilityBlockTable.serviceTypeId, id));
+  const [deleted] = await db.delete(serviceTypeTable).where(eq(serviceTypeTable.id, id)).returning();
+  if (!deleted) {
+    throw new Error("Service type not found");
+  }
+  return deleted;
 }
 
 export async function createAvailabilityBlock(input: {

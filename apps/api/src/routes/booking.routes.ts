@@ -7,6 +7,7 @@ import {
   createAvailability,
   createBookingForUser,
   createService,
+  deleteService,
   listAvailability,
   listBookings,
   listServices,
@@ -19,6 +20,7 @@ router.get("/public/booking-action", bookingAction);
 router.get("/bookings/services", requireAuth, listServices);
 router.post("/bookings/services", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createService);
 router.patch("/bookings/services/:id", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateService);
+router.delete("/bookings/services/:id", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteService);
 router.get("/bookings/availability", requireAuth, listAvailability);
 router.post("/bookings/availability", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createAvailability);
 router.post("/bookings", requireAuth, createBookingForUser);
