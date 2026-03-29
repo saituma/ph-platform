@@ -44,6 +44,7 @@ export async function createServiceType(input: {
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;
   programTier?: "PHP" | "PHP_Plus" | "PHP_Premium" | null;
+  isActive?: boolean | null;
   createdBy: number;
 }) {
   const fixedStartTime =
@@ -76,6 +77,7 @@ export async function createServiceType(input: {
       defaultLocation: input.defaultLocation ?? null,
       defaultMeetingLink: input.defaultMeetingLink ?? null,
       programTier,
+      isActive: input.isActive ?? true,
       createdBy: input.createdBy,
     })
     .returning();

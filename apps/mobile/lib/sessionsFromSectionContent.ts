@@ -54,6 +54,35 @@ export function sessionsFromSectionContentForTab(
     groups.get(key)!.push(row);
   }
 
+  // Exercises with no week/session/label used to land in `1__id-124`-style keys → a separate
+  // "Session" chip athletes never open. Fold them into that week's primary numbered session (n1, or lowest n*).
+  const orphanKeyRe = /^(\d+)__id-\d+$/;
+  const orphanKeys = [...groups.keys()].filter((k) => orphanKeyRe.test(k));
+  for (const ok of orphanKeys) {
+    const match = /^(\d+)__id-\d+$/.exec(ok);
+    if (!match) continue;
+    const weekNum = Number(match[1]);
+    const orphanRows = groups.get(ok);
+    if (!orphanRows?.length) continue;
+
+    const numberedKeys = [...groups.keys()].filter(
+      (k) => k.startsWith(`${weekNum}__n`) && /^\d+__n\d+$/.test(k),
+    );
+    numberedKeys.sort((a, b) => {
+      const na = Number(a.split("__n")[1] ?? 0);
+      const nb = Number(b.split("__n")[1] ?? 0);
+      return na - nb;
+    });
+    const targetKey =
+      numberedKeys.find((k) => k === `${weekNum}__n1`) ?? numberedKeys[0] ?? `${weekNum}__n1`;
+
+    const combined = [...(groups.get(targetKey) ?? []), ...orphanRows].sort(
+      (a, b) => (a.order ?? a.id) - (b.order ?? b.id),
+    );
+    groups.set(targetKey, combined);
+    groups.delete(ok);
+  }
+
   const sessions: SessionItem[] = [];
   const sortedKeys = [...groups.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   for (const key of sortedKeys) {

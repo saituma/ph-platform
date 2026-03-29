@@ -10,6 +10,7 @@ import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
+import { BookingServicesPanel } from "../../components/admin/bookings/booking-services-panel";
 import { BookingsDialogs, type BookingsDialog } from "../../components/admin/bookings/bookings-dialogs";
 import { BookingsFilters } from "../../components/admin/bookings/bookings-filters";
 import { BookingsList } from "../../components/admin/bookings/bookings-list";
@@ -50,7 +51,8 @@ type ServiceType = {
 export default function BookingsPage() {
   const [activeDialog, setActiveDialog] = useState<BookingsDialog>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
-  const [selectedService, setSelectedService] = useState<any | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
+  const [openSlotsInitialServiceId, setOpenSlotsInitialServiceId] = useState("");
   const [activeChip, setActiveChip] = useState<string>("All");
   const [selectedDateKey, setSelectedDateKey] = useState<string>(() => {
     const now = new Date();
@@ -176,7 +178,7 @@ export default function BookingsPage() {
   return (
     <AdminShell
       title="Bookings"
-      subtitle="Offer sessions, open times, and manage client bookings."
+      subtitle="Manage bookable services, open times, and client bookings."
     >
       <Card>
         <CardHeader className="space-y-4">
@@ -289,24 +291,38 @@ export default function BookingsPage() {
         </div>
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="lg:col-span-2 w-full min-w-0">
           <CardHeader>
             <SectionHeader
-              title="Bookable sessions"
-              description="Create what clients book and when they can book it — one flow. Opens the same slots families see in the app."
+              title="Services"
+              description="See every bookable session type, edit details, turn visibility on or off, and publish availability."
             />
           </CardHeader>
-          <CardContent className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button onClick={() => setActiveDialog("offer-bookable-session")}>New bookable session</Button>
-            <Button variant="outline" onClick={() => setActiveDialog("open-slots")}>
-              Add times to existing session
-            </Button>
-            <Button variant="ghost" className="text-muted-foreground" onClick={() => setActiveDialog("new-service")}>
-              Session type only
-            </Button>
+          <CardContent>
+            <BookingServicesPanel
+              services={services}
+              isLoading={servicesLoading}
+              onAddService={() => setActiveDialog("new-service")}
+              onEditService={(s) => {
+                setSelectedService(s);
+                setActiveDialog("edit-service");
+              }}
+              onOpenSlots={(id) => {
+                setOpenSlotsInitialServiceId(String(id));
+                setActiveDialog("open-slots");
+              }}
+              onOpenSlotsAny={() => {
+                setOpenSlotsInitialServiceId("");
+                setActiveDialog("open-slots");
+              }}
+              onRefetch={() => {
+                refetchServices();
+                refetchBookings();
+              }}
+            />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-start-2">
           <CardHeader>
             <SectionHeader title="Book for a client" description="Place a booking as admin (bypasses availability if needed)." />
           </CardHeader>
@@ -401,9 +417,11 @@ export default function BookingsPage() {
 
       <BookingsDialogs
         active={activeDialog}
+        openSlotsInitialServiceId={openSlotsInitialServiceId}
         onClose={() => {
           setActiveDialog(null);
           setSelectedService(null);
+          setOpenSlotsInitialServiceId("");
         }}
         bookings={bookings}
         selectedBooking={selectedBooking}
