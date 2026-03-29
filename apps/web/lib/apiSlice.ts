@@ -226,7 +226,7 @@ export const apiSlice = createApi({
       providesTags: ["Services"],
     }),
     getBookingAvailability: builder.query<
-      { items: any[]; bookings?: any[] },
+      { items: any[]; bookings?: any[]; slots?: string[] },
       { serviceTypeId: number; from: string; to: string }
     >({
       query: ({ serviceTypeId, from, to }) => {
