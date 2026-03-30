@@ -39,7 +39,6 @@ export async function createServiceType(input: {
   type: ServiceTypeKind;
   durationMinutes: number;
   capacity?: number | null;
-  fixedStartTime?: string | null;
   attendeeVisibility?: boolean | null;
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;
@@ -47,15 +46,6 @@ export async function createServiceType(input: {
   isActive?: boolean | null;
   createdBy: number;
 }) {
-  const fixedStartTime =
-    input.type === "role_model"
-      ? input.fixedStartTime && input.fixedStartTime !== "13:00"
-        ? (() => {
-            throw new Error("Role model calls must be fixed at 13:00");
-          })()
-        : "13:00"
-      : input.fixedStartTime ?? null;
-
   const programTier =
     input.type === "role_model"
       ? input.programTier && input.programTier !== "PHP_Premium"
@@ -72,7 +62,7 @@ export async function createServiceType(input: {
       type: input.type,
       durationMinutes: input.durationMinutes,
       capacity: input.capacity ?? null,
-      fixedStartTime,
+      fixedStartTime: null,
       attendeeVisibility: input.attendeeVisibility ?? true,
       defaultLocation: input.defaultLocation ?? null,
       defaultMeetingLink: input.defaultMeetingLink ?? null,
@@ -92,7 +82,6 @@ export async function updateServiceType(
     type?: ServiceTypeKind | null;
     durationMinutes?: number | null;
     capacity?: number | null;
-    fixedStartTime?: string | null;
     attendeeVisibility?: boolean | null;
     defaultLocation?: string | null;
     defaultMeetingLink?: string | null;
@@ -106,15 +95,6 @@ export async function updateServiceType(
   }
 
   const nextType = input.type ?? existing[0].type;
-
-  const fixedStartTime =
-    nextType === "role_model"
-      ? input.fixedStartTime && input.fixedStartTime !== "13:00"
-        ? (() => {
-            throw new Error("Role model calls must be fixed at 13:00");
-          })()
-        : "13:00"
-      : input.fixedStartTime ?? existing[0].fixedStartTime ?? null;
 
   const programTier =
     nextType === "role_model"
@@ -132,7 +112,7 @@ export async function updateServiceType(
       type: nextType,
       durationMinutes: input.durationMinutes ?? existing[0].durationMinutes,
       capacity: input.capacity ?? existing[0].capacity ?? null,
-      fixedStartTime,
+      fixedStartTime: null,
       attendeeVisibility: input.attendeeVisibility ?? existing[0].attendeeVisibility ?? true,
       defaultLocation: input.defaultLocation ?? existing[0].defaultLocation ?? null,
       defaultMeetingLink: input.defaultMeetingLink ?? existing[0].defaultMeetingLink ?? null,
@@ -263,67 +243,6 @@ export async function createBooking(input: {
   const serviceType = await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.id, input.serviceTypeId)).limit(1);
   if (!serviceType[0]) {
     throw new Error("Service type not found");
-  }
-
-  const formatTime = (value: Date, useUtc: boolean) => {
-    const hours = useUtc ? value.getUTCHours() : value.getHours();
-    const minutes = useUtc ? value.getUTCMinutes() : value.getMinutes();
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-  };
-  const parseTimeToMinutes = (value?: string | null) => {
-    if (!value) return null;
-    const trimmed = value.trim().toLowerCase();
-    if (!trimmed) return null;
-    const ampmMatch = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
-    if (ampmMatch) {
-      let hour = Number(ampmMatch[1]);
-      const minute = Number(ampmMatch[2] ?? "00");
-      if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return null;
-      const period = ampmMatch[3];
-      if (hour === 12) hour = 0;
-      if (period === "pm") hour += 12;
-      return hour * 60 + minute;
-    }
-    const timeMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-    if (!timeMatch) return null;
-    const hour = Number(timeMatch[1]);
-    const minute = Number(timeMatch[2]);
-    if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-      return null;
-    }
-    return hour * 60 + minute;
-  };
-
-  const startTimeUtc = formatTime(input.startsAt, true);
-  const startTimeLocal = formatTime(input.startsAt, false);
-  const startTimeOffset = Number.isFinite(input.timezoneOffsetMinutes)
-    ? (() => {
-        const offsetMs = Number(input.timezoneOffsetMinutes) * 60 * 1000;
-        const localDate = new Date(input.startsAt.getTime() - offsetMs);
-        return formatTime(localDate, true);
-      })()
-    : "";
-  const startTimeOffsetInverse = Number.isFinite(input.timezoneOffsetMinutes)
-    ? (() => {
-        const offsetMs = Number(input.timezoneOffsetMinutes) * 60 * 1000;
-        const localDate = new Date(input.startsAt.getTime() + offsetMs);
-        return formatTime(localDate, true);
-      })()
-    : "";
-
-  const fixedStartTime = serviceType[0].fixedStartTime ?? null;
-  const matchesFixed = (fixed: string) => {
-    const fixedMinutes = parseTimeToMinutes(fixed);
-    if (fixedMinutes === null) return false;
-    const candidates = [startTimeUtc, startTimeLocal, startTimeOffset, startTimeOffsetInverse].filter(Boolean);
-    return candidates.some((time) => parseTimeToMinutes(time) === fixedMinutes);
-  };
-  if (fixedStartTime) {
-    if (!matchesFixed(fixedStartTime)) {
-      throw new Error("Invalid start time");
-    }
-  } else if (serviceType[0].type === "role_model" && !matchesFixed("13:00")) {
-    throw new Error("Role model calls must be fixed at 13:00");
   }
 
   if (serviceType[0].capacity) {

@@ -27,14 +27,6 @@ const serviceTypeSchema = z.object({
   capacity: z
     .preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1))
     .optional(),
-  fixedStartTime: z
-    .string()
-    .transform((val) => val?.trim() || "")
-    .refine((val) => val === "" || /^\d{2}:\d{2}$/.test(val), {
-      message: "Invalid time format (HH:MM)",
-    })
-    .optional()
-    .nullable(),
   attendeeVisibility: z.boolean().optional(),
   defaultLocation: z.string().optional().nullable(),
   defaultMeetingLink: z.string().optional().nullable(),
@@ -83,7 +75,6 @@ export async function createService(req: Request, res: Response) {
     type: input.type,
     durationMinutes: input.durationMinutes,
     capacity: input.capacity,
-    fixedStartTime: input.fixedStartTime,
     attendeeVisibility: input.attendeeVisibility,
     defaultLocation: input.defaultLocation,
     defaultMeetingLink: input.defaultMeetingLink,
@@ -188,11 +179,9 @@ export async function createBookingForUser(req: Request, res: Response) {
       });
     }
     const knownErrors = [
-      "Invalid start time",
       "Capacity reached",
       "Service type not found",
       "Selected time is not available",
-      "Role model calls must be fixed at 13:00",
     ];
     if (knownErrors.includes(error?.message)) {
       return res.status(400).json({ error: error.message });

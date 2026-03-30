@@ -21,7 +21,6 @@ export type BookingServiceRow = {
   type: string;
   durationMinutes: number;
   capacity?: number | null;
-  fixedStartTime?: string | null;
   programTier?: string | null;
   isActive?: boolean | null;
 };
@@ -131,7 +130,6 @@ export function BookingServicesPanel({
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Duration</th>
                 <th className="px-4 py-3">Capacity</th>
-                <th className="px-4 py-3">Fixed</th>
                 <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Active</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -154,7 +152,6 @@ export function BookingServicesPanel({
                     <td className="px-4 py-3 text-muted-foreground">
                       {row.capacity != null ? row.capacity : "∞"}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.fixedStartTime ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{tier}</td>
                     <td className="px-4 py-3">
                       <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">

@@ -35,8 +35,6 @@ async function publishAvailabilityBlocks(
   opts: {
     serviceTypeId: number;
     durationMinutes: number;
-    fixedStartTime?: string | null;
-    type: string;
     startDate: string;
     endDate: string;
     startHour: string;
@@ -45,43 +43,10 @@ async function publishAvailabilityBlocks(
     endMinute: string;
   },
 ): Promise<void> {
-  const fixed = opts.fixedStartTime ?? (opts.type === "role_model" ? "13:00" : "");
   const padValue = (value: string) => value.padStart(2, "0");
   const duration = opts.durationMinutes;
   if (!duration || duration <= 0) {
     throw new Error("Service needs a valid duration.");
-  }
-
-  if (fixed) {
-    const [hour, minute] = fixed.split(":");
-    const startDate = new Date(opts.startDate);
-    const endDate = new Date(opts.endDate);
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error("Invalid date.");
-    }
-    if (endDate < startDate) {
-      throw new Error("End date must be after start date.");
-    }
-    const days: Date[] = [];
-    const cursor = new Date(startDate);
-    cursor.setHours(0, 0, 0, 0);
-    const endCursor = new Date(endDate);
-    endCursor.setHours(0, 0, 0, 0);
-    while (cursor <= endCursor) {
-      days.push(new Date(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    for (const day of days) {
-      const startsAt = new Date(day);
-      startsAt.setHours(Number(hour), Number(minute), 0, 0);
-      const endsAt = new Date(startsAt.getTime() + duration * 60000);
-      await createAvailability({
-        serviceTypeId: opts.serviceTypeId,
-        startsAt: startsAt.toISOString(),
-        endsAt: endsAt.toISOString(),
-      }).unwrap();
-    }
-    return;
   }
 
   if (!opts.startHour || !opts.startMinute || !opts.endHour || !opts.endMinute) {
@@ -120,7 +85,6 @@ type ServiceType = {
   type: string;
   durationMinutes: number;
   capacity?: number | null;
-  fixedStartTime?: string | null;
   attendeeVisibility?: boolean | null;
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;
@@ -223,9 +187,6 @@ export function BookingsDialogs({
   const [serviceType, setServiceType] = useState("group_call");
   const [durationMinutes, setDurationMinutes] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [fixedStartTime, setFixedStartTime] = useState("");
-  const [fixedStartHour, setFixedStartHour] = useState("");
-  const [fixedStartMinute, setFixedStartMinute] = useState("");
   const [programTier, setProgramTier] = useState("");
   const [attendeeVisibility, setAttendeeVisibility] = useState(true);
   const [defaultLocation, setDefaultLocation] = useState("");
@@ -258,20 +219,6 @@ export function BookingsDialogs({
     () => services.find((service) => String(service.id) === availabilityServiceId) ?? null,
     [services, availabilityServiceId],
   );
-  const availabilityFixedTime = useMemo(() => {
-    if (availabilityService?.fixedStartTime) return availabilityService.fixedStartTime;
-    if (availabilityService?.type === "role_model") return "13:00";
-    return "";
-  }, [availabilityService]);
-
-  useEffect(() => {
-    if (serviceType === "role_model") {
-      setFixedStartTime("13:00");
-      setFixedStartHour("13");
-      setFixedStartMinute("00");
-      setProgramTier((prev) => prev || "PHP_Premium");
-    }
-  }, [serviceType]);
 
   useEffect(() => {
     if (active === "new-service") {
@@ -279,9 +226,6 @@ export function BookingsDialogs({
       setServiceType("group_call");
       setDurationMinutes("");
       setCapacity("");
-      setFixedStartTime("");
-      setFixedStartHour("");
-      setFixedStartMinute("");
       setProgramTier("");
       setAttendeeVisibility(true);
       setDefaultLocation("");
@@ -322,10 +266,6 @@ export function BookingsDialogs({
       setServiceType(selectedService.type ?? "group_call");
       setDurationMinutes(String(selectedService.durationMinutes ?? 30));
       setCapacity(selectedService.capacity ? String(selectedService.capacity) : "");
-      const startTime = selectedService.fixedStartTime ?? "";
-      setFixedStartTime(startTime);
-      setFixedStartHour(startTime ? startTime.split(":")[0] : "");
-      setFixedStartMinute(startTime ? startTime.split(":")[1] : "");
       setProgramTier(selectedService.programTier ?? "");
       setAttendeeVisibility(selectedService.attendeeVisibility ?? true);
       setDefaultLocation(selectedService.defaultLocation ?? "");
@@ -333,17 +273,6 @@ export function BookingsDialogs({
       setServiceIsActive(selectedService.isActive ?? true);
     }
   }, [active, selectedService, openSlotsInitialServiceId]);
-
-  useEffect(() => {
-    if (active !== "new-booking") return;
-    const service = services.find((item) => String(item.id) === bookingServiceId);
-    const fixedStart = service?.fixedStartTime ?? "";
-    if (fixedStart) {
-      const [hour, minute] = fixedStart.split(":");
-      setBookingHour(hour ?? "");
-      setBookingMinute(minute ?? "");
-    }
-  }, [active, bookingServiceId, services]);
 
   const filteredGuardians = useMemo(() => {
     const guardians = users.filter((user) => user.role === "guardian");
@@ -461,54 +390,6 @@ export function BookingsDialogs({
                   Number of parents allowed per time slot. Leave blank for unlimited.
                 </div>
               </div>
-              <div className="grid gap-2">
-                <div className="text-xs text-muted-foreground">Fixed start time</div>
-                <div className="flex gap-2">
-                  <Select
-                    value={fixedStartHour}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFixedStartHour(value);
-                      if (value && fixedStartMinute) {
-                        setFixedStartTime(`${value}:${fixedStartMinute}`);
-                      } else {
-                        setFixedStartTime("");
-                      }
-                    }}
-                    disabled={serviceType === "role_model"}
-                  >
-                    <option value="">Hour</option>
-                    {Array.from({ length: 24 }).map((_, idx) => {
-                      const value = String(idx).padStart(2, "0");
-                      return (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      );
-                    })}
-                  </Select>
-                  <Select
-                    value={fixedStartMinute}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFixedStartMinute(value);
-                      if (fixedStartHour && value) {
-                        setFixedStartTime(`${fixedStartHour}:${value}`);
-                      } else {
-                        setFixedStartTime("");
-                      }
-                    }}
-                    disabled={serviceType === "role_model"}
-                  >
-                    <option value="">Min</option>
-                    {["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
               <Select value={programTier} onChange={(e) => setProgramTier(e.target.value)}>
                 <option value="">Program tier (optional)</option>
                 <option value="PHP">PHP</option>
@@ -553,7 +434,6 @@ export function BookingsDialogs({
                           type: serviceType,
                           durationMinutes: Number(durationMinutes),
                           capacity: capacity ? Number(capacity) : undefined,
-                          fixedStartTime: fixedStartTime || undefined,
                           attendeeVisibility,
                           defaultLocation: defaultLocation || undefined,
                           defaultMeetingLink: undefined,
@@ -568,7 +448,6 @@ export function BookingsDialogs({
                             type: serviceType,
                             durationMinutes: Number(durationMinutes),
                             capacity: capacity ? Number(capacity) : null,
-                            fixedStartTime: fixedStartTime || null,
                             attendeeVisibility,
                             defaultLocation: defaultLocation || null,
                             defaultMeetingLink: null,
@@ -653,7 +532,6 @@ export function BookingsDialogs({
                     placeholder="Hour"
                     value={bookingHour}
                     onChange={(e) => setBookingHour(e.target.value)}
-                    disabled={Boolean(services.find((item) => String(item.id) === bookingServiceId)?.fixedStartTime)}
                   />
                   <Input
                     type="number"
@@ -662,7 +540,6 @@ export function BookingsDialogs({
                     placeholder="Min"
                     value={bookingMinute}
                     onChange={(e) => setBookingMinute(e.target.value)}
-                    disabled={Boolean(services.find((item) => String(item.id) === bookingServiceId)?.fixedStartTime)}
                   />
                 </div>
               </div>
@@ -738,29 +615,17 @@ export function BookingsDialogs({
             <>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input type="date" placeholder="Start date" value={availabilityStartDate} onChange={(e) => setAvailabilityStartDate(e.target.value)} />
-                {availabilityFixedTime ? (
-                  <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-                    Fixed time at {availabilityFixedTime}.
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityStartHour} onChange={(e) => setAvailabilityStartHour(e.target.value)} />
-                    <Input type="number" min={0} max={59} placeholder="Min" value={availabilityStartMinute} onChange={(e) => setAvailabilityStartMinute(e.target.value)} />
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityStartHour} onChange={(e) => setAvailabilityStartHour(e.target.value)} />
+                  <Input type="number" min={0} max={59} placeholder="Min" value={availabilityStartMinute} onChange={(e) => setAvailabilityStartMinute(e.target.value)} />
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input type="date" placeholder="End date" value={availabilityEndDate} onChange={(e) => setAvailabilityEndDate(e.target.value)} />
-                {availabilityFixedTime ? (
-                  <div className="rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-                    End time uses service duration.
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityEndHour} onChange={(e) => setAvailabilityEndHour(e.target.value)} />
-                    <Input type="number" min={0} max={59} placeholder="Min" value={availabilityEndMinute} onChange={(e) => setAvailabilityEndMinute(e.target.value)} />
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityEndHour} onChange={(e) => setAvailabilityEndHour(e.target.value)} />
+                  <Input type="number" min={0} max={59} placeholder="Min" value={availabilityEndMinute} onChange={(e) => setAvailabilityEndMinute(e.target.value)} />
+                </div>
               </div>
               <Select value={availabilityServiceId} onChange={(e) => setAvailabilityServiceId(e.target.value)}>
                 <option value="">Service type</option>
@@ -796,8 +661,6 @@ export function BookingsDialogs({
                       await publishAvailabilityBlocks(createAvailability as CreateAvailabilityTrigger, {
                         serviceTypeId: Number(availabilityServiceId),
                         durationMinutes: duration,
-                        fixedStartTime: availabilityFixedTime || service?.fixedStartTime,
-                        type: service?.type ?? "",
                         startDate: availabilityStartDate,
                         endDate: availabilityEndDate,
                         startHour: availabilityStartHour,

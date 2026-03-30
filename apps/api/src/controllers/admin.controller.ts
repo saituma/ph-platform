@@ -676,15 +676,6 @@ export async function createBookingAdmin(req: Request, res: Response) {
   }
   let startsAt = new Date(input.startsAt);
   let endsAt = new Date(input.endsAt);
-  const fixedStartTime = service.fixedStartTime ?? (service.type === "role_model" ? "13:00" : null);
-  if (fixedStartTime) {
-    const [hour, minute] = fixedStartTime.split(":").map((value) => Number(value));
-    if (Number.isFinite(hour) && Number.isFinite(minute)) {
-      startsAt = new Date(startsAt);
-      startsAt.setHours(hour, minute, 0, 0);
-      endsAt = new Date(startsAt.getTime() + Number(service.durationMinutes) * 60000);
-    }
-  }
 
   const booking = await createBooking({
     athleteId: athlete.id,
