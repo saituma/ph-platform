@@ -248,6 +248,7 @@ export const trainingModuleTable = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     age: integer().notNull(),
+    audienceLabel: varchar({ length: 64 }).notNull().default("All"),
     title: varchar({ length: 255 }).notNull(),
     order: integer().notNull().default(1),
     createdBy: integer().notNull().references(() => userTable.id),
@@ -308,6 +309,7 @@ export const trainingOtherContentTable = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     age: integer().notNull(),
+    audienceLabel: varchar({ length: 64 }).notNull().default("All"),
     type: trainingOtherType().notNull(),
     title: varchar({ length: 255 }).notNull(),
     body: text().notNull(),

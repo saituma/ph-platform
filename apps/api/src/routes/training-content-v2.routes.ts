@@ -14,6 +14,7 @@ import {
   finishTrainingSessionHandler,
   getTrainingContentAdminWorkspaceHandler,
   getTrainingContentMobileWorkspaceHandler,
+  listTrainingAudiencesHandler,
   updateTrainingModuleHandler,
   updateTrainingOtherContentHandler,
   updateTrainingSessionHandler,
@@ -22,6 +23,7 @@ import {
 
 const router = Router();
 
+router.get("/training-content-v2/admin/audiences", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listTrainingAudiencesHandler);
 router.get("/training-content-v2/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]), getTrainingContentAdminWorkspaceHandler);
 router.get("/training-content-v2/mobile", requireAuth, getTrainingContentMobileWorkspaceHandler);
 router.post("/training-content-v2/mobile/sessions/:sessionId/finish", requireAuth, finishTrainingSessionHandler);

@@ -38,6 +38,53 @@ const BLOCK_ORDER: Record<(typeof trainingSessionBlockType.enumValues)[number], 
   cooldown: 3,
 };
 
+function normalizeAudienceLabel(input: string) {
+  const cleaned = input.trim().replace(/\s+/g, " ");
+  if (!cleaned) return "All";
+  if (/^all$/i.test(cleaned)) return "All";
+  const rangeMatch = cleaned.match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
+  if (rangeMatch) {
+    const start = Number(rangeMatch[1]);
+    const end = Number(rangeMatch[2]);
+    const min = Math.min(start, end);
+    const max = Math.max(start, end);
+    return `${min}-${max}`;
+  }
+  const exactMatch = cleaned.match(/^(\d{1,2})$/);
+  if (exactMatch) {
+    return String(Number(exactMatch[1]));
+  }
+  return cleaned;
+}
+
+function audienceMatchesAge(label: string, age: number) {
+  const normalized = normalizeAudienceLabel(label);
+  if (normalized === "All") return true;
+  const exact = normalized.match(/^(\d{1,2})$/);
+  if (exact) return Number(exact[1]) === age;
+  const range = normalized.match(/^(\d{1,2})-(\d{1,2})$/);
+  if (range) {
+    const min = Number(range[1]);
+    const max = Number(range[2]);
+    return age >= min && age <= max;
+  }
+  return false;
+}
+
+function audienceScore(label: string, age: number) {
+  const normalized = normalizeAudienceLabel(label);
+  if (!audienceMatchesAge(normalized, age)) return -1;
+  if (normalized === "All") return 1;
+  const exact = normalized.match(/^(\d{1,2})$/);
+  if (exact) return 1000;
+  const range = normalized.match(/^(\d{1,2})-(\d{1,2})$/);
+  if (range) {
+    const span = Number(range[2]) - Number(range[1]);
+    return 500 - span;
+  }
+  return 10;
+}
+
 function sortItemsByBlockThenOrder<T extends { blockType: string; order: number | null }>(items: T[]) {
   return [...items].sort((a, b) => {
     const blockA = BLOCK_ORDER[a.blockType as keyof typeof BLOCK_ORDER] ?? 99;
@@ -47,11 +94,11 @@ function sortItemsByBlockThenOrder<T extends { blockType: string; order: number 
   });
 }
 
-async function getNextModuleOrder(age: number) {
+async function getNextModuleOrder(audienceLabel: string) {
   const rows = await db
     .select({ order: trainingModuleTable.order })
     .from(trainingModuleTable)
-    .where(eq(trainingModuleTable.age, age));
+    .where(eq(trainingModuleTable.audienceLabel, audienceLabel));
   return (rows.reduce((max, row) => Math.max(max, row.order ?? 0), 0) || 0) + 1;
 }
 
@@ -75,11 +122,11 @@ async function getNextItemOrder(sessionId: number, blockType: (typeof trainingSe
   ) + 1;
 }
 
-async function getNextOtherOrder(age: number, type: (typeof trainingOtherType.enumValues)[number]) {
+async function getNextOtherOrder(audienceLabel: string, type: (typeof trainingOtherType.enumValues)[number]) {
   const rows = await db
     .select({ order: trainingOtherContentTable.order, type: trainingOtherContentTable.type })
     .from(trainingOtherContentTable)
-    .where(eq(trainingOtherContentTable.age, age));
+    .where(eq(trainingOtherContentTable.audienceLabel, audienceLabel));
   return (
     rows
       .filter((row) => row.type === type)
@@ -87,12 +134,40 @@ async function getNextOtherOrder(age: number, type: (typeof trainingOtherType.en
   ) + 1;
 }
 
-export async function listTrainingContentAdminWorkspace(age: number) {
+export async function listTrainingAudiences() {
+  const [modules, others] = await Promise.all([
+    db
+      .select({ audienceLabel: trainingModuleTable.audienceLabel, id: trainingModuleTable.id })
+      .from(trainingModuleTable),
+    db
+      .select({ audienceLabel: trainingOtherContentTable.audienceLabel, id: trainingOtherContentTable.id })
+      .from(trainingOtherContentTable),
+  ]);
+
+  const byAudience = new Map<string, { label: string; moduleCount: number; otherCount: number }>();
+  for (const row of modules) {
+    const label = normalizeAudienceLabel(row.audienceLabel);
+    const current = byAudience.get(label) ?? { label, moduleCount: 0, otherCount: 0 };
+    current.moduleCount += 1;
+    byAudience.set(label, current);
+  }
+  for (const row of others) {
+    const label = normalizeAudienceLabel(row.audienceLabel);
+    const current = byAudience.get(label) ?? { label, moduleCount: 0, otherCount: 0 };
+    current.otherCount += 1;
+    byAudience.set(label, current);
+  }
+
+  return [...byAudience.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+}
+
+export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
+  const normalizedAudienceLabel = normalizeAudienceLabel(audienceLabel);
   const [modules, sessions, items, others] = await Promise.all([
     db
       .select()
       .from(trainingModuleTable)
-      .where(eq(trainingModuleTable.age, age))
+      .where(eq(trainingModuleTable.audienceLabel, normalizedAudienceLabel))
       .orderBy(asc(trainingModuleTable.order), asc(trainingModuleTable.id)),
     db
       .select()
@@ -105,7 +180,7 @@ export async function listTrainingContentAdminWorkspace(age: number) {
     db
       .select()
       .from(trainingOtherContentTable)
-      .where(eq(trainingOtherContentTable.age, age))
+      .where(eq(trainingOtherContentTable.audienceLabel, normalizedAudienceLabel))
       .orderBy(asc(trainingOtherContentTable.type), asc(trainingOtherContentTable.order), asc(trainingOtherContentTable.id)),
   ]);
 
@@ -115,7 +190,7 @@ export async function listTrainingContentAdminWorkspace(age: number) {
   const filteredItems = items.filter((item) => sessionIds.has(item.sessionId));
 
   return {
-    age,
+    audienceLabel: normalizedAudienceLabel,
     modules: modules.map((module) => {
       const moduleSessions = filteredSessions
         .filter((session) => session.moduleId === module.id)
@@ -125,6 +200,7 @@ export async function listTrainingContentAdminWorkspace(age: number) {
         }));
       return {
         ...module,
+        audienceLabel: normalizedAudienceLabel,
         totalDayLength: moduleSessions.reduce((sum, session) => sum + (session.dayLength ?? 0), 0),
         sessions: moduleSessions,
       };
@@ -137,12 +213,19 @@ export async function listTrainingContentAdminWorkspace(age: number) {
   };
 }
 
-export async function createTrainingModule(input: { age: number; title: string; createdBy: number; order?: number | null }) {
-  const order = input.order ?? (await getNextModuleOrder(input.age));
+export async function createTrainingModule(input: {
+  audienceLabel: string;
+  title: string;
+  createdBy: number;
+  order?: number | null;
+}) {
+  const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
+  const order = input.order ?? (await getNextModuleOrder(normalizedAudienceLabel));
   const [row] = await db
     .insert(trainingModuleTable)
     .values({
-      age: input.age,
+      age: 0,
+      audienceLabel: normalizedAudienceLabel,
       title: input.title.trim(),
       order,
       createdBy: input.createdBy,
@@ -169,15 +252,11 @@ export async function deleteTrainingModule(id: number) {
     .select({ id: trainingModuleSessionTable.id })
     .from(trainingModuleSessionTable)
     .where(eq(trainingModuleSessionTable.moduleId, id));
-  const sessionIds = sessions.map((row) => row.id);
-  if (sessionIds.length) {
-    await db.delete(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.sessionId, sessionIds[0]!));
-    for (const sessionId of sessionIds) {
-      await db.delete(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.sessionId, sessionId));
-      await db.delete(trainingSessionItemTable).where(eq(trainingSessionItemTable.sessionId, sessionId));
-    }
-    await db.delete(trainingModuleSessionTable).where(eq(trainingModuleSessionTable.moduleId, id));
+  for (const session of sessions) {
+    await db.delete(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.sessionId, session.id));
+    await db.delete(trainingSessionItemTable).where(eq(trainingSessionItemTable.sessionId, session.id));
   }
+  await db.delete(trainingModuleSessionTable).where(eq(trainingModuleSessionTable.moduleId, id));
   const [row] = await db.delete(trainingModuleTable).where(eq(trainingModuleTable.id, id)).returning();
   return row ?? null;
 }
@@ -289,7 +368,7 @@ export async function deleteTrainingSessionItem(id: number) {
 }
 
 export async function createTrainingOtherContent(input: {
-  age: number;
+  audienceLabel: string;
   type: (typeof trainingOtherType.enumValues)[number];
   title: string;
   body: string;
@@ -299,11 +378,13 @@ export async function createTrainingOtherContent(input: {
   createdBy: number;
   order?: number | null;
 }) {
-  const order = input.order ?? (await getNextOtherOrder(input.age, input.type));
+  const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
+  const order = input.order ?? (await getNextOtherOrder(normalizedAudienceLabel, input.type));
   const [row] = await db
     .insert(trainingOtherContentTable)
     .values({
-      age: input.age,
+      age: 0,
+      audienceLabel: normalizedAudienceLabel,
       type: input.type,
       title: input.title.trim(),
       body: input.body.trim(),
@@ -350,7 +431,14 @@ export async function deleteTrainingOtherContent(id: number) {
 }
 
 export async function getTrainingContentMobileWorkspace(input: { age: number; athleteId: number | null }) {
-  const workspace = await listTrainingContentAdminWorkspace(input.age);
+  const audiences = await listTrainingAudiences();
+  const bestAudience = audiences
+    .map((item) => ({ ...item, score: audienceScore(item.label, input.age) }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) => b.score - a.score)[0];
+
+  const selectedAudienceLabel = bestAudience?.label ?? "All";
+  const workspace = await listTrainingContentAdminWorkspace(selectedAudienceLabel);
   const completionRows = input.athleteId
     ? await db
         .select()
@@ -375,9 +463,7 @@ export async function getTrainingContentMobileWorkspace(input: { age: number; at
         order: session.order,
         completed,
         locked,
-        items: sortItemsByBlockThenOrder(session.items).map((item) => ({
-          ...item,
-        })),
+        items: sortItemsByBlockThenOrder(session.items).map((item) => ({ ...item })),
       };
     });
     const completed = sessions.length > 0 && sessions.every((session) => session.completed);
@@ -397,9 +483,9 @@ export async function getTrainingContentMobileWorkspace(input: { age: number; at
   });
 
   const availableOtherSections = workspace.others.filter((group) => group.items.length > 0);
-
   return {
     age: input.age,
+    audienceLabel: selectedAudienceLabel,
     tabs: ["Modules", ...availableOtherSections.map((group) => group.label)],
     modules,
     others: availableOtherSections,

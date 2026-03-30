@@ -1,0 +1,153 @@
+"use client";
+
+export const TRAINING_CONTENT_V2_API_BASE = "/api/backend/training-content-v2";
+
+export type Metadata = {
+  sets?: number | null;
+  reps?: number | null;
+  duration?: number | null;
+  restSeconds?: number | null;
+  steps?: string | null;
+  cues?: string | null;
+  progression?: string | null;
+  regression?: string | null;
+  category?: string | null;
+  equipment?: string | null;
+};
+
+export type SessionItem = {
+  id: number;
+  sessionId: number;
+  blockType: string;
+  title: string;
+  body: string;
+  videoUrl?: string | null;
+  allowVideoUpload?: boolean;
+  metadata?: Metadata | null;
+  order: number;
+};
+
+export type ModuleSession = {
+  id: number;
+  moduleId: number;
+  title: string;
+  dayLength: number;
+  order: number;
+  items: SessionItem[];
+};
+
+export type Module = {
+  id: number;
+  audienceLabel: string;
+  title: string;
+  order: number;
+  totalDayLength: number;
+  sessions: ModuleSession[];
+};
+
+export type OtherItem = {
+  id: number;
+  audienceLabel: string;
+  type: string;
+  title: string;
+  body: string;
+  scheduleNote?: string | null;
+  videoUrl?: string | null;
+  order: number;
+};
+
+export type AudienceWorkspace = {
+  audienceLabel: string;
+  modules: Module[];
+  others: Array<{ type: string; label: string; items: OtherItem[] }>;
+};
+
+export type AudienceSummary = {
+  label: string;
+  moduleCount: number;
+  otherCount: number;
+};
+
+export const OTHER_TYPES = [
+  { value: "mobility", label: "Mobility" },
+  { value: "recovery", label: "Recovery" },
+  { value: "inseason", label: "In-Season Program" },
+  { value: "offseason", label: "Off-Season Program" },
+  { value: "education", label: "Education" },
+] as const;
+
+export const BLOCK_TYPES = [
+  { value: "warmup", label: "Warmup" },
+  { value: "main", label: "Main session" },
+  { value: "cooldown", label: "Cool down" },
+] as const;
+
+function getCsrfToken() {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("csrfToken="))
+      ?.split("=")[1] ?? ""
+  );
+}
+
+export async function trainingContentRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${TRAINING_CONTENT_V2_API_BASE}${path}`, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : {}),
+      ...(init?.headers ?? {}),
+    },
+    ...init,
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? "Request failed");
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+
+export function normalizeAudienceLabelInput(input: string) {
+  const cleaned = input.trim().replace(/\s+/g, " ");
+  if (!cleaned) return "All";
+  if (/^all$/i.test(cleaned)) return "All";
+  const range = cleaned.match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
+  if (range) {
+    const start = Number(range[1]);
+    const end = Number(range[2]);
+    return `${Math.min(start, end)}-${Math.max(start, end)}`;
+  }
+  const exact = cleaned.match(/^(\d{1,2})$/);
+  if (exact) return String(Number(exact[1]));
+  return cleaned;
+}
+
+export function buildMetadata(input: {
+  sets: string;
+  reps: string;
+  duration: string;
+  restSeconds: string;
+  steps: string;
+  cues: string;
+  progression: string;
+  regression: string;
+  category: string;
+  equipment: string;
+}) {
+  const metadata: Metadata = {};
+  if (input.sets.trim()) metadata.sets = Number(input.sets);
+  if (input.reps.trim()) metadata.reps = Number(input.reps);
+  if (input.duration.trim()) metadata.duration = Number(input.duration);
+  if (input.restSeconds.trim()) metadata.restSeconds = Number(input.restSeconds);
+  if (input.steps.trim()) metadata.steps = input.steps.trim();
+  if (input.cues.trim()) metadata.cues = input.cues.trim();
+  if (input.progression.trim()) metadata.progression = input.progression.trim();
+  if (input.regression.trim()) metadata.regression = input.regression.trim();
+  if (input.category.trim()) metadata.category = input.category.trim();
+  if (input.equipment.trim()) metadata.equipment = input.equipment.trim();
+  return Object.keys(metadata).length ? metadata : null;
+}
