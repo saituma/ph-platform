@@ -341,6 +341,26 @@ export const trainingOtherContentTable = pgTable(
   })
 );
 
+export const trainingOtherSettingTable = pgTable(
+  "training_other_settings",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    audienceLabel: varchar({ length: 64 }).notNull(),
+    type: trainingOtherType().notNull(),
+    enabled: boolean().notNull().default(false),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    audienceTypeUnique: uniqueIndex("training_other_settings_audience_type_unique").on(
+      table.audienceLabel,
+      table.type,
+    ),
+    audienceTypeIdx: index("training_other_settings_audience_type_idx").on(table.audienceLabel, table.type),
+  })
+);
+
 export const athleteTrainingSessionCompletionTable = pgTable(
   "athlete_training_session_completions",
   {

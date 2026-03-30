@@ -92,12 +92,13 @@ async function columnExists(db: ReturnType<typeof drizzle>, tableName: string, c
 }
 
 async function assertTrainingContentV2Schema(db: ReturnType<typeof drizzle>) {
-  const [hasModules, hasOthers, hasSessions, hasItems, hasAudienceLabelOnModules, hasAudienceLabelOnOthers] =
+  const [hasModules, hasOthers, hasSessions, hasItems, hasOtherSettings, hasAudienceLabelOnModules, hasAudienceLabelOnOthers] =
     await Promise.all([
       tableExists(db, "training_modules"),
       tableExists(db, "training_other_contents"),
       tableExists(db, "training_module_sessions"),
       tableExists(db, "training_session_items"),
+      tableExists(db, "training_other_settings"),
       columnExists(db, "training_modules", "audienceLabel"),
       columnExists(db, "training_other_contents", "audienceLabel"),
     ]);
@@ -107,6 +108,7 @@ async function assertTrainingContentV2Schema(db: ReturnType<typeof drizzle>) {
     !hasOthers ? "training_other_contents" : null,
     !hasSessions ? "training_module_sessions" : null,
     !hasItems ? "training_session_items" : null,
+    !hasOtherSettings ? "training_other_settings" : null,
     !hasAudienceLabelOnModules ? 'training_modules.audienceLabel' : null,
     !hasAudienceLabelOnOthers ? 'training_other_contents.audienceLabel' : null,
   ].filter(Boolean);

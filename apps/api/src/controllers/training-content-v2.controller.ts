@@ -20,6 +20,7 @@ import {
   updateTrainingModule,
   updateTrainingModuleSession,
   updateTrainingOtherContent,
+  updateTrainingOtherTypeSetting,
   updateTrainingSessionItem,
 } from "../services/training-content-v2.service";
 import { getAthleteForUser } from "../services/user.service";
@@ -117,6 +118,12 @@ const updateOtherSchema = z.object({
   videoUrl: z.string().optional().nullable(),
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   order: z.number().int().min(1).optional().nullable(),
+});
+
+const updateOtherSettingSchema = z.object({
+  audienceLabel: z.string().min(1).max(64),
+  type: z.enum(trainingOtherType.enumValues),
+  enabled: z.boolean(),
 });
 
 const mobileAgeQuerySchema = z.object({
@@ -281,6 +288,17 @@ export async function updateTrainingOtherContentHandler(req: Request, res: Respo
   if (!item) {
     return res.status(404).json({ error: "Other content not found" });
   }
+  return res.status(200).json({ item });
+}
+
+export async function updateTrainingOtherTypeSettingHandler(req: Request, res: Response) {
+  const input = updateOtherSettingSchema.parse(req.body);
+  const item = await updateTrainingOtherTypeSetting({
+    audienceLabel: input.audienceLabel,
+    type: input.type,
+    enabled: input.enabled,
+    createdBy: req.user!.id,
+  });
   return res.status(200).json({ item });
 }
 

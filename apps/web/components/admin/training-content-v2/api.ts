@@ -56,10 +56,17 @@ export type OtherItem = {
   order: number;
 };
 
+export type OtherGroup = {
+  type: string;
+  label: string;
+  enabled: boolean;
+  items: OtherItem[];
+};
+
 export type AudienceWorkspace = {
   audienceLabel: string;
   modules: Module[];
-  others: Array<{ type: string; label: string; items: OtherItem[] }>;
+  others: OtherGroup[];
 };
 
 export type AudienceSummary = {
