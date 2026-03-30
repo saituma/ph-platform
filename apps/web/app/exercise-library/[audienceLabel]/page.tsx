@@ -5,7 +5,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../components/admin/shell";
@@ -20,7 +20,6 @@ import {
   DialogTitle,
 } from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
-import { Textarea } from "../../../components/ui/textarea";
 import {
   AudienceWorkspace,
   AudienceSummary,
@@ -104,6 +103,7 @@ function expandAudienceLabel(label: string) {
 
 export default function AudienceDetailPage() {
   const params = useParams<{ audienceLabel: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const audienceLabel = useMemo(
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
@@ -114,9 +114,7 @@ export default function AudienceDetailPage() {
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [copyModalOpen, setCopyModalOpen] = useState(false);
-  const [selectedOtherType, setSelectedOtherType] = useState("mobility");
   const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "" });
-  const [otherForm, setOtherForm] = useState({ id: null as number | null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
   const [copySourceAudience, setCopySourceAudience] = useState("");
   const [copySearch, setCopySearch] = useState("");
@@ -130,9 +128,6 @@ export default function AudienceDetailPage() {
       setError(null);
       const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`);
       setWorkspace(data);
-      if (!data.others.find((item) => item.type === selectedOtherType)) {
-        setSelectedOtherType(data.others[0]?.type ?? "mobility");
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load audience.");
     }
@@ -153,7 +148,6 @@ export default function AudienceDetailPage() {
       });
   }, [audienceLabel]);
 
-  const selectedOtherGroup = workspace?.others.find((group) => group.type === selectedOtherType) ?? workspace?.others[0] ?? null;
   const filteredCopyAudiences = audiences.filter(
     (item) =>
       item.label !== audienceLabel &&
@@ -185,41 +179,6 @@ export default function AudienceDetailPage() {
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save module.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const saveOther = async () => {
-    if (!otherForm.title.trim() || !otherForm.body.trim()) return;
-    setIsSaving(true);
-    try {
-      const payload = {
-        audienceLabel,
-        type: selectedOtherType,
-        title: otherForm.title,
-        body: otherForm.body,
-        scheduleNote: otherForm.scheduleNote.trim() || null,
-        videoUrl: otherForm.videoUrl.trim() || null,
-        order: otherForm.order.trim() ? Number(otherForm.order) : null,
-        metadata: null,
-      };
-      if (otherForm.id) {
-        await trainingContentRequest(`/others/${otherForm.id}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-      } else {
-        await trainingContentRequest("/others", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-      }
-      setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
-      setModalOpen(false);
-      await loadWorkspace();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save content.");
     } finally {
       setIsSaving(false);
     }
@@ -337,18 +296,16 @@ export default function AudienceDetailPage() {
                 Copy module
               </Button>
             ) : null}
+            {activeView === "age" ? (
             <Button
               onClick={() => {
-                if (activeView === "age") {
-                  setModuleForm({ id: null, title: "" });
-                } else {
-                  setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
-                }
+                setModuleForm({ id: null, title: "" });
                 setModalOpen(true);
               }}
             >
-              + {activeView === "age" ? "Add age module" : "Add other content"}
+              + Add age module
             </Button>
+            ) : null}
           </div>
         </div>
         {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
@@ -398,32 +355,32 @@ export default function AudienceDetailPage() {
               <div className="space-y-3">
                 {OTHER_TYPES.map((type) => {
                   const group = workspace?.others.find((item) => item.type === type.value);
-                  const isSelected = selectedOtherType === type.value;
                   return (
                     <div
                       key={type.value}
-                      className={`rounded-2xl border p-4 transition ${
-                        isSelected ? "border-primary bg-primary/5" : "border-border bg-card"
-                      }`}
+                      className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => router.push(`/exercise-library/${encodeURIComponent(audienceLabel)}/others/${type.value}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          router.push(`/exercise-library/${encodeURIComponent(audienceLabel)}/others/${type.value}`);
+                        }
+                      }}
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <button
-                          type="button"
-                          className="flex-1 text-left"
-                          onClick={() => {
-                            setSelectedOtherType(type.value);
-                            setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
-                          }}
-                        >
+                        <div className="flex-1 text-left">
                           <p className="text-base font-semibold text-foreground">{type.label}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {group?.items.length ? `${group.items.length} item${group.items.length === 1 ? "" : "s"} added` : "No content created yet."}
                           </p>
-                        </button>
+                        </div>
                         <label className="flex items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-medium text-foreground">
                           <input
                             type="checkbox"
                             checked={Boolean(group?.enabled)}
+                            onClick={(event) => event.stopPropagation()}
                             onChange={(event) => void toggleOtherType(type.value, event.target.checked)}
                           />
                           <span>{group?.enabled ? "On" : "Off"}</span>
@@ -433,56 +390,6 @@ export default function AudienceDetailPage() {
                   );
                 })}
               </div>
-              <div className="flex justify-end">
-                <Button
-                  onClick={() => {
-                    setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
-                    setModalOpen(true);
-                  }}
-                >
-                  + Add other content
-                </Button>
-              </div>
-              <div className="rounded-2xl border border-border p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">{selectedOtherGroup?.label ?? "Other content"}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedOtherGroup?.enabled ? "This section is currently enabled for the plan." : "This section is currently turned off for the plan."}
-                    </p>
-                  </div>
-                </div>
-              {(selectedOtherGroup?.items ?? []).map((item) => (
-                <div key={item.id} className="rounded-2xl border border-border p-4">
-                  <p className="text-lg font-semibold text-foreground">{item.order}. {item.title}</p>
-                  {item.scheduleNote ? <p className="mt-1 text-xs font-semibold text-primary">{item.scheduleNote}</p> : null}
-                  <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setOtherForm({
-                          id: item.id,
-                          title: item.title,
-                          body: item.body,
-                          scheduleNote: item.scheduleNote ?? "",
-                          videoUrl: item.videoUrl ?? "",
-                          order: String(item.order),
-                        });
-                        setModalOpen(true);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void deletePath(`/others/${item.id}`)}>
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              {!selectedOtherGroup?.items.length ? <p className="text-sm text-muted-foreground">No content created yet for this section.</p> : null}
-              </div>
             </CardContent>
           </Card>
         )}
@@ -490,11 +397,9 @@ export default function AudienceDetailPage() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{activeView === "age" ? (moduleForm.id ? "Edit module" : "Add module") : (otherForm.id ? "Edit other content" : "Add other content")}</DialogTitle>
+            <DialogTitle>{moduleForm.id ? "Edit module" : "Add module"}</DialogTitle>
             <DialogDescription>
-              {activeView === "age"
-                ? `Create or update a module for audience ${audienceLabel}.`
-                : `Create or update ${selectedOtherGroup?.label ?? "other"} content for plan ${audienceLabel}.`}
+              {`Create or update a module for audience ${audienceLabel}.`}
             </DialogDescription>
           </DialogHeader>
           {activeView === "age" ? (
@@ -519,28 +424,7 @@ export default function AudienceDetailPage() {
                 </Button>
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-border bg-secondary/20 px-4 py-3 text-sm text-muted-foreground">
-                This content will live under <span className="font-semibold text-foreground">{selectedOtherGroup?.label ?? "the selected section"}</span> for plan <span className="font-semibold text-foreground">{audienceLabel}</span>.
-              </div>
-              <Input placeholder="Title" value={otherForm.title} onChange={(event) => setOtherForm((current) => ({ ...current, title: event.target.value }))} />
-              <Textarea placeholder="Content body" value={otherForm.body} onChange={(event) => setOtherForm((current) => ({ ...current, body: event.target.value }))} />
-              <Input placeholder="Schedule note" value={otherForm.scheduleNote} onChange={(event) => setOtherForm((current) => ({ ...current, scheduleNote: event.target.value }))} />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Input placeholder="Video URL" value={otherForm.videoUrl} onChange={(event) => setOtherForm((current) => ({ ...current, videoUrl: event.target.value }))} />
-                <Input placeholder="Order" value={otherForm.order} onChange={(event) => setOtherForm((current) => ({ ...current, order: event.target.value }))} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={saveOther} disabled={isSaving}>
-                  {otherForm.id ? "Update" : "Create"}
-                </Button>
-              </div>
-            </div>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
       <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>
