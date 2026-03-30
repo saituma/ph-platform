@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, CreditCard, GraduationCap, Users, ChevronRight } from "lucide-react";
+import { BookOpen, GraduationCap, Users, ChevronRight } from "lucide-react";
 
 import { ParentShell } from "../../components/parent/shell";
 import { useGetParentCoursesQuery } from "../../lib/apiSlice";
@@ -27,15 +27,6 @@ const CONFIG_CARDS = [
     icon: GraduationCap,
     color: "from-amber-500/20 to-orange-600/20 border-amber-500/30 hover:border-amber-500/60",
     iconBg: "bg-amber-500/20 text-amber-600 dark:text-amber-400",
-  },
-  {
-    id: "billing",
-    href: "/parent/billing",
-    title: "Billing",
-    description: "Subscription plans, pricing, and approval of upgrade requests.",
-    icon: CreditCard,
-    color: "from-emerald-500/20 to-teal-600/20 border-emerald-500/30 hover:border-emerald-500/60",
-    iconBg: "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400",
   },
   {
     id: "completed",

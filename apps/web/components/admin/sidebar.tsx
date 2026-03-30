@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
+  CreditCard,
   Crown,
   Home,
   MessageCircle,
@@ -141,6 +142,7 @@ export function AdminSidebarContent({
         { label: "Users & Tiers", href: "/users", icon: Users },
         { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
         { label: "Client training", href: "/training-snapshot", icon: ClipboardList },
+        { label: "Billing", href: "/billing", icon: CreditCard },
       ],
     },
     {
