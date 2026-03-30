@@ -30,6 +30,7 @@ import {
 } from "@/components/programs/ProgramPanels";
 import { AchievementsStrip, type TrainingAchievement } from "@/components/programs/AchievementsStrip";
 import { ProgramSessionPanel } from "@/components/programs/ProgramSessionPanel";
+import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
 import { Shadows } from "@/constants/theme";
 import {
   PROGRAM_TABS,
@@ -102,6 +103,13 @@ type ProgramSectionContent = {
   updatedAt?: string | null;
 };
 
+type TrainingContentV2Workspace = {
+  age: number | null;
+  tabs: string[];
+  modules: any[];
+  others: { type: string; label: string; items: any[] }[];
+};
+
 type PlanExercise = {
   id: number;
   order: number;
@@ -161,6 +169,7 @@ export function ProgramDetailPanel({
   const { colors, isDark } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
+  const [trainingContentV2, setTrainingContentV2] = useState<TrainingContentV2Workspace | null>(null);
   
   const activeAthleteAge = useMemo(() => {
     if (!managedAthletes.length) return null;
@@ -174,6 +183,9 @@ export function ProgramDetailPanel({
   }, [managedAthletes, athleteUserId]);
 
   const tabs = useMemo(() => {
+    if (trainingContentV2?.tabs?.length) {
+      return trainingContentV2.tabs;
+    }
     if (programId === "plus") {
       return phpPlusTabs ?? PROGRAM_TABS.plus;
     }
@@ -192,7 +204,7 @@ export function ProgramDetailPanel({
       );
     }
     return base;
-  }, [programId, isSectionHidden, phpPlusTabs]);
+  }, [programId, isSectionHidden, phpPlusTabs, trainingContentV2]);
 
   const [activeTab, setActiveTab] = useState<string>("Program");
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
@@ -334,6 +346,12 @@ export function ProgramDetailPanel({
 
   const loadSectionContent = useCallback(
     async (tab: string, options?: { force?: boolean }) => {
+      if (trainingContentV2?.tabs?.includes(tab)) {
+        setSectionContent([]);
+        setContentError(null);
+        setIsLoadingContent(false);
+        return;
+      }
       if (!token) {
         setSectionContent([]);
         return;
@@ -382,8 +400,39 @@ export function ProgramDetailPanel({
         setIsLoadingContent(false);
       }
     },
-    [token, activeAthleteAge, programId],
+    [token, activeAthleteAge, programId, trainingContentV2],
   );
+
+  const loadTrainingContentV2 = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (!token) {
+        setTrainingContentV2(null);
+        return;
+      }
+      const ageQ =
+        activeAthleteAge !== null
+          ? `?age=${encodeURIComponent(String(activeAthleteAge))}`
+          : "";
+      try {
+        const response = await apiRequest<TrainingContentV2Workspace>(
+          `/training-content-v2/mobile${ageQ}`,
+          { token, forceRefresh: options?.force ?? false },
+        );
+        if (Array.isArray(response.tabs) && response.tabs.length > 0) {
+          setTrainingContentV2(response);
+        } else {
+          setTrainingContentV2(null);
+        }
+      } catch {
+        setTrainingContentV2(null);
+      }
+    },
+    [activeAthleteAge, token],
+  );
+
+  useEffect(() => {
+    void loadTrainingContentV2();
+  }, [loadTrainingContentV2]);
 
   useEffect(() => {
     void loadSectionContent(activeTab);
@@ -394,6 +443,7 @@ export function ProgramDetailPanel({
       loadSectionContent(activeTab, { force: true }),
       loadPhpPlusTabs(),
       loadTrainingProgress(),
+      loadTrainingContentV2({ force: true }),
     ]);
     setRefreshToken((prev) => prev + 1);
   };
@@ -661,6 +711,28 @@ export function ProgramDetailPanel({
         </View>
       );
     }
+    if (trainingContentV2?.tabs?.includes(activeTab)) {
+      return (
+        <AgeBasedTrainingPanel
+          workspace={trainingContentV2}
+          activeTab={activeTab}
+          onFinishSession={(sessionId) => {
+            void (async () => {
+              if (!token) return;
+              try {
+                await apiRequest(`/training-content-v2/mobile/sessions/${sessionId}/finish`, {
+                  method: "POST",
+                  token,
+                });
+                await loadTrainingContentV2({ force: true });
+              } catch {
+                Alert.alert("Session", "Could not mark session finished.");
+              }
+            })();
+          }}
+        />
+      );
+    }
     if (activeTab === "Program") {
       const flowSteps = pickTrainingFlowSteps(tabs);
       return (
@@ -829,7 +901,7 @@ export function ProgramDetailPanel({
         contentContainerStyle={{ paddingBottom: uploadEnabledContent.length ? 120 : 40, paddingTop: 20 }}
         nestedScrollEnabled
       >
-        {trainingProgress && activeTab === "Program" ? (
+        {trainingProgress && activeTab === "Program" && !trainingContentV2?.tabs?.includes(activeTab) ? (
           <View className="px-5 mb-6">
             <AchievementsStrip stats={trainingProgress.stats} achievements={trainingProgress.achievements} />
           </View>
