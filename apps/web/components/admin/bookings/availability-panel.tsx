@@ -123,9 +123,9 @@ export function AvailabilityPanel({
             ) : null}
           </div>
           <div className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
-            <p className="font-semibold text-foreground">Premium Fixed Window</p>
+            <p className="font-semibold text-foreground">Slot-based booking</p>
             <p className="text-xs text-muted-foreground">
-              13:00 daily call window enabled.
+              Publish future open times for any active service to make it bookable.
             </p>
           </div>
         </>

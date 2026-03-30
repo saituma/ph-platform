@@ -41,7 +41,6 @@ type ServiceType = {
   type: string;
   durationMinutes: number;
   capacity?: number | null;
-  fixedStartTime?: string | null;
   attendeeVisibility?: boolean | null;
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;
@@ -77,6 +76,11 @@ const endOfLocalDay = (date: Date) => {
   return next;
 };
 
+/** Local calendar day at noon (same anchor idea as parent web). Reduces wrong-day bugs when pickers supply UTC-midnight instants. */
+function normalizeBookingCalendarDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
+}
+
 /** Align slot ↔ booking counts (API timestamps may differ by ms). */
 const toBookingSlotKey = (d: Date) => {
   const x = new Date(d.getTime());
@@ -95,6 +99,7 @@ export default function ScheduleScreen() {
   const isFocused = useIsFocused();
   const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
   const hasUserSelectedDate = useRef(false);
+  const hasUserAdjustedBookingDate = useRef(false);
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(
     null,
   );
@@ -104,7 +109,7 @@ export default function ScheduleScreen() {
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
-  const [bookingDate, setBookingDate] = useState<Date>(() => new Date());
+  const [bookingDate, setBookingDate] = useState<Date>(() => normalizeBookingCalendarDay(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [availabilityData, setAvailabilityData] = useState<{ items: any[]; bookings?: any[]; slots?: string[] } | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
@@ -254,12 +259,6 @@ export default function ScheduleScreen() {
     () => activeServices.find((service) => service.id === selectedServiceId) ?? null,
     [activeServices, selectedServiceId],
   );
-  const fixedTimeLabel = useMemo(() => {
-    if (selectedService?.fixedStartTime) return selectedService.fixedStartTime;
-    if (selectedService?.type === "role_model") return "13:00";
-    return null;
-  }, [selectedService]);
-
   const bookingCounts = useMemo(() => {
     const map = new Map<string, number>();
     (availabilityData?.bookings ?? []).forEach((booking: any) => {
@@ -271,42 +270,86 @@ export default function ScheduleScreen() {
   }, [availabilityData]);
 
   const availableSlots = useMemo(() => {
-    const dayStart = startOfLocalDay(bookingDate);
-    const dayEnd = endOfLocalDay(bookingDate);
-    if (availabilityData?.slots?.length) {
-      return availabilityData.slots
-        .map((slot) => new Date(slot))
-        .filter(
-          (slot) =>
-            !Number.isNaN(slot.getTime()) &&
-            slot.getTime() >= dayStart.getTime() &&
-            slot.getTime() <= dayEnd.getTime(),
-        )
-        .sort((a, b) => a.getTime() - b.getTime());
+    if (!selectedService) {
+      return [] as Date[];
     }
-    if (!selectedService || !availabilityData?.items?.length) return [] as Date[];
-    const durationMs = selectedService.durationMinutes * 60 * 1000;
+
+    const cal = normalizeBookingCalendarDay(bookingDate);
+    const y = cal.getFullYear();
+    const mo = cal.getMonth();
+    const d = cal.getDate();
+    const dayStart = new Date(y, mo, d, 0, 0, 0, 0);
+    const dayEnd = new Date(y, mo, d, 23, 59, 59, 999);
+
+    const inSelectedDay = (slot: Date) =>
+      !Number.isNaN(slot.getTime()) &&
+      slot.getTime() >= dayStart.getTime() &&
+      slot.getTime() <= dayEnd.getTime();
+
     const slotMap = new Map<string, Date>();
+
+    const rawSlotsLen = availabilityData?.slots?.length ?? 0;
+    if (rawSlotsLen) {
+      for (const raw of availabilityData!.slots!) {
+        const slot = new Date(raw);
+        if (inSelectedDay(slot)) {
+          slotMap.set(toBookingSlotKey(slot), slot);
+        }
+      }
+    }
+
+    const durationMin = Math.max(1, Number(selectedService.durationMinutes) || 1);
+    const durationMs = durationMin * 60 * 1000;
+    const itemsLen = availabilityData?.items?.length ?? 0;
+
+    if (itemsLen) {
+      for (const block of availabilityData!.items) {
+        const start = new Date(block.startsAt);
+        const end = new Date(block.endsAt);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+
+        if (end.getTime() < dayStart.getTime() || start.getTime() > dayEnd.getTime()) continue;
+
+        for (
+          let cursor = new Date(start.getTime());
+          cursor.getTime() + durationMs <= end.getTime();
+          cursor = new Date(cursor.getTime() + durationMs)
+        ) {
+          if (cursor.getTime() < dayStart.getTime() || cursor.getTime() > dayEnd.getTime()) continue;
+          slotMap.set(toBookingSlotKey(cursor), cursor);
+        }
+      }
+    }
+
+    return Array.from(slotMap.values()).sort((a, b) => a.getTime() - b.getTime());
+  }, [availabilityData, selectedService, bookingDate]);
+
+  const firstAvailableBookingDate = useMemo(() => {
+    const candidates = (availabilityData?.slots ?? [])
+      .map((raw) => new Date(raw))
+      .filter((slot) => !Number.isNaN(slot.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    if (candidates.length > 0) {
+      return normalizeBookingCalendarDay(candidates[0]);
+    }
+
+    if (!selectedService || !availabilityData?.items?.length) return null;
+
+    const durationMin = Math.max(1, Number(selectedService.durationMinutes) || 1);
+    const durationMs = durationMin * 60 * 1000;
+
     for (const block of availabilityData.items) {
       const start = new Date(block.startsAt);
       const end = new Date(block.endsAt);
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-
-      if (end.getTime() < dayStart.getTime() || start.getTime() > dayEnd.getTime()) continue;
-
-      for (
-        let cursor = new Date(start.getTime());
-        cursor.getTime() + durationMs <= end.getTime();
-        cursor = new Date(cursor.getTime() + durationMs)
-      ) {
-        if (cursor.getTime() < dayStart.getTime() || cursor.getTime() > dayEnd.getTime()) continue;
-        // Do not filter by fixedStartTime here: that value is coach/UTC-oriented; comparing to
-        // device-local HH:mm hid every slot in other timezones. Server validates on submit.
-        slotMap.set(toBookingSlotKey(cursor), cursor);
+      if (start.getTime() + durationMs <= end.getTime()) {
+        return normalizeBookingCalendarDay(start);
       }
     }
-    return Array.from(slotMap.values()).sort((a, b) => a.getTime() - b.getTime());
-  }, [availabilityData, selectedService, bookingDate]);
+
+    return null;
+  }, [availabilityData, selectedService]);
 
   const selectedDateLabel = useMemo(
     () => selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }),
@@ -393,7 +436,11 @@ export default function ScheduleScreen() {
     let active = true;
     setServicesLoading(true);
     setServicesError(null);
-    apiRequest<{ items: ServiceType[] }>("/bookings/services", { token })
+    apiRequest<{ items: ServiceType[] }>("/bookings/services", {
+      token,
+      forceRefresh: true,
+      timeoutMs: 6000,
+    })
       .then((data) => {
         if (!active) return;
         setServices(data.items ?? []);
@@ -414,9 +461,11 @@ export default function ScheduleScreen() {
   useEffect(() => {
     if (!bookingOpen) {
       hasUserSelectedService.current = false;
+      hasUserAdjustedBookingDate.current = false;
       return;
     }
-    setBookingDate(selectedDate);
+    hasUserAdjustedBookingDate.current = false;
+    setBookingDate(normalizeBookingCalendarDay(selectedDate));
     if (!activeServices.length) {
       setSelectedServiceId(null);
       return;
@@ -438,10 +487,15 @@ export default function ScheduleScreen() {
     setAvailabilityLoading(true);
     setAvailabilityError(null);
     setAvailabilityData(null);
-    // Ask for a wider window than the selected local day so timezone conversion
-    // cannot hide valid blocks that overlap the day on the device.
-    const start = startOfLocalDay(new Date(bookingDate.getTime() - 24 * 60 * 60 * 1000));
-    const end = endOfLocalDay(new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000));
+    // Search a wider window so mobile can land on the next real open day instead of
+    // showing "No open times" just because today's date has none.
+    const cal = normalizeBookingCalendarDay(bookingDate);
+    const y = cal.getFullYear();
+    const mo = cal.getMonth();
+    const d = cal.getDate();
+    const dayMid = new Date(y, mo, d, 12, 0, 0, 0);
+    const start = startOfLocalDay(new Date(dayMid.getTime() - 45 * 24 * 60 * 60 * 1000));
+    const end = endOfLocalDay(new Date(dayMid.getTime() + 45 * 24 * 60 * 60 * 1000));
     const params = new URLSearchParams({
       serviceTypeId: String(selectedServiceId),
       from: start.toISOString(),
@@ -468,6 +522,13 @@ export default function ScheduleScreen() {
       active = false;
     };
   }, [bookingOpen, token, selectedServiceId, bookingDate]);
+
+  useEffect(() => {
+    if (!bookingOpen || hasUserAdjustedBookingDate.current) return;
+    if (availableSlots.length > 0 || !firstAvailableBookingDate) return;
+    if (formatDateKey(firstAvailableBookingDate) === formatDateKey(bookingDate)) return;
+    setBookingDate(firstAvailableBookingDate);
+  }, [availableSlots, bookingDate, bookingOpen, firstAvailableBookingDate]);
 
   useEffect(() => {
     if (!availableSlots.length) {
@@ -500,7 +561,7 @@ export default function ScheduleScreen() {
       setEventsLoading(true);
       setEventsError(null);
       try {
-        const data = await apiRequest<{ items: any[] }>("/bookings", { token });
+        const data = await apiRequest<{ items: any[] }>("/bookings", { token, forceRefresh: true });
         if (!active) return;
         setEvents(mapBookingsToEvents(data.items ?? []));
       } catch (err: any) {
@@ -554,8 +615,15 @@ export default function ScheduleScreen() {
           setEventsLoading(true);
           setEventsError(null);
           try {
-            const data = await apiRequest<{ items: any[] }>("/bookings", { token, forceRefresh: true });
-            setEvents(mapBookingsToEvents(data.items ?? []));
+            const bookingsData = await apiRequest<{ items: any[] }>("/bookings", { token, forceRefresh: true });
+            setEvents(mapBookingsToEvents(bookingsData.items ?? []));
+            if (bookingOpen) {
+              const servicesData = await apiRequest<{ items: ServiceType[] }>("/bookings/services", {
+                token,
+                forceRefresh: true,
+              });
+              setServices(servicesData.items ?? []);
+            }
           } catch (err: any) {
             setEventsError(err.message ?? "Failed to load schedule");
           } finally {
@@ -1187,6 +1255,7 @@ export default function ScheduleScreen() {
                             key={item.id}
                             onPress={() => {
                               hasUserSelectedService.current = true;
+                              hasUserAdjustedBookingDate.current = false;
                               if (item.id) {
                                 setSelectedServiceId(item.id);
                                 setSelectedSlot(null);
@@ -1227,12 +1296,6 @@ export default function ScheduleScreen() {
                         {bookingDate.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
                       </Text>
                     </Pressable>
-                    {fixedTimeLabel ? (
-                      <Text className="text-xs font-outfit text-secondary mt-3">
-                        This session type has a fixed start time ({fixedTimeLabel}) on the coach side — choose a slot
-                        below; only valid start times are listed.
-                      </Text>
-                    ) : null}
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mt-4">
                       Available start times
                     </Text>
@@ -1427,7 +1490,8 @@ export default function ScheduleScreen() {
                           }
                           if (event.type === "dismissed") return;
                           if (!date) return;
-                          setBookingDate(date);
+                          hasUserAdjustedBookingDate.current = true;
+                          setBookingDate(normalizeBookingCalendarDay(date));
                         }}
                       />
                       {Platform.OS === "ios" ? (

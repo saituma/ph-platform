@@ -65,12 +65,6 @@ export default function ParentSchedulePage() {
     [services, selectedServiceId],
   );
 
-  const fixedTimeLabel = useMemo(() => {
-    if (selectedService?.fixedStartTime) return selectedService.fixedStartTime;
-    if (selectedService?.type === "role_model") return "13:00";
-    return null;
-  }, [selectedService]);
-
   /** Wider than one calendar day so timezone boundaries do not drop overlapping availability (same idea as mobile). */
   const availabilityRange = useMemo(() => {
     const parsed = parseYmd(selectedDate ?? "");
@@ -116,12 +110,14 @@ export default function ParentSchedulePage() {
     const inSelectedDay = (slot: Date) =>
       slot.getTime() >= dayStart.getTime() && slot.getTime() <= dayEnd.getTime();
 
+    let fromApiSlots: Date[] = [];
     if (availabilityData?.slots?.length) {
-      return availabilityData.slots
+      fromApiSlots = availabilityData.slots
         .map((s: string) => new Date(s))
         .filter((slot) => !Number.isNaN(slot.getTime()) && inSelectedDay(slot))
         .sort((a, b) => a.getTime() - b.getTime());
     }
+    if (fromApiSlots.length > 0) return fromApiSlots;
 
     if (!availabilityData?.items?.length) return [] as Date[];
 
@@ -139,7 +135,6 @@ export default function ParentSchedulePage() {
         cursor = new Date(cursor.getTime() + durationMs)
       ) {
         if (cursor.getTime() < dayStart.getTime() || cursor.getTime() > dayEnd.getTime()) continue;
-        // Do not filter by fixedStartTime here: coach wall time vs viewer timezone hid every slot; server validates on submit (matches mobile).
         slotMap.set(toBookingSlotKey(cursor), cursor);
       }
     }
@@ -286,11 +281,6 @@ export default function ParentSchedulePage() {
 
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Available start times</p>
-            {fixedTimeLabel ? (
-              <p className="text-xs text-muted-foreground">
-                This type always starts at {fixedTimeLabel} (when the coach opens that day).
-              </p>
-            ) : null}
             {availabilityLoading ? <p className="text-sm text-muted-foreground">Loading times…</p> : null}
             {!availabilityLoading && selectedService && availableSlots.length === 0 ? (
               <p className="text-sm text-muted-foreground">
