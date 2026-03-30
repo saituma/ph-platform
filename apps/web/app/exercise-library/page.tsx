@@ -23,6 +23,7 @@ import {
 
 export default function ExerciseLibraryAudiencePage() {
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
+  const [plans, setPlans] = useState<Array<{ id: number; name: string; tier: string; isActive: boolean }>>([]);
   const [activeTab, setActiveTab] = useState<"age" | "others">("age");
   const [modalOpen, setModalOpen] = useState(false);
   const [audienceInput, setAudienceInput] = useState("");
@@ -46,7 +47,45 @@ export default function ExerciseLibraryAudiencePage() {
     void loadAudiences();
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== "others") return;
+    void fetch("/api/backend/admin/subscription-plans", { credentials: "include" })
+      .then(async (response) => {
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(data?.error ?? "Failed to load plans.");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        const nextPlans = Array.isArray(data?.plans) ? data.plans : [];
+        setPlans(
+          nextPlans
+            .filter((plan: { name?: string }) => Boolean(plan?.name))
+            .map((plan: { id: number; name: string; tier: string; isActive: boolean }) => ({
+              id: plan.id,
+              name: plan.name,
+              tier: plan.tier,
+              isActive: Boolean(plan.isActive),
+            }))
+        );
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load plans.");
+      });
+  }, [activeTab]);
+
   const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
+  const othersCards = plans.map((plan) => {
+    const matchingAudience = audiences.find((audience) => audience.label === plan.name);
+    return {
+      label: plan.name,
+      moduleCount: 0,
+      otherCount: matchingAudience?.otherCount ?? 0,
+      tier: plan.tier,
+      isActive: plan.isActive,
+    };
+  });
 
   return (
     <AdminShell title="Training content" subtitle="Start from audience groups, then drill into modules and sessions.">
@@ -55,8 +94,8 @@ export default function ExerciseLibraryAudiencePage() {
           <p className="font-semibold text-foreground">Audience-first setup</p>
           <ul className="mt-2 list-inside list-disc space-y-1.5 text-muted-foreground">
             <li>Create or open audience groups like <strong className="text-foreground">5</strong>, <strong className="text-foreground">5-6</strong>, <strong className="text-foreground">6-10</strong>, or <strong className="text-foreground">All</strong>.</li>
-            <li>Use the header tabs here to choose whether you are entering the <strong className="text-foreground">Age adding</strong> flow or the <strong className="text-foreground">Others</strong> flow.</li>
-            <li>From Age adding, open modules, then sessions, then manage warmup, main session, and cool down blocks.</li>
+            <li>Use the header tabs here to choose whether you are entering the <strong className="text-foreground">Age</strong> flow or the <strong className="text-foreground">Others</strong> flow.</li>
+            <li>From Age, open modules, then sessions, then manage warmup, main session, and cool down blocks.</li>
           </ul>
         </div>
 
@@ -81,21 +120,22 @@ export default function ExerciseLibraryAudiencePage() {
                   setAudienceInput("");
                   setModalOpen(true);
                 }}
+                disabled={activeTab === "others"}
               >
-                + {activeTab === "age" ? "Add audience for age" : "Add audience for others"}
+                + {activeTab === "age" ? "Add audience for age" : "Plans come from Billing"}
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-2xl border border-dashed border-border bg-secondary/10 p-4 text-sm text-muted-foreground">
               {activeTab === "age"
-                ? "Age adding shows the audience groups that lead into modules and sessions."
-                : "Others shows the audience groups that lead into mobility, recovery, in-season, off-season, and education content."}
+                ? "Age shows the audience groups that lead into modules and sessions."
+                : "Others uses your billing plans as the top-level list for mobility, recovery, in-season, off-season, and education content."}
             </div>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {isLoading ? <p className="text-sm text-muted-foreground">Loading audiences...</p> : null}
+            {isLoading && activeTab === "age" ? <p className="text-sm text-muted-foreground">Loading audiences...</p> : null}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {audiences.map((audience) => (
+              {(activeTab === "age" ? audiences : othersCards).map((audience) => (
                 <Link
                   key={audience.label}
                   href={`/exercise-library/${encodeURIComponent(audience.label)}${activeTab === "others" ? "?view=others" : ""}`}
@@ -103,23 +143,30 @@ export default function ExerciseLibraryAudiencePage() {
                 >
                   <p className="text-lg font-semibold text-foreground">{audience.label}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {audience.moduleCount} modules · {audience.otherCount} other items
+                    {activeTab === "age"
+                      ? `${audience.moduleCount} modules · ${audience.otherCount} other items`
+                      : `${"tier" in audience ? audience.tier : ""}${"isActive" in audience && !audience.isActive ? " · Inactive" : ""}${audience.otherCount ? ` · ${audience.otherCount} other items` : ""}`}
                   </p>
                 </Link>
               ))}
-              {!isLoading && audiences.length === 0 ? (
+              {!isLoading && activeTab === "age" && audiences.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
                   No audiences created yet.
+                </div>
+              ) : null}
+              {activeTab === "others" && othersCards.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                  No subscription plans yet. Add plans in Billing first.
                 </div>
               ) : null}
             </div>
           </CardContent>
         </Card>
       </div>
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog open={modalOpen && activeTab === "age"} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{activeTab === "age" ? "Add age" : "Add others"}</DialogTitle>
+            <DialogTitle>Add age</DialogTitle>
             <DialogDescription>
               Enter an audience label like 5, 5-6, 6-10, 5-15, or All and we will open that audience in the current flow.
             </DialogDescription>
@@ -151,7 +198,7 @@ export default function ExerciseLibraryAudiencePage() {
                 }}
                 disabled={!normalizedAudience}
               >
-                {activeTab === "age" ? "Add age" : "Add others"}
+                Add age
               </Button>
             </div>
           </div>

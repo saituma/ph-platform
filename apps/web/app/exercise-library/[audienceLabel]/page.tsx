@@ -301,7 +301,14 @@ export default function AudienceDetailPage() {
   };
 
   return (
-    <AdminShell title="Training content" subtitle={`Audience: ${audienceLabel}${expandedAudienceLabel !== audienceLabel ? ` • ${expandedAudienceLabel}` : ""}`}>
+    <AdminShell
+      title="Training content"
+      subtitle={
+        activeView === "age"
+          ? `Audience: ${audienceLabel}${expandedAudienceLabel !== audienceLabel ? ` • ${expandedAudienceLabel}` : ""}`
+          : `Plan: ${audienceLabel}`
+      }
+    >
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
           <Link href={`/exercise-library${activeView === "others" ? "?view=others" : ""}`}>
@@ -365,11 +372,11 @@ export default function AudienceDetailPage() {
               {!workspace?.modules.length ? <p className="text-sm text-muted-foreground">No modules created yet.</p> : null}
             </CardContent>
           </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <SectionHeader title="Others" description="Standalone content outside the module flow." />
-            </CardHeader>
+          ) : (
+            <Card>
+              <CardHeader>
+              <SectionHeader title={`Others for ${audienceLabel}`} description="Standalone plan-based content outside the module flow." />
+              </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 {OTHER_TYPES.map((type) => (
