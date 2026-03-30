@@ -23,6 +23,7 @@ import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
 import {
   AudienceWorkspace,
+  AudienceSummary,
   OTHER_TYPES,
   normalizeAudienceLabelInput,
   trainingContentRequest,
@@ -95,9 +96,13 @@ export default function AudienceDetailPage() {
   const activeView = searchParams.get("view") === "others" ? "others" : "age";
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [selectedOtherType, setSelectedOtherType] = useState("mobility");
   const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "" });
   const [otherForm, setOtherForm] = useState({ id: null as number | null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
+  const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
+  const [copySourceAudience, setCopySourceAudience] = useState("");
+  const [copySearch, setCopySearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -119,7 +124,23 @@ export default function AudienceDetailPage() {
     void loadWorkspace();
   }, [audienceLabel]);
 
+  useEffect(() => {
+    void trainingContentRequest<{ items: AudienceSummary[] }>("/admin/audiences")
+      .then((data) => {
+        setAudiences(data.items ?? []);
+        setCopySourceAudience((current) => current || data.items.find((item) => item.label !== audienceLabel)?.label || "");
+      })
+      .catch(() => {
+        // keep the page usable even if the audience list request fails
+      });
+  }, [audienceLabel]);
+
   const selectedOtherGroup = workspace?.others.find((group) => group.type === selectedOtherType) ?? workspace?.others[0] ?? null;
+  const filteredCopyAudiences = audiences.filter(
+    (item) =>
+      item.label !== audienceLabel &&
+      item.label.toLowerCase().includes(copySearch.trim().toLowerCase())
+  );
 
   const saveModule = async () => {
     if (!moduleForm.title.trim()) return;
@@ -240,6 +261,27 @@ export default function AudienceDetailPage() {
     void reorderModules(Number(active.id), Number(over.id));
   };
 
+  const copyModulesFromAnotherAudience = async () => {
+    if (!copySourceAudience || copySourceAudience === audienceLabel) return;
+    setIsSaving(true);
+    try {
+      setError(null);
+      const data = await trainingContentRequest<AudienceWorkspace>("/admin/copy-modules", {
+        method: "POST",
+        body: JSON.stringify({
+          sourceAudienceLabel: copySourceAudience,
+          targetAudienceLabel: audienceLabel,
+        }),
+      });
+      setWorkspace(data);
+      setCopyModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to copy modules from another age.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <AdminShell title="Training content" subtitle={`Audience: ${audienceLabel}`}>
       <div className="space-y-6">
@@ -247,26 +289,32 @@ export default function AudienceDetailPage() {
           <Link href={`/exercise-library${activeView === "others" ? "?view=others" : ""}`}>
             <Button variant="outline">Back to audiences</Button>
           </Link>
-          <Button
-            className="ml-auto"
-            onClick={() => {
-              if (activeView === "age") {
-                setModuleForm({ id: null, title: "" });
-              } else {
-                setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
-              }
-              setModalOpen(true);
-            }}
-          >
-            + {activeView === "age" ? "Add age module" : "Add other content"}
-          </Button>
+          <div className="ml-auto flex flex-wrap gap-2">
+            {activeView === "age" ? (
+              <Button variant="outline" onClick={() => setCopyModalOpen(true)}>
+                Copy from other modules
+              </Button>
+            ) : null}
+            <Button
+              onClick={() => {
+                if (activeView === "age") {
+                  setModuleForm({ id: null, title: "" });
+                } else {
+                  setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
+                }
+                setModalOpen(true);
+              }}
+            >
+              + {activeView === "age" ? "Add age module" : "Add other content"}
+            </Button>
+          </div>
         </div>
         {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         {activeView === "age" ? (
-          <Card>
+            <Card>
             <CardHeader>
-              <SectionHeader title={`${audienceLabel} modules`} description="Click a module to open its session list page." />
+              <SectionHeader title={`Modules for age ${audienceLabel}`} description="Click a module to open its session list page." />
             </CardHeader>
             <CardContent className="space-y-3">
               {workspace?.modules.length ? (
@@ -408,6 +456,72 @@ export default function AudienceDetailPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy from other modules</DialogTitle>
+            <DialogDescription>
+              Copy all modules, sessions, and session items from another age into age {audienceLabel}. This replaces the current module list for this age.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Search ages</label>
+              <Input
+                placeholder="Search age or range like 6, 8-10, All"
+                value={copySearch}
+                onChange={(event) => setCopySearch(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Search or scroll the list below, then choose the age you want to copy from.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Available ages</label>
+              <div className="max-h-72 overflow-y-auto rounded-xl border border-border">
+                <div className="divide-y divide-border">
+                  {filteredCopyAudiences.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => setCopySourceAudience(item.label)}
+                      className={`flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-secondary/40 ${
+                        copySourceAudience === item.label ? "bg-primary/10" : "bg-background"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium text-foreground">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.moduleCount} modules · {item.otherCount} other items
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {copySourceAudience === item.label ? "Selected" : "Select"}
+                      </span>
+                    </button>
+                  ))}
+                  {!filteredCopyAudiences.length ? (
+                    <div className="px-4 py-6 text-sm text-muted-foreground">
+                      No ages match that search.
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                We will copy the full module structure from the selected age into this one.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCopyModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void copyModulesFromAnotherAudience()} disabled={!copySourceAudience || isSaving}>
+                Copy modules
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </AdminShell>

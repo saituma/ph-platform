@@ -196,6 +196,85 @@ export async function createTrainingAudience(input: { label: string; createdBy: 
   return ensureTrainingAudienceExists(input.label, input.createdBy);
 }
 
+export async function copyTrainingModulesFromAudience(input: {
+  sourceAudienceLabel: string;
+  targetAudienceLabel: string;
+  createdBy: number;
+}) {
+  const sourceAudienceLabel = normalizeAudienceLabel(input.sourceAudienceLabel);
+  const targetAudienceLabel = normalizeAudienceLabel(input.targetAudienceLabel);
+
+  if (sourceAudienceLabel === targetAudienceLabel) {
+    throw new Error("Choose a different source age to copy from.");
+  }
+
+  const sourceWorkspace = await listTrainingContentAdminWorkspace(sourceAudienceLabel);
+  await ensureTrainingAudienceExists(targetAudienceLabel, input.createdBy);
+
+  return db.transaction(async (tx) => {
+    const existingModules = await tx
+      .select({ id: trainingModuleTable.id })
+      .from(trainingModuleTable)
+      .where(eq(trainingModuleTable.audienceLabel, targetAudienceLabel));
+
+    for (const module of existingModules) {
+      const sessions = await tx
+        .select({ id: trainingModuleSessionTable.id })
+        .from(trainingModuleSessionTable)
+        .where(eq(trainingModuleSessionTable.moduleId, module.id));
+
+      for (const session of sessions) {
+        await tx.delete(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.sessionId, session.id));
+        await tx.delete(trainingSessionItemTable).where(eq(trainingSessionItemTable.sessionId, session.id));
+      }
+
+      await tx.delete(trainingModuleSessionTable).where(eq(trainingModuleSessionTable.moduleId, module.id));
+      await tx.delete(trainingModuleTable).where(eq(trainingModuleTable.id, module.id));
+    }
+
+    for (const sourceModule of sourceWorkspace.modules) {
+      const [createdModule] = await tx
+        .insert(trainingModuleTable)
+        .values({
+          age: 0,
+          audienceLabel: targetAudienceLabel,
+          title: sourceModule.title,
+          order: sourceModule.order,
+          createdBy: input.createdBy,
+        })
+        .returning();
+
+      for (const sourceSession of sourceModule.sessions) {
+        const [createdSession] = await tx
+          .insert(trainingModuleSessionTable)
+          .values({
+            moduleId: createdModule.id,
+            title: sourceSession.title,
+            dayLength: sourceSession.dayLength,
+            order: sourceSession.order,
+          })
+          .returning();
+
+        for (const sourceItem of sourceSession.items) {
+          await tx.insert(trainingSessionItemTable).values({
+            sessionId: createdSession.id,
+            blockType: sourceItem.blockType as (typeof trainingSessionBlockType.enumValues)[number],
+            title: sourceItem.title,
+            body: sourceItem.body,
+            videoUrl: sourceItem.videoUrl ?? null,
+            allowVideoUpload: Boolean(sourceItem.allowVideoUpload),
+            metadata: sourceItem.metadata ?? null,
+            order: sourceItem.order,
+            createdBy: input.createdBy,
+          });
+        }
+      }
+    }
+
+    return listTrainingContentAdminWorkspace(targetAudienceLabel);
+  });
+}
+
 export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
   const normalizedAudienceLabel = normalizeAudienceLabel(audienceLabel);
   const [modules, sessions, items, others] = await Promise.all([
