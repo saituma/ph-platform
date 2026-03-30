@@ -20,6 +20,7 @@ import locationRoutes from "./location.routes";
 import notificationRoutes from "./notification.routes";
 import athletePlanRoutes from "./athlete-plan.routes";
 import supportRoutes from "./support.routes";
+import trainingContentV2Routes from "./training-content-v2.routes";
 
 const router = Router();
 
@@ -43,5 +44,6 @@ router.use(locationRoutes);
 router.use(notificationRoutes);
 router.use(athletePlanRoutes);
 router.use(supportRoutes);
+router.use(trainingContentV2Routes);
 
 export default router;

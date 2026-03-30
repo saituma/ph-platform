@@ -49,6 +49,18 @@ export const sessionType = pgEnum("session_type", [
   "education",
   "nutrition",
 ]);
+export const trainingOtherType = pgEnum("training_other_type", [
+  "mobility",
+  "recovery",
+  "inseason",
+  "offseason",
+  "education",
+]);
+export const trainingSessionBlockType = pgEnum("training_session_block_type", [
+  "warmup",
+  "main",
+  "cooldown",
+]);
 
 export const userTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -230,6 +242,108 @@ export const sessionTable = pgTable("sessions", {
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
+
+export const trainingModuleTable = pgTable(
+  "training_modules",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    age: integer().notNull(),
+    title: varchar({ length: 255 }).notNull(),
+    order: integer().notNull().default(1),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    ageIdx: index("training_modules_age_idx").on(table.age),
+    ageOrderIdx: index("training_modules_age_order_idx").on(table.age, table.order),
+  })
+);
+
+export const trainingModuleSessionTable = pgTable(
+  "training_module_sessions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    moduleId: integer().notNull().references(() => trainingModuleTable.id),
+    title: varchar({ length: 255 }).notNull(),
+    dayLength: integer().notNull().default(7),
+    order: integer().notNull().default(1),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    moduleIdx: index("training_module_sessions_module_idx").on(table.moduleId),
+    moduleOrderIdx: index("training_module_sessions_module_order_idx").on(table.moduleId, table.order),
+  })
+);
+
+export const trainingSessionItemTable = pgTable(
+  "training_session_items",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    sessionId: integer().notNull().references(() => trainingModuleSessionTable.id),
+    blockType: trainingSessionBlockType().notNull().default("main"),
+    title: varchar({ length: 255 }).notNull(),
+    body: text().notNull(),
+    videoUrl: varchar({ length: 500 }),
+    allowVideoUpload: boolean().notNull().default(false),
+    metadata: jsonb(),
+    order: integer().notNull().default(1),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    sessionIdx: index("training_session_items_session_idx").on(table.sessionId),
+    sessionBlockOrderIdx: index("training_session_items_session_block_order_idx").on(
+      table.sessionId,
+      table.blockType,
+      table.order,
+    ),
+  })
+);
+
+export const trainingOtherContentTable = pgTable(
+  "training_other_contents",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    age: integer().notNull(),
+    type: trainingOtherType().notNull(),
+    title: varchar({ length: 255 }).notNull(),
+    body: text().notNull(),
+    scheduleNote: varchar({ length: 255 }),
+    videoUrl: varchar({ length: 500 }),
+    metadata: jsonb(),
+    order: integer().notNull().default(1),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    ageTypeIdx: index("training_other_contents_age_type_idx").on(table.age, table.type),
+    ageTypeOrderIdx: index("training_other_contents_age_type_order_idx").on(table.age, table.type, table.order),
+  })
+);
+
+export const athleteTrainingSessionCompletionTable = pgTable(
+  "athlete_training_session_completions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    sessionId: integer().notNull().references(() => trainingModuleSessionTable.id),
+    completedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("athlete_training_session_completions_athlete_idx").on(table.athleteId),
+    sessionIdx: index("athlete_training_session_completions_session_idx").on(table.sessionId),
+    athleteSessionUnique: uniqueIndex("athlete_training_session_completions_unique").on(
+      table.athleteId,
+      table.sessionId,
+    ),
+  })
+);
 
 export const programSectionContentTable = pgTable("program_section_contents", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
