@@ -1,5 +1,9 @@
 "use client";
 
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -22,6 +26,65 @@ import {
   trainingContentRequest,
 } from "../../../../../components/admin/training-content-v2/api";
 
+function SortableSessionCard({
+  session,
+  audienceLabel,
+  moduleId,
+  onEdit,
+  onDelete,
+}: {
+  session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number];
+  audienceLabel: string;
+  moduleId: number;
+  onEdit: (session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number]) => void;
+  onDelete: (sessionId: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: session.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-2xl border p-4 transition ${isDragging ? "border-primary bg-primary/5 shadow-lg" : "border-border"}`}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <button
+          type="button"
+          className="cursor-grab rounded-lg border border-border px-2 py-1 text-xs font-medium text-muted-foreground active:cursor-grabbing"
+          aria-label={`Drag ${session.title}`}
+          {...attributes}
+          {...listeners}
+        >
+          <span className="flex items-center gap-1">
+            <GripVertical className="h-3.5 w-3.5" />
+            Drag
+          </span>
+        </button>
+        <p className="text-xs text-muted-foreground">Hold and move up or down to reorder sessions.</p>
+      </div>
+      <p className="text-lg font-semibold text-foreground">{session.order}. {session.title}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {session.dayLength} days · {session.items.length} content items
+      </p>
+      <div className="mt-3 flex gap-2">
+        <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}/sessions/${session.id}`}>
+          <Button size="sm">Open session</Button>
+        </Link>
+        <Button size="sm" variant="outline" onClick={() => onEdit(session)}>
+          Edit
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => onDelete(session.id)}>
+          Delete
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ModuleSessionsPage() {
   const params = useParams<{ audienceLabel: string; moduleId: string }>();
   const audienceLabel = useMemo(
@@ -33,7 +96,8 @@ export default function ModuleSessionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [sessionForm, setSessionForm] = useState({ id: null as number | null, title: "", dayLength: "7", order: "" });
+  const [sessionForm, setSessionForm] = useState({ id: null as number | null, title: "", dayLength: "7" });
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const loadWorkspace = async () => {
     try {
@@ -61,7 +125,6 @@ export default function ModuleSessionsPage() {
           body: JSON.stringify({
             title: sessionForm.title,
             dayLength: Number(sessionForm.dayLength) || 7,
-            order: sessionForm.order.trim() ? Number(sessionForm.order) : null,
           }),
         });
       } else {
@@ -71,11 +134,10 @@ export default function ModuleSessionsPage() {
             moduleId: module.id,
             title: sessionForm.title,
             dayLength: Number(sessionForm.dayLength) || 7,
-            order: sessionForm.order.trim() ? Number(sessionForm.order) : null,
           }),
         });
       }
-      setSessionForm({ id: null, title: "", dayLength: "7", order: "" });
+      setSessionForm({ id: null, title: "", dayLength: "7" });
       setModalOpen(false);
       await loadWorkspace();
     } catch (err) {
@@ -98,6 +160,57 @@ export default function ModuleSessionsPage() {
     }
   };
 
+  const reorderSessions = async (sourceId: number, targetId: number) => {
+    if (!module || sourceId === targetId) return;
+    const sourceIndex = module.sessions.findIndex((item) => item.id === sourceId);
+    const targetIndex = module.sessions.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const reordered = [...module.sessions];
+    const [moved] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+    const nextSessions = reordered.map((session, index) => ({ ...session, order: index + 1 }));
+
+    setWorkspace((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        modules: current.modules.map((item) =>
+          item.id === module.id ? { ...item, sessions: nextSessions } : item
+        ),
+      };
+    });
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await Promise.all(
+        nextSessions.map((session) =>
+          trainingContentRequest(`/sessions/${session.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              title: session.title,
+              dayLength: session.dayLength,
+              order: session.order,
+            }),
+          })
+        )
+      );
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reorder sessions.");
+      await loadWorkspace();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSessionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    void reorderSessions(Number(active.id), Number(over.id));
+  };
+
   return (
     <AdminShell title="Training content" subtitle={`Audience ${audienceLabel} -> module sessions`}>
       <div className="space-y-6">
@@ -108,7 +221,7 @@ export default function ModuleSessionsPage() {
           <Button
             className="ml-auto"
             onClick={() => {
-              setSessionForm({ id: null, title: "", dayLength: "7", order: "" });
+              setSessionForm({ id: null, title: "", dayLength: "7" });
               setModalOpen(true);
             }}
           >
@@ -117,41 +230,35 @@ export default function ModuleSessionsPage() {
         </div>
         {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
         <Card>
-          <CardHeader>
-            <SectionHeader title={module ? module.title : "Sessions"} description="Open a session to manage warmup, main session, and cool down items." />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {module?.sessions.map((session) => (
-              <div key={session.id} className="rounded-2xl border border-border p-4">
-                <p className="text-lg font-semibold text-foreground">{session.order}. {session.title}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {session.dayLength} days · {session.items.length} content items
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}/sessions/${session.id}`}>
-                    <Button size="sm">Open session</Button>
-                  </Link>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSessionForm({
-                        id: session.id,
-                        title: session.title,
-                        dayLength: String(session.dayLength),
-                        order: String(session.order),
-                      });
-                      setModalOpen(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void deleteSession(session.id)}>
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            ))}
+            <CardHeader>
+              <SectionHeader title={module ? module.title : "Sessions"} description="Open a session to manage warmup, main session, and cool down items." />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {module?.sessions.length ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSessionDragEnd}>
+                  <SortableContext items={module.sessions.map((session) => session.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {module.sessions.map((session) => (
+                        <SortableSessionCard
+                          key={session.id}
+                          session={session}
+                          audienceLabel={audienceLabel}
+                          moduleId={moduleId}
+                          onEdit={(current) => {
+                            setSessionForm({
+                              id: current.id,
+                              title: current.title,
+                              dayLength: String(current.dayLength),
+                            });
+                            setModalOpen(true);
+                          }}
+                          onDelete={(sessionId) => void deleteSession(sessionId)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              ) : null}
             {!module?.sessions.length ? <p className="text-sm text-muted-foreground">No sessions created yet.</p> : null}
           </CardContent>
         </Card>
@@ -165,10 +272,27 @@ export default function ModuleSessionsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Input placeholder="Session name" value={sessionForm.title} onChange={(event) => setSessionForm((current) => ({ ...current, title: event.target.value }))} />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input placeholder="Length in days" value={sessionForm.dayLength} onChange={(event) => setSessionForm((current) => ({ ...current, dayLength: event.target.value }))} />
-              <Input placeholder="Order" value={sessionForm.order} onChange={(event) => setSessionForm((current) => ({ ...current, order: event.target.value }))} />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Session title</label>
+              <Input
+                placeholder="e.g. Lower body strength"
+                value={sessionForm.title}
+                onChange={(event) => setSessionForm((current) => ({ ...current, title: event.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                This is the session name coaches and athletes will see in the module.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Session length in days</label>
+              <Input
+                placeholder="e.g. 7"
+                value={sessionForm.dayLength}
+                onChange={(event) => setSessionForm((current) => ({ ...current, dayLength: event.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Use any number of days you want, like 6, 7, or 10. New sessions are ordered automatically by when you add them.
+              </p>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setModalOpen(false)}>

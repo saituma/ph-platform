@@ -62,12 +62,8 @@ export default function ExerciseLibraryAudiencePage() {
 
         <Card>
           <CardHeader>
-            <div className="flex flex-wrap items-center gap-3">
-              <SectionHeader
-                title="Audience groups"
-                description="Choose the flow here first, then open or create the audience group you want to manage."
-              />
-              <div className="ml-auto flex w-full max-w-md items-center gap-2 rounded-full border border-border bg-card p-1">
+            <div className="space-y-4">
+              <div className="flex w-full items-center gap-2 rounded-full border border-border bg-card p-1">
                 <Button className="flex-1" variant={activeTab === "age" ? "default" : "outline"} onClick={() => setActiveTab("age")}>
                   Age
                 </Button>
@@ -75,7 +71,12 @@ export default function ExerciseLibraryAudiencePage() {
                   Others
                 </Button>
               </div>
+              <SectionHeader
+                title="Audience groups"
+                description="Choose the flow here first, then open or create the audience group you want to manage."
+              />
               <Button
+                className="w-full sm:w-auto"
                 onClick={() => {
                   setAudienceInput("");
                   setModalOpen(true);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminShell } from "../../../../../../../components/admin/shell";
 import { SectionHeader } from "../../../../../../../components/admin/section-header";
@@ -24,6 +24,7 @@ import {
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../../../../../../components/admin/training-content-v2/api";
+import { useCreateMediaUploadUrlMutation } from "../../../../../../../lib/apiSlice";
 
 export default function SessionDetailPage() {
   const params = useParams<{ audienceLabel: string; moduleId: string; sessionId: string }>();
@@ -37,6 +38,10 @@ export default function SessionDetailPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const [createUploadUrl] = useCreateMediaUploadUrlMutation();
   const [itemForm, setItemForm] = useState({
     id: null as number | null,
     blockType: "warmup",
@@ -73,6 +78,56 @@ export default function SessionDetailPage() {
 
   const module = workspace?.modules.find((item) => item.id === moduleId) ?? null;
   const session = module?.sessions.find((item) => item.id === sessionId) ?? null;
+
+  const uploadLocalVideo = async (file: File) => {
+    const maxSizeMb = 250;
+    if (file.size > maxSizeMb * 1024 * 1024) {
+      setError(`Video must be smaller than ${maxSizeMb}MB.`);
+      return;
+    }
+
+    try {
+      setError(null);
+      setIsUploadingVideo(true);
+      setUploadProgress(0);
+      const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+      const result = await createUploadUrl({
+        folder: "training-content/session-items",
+        fileName,
+        contentType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+      }).unwrap();
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return;
+          setUploadProgress(Math.round((event.loaded / event.total) * 100));
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error("Failed to upload video."));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Failed to upload video."));
+        xhr.open("PUT", result.uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      });
+
+      setItemForm((current) => ({ ...current, videoUrl: result.publicUrl }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload video.");
+    } finally {
+      setIsUploadingVideo(false);
+      setUploadProgress(0);
+      if (videoInputRef.current) {
+        videoInputRef.current.value = "";
+      }
+    }
+  };
 
   const saveItem = async () => {
     if (!session || !itemForm.title.trim() || !itemForm.body.trim()) return;
@@ -278,7 +333,41 @@ export default function SessionDetailPage() {
               <Input placeholder="Progression" value={itemForm.progression} onChange={(event) => setItemForm((current) => ({ ...current, progression: event.target.value }))} />
               <Input placeholder="Regression" value={itemForm.regression} onChange={(event) => setItemForm((current) => ({ ...current, regression: event.target.value }))} />
             </div>
-            <Input placeholder="Video URL" value={itemForm.videoUrl} onChange={(event) => setItemForm((current) => ({ ...current, videoUrl: event.target.value }))} />
+            <div className="space-y-3 rounded-xl border border-border p-3">
+              <p className="text-sm font-medium text-foreground">Video</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={isUploadingVideo}
+                >
+                  {isUploadingVideo ? "Uploading..." : "Upload local video"}
+                </Button>
+                {itemForm.videoUrl ? (
+                  <span className="text-xs text-muted-foreground">Video attached</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Or paste a video URL below</span>
+                )}
+              </div>
+              {isUploadingVideo ? (
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+                </div>
+              ) : null}
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  void uploadLocalVideo(file);
+                }}
+              />
+              <Input placeholder="Video URL" value={itemForm.videoUrl} onChange={(event) => setItemForm((current) => ({ ...current, videoUrl: event.target.value }))} />
+            </div>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <input
                 type="checkbox"
