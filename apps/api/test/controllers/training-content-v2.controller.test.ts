@@ -1,4 +1,5 @@
 jest.mock("../../src/services/training-content-v2.service", () => ({
+  copyTrainingModulesFromAudience: jest.fn(),
   createTrainingAudience: jest.fn(),
   listTrainingContentAdminWorkspace: jest.fn(),
   getTrainingContentMobileWorkspace: jest.fn(),
@@ -23,6 +24,7 @@ jest.mock("../../src/services/user.service", () => ({
 }));
 
 import {
+  copyTrainingModulesFromAudienceHandler,
   createTrainingAudienceHandler,
   finishTrainingSessionHandler,
   getTrainingContentAdminWorkspaceHandler,
@@ -30,6 +32,7 @@ import {
   listTrainingAudiencesHandler,
 } from "../../src/controllers/training-content-v2.controller";
 import {
+  copyTrainingModulesFromAudience,
   createTrainingAudience,
   finishTrainingModuleSession,
   getTrainingContentMobileWorkspace,
@@ -83,6 +86,25 @@ describe("training content v2 controller", () => {
     expect(createTrainingAudience).toHaveBeenCalledWith({ label: "8-10", createdBy: 7 });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ item: { id: 5, label: "8-10" } });
+  });
+
+  it("copies modules from another audience", async () => {
+    (copyTrainingModulesFromAudience as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], others: [] });
+    const req = {
+      body: { sourceAudienceLabel: "6", targetAudienceLabel: "8" },
+      user: { id: 7 },
+    } as any;
+    const res = createRes();
+
+    await copyTrainingModulesFromAudienceHandler(req, res);
+
+    expect(copyTrainingModulesFromAudience).toHaveBeenCalledWith({
+      sourceAudienceLabel: "6",
+      targetAudienceLabel: "8",
+      createdBy: 7,
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ audienceLabel: "8", modules: [], others: [] });
   });
 
   it("returns mobile workspace with athlete age fallback", async () => {

@@ -8,6 +8,7 @@ import {
   createTrainingModuleSession,
   createTrainingOtherContent,
   createTrainingSessionItem,
+  copyTrainingModulesFromAudience,
   deleteTrainingModule,
   deleteTrainingModuleSession,
   deleteTrainingOtherContent,
@@ -51,6 +52,11 @@ const createModuleSchema = z.object({
 
 const createAudienceSchema = z.object({
   label: z.string().min(1).max(64),
+});
+
+const copyAudienceModulesSchema = z.object({
+  sourceAudienceLabel: z.string().min(1).max(64),
+  targetAudienceLabel: z.string().min(1).max(64),
 });
 
 const updateModuleSchema = z.object({
@@ -129,6 +135,16 @@ export async function createTrainingAudienceHandler(req: Request, res: Response)
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });
+}
+
+export async function copyTrainingModulesFromAudienceHandler(req: Request, res: Response) {
+  const input = copyAudienceModulesSchema.parse(req.body);
+  const workspace = await copyTrainingModulesFromAudience({
+    sourceAudienceLabel: input.sourceAudienceLabel,
+    targetAudienceLabel: input.targetAudienceLabel,
+    createdBy: req.user!.id,
+  });
+  return res.status(200).json(workspace);
 }
 
 export async function getTrainingContentAdminWorkspaceHandler(req: Request, res: Response) {

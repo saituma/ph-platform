@@ -3,6 +3,7 @@ import { Router } from "express";
 import { requireAuth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/roles";
 import {
+  copyTrainingModulesFromAudienceHandler,
   createTrainingAudienceHandler,
   createTrainingModuleHandler,
   createTrainingOtherContentHandler,
@@ -26,6 +27,7 @@ const router = Router();
 
 router.get("/training-content-v2/admin/audiences", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listTrainingAudiencesHandler);
 router.post("/training-content-v2/admin/audiences", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createTrainingAudienceHandler);
+router.post("/training-content-v2/admin/copy-modules", requireAuth, requireRole(["coach", "admin", "superAdmin"]), copyTrainingModulesFromAudienceHandler);
 router.get("/training-content-v2/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]), getTrainingContentAdminWorkspaceHandler);
 router.get("/training-content-v2/mobile", requireAuth, getTrainingContentMobileWorkspaceHandler);
 router.post("/training-content-v2/mobile/sessions/:sessionId/finish", requireAuth, finishTrainingSessionHandler);
