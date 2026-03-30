@@ -1,5 +1,6 @@
 import "dotenv/config";
 import dns from "node:dns";
+import fs from "node:fs";
 import path from "node:path";
 
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -49,6 +50,72 @@ function connectionWantsSsl(raw: string): boolean {
   }
 }
 
+function readJournalEntries(migrationsFolder: string) {
+  const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
+  const journal = JSON.parse(fs.readFileSync(journalPath, "utf8")) as {
+    entries?: Array<{ idx: number; when: number; tag: string }>;
+  };
+  return journal.entries ?? [];
+}
+
+function readSqlMigrationTags(migrationsFolder: string) {
+  return fs
+    .readdirSync(migrationsFolder)
+    .filter((file) => file.endsWith(".sql"))
+    .sort()
+    .map((file) => file.replace(/\.sql$/, ""));
+}
+
+async function tableExists(db: ReturnType<typeof drizzle>, tableName: string) {
+  const result = await db.execute(sql`
+    select exists (
+      select 1
+      from information_schema.tables
+      where table_schema = 'public'
+        and table_name = ${tableName}
+    ) as exists
+  `);
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function columnExists(db: ReturnType<typeof drizzle>, tableName: string, columnName: string) {
+  const result = await db.execute(sql`
+    select exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = ${tableName}
+        and column_name = ${columnName}
+    ) as exists
+  `);
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function assertTrainingContentV2Schema(db: ReturnType<typeof drizzle>) {
+  const [hasModules, hasOthers, hasSessions, hasItems, hasAudienceLabelOnModules, hasAudienceLabelOnOthers] =
+    await Promise.all([
+      tableExists(db, "training_modules"),
+      tableExists(db, "training_other_contents"),
+      tableExists(db, "training_module_sessions"),
+      tableExists(db, "training_session_items"),
+      columnExists(db, "training_modules", "audienceLabel"),
+      columnExists(db, "training_other_contents", "audienceLabel"),
+    ]);
+
+  const missing = [
+    !hasModules ? "training_modules" : null,
+    !hasOthers ? "training_other_contents" : null,
+    !hasSessions ? "training_module_sessions" : null,
+    !hasItems ? "training_session_items" : null,
+    !hasAudienceLabelOnModules ? 'training_modules.audienceLabel' : null,
+    !hasAudienceLabelOnOthers ? 'training_other_contents.audienceLabel' : null,
+  ].filter(Boolean);
+
+  if (missing.length > 0) {
+    throw new Error(`Training content v2 schema is still missing after migrations: ${missing.join(", ")}`);
+  }
+}
+
 async function main() {
   const connectionString = normalizeConnectionString(rawUrl);
   const useSsl =
@@ -66,6 +133,15 @@ async function main() {
 
   const db = drizzle(pool);
   const migrationsFolder = path.resolve(process.cwd(), "drizzle");
+  const sqlMigrationTags = readSqlMigrationTags(migrationsFolder);
+  const journalEntries = readJournalEntries(migrationsFolder);
+  const journalTags = new Set(journalEntries.map((entry) => entry.tag));
+  const missingJournalTags = sqlMigrationTags.filter((tag) => !journalTags.has(tag));
+  if (missingJournalTags.length > 0) {
+    throw new Error(
+      `Migration journal is out of sync with SQL files. Missing journal entries for: ${missingJournalTags.join(", ")}`
+    );
+  }
   const migrations = readMigrationFiles({ migrationsFolder });
 
   const migrationsSchema = "public";
@@ -111,6 +187,8 @@ async function main() {
     migrationsSchema,
     migrationsTable,
   });
+
+  await assertTrainingContentV2Schema(db);
 
   console.log("Migrations applied successfully.");
   await pool.end();

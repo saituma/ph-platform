@@ -302,6 +302,20 @@
       "when": 1773013000000,
       "tag": "0042_athlete_plan_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1773014000000,
+      "tag": "0043_training_content_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1773015000000,
+      "tag": "0044_training_content_audience_labels",
+      "breakpoints": true
     }
   ]
 }
