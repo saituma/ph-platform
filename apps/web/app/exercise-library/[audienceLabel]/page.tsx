@@ -300,6 +300,23 @@ export default function AudienceDetailPage() {
     }
   };
 
+  const toggleOtherType = async (type: string, enabled: boolean) => {
+    try {
+      setError(null);
+      await trainingContentRequest("/others/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          audienceLabel,
+          type,
+          enabled,
+        }),
+      });
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update this content toggle.");
+    }
+  };
+
   return (
     <AdminShell
       title="Training content"
@@ -375,23 +392,66 @@ export default function AudienceDetailPage() {
           ) : (
             <Card>
               <CardHeader>
-              <SectionHeader title={`Others for ${audienceLabel}`} description="Standalone plan-based content outside the module flow." />
+              <SectionHeader title={`Others for ${audienceLabel}`} description="Turn each plan-based section on or off, then manage its content below." />
               </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {OTHER_TYPES.map((type) => (
-                  <Button
-                    key={type.value}
-                    variant={selectedOtherType === type.value ? "default" : "outline"}
-                    onClick={() => {
-                      setSelectedOtherType(type.value);
-                      setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
-                    }}
-                  >
-                    {type.label}
-                  </Button>
-                ))}
+              <div className="space-y-3">
+                {OTHER_TYPES.map((type) => {
+                  const group = workspace?.others.find((item) => item.type === type.value);
+                  const isSelected = selectedOtherType === type.value;
+                  return (
+                    <div
+                      key={type.value}
+                      className={`rounded-2xl border p-4 transition ${
+                        isSelected ? "border-primary bg-primary/5" : "border-border bg-card"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <button
+                          type="button"
+                          className="flex-1 text-left"
+                          onClick={() => {
+                            setSelectedOtherType(type.value);
+                            setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
+                          }}
+                        >
+                          <p className="text-base font-semibold text-foreground">{type.label}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {group?.items.length ? `${group.items.length} item${group.items.length === 1 ? "" : "s"} added` : "No content created yet."}
+                          </p>
+                        </button>
+                        <label className="flex items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-medium text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(group?.enabled)}
+                            onChange={(event) => void toggleOtherType(type.value, event.target.checked)}
+                          />
+                          <span>{group?.enabled ? "On" : "Off"}</span>
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => {
+                    setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
+                    setModalOpen(true);
+                  }}
+                >
+                  + Add other content
+                </Button>
+              </div>
+              <div className="rounded-2xl border border-border p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{selectedOtherGroup?.label ?? "Other content"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedOtherGroup?.enabled ? "This section is currently enabled for the plan." : "This section is currently turned off for the plan."}
+                    </p>
+                  </div>
+                </div>
               {(selectedOtherGroup?.items ?? []).map((item) => (
                 <div key={item.id} className="rounded-2xl border border-border p-4">
                   <p className="text-lg font-semibold text-foreground">{item.order}. {item.title}</p>
@@ -422,6 +482,7 @@ export default function AudienceDetailPage() {
                 </div>
               ))}
               {!selectedOtherGroup?.items.length ? <p className="text-sm text-muted-foreground">No content created yet for this section.</p> : null}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -433,7 +494,7 @@ export default function AudienceDetailPage() {
             <DialogDescription>
               {activeView === "age"
                 ? `Create or update a module for audience ${audienceLabel}.`
-                : `Create or update ${selectedOtherGroup?.label ?? "other"} content for audience ${audienceLabel}.`}
+                : `Create or update ${selectedOtherGroup?.label ?? "other"} content for plan ${audienceLabel}.`}
             </DialogDescription>
           </DialogHeader>
           {activeView === "age" ? (
@@ -460,16 +521,8 @@ export default function AudienceDetailPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {OTHER_TYPES.map((type) => (
-                  <Button
-                    key={type.value}
-                    variant={selectedOtherType === type.value ? "default" : "outline"}
-                    onClick={() => setSelectedOtherType(type.value)}
-                  >
-                    {type.label}
-                  </Button>
-                ))}
+              <div className="rounded-xl border border-border bg-secondary/20 px-4 py-3 text-sm text-muted-foreground">
+                This content will live under <span className="font-semibold text-foreground">{selectedOtherGroup?.label ?? "the selected section"}</span> for plan <span className="font-semibold text-foreground">{audienceLabel}</span>.
               </div>
               <Input placeholder="Title" value={otherForm.title} onChange={(event) => setOtherForm((current) => ({ ...current, title: event.target.value }))} />
               <Textarea placeholder="Content body" value={otherForm.body} onChange={(event) => setOtherForm((current) => ({ ...current, body: event.target.value }))} />

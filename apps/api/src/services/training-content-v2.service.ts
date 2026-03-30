@@ -7,6 +7,7 @@ import {
   trainingModuleSessionTable,
   trainingModuleTable,
   trainingOtherContentTable,
+  trainingOtherSettingTable,
   trainingOtherType,
   trainingSessionBlockType,
   trainingSessionItemTable,
@@ -160,6 +161,14 @@ async function getNextOtherOrder(audienceLabel: string, type: (typeof trainingOt
   ) + 1;
 }
 
+async function getTrainingOtherSettings(audienceLabel: string) {
+  return db
+    .select()
+    .from(trainingOtherSettingTable)
+    .where(eq(trainingOtherSettingTable.audienceLabel, audienceLabel))
+    .orderBy(asc(trainingOtherSettingTable.type), asc(trainingOtherSettingTable.id));
+}
+
 export async function listTrainingAudiences() {
   const [registeredAudiences, modules, others] = await Promise.all([
     db.select({ label: trainingAudienceTable.label }).from(trainingAudienceTable),
@@ -277,7 +286,7 @@ export async function copyTrainingModulesFromAudience(input: {
 
 export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
   const normalizedAudienceLabel = normalizeAudienceLabel(audienceLabel);
-  const [modules, sessions, items, others] = await Promise.all([
+  const [modules, sessions, items, others, otherSettings] = await Promise.all([
     db
       .select()
       .from(trainingModuleTable)
@@ -296,6 +305,7 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
       .from(trainingOtherContentTable)
       .where(eq(trainingOtherContentTable.audienceLabel, normalizedAudienceLabel))
       .orderBy(asc(trainingOtherContentTable.type), asc(trainingOtherContentTable.order), asc(trainingOtherContentTable.id)),
+    getTrainingOtherSettings(normalizedAudienceLabel),
   ]);
 
   const moduleIds = new Set(modules.map((module) => module.id));
@@ -322,6 +332,7 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
     others: trainingOtherType.enumValues.map((type) => ({
       type,
       label: OTHER_LABELS[type],
+      enabled: otherSettings.find((setting) => setting.type === type)?.enabled ?? others.some((item) => item.type === type),
       items: others.filter((item) => item.type === type),
     })),
   };
@@ -546,6 +557,42 @@ export async function deleteTrainingOtherContent(id: number) {
   return row ?? null;
 }
 
+export async function updateTrainingOtherTypeSetting(input: {
+  audienceLabel: string;
+  type: (typeof trainingOtherType.enumValues)[number];
+  enabled: boolean;
+  createdBy: number;
+}) {
+  const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
+  await ensureTrainingAudienceExists(normalizedAudienceLabel, input.createdBy);
+
+  const existing = await getTrainingOtherSettings(normalizedAudienceLabel);
+  const current = existing.find((row) => row.type === input.type);
+
+  if (current) {
+    const [updated] = await db
+      .update(trainingOtherSettingTable)
+      .set({
+        enabled: input.enabled,
+        updatedAt: new Date(),
+      })
+      .where(eq(trainingOtherSettingTable.id, current.id))
+      .returning();
+    return updated ?? null;
+  }
+
+  const [created] = await db
+    .insert(trainingOtherSettingTable)
+    .values({
+      audienceLabel: normalizedAudienceLabel,
+      type: input.type,
+      enabled: input.enabled,
+      createdBy: input.createdBy,
+    })
+    .returning();
+  return created ?? null;
+}
+
 export async function getTrainingContentMobileWorkspace(input: { age: number; athleteId: number | null }) {
   const audiences = await listTrainingAudiences();
   const bestAudience = audiences
@@ -598,7 +645,7 @@ export async function getTrainingContentMobileWorkspace(input: { age: number; at
     };
   });
 
-  const availableOtherSections = workspace.others.filter((group) => group.items.length > 0);
+  const availableOtherSections = workspace.others.filter((group) => group.enabled && group.items.length > 0);
   return {
     age: input.age,
     audienceLabel: selectedAudienceLabel,
