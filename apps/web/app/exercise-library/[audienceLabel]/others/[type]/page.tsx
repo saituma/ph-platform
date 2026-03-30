@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminShell } from "../../../../../components/admin/shell";
 import { SectionHeader } from "../../../../../components/admin/section-header";
@@ -23,6 +23,7 @@ import {
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../../../../components/admin/training-content-v2/api";
+import { useCreateMediaUploadUrlMutation } from "../../../../../lib/apiSlice";
 
 export default function OtherContentDetailPage() {
   const params = useParams<{ audienceLabel: string; type: string }>();
@@ -35,6 +36,10 @@ export default function OtherContentDetailPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const [createUploadUrl] = useCreateMediaUploadUrlMutation();
   const [otherForm, setOtherForm] = useState({
     id: null as number | null,
     title: "",
@@ -43,6 +48,56 @@ export default function OtherContentDetailPage() {
     videoUrl: "",
     order: "",
   });
+
+  const uploadLocalVideo = async (file: File) => {
+    const maxSizeMb = 250;
+    if (file.size > maxSizeMb * 1024 * 1024) {
+      setError(`Video must be smaller than ${maxSizeMb}MB.`);
+      return;
+    }
+
+    try {
+      setError(null);
+      setIsUploadingVideo(true);
+      setUploadProgress(0);
+      const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+      const result = await createUploadUrl({
+        folder: "training-content/others",
+        fileName,
+        contentType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+      }).unwrap();
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return;
+          setUploadProgress(Math.round((event.loaded / event.total) * 100));
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error("Failed to upload video."));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Failed to upload video."));
+        xhr.open("PUT", result.uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      });
+
+      setOtherForm((current) => ({ ...current, videoUrl: result.publicUrl }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload video.");
+    } finally {
+      setIsUploadingVideo(false);
+      setUploadProgress(0);
+      if (videoInputRef.current) {
+        videoInputRef.current.value = "";
+      }
+    }
+  };
 
   const loadWorkspace = async () => {
     try {
@@ -184,6 +239,39 @@ export default function OtherContentDetailPage() {
             <div className="grid gap-2 sm:grid-cols-2">
               <Input placeholder="Video URL" value={otherForm.videoUrl} onChange={(event) => setOtherForm((current) => ({ ...current, videoUrl: event.target.value }))} />
               <Input placeholder="Order" value={otherForm.order} onChange={(event) => setOtherForm((current) => ({ ...current, order: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void uploadLocalVideo(file);
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => videoInputRef.current?.click()}
+                disabled={isUploadingVideo}
+              >
+                {isUploadingVideo ? "Uploading..." : "Upload local video"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Upload a local video file or paste a hosted video URL above.
+              </p>
+              {isUploadingVideo ? (
+                <div className="space-y-1">
+                  <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                    <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{uploadProgress}% uploaded</p>
+                </div>
+              ) : null}
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setModalOpen(false)}>
