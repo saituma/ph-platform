@@ -105,6 +105,7 @@ export default function AudienceDetailPage() {
   const [copySearch, setCopySearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const loadWorkspace = async () => {
@@ -263,7 +264,7 @@ export default function AudienceDetailPage() {
 
   const copyModulesFromAnotherAudience = async () => {
     if (!copySourceAudience || copySourceAudience === audienceLabel) return;
-    setIsSaving(true);
+    setIsCopying(true);
     try {
       setError(null);
       const data = await trainingContentRequest<AudienceWorkspace>("/admin/copy-modules", {
@@ -278,7 +279,7 @@ export default function AudienceDetailPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to copy modules from another age.");
     } finally {
-      setIsSaving(false);
+      setIsCopying(false);
     }
   };
 
@@ -292,7 +293,7 @@ export default function AudienceDetailPage() {
           <div className="ml-auto flex flex-wrap gap-2">
             {activeView === "age" ? (
               <Button variant="outline" onClick={() => setCopyModalOpen(true)}>
-                Copy from other modules
+                Copy module
               </Button>
             ) : null}
             <Button
@@ -461,7 +462,7 @@ export default function AudienceDetailPage() {
       <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Copy from other modules</DialogTitle>
+            <DialogTitle>Copy module</DialogTitle>
             <DialogDescription>
               Copy all modules, sessions, and session items from another age into age {audienceLabel}. This replaces the current module list for this age.
             </DialogDescription>
@@ -513,12 +514,25 @@ export default function AudienceDetailPage() {
                 We will copy the full module structure from the selected age into this one.
               </p>
             </div>
+            {isCopying ? (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Copying module data...</p>
+                    <p className="text-xs text-muted-foreground">
+                      Please wait while we copy modules, sessions, and session items from the selected age.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCopyModalOpen(false)}>
+              <Button variant="outline" onClick={() => setCopyModalOpen(false)} disabled={isCopying}>
                 Cancel
               </Button>
-              <Button onClick={() => void copyModulesFromAnotherAudience()} disabled={!copySourceAudience || isSaving}>
-                Copy modules
+              <Button onClick={() => void copyModulesFromAnotherAudience()} disabled={!copySourceAudience || isCopying}>
+                {isCopying ? "Copying..." : "Copy module"}
               </Button>
             </div>
           </div>
