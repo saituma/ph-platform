@@ -86,6 +86,22 @@ function SortableModuleCard({
   );
 }
 
+function expandAudienceLabel(label: string) {
+  if (label === "All") return "All ages";
+  const exact = label.match(/^(\d{1,2})$/);
+  if (exact) return `Age ${exact[1]}`;
+  const range = label.match(/^(\d{1,2})-(\d{1,2})$/);
+  if (!range) return label;
+
+  const start = Number(range[1]);
+  const end = Number(range[2]);
+  const ages = [];
+  for (let age = start; age <= end; age += 1) {
+    ages.push(String(age));
+  }
+  return ages.join(", ");
+}
+
 export default function AudienceDetailPage() {
   const params = useParams<{ audienceLabel: string }>();
   const searchParams = useSearchParams();
@@ -93,6 +109,7 @@ export default function AudienceDetailPage() {
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
     [params.audienceLabel],
   );
+  const expandedAudienceLabel = useMemo(() => expandAudienceLabel(audienceLabel), [audienceLabel]);
   const activeView = searchParams.get("view") === "others" ? "others" : "age";
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -284,7 +301,7 @@ export default function AudienceDetailPage() {
   };
 
   return (
-    <AdminShell title="Training content" subtitle={`Audience: ${audienceLabel}`}>
+    <AdminShell title="Training content" subtitle={`Audience: ${audienceLabel}${expandedAudienceLabel !== audienceLabel ? ` • ${expandedAudienceLabel}` : ""}`}>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
           <Link href={`/exercise-library${activeView === "others" ? "?view=others" : ""}`}>
@@ -315,7 +332,14 @@ export default function AudienceDetailPage() {
         {activeView === "age" ? (
             <Card>
             <CardHeader>
-              <SectionHeader title={`Modules for age ${audienceLabel}`} description="Click a module to open its session list page." />
+              <SectionHeader
+                title={`Modules for age ${audienceLabel}`}
+                description={
+                  expandedAudienceLabel !== audienceLabel
+                    ? `This audience covers ages ${expandedAudienceLabel}. Click a module to open its session list page.`
+                    : "Click a module to open its session list page."
+                }
+              />
             </CardHeader>
             <CardContent className="space-y-3">
               {workspace?.modules.length ? (
