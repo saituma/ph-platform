@@ -1,5 +1,9 @@
 "use client";
 
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -24,6 +28,63 @@ import {
   trainingContentRequest,
 } from "../../../components/admin/training-content-v2/api";
 
+function SortableModuleCard({
+  module,
+  audienceLabel,
+  onEdit,
+  onDelete,
+}: {
+  module: AudienceWorkspace["modules"][number];
+  audienceLabel: string;
+  onEdit: (module: AudienceWorkspace["modules"][number]) => void;
+  onDelete: (path: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: module.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-2xl border p-4 transition ${isDragging ? "border-primary bg-primary/5 shadow-lg" : "border-border"}`}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <button
+          type="button"
+          className="cursor-grab rounded-lg border border-border px-2 py-1 text-xs font-medium text-muted-foreground active:cursor-grabbing"
+          aria-label={`Drag ${module.title}`}
+          {...attributes}
+          {...listeners}
+        >
+          <span className="flex items-center gap-1">
+            <GripVertical className="h-3.5 w-3.5" />
+            Drag
+          </span>
+        </button>
+        <p className="text-xs text-muted-foreground">Hold and move up or down to reorder modules.</p>
+      </div>
+      <p className="text-lg font-semibold text-foreground">{module.order}. {module.title}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {module.sessions.length} sessions · {module.totalDayLength} total days
+      </p>
+      <div className="mt-3 flex gap-2">
+        <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${module.id}`}>
+          <Button size="sm">Open module</Button>
+        </Link>
+        <Button size="sm" variant="outline" onClick={() => onEdit(module)}>
+          Edit
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => onDelete(`/modules/${module.id}`)}>
+          Delete
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function AudienceDetailPage() {
   const params = useParams<{ audienceLabel: string }>();
   const searchParams = useSearchParams();
@@ -35,10 +96,11 @@ export default function AudienceDetailPage() {
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedOtherType, setSelectedOtherType] = useState("mobility");
-  const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "", order: "" });
+  const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "" });
   const [otherForm, setOtherForm] = useState({ id: null as number | null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const loadWorkspace = async () => {
     try {
@@ -68,7 +130,6 @@ export default function AudienceDetailPage() {
           method: "PUT",
           body: JSON.stringify({
             title: moduleForm.title,
-            order: moduleForm.order.trim() ? Number(moduleForm.order) : null,
           }),
         });
       } else {
@@ -77,11 +138,10 @@ export default function AudienceDetailPage() {
           body: JSON.stringify({
             audienceLabel,
             title: moduleForm.title,
-            order: moduleForm.order.trim() ? Number(moduleForm.order) : null,
           }),
         });
       }
-      setModuleForm({ id: null, title: "", order: "" });
+      setModuleForm({ id: null, title: "" });
       setModalOpen(false);
       await loadWorkspace();
     } catch (err) {
@@ -139,6 +199,47 @@ export default function AudienceDetailPage() {
     }
   };
 
+  const reorderModules = async (sourceId: number, targetId: number) => {
+    if (!workspace || sourceId === targetId) return;
+    const sourceIndex = workspace.modules.findIndex((item) => item.id === sourceId);
+    const targetIndex = workspace.modules.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const reordered = [...workspace.modules];
+    const [moved] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    const nextModules = reordered.map((module, index) => ({ ...module, order: index + 1 }));
+    setWorkspace((current) => (current ? { ...current, modules: nextModules } : current));
+    setIsSaving(true);
+    setError(null);
+    try {
+      await Promise.all(
+        nextModules.map((module) =>
+          trainingContentRequest(`/modules/${module.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              title: module.title,
+              order: module.order,
+            }),
+          })
+        )
+      );
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reorder modules.");
+      await loadWorkspace();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleModuleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    void reorderModules(Number(active.id), Number(over.id));
+  };
+
   return (
     <AdminShell title="Training content" subtitle={`Audience: ${audienceLabel}`}>
       <div className="space-y-6">
@@ -150,7 +251,7 @@ export default function AudienceDetailPage() {
             className="ml-auto"
             onClick={() => {
               if (activeView === "age") {
-                setModuleForm({ id: null, title: "", order: "" });
+                setModuleForm({ id: null, title: "" });
               } else {
                 setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
               }
@@ -168,32 +269,26 @@ export default function AudienceDetailPage() {
               <SectionHeader title={`${audienceLabel} modules`} description="Click a module to open its session list page." />
             </CardHeader>
             <CardContent className="space-y-3">
-              {workspace?.modules.map((module) => (
-                <div key={module.id} className="rounded-2xl border border-border p-4">
-                  <p className="text-lg font-semibold text-foreground">{module.order}. {module.title}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {module.sessions.length} sessions · {module.totalDayLength} total days
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${module.id}`}>
-                      <Button size="sm">Open module</Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setModuleForm({ id: module.id, title: module.title, order: String(module.order) });
-                        setModalOpen(true);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void deletePath(`/modules/${module.id}`)}>
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
+              {workspace?.modules.length ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleModuleDragEnd}>
+                  <SortableContext items={workspace.modules.map((module) => module.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {workspace.modules.map((module) => (
+                        <SortableModuleCard
+                          key={module.id}
+                          module={module}
+                          audienceLabel={audienceLabel}
+                          onEdit={(current) => {
+                            setModuleForm({ id: current.id, title: current.title });
+                            setModalOpen(true);
+                          }}
+                          onDelete={(path) => void deletePath(path)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              ) : null}
               {!workspace?.modules.length ? <p className="text-sm text-muted-foreground">No modules created yet.</p> : null}
             </CardContent>
           </Card>
@@ -263,16 +358,17 @@ export default function AudienceDetailPage() {
           </DialogHeader>
           {activeView === "age" ? (
             <div className="space-y-4">
-              <Input
-                placeholder="Module name"
-                value={moduleForm.title}
-                onChange={(event) => setModuleForm((current) => ({ ...current, title: event.target.value }))}
-              />
-              <Input
-                placeholder="Order"
-                value={moduleForm.order}
-                onChange={(event) => setModuleForm((current) => ({ ...current, order: event.target.value }))}
-              />
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Module title</label>
+                <Input
+                  placeholder="e.g. Foundation block"
+                  value={moduleForm.title}
+                  onChange={(event) => setModuleForm((current) => ({ ...current, title: event.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This is the module name athletes and coaches will see in the age flow. New modules are ordered automatically by when you add them.
+                </p>
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setModalOpen(false)}>
                   Cancel
