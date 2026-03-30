@@ -6,9 +6,7 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select } from "../../ui/select";
-import { Textarea } from "../../ui/textarea";
 import {
-  useCreateAvailabilityMutation,
   useCreateServiceMutation,
   useUpdateServiceMutation,
   useCreateAdminBookingMutation,
@@ -19,53 +17,8 @@ export type BookingsDialog =
   | "new-service"
   | "edit-service"
   | "new-booking"
-  | "open-slots"
   | "calendar"
   | "booking-details";
-
-type CreateAvailabilityTrigger = (args: {
-  serviceTypeId: number;
-  startsAt: string;
-  endsAt: string;
-}) => { unwrap: () => Promise<unknown> };
-
-/** Creates one block or one block per day (fixed-time services). Used by open-slots. */
-async function publishAvailabilityBlocks(
-  createAvailability: CreateAvailabilityTrigger,
-  opts: {
-    serviceTypeId: number;
-    durationMinutes: number;
-    startDate: string;
-    endDate: string;
-    startHour: string;
-    startMinute: string;
-    endHour: string;
-    endMinute: string;
-  },
-): Promise<void> {
-  const padValue = (value: string) => value.padStart(2, "0");
-  const duration = opts.durationMinutes;
-  if (!duration || duration <= 0) {
-    throw new Error("Service needs a valid duration.");
-  }
-
-  if (!opts.startHour || !opts.startMinute || !opts.endHour || !opts.endMinute) {
-    throw new Error("Select a start and end time.");
-  }
-  const startsAt = new Date(`${opts.startDate}T${padValue(opts.startHour)}:${padValue(opts.startMinute)}`);
-  const endsAt = new Date(`${opts.endDate}T${padValue(opts.endHour)}:${padValue(opts.endMinute)}`);
-  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-    throw new Error("Invalid date or time.");
-  }
-  if (endsAt <= startsAt) {
-    throw new Error("End time must be after start time.");
-  }
-  await createAvailability({
-    serviceTypeId: opts.serviceTypeId,
-    startsAt: startsAt.toISOString(),
-    endsAt: endsAt.toISOString(),
-  }).unwrap();
-}
 
 function getRtkErrorMessage(err: unknown, fallback: string): string {
   if (typeof err === "object" && err !== null && "data" in err) {
@@ -126,8 +79,6 @@ type BookingsDialogsProps = {
   onApproveBooking?: (bookingId: number) => Promise<void>;
   onDeclineBooking?: (bookingId: number) => Promise<void>;
   isApproving?: boolean;
-  /** When opening the open-slots dialog, pre-select this service id (empty string = none). */
-  openSlotsInitialServiceId?: string;
 };
 
 export const BOOKING_TYPE_LABELS: Record<string, string> = {
@@ -181,7 +132,6 @@ export function BookingsDialogs({
   onApproveBooking,
   onDeclineBooking,
   isApproving = false,
-  openSlotsInitialServiceId = "",
 }: BookingsDialogsProps) {
   const [serviceName, setServiceName] = useState("");
   const [serviceType, setServiceType] = useState("group_call");
@@ -192,13 +142,6 @@ export function BookingsDialogs({
   const [defaultLocation, setDefaultLocation] = useState("");
   const [defaultVideoLink, setDefaultVideoLink] = useState("");
   const [serviceIsActive, setServiceIsActive] = useState(true);
-  const [availabilityServiceId, setAvailabilityServiceId] = useState("");
-  const [availabilityStartDate, setAvailabilityStartDate] = useState("");
-  const [availabilityStartHour, setAvailabilityStartHour] = useState("");
-  const [availabilityStartMinute, setAvailabilityStartMinute] = useState("");
-  const [availabilityEndDate, setAvailabilityEndDate] = useState("");
-  const [availabilityEndHour, setAvailabilityEndHour] = useState("");
-  const [availabilityEndMinute, setAvailabilityEndMinute] = useState("");
   const [bookingUserId, setBookingUserId] = useState("");
   const [bookingServiceId, setBookingServiceId] = useState("");
   const [guardianSearch, setGuardianSearch] = useState("");
@@ -212,13 +155,7 @@ export function BookingsDialogs({
   const [error, setError] = useState<string | null>(null);
   const [createService, { isLoading: isCreatingService }] = useCreateServiceMutation();
   const [updateService, { isLoading: isUpdatingService }] = useUpdateServiceMutation();
-  const [createAvailability, { isLoading: isCreatingAvailability }] = useCreateAvailabilityMutation();
   const [createAdminBooking, { isLoading: isCreatingBooking }] = useCreateAdminBookingMutation();
-
-  const availabilityService = useMemo(
-    () => services.find((service) => String(service.id) === availabilityServiceId) ?? null,
-    [services, availabilityServiceId],
-  );
 
   useEffect(() => {
     if (active === "new-service") {
@@ -231,18 +168,6 @@ export function BookingsDialogs({
       setDefaultLocation("");
       setDefaultVideoLink("");
       setServiceIsActive(true);
-      return;
-    }
-
-    if (active === "open-slots") {
-      setAvailabilityServiceId(openSlotsInitialServiceId);
-      setAvailabilityStartDate("");
-      setAvailabilityStartHour("");
-      setAvailabilityStartMinute("");
-      setAvailabilityEndDate("");
-      setAvailabilityEndHour("");
-      setAvailabilityEndMinute("");
-      setError(null);
       return;
     }
 
@@ -272,7 +197,7 @@ export function BookingsDialogs({
       setDefaultVideoLink("");
       setServiceIsActive(selectedService.isActive ?? true);
     }
-  }, [active, selectedService, openSlotsInitialServiceId]);
+  }, [active, selectedService]);
 
   const filteredGuardians = useMemo(() => {
     const guardians = users.filter((user) => user.role === "guardian");
@@ -335,7 +260,6 @@ export function BookingsDialogs({
           <DialogTitle>
             {active === "new-service" && "Create New Service"}
             {active === "edit-service" && "Edit Service"}
-            {active === "open-slots" && "Open Booking Slots"}
             {active === "calendar" && "Calendar View"}
             {active === "booking-details" && "Booking Details"}
           </DialogTitle>
@@ -379,7 +303,7 @@ export function BookingsDialogs({
               />
               <div className="space-y-1">
                 <Input
-                  placeholder="Slots available (optional)"
+                  placeholder="Slots available"
                   value={capacity}
                   onChange={(e) => {
                     setCapacity(e.target.value);
@@ -387,7 +311,7 @@ export function BookingsDialogs({
                   }}
                 />
                 <div className="text-xs text-muted-foreground">
-                  Number of parents allowed per time slot. Leave blank for unlimited.
+                  Total number of active bookings allowed for this service. This is required for every service.
                 </div>
               </div>
               <Select value={programTier} onChange={(e) => setProgramTier(e.target.value)}>
@@ -411,7 +335,7 @@ export function BookingsDialogs({
                   checked={serviceIsActive}
                   onChange={(e) => setServiceIsActive(e.target.checked)}
                 />
-                Service is active (shown to clients when slots exist)
+                Service is active (shown to clients while capacity remains)
               </label>
               <Input
                 placeholder="Default location (optional)"
@@ -427,13 +351,17 @@ export function BookingsDialogs({
                 <Button
                   onClick={async () => {
                     setError(null);
+                    if (!capacity) {
+                      setError("Slots available is required.");
+                      return;
+                    }
                     try {
                       if (active === "new-service") {
                         await createService({
                           name: serviceName,
                           type: serviceType,
                           durationMinutes: Number(durationMinutes),
-                          capacity: capacity ? Number(capacity) : undefined,
+                          capacity: Number(capacity),
                           attendeeVisibility,
                           defaultLocation: defaultLocation || undefined,
                           defaultMeetingLink: undefined,
@@ -447,7 +375,7 @@ export function BookingsDialogs({
                             name: serviceName,
                             type: serviceType,
                             durationMinutes: Number(durationMinutes),
-                            capacity: capacity ? Number(capacity) : null,
+                            capacity: Number(capacity),
                             attendeeVisibility,
                             defaultLocation: defaultLocation || null,
                             defaultMeetingLink: null,
@@ -611,76 +539,6 @@ export function BookingsDialogs({
               </div>
             </>
           ) : null}
-          {active === "open-slots" ? (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input type="date" placeholder="Start date" value={availabilityStartDate} onChange={(e) => setAvailabilityStartDate(e.target.value)} />
-                <div className="flex gap-2">
-                  <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityStartHour} onChange={(e) => setAvailabilityStartHour(e.target.value)} />
-                  <Input type="number" min={0} max={59} placeholder="Min" value={availabilityStartMinute} onChange={(e) => setAvailabilityStartMinute(e.target.value)} />
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input type="date" placeholder="End date" value={availabilityEndDate} onChange={(e) => setAvailabilityEndDate(e.target.value)} />
-                <div className="flex gap-2">
-                  <Input type="number" min={0} max={23} placeholder="Hour" value={availabilityEndHour} onChange={(e) => setAvailabilityEndHour(e.target.value)} />
-                  <Input type="number" min={0} max={59} placeholder="Min" value={availabilityEndMinute} onChange={(e) => setAvailabilityEndMinute(e.target.value)} />
-                </div>
-              </div>
-              <Select value={availabilityServiceId} onChange={(e) => setAvailabilityServiceId(e.target.value)}>
-                <option value="">Service type</option>
-                {services.map((service) => (
-                  <option key={service.id} value={String(service.id)}>
-                    {service.name}
-                  </option>
-                ))}
-              </Select>
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={async () => {
-                    setError(null);
-                    if (!availabilityServiceId) {
-                      setError("Select a service.");
-                      return;
-                    }
-                    if (!availabilityStartDate || !availabilityEndDate) {
-                      setError("Select a start and end date.");
-                      return;
-                    }
-                    const service = availabilityService;
-                    const duration = service?.durationMinutes ?? 0;
-                    if (!duration) {
-                      setError("Selected service has no duration.");
-                      return;
-                    }
-                    try {
-                      await publishAvailabilityBlocks(createAvailability as CreateAvailabilityTrigger, {
-                        serviceTypeId: Number(availabilityServiceId),
-                        durationMinutes: duration,
-                        startDate: availabilityStartDate,
-                        endDate: availabilityEndDate,
-                        startHour: availabilityStartHour,
-                        startMinute: availabilityStartMinute,
-                        endHour: availabilityEndHour,
-                        endMinute: availabilityEndMinute,
-                      });
-                      onRefresh?.();
-                      onClose();
-                    } catch (err: unknown) {
-                      setError(getRtkErrorMessage(err, "Failed to open slots"));
-                    }
-                  }}
-                  disabled={isCreatingAvailability}
-                >
-                  Open Slots
-                </Button>
-              </div>
-            </>
-          ) : null}
           {active === "calendar" ? (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm">
@@ -746,7 +604,7 @@ export function BookingsDialogs({
               </div>
               {bookings.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-secondary/30 p-4 text-center text-xs text-muted-foreground">
-                  No bookings found yet. Create a booking or open slots to populate the calendar.
+                  No bookings found yet. Create a booking to populate the calendar.
                 </div>
               ) : null}
             </div>

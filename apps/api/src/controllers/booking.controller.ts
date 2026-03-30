@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
   buildAvailabilitySlots,
+  countActiveBookingsForService,
   createAvailabilityBlock,
   createBooking,
   createServiceType,
@@ -24,9 +25,7 @@ const serviceTypeSchema = z.object({
   name: z.string().min(1),
   type: z.enum(["call", "group_call", "individual_call", "lift_lab_1on1", "role_model", "one_on_one"]),
   durationMinutes: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)),
-  capacity: z
-    .preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1))
-    .optional(),
+  capacity: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)),
   attendeeVisibility: z.boolean().optional(),
   defaultLocation: z.string().optional().nullable(),
   defaultMeetingLink: z.string().optional().nullable(),
@@ -64,7 +63,22 @@ export async function listServices(req: Request, res: Response) {
     req.query.includeInactive === "true" &&
     ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "");
   const items = await listServiceTypes({ includeInactive });
-  return res.status(200).json({ items });
+  if (includeInactive || ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "")) {
+    return res.status(200).json({ items });
+  }
+
+  const filtered = [];
+  for (const item of items) {
+    if (!item.capacity) {
+      filtered.push(item);
+      continue;
+    }
+    const activeBookings = await countActiveBookingsForService(item.id);
+    if (activeBookings < item.capacity) {
+      filtered.push(item);
+    }
+  }
+  return res.status(200).json({ items: filtered });
 }
 
 export async function createService(req: Request, res: Response) {
@@ -181,7 +195,7 @@ export async function createBookingForUser(req: Request, res: Response) {
     const knownErrors = [
       "Capacity reached",
       "Service type not found",
-      "Selected time is not available",
+      "Service type not available",
     ];
     if (knownErrors.includes(error?.message)) {
       return res.status(400).json({ error: error.message });

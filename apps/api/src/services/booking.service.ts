@@ -228,6 +228,19 @@ export async function listBookingsForServiceInRange(serviceTypeId: number, from:
     );
 }
 
+export async function countActiveBookingsForService(serviceTypeId: number) {
+  const rows = await db
+    .select({ id: bookingTable.id })
+    .from(bookingTable)
+    .where(
+      and(
+        eq(bookingTable.serviceTypeId, serviceTypeId),
+        inArray(bookingTable.status, ["pending", "confirmed"]),
+      ),
+    );
+  return rows.length;
+}
+
 export async function createBooking(input: {
   athleteId: number;
   guardianId: number;
@@ -245,33 +258,14 @@ export async function createBooking(input: {
     throw new Error("Service type not found");
   }
 
-  if (serviceType[0].capacity) {
-    const existing = await db
-      .select()
-      .from(bookingTable)
-      .where(and(eq(bookingTable.serviceTypeId, input.serviceTypeId), eq(bookingTable.startsAt, input.startsAt)));
-
-    if (existing.length >= serviceType[0].capacity) {
-      throw new Error("Capacity reached");
-    }
+  if (serviceType[0].isActive === false) {
+    throw new Error("Service type not available");
   }
 
-  if (!input.bypassAvailability) {
-    const blocks = await db
-      .select()
-      .from(availabilityBlockTable)
-      .where(
-        and(
-          eq(availabilityBlockTable.serviceTypeId, input.serviceTypeId),
-          lte(availabilityBlockTable.startsAt, input.startsAt),
-          gte(availabilityBlockTable.endsAt, input.endsAt),
-        ),
-      )
-      .limit(1);
-    if (!blocks[0]) {
-      if (!serviceType[0].capacity) {
-        throw new Error("Selected time is not available");
-      }
+  if (serviceType[0].capacity) {
+    const existingCount = await countActiveBookingsForService(input.serviceTypeId);
+    if (existingCount >= serviceType[0].capacity) {
+      throw new Error("Capacity reached");
     }
   }
 

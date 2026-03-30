@@ -8,36 +8,9 @@ import { Select } from "../../../components/ui/select";
 import { useEffect, useMemo, useState } from "react";
 import {
   useCreateBookingMutation,
-  useGetBookingAvailabilityQuery,
   useGetBookingServicesQuery,
   useGetUserBookingsQuery,
 } from "../../../lib/apiSlice";
-
-function parseYmd(dateStr: string): { y: number; mo: number; d: number } | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
-  if (!m) return null;
-  return { y: Number(m[1]), mo: Number(m[2]) - 1, d: Number(m[3]) };
-}
-
-function startOfLocalDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function endOfLocalDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(23, 59, 59, 999);
-  return next;
-}
-
-/** Align slot ↔ booking counts (API timestamps may differ by ms). */
-function toBookingSlotKey(d: Date) {
-  const x = new Date(d.getTime());
-  x.setSeconds(0, 0);
-  x.setMilliseconds(0);
-  return String(x.getTime());
-}
 
 export default function ParentSchedulePage() {
   const today = new Date();
@@ -52,7 +25,7 @@ export default function ParentSchedulePage() {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   });
-  const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string>("09:00");
   const [location, setLocation] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -65,82 +38,6 @@ export default function ParentSchedulePage() {
     [services, selectedServiceId],
   );
 
-  /** Wider than one calendar day so timezone boundaries do not drop overlapping availability (same idea as mobile). */
-  const availabilityRange = useMemo(() => {
-    const parsed = parseYmd(selectedDate ?? "");
-    if (!parsed) return null;
-    const { y, mo, d } = parsed;
-    const dayMid = new Date(y, mo, d, 12, 0, 0, 0);
-    const start = startOfLocalDay(new Date(dayMid.getTime() - 24 * 60 * 60 * 1000));
-    const end = endOfLocalDay(new Date(dayMid.getTime() + 24 * 60 * 60 * 1000));
-    return { from: start.toISOString(), to: end.toISOString() };
-  }, [selectedDate]);
-
-  const selectedDayBounds = useMemo(() => {
-    const parsed = parseYmd(selectedDate ?? "");
-    if (!parsed) return null;
-    const { y, mo, d } = parsed;
-    return {
-      dayStart: new Date(y, mo, d, 0, 0, 0, 0),
-      dayEnd: new Date(y, mo, d, 23, 59, 59, 999),
-    };
-  }, [selectedDate]);
-
-  const { data: availabilityData, isLoading: availabilityLoading } = useGetBookingAvailabilityQuery(
-    availabilityRange && selectedServiceId
-      ? { serviceTypeId: selectedServiceId, from: availabilityRange.from, to: availabilityRange.to }
-      : ({} as any),
-    { skip: !availabilityRange || !selectedServiceId },
-  );
-
-  const bookingCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    (availabilityData?.bookings ?? []).forEach((booking: any) => {
-      if (!booking?.startsAt) return;
-      const key = toBookingSlotKey(new Date(booking.startsAt));
-      map.set(key, (map.get(key) ?? 0) + 1);
-    });
-    return map;
-  }, [availabilityData]);
-
-  const availableSlots = useMemo(() => {
-    if (!selectedService || !selectedDayBounds) return [] as Date[];
-    const { dayStart, dayEnd } = selectedDayBounds;
-
-    const inSelectedDay = (slot: Date) =>
-      slot.getTime() >= dayStart.getTime() && slot.getTime() <= dayEnd.getTime();
-
-    let fromApiSlots: Date[] = [];
-    if (availabilityData?.slots?.length) {
-      fromApiSlots = availabilityData.slots
-        .map((s: string) => new Date(s))
-        .filter((slot) => !Number.isNaN(slot.getTime()) && inSelectedDay(slot))
-        .sort((a, b) => a.getTime() - b.getTime());
-    }
-    if (fromApiSlots.length > 0) return fromApiSlots;
-
-    if (!availabilityData?.items?.length) return [] as Date[];
-
-    const durationMs = selectedService.durationMinutes * 60 * 1000;
-    const slotMap = new Map<string, Date>();
-    for (const block of availabilityData.items) {
-      const start = new Date(block.startsAt);
-      const end = new Date(block.endsAt);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-      if (end.getTime() < dayStart.getTime() || start.getTime() > dayEnd.getTime()) continue;
-
-      for (
-        let cursor = new Date(start.getTime());
-        cursor.getTime() + durationMs <= end.getTime();
-        cursor = new Date(cursor.getTime() + durationMs)
-      ) {
-        if (cursor.getTime() < dayStart.getTime() || cursor.getTime() > dayEnd.getTime()) continue;
-        slotMap.set(toBookingSlotKey(cursor), cursor);
-      }
-    }
-    return Array.from(slotMap.values()).sort((a, b) => a.getTime() - b.getTime());
-  }, [availabilityData, selectedService, selectedDayBounds]);
-
   useEffect(() => {
     if (!services.length || selectedServiceId) return;
     setSelectedServiceId(services[0]?.id ?? null);
@@ -152,29 +49,6 @@ export default function ParentSchedulePage() {
       setMeetingLink(selectedService.defaultMeetingLink ?? "");
     }
   }, [selectedService]);
-
-  useEffect(() => {
-    if (!availableSlots.length) {
-      setSelectedSlot(null);
-      return;
-    }
-    setSelectedSlot((prev) => {
-      const capacity = selectedService?.capacity ?? null;
-      const isPrevValid =
-        prev && availableSlots.some((slot) => toBookingSlotKey(slot) === toBookingSlotKey(prev));
-      if (isPrevValid) {
-        if (!capacity) return prev;
-        const prevCount = bookingCounts.get(toBookingSlotKey(prev)) ?? 0;
-        if (prevCount < capacity) return prev;
-      }
-      const firstAvailable = availableSlots.find((slot) => {
-        if (!capacity) return true;
-        const count = bookingCounts.get(toBookingSlotKey(slot)) ?? 0;
-        return count < capacity;
-      });
-      return firstAvailable ?? null;
-    });
-  }, [availableSlots, bookingCounts, selectedService]);
 
   const bookings = useMemo(() => bookingsData?.items ?? [], [bookingsData]);
   const eventsByDate = useMemo(() => {
@@ -238,7 +112,7 @@ export default function ParentSchedulePage() {
   return (
     <ParentShell
       title="Schedule"
-      subtitle="Upcoming sessions and availability."
+      subtitle="Upcoming sessions and booking requests."
       actions={
         <Button
           onClick={() => {
@@ -256,7 +130,7 @@ export default function ParentSchedulePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Pick a session type and day, then choose an open start time. The coach confirms before it&apos;s final.
+            Pick a session type, choose any date and time, and send the request. The coach confirms before it&apos;s final.
           </p>
           <div className="grid gap-3 md:grid-cols-2">
             <Select
@@ -268,7 +142,7 @@ export default function ParentSchedulePage() {
               {services.map((service: any) => (
                 <option key={service.id} value={String(service.id)}>
                   {service.name}
-                  {service.capacity ? ` • ${service.capacity} slots` : ""}
+                  {service.capacity ? ` • ${service.capacity} max` : ""}
                 </option>
               ))}
             </Select>
@@ -279,40 +153,11 @@ export default function ParentSchedulePage() {
             />
           </div>
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">Available start times</p>
-            {availabilityLoading ? <p className="text-sm text-muted-foreground">Loading times…</p> : null}
-            {!availabilityLoading && selectedService && availableSlots.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No open times on this day. Try another date or ask your coach to add availability.
-              </p>
-            ) : null}
-            {availableSlots.length > 0 ? (
-              <Select
-                value={selectedSlot ? toBookingSlotKey(selectedSlot) : ""}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setSelectedSlot(value ? new Date(Number(value)) : null);
-                }}
-              >
-                <option value="">Select a time</option>
-                {availableSlots.map((slot) => {
-                  const cap = selectedService?.capacity ?? null;
-                  const slotKey = toBookingSlotKey(slot);
-                  const taken = bookingCounts.get(slotKey) ?? 0;
-                  const atCap = cap != null && taken >= cap;
-                  const label = slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                  return (
-                    <option key={slotKey} value={slotKey} disabled={atCap}>
-                      {label}
-                      {cap != null ? ` (${Math.max(cap - taken, 0)} spots left)` : ""}
-                      {atCap ? " — full" : ""}
-                    </option>
-                  );
-                })}
-              </Select>
-            ) : null}
-          </div>
+          <Input
+            type="time"
+            value={selectedTime}
+            onChange={(event) => setSelectedTime(event.target.value)}
+          />
 
           <div className="grid gap-3 md:grid-cols-2">
             <Input
@@ -331,16 +176,20 @@ export default function ParentSchedulePage() {
           {bookingSuccess ? <p className="text-sm text-green-600">{bookingSuccess}</p> : null}
 
           <Button
-            disabled={!selectedService || !selectedSlot || creatingBooking}
+            disabled={!selectedService || !selectedDate || !selectedTime || creatingBooking}
             onClick={async () => {
-              if (!selectedService || !selectedSlot) {
-                setBookingError("Select a service and time slot.");
+              if (!selectedService || !selectedDate || !selectedTime) {
+                setBookingError("Select a service, date, and time.");
                 return;
               }
               setBookingError(null);
               setBookingSuccess(null);
               try {
-                const startsAt = new Date(selectedSlot);
+                const startsAt = new Date(`${selectedDate}T${selectedTime}:00`);
+                if (Number.isNaN(startsAt.getTime())) {
+                  setBookingError("Invalid date or time.");
+                  return;
+                }
                 const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
                 await createBooking({
                   serviceTypeId: selectedService.id,
