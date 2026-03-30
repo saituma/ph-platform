@@ -8,6 +8,13 @@ import { AdminShell } from "../../../../../components/admin/shell";
 import { SectionHeader } from "../../../../../components/admin/section-header";
 import { Button } from "../../../../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../../../../components/ui/dialog";
 import { Input } from "../../../../../components/ui/input";
 import {
   AudienceWorkspace,
@@ -23,6 +30,7 @@ export default function ModuleSessionsPage() {
   );
   const moduleId = Number(params.moduleId);
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [sessionForm, setSessionForm] = useState({ id: null as number | null, title: "", dayLength: "7", order: "" });
@@ -68,6 +76,7 @@ export default function ModuleSessionsPage() {
         });
       }
       setSessionForm({ id: null, title: "", dayLength: "7", order: "" });
+      setModalOpen(false);
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save session.");
@@ -96,72 +105,82 @@ export default function ModuleSessionsPage() {
           <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}`}>
             <Button variant="outline">Back to audience</Button>
           </Link>
+          <Button
+            className="ml-auto"
+            onClick={() => {
+              setSessionForm({ id: null, title: "", dayLength: "7", order: "" });
+              setModalOpen(true);
+            }}
+          >
+            + Add session
+          </Button>
         </div>
         {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-        <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-          <Card>
-            <CardHeader>
-              <SectionHeader title={module ? module.title : "Sessions"} description="Create sessions here, then open a session page to manage warmup, main session, and cool down items." />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input placeholder="Session name" value={sessionForm.title} onChange={(event) => setSessionForm((current) => ({ ...current, title: event.target.value }))} />
-              <div className="flex gap-2">
-                <Input placeholder="Length in days" value={sessionForm.dayLength} onChange={(event) => setSessionForm((current) => ({ ...current, dayLength: event.target.value }))} />
-                <Input placeholder="Order" value={sessionForm.order} onChange={(event) => setSessionForm((current) => ({ ...current, order: event.target.value }))} />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={saveSession} disabled={!module || isSaving}>
-                  {sessionForm.id ? "Update" : "Add session"}
-                </Button>
-                {sessionForm.id ? (
-                  <Button variant="ghost" onClick={() => setSessionForm({ id: null, title: "", dayLength: "7", order: "" })}>
-                    Cancel edit
+        <Card>
+          <CardHeader>
+            <SectionHeader title={module ? module.title : "Sessions"} description="Open a session to manage warmup, main session, and cool down items." />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {module?.sessions.map((session) => (
+              <div key={session.id} className="rounded-2xl border border-border p-4">
+                <p className="text-lg font-semibold text-foreground">{session.order}. {session.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {session.dayLength} days · {session.items.length} content items
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}/sessions/${session.id}`}>
+                    <Button size="sm">Open session</Button>
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSessionForm({
+                        id: session.id,
+                        title: session.title,
+                        dayLength: String(session.dayLength),
+                        order: String(session.order),
+                      });
+                      setModalOpen(true);
+                    }}
+                  >
+                    Edit
                   </Button>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader title="Session list" description="Open a session to manage its fixed blocks." />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {module?.sessions.map((session) => (
-                <div key={session.id} className="rounded-2xl border border-border p-4">
-                  <p className="text-lg font-semibold text-foreground">{session.order}. {session.title}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {session.dayLength} days · {session.items.length} content items
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}/sessions/${session.id}`}>
-                      <Button size="sm">Open session</Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        setSessionForm({
-                          id: session.id,
-                          title: session.title,
-                          dayLength: String(session.dayLength),
-                          order: String(session.order),
-                        })
-                      }
-                    >
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void deleteSession(session.id)}>
-                      Delete
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => void deleteSession(session.id)}>
+                    Delete
+                  </Button>
                 </div>
-              ))}
-              {!module?.sessions.length ? <p className="text-sm text-muted-foreground">No sessions created yet.</p> : null}
-            </CardContent>
-          </Card>
-        </div>
+              </div>
+            ))}
+            {!module?.sessions.length ? <p className="text-sm text-muted-foreground">No sessions created yet.</p> : null}
+          </CardContent>
+        </Card>
       </div>
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{sessionForm.id ? "Edit session" : "Add session"}</DialogTitle>
+            <DialogDescription>
+              Sessions live under {module?.title ?? "this module"} and open into a dedicated session detail page.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input placeholder="Session name" value={sessionForm.title} onChange={(event) => setSessionForm((current) => ({ ...current, title: event.target.value }))} />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input placeholder="Length in days" value={sessionForm.dayLength} onChange={(event) => setSessionForm((current) => ({ ...current, dayLength: event.target.value }))} />
+              <Input placeholder="Order" value={sessionForm.order} onChange={(event) => setSessionForm((current) => ({ ...current, order: event.target.value }))} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveSession} disabled={!module || isSaving}>
+                {sessionForm.id ? "Update" : "Create"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }
