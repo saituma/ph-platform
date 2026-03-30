@@ -14,6 +14,7 @@ jest.mock("../../src/services/training-content-v2.service", () => ({
   updateTrainingOtherContent: jest.fn(),
   deleteTrainingOtherContent: jest.fn(),
   finishTrainingModuleSession: jest.fn(),
+  listTrainingAudiences: jest.fn(),
 }));
 
 jest.mock("../../src/services/user.service", () => ({
@@ -24,10 +25,12 @@ import {
   finishTrainingSessionHandler,
   getTrainingContentAdminWorkspaceHandler,
   getTrainingContentMobileWorkspaceHandler,
+  listTrainingAudiencesHandler,
 } from "../../src/controllers/training-content-v2.controller";
 import {
   finishTrainingModuleSession,
   getTrainingContentMobileWorkspace,
+  listTrainingAudiences,
   listTrainingContentAdminWorkspace,
 } from "../../src/services/training-content-v2.service";
 import { getAthleteForUser } from "../../src/services/user.service";
@@ -45,15 +48,26 @@ describe("training content v2 controller", () => {
   });
 
   it("returns admin workspace for an age", async () => {
-    (listTrainingContentAdminWorkspace as jest.Mock).mockResolvedValue({ age: 8, modules: [], others: [] });
-    const req = { query: { age: "8" } } as any;
+    (listTrainingContentAdminWorkspace as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], others: [] });
+    const req = { query: { audienceLabel: "8" } } as any;
     const res = createRes();
 
     await getTrainingContentAdminWorkspaceHandler(req, res);
 
-    expect(listTrainingContentAdminWorkspace).toHaveBeenCalledWith(8);
+    expect(listTrainingContentAdminWorkspace).toHaveBeenCalledWith("8");
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ age: 8, modules: [], others: [] });
+    expect(res.json).toHaveBeenCalledWith({ audienceLabel: "8", modules: [], others: [] });
+  });
+
+  it("lists available audiences", async () => {
+    (listTrainingAudiences as jest.Mock).mockResolvedValue([{ label: "5-6", moduleCount: 1, otherCount: 2 }]);
+    const req = {} as any;
+    const res = createRes();
+
+    await listTrainingAudiencesHandler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ items: [{ label: "5-6", moduleCount: 1, otherCount: 2 }] });
   });
 
   it("returns mobile workspace with athlete age fallback", async () => {

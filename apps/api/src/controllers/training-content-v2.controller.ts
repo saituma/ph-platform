@@ -13,6 +13,7 @@ import {
   deleteTrainingSessionItem,
   finishTrainingModuleSession,
   getTrainingContentMobileWorkspace,
+  listTrainingAudiences,
   listTrainingContentAdminWorkspace,
   updateTrainingModule,
   updateTrainingModuleSession,
@@ -21,8 +22,8 @@ import {
 } from "../services/training-content-v2.service";
 import { getAthleteForUser } from "../services/user.service";
 
-const ageQuerySchema = z.object({
-  age: z.coerce.number().int().min(1).max(100),
+const audienceQuerySchema = z.object({
+  audienceLabel: z.string().min(1).max(64),
 });
 
 const metadataSchema = z
@@ -42,7 +43,7 @@ const metadataSchema = z
   .nullable();
 
 const createModuleSchema = z.object({
-  age: z.number().int().min(1).max(100),
+  audienceLabel: z.string().min(1).max(64),
   title: z.string().min(1).max(255),
   order: z.number().int().min(1).optional().nullable(),
 });
@@ -87,7 +88,7 @@ const updateItemSchema = z.object({
 });
 
 const createOtherSchema = z.object({
-  age: z.number().int().min(1).max(100),
+  audienceLabel: z.string().min(1).max(64),
   type: z.enum(trainingOtherType.enumValues),
   title: z.string().min(1).max(255),
   body: z.string().min(1),
@@ -107,14 +108,23 @@ const updateOtherSchema = z.object({
   order: z.number().int().min(1).optional().nullable(),
 });
 
+const mobileAgeQuerySchema = z.object({
+  age: z.coerce.number().int().min(1).max(100),
+});
+
+export async function listTrainingAudiencesHandler(_req: Request, res: Response) {
+  const items = await listTrainingAudiences();
+  return res.status(200).json({ items });
+}
+
 export async function getTrainingContentAdminWorkspaceHandler(req: Request, res: Response) {
-  const { age } = ageQuerySchema.parse(req.query);
-  const workspace = await listTrainingContentAdminWorkspace(age);
+  const { audienceLabel } = audienceQuerySchema.parse(req.query);
+  const workspace = await listTrainingContentAdminWorkspace(audienceLabel);
   return res.status(200).json(workspace);
 }
 
 export async function getTrainingContentMobileWorkspaceHandler(req: Request, res: Response) {
-  const parsed = ageQuerySchema.safeParse(req.query);
+  const parsed = mobileAgeQuerySchema.safeParse(req.query);
   const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
   const age = parsed.success ? parsed.data.age : athlete?.age ?? null;
   if (!age) {
@@ -130,7 +140,7 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
 export async function createTrainingModuleHandler(req: Request, res: Response) {
   const input = createModuleSchema.parse(req.body);
   const item = await createTrainingModule({
-    age: input.age,
+    audienceLabel: input.audienceLabel,
     title: input.title,
     order: input.order ?? null,
     createdBy: req.user!.id,
