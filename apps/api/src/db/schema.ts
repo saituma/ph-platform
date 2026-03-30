@@ -62,6 +62,20 @@ export const trainingSessionBlockType = pgEnum("training_session_block_type", [
   "cooldown",
 ]);
 
+export const trainingAudienceTable = pgTable(
+  "training_audiences",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    label: varchar({ length: 64 }).notNull(),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    labelUnique: uniqueIndex("training_audiences_label_unique").on(table.label),
+  })
+);
+
 export const userTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   cognitoSub: varchar({ length: 255 }).notNull(),

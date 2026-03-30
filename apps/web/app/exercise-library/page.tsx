@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -23,7 +22,6 @@ import {
 } from "../../components/admin/training-content-v2/api";
 
 export default function ExerciseLibraryAudiencePage() {
-  const router = useRouter();
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
   const [activeTab, setActiveTab] = useState<"age" | "others">("age");
   const [modalOpen, setModalOpen] = useState(false);
@@ -31,26 +29,24 @@ export default function ExerciseLibraryAudiencePage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadAudiences = async () => {
     setIsLoading(true);
-    void trainingContentRequest<{ items: AudienceSummary[] }>("/admin/audiences")
-      .then((data) => {
-        if (!cancelled) setAudiences(data.items ?? []);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load audiences.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const data = await trainingContentRequest<{ items: AudienceSummary[] }>("/admin/audiences");
+      setAudiences(data.items ?? []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load audiences.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAudiences();
   }, []);
 
   const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
-  const audienceHref = `/exercise-library/${encodeURIComponent(normalizedAudience)}${activeTab === "others" ? "?view=others" : ""}`;
 
   return (
     <AdminShell title="Training content" subtitle="Start from audience groups, then drill into modules and sessions.">
@@ -71,16 +67,17 @@ export default function ExerciseLibraryAudiencePage() {
                 title="Audience groups"
                 description="Choose the flow here first, then open or create the audience group you want to manage."
               />
-              <div className="ml-auto flex items-center gap-2 rounded-full border border-border bg-card p-1">
-                <Button variant={activeTab === "age" ? "default" : "outline"} onClick={() => setActiveTab("age")}>
-                  Age adding
+              <div className="ml-auto flex w-full max-w-md items-center gap-2 rounded-full border border-border bg-card p-1">
+                <Button className="flex-1" variant={activeTab === "age" ? "default" : "outline"} onClick={() => setActiveTab("age")}>
+                  Age
                 </Button>
-                <Button variant={activeTab === "others" ? "default" : "outline"} onClick={() => setActiveTab("others")}>
+                <Button className="flex-1" variant={activeTab === "others" ? "default" : "outline"} onClick={() => setActiveTab("others")}>
                   Others
                 </Button>
               </div>
               <Button
                 onClick={() => {
+                  setAudienceInput("");
                   setModalOpen(true);
                 }}
               >
@@ -121,7 +118,7 @@ export default function ExerciseLibraryAudiencePage() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{activeTab === "age" ? "Open age audience" : "Open others audience"}</DialogTitle>
+            <DialogTitle>{activeTab === "age" ? "Add age" : "Add others"}</DialogTitle>
             <DialogDescription>
               Enter an audience label like 5, 5-6, 6-10, 5-15, or All and we will open that audience in the current flow.
             </DialogDescription>
@@ -137,12 +134,23 @@ export default function ExerciseLibraryAudiencePage() {
                 Cancel
               </Button>
               <Button
-                onClick={() => {
-                  setModalOpen(false);
-                  router.push(audienceHref);
+                onClick={async () => {
+                  if (!normalizedAudience) return;
+                  try {
+                    await trainingContentRequest("/admin/audiences", {
+                      method: "POST",
+                      body: JSON.stringify({ label: normalizedAudience }),
+                    });
+                    setAudienceInput("");
+                    setModalOpen(false);
+                    await loadAudiences();
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Failed to create audience.");
+                  }
                 }}
+                disabled={!normalizedAudience}
               >
-                Open audience
+                {activeTab === "age" ? "Add age" : "Add others"}
               </Button>
             </div>
           </div>

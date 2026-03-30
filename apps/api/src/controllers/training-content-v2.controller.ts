@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { trainingOtherType, trainingSessionBlockType } from "../db/schema";
 import {
+  createTrainingAudience,
   createTrainingModule,
   createTrainingModuleSession,
   createTrainingOtherContent,
@@ -46,6 +47,10 @@ const createModuleSchema = z.object({
   audienceLabel: z.string().min(1).max(64),
   title: z.string().min(1).max(255),
   order: z.number().int().min(1).optional().nullable(),
+});
+
+const createAudienceSchema = z.object({
+  label: z.string().min(1).max(64),
 });
 
 const updateModuleSchema = z.object({
@@ -115,6 +120,15 @@ const mobileAgeQuerySchema = z.object({
 export async function listTrainingAudiencesHandler(_req: Request, res: Response) {
   const items = await listTrainingAudiences();
   return res.status(200).json({ items });
+}
+
+export async function createTrainingAudienceHandler(req: Request, res: Response) {
+  const input = createAudienceSchema.parse(req.body);
+  const item = await createTrainingAudience({
+    label: input.label,
+    createdBy: req.user!.id,
+  });
+  return res.status(201).json({ item });
 }
 
 export async function getTrainingContentAdminWorkspaceHandler(req: Request, res: Response) {
