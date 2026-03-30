@@ -267,14 +267,14 @@ export default function AudienceDetailPage() {
     setIsCopying(true);
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>("/admin/copy-modules", {
+      await trainingContentRequest<AudienceWorkspace>("/admin/copy-modules", {
         method: "POST",
         body: JSON.stringify({
           sourceAudienceLabel: copySourceAudience,
           targetAudienceLabel: audienceLabel,
         }),
       });
-      setWorkspace(data);
+      await loadWorkspace();
       setCopyModalOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to copy modules from another age.");
