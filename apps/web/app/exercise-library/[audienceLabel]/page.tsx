@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../components/admin/shell";
@@ -26,12 +26,13 @@ import {
 
 export default function AudienceDetailPage() {
   const params = useParams<{ audienceLabel: string }>();
+  const searchParams = useSearchParams();
   const audienceLabel = useMemo(
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
     [params.audienceLabel],
   );
+  const activeView = searchParams.get("view") === "others" ? "others" : "age";
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
-  const [activeTab, setActiveTab] = useState<"age" | "others">("age");
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedOtherType, setSelectedOtherType] = useState("mobility");
   const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "", order: "" });
@@ -142,21 +143,13 @@ export default function AudienceDetailPage() {
     <AdminShell title="Training content" subtitle={`Audience: ${audienceLabel}`}>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/exercise-library">
+          <Link href={`/exercise-library${activeView === "others" ? "?view=others" : ""}`}>
             <Button variant="outline">Back to audiences</Button>
           </Link>
-          <div className="flex items-center gap-2 rounded-full border border-border bg-card p-1">
-            <Button variant={activeTab === "age" ? "default" : "outline"} onClick={() => setActiveTab("age")}>
-              Age adding
-            </Button>
-            <Button variant={activeTab === "others" ? "default" : "outline"} onClick={() => setActiveTab("others")}>
-              Others
-            </Button>
-          </div>
           <Button
             className="ml-auto"
             onClick={() => {
-              if (activeTab === "age") {
+              if (activeView === "age") {
                 setModuleForm({ id: null, title: "", order: "" });
               } else {
                 setOtherForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
@@ -164,12 +157,12 @@ export default function AudienceDetailPage() {
               setModalOpen(true);
             }}
           >
-            + {activeTab === "age" ? "Add age module" : "Add other content"}
+            + {activeView === "age" ? "Add age module" : "Add other content"}
           </Button>
         </div>
         {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
-        {activeTab === "age" ? (
+        {activeView === "age" ? (
           <Card>
             <CardHeader>
               <SectionHeader title={`${audienceLabel} modules`} description="Click a module to open its session list page." />
@@ -261,14 +254,14 @@ export default function AudienceDetailPage() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{activeTab === "age" ? (moduleForm.id ? "Edit module" : "Add module") : (otherForm.id ? "Edit other content" : "Add other content")}</DialogTitle>
+            <DialogTitle>{activeView === "age" ? (moduleForm.id ? "Edit module" : "Add module") : (otherForm.id ? "Edit other content" : "Add other content")}</DialogTitle>
             <DialogDescription>
-              {activeTab === "age"
+              {activeView === "age"
                 ? `Create or update a module for audience ${audienceLabel}.`
                 : `Create or update ${selectedOtherGroup?.label ?? "other"} content for audience ${audienceLabel}.`}
             </DialogDescription>
           </DialogHeader>
-          {activeTab === "age" ? (
+          {activeView === "age" ? (
             <div className="space-y-4">
               <Input
                 placeholder="Module name"
