@@ -6,7 +6,6 @@ import {
   BarChart3,
   CalendarDays,
   ClipboardCheck,
-  CreditCard,
   Home,
   LifeBuoy,
   MessageCircle,
@@ -24,7 +23,6 @@ const navItems = [
   { label: "Messages", href: "/parent/messages", icon: MessageCircle, badge: "3" },
   { label: "Schedule", href: "/parent/schedule", icon: CalendarDays },
   { label: "Progress", href: "/parent/progress", icon: BarChart3 },
-  { label: "Billing", href: "/parent/billing", icon: CreditCard },
   { label: "Support", href: "/parent/support", icon: LifeBuoy },
   { label: "Settings", href: "/parent/settings", icon: Settings },
 ];
