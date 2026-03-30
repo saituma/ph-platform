@@ -44,8 +44,7 @@ export function BookingsList({ bookings, isLoading = false, onSelect }: Bookings
     return (
       <EmptyState
         title="No upcoming bookings"
-        description="Open availability to start taking sessions."
-        actionLabel="Open Slots"
+        description="Create a booking when you're ready to schedule a session."
       />
     );
   }

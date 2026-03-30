@@ -57,9 +57,9 @@ export function AvailabilityPanel({
       setEndHour("");
       setEndMinute("");
       setServiceId("");
-      setSuccess("Availability opened successfully.");
+      setSuccess("Time range saved successfully.");
     } catch (err: any) {
-      setError(err.message ?? "Failed to open slots");
+      setError(err.message ?? "Failed to save time range");
     }
   };
 
@@ -114,7 +114,7 @@ export function AvailabilityPanel({
           {success ? <p className="text-sm text-green-600">{success}</p> : null}
           <div className="flex flex-wrap gap-2">
             <Button className="flex-1 min-w-[140px]" onClick={handleOpenSlots} disabled={isCreating}>
-              Open Slots
+              Save Time Range
             </Button>
             {onOpenSlots ? (
               <Button variant="outline" className="flex-1 min-w-[140px]" onClick={onOpenSlots}>
@@ -123,9 +123,10 @@ export function AvailabilityPanel({
             ) : null}
           </div>
           <div className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
-            <p className="font-semibold text-foreground">Slot-based booking</p>
+            <p className="font-semibold text-foreground">Legacy availability tools</p>
             <p className="text-xs text-muted-foreground">
-              Publish future open times for any active service to make it bookable.
+              This panel is only for older time-range workflows. New service booking is now controlled by service
+              capacity and active status.
             </p>
           </div>
         </>
