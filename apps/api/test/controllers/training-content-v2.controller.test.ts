@@ -1,4 +1,5 @@
 jest.mock("../../src/services/training-content-v2.service", () => ({
+  createTrainingAudience: jest.fn(),
   listTrainingContentAdminWorkspace: jest.fn(),
   getTrainingContentMobileWorkspace: jest.fn(),
   createTrainingModule: jest.fn(),
@@ -22,12 +23,14 @@ jest.mock("../../src/services/user.service", () => ({
 }));
 
 import {
+  createTrainingAudienceHandler,
   finishTrainingSessionHandler,
   getTrainingContentAdminWorkspaceHandler,
   getTrainingContentMobileWorkspaceHandler,
   listTrainingAudiencesHandler,
 } from "../../src/controllers/training-content-v2.controller";
 import {
+  createTrainingAudience,
   finishTrainingModuleSession,
   getTrainingContentMobileWorkspace,
   listTrainingAudiences,
@@ -68,6 +71,18 @@ describe("training content v2 controller", () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ items: [{ label: "5-6", moduleCount: 1, otherCount: 2 }] });
+  });
+
+  it("creates an audience label", async () => {
+    (createTrainingAudience as jest.Mock).mockResolvedValue({ id: 5, label: "8-10" });
+    const req = { body: { label: "8-10" }, user: { id: 7 } } as any;
+    const res = createRes();
+
+    await createTrainingAudienceHandler(req, res);
+
+    expect(createTrainingAudience).toHaveBeenCalledWith({ label: "8-10", createdBy: 7 });
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ item: { id: 5, label: "8-10" } });
   });
 
   it("returns mobile workspace with athlete age fallback", async () => {

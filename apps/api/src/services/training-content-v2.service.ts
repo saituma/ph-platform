@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "../db";
 import {
   athleteTrainingSessionCompletionTable,
+  trainingAudienceTable,
   trainingModuleSessionTable,
   trainingModuleTable,
   trainingOtherContentTable,
@@ -94,6 +95,31 @@ function sortItemsByBlockThenOrder<T extends { blockType: string; order: number 
   });
 }
 
+async function ensureTrainingAudienceExists(audienceLabel: string, createdBy: number) {
+  const normalizedAudienceLabel = normalizeAudienceLabel(audienceLabel);
+  const existing = await db
+    .select({ id: trainingAudienceTable.id, label: trainingAudienceTable.label })
+    .from(trainingAudienceTable)
+    .where(eq(trainingAudienceTable.label, normalizedAudienceLabel));
+  if (existing[0]) return existing[0];
+
+  const [created] = await db
+    .insert(trainingAudienceTable)
+    .values({
+      label: normalizedAudienceLabel,
+      createdBy,
+    })
+    .onConflictDoNothing({ target: trainingAudienceTable.label })
+    .returning({ id: trainingAudienceTable.id, label: trainingAudienceTable.label });
+  if (created) return created;
+
+  const fallback = await db
+    .select({ id: trainingAudienceTable.id, label: trainingAudienceTable.label })
+    .from(trainingAudienceTable)
+    .where(eq(trainingAudienceTable.label, normalizedAudienceLabel));
+  return fallback[0] ?? null;
+}
+
 async function getNextModuleOrder(audienceLabel: string) {
   const rows = await db
     .select({ order: trainingModuleTable.order })
@@ -135,7 +161,8 @@ async function getNextOtherOrder(audienceLabel: string, type: (typeof trainingOt
 }
 
 export async function listTrainingAudiences() {
-  const [modules, others] = await Promise.all([
+  const [registeredAudiences, modules, others] = await Promise.all([
+    db.select({ label: trainingAudienceTable.label }).from(trainingAudienceTable),
     db
       .select({ audienceLabel: trainingModuleTable.audienceLabel, id: trainingModuleTable.id })
       .from(trainingModuleTable),
@@ -145,6 +172,10 @@ export async function listTrainingAudiences() {
   ]);
 
   const byAudience = new Map<string, { label: string; moduleCount: number; otherCount: number }>();
+  for (const row of registeredAudiences) {
+    const label = normalizeAudienceLabel(row.label);
+    byAudience.set(label, byAudience.get(label) ?? { label, moduleCount: 0, otherCount: 0 });
+  }
   for (const row of modules) {
     const label = normalizeAudienceLabel(row.audienceLabel);
     const current = byAudience.get(label) ?? { label, moduleCount: 0, otherCount: 0 };
@@ -159,6 +190,10 @@ export async function listTrainingAudiences() {
   }
 
   return [...byAudience.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+}
+
+export async function createTrainingAudience(input: { label: string; createdBy: number }) {
+  return ensureTrainingAudienceExists(input.label, input.createdBy);
 }
 
 export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
@@ -220,6 +255,7 @@ export async function createTrainingModule(input: {
   order?: number | null;
 }) {
   const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
+  await ensureTrainingAudienceExists(normalizedAudienceLabel, input.createdBy);
   const order = input.order ?? (await getNextModuleOrder(normalizedAudienceLabel));
   const [row] = await db
     .insert(trainingModuleTable)
@@ -379,6 +415,7 @@ export async function createTrainingOtherContent(input: {
   order?: number | null;
 }) {
   const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
+  await ensureTrainingAudienceExists(normalizedAudienceLabel, input.createdBy);
   const order = input.order ?? (await getNextOtherOrder(normalizedAudienceLabel, input.type));
   const [row] = await db
     .insert(trainingOtherContentTable)

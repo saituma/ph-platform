@@ -316,6 +316,13 @@
       "when": 1773015000000,
       "tag": "0044_training_content_audience_labels",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1773016000000,
+      "tag": "0045_training_audiences",
+      "breakpoints": true
     }
   ]
 }
