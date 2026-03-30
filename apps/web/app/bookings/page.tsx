@@ -52,7 +52,6 @@ export default function BookingsPage() {
   const [activeDialog, setActiveDialog] = useState<BookingsDialog>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
-  const [openSlotsInitialServiceId, setOpenSlotsInitialServiceId] = useState("");
   const [activeChip, setActiveChip] = useState<string>("All");
   const [selectedDateKey, setSelectedDateKey] = useState<string>(() => {
     const now = new Date();
@@ -178,7 +177,7 @@ export default function BookingsPage() {
   return (
     <AdminShell
       title="Bookings"
-      subtitle="Manage bookable services, open times, and client bookings."
+      subtitle="Manage bookable services, capacities, and client bookings."
     >
       <Card>
         <CardHeader className="space-y-4">
@@ -295,7 +294,7 @@ export default function BookingsPage() {
           <CardHeader>
             <SectionHeader
               title="Services"
-              description="See every bookable session type, edit details, turn visibility on or off, and publish availability."
+              description="See every bookable session type, edit details, control capacity, and turn visibility on or off."
             />
           </CardHeader>
           <CardContent>
@@ -306,14 +305,6 @@ export default function BookingsPage() {
               onEditService={(s) => {
                 setSelectedService(s);
                 setActiveDialog("edit-service");
-              }}
-              onOpenSlots={(id) => {
-                setOpenSlotsInitialServiceId(String(id));
-                setActiveDialog("open-slots");
-              }}
-              onOpenSlotsAny={() => {
-                setOpenSlotsInitialServiceId("");
-                setActiveDialog("open-slots");
               }}
               onRefetch={() => {
                 refetchServices();
@@ -417,11 +408,9 @@ export default function BookingsPage() {
 
       <BookingsDialogs
         active={activeDialog}
-        openSlotsInitialServiceId={openSlotsInitialServiceId}
         onClose={() => {
           setActiveDialog(null);
           setSelectedService(null);
-          setOpenSlotsInitialServiceId("");
         }}
         bookings={bookings}
         selectedBooking={selectedBooking}

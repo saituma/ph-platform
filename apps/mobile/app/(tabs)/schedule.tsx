@@ -76,18 +76,9 @@ const endOfLocalDay = (date: Date) => {
   return next;
 };
 
-/** Local calendar day at noon (same anchor idea as parent web). Reduces wrong-day bugs when pickers supply UTC-midnight instants. */
 function normalizeBookingCalendarDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
 }
-
-/** Align slot ↔ booking counts (API timestamps may differ by ms). */
-const toBookingSlotKey = (d: Date) => {
-  const x = new Date(d.getTime());
-  x.setSeconds(0, 0);
-  x.setMilliseconds(0);
-  return String(x.getTime());
-};
 
 export default function ScheduleScreen() {
   const router = useRouter();
@@ -111,10 +102,12 @@ export default function ScheduleScreen() {
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [bookingDate, setBookingDate] = useState<Date>(() => normalizeBookingCalendarDay(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [availabilityData, setAvailabilityData] = useState<{ items: any[]; bookings?: any[]; slots?: string[] } | null>(null);
-  const [availabilityLoading, setAvailabilityLoading] = useState(false);
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
+  const [bookingTime, setBookingTime] = useState<Date>(() => {
+    const next = new Date();
+    next.setHours(9, 0, 0, 0);
+    return next;
+  });
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [confirmedStartsAt, setConfirmedStartsAt] = useState<Date | null>(null);
   const [bookingLocation, setBookingLocation] = useState("");
   const [bookingMeetingLink, setBookingMeetingLink] = useState("");
@@ -165,9 +158,9 @@ export default function ScheduleScreen() {
     setBookingConfirmed(false);
     setBookingError(null);
     setConfirmedStartsAt(null);
-    setSelectedSlot(null);
-    setAvailabilityData(null);
-    setAvailabilityError(null);
+    const next = new Date();
+    next.setHours(9, 0, 0, 0);
+    setBookingTime(next);
   }, []);
 
   const mapBookingsToEvents = useCallback((items: any[]) => {
@@ -259,98 +252,6 @@ export default function ScheduleScreen() {
     () => activeServices.find((service) => service.id === selectedServiceId) ?? null,
     [activeServices, selectedServiceId],
   );
-  const bookingCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    (availabilityData?.bookings ?? []).forEach((booking: any) => {
-      if (!booking?.startsAt) return;
-      const key = toBookingSlotKey(new Date(booking.startsAt));
-      map.set(key, (map.get(key) ?? 0) + 1);
-    });
-    return map;
-  }, [availabilityData]);
-
-  const availableSlots = useMemo(() => {
-    if (!selectedService) {
-      return [] as Date[];
-    }
-
-    const cal = normalizeBookingCalendarDay(bookingDate);
-    const y = cal.getFullYear();
-    const mo = cal.getMonth();
-    const d = cal.getDate();
-    const dayStart = new Date(y, mo, d, 0, 0, 0, 0);
-    const dayEnd = new Date(y, mo, d, 23, 59, 59, 999);
-
-    const inSelectedDay = (slot: Date) =>
-      !Number.isNaN(slot.getTime()) &&
-      slot.getTime() >= dayStart.getTime() &&
-      slot.getTime() <= dayEnd.getTime();
-
-    const slotMap = new Map<string, Date>();
-
-    const rawSlotsLen = availabilityData?.slots?.length ?? 0;
-    if (rawSlotsLen) {
-      for (const raw of availabilityData!.slots!) {
-        const slot = new Date(raw);
-        if (inSelectedDay(slot)) {
-          slotMap.set(toBookingSlotKey(slot), slot);
-        }
-      }
-    }
-
-    const durationMin = Math.max(1, Number(selectedService.durationMinutes) || 1);
-    const durationMs = durationMin * 60 * 1000;
-    const itemsLen = availabilityData?.items?.length ?? 0;
-
-    if (itemsLen) {
-      for (const block of availabilityData!.items) {
-        const start = new Date(block.startsAt);
-        const end = new Date(block.endsAt);
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-
-        if (end.getTime() < dayStart.getTime() || start.getTime() > dayEnd.getTime()) continue;
-
-        for (
-          let cursor = new Date(start.getTime());
-          cursor.getTime() + durationMs <= end.getTime();
-          cursor = new Date(cursor.getTime() + durationMs)
-        ) {
-          if (cursor.getTime() < dayStart.getTime() || cursor.getTime() > dayEnd.getTime()) continue;
-          slotMap.set(toBookingSlotKey(cursor), cursor);
-        }
-      }
-    }
-
-    return Array.from(slotMap.values()).sort((a, b) => a.getTime() - b.getTime());
-  }, [availabilityData, selectedService, bookingDate]);
-
-  const firstAvailableBookingDate = useMemo(() => {
-    const candidates = (availabilityData?.slots ?? [])
-      .map((raw) => new Date(raw))
-      .filter((slot) => !Number.isNaN(slot.getTime()))
-      .sort((a, b) => a.getTime() - b.getTime());
-
-    if (candidates.length > 0) {
-      return normalizeBookingCalendarDay(candidates[0]);
-    }
-
-    if (!selectedService || !availabilityData?.items?.length) return null;
-
-    const durationMin = Math.max(1, Number(selectedService.durationMinutes) || 1);
-    const durationMs = durationMin * 60 * 1000;
-
-    for (const block of availabilityData.items) {
-      const start = new Date(block.startsAt);
-      const end = new Date(block.endsAt);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-      if (start.getTime() + durationMs <= end.getTime()) {
-        return normalizeBookingCalendarDay(start);
-      }
-    }
-
-    return null;
-  }, [availabilityData, selectedService]);
-
   const selectedDateLabel = useMemo(
     () => selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }),
     [selectedDate],
@@ -478,81 +379,6 @@ export default function ScheduleScreen() {
       setBookingMeetingLink(next.defaultMeetingLink ?? "");
     }
   }, [bookingOpen, activeServices, selectedServiceId, selectedDate]);
-
-  useEffect(() => {
-    if (!bookingOpen || !token || !selectedServiceId) {
-      return;
-    }
-    let active = true;
-    setAvailabilityLoading(true);
-    setAvailabilityError(null);
-    setAvailabilityData(null);
-    // Search a wider window so mobile can land on the next real open day instead of
-    // showing "No open times" just because today's date has none.
-    const cal = normalizeBookingCalendarDay(bookingDate);
-    const y = cal.getFullYear();
-    const mo = cal.getMonth();
-    const d = cal.getDate();
-    const dayMid = new Date(y, mo, d, 12, 0, 0, 0);
-    const start = startOfLocalDay(new Date(dayMid.getTime() - 45 * 24 * 60 * 60 * 1000));
-    const end = endOfLocalDay(new Date(dayMid.getTime() + 45 * 24 * 60 * 60 * 1000));
-    const params = new URLSearchParams({
-      serviceTypeId: String(selectedServiceId),
-      from: start.toISOString(),
-      to: end.toISOString(),
-    });
-    apiRequest<{ items: any[]; bookings?: any[]; slots?: string[] }>(`/bookings/availability?${params.toString()}`, {
-      token,
-      skipCache: true,
-    })
-      .then((data) => {
-        if (!active) return;
-        setAvailabilityData(data);
-      })
-      .catch((err: any) => {
-        if (!active) return;
-        setAvailabilityData(null);
-        setAvailabilityError(err.message ?? "Could not load available times.");
-      })
-      .finally(() => {
-        if (!active) return;
-        setAvailabilityLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [bookingOpen, token, selectedServiceId, bookingDate]);
-
-  useEffect(() => {
-    if (!bookingOpen || hasUserAdjustedBookingDate.current) return;
-    if (availableSlots.length > 0 || !firstAvailableBookingDate) return;
-    if (formatDateKey(firstAvailableBookingDate) === formatDateKey(bookingDate)) return;
-    setBookingDate(firstAvailableBookingDate);
-  }, [availableSlots, bookingDate, bookingOpen, firstAvailableBookingDate]);
-
-  useEffect(() => {
-    if (!availableSlots.length) {
-      setSelectedSlot(null);
-      return;
-    }
-    setSelectedSlot((prev) => {
-      const capacity = selectedService?.capacity ?? null;
-      const isPrevValid =
-        prev != null &&
-        availableSlots.some((slot) => toBookingSlotKey(slot) === toBookingSlotKey(prev));
-      if (isPrevValid && prev != null) {
-        if (!capacity) return prev;
-        const prevCount = bookingCounts.get(toBookingSlotKey(prev)) ?? 0;
-        if (prevCount < capacity) return prev;
-      }
-      const firstAvailable = availableSlots.find((slot) => {
-        if (!capacity) return true;
-        const count = bookingCounts.get(toBookingSlotKey(slot)) ?? 0;
-        return count < capacity;
-      });
-      return firstAvailable ?? null;
-    });
-  }, [availableSlots, bookingCounts, selectedService]);
 
   useEffect(() => {
     if (!token || !isFocused) return;
@@ -1174,7 +1000,7 @@ export default function ScheduleScreen() {
                   style={{ borderColor: borderSoft, backgroundColor: accentSurface }}
                 >
                   <Text className="text-xs font-outfit text-app leading-5">
-                    Browse open times below. Sending a request needs an approved paid plan (PHP, Plus, or Premium).
+                    Pick a service, date, and time below. Sending a request needs an approved paid plan (PHP, Plus, or Premium).
                   </Text>
                   <Pressable
                     onPress={() => {
@@ -1226,7 +1052,7 @@ export default function ScheduleScreen() {
               ) : (
                 <>
                   <Text className="text-sm font-outfit text-secondary mt-2">
-                    Choose the session type, then pick a day and a time the coach has open. Nothing is final until they approve.
+                    Choose the session type, then pick any day and time that works for you. Nothing is final until the coach approves.
                   </Text>
 
                   {servicesLoading ? (
@@ -1258,7 +1084,6 @@ export default function ScheduleScreen() {
                               hasUserAdjustedBookingDate.current = false;
                               if (item.id) {
                                 setSelectedServiceId(item.id);
-                                setSelectedSlot(null);
                                 setBookingLocation(item.defaultLocation ?? "");
                                 setBookingMeetingLink(item.defaultMeetingLink ?? "");
                               }
@@ -1275,7 +1100,7 @@ export default function ScheduleScreen() {
                               }`}
                             >
                               {item.name}
-                              {item.capacity ? ` (${item.capacity} slots)` : ""}
+                              {item.capacity ? ` (${item.capacity} max)` : ""}
                             </Text>
                           </Pressable>
                         );
@@ -1297,62 +1122,23 @@ export default function ScheduleScreen() {
                       </Text>
                     </Pressable>
                     <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mt-4">
-                      Available start times
+                      Time
                     </Text>
-                    {availabilityLoading ? (
-                      <View className="mt-3 py-4 items-center">
-                        <ActivityIndicator color={colors.accent} />
-                      </View>
-                    ) : null}
-                    {availabilityError ? (
-                      <Text className="text-xs font-outfit mt-3" style={{ color: errorColor }}>
-                        {availabilityError}
+                    <Pressable
+                      onPress={() => setShowTimePicker(true)}
+                      className="mt-3 rounded-2xl border px-3 py-3"
+                      style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
+                    >
+                      <Text className="text-sm font-outfit text-app">
+                        {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </Text>
+                    </Pressable>
+                    {selectedService ? (
+                      <Text className="text-xs font-outfit text-secondary mt-3">
+                        Capacity: {selectedService.capacity ?? 0} total booking{selectedService.capacity === 1 ? "" : "s"} available for this service.
                       </Text>
                     ) : null}
-                    {!availabilityLoading && !availabilityError && selectedService && !availableSlots.length ? (
-                      <Text className="text-sm font-outfit text-secondary mt-3">
-                        No open times on this day. Pick another date or ask the coach to add availability.
-                      </Text>
-                    ) : null}
-                    {!availabilityLoading && availableSlots.length > 0 ? (
-                      <View className="mt-3 flex-row flex-wrap gap-2">
-                        {availableSlots.map((slot) => {
-                          const cap = selectedService?.capacity ?? null;
-                          const taken = bookingCounts.get(toBookingSlotKey(slot)) ?? 0;
-                          const atCap = cap != null && taken >= cap;
-                          const active =
-                            selectedSlot != null &&
-                            toBookingSlotKey(selectedSlot) === toBookingSlotKey(slot);
-                          return (
-                            <Pressable
-                              key={toBookingSlotKey(slot)}
-                              disabled={atCap}
-                              onPress={() => setSelectedSlot(slot)}
-                              className="px-4 py-2 rounded-full border"
-                              style={{
-                                backgroundColor: atCap
-                                  ? mutedSurface
-                                  : active
-                                    ? colors.accent
-                                    : surfaceColor,
-                                borderColor: atCap ? borderSoft : active ? colors.accent : borderSoft,
-                                opacity: atCap ? 0.45 : 1,
-                              }}
-                            >
-                              <Text
-                                className={`text-xs font-outfit uppercase tracking-[1.2px] ${
-                                  atCap ? "text-secondary" : active ? "text-white" : "text-app"
-                                }`}
-                              >
-                                {slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                {cap != null ? ` (${Math.max(cap - taken, 0)} left)` : ""}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    ) : null}
-                    {selectedSlot && selectedService ? (
+                    {selectedService ? (
                       <View
                         className="mt-4 rounded-2xl border px-3 py-3"
                         style={{ borderColor: colors.accent, backgroundColor: accentSurface }}
@@ -1369,7 +1155,7 @@ export default function ScheduleScreen() {
                             month: "short",
                             day: "numeric",
                           })}{" "}
-                          · {selectedSlot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          · {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </Text>
                       </View>
                     ) : null}
@@ -1416,14 +1202,11 @@ export default function ScheduleScreen() {
                         setBookingError("Pick a session type first.");
                         return;
                       }
-                      if (!selectedSlot) {
-                        setBookingError("Pick a time from the available slots.");
-                        return;
-                      }
                       setBookingError(null);
                       setIsSubmitting(true);
                       try {
-                        const startsAt = new Date(selectedSlot);
+                        const startsAt = new Date(bookingDate);
+                        startsAt.setHours(bookingTime.getHours(), bookingTime.getMinutes(), 0, 0);
                         const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
                         await apiRequest("/bookings", {
                           method: "POST",
@@ -1454,15 +1237,15 @@ export default function ScheduleScreen() {
                         setIsSubmitting(false);
                       }
                     }}
-                    disabled={!selectedService || !selectedSlot || isSubmitting || !canCreateBookings}
+                    disabled={!selectedService || isSubmitting || !canCreateBookings}
                     className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
-                      selectedService && selectedSlot && canCreateBookings ? "bg-accent" : "bg-secondary/20"
+                      selectedService && canCreateBookings ? "bg-accent" : "bg-secondary/20"
                     }`}
                   >
                     {isSubmitting ? <ActivityIndicator size="small" color="#ffffff" /> : null}
                     <Text
                       className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                        selectedService && selectedSlot && canCreateBookings ? "text-white" : "text-secondary"
+                        selectedService && canCreateBookings ? "text-white" : "text-secondary"
                       }`}
                     >
                       {isSubmitting
@@ -1497,6 +1280,31 @@ export default function ScheduleScreen() {
                       {Platform.OS === "ios" ? (
                         <Pressable
                           onPress={() => setShowDatePicker(false)}
+                          className="mt-2 self-end rounded-full border border-app px-4 py-2"
+                        >
+                          <Text className="text-app font-outfit text-xs">Done</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  {showTimePicker ? (
+                    <View className="mt-3">
+                      <DateTimePicker
+                        value={bookingTime}
+                        mode="time"
+                        display={Platform.OS === "ios" ? "spinner" : "default"}
+                        onChange={(event, date) => {
+                          if (Platform.OS !== "ios") {
+                            setShowTimePicker(false);
+                          }
+                          if (event.type === "dismissed") return;
+                          if (!date) return;
+                          setBookingTime(date);
+                        }}
+                      />
+                      {Platform.OS === "ios" ? (
+                        <Pressable
+                          onPress={() => setShowTimePicker(false)}
                           className="mt-2 self-end rounded-full border border-app px-4 py-2"
                         >
                           <Text className="text-app font-outfit text-xs">Done</Text>

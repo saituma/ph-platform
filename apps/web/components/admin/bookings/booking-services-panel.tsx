@@ -36,8 +36,6 @@ type BookingServicesPanelProps = {
   isLoading: boolean;
   onAddService: () => void;
   onEditService: (service: BookingServiceRow) => void;
-  onOpenSlots: (serviceId: number) => void;
-  onOpenSlotsAny: () => void;
   onRefetch: () => void;
 };
 
@@ -46,8 +44,6 @@ export function BookingServicesPanel({
   isLoading,
   onAddService,
   onEditService,
-  onOpenSlots,
-  onOpenSlotsAny,
   onRefetch,
 }: BookingServicesPanelProps) {
   const [updateService] = useUpdateServiceMutation();
@@ -63,7 +59,7 @@ export function BookingServicesPanel({
 
   const onDelete = async (row: BookingServiceRow) => {
     const ok = window.confirm(
-      `Delete “${row.name}”? This removes all open times for this service. You cannot delete it if any bookings still reference it.`,
+      `Delete “${row.name}”? You cannot delete it if any bookings still reference it.`,
     );
     if (!ok) return;
     setDeleteError(null);
@@ -94,15 +90,12 @@ export function BookingServicesPanel({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
-          Bookable session types families see under Schedule. Add a service, then use{" "}
-          <span className="font-medium text-foreground">Open times</span> to publish availability.
+          Bookable session types families see under Schedule. Add a service, set its capacity, and turn it on when it
+          should be available.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={onAddService}>
             Add service
-          </Button>
-          <Button type="button" variant="outline" onClick={onOpenSlotsAny}>
-            Add open times
           </Button>
         </div>
       </div>
@@ -171,9 +164,6 @@ export function BookingServicesPanel({
                       <div className="flex flex-wrap justify-end gap-2">
                         <Button type="button" variant="outline" size="sm" onClick={() => onEditService(row)}>
                           Edit
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => onOpenSlots(row.id)}>
-                          Open times
                         </Button>
                         <Button
                           type="button"
