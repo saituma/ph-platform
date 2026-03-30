@@ -2,6 +2,21 @@
 
 export type PlanTier = "PHP" | "PHP_Plus" | "PHP_Premium";
 
+export type SubscriptionPlan = {
+  id: number;
+  name: string;
+  tier: PlanTier;
+  stripePriceId: string | null;
+  displayPrice: string;
+  billingInterval: string;
+  monthlyPrice: string | null;
+  yearlyPrice: string | null;
+  discountType: string | null;
+  discountValue: string | null;
+  discountAppliesTo: string | null;
+  isActive: boolean;
+};
+
 export type PlanFormState = {
   id: number | null;
   name: string;
@@ -36,7 +51,9 @@ export const defaultForm: PlanFormState = {
   isActive: true,
 };
 
-export function parseDiscountFields(plan: any) {
+export function parseDiscountFields(
+  plan: Pick<SubscriptionPlan, "discountValue" | "discountAppliesTo">
+) {
   const rawValue = String(plan?.discountValue ?? "").trim();
   const appliesTo = String(plan?.discountAppliesTo ?? "").trim().toLowerCase();
   if (!rawValue) {
@@ -97,6 +114,13 @@ export function parseDiscountFields(plan: any) {
     yearlyDiscountEnabled: false,
     yearlyDiscountValue: "",
   };
+}
+
+export function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
 }
 
 export const getCsrfToken = () =>
