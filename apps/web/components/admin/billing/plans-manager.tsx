@@ -25,15 +25,17 @@ import {
 import {
   buildDisplayPrice,
   defaultForm,
+  getErrorMessage,
   getCsrfToken,
   normalizeBillingInterval,
   parseDiscountFields,
   type PlanFormState,
   type PlanTier,
+  type SubscriptionPlan,
 } from "./billing-admin-utils";
 
 export function PlansManager() {
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [form, setForm] = useState<PlanFormState>(defaultForm);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,9 +52,9 @@ export function PlansManager() {
     setActionError(null);
     try {
       const plansRes = await fetch("/api/backend/admin/subscription-plans").then((res) => res.json());
-      setPlans(plansRes.plans ?? []);
-    } catch (error: any) {
-      setActionError(error?.message || "Failed to load subscription plans.");
+      setPlans((plansRes.plans ?? []) as SubscriptionPlan[]);
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to load subscription plans."));
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +64,12 @@ export function PlansManager() {
     void loadPlans();
   }, [loadPlans]);
 
-  const handleEditPlan = (plan: any) => {
+  const openCreatePlan = () => {
+    setForm(defaultForm);
+    setIsEditorOpen(true);
+  };
+
+  const handleEditPlan = (plan: SubscriptionPlan) => {
     setForm({
       id: plan.id ?? null,
       name: plan.name ?? "",
@@ -80,13 +87,12 @@ export function PlansManager() {
   };
 
   const handleSavePlan = async () => {
-    if (!form.id) return;
     setActionError(null);
     setIsSaving(true);
     try {
       const csrfToken = getCsrfToken();
       const payload = {
-        name: form.name,
+        name: form.name.trim(),
         tier: form.tier,
         stripePriceId: form.stripePriceId || "manual",
         displayPrice: buildDisplayPrice(form),
@@ -101,26 +107,35 @@ export function PlansManager() {
         discountAppliesTo: "custom",
         isActive: form.isActive,
       };
-      const res = await fetch(`/api/backend/admin/subscription-plans/${form.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
+      const isEditing = Boolean(form.id);
+      const res = await fetch(
+        isEditing
+          ? `/api/backend/admin/subscription-plans/${form.id}`
+          : "/api/backend/admin/subscription-plans",
+        {
+          method: isEditing ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
+          body: JSON.stringify(payload),
+        }
+      );
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        throw new Error(payload?.error || "Failed to save plan.");
+        const responsePayload = await res.json().catch(() => ({}));
+        throw new Error(responsePayload?.error || `Failed to ${isEditing ? "save" : "create"} plan.`);
       }
       await loadPlans();
       resetEditor();
-    } catch (error: any) {
-      setActionError(error?.message || "Failed to save plan.");
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to save plan."));
     } finally {
       setIsSaving(false);
     }
   };
+
+  const isNameMissing = !form.name.trim();
+  const isEditing = Boolean(form.id);
 
   return (
     <Card>
@@ -131,9 +146,12 @@ export function PlansManager() {
             Dynamic pricing plans used across billing approvals and tier-driven experiences.
           </CardDescription>
         </div>
-        <Button variant="outline" onClick={loadPlans}>
-          Refresh plans
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={openCreatePlan}>Add plan</Button>
+          <Button variant="outline" onClick={loadPlans}>
+            Refresh plans
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {actionError ? (
@@ -192,16 +210,48 @@ export function PlansManager() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Plan Pricing</DialogTitle>
+            <DialogTitle>{isEditing ? "Edit Plan" : "Add Plan"}</DialogTitle>
             <DialogDescription>
-              Update the selected plan&apos;s pricing, discounts, billing interval, and status.
+              {isEditing
+                ? "Update the selected plan's name, pricing, discounts, billing interval, and status."
+                : "Create a new plan with a name, tier, pricing, discounts, and active status."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label>Plan</Label>
-              <Input value={form.name} readOnly />
+              <Label htmlFor="plan-name">Plan Name</Label>
+              <Input
+                id="plan-name"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="PHP Premium (1:1)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-tier">Tier</Label>
+              <Select
+                id="plan-tier"
+                value={form.tier}
+                onChange={(event) => setForm((prev) => ({ ...prev, tier: event.target.value as PlanTier }))}
+              >
+                <option value="PHP">PHP</option>
+                <option value="PHP_Plus">PHP Plus</option>
+                <option value="PHP_Premium">PHP Premium</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-status">Status</Label>
+              <Select
+                id="plan-status"
+                value={form.isActive ? "active" : "inactive"}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, isActive: event.target.value === "active" }))
+                }
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Monthly Price</Label>
@@ -261,18 +311,6 @@ export function PlansManager() {
                 disabled={!form.yearlyDiscountEnabled}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={form.isActive ? "active" : "inactive"}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, isActive: event.target.value === "active" }))
-                }
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </Select>
-            </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Display Price Preview</Label>
               <Input value={buildDisplayPrice(form)} readOnly />
@@ -283,8 +321,8 @@ export function PlansManager() {
             <Button variant="outline" onClick={resetEditor}>
               Cancel
             </Button>
-            <Button onClick={handleSavePlan} disabled={!form.id || isSaving}>
-              {isSaving ? "Saving..." : "Save Changes"}
+            <Button onClick={handleSavePlan} disabled={isNameMissing || isSaving}>
+              {isSaving ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Changes" : "Create Plan"}
             </Button>
           </div>
         </DialogContent>
