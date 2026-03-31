@@ -20,6 +20,7 @@ import {
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../../../components/admin/training-content-v2/api";
+import { isInseasonAgeGroup } from "./inseason-shared";
 
 export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
   const normalizedAudienceLabel = useMemo(() => normalizeAudienceLabelInput(audienceLabel), [audienceLabel]);
@@ -44,6 +45,7 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
   }, [normalizedAudienceLabel]);
 
   const inseasonGroup = workspace?.others.find((item) => item.type === "inseason") ?? null;
+  const ageGroups = (inseasonGroup?.items ?? []).filter((item) => isInseasonAgeGroup(item.metadata));
 
   const createAgeEntry = async () => {
     if (!ageLabel.trim()) return;
@@ -60,7 +62,7 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
           videoUrl: null,
           order: null,
           metadata: {
-            kind: "inseason_age_schedule",
+            kind: "inseason_age_group",
           },
         }),
       });
@@ -100,7 +102,7 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
             />
           </CardHeader>
           <CardContent className="space-y-3">
-            {(inseasonGroup?.items ?? []).map((item) => (
+            {ageGroups.map((item) => (
               <Link
                 key={item.id}
                 href={`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${item.id}`}
@@ -108,11 +110,11 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
               >
                 <p className="text-lg font-semibold text-foreground">{item.title}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {item.scheduleNote?.trim() ? item.scheduleNote : "Weekly schedule not set yet."}
+                  Open this age to add one or more recurring weekly schedule slots.
                 </p>
               </Link>
             ))}
-            {!inseasonGroup?.items.length ? (
+            {!ageGroups.length ? (
               <p className="text-sm text-muted-foreground">No ages created yet for In-Season.</p>
             ) : null}
           </CardContent>

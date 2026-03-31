@@ -911,6 +911,19 @@ export async function getTrainingContentMobileWorkspace(input: {
   const availableOtherSections = workspace.others
     .map((group) => {
       if (group.type !== "inseason") return group;
+      const matchingAgeGroupIds = new Set(
+        group.items
+          .filter((item) => {
+            const metadata =
+              item.metadata && typeof item.metadata === "object"
+                ? (item.metadata as Record<string, unknown>)
+                : null;
+            const kind = typeof metadata?.kind === "string" ? metadata.kind : "";
+            if (kind !== "inseason_age_group") return false;
+            return otherItemMatchesAgeLabel(item.title, input.age);
+          })
+          .map((item) => item.id),
+      );
       return {
         ...group,
         items: group.items.filter((item) => {
@@ -919,8 +932,12 @@ export async function getTrainingContentMobileWorkspace(input: {
               ? (item.metadata as Record<string, unknown>)
               : null;
           const kind = typeof metadata?.kind === "string" ? metadata.kind : "";
-          if (kind !== "inseason_age_schedule") return false;
-          return otherItemMatchesAgeLabel(item.title, input.age);
+          if (kind === "inseason_age_schedule") {
+            return otherItemMatchesAgeLabel(item.title, input.age);
+          }
+          if (kind !== "inseason_schedule_entry") return false;
+          const ageGroupId = typeof metadata?.ageGroupId === "number" ? metadata.ageGroupId : null;
+          return ageGroupId != null && matchingAgeGroupIds.has(ageGroupId);
         }),
       };
     })
