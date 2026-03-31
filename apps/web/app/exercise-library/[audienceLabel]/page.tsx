@@ -148,10 +148,23 @@ export default function AudienceDetailPage() {
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
   const [copySourceAudience, setCopySourceAudience] = useState("");
   const [copySearch, setCopySearch] = useState("");
+  const [plans, setPlans] = useState<Array<{ id: number; name: string; tier: string; isActive: boolean }>>([]);
+  const [otherPlanWorkspaces, setOtherPlanWorkspaces] = useState<Record<string, AudienceWorkspace>>({});
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
+  const [otherLockModalOpen, setOtherLockModalOpen] = useState(false);
+  const [isUpdatingOtherLocks, setIsUpdatingOtherLocks] = useState(false);
+  const [otherLockForm, setOtherLockForm] = useState<{
+    type: string;
+    label: string;
+    lockedPlanNames: string[];
+  }>({
+    type: "",
+    label: "",
+    lockedPlanNames: [],
+  });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const loadWorkspace = async () => {
@@ -178,6 +191,58 @@ export default function AudienceDetailPage() {
         // keep the page usable even if the audience list request fails
       });
   }, [audienceLabel]);
+
+  const loadOtherPlans = async () => {
+    try {
+      const response = await fetch("/api/backend/admin/subscription-plans", { credentials: "include" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to load plans.");
+      }
+      const data = await response.json();
+      const nextPlans = Array.isArray(data?.plans) ? data.plans : [];
+      setPlans(
+        nextPlans
+          .filter((plan: { name?: string }) => Boolean(plan?.name))
+          .map((plan: { id: number; name: string; tier: string; isActive: boolean }) => ({
+            id: plan.id,
+            name: plan.name,
+            tier: plan.tier,
+            isActive: Boolean(plan.isActive),
+          }))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load plans.");
+    }
+  };
+
+  const loadOtherPlanWorkspaces = async (planNames: string[]) => {
+    if (!planNames.length) {
+      setOtherPlanWorkspaces({});
+      return;
+    }
+    try {
+      const entries = await Promise.all(
+        planNames.map(async (planName) => {
+          const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(planName)}`);
+          return [planName, data] as const;
+        })
+      );
+      setOtherPlanWorkspaces(Object.fromEntries(entries));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load plan section settings.");
+    }
+  };
+
+  useEffect(() => {
+    if (activeView !== "others") return;
+    void loadOtherPlans();
+  }, [activeView]);
+
+  useEffect(() => {
+    if (activeView !== "others" || !plans.length) return;
+    void loadOtherPlanWorkspaces(plans.map((plan) => plan.name));
+  }, [activeView, plans]);
 
   const filteredCopyAudiences = audiences.filter(
     (item) =>
@@ -304,6 +369,31 @@ export default function AudienceDetailPage() {
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update this content toggle.");
+    }
+  };
+
+  const saveOtherTypeLocks = async (type: string, lockedPlanNames: string[]) => {
+    setIsUpdatingOtherLocks(true);
+    try {
+      setError(null);
+      await Promise.all(
+        plans.map((plan) =>
+          trainingContentRequest("/others/settings", {
+            method: "PUT",
+            body: JSON.stringify({
+              audienceLabel: plan.name,
+              type,
+              enabled: !lockedPlanNames.includes(plan.name),
+            }),
+          })
+        )
+      );
+      await Promise.all([loadWorkspace(), loadOtherPlanWorkspaces(plans.map((plan) => plan.name))]);
+      setOtherLockModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update section locks.");
+    } finally {
+      setIsUpdatingOtherLocks(false);
     }
   };
 
@@ -441,6 +531,12 @@ export default function AudienceDetailPage() {
               <div className="space-y-3">
                 {OTHER_TYPES.map((type) => {
                   const group = workspace?.others.find((item) => item.type === type.value);
+                  const lockedPlans = plans
+                    .filter((plan) => {
+                      const planGroup = otherPlanWorkspaces[plan.name]?.others.find((item) => item.type === type.value);
+                      return planGroup ? !planGroup.enabled : false;
+                    })
+                    .map((plan) => plan.name);
                   return (
                     <div
                       key={type.value}
@@ -461,16 +557,46 @@ export default function AudienceDetailPage() {
                           <p className="mt-1 text-sm text-muted-foreground">
                             {group?.items.length ? `${group.items.length} item${group.items.length === 1 ? "" : "s"} added` : "No content created yet."}
                           </p>
+                          {lockedPlans.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {lockedPlans.map((planName) => (
+                                <span
+                                  key={`${type.value}-${planName}`}
+                                  className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
+                                >
+                                  Locked for {planName}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
-                        <label className="flex items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-medium text-foreground">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(group?.enabled)}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={(event) => void toggleOtherType(type.value, event.target.checked)}
-                          />
-                          <span>{group?.enabled ? "On" : "Off"}</span>
-                        </label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOtherLockForm({
+                                type: type.value,
+                                label: type.label,
+                                lockedPlanNames: lockedPlans,
+                              });
+                              setOtherLockModalOpen(true);
+                            }}
+                          >
+                            Lock plans
+                          </Button>
+                          <label className="flex items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-medium text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(group?.enabled)}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) => void toggleOtherType(type.value, event.target.checked)}
+                            />
+                            <span>{group?.enabled ? "On" : "Off"}</span>
+                          </label>
+                        </div>
                       </div>
                     </div>
                   );
@@ -577,6 +703,49 @@ export default function AudienceDetailPage() {
                   {isUpdatingLocks ? "Saving..." : "Save locks"}
                 </Button>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={otherLockModalOpen} onOpenChange={setOtherLockModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lock plans for {otherLockForm.label || "section"}</DialogTitle>
+            <DialogDescription>
+              Check each plan that should be locked for this section in mobile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {plans.map((plan) => {
+                const checked = otherLockForm.lockedPlanNames.includes(plan.name);
+                return (
+                  <label key={plan.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => {
+                        const nextLockedPlans = event.target.checked
+                          ? [...otherLockForm.lockedPlanNames, plan.name]
+                          : otherLockForm.lockedPlanNames.filter((value) => value !== plan.name);
+                        setOtherLockForm((current) => ({ ...current, lockedPlanNames: nextLockedPlans }));
+                      }}
+                    />
+                    <span className="text-sm font-medium text-foreground">{plan.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOtherLockModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={isUpdatingOtherLocks || !otherLockForm.type}
+                onClick={() => void saveOtherTypeLocks(otherLockForm.type, otherLockForm.lockedPlanNames)}
+              >
+                {isUpdatingOtherLocks ? "Saving..." : "Save locks"}
+              </Button>
             </div>
           </div>
         </DialogContent>
