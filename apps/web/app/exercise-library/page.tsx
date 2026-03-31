@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -18,19 +17,33 @@ import {
 import { Input } from "../../components/ui/input";
 import {
   AudienceSummary,
+  AudienceWorkspace,
+  OTHER_TYPES,
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../components/admin/training-content-v2/api";
 
 export default function ExerciseLibraryAudiencePage() {
-  const router = useRouter();
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
   const [plans, setPlans] = useState<Array<{ id: number; name: string; tier: string; isActive: boolean }>>([]);
+  const [otherWorkspace, setOtherWorkspace] = useState<AudienceWorkspace | null>(null);
+  const [otherPlanWorkspaces, setOtherPlanWorkspaces] = useState<Record<string, AudienceWorkspace>>({});
   const [activeTab, setActiveTab] = useState<"age" | "others">("age");
   const [modalOpen, setModalOpen] = useState(false);
+  const [otherLockModalOpen, setOtherLockModalOpen] = useState(false);
   const [audienceInput, setAudienceInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdatingOtherLocks, setIsUpdatingOtherLocks] = useState(false);
+  const [otherLockForm, setOtherLockForm] = useState<{
+    type: string;
+    label: string;
+    lockedPlanNames: string[];
+  }>({
+    type: "",
+    label: "",
+    lockedPlanNames: [],
+  });
 
   const loadAudiences = async () => {
     setIsLoading(true);
@@ -77,15 +90,76 @@ export default function ExerciseLibraryAudiencePage() {
       });
   }, [activeTab]);
 
-  const preferredOtherPlan = useMemo(() => {
-    if (!plans.length) return null;
-    return plans.find((plan) => plan.isActive) ?? plans[0] ?? null;
-  }, [plans]);
+  useEffect(() => {
+    if (activeTab !== "others") return;
+    void trainingContentRequest<AudienceWorkspace>("/admin?audienceLabel=All")
+      .then((data) => {
+        setOtherWorkspace(data);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load Others content.");
+      });
+  }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab !== "others" || !preferredOtherPlan) return;
-    router.replace(`/exercise-library/${encodeURIComponent(preferredOtherPlan.name)}?view=others`);
-  }, [activeTab, preferredOtherPlan, router]);
+    if (activeTab !== "others" || !plans.length) return;
+    void Promise.all(
+      plans.map(async (plan) => {
+        const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(plan.name)}`);
+        return [plan.name, data] as const;
+      })
+    )
+      .then((entries) => {
+        setOtherPlanWorkspaces(Object.fromEntries(entries));
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load plan locks.");
+      });
+  }, [activeTab, plans]);
+
+  const loadOtherWorkspace = async () => {
+    const data = await trainingContentRequest<AudienceWorkspace>("/admin?audienceLabel=All");
+    setOtherWorkspace(data);
+  };
+
+  const loadOtherPlanWorkspaces = async (nextPlans: Array<{ name: string }>) => {
+    if (!nextPlans.length) {
+      setOtherPlanWorkspaces({});
+      return;
+    }
+    const entries = await Promise.all(
+      nextPlans.map(async (plan) => {
+        const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(plan.name)}`);
+        return [plan.name, data] as const;
+      })
+    );
+    setOtherPlanWorkspaces(Object.fromEntries(entries));
+  };
+
+  const saveOtherTypeLocks = async (type: string, lockedPlanNames: string[]) => {
+    setIsUpdatingOtherLocks(true);
+    try {
+      setError(null);
+      await Promise.all(
+        plans.map((plan) =>
+          trainingContentRequest("/others/settings", {
+            method: "PUT",
+            body: JSON.stringify({
+              audienceLabel: plan.name,
+              type,
+              enabled: !lockedPlanNames.includes(plan.name),
+            }),
+          })
+        )
+      );
+      await Promise.all([loadOtherWorkspace(), loadOtherPlanWorkspaces(plans)]);
+      setOtherLockModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update section locks.");
+    } finally {
+      setIsUpdatingOtherLocks(false);
+    }
+  };
 
   const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
   return (
@@ -131,9 +205,7 @@ export default function ExerciseLibraryAudiencePage() {
             <div className="rounded-2xl border border-dashed border-border bg-secondary/10 p-4 text-sm text-muted-foreground">
               {activeTab === "age"
                 ? "Age shows the audience groups that lead into modules and sessions."
-                : preferredOtherPlan
-                  ? `Opening Others for ${preferredOtherPlan.name}.`
-                  : "Others uses your billing plans for mobility, recovery, in-season, off-season, and education content."}
+                : "Others is managed here once, and you can lock each section for any plan."}
             </div>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
             {isLoading && activeTab === "age" ? <p className="text-sm text-muted-foreground">Loading audiences...</p> : null}
@@ -158,10 +230,65 @@ export default function ExerciseLibraryAudiencePage() {
                 ) : null}
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                {preferredOtherPlan
-                  ? `Redirecting to ${preferredOtherPlan.name}...`
-                  : "No subscription plans yet. Add plans in Billing first."}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {OTHER_TYPES.map((type) => {
+                  const group = otherWorkspace?.others.find((item) => item.type === type.value);
+                  const lockedPlans = plans
+                    .filter((plan) => {
+                      const planGroup = otherPlanWorkspaces[plan.name]?.others.find((item) => item.type === type.value);
+                      return planGroup ? !planGroup.enabled : false;
+                    })
+                    .map((plan) => plan.name);
+
+                  return (
+                    <div
+                      key={type.value}
+                      className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <p className="text-lg font-semibold text-foreground">{type.label}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {group?.items.length ? `${group.items.length} item${group.items.length === 1 ? "" : "s"} added` : "No content created yet."}
+                      </p>
+                      {lockedPlans.length ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {lockedPlans.map((planName) => (
+                            <span
+                              key={`${type.value}-${planName}`}
+                              className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
+                            >
+                              Locked for {planName}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Link href={`/exercise-library/${encodeURIComponent("All")}/others/${type.value}`}>
+                          <Button size="sm">Open section</Button>
+                        </Link>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setOtherLockForm({
+                              type: type.value,
+                              label: type.label,
+                              lockedPlanNames: lockedPlans,
+                            });
+                            setOtherLockModalOpen(true);
+                          }}
+                        >
+                          Lock plans
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {!plans.length ? (
+                  <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                    No subscription plans yet. Add plans in Billing first.
+                  </div>
+                ) : null}
               </div>
             )}
           </CardContent>
@@ -203,6 +330,49 @@ export default function ExerciseLibraryAudiencePage() {
                 disabled={!normalizedAudience}
               >
                 Add age
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={otherLockModalOpen && activeTab === "others"} onOpenChange={setOtherLockModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lock plans for {otherLockForm.label || "section"}</DialogTitle>
+            <DialogDescription>
+              Check each plan that should be locked for this section.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {plans.map((plan) => {
+                const checked = otherLockForm.lockedPlanNames.includes(plan.name);
+                return (
+                  <label key={plan.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => {
+                        const nextLockedPlans = event.target.checked
+                          ? [...otherLockForm.lockedPlanNames, plan.name]
+                          : otherLockForm.lockedPlanNames.filter((value) => value !== plan.name);
+                        setOtherLockForm((current) => ({ ...current, lockedPlanNames: nextLockedPlans }));
+                      }}
+                    />
+                    <span className="text-sm font-medium text-foreground">{plan.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOtherLockModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={isUpdatingOtherLocks || !otherLockForm.type}
+                onClick={() => void saveOtherTypeLocks(otherLockForm.type, otherLockForm.lockedPlanNames)}
+              >
+                {isUpdatingOtherLocks ? "Saving..." : "Save locks"}
               </Button>
             </div>
           </div>
