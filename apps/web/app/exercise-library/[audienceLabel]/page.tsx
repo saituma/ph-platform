@@ -5,7 +5,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../components/admin/shell";
@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
+import { Textarea } from "../../../components/ui/textarea";
 import {
   AudienceWorkspace,
   AudienceSummary,
@@ -123,7 +124,6 @@ function expandAudienceLabel(label: string) {
 
 export default function AudienceDetailPage() {
   const params = useParams<{ audienceLabel: string }>();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const audienceLabel = useMemo(
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
@@ -136,6 +136,16 @@ export default function AudienceDetailPage() {
   const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "" });
+  const [otherModalOpen, setOtherModalOpen] = useState(false);
+  const [otherForm, setOtherForm] = useState({
+    id: null as number | null,
+    type: "",
+    title: "",
+    body: "",
+    scheduleNote: "",
+    videoUrl: "",
+    order: "",
+  });
   const [lockForm, setLockForm] = useState<{
     moduleId: number | null;
     moduleTitle: string;
@@ -397,6 +407,54 @@ export default function AudienceDetailPage() {
     }
   };
 
+  const saveOtherContent = async () => {
+    if (!otherForm.type || !otherForm.title.trim() || !otherForm.body.trim()) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        audienceLabel,
+        type: otherForm.type,
+        title: otherForm.title,
+        body: otherForm.body,
+        scheduleNote: otherForm.scheduleNote.trim() || null,
+        videoUrl: otherForm.videoUrl.trim() || null,
+        order: otherForm.order.trim() ? Number(otherForm.order) : null,
+        metadata: null,
+      };
+      if (otherForm.id) {
+        await trainingContentRequest(`/others/${otherForm.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await trainingContentRequest("/others", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
+      setOtherForm({ id: null, type: "", title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
+      setOtherModalOpen(false);
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save content.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteOtherItem = async (itemId: number) => {
+    if (!window.confirm("Delete this content item?")) return;
+    setIsSaving(true);
+    try {
+      await trainingContentRequest(`/others/${itemId}`, { method: "DELETE" });
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete content.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const saveModuleLocks = async (moduleId: number | null, programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>) => {
     if (!programTiers.length) return;
     setIsUpdatingLocks(true);
@@ -541,15 +599,6 @@ export default function AudienceDetailPage() {
                     <div
                       key={type.value}
                       className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => router.push(`/exercise-library/${encodeURIComponent(audienceLabel)}/others/${type.value}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          router.push(`/exercise-library/${encodeURIComponent(audienceLabel)}/others/${type.value}`);
-                        }
-                      }}
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex-1 text-left">
@@ -571,6 +620,24 @@ export default function AudienceDetailPage() {
                           ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              setOtherForm({
+                                id: null,
+                                type: type.value,
+                                title: "",
+                                body: "",
+                                scheduleNote: "",
+                                videoUrl: "",
+                                order: "",
+                              });
+                              setOtherModalOpen(true);
+                            }}
+                          >
+                            Add content
+                          </Button>
                           <Button
                             type="button"
                             size="sm"
@@ -597,6 +664,42 @@ export default function AudienceDetailPage() {
                             <span>{group?.enabled ? "On" : "Off"}</span>
                           </label>
                         </div>
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {(group?.items ?? []).map((item) => (
+                          <div key={item.id} className="rounded-2xl border border-border/70 p-4">
+                            <p className="text-sm font-semibold text-foreground">
+                              {item.order}. {item.title}
+                            </p>
+                            {item.scheduleNote ? (
+                              <p className="mt-1 text-xs font-semibold text-primary">{item.scheduleNote}</p>
+                            ) : null}
+                            <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
+                            <div className="mt-3 flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setOtherForm({
+                                    id: item.id,
+                                    type: type.value,
+                                    title: item.title,
+                                    body: item.body,
+                                    scheduleNote: item.scheduleNote ?? "",
+                                    videoUrl: item.videoUrl ?? "",
+                                    order: String(item.order),
+                                  });
+                                  setOtherModalOpen(true);
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => void deleteOtherItem(item.id)}>
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
@@ -745,6 +848,53 @@ export default function AudienceDetailPage() {
                 onClick={() => void saveOtherTypeLocks(otherLockForm.type, otherLockForm.lockedPlanNames)}
               >
                 {isUpdatingOtherLocks ? "Saving..." : "Save locks"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={otherModalOpen && activeView === "others"} onOpenChange={setOtherModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{otherForm.id ? "Edit content" : "Add content"}</DialogTitle>
+            <DialogDescription>
+              Manage this Others section directly from the Others tab.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Title"
+              value={otherForm.title}
+              onChange={(event) => setOtherForm((current) => ({ ...current, title: event.target.value }))}
+            />
+            <Textarea
+              placeholder="Content body"
+              value={otherForm.body}
+              onChange={(event) => setOtherForm((current) => ({ ...current, body: event.target.value }))}
+            />
+            <Input
+              placeholder="Schedule note"
+              value={otherForm.scheduleNote}
+              onChange={(event) => setOtherForm((current) => ({ ...current, scheduleNote: event.target.value }))}
+            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input
+                placeholder="Video URL"
+                value={otherForm.videoUrl}
+                onChange={(event) => setOtherForm((current) => ({ ...current, videoUrl: event.target.value }))}
+              />
+              <Input
+                placeholder="Order"
+                value={otherForm.order}
+                onChange={(event) => setOtherForm((current) => ({ ...current, order: event.target.value }))}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOtherModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveOtherContent} disabled={isSaving || !otherForm.type}>
+                {otherForm.id ? "Update" : "Create"}
               </Button>
             </div>
           </div>
