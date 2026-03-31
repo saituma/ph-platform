@@ -8,6 +8,7 @@ jest.mock("../../src/services/training-content-v2.service", () => ({
   updateTrainingModule: jest.fn(),
   deleteTrainingModule: jest.fn(),
   createTrainingModuleSession: jest.fn(),
+  updateTrainingSessionTierLocks: jest.fn(),
   updateTrainingModuleSession: jest.fn(),
   deleteTrainingModuleSession: jest.fn(),
   createTrainingSessionItem: jest.fn(),
@@ -32,6 +33,7 @@ import {
   getTrainingContentMobileWorkspaceHandler,
   listTrainingAudiencesHandler,
   updateTrainingModuleTierLocksHandler,
+  updateTrainingSessionTierLocksHandler,
 } from "../../src/controllers/training-content-v2.controller";
 import {
   copyTrainingModulesFromAudience,
@@ -41,6 +43,7 @@ import {
   listTrainingAudiences,
   listTrainingContentAdminWorkspace,
   updateTrainingModuleTierLocks,
+  updateTrainingSessionTierLocks,
 } from "../../src/services/training-content-v2.service";
 import { getAthleteForUser } from "../../src/services/user.service";
 
@@ -137,6 +140,26 @@ describe("training content v2 controller", () => {
       audienceLabel: "8",
       moduleId: 4,
       programTiers: ["PHP_Plus", "PHP_Premium"],
+      createdBy: 7,
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
+  });
+
+  it("updates session tier locks", async () => {
+    (updateTrainingSessionTierLocks as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
+    const req = {
+      body: { moduleId: 4, sessionId: 12, programTiers: ["PHP"] },
+      user: { id: 7 },
+    } as any;
+    const res = createRes();
+
+    await updateTrainingSessionTierLocksHandler(req, res);
+
+    expect(updateTrainingSessionTierLocks).toHaveBeenCalledWith({
+      moduleId: 4,
+      sessionId: 12,
+      programTiers: ["PHP"],
       createdBy: 7,
     });
     expect(res.status).toHaveBeenCalledWith(200);

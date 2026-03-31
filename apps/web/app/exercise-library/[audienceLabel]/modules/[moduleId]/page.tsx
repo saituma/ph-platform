@@ -22,6 +22,7 @@ import {
 import { Input } from "../../../../../components/ui/input";
 import {
   AudienceWorkspace,
+  PROGRAM_TIERS,
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../../../../components/admin/training-content-v2/api";
@@ -30,14 +31,18 @@ function SortableSessionCard({
   session,
   audienceLabel,
   moduleId,
+  effectiveLockedForTiers,
   onEdit,
   onDelete,
+  onLock,
 }: {
   session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number];
   audienceLabel: string;
   moduleId: number;
+  effectiveLockedForTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>;
   onEdit: (session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number]) => void;
   onDelete: (sessionId: number) => void;
+  onLock: (session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number]) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: session.id });
   const style = {
@@ -70,10 +75,25 @@ function SortableSessionCard({
       <p className="mt-1 text-sm text-muted-foreground">
         {session.dayLength} days · {session.items.length} content items
       </p>
+      {effectiveLockedForTiers.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {effectiveLockedForTiers.map((tier) => (
+            <span
+              key={`${session.id}-${tier}`}
+              className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
+            >
+              Locked for {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-3 flex gap-2">
         <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}/sessions/${session.id}`}>
           <Button size="sm">Open session</Button>
         </Link>
+        <Button size="sm" variant="secondary" onClick={() => onLock(session)}>
+          Lock plans
+        </Button>
         <Button size="sm" variant="outline" onClick={() => onEdit(session)}>
           Edit
         </Button>
@@ -94,9 +114,20 @@ export default function ModuleSessionsPage() {
   const moduleId = Number(params.moduleId);
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [lockModalOpen, setLockModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
   const [sessionForm, setSessionForm] = useState({ id: null as number | null, title: "", dayLength: "7" });
+  const [lockForm, setLockForm] = useState<{
+    sessionId: number | null;
+    sessionTitle: string;
+    programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>;
+  }>({
+    sessionId: null,
+    sessionTitle: "",
+    programTiers: [],
+  });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const loadWorkspace = async () => {
@@ -114,6 +145,30 @@ export default function ModuleSessionsPage() {
   }, [audienceLabel]);
 
   const module = workspace?.modules.find((item) => item.id === moduleId) ?? null;
+
+  const effectiveLockedTiersBySessionId = useMemo(() => {
+    if (!module) return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
+
+    const sessionLockStartOrderByTier = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
+    for (const session of module.sessions) {
+      for (const tier of session.lockedForTiers ?? []) {
+        if (sessionLockStartOrderByTier.has(tier)) continue;
+        sessionLockStartOrderByTier.set(tier, session.order);
+      }
+    }
+
+    return new Map(
+      module.sessions.map((session) => [
+        session.id,
+        PROGRAM_TIERS
+          .filter((tier) => {
+            const startOrder = sessionLockStartOrderByTier.get(tier.value);
+            return startOrder != null && session.order >= startOrder;
+          })
+          .map((tier) => tier.value),
+      ])
+    );
+  }, [module]);
 
   const saveSession = async () => {
     if (!module || !sessionForm.title.trim()) return;
@@ -211,6 +266,28 @@ export default function ModuleSessionsPage() {
     void reorderSessions(Number(active.id), Number(over.id));
   };
 
+  const saveSessionLocks = async (sessionId: number | null, programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>) => {
+    if (!module || !programTiers.length) return;
+    setIsUpdatingLocks(true);
+    try {
+      setError(null);
+      const workspaceResponse = await trainingContentRequest<AudienceWorkspace>("/sessions/locks", {
+        method: "PUT",
+        body: JSON.stringify({
+          moduleId: module.id,
+          sessionId,
+          programTiers,
+        }),
+      });
+      setWorkspace(workspaceResponse);
+      setLockModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update session locks.");
+    } finally {
+      setIsUpdatingLocks(false);
+    }
+  };
+
   return (
     <AdminShell title="Training content" subtitle={`Audience ${audienceLabel} -> module sessions`}>
       <div className="space-y-6">
@@ -244,6 +321,15 @@ export default function ModuleSessionsPage() {
                           session={session}
                           audienceLabel={audienceLabel}
                           moduleId={moduleId}
+                          effectiveLockedForTiers={effectiveLockedTiersBySessionId.get(session.id) ?? []}
+                          onLock={(current) => {
+                            setLockForm({
+                              sessionId: current.id,
+                              sessionTitle: current.title,
+                              programTiers: current.lockedForTiers,
+                            });
+                            setLockModalOpen(true);
+                          }}
                           onEdit={(current) => {
                             setSessionForm({
                               id: current.id,
@@ -301,6 +387,74 @@ export default function ModuleSessionsPage() {
               <Button onClick={saveSession} disabled={!module || isSaving}>
                 {sessionForm.id ? "Update" : "Create"}
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={lockModalOpen} onOpenChange={setLockModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lock session for plans</DialogTitle>
+            <DialogDescription>
+              Starting from {lockForm.sessionTitle || "this session"}, the selected plan tiers will be locked here and for every session below it on mobile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLockForm((current) => ({ ...current, programTiers: PROGRAM_TIERS.map((tier) => tier.value) }))}
+              >
+                All plans
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLockForm((current) => ({ ...current, programTiers: [] }))}
+              >
+                Clear selection
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {PROGRAM_TIERS.map((tier) => {
+                const checked = lockForm.programTiers.includes(tier.value);
+                return (
+                  <label key={tier.value} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => {
+                        const nextProgramTiers = event.target.checked
+                          ? [...lockForm.programTiers, tier.value]
+                          : lockForm.programTiers.filter((value) => value !== tier.value);
+                        setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
+                      }}
+                    />
+                    <span className="text-sm font-medium text-foreground">{tier.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex justify-between gap-2">
+              <Button
+                variant="ghost"
+                disabled={isUpdatingLocks || !lockForm.programTiers.length}
+                onClick={() => void saveSessionLocks(null, lockForm.programTiers)}
+              >
+                Unlock selected plans
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setLockModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={isUpdatingLocks || !lockForm.sessionId || !lockForm.programTiers.length}
+                  onClick={() => void saveSessionLocks(lockForm.sessionId, lockForm.programTiers)}
+                >
+                  {isUpdatingLocks ? "Saving..." : "Save locks"}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

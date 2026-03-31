@@ -22,6 +22,7 @@ import {
   updateTrainingOtherContentHandler,
   updateTrainingOtherTypeSettingHandler,
   updateTrainingSessionHandler,
+  updateTrainingSessionTierLocksHandler,
   updateTrainingSessionItemHandler,
 } from "../controllers/training-content-v2.controller";
 
@@ -40,6 +41,7 @@ router.put("/training-content-v2/modules/:moduleId", requireAuth, requireRole(["
 router.delete("/training-content-v2/modules/:moduleId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteTrainingModuleHandler);
 
 router.post("/training-content-v2/sessions", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createTrainingSessionHandler);
+router.put("/training-content-v2/sessions/locks", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateTrainingSessionTierLocksHandler);
 router.put("/training-content-v2/sessions/:sessionId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateTrainingSessionHandler);
 router.delete("/training-content-v2/sessions/:sessionId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteTrainingSessionHandler);
 

@@ -316,6 +316,30 @@ export const trainingModuleSessionTable = pgTable(
   })
 );
 
+export const trainingSessionTierLockTable = pgTable(
+  "training_session_tier_locks",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    moduleId: integer().notNull().references(() => trainingModuleTable.id),
+    programTier: ProgramType().notNull(),
+    startSessionId: integer().notNull().references(() => trainingModuleSessionTable.id),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    moduleTierUnique: uniqueIndex("training_session_tier_locks_module_tier_unique").on(
+      table.moduleId,
+      table.programTier,
+    ),
+    moduleTierIdx: index("training_session_tier_locks_module_tier_idx").on(
+      table.moduleId,
+      table.programTier,
+    ),
+    sessionIdx: index("training_session_tier_locks_session_idx").on(table.startSessionId),
+  })
+);
+
 export const trainingSessionItemTable = pgTable(
   "training_session_items",
   {
