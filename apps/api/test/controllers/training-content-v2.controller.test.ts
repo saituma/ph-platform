@@ -4,6 +4,7 @@ jest.mock("../../src/services/training-content-v2.service", () => ({
   listTrainingContentAdminWorkspace: jest.fn(),
   getTrainingContentMobileWorkspace: jest.fn(),
   createTrainingModule: jest.fn(),
+  updateTrainingModuleTierLocks: jest.fn(),
   updateTrainingModule: jest.fn(),
   deleteTrainingModule: jest.fn(),
   createTrainingModuleSession: jest.fn(),
@@ -30,6 +31,7 @@ import {
   getTrainingContentAdminWorkspaceHandler,
   getTrainingContentMobileWorkspaceHandler,
   listTrainingAudiencesHandler,
+  updateTrainingModuleTierLocksHandler,
 } from "../../src/controllers/training-content-v2.controller";
 import {
   copyTrainingModulesFromAudience,
@@ -38,6 +40,7 @@ import {
   getTrainingContentMobileWorkspace,
   listTrainingAudiences,
   listTrainingContentAdminWorkspace,
+  updateTrainingModuleTierLocks,
 } from "../../src/services/training-content-v2.service";
 import { getAthleteForUser } from "../../src/services/user.service";
 
@@ -115,9 +118,29 @@ describe("training content v2 controller", () => {
 
     await getTrainingContentMobileWorkspaceHandler(req, res);
 
-    expect(getTrainingContentMobileWorkspace).toHaveBeenCalledWith({ age: 11, athleteId: 21 });
+    expect(getTrainingContentMobileWorkspace).toHaveBeenCalledWith({ age: 11, athleteId: 21, programTier: null });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ age: 11, tabs: ["Modules"], modules: [], others: [] });
+  });
+
+  it("updates module tier locks", async () => {
+    (updateTrainingModuleTierLocks as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
+    const req = {
+      body: { audienceLabel: "8", moduleId: 4, programTiers: ["PHP_Plus", "PHP_Premium"] },
+      user: { id: 7 },
+    } as any;
+    const res = createRes();
+
+    await updateTrainingModuleTierLocksHandler(req, res);
+
+    expect(updateTrainingModuleTierLocks).toHaveBeenCalledWith({
+      audienceLabel: "8",
+      moduleId: 4,
+      programTiers: ["PHP_Plus", "PHP_Premium"],
+      createdBy: 7,
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
   });
 
   it("marks a session finished for the active athlete", async () => {
