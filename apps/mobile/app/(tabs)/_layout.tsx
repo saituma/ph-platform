@@ -1,5 +1,4 @@
 import { SwipeableTabLayout, TabConfig } from "@/components/navigation";
-import { useRole } from "@/context/RoleContext";
 import { useSocket } from "@/context/SocketContext";
 import { apiRequest, prefetchApi } from "@/lib/api";
 import { getNotifications } from "@/lib/notifications";
@@ -41,7 +40,7 @@ const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
 };
 
 export default function TabLayout() {
-  const { role } = useRole();
+
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
   const forceLogout =
     process.env.EXPO_PUBLIC_FORCE_LOGOUT === "1" ||
@@ -160,15 +159,10 @@ export default function TabLayout() {
       return;
     }
 
-    const effectiveUserId =
-      role === "Athlete" && athleteUserId ? Number(athleteUserId) : Number(profile.id);
-    const headers =
-      role === "Athlete" && athleteUserId
-        ? { "X-Acting-User-Id": String(athleteUserId) }
-        : undefined;
+    const effectiveUserId = Number(profile.id);
 
     try {
-      const data = await apiRequest<{ messages: any[] }>("/messages", { token, headers });
+      const data = await apiRequest<{ messages: any[] }>("/messages", { token });
       const unread =
         data.messages?.filter(
           (message) => !message.read && Number(message.senderId) !== effectiveUserId
@@ -177,7 +171,7 @@ export default function TabLayout() {
     } catch {
       setMessagesUnread(0);
     }
-  }, [athleteUserId, bootstrapReady, effectiveAuth, hasMessaging, profile.id, role, token]);
+  }, [bootstrapReady, effectiveAuth, hasMessaging, profile.id, token]);
 
   useEffect(() => {
     if (!token || !effectiveAuth || !bootstrapReady || !hasMessaging) {
@@ -209,10 +203,7 @@ export default function TabLayout() {
     if (now - lastPrefetchAt.current < 60_000) return;
     lastPrefetchAt.current = now;
 
-    const headers =
-      role === "Athlete" && athleteUserId
-        ? { "X-Acting-User-Id": String(athleteUserId) }
-        : undefined;
+
 
     const task = InteractionManager.runAfterInteractions(() => {
       prefetchApi("/content/home", { token });
@@ -220,18 +211,17 @@ export default function TabLayout() {
       prefetchApi("/bookings/services", { token });
       prefetchApi("/public/plans");
       if (hasMessaging) {
-        prefetchApi("/messages", { token, headers });
+        prefetchApi("/messages", { token });
       }
     });
 
     return () => task?.cancel?.();
-  }, [athleteUserId, bootstrapReady, effectiveAuth, programTier, role, token]);
+  }, [bootstrapReady, effectiveAuth, programTier, token]);
 
   useEffect(() => {
     if (!socket || !token || !effectiveAuth || !bootstrapReady || !hasMessaging) return;
 
-    const effectiveUserId =
-      role === "Athlete" && athleteUserId ? String(athleteUserId) : String(profile.id ?? "");
+    const effectiveUserId = String(profile.id ?? "");
     const currentThreadFromPath = pathname.startsWith("/messages/")
       ? decodeURIComponent(pathname.replace("/messages/", "").split("/")[0] || "")
       : null;
@@ -260,7 +250,7 @@ export default function TabLayout() {
       socket.off("message:new", handleDirectMessage);
       socket.off("group:message", handleGroupMessage);
     };
-  }, [athleteUserId, bootstrapReady, effectiveAuth, pathname, profile.id, programTier, role, socket, token]);
+  }, [bootstrapReady, effectiveAuth, pathname, profile.id, programTier, socket, token]);
 
   useEffect(() => {
     if (!pathname.startsWith("/messages")) return;
@@ -279,12 +269,9 @@ export default function TabLayout() {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
-      if (tab.key === "parent-platform" && role === "Athlete") {
-        return { ...tab, label: "Athlete" };
-      }
       return tab;
     });
-  }, [messagesUnread, role]);
+  }, [messagesUnread]);
 
   const initialIndex = useMemo(() => {
     if (!pathname.startsWith("/(tabs)")) {

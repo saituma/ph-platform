@@ -1,4 +1,4 @@
-import { useRole } from "@/context/RoleContext";
+
 import { apiRequest, clearApiCache } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setAthleteUserId, setOnboardingCompleted } from "@/store/slices/userSlice";
@@ -59,7 +59,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
   const router = options?.router;
   const mode = Array.isArray(options?.mode) ? options?.mode[0] : options?.mode;
   const createNewAthlete = mode === "add";
-  const { setRole } = useRole();
+
   const dispatch = useAppDispatch();
   const { token, profile } = useAppSelector((state) => state.user);
 
@@ -343,7 +343,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
           dispatch(setAthleteUserId(response.athleteUserId));
         }
         clearApiCache();
-        setRole("Guardian");
+
         if (__DEV__) {
           console.log("[Register] Onboarding submitted; navigating to tabs", {
             athleteUserId: response?.athleteUserId,
@@ -358,7 +358,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
         setIsSubmitting(false);
       }
     },
-    [config, createNewAthlete, dispatch, normalizeFieldKey, profile.email, router, setRole, token]
+    [config, createNewAthlete, dispatch, normalizeFieldKey, profile.email, router, token]
   );
 
   const validateStep = useCallback(

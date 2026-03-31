@@ -2,7 +2,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
-import { useRole } from "@/context/RoleContext";
+
 import { apiRequest } from "@/lib/api";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
@@ -82,7 +82,7 @@ function normalizeBookingCalendarDay(date: Date) {
 
 export default function ScheduleScreen() {
   const router = useRouter();
-  const { role } = useRole();
+
   const { colors, isDark } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
   const canCreateBookings = hasPaidProgramTier(programTier);
@@ -183,14 +183,14 @@ export default function ScheduleScreen() {
           meetingLink: item.meetingLink ?? null,
           type: item.type?.includes("call") ? "call" : "training",
           status: item.status ?? undefined,
-          tag: role === "Guardian" ? "Parent" : "Athlete",
+          tag: "Parent",
           athlete: item.athleteName ?? "Athlete",
           coach: "Coach",
           notes: item.notes ?? "",
         } as ScheduleEvent;
       })
       .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  }, [role]);
+  }, []);
 
   const parseDateKey = useCallback((value: string) => {
     const [year, month, day] = value.split("-").map((part) => Number(part));
@@ -406,7 +406,7 @@ export default function ScheduleScreen() {
       active = false;
       task?.cancel?.();
     };
-  }, [token, role, mapBookingsToEvents, isFocused]);
+  }, [token, mapBookingsToEvents, isFocused]);
 
   const insets = useSafeAreaInsets();
 
@@ -480,11 +480,11 @@ export default function ScheduleScreen() {
               <View className="flex-1">
                 <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
                   <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
-                    {role === "Guardian" ? "Family planner" : "Training planner"}
+                    {"Family planner"}
                   </Text>
                 </View>
                 <Text className="mt-3 text-3xl font-telma-bold text-app">
-                  {role === "Guardian" ? "Family Schedule" : "My Schedule"}
+                  {"Family Schedule"}
                 </Text>
                 <Text className="text-secondary font-outfit text-sm mt-2">
                   {selectedDateLabel}

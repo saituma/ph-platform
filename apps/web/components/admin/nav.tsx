@@ -23,6 +23,13 @@ export type NavGroup = {
   items: NavItem[];
 };
 
+function pathMatchesNavItem(pathOnly: string, href: string) {
+  if (href === "/users") {
+    return /^\/users\/?$/.test(pathOnly);
+  }
+  return pathOnly === href || (href !== "/" && pathOnly.startsWith(`${href}/`));
+}
+
 type AdminNavProps = {
   items: NavItem[];
   currentPath: string;
@@ -51,8 +58,8 @@ function NavLinkRow({
   collapsed?: boolean;
   nested?: boolean;
 }) {
-  const isActive =
-    currentPath === item.href || (item.href !== "/" && currentPath.startsWith(item.href));
+  const pathOnly = currentPath.split("?")[0] ?? currentPath;
+  const isActive = pathMatchesNavItem(pathOnly, item.href);
   return (
     <Link
       href={item.href}
@@ -93,9 +100,8 @@ type AdminNavGroupedProps = {
 };
 
 function pathMatchesGroup(currentPath: string, items: NavItem[]): boolean {
-  return items.some(
-    (item) => currentPath === item.href || (item.href !== "/" && currentPath.startsWith(item.href))
-  );
+  const pathOnly = currentPath.split("?")[0] ?? currentPath;
+  return items.some((item) => pathMatchesNavItem(pathOnly, item.href));
 }
 
 export function AdminNavGrouped({ groups, currentPath, collapsed = false }: AdminNavGroupedProps) {

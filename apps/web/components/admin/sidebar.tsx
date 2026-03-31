@@ -20,6 +20,7 @@ import {
   Sparkles,
   SlidersHorizontal,
   Stethoscope,
+  UserPlus,
   Users,
 } from "lucide-react";
 
@@ -140,6 +141,7 @@ export function AdminSidebarContent({
       description: "Users, tiers, onboarding, per-athlete training",
       items: [
         { label: "Users & Tiers", href: "/users", icon: Users },
+        { label: "Add user", href: "/users/add", icon: UserPlus },
         { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
         { label: "Client training", href: "/training-snapshot", icon: ClipboardList },
         { label: "Billing", href: "/billing", icon: CreditCard },

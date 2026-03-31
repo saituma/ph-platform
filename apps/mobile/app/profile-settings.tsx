@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRefreshContext } from "@/context/RefreshContext";
-import { useRole } from "@/context/RoleContext";
+
 import { Feather } from "@/components/ui/theme-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -22,7 +22,7 @@ import { Shadows } from "@/constants/theme";
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
-  const { role } = useRole();
+
   const { colors, isDark } = useAppTheme();
   const { isLoading } = useRefreshContext();
   const { profile, token } = useAppSelector((state) => state.user);
@@ -94,7 +94,7 @@ export default function ProfileSettingsScreen() {
   useEffect(() => {
     let active = true;
     const loadAthlete = async () => {
-      if (!token || role !== "Guardian") {
+    if (!token) {
         if (active) setManagedAthleteCount(0);
         return;
       }
@@ -134,7 +134,7 @@ export default function ProfileSettingsScreen() {
     return () => {
       active = false;
     };
-  }, [role, token]);
+  }, [token]);
 
   // BUG-20: Load athlete details (height, weight, position) from the server
   useEffect(() => {
@@ -321,7 +321,7 @@ export default function ProfileSettingsScreen() {
               </View>
             </View>
 
-            {role === "Guardian" && (
+            {(
               <View
                 className="bg-input rounded-3xl p-6 shadow-sm border border-app"
                 style={isDark ? Shadows.none : Shadows.sm}
@@ -354,59 +354,7 @@ export default function ProfileSettingsScreen() {
               </View>
             )}
 
-            {role === "Athlete" && (
-              <View
-                className="bg-input rounded-3xl p-6 shadow-sm border border-app"
-                style={isDark ? Shadows.none : Shadows.sm}
-              >
-                <SectionHeader
-                  title="Player Details"
-                  subtitle="Your physical and field parameters."
-                  icon="activity"
-                  iconColor="text-green-500"
-                />
 
-                <View className="gap-4">
-                  <View className="flex-row gap-4">
-                    <View className="flex-1">
-                      <InputField
-                        label="Height"
-                        value={height}
-                        onChangeText={setHeight}
-                        placeholder="e.g. 180 cm"
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <InputField
-                        label="Weight"
-                        value={weight}
-                        onChangeText={setWeight}
-                        placeholder="e.g. 75 kg"
-                      />
-                    </View>
-                  </View>
-                  <InputField
-                    label="Preferred Position"
-                    value={position}
-                    onChangeText={setPosition}
-                    icon="map-pin"
-                  />
-                  <TouchableOpacity
-                    onPress={() => Alert.alert("Coming Soon", "Emergency contact management will be available in a future update.")}
-                    className="flex-row items-center justify-between py-4 border-t border-app"
-                  >
-                    <Text className="text-base font-medium font-outfit text-app">
-                      Emergency Contact
-                    </Text>
-                    <Feather
-                      name="chevron-right"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
 
             <ActionButton
               label={isSaving ? "Saving..." : "Save Changes"}
@@ -427,7 +375,7 @@ export default function ProfileSettingsScreen() {
                     dispatch(updateProfile({ name: response.user.name ?? name }));
                   }
                   // Save athlete-specific fields if we have an athlete ID
-                  if (activeAthleteId && role === "Athlete") {
+                  if (activeAthleteId) {
                     await apiRequest(`/onboarding/athletes/${activeAthleteId}`, {
                       method: "PATCH",
                       token,

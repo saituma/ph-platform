@@ -17,6 +17,7 @@ import {
   getTrainingContentAdminWorkspaceHandler,
   getTrainingContentMobileWorkspaceHandler,
   listTrainingAudiencesHandler,
+  updateTrainingModuleTierLocksHandler,
   updateTrainingModuleHandler,
   updateTrainingOtherContentHandler,
   updateTrainingOtherTypeSettingHandler,
@@ -34,6 +35,7 @@ router.get("/training-content-v2/mobile", requireAuth, getTrainingContentMobileW
 router.post("/training-content-v2/mobile/sessions/:sessionId/finish", requireAuth, finishTrainingSessionHandler);
 
 router.post("/training-content-v2/modules", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createTrainingModuleHandler);
+router.put("/training-content-v2/modules/locks", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateTrainingModuleTierLocksHandler);
 router.put("/training-content-v2/modules/:moduleId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateTrainingModuleHandler);
 router.delete("/training-content-v2/modules/:moduleId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteTrainingModuleHandler);
 

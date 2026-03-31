@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import { io, Socket } from "socket.io-client";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { useAppSelector } from "@/store/hooks";
-import { useRole } from "@/context/RoleContext";
+
 
 interface SocketContextType {
   socket: Socket | null;
@@ -18,7 +18,7 @@ const SocketContext = createContext<SocketContextType>({
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const { token, profile, athleteUserId } = useAppSelector((state) => state.user);
-  const { role } = useRole();
+
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -32,12 +32,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   }, [activeThreadId]);
 
   useEffect(() => {
-    const effectiveProfileId =
-      role === "Athlete" && athleteUserId
-        ? String(athleteUserId)
-        : String(profile.id ?? "");
+    const effectiveProfileId = String(profile.id ?? "");
     effectiveProfileIdRef.current = effectiveProfileId;
-  }, [athleteUserId, profile.id, role]);
+  }, [profile.id]);
 
   useEffect(() => {
     if (!token) {

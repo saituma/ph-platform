@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 
-import { trainingOtherType, trainingSessionBlockType } from "../db/schema";
+import { ProgramType, trainingOtherType, trainingSessionBlockType } from "../db/schema";
 import {
   createTrainingAudience,
   createTrainingModule,
@@ -17,6 +17,7 @@ import {
   getTrainingContentMobileWorkspace,
   listTrainingAudiences,
   listTrainingContentAdminWorkspace,
+  updateTrainingModuleTierLocks,
   updateTrainingModule,
   updateTrainingModuleSession,
   updateTrainingOtherContent,
@@ -63,6 +64,12 @@ const copyAudienceModulesSchema = z.object({
 const updateModuleSchema = z.object({
   title: z.string().min(1).max(255),
   order: z.number().int().min(1).optional().nullable(),
+});
+
+const updateModuleTierLocksSchema = z.object({
+  audienceLabel: z.string().min(1).max(64),
+  moduleId: z.number().int().min(1).optional().nullable(),
+  programTiers: z.array(z.enum(ProgramType.enumValues)).min(1),
 });
 
 const createSessionSchema = z.object({
@@ -170,6 +177,7 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
   const workspace = await getTrainingContentMobileWorkspace({
     age,
     athleteId: athlete?.id ?? null,
+    programTier: athlete?.currentProgramTier ?? null,
   });
   return res.status(200).json(workspace);
 }
@@ -197,6 +205,17 @@ export async function updateTrainingModuleHandler(req: Request, res: Response) {
     return res.status(404).json({ error: "Module not found" });
   }
   return res.status(200).json({ item });
+}
+
+export async function updateTrainingModuleTierLocksHandler(req: Request, res: Response) {
+  const input = updateModuleTierLocksSchema.parse(req.body);
+  const workspace = await updateTrainingModuleTierLocks({
+    audienceLabel: input.audienceLabel,
+    moduleId: input.moduleId ?? null,
+    programTiers: input.programTiers,
+    createdBy: req.user!.id,
+  });
+  return res.status(200).json(workspace);
 }
 
 export async function deleteTrainingModuleHandler(req: Request, res: Response) {

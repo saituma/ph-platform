@@ -192,6 +192,37 @@ ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">This cod
   await deliverEmail({ to: input.to, subject, html });
 }
 
+/** Welcome email after admin provisions a guardian account (temporary password; user changes it in the app). */
+export async function sendAdminWelcomeCredentialsEmail(input: {
+  to: string;
+  guardianName: string;
+  temporaryPassword: string;
+}) {
+  const subject = "Your PH Performance account is ready";
+  const name = escapeHtml(input.guardianName);
+  const pwd = escapeHtml(input.temporaryPassword);
+  const bodyHtml = `
+${textP(`Hi ${name},`)}
+${textP(`Your coach has created your PH Performance account. Sign in on the mobile app with the email address this message was sent to and the temporary password below. You will be asked to choose a new password when you first sign in.`)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td align="center" style="background-color:#f4f4f5;border-radius:12px;border:1px solid ${E.rule};padding:28px 24px;">
+      <p style="margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${E.muted};font-family:${E.font};">Temporary password</p>
+      <p style="margin:0;font-size:18px;font-weight:600;word-break:break-all;color:${E.text};font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.4;">${pwd}</p>
+    </td>
+  </tr>
+</table>
+${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">For your security, do not share this email. If you did not expect this message, contact PH Performance support.</span>`, "0")}`;
+  const html = emailLayout({
+    preheader: "Your PH Performance login details",
+    eyebrow: "Welcome",
+    headline: "Sign in to the app",
+    bodyHtml,
+  });
+
+  await deliverEmail({ to: input.to, subject, html });
+}
+
 export async function sendBookingConfirmationEmail(input: {
   to: string;
   name: string;

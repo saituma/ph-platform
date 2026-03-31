@@ -19,14 +19,14 @@ import { buildPlanPricing, PlanPricing } from "@/lib/billing";
 import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
 import { useRouter } from "expo-router";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { useRole } from "@/context/RoleContext";
+
 import { Transition } from "@/components/navigation/TransitionStack";
 
 export default function ProgramsScreen() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
-  const { role } = useRole();
+
   const {
     token,
     programTier,
@@ -141,7 +141,7 @@ export default function ProgramsScreen() {
   );
 
   const activeAthlete = useMemo(() => {
-    if (role === "Guardian" && managedAthletes.length) {
+    if (managedAthletes.length) {
       return (
         managedAthletes.find(
           (athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId,
@@ -149,7 +149,7 @@ export default function ProgramsScreen() {
       );
     }
     return null;
-  }, [athleteUserId, managedAthletes, role]);
+  }, [athleteUserId, managedAthletes]);
 
   const focusName = activeAthlete?.name || profile.name || "Athlete";
   const focusInfo = [
@@ -359,7 +359,7 @@ export default function ProgramsScreen() {
 
             <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
               <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
-                {role === "Guardian" ? "Player pathway" : "Performance pathway"}
+                {"Player pathway"}
               </Text>
             </View>
 

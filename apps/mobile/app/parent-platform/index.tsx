@@ -4,7 +4,7 @@ import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { Text, TextInput } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
-import { useRole } from "@/context/RoleContext";
+
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { setParentContentCache } from "@/lib/parentContentCache";
@@ -48,7 +48,7 @@ type ParentCourseItem = {
 };
 
 export default function ParentPlatformScreen() {
-  const { role } = useRole();
+
   const { token, programTier } = useAppSelector((state) => state.user);
   const router = useRouter();
   const { isSectionHidden } = useAgeExperience();
@@ -57,15 +57,10 @@ export default function ParentPlatformScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const isAthlete = role === "Athlete";
-  const platformTitle = isAthlete ? "Athlete Platform" : "Parent Education Platform";
-  const platformSubtitle = isAthlete
-    ? "Personalized lessons, recovery tips, and training guidance built for your age and plan."
-    : "Understand your athlete's training with our educational module for parents.";
-  const lockedTitle = isAthlete ? "Athlete platform locked" : "Parent platform locked";
-  const lockedMessage = isAthlete
-    ? "Athlete education content is restricted for this age."
-    : "Parent education content is restricted for this age.";
+  const platformTitle = "Parent Education Platform";
+  const platformSubtitle = "Understand your athlete's training with our educational module for parents.";
+  const lockedTitle = "Parent platform locked";
+  const lockedMessage = "Parent education content is restricted for this age.";
 
   const fetchCourses = useCallback(async (options?: { refreshing?: boolean }) => {
     if (!token) {
@@ -121,8 +116,8 @@ export default function ParentPlatformScreen() {
 
   const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
   const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium");
-  const visibleGroups = isAthlete ? [] : grouped.filter((cat) => cat.items.length > 0);
-  const visibleItems = isAthlete ? filteredItems : [];
+  const visibleGroups = grouped.filter((cat) => cat.items.length > 0);
+  const visibleItems: ParentCourseItem[] = [];
   const previewCount = filteredItems.filter((item) => item.isPreview).length;
   const lockedCount = filteredItems.filter((item) => !canAccessTier(programTier, item.programTier ?? null) && !item.isPreview).length;
   const featuredItems = filteredItems.slice(0, 3);
@@ -164,7 +159,7 @@ export default function ParentPlatformScreen() {
         <MoreStackHeader
           title={platformTitle}
           subtitle="Support your athlete with practical education and planning insight."
-          badge={isAthlete ? "Athlete" : "Parents"}
+          badge="Parents"
         />
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-2xl font-clash font-bold text-app text-center mb-3">Parent education</Text>
@@ -186,8 +181,8 @@ export default function ParentPlatformScreen() {
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <MoreStackHeader
         title={platformTitle}
-        subtitle={isAthlete ? "Age-aware lessons, recovery guidance, and training education built around your stage." : "Support your athlete with practical education, planning insight, and expert parent guidance."}
-        badge={isAthlete ? "Athlete" : "Parents"}
+        subtitle="Support your athlete with practical education, planning insight, and expert parent guidance."
+        badge="Parents"
       />
 
       <ThemedScrollView
@@ -215,11 +210,11 @@ export default function ParentPlatformScreen() {
           <View className="mb-5">
             <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.82)" }}>
               <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
-                {isAthlete ? "Age-aware education" : "Family support library"}
+                {"Family support library"}
               </Text>
             </View>
             <Text className="mt-3 text-3xl font-telma-bold text-app">
-              {isAthlete ? "Learn what supports your next stage" : "Give your athlete better support at home"}
+              {"Give your athlete better support at home"}
             </Text>
             <Text className="mt-3 text-base font-outfit text-secondary leading-relaxed">
               {platformSubtitle}
@@ -231,7 +226,7 @@ export default function ParentPlatformScreen() {
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder={isAthlete ? "Search recovery, confidence, sleep..." : "Search nutrition, recovery, mindset..."}
+              placeholder="Search nutrition, recovery, mindset..."
               placeholderTextColor={colors.placeholder}
               className="ml-3 flex-1 font-outfit text-base text-app"
             />
@@ -251,16 +246,7 @@ export default function ParentPlatformScreen() {
             <MetricCard title="Previews" value={String(previewCount)} caption="Open without upgrading" isDark={isDark} />
           </View>
 
-          {isAthlete ? (
-            <View className="mt-4 rounded-2xl border border-app/10 bg-secondary/10 px-4 py-3">
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
-                Age-Based Content
-              </Text>
-              <Text className="text-sm font-outfit text-secondary mt-1">
-                Content updates automatically as you grow, so next year&apos;s training guidance will unlock when your age increases.
-              </Text>
-            </View>
-          ) : null}
+
         </View>
 
         {featuredItems.length > 0 && hasParentProgramAccess ? (
@@ -277,7 +263,7 @@ export default function ParentPlatformScreen() {
                     key={`featured-${item.id}`}
                     item={item}
                     isLocked={isLocked}
-                    onPress={() => openCourse(item, `${isAthlete ? "Athlete" : "Parent"} education is included with PHP Plus and Premium plans.`)}
+                    onPress={() => openCourse(item, `Parent education is included with PHP Plus and Premium plans.`)}
                     colors={colors}
                     isDark={isDark}
                   />
@@ -302,14 +288,12 @@ export default function ParentPlatformScreen() {
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">Locked library</Text>
-                <Text className="text-lg font-clash text-app">Upgrade to unlock {isAthlete ? "Athlete" : "Parent"} education</Text>
+                <Text className="text-lg font-clash text-app">Upgrade to unlock Parent education</Text>
               </View>
             </View>
 
             <Text className="text-base font-outfit text-secondary leading-relaxed">
-              {isAthlete
-                ? "Athlete education is available on PHP Plus and PHP Premium plans."
-                : "Parent education is available on PHP Plus and PHP Premium plans."}
+              Parent education is available on PHP Plus and PHP Premium plans.
             </Text>
 
             <View className="mt-4 gap-3">
@@ -343,83 +327,60 @@ export default function ParentPlatformScreen() {
           </View>
         ) : (
           <View className="gap-8">
-            {!isAthlete ? (
-              <>
-                <SectionLabel label="Browse by topic" />
-                <View className="flex-row flex-wrap justify-between gap-y-3">
-                  {grouped.map((category) => (
-                    <View
-                      key={category.id}
-                      className="w-[48%] rounded-[24px] border p-4"
-                      style={{
-                        backgroundColor: colors.card,
-                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                        ...(isDark ? Shadows.none : Shadows.sm),
-                      }}
-                    >
-                      <View className={`${category.color} mb-3 h-10 w-10 rounded-2xl items-center justify-center`}>
-                        <Feather name={category.icon as any} size={18} color="white" />
-                      </View>
-                      <Text className="mb-1 font-clash text-base text-app">{category.title}</Text>
-                      <Text className="text-sm font-outfit text-secondary">{category.items.length} item{category.items.length === 1 ? "" : "s"}</Text>
+            <>
+              <SectionLabel label="Browse by topic" />
+              <View className="flex-row flex-wrap justify-between gap-y-3">
+                {grouped.map((category) => (
+                  <View
+                    key={category.id}
+                    className="w-[48%] rounded-[24px] border p-4"
+                    style={{
+                      backgroundColor: colors.card,
+                      borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                      ...(isDark ? Shadows.none : Shadows.sm),
+                    }}
+                  >
+                    <View className={`${category.color} mb-3 h-10 w-10 rounded-2xl items-center justify-center`}>
+                      <Feather name={category.icon as any} size={18} color="white" />
                     </View>
-                  ))}
-                </View>
-              </>
-            ) : null}
-
-            {isAthlete ? (
-              <View className="gap-3">
-                <SectionLabel label="Your learning library" />
-                {visibleItems.map((item) => {
-                  const canAccess = canAccessTier(programTier, item.programTier ?? null);
-                  const isPreview = Boolean(item.isPreview);
-                  const isLocked = !canAccess && !isPreview;
-                  return (
-                    <CourseCard
-                      key={item.id}
-                      item={item}
-                      isLocked={isLocked}
-                      onPress={() => openCourse(item, "Athlete education is included with PHP Plus and Premium plans.")}
-                      colors={colors}
-                      isDark={isDark}
-                    />
-                  );
-                })}
+                    <Text className="mb-1 font-clash text-base text-app">{category.title}</Text>
+                    <Text className="text-sm font-outfit text-secondary">{category.items.length} item{category.items.length === 1 ? "" : "s"}</Text>
+                  </View>
+                ))}
               </View>
-            ) : (
-              visibleGroups.map((cat) => (
-                <View key={cat.id}>
-                  <View className="mb-3 flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-2">
-                      <View className={`${cat.color} h-9 w-9 rounded-2xl items-center justify-center`}>
-                        <Feather name={cat.icon as any} size={18} color="white" />
-                      </View>
-                      <Text className="font-clash text-app text-lg">{cat.title}</Text>
-                    </View>
-                    <Text className="text-xs font-outfit text-secondary">{cat.items.length} items</Text>
-                  </View>
+            </>
 
-                  <View className="gap-3">
-                    {cat.items.map((item) => {
-                      const canAccess = canAccessTier(programTier, item.programTier ?? null);
-                      const isPreview = Boolean(item.isPreview);
-                      const isLocked = !canAccess && !isPreview;
-                      return (
-                        <CourseCard
-                          key={item.id}
-                          item={item}
-                          isLocked={isLocked}
-                          onPress={() => openCourse(item, "Parent education is included with PHP Plus and Premium plans.")}
-                          colors={colors}
-                          isDark={isDark}
-                        />
-                      );
-                    })}
+            {visibleGroups.map((cat) => (
+              <View key={cat.id}>
+                <View className="mb-3 flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-2">
+                    <View className={`${cat.color} h-9 w-9 rounded-2xl items-center justify-center`}>
+                      <Feather name={cat.icon as any} size={18} color="white" />
+                    </View>
+                    <Text className="font-clash text-app text-lg">{cat.title}</Text>
                   </View>
+                  <Text className="text-xs font-outfit text-secondary">{cat.items.length} items</Text>
                 </View>
-              ))
-            )}
+
+                <View className="gap-3">
+                  {cat.items.map((item) => {
+                    const canAccess = canAccessTier(programTier, item.programTier ?? null);
+                    const isPreview = Boolean(item.isPreview);
+                    const isLocked = !canAccess && !isPreview;
+                    return (
+                      <CourseCard
+                        key={item.id}
+                        item={item}
+                        isLocked={isLocked}
+                        onPress={() => openCourse(item, "Parent education is included with PHP Plus and Premium plans.")}
+                        colors={colors}
+                        isDark={isDark}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
 
             {filteredItems.length === 0 ? (
               <View className="rounded-[28px] border border-dashed border-app/20 p-5">
