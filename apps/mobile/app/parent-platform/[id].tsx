@@ -14,7 +14,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
-import { useRole } from "@/context/RoleContext";
+
 import { MarkdownText } from "@/components/ui/MarkdownText";
 
 type ParentCourseModule = {
@@ -46,16 +46,13 @@ export default function ParentCourseDetail() {
   const { colors } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
-  const { role } = useRole();
+
   const cached = Number.isFinite(Number(idValue)) ? getParentContentCache(Number(idValue)) : null;
   const [item, setItem] = useState<ParentCourseItem | null>(cached as ParentCourseItem | null);
   const [isLoading, setIsLoading] = useState(!cached);
 
-  const isAthlete = role === "Athlete";
-  const lockedTitle = isAthlete ? "Athlete platform locked" : "Parent platform locked";
-  const lockedMessage = isAthlete
-    ? "Athlete education content is restricted for this age."
-    : "Parent education content is restricted for this age.";
+  const lockedTitle = "Parent platform locked";
+  const lockedMessage = "Parent education content is restricted for this age.";
 
   if (isSectionHidden("parentPlatform")) {
     return <AgeGate title={lockedTitle} message={lockedMessage} />;
@@ -136,7 +133,7 @@ export default function ParentCourseDetail() {
             <Feather name="arrow-left" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           <Text className="text-2xl font-clash text-app font-bold">
-            {isAthlete ? "Athlete Course" : "Parent Course"}
+            Parent Course
           </Text>
           <View className="w-10" />
         </View>

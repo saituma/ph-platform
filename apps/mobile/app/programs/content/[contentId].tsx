@@ -25,7 +25,7 @@ import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { SafeMaskedView, Transition } from "@/components/navigation/TransitionStack";
-import { useRole } from "@/context/RoleContext";
+
 import { canAccessTier } from "@/lib/planAccess";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 
@@ -125,7 +125,7 @@ export default function ProgramContentDetailScreen() {
   }>();
   const router = useRouter();
   const { token } = useAppSelector((state) => state.user);
-  const { role } = useRole();
+
   const programTier = useAppSelector((state) => state.user.programTier);
   const { isDark, colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -203,11 +203,9 @@ export default function ProgramContentDetailScreen() {
   const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const canUploadVideos =
-    (role === "Athlete" || role === "Guardian") &&
     canAccessTier(programTier ?? null, "PHP_Premium") &&
     !isSectionHidden("videoFeedback");
-  const canLogCompletion =
-    role === "Athlete" || role === "Guardian";
+  const canLogCompletion = true;
   const showUploadFab = Boolean(item?.allowVideoUpload) && canUploadVideos;
   const sessionExerciseIds = useMemo(
     () =>

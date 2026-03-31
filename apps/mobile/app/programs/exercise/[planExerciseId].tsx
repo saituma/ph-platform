@@ -13,7 +13,7 @@ import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
-import { useRole } from "@/context/RoleContext";
+
 import { canAccessTier } from "@/lib/planAccess";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 
@@ -136,7 +136,7 @@ export default function PremiumExerciseDetailScreen() {
   }>();
   const router = useRouter();
   const { token, managedAthletes, athleteUserId, programTier } = useAppSelector((state) => state.user);
-  const { role } = useRole();
+
   const { isDark, colors } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
   const [item, setItem] = useState<PremiumExerciseDetail | null>(null);
@@ -192,7 +192,6 @@ export default function PremiumExerciseDetailScreen() {
   const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const canUploadVideos =
-    (role === "Athlete" || role === "Guardian") &&
     canAccessTier(programTier ?? null, "PHP_Premium") &&
     !isSectionHidden("videoFeedback");
   const showUploadFab =

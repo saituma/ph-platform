@@ -24,6 +24,7 @@ import {
   AudienceWorkspace,
   AudienceSummary,
   OTHER_TYPES,
+  PROGRAM_TIERS,
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../../components/admin/training-content-v2/api";
@@ -33,11 +34,13 @@ function SortableModuleCard({
   audienceLabel,
   onEdit,
   onDelete,
+  onLock,
 }: {
   module: AudienceWorkspace["modules"][number];
   audienceLabel: string;
   onEdit: (module: AudienceWorkspace["modules"][number]) => void;
   onDelete: (path: string) => void;
+  onLock: (module: AudienceWorkspace["modules"][number]) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: module.id });
   const style = {
@@ -70,10 +73,25 @@ function SortableModuleCard({
       <p className="mt-1 text-sm text-muted-foreground">
         {module.sessions.length} sessions · {module.totalDayLength} total days
       </p>
+      {module.lockedForTiers.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {module.lockedForTiers.map((tier) => (
+            <span
+              key={`${module.id}-${tier}`}
+              className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
+            >
+              Lock starts here for {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-3 flex gap-2">
         <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${module.id}`}>
           <Button size="sm">Open module</Button>
         </Link>
+        <Button size="sm" variant="secondary" onClick={() => onLock(module)}>
+          Lock plans
+        </Button>
         <Button size="sm" variant="outline" onClick={() => onEdit(module)}>
           Edit
         </Button>
@@ -114,13 +132,24 @@ export default function AudienceDetailPage() {
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [lockModalOpen, setLockModalOpen] = useState(false);
   const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "" });
+  const [lockForm, setLockForm] = useState<{
+    moduleId: number | null;
+    moduleTitle: string;
+    programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>;
+  }>({
+    moduleId: null,
+    moduleTitle: "",
+    programTiers: [],
+  });
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
   const [copySourceAudience, setCopySourceAudience] = useState("");
   const [copySearch, setCopySearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const loadWorkspace = async () => {
@@ -276,6 +305,28 @@ export default function AudienceDetailPage() {
     }
   };
 
+  const saveModuleLocks = async (moduleId: number | null, programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>) => {
+    if (!programTiers.length) return;
+    setIsUpdatingLocks(true);
+    try {
+      setError(null);
+      const workspaceResponse = await trainingContentRequest<AudienceWorkspace>("/modules/locks", {
+        method: "PUT",
+        body: JSON.stringify({
+          audienceLabel,
+          moduleId,
+          programTiers,
+        }),
+      });
+      setWorkspace(workspaceResponse);
+      setLockModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update module locks.");
+    } finally {
+      setIsUpdatingLocks(false);
+    }
+  };
+
   return (
     <AdminShell
       title="Training content"
@@ -332,6 +383,14 @@ export default function AudienceDetailPage() {
                           key={module.id}
                           module={module}
                           audienceLabel={audienceLabel}
+                          onLock={(current) => {
+                            setLockForm({
+                              moduleId: current.id,
+                              moduleTitle: current.title,
+                              programTiers: current.lockedForTiers,
+                            });
+                            setLockModalOpen(true);
+                          }}
                           onEdit={(current) => {
                             setModuleForm({ id: current.id, title: current.title });
                             setModalOpen(true);
@@ -425,6 +484,74 @@ export default function AudienceDetailPage() {
               </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={lockModalOpen} onOpenChange={setLockModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lock module for plans</DialogTitle>
+            <DialogDescription>
+              Starting from {lockForm.moduleTitle || "this module"}, the selected plan tiers will be locked here and for every module below it on mobile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLockForm((current) => ({ ...current, programTiers: PROGRAM_TIERS.map((tier) => tier.value) }))}
+              >
+                All plans
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLockForm((current) => ({ ...current, programTiers: [] }))}
+              >
+                Clear selection
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {PROGRAM_TIERS.map((tier) => {
+                const checked = lockForm.programTiers.includes(tier.value);
+                return (
+                  <label key={tier.value} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => {
+                        const nextProgramTiers = event.target.checked
+                          ? [...lockForm.programTiers, tier.value]
+                          : lockForm.programTiers.filter((value) => value !== tier.value);
+                        setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
+                      }}
+                    />
+                    <span className="text-sm font-medium text-foreground">{tier.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex justify-between gap-2">
+              <Button
+                variant="ghost"
+                disabled={isUpdatingLocks || !lockForm.programTiers.length}
+                onClick={() => void saveModuleLocks(null, lockForm.programTiers)}
+              >
+                Unlock selected plans
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setLockModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
+                  onClick={() => void saveModuleLocks(lockForm.moduleId, lockForm.programTiers)}
+                >
+                  {isUpdatingLocks ? "Saving..." : "Save locks"}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>

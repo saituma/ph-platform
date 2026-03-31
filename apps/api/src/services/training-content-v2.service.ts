@@ -1,10 +1,13 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import {
+  ProgramType,
+  athleteTable,
   athleteTrainingSessionCompletionTable,
   trainingAudienceTable,
   trainingModuleSessionTable,
+  trainingModuleTierLockTable,
   trainingModuleTable,
   trainingOtherContentTable,
   trainingOtherSettingTable,
@@ -38,6 +41,12 @@ const BLOCK_ORDER: Record<(typeof trainingSessionBlockType.enumValues)[number], 
   warmup: 1,
   main: 2,
   cooldown: 3,
+};
+
+const PROGRAM_TIER_LABELS: Record<(typeof ProgramType.enumValues)[number], string> = {
+  PHP: "PHP",
+  PHP_Plus: "PHP Plus",
+  PHP_Premium: "PHP Premium",
 };
 
 function normalizeAudienceLabel(input: string) {
@@ -169,6 +178,14 @@ async function getTrainingOtherSettings(audienceLabel: string) {
     .orderBy(asc(trainingOtherSettingTable.type), asc(trainingOtherSettingTable.id));
 }
 
+async function getTrainingModuleTierLocks(audienceLabel: string) {
+  return db
+    .select()
+    .from(trainingModuleTierLockTable)
+    .where(eq(trainingModuleTierLockTable.audienceLabel, audienceLabel))
+    .orderBy(asc(trainingModuleTierLockTable.programTier), asc(trainingModuleTierLockTable.id));
+}
+
 export async function listTrainingAudiences() {
   const [registeredAudiences, modules, others] = await Promise.all([
     db.select({ label: trainingAudienceTable.label }).from(trainingAudienceTable),
@@ -221,6 +238,7 @@ export async function copyTrainingModulesFromAudience(input: {
   await ensureTrainingAudienceExists(targetAudienceLabel, input.createdBy);
 
   return db.transaction(async (tx) => {
+    const copiedModuleIdBySourceId = new Map<number, number>();
     const existingModules = await tx
       .select({ id: trainingModuleTable.id })
       .from(trainingModuleTable)
@@ -241,6 +259,10 @@ export async function copyTrainingModulesFromAudience(input: {
       await tx.delete(trainingModuleTable).where(eq(trainingModuleTable.id, module.id));
     }
 
+    await tx
+      .delete(trainingModuleTierLockTable)
+      .where(eq(trainingModuleTierLockTable.audienceLabel, targetAudienceLabel));
+
     for (const sourceModule of sourceWorkspace.modules) {
       const [createdModule] = await tx
         .insert(trainingModuleTable)
@@ -252,6 +274,7 @@ export async function copyTrainingModulesFromAudience(input: {
           createdBy: input.createdBy,
         })
         .returning();
+      copiedModuleIdBySourceId.set(sourceModule.id, createdModule.id);
 
       for (const sourceSession of sourceModule.sessions) {
         const [createdSession] = await tx
@@ -280,13 +303,33 @@ export async function copyTrainingModulesFromAudience(input: {
       }
     }
 
+    for (const sourceLock of sourceWorkspace.moduleLocks) {
+      const copiedModuleId = copiedModuleIdBySourceId.get(sourceLock.startModuleId);
+      if (!copiedModuleId) continue;
+      await tx
+        .insert(trainingModuleTierLockTable)
+        .values({
+          audienceLabel: targetAudienceLabel,
+          programTier: sourceLock.programTier,
+          startModuleId: copiedModuleId,
+          createdBy: input.createdBy,
+        })
+        .onConflictDoUpdate({
+          target: [trainingModuleTierLockTable.audienceLabel, trainingModuleTierLockTable.programTier],
+          set: {
+            startModuleId: copiedModuleId,
+            updatedAt: new Date(),
+          },
+        });
+    }
+
     return listTrainingContentAdminWorkspace(targetAudienceLabel);
   });
 }
 
 export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
   const normalizedAudienceLabel = normalizeAudienceLabel(audienceLabel);
-  const [modules, sessions, items, others, otherSettings] = await Promise.all([
+  const [modules, sessions, items, others, otherSettings, moduleLocks] = await Promise.all([
     db
       .select()
       .from(trainingModuleTable)
@@ -306,12 +349,19 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
       .where(eq(trainingOtherContentTable.audienceLabel, normalizedAudienceLabel))
       .orderBy(asc(trainingOtherContentTable.type), asc(trainingOtherContentTable.order), asc(trainingOtherContentTable.id)),
     getTrainingOtherSettings(normalizedAudienceLabel),
+    getTrainingModuleTierLocks(normalizedAudienceLabel),
   ]);
 
   const moduleIds = new Set(modules.map((module) => module.id));
   const filteredSessions = sessions.filter((session) => moduleIds.has(session.moduleId));
   const sessionIds = new Set(filteredSessions.map((session) => session.id));
   const filteredItems = items.filter((item) => sessionIds.has(item.sessionId));
+  const moduleLockMap = new Map<number, (typeof ProgramType.enumValues)[number][]>();
+  for (const lock of moduleLocks) {
+    const current = moduleLockMap.get(lock.startModuleId) ?? [];
+    current.push(lock.programTier);
+    moduleLockMap.set(lock.startModuleId, current);
+  }
 
   return {
     audienceLabel: normalizedAudienceLabel,
@@ -326,9 +376,17 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
         ...module,
         audienceLabel: normalizedAudienceLabel,
         totalDayLength: moduleSessions.reduce((sum, session) => sum + (session.dayLength ?? 0), 0),
+        lockedForTiers: moduleLockMap.get(module.id) ?? [],
         sessions: moduleSessions,
       };
     }),
+    moduleLocks: moduleLocks.map((lock) => ({
+      id: lock.id,
+      audienceLabel: lock.audienceLabel,
+      programTier: lock.programTier,
+      label: PROGRAM_TIER_LABELS[lock.programTier],
+      startModuleId: lock.startModuleId,
+    })),
     others: trainingOtherType.enumValues.map((type) => ({
       type,
       label: OTHER_LABELS[type],
@@ -374,6 +432,7 @@ export async function updateTrainingModule(input: { id: number; title: string; o
 }
 
 export async function deleteTrainingModule(id: number) {
+  await db.delete(trainingModuleTierLockTable).where(eq(trainingModuleTierLockTable.startModuleId, id));
   const sessions = await db
     .select({ id: trainingModuleSessionTable.id })
     .from(trainingModuleSessionTable)
@@ -593,7 +652,65 @@ export async function updateTrainingOtherTypeSetting(input: {
   return created ?? null;
 }
 
-export async function getTrainingContentMobileWorkspace(input: { age: number; athleteId: number | null }) {
+export async function updateTrainingModuleTierLocks(input: {
+  audienceLabel: string;
+  moduleId: number | null;
+  programTiers: (typeof ProgramType.enumValues)[number][];
+  createdBy: number;
+}) {
+  const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
+  await ensureTrainingAudienceExists(normalizedAudienceLabel, input.createdBy);
+
+  if (!input.programTiers.length) {
+    return listTrainingContentAdminWorkspace(normalizedAudienceLabel);
+  }
+
+  if (input.moduleId != null) {
+    const modules = await db
+      .select({ id: trainingModuleTable.id, audienceLabel: trainingModuleTable.audienceLabel })
+      .from(trainingModuleTable)
+      .where(eq(trainingModuleTable.id, input.moduleId));
+    if (!modules[0] || modules[0].audienceLabel !== normalizedAudienceLabel) {
+      throw new Error("Module not found for this audience.");
+    }
+  }
+
+  for (const programTier of input.programTiers) {
+    if (input.moduleId == null) {
+      await db
+        .delete(trainingModuleTierLockTable)
+        .where(and(
+          eq(trainingModuleTierLockTable.audienceLabel, normalizedAudienceLabel),
+          eq(trainingModuleTierLockTable.programTier, programTier),
+        ));
+      continue;
+    }
+
+    await db
+      .insert(trainingModuleTierLockTable)
+      .values({
+        audienceLabel: normalizedAudienceLabel,
+        programTier,
+        startModuleId: input.moduleId,
+        createdBy: input.createdBy,
+      })
+      .onConflictDoUpdate({
+        target: [trainingModuleTierLockTable.audienceLabel, trainingModuleTierLockTable.programTier],
+        set: {
+          startModuleId: input.moduleId,
+          updatedAt: new Date(),
+        },
+      });
+  }
+
+  return listTrainingContentAdminWorkspace(normalizedAudienceLabel);
+}
+
+export async function getTrainingContentMobileWorkspace(input: {
+  age: number;
+  athleteId: number | null;
+  programTier?: (typeof ProgramType.enumValues)[number] | null;
+}) {
   const audiences = await listTrainingAudiences();
   const bestAudience = audiences
     .map((item) => ({ ...item, score: audienceScore(item.label, input.age) }))
@@ -609,13 +726,33 @@ export async function getTrainingContentMobileWorkspace(input: { age: number; at
         .where(eq(athleteTrainingSessionCompletionTable.athleteId, input.athleteId))
     : [];
   const completionSet = new Set(completionRows.map((row) => row.sessionId));
+  const athleteTier =
+    input.programTier ??
+    (
+      input.athleteId
+        ? (
+            await db
+              .select({ currentProgramTier: athleteTable.currentProgramTier })
+              .from(athleteTable)
+              .where(eq(athleteTable.id, input.athleteId))
+              .limit(1)
+          )[0]?.currentProgramTier ?? null
+        : null
+    );
+  const tierLockStartModuleId = athleteTier
+    ? workspace.moduleLocks.find((lock) => lock.programTier === athleteTier)?.startModuleId ?? null
+    : null;
+  const tierLockStartOrder = tierLockStartModuleId
+    ? workspace.modules.find((module) => module.id === tierLockStartModuleId)?.order ?? null
+    : null;
 
   let priorModuleComplete = true;
   const modules = workspace.modules.map((module) => {
+    const tierLocked = tierLockStartOrder != null && module.order >= tierLockStartOrder;
     let priorSessionComplete = true;
     const sessions = module.sessions.map((session) => {
       const completed = completionSet.has(session.id);
-      const locked = !priorModuleComplete || !priorSessionComplete;
+      const locked = tierLocked || !priorModuleComplete || !priorSessionComplete;
       if (!completed) {
         priorSessionComplete = false;
       }
@@ -630,7 +767,7 @@ export async function getTrainingContentMobileWorkspace(input: { age: number; at
       };
     });
     const completed = sessions.length > 0 && sessions.every((session) => session.completed);
-    const locked = !priorModuleComplete;
+    const locked = tierLocked || !priorModuleComplete;
     if (!completed) {
       priorModuleComplete = false;
     }

@@ -1,6 +1,6 @@
 import { ChatMessage } from "@/constants/messages";
 import { apiRequest } from "@/lib/api";
-import { useRole } from "@/context/RoleContext";
+
 import { useAppSelector } from "@/store/hooks";
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { useMessagesRealtime } from "@/hooks/useMessagesRealtime";
@@ -30,17 +30,9 @@ export function useMessagesController() {
   }>();
   const threadId = thread || id;
   const { token, profile, programTier, athleteUserId } = useAppSelector((state) => state.user);
-  const { role } = useRole();
   const effectiveProfileId = useMemo(() => {
-    if (role === "Athlete" && athleteUserId) return Number(athleteUserId);
     return Number(profile.id ?? 0);
-  }, [athleteUserId, profile.id, role]);
-  const actingHeaders = useMemo(() => {
-    if (role === "Athlete" && athleteUserId) {
-      return { "X-Acting-User-Id": String(athleteUserId) };
-    }
-    return undefined;
-  }, [role, athleteUserId]);
+  }, [profile.id]);
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -126,12 +118,10 @@ export function useMessagesController() {
           coaches?: { id: number; name: string; role: string; profilePicture?: string | null; isAi?: boolean }[];
         }>("/messages", {
           token,
-          headers: actingHeaders,
           skipCache: true,
         }),
         apiRequest<{ groups: any[] }>("/chat/groups", { 
           token, 
-          headers: actingHeaders,
           skipCache: true 
         }),
       ]);
@@ -209,7 +199,7 @@ export function useMessagesController() {
         setIsLoading(false);
       }
     }
-  }, [effectiveProfileId, programTier, token, actingHeaders]);
+  }, [effectiveProfileId, programTier, token]);
 
   const loadGroupMessages = useCallback(
     async (groupId: number, options?: { silent?: boolean }) => {
@@ -222,11 +212,9 @@ export function useMessagesController() {
         const [data, membersData] = await Promise.all([
           apiRequest<{ messages: any[] }>(`/chat/groups/${groupId}/messages`, { 
             token,
-            headers: actingHeaders 
           }),
           apiRequest<{ members: any[] }>(`/chat/groups/${groupId}/members`, { 
             token,
-            headers: actingHeaders 
           }),
         ]);
         const memberMap = membersData.members.reduce<Record<number, { name: string; avatar?: string | null }>>(
@@ -287,7 +275,7 @@ export function useMessagesController() {
         }
       }
     },
-    [actingHeaders, effectiveProfileId, token]
+    [effectiveProfileId, token]
   );
 
   const sendReplyToThread = useCallback(
@@ -299,7 +287,6 @@ export function useMessagesController() {
         await apiRequest(`/chat/groups/${groupId}/messages`, {
           method: "POST",
           token,
-          headers: actingHeaders,
           body: { content: text.trim() },
         });
         await loadGroupMessages(groupId, { silent: true });
@@ -307,7 +294,6 @@ export function useMessagesController() {
         await apiRequest("/messages", {
           method: "POST",
           token,
-          headers: actingHeaders,
           body: { 
             content: text.trim(),
             receiverId: isNaN(Number(threadId)) ? undefined : Number(threadId)
@@ -316,7 +302,7 @@ export function useMessagesController() {
         await loadMessages({ silent: true });
       }
     },
-    [actingHeaders, loadGroupMessages, loadMessages, token]
+    [loadGroupMessages, loadMessages, token]
   );
 
   const clearThread = useCallback(() => {
@@ -359,7 +345,6 @@ export function useMessagesController() {
       await apiRequest("/messages/read", {
         method: "POST",
         token,
-        headers: actingHeaders,
       });
       setThreads((prev) =>
         prev.map((thread) => (thread.id === currentThread.id ? { ...thread, unread: 0 } : thread))
@@ -382,7 +367,6 @@ export function useMessagesController() {
         await apiRequest("/messages/read", {
           method: "POST",
           token,
-          headers: actingHeaders,
         });
         setThreads((prev) =>
           prev.map((thread) => (thread.id === threadId ? { ...thread, unread: 0 } : thread))
@@ -455,7 +439,6 @@ export function useMessagesController() {
       const presign = await apiRequest<{ uploadUrl: string; publicUrl: string; key: string }>("/media/presign", {
         method: "POST",
         token,
-        headers: actingHeaders,
         body: {
           folder,
           fileName: input.fileName,
@@ -531,13 +514,12 @@ export function useMessagesController() {
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
             clientId,
-            actingUserId: actingHeaders ? actingHeaders["X-Acting-User-Id"] : undefined,
+            actingUserId: undefined,
           });
         } else {
           await apiRequest(`/chat/groups/${groupId}/messages`, {
             method: "POST",
             token,
-            headers: actingHeaders,
             body: {
               content: trimmed || "Attachment",
               contentType: payload.contentType ?? "text",
@@ -585,13 +567,12 @@ export function useMessagesController() {
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
           clientId,
-          actingUserId: actingHeaders ? actingHeaders["X-Acting-User-Id"] : undefined,
+          actingUserId: undefined,
         });
       } else {
         await apiRequest("/messages", {
           method: "POST",
           token,
-          headers: actingHeaders,
           body: {
             content: trimmed || "Attachment",
             contentType: payload.contentType ?? "text",
@@ -623,7 +604,6 @@ export function useMessagesController() {
           await apiRequest(`/messages/${messageId}/reactions`, {
             method: "PUT",
             token,
-            headers: actingHeaders,
             body: { emoji },
           });
         }
@@ -654,7 +634,6 @@ export function useMessagesController() {
           await apiRequest(`/messages/${messageId}`, {
             method: "DELETE",
             token,
-            headers: actingHeaders,
           });
         }
         setMessages((prev) => prev.filter((item) => item.id !== message.id));
@@ -850,7 +829,7 @@ export function useMessagesController() {
 
   useMessagesRealtime({
     token,
-    role,
+    role: "Guardian",
     profileId: effectiveProfileId,
     draft,
     currentThread,

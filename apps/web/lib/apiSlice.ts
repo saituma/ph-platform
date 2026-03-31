@@ -166,6 +166,41 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
+    provisionGuardian: builder.mutation<
+      {
+        userId: number;
+        athleteId: number;
+        athleteUserId: number;
+        status: string;
+        emailSent: boolean;
+      },
+      {
+        email: string;
+        guardianDisplayName: string;
+        athleteName: string;
+        birthDate: string;
+        team: string;
+        trainingPerWeek: number;
+        injuries?: unknown;
+        growthNotes?: string | null;
+        performanceGoals?: string | null;
+        equipmentAccess?: string | null;
+        parentPhone?: string | null;
+        relationToAthlete?: string | null;
+        desiredProgramType?: "PHP" | "PHP_Plus" | "PHP_Premium";
+        termsVersion: string;
+        privacyVersion: string;
+        appVersion: string;
+        extraResponses?: Record<string, unknown>;
+      }
+    >({
+      query: (body) => ({
+        url: "/admin/users/provision",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Users"],
+    }),
     getBookings: builder.query<{ bookings: any[] }, void>({
       query: () => "/admin/bookings",
       providesTags: ["Bookings"],
@@ -771,6 +806,7 @@ export const {
   useGetUsersQuery,
   useBlockUserMutation,
   useDeleteUserMutation,
+  useProvisionGuardianMutation,
   useGetBookingsQuery,
   useGetBookingByIdQuery,
   useGetUserBookingsQuery,

@@ -1,5 +1,13 @@
+import crypto from "crypto";
+import { v4 as uuidv4 } from "uuid";
+import {
+  AdminCreateUserCommand,
+  AdminDeleteUserCommand,
+  AdminGetUserCommand,
+} from "@aws-sdk/client-cognito-identity-provider";
 import { and, desc, eq, gte, inArray, lte, or, sql, ne } from "drizzle-orm";
 
+import { cognitoClient } from "../lib/aws";
 import { db } from "../db";
 import {
   adminSettingsTable,
@@ -24,9 +32,9 @@ import {
   programSectionContentTable,
 } from "../db/schema";
 import { env } from "../config/env";
-import { sendBookingApprovedEmail, sendBookingDeclinedEmail } from "../lib/mailer";
-import { ensureAthleteUserRecord } from "./onboarding.service";
-import { getAthleteForUser } from "./user.service";
+import { sendAdminWelcomeCredentialsEmail, sendBookingApprovedEmail, sendBookingDeclinedEmail } from "../lib/mailer";
+import { ensureAthleteUserRecord, submitOnboarding } from "./onboarding.service";
+import { createUserFromCognito, getAthleteForUser, getUserByEmail } from "./user.service";
 import { getAdminCoachIds, sendMessage } from "./message.service";
 import { attachDirectMessageReactions } from "./reaction.service";
 
@@ -1599,4 +1607,199 @@ export async function getDashboardMetrics(coachId: number) {
     programOps,
     priorityMessageCount: unreadMessages,
   };
+}
+
+function generateProvisionPassword() {
+  const base = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+  let out = "";
+  for (let i = 0; i < 20; i += 1) {
+    out += base[Math.floor(Math.random() * base.length)];
+  }
+  return out;
+}
+
+function hashLocalProvisionPassword(password: string) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return { hash, salt };
+}
+
+async function deleteCognitoUserByEmail(email: string) {
+  if (!env.cognitoUserPoolId) return;
+  try {
+    await cognitoClient.send(
+      new AdminDeleteUserCommand({
+        UserPoolId: env.cognitoUserPoolId,
+        Username: email,
+      })
+    );
+  } catch (error: any) {
+    if (error?.name !== "UserNotFoundException") {
+      console.warn("[admin] Cognito delete during rollback failed", error);
+    }
+  }
+}
+
+export type CreateGuardianWithOnboardingAdminInput = {
+  email: string;
+  guardianDisplayName: string;
+  athleteName: string;
+  birthDate: string;
+  team: string;
+  trainingPerWeek: number;
+  injuries?: unknown;
+  growthNotes?: string | null;
+  performanceGoals?: string | null;
+  equipmentAccess?: string | null;
+  parentPhone?: string | null;
+  relationToAthlete?: string | null;
+  desiredProgramType?: (typeof ProgramType.enumValues)[number];
+  termsVersion: string;
+  privacyVersion: string;
+  appVersion: string;
+  extraResponses?: Record<string, unknown>;
+};
+
+/**
+ * Creates a guardian login (Cognito or local auth), completes onboarding as that user, and emails a temporary password.
+ */
+export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWithOnboardingAdminInput) {
+  const email = input.email.trim().toLowerCase();
+  const existing = await getUserByEmail(email);
+  if (existing) {
+    throw { status: 409, message: "An account with this email already exists." };
+  }
+
+  const tempPassword = generateProvisionPassword();
+  let userId: number | null = null;
+  const createdEmail = email;
+  let cognitoProvisioned = false;
+
+  try {
+    if (env.authMode === "local") {
+      const { hash, salt } = hashLocalProvisionPassword(tempPassword);
+      const inserted = await db
+        .insert(userTable)
+        .values({
+          cognitoSub: `local:${uuidv4()}`,
+          name: input.guardianDisplayName.trim(),
+          email,
+          role: "guardian",
+          passwordHash: hash,
+          passwordSalt: salt,
+          emailVerified: true,
+          verificationCode: null,
+          verificationExpiresAt: null,
+          verificationAttempts: 0,
+        })
+        .returning();
+      userId = inserted[0]?.id ?? null;
+      if (!userId) {
+        throw new Error("User insert failed");
+      }
+    } else {
+      if (!env.cognitoUserPoolId) {
+        throw { status: 500, message: "Authentication is not configured for provisioning." };
+      }
+      try {
+        await cognitoClient.send(
+          new AdminCreateUserCommand({
+            UserPoolId: env.cognitoUserPoolId,
+            Username: email,
+            UserAttributes: [
+              { Name: "email", Value: email },
+              { Name: "email_verified", Value: "true" },
+              { Name: "name", Value: input.guardianDisplayName.trim() },
+            ],
+            TemporaryPassword: tempPassword,
+            MessageAction: "SUPPRESS",
+          })
+        );
+      } catch (error: any) {
+        if (error?.name === "UsernameExistsException") {
+          throw { status: 409, message: "An account with this email already exists in Cognito." };
+        }
+        if (error?.name === "InvalidPasswordException") {
+          throw {
+            status: 400,
+            message: "Temporary password did not meet your Cognito password policy. Try again or contact support.",
+          };
+        }
+        throw error;
+      }
+      cognitoProvisioned = true;
+
+      const cognitoUser = await cognitoClient.send(
+        new AdminGetUserCommand({
+          UserPoolId: env.cognitoUserPoolId,
+          Username: email,
+        })
+      );
+      const sub = cognitoUser.UserAttributes?.find((attr) => attr.Name === "sub")?.Value;
+      if (!sub) {
+        await deleteCognitoUserByEmail(createdEmail);
+        throw new Error("Missing Cognito sub after user creation");
+      }
+
+      const cognitoRow = await createUserFromCognito({
+        sub,
+        email,
+        name: input.guardianDisplayName.trim(),
+        role: "guardian",
+      });
+      userId = cognitoRow.id;
+      await db
+        .update(userTable)
+        .set({ emailVerified: true, updatedAt: new Date() })
+        .where(eq(userTable.id, userId));
+    }
+
+    const onboardingResult = await submitOnboarding({
+      userId: userId!,
+      athleteName: input.athleteName.trim(),
+      birthDate: input.birthDate,
+      team: input.team.trim(),
+      trainingPerWeek: input.trainingPerWeek,
+      injuries: input.injuries,
+      growthNotes: input.growthNotes ?? null,
+      performanceGoals: input.performanceGoals ?? null,
+      equipmentAccess: input.equipmentAccess ?? null,
+      parentEmail: email,
+      parentPhone: input.parentPhone ?? null,
+      relationToAthlete: input.relationToAthlete ?? null,
+      desiredProgramType: input.desiredProgramType ?? undefined,
+      termsVersion: input.termsVersion,
+      privacyVersion: input.privacyVersion,
+      appVersion: input.appVersion,
+      extraResponses: input.extraResponses,
+    });
+
+    let emailSent = true;
+    try {
+      await sendAdminWelcomeCredentialsEmail({
+        to: email,
+        guardianName: input.guardianDisplayName.trim(),
+        temporaryPassword: tempPassword,
+      });
+    } catch (mailErr) {
+      console.error("[admin] Welcome email failed after provisioning", mailErr);
+      emailSent = false;
+    }
+
+    return {
+      userId: userId!,
+      athleteId: onboardingResult.athleteId,
+      athleteUserId: onboardingResult.athleteUserId,
+      status: onboardingResult.status,
+      emailSent,
+    };
+  } catch (error: any) {
+    if (userId) {
+      await softDeleteUser(userId);
+    }
+    if (env.authMode !== "local" && cognitoProvisioned) {
+      await deleteCognitoUserByEmail(createdEmail);
+    }
+    throw error;
+  }
 }

@@ -7,14 +7,14 @@ import { setAthleteUserId, setManagedAthletes } from "@/store/slices/userSlice";
 import { apiRequest } from "@/lib/api";
 import { tierRank } from "@/lib/planAccess";
 import { Feather } from "@expo/vector-icons";
-import { useRole } from "@/context/RoleContext";
+
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, InteractionManager, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AthleteStatsScreen() {
-  const { role } = useRole();
+
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isSectionHidden } = useAgeExperience();
@@ -56,7 +56,7 @@ export default function AthleteStatsScreen() {
   const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium");
 
   const loadAthletes = useCallback(async () => {
-    if (!token || role !== "Guardian") return;
+    if (!token) return;
     try {
       const data = await apiRequest<{
         guardian?: { activeAthleteId?: number | null } | null;
@@ -92,7 +92,7 @@ export default function AthleteStatsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [athleteUserId, dispatch, role, token]);
+  }, [athleteUserId, dispatch, token]);
 
   useEffect(() => {
     athleteUserIdRef.current = athleteUserId;
@@ -286,20 +286,7 @@ export default function AthleteStatsScreen() {
     );
   }
 
-  if (role !== "Guardian") {
-    return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <ThemedScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}>
-          <View className="mb-6">
-            <Text className="text-3xl font-telma-bold text-app mb-2">Athlete Stats</Text>
-            <Text className="text-base font-outfit text-secondary leading-relaxed">
-              This dashboard is available for guardians managing athlete accounts.
-            </Text>
-          </View>
-        </ThemedScrollView>
-      </SafeAreaView>
-    );
-  }
+
 
   if (!hasPremiumAccess) {
     return (

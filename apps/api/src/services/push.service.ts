@@ -5,19 +5,23 @@ import { env } from "../config/env";
 import { db } from "../db";
 import { userTable } from "../db/schema";
 
-const expo = new Expo({ accessToken: env.expoAccessToken });
+// Only pass accessToken when it is actually set — passing an empty string
+// causes the Expo Push API to reject every request with UNAUTHORIZED since
+// push security enforcement (March 2026).
+const hasExpoToken = Boolean(env.expoAccessToken?.trim());
+const expo = new Expo(hasExpoToken ? { accessToken: env.expoAccessToken } : {});
 
 let warnedMissingExpoAccessToken = false;
 
 function warnMissingExpoAccessTokenOnce() {
   if (warnedMissingExpoAccessToken) return;
   warnedMissingExpoAccessToken = true;
-  if (!env.expoAccessToken?.trim()) {
+  if (!hasExpoToken) {
     const suffix =
       env.nodeEnv === "production"
-        ? " Production sends may be rejected; set EXPO_ACCESS_TOKEN (see DEPLOY.md)."
-        : " Set EXPO_ACCESS_TOKEN for reliable delivery in development.";
-    console.warn(`[Push Service] EXPO_ACCESS_TOKEN is empty.${suffix}`);
+        ? " Push notifications WILL FAIL. Set EXPO_ACCESS_TOKEN (Expo Dashboard → Access Tokens)."
+        : " Push notifications may fail. Set EXPO_ACCESS_TOKEN for reliable delivery.";
+    console.error(`[Push Service] EXPO_ACCESS_TOKEN is empty or missing.${suffix}`);
   }
 }
 

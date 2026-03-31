@@ -275,6 +275,30 @@ export const trainingModuleTable = pgTable(
   })
 );
 
+export const trainingModuleTierLockTable = pgTable(
+  "training_module_tier_locks",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    audienceLabel: varchar({ length: 64 }).notNull(),
+    programTier: ProgramType().notNull(),
+    startModuleId: integer().notNull().references(() => trainingModuleTable.id),
+    createdBy: integer().notNull().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    audienceTierUnique: uniqueIndex("training_module_tier_locks_audience_tier_unique").on(
+      table.audienceLabel,
+      table.programTier,
+    ),
+    audienceTierIdx: index("training_module_tier_locks_audience_tier_idx").on(
+      table.audienceLabel,
+      table.programTier,
+    ),
+    moduleIdx: index("training_module_tier_locks_module_idx").on(table.startModuleId),
+  })
+);
+
 export const trainingModuleSessionTable = pgTable(
   "training_module_sessions",
   {

@@ -42,7 +42,16 @@ export type Module = {
   title: string;
   order: number;
   totalDayLength: number;
+  lockedForTiers: Array<"PHP" | "PHP_Plus" | "PHP_Premium">;
   sessions: ModuleSession[];
+};
+
+export type ModuleLock = {
+  id: number;
+  audienceLabel: string;
+  programTier: "PHP" | "PHP_Plus" | "PHP_Premium";
+  label: string;
+  startModuleId: number;
 };
 
 export type OtherItem = {
@@ -66,6 +75,7 @@ export type OtherGroup = {
 export type AudienceWorkspace = {
   audienceLabel: string;
   modules: Module[];
+  moduleLocks: ModuleLock[];
   others: OtherGroup[];
 };
 
@@ -87,6 +97,12 @@ export const BLOCK_TYPES = [
   { value: "warmup", label: "Warmup" },
   { value: "main", label: "Main session" },
   { value: "cooldown", label: "Cool down" },
+] as const;
+
+export const PROGRAM_TIERS = [
+  { value: "PHP", label: "PHP" },
+  { value: "PHP_Plus", label: "PHP Plus" },
+  { value: "PHP_Premium", label: "PHP Premium" },
 ] as const;
 
 function getCsrfToken() {

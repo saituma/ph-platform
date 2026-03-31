@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { AppState, AppStateStatus, Platform, Pressable, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, Layout } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -136,6 +136,11 @@ export function InAppNotificationsProvider({
     [isForeground],
   );
 
+  // Keep a stable ref so the notification listener effect doesn't re-subscribe
+  // every time the app toggles between foreground and background.
+  const notifyRef = useRef(notify);
+  useEffect(() => { notifyRef.current = notify; }, [notify]);
+
   useEffect(() => {
     items.forEach((item) => {
       const existingTimer = timersRef.current.get(item.id);
@@ -184,7 +189,7 @@ export function InAppNotificationsProvider({
           const category = inferNotificationCategory(data?.type, content?.body);
           const meta = getNotificationMeta(category);
           const url = data?.url as string | undefined;
-          notify({
+          notifyRef.current({
             title: content?.title ?? meta.label,
             message: content?.body ?? "",
             type: data?.type ?? category,
@@ -205,7 +210,8 @@ export function InAppNotificationsProvider({
     return () => {
       sub?.remove?.();
     };
-  }, [notify]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const value = useMemo(
     () => ({
