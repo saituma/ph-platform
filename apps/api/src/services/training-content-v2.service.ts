@@ -83,6 +83,14 @@ function audienceMatchesAge(label: string, age: number) {
   return false;
 }
 
+function otherItemMatchesAgeLabel(label: string, age: number) {
+  const normalized = normalizeAudienceLabel(label);
+  if (normalized === label && !/^(\d{1,2})(-(\d{1,2}))?$/.test(normalized)) {
+    return false;
+  }
+  return audienceMatchesAge(normalized, age);
+}
+
 function audienceScore(label: string, age: number) {
   const normalized = normalizeAudienceLabel(label);
   if (!audienceMatchesAge(normalized, age)) return -1;
@@ -900,7 +908,23 @@ export async function getTrainingContentMobileWorkspace(input: {
     };
   });
 
-  const availableOtherSections = workspace.others.filter((group) => group.enabled && group.items.length > 0);
+  const availableOtherSections = workspace.others
+    .map((group) => {
+      if (group.type !== "inseason") return group;
+      return {
+        ...group,
+        items: group.items.filter((item) => {
+          const metadata =
+            item.metadata && typeof item.metadata === "object"
+              ? (item.metadata as Record<string, unknown>)
+              : null;
+          const kind = typeof metadata?.kind === "string" ? metadata.kind : "";
+          if (kind !== "inseason_age_schedule") return false;
+          return otherItemMatchesAgeLabel(item.title, input.age);
+        }),
+      };
+    })
+    .filter((group) => group.enabled && group.items.length > 0);
   return {
     age: input.age,
     audienceLabel: selectedAudienceLabel,

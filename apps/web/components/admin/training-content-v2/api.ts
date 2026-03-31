@@ -63,6 +63,7 @@ export type OtherItem = {
   body: string;
   scheduleNote?: string | null;
   videoUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
   order: number;
 };
 
