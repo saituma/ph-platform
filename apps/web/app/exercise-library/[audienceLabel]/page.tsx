@@ -32,12 +32,14 @@ import {
 function SortableModuleCard({
   module,
   audienceLabel,
+  effectiveLockedForTiers,
   onEdit,
   onDelete,
   onLock,
 }: {
   module: AudienceWorkspace["modules"][number];
   audienceLabel: string;
+  effectiveLockedForTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>;
   onEdit: (module: AudienceWorkspace["modules"][number]) => void;
   onDelete: (path: string) => void;
   onLock: (module: AudienceWorkspace["modules"][number]) => void;
@@ -73,14 +75,14 @@ function SortableModuleCard({
       <p className="mt-1 text-sm text-muted-foreground">
         {module.sessions.length} sessions · {module.totalDayLength} total days
       </p>
-      {module.lockedForTiers.length ? (
+      {effectiveLockedForTiers.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
-          {module.lockedForTiers.map((tier) => (
+          {effectiveLockedForTiers.map((tier) => (
             <span
               key={`${module.id}-${tier}`}
               className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
             >
-              Lock starts here for {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
+              Locked for {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
             </span>
           ))}
         </div>
@@ -327,6 +329,30 @@ export default function AudienceDetailPage() {
     }
   };
 
+  const effectiveLockedTiersByModuleId = useMemo(() => {
+    if (!workspace) return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
+
+    const lockStartOrderByTier = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
+    for (const lock of workspace.moduleLocks) {
+      const lockModule = workspace.modules.find((module) => module.id === lock.startModuleId);
+      if (lockModule) {
+        lockStartOrderByTier.set(lock.programTier, lockModule.order);
+      }
+    }
+
+    return new Map(
+      workspace.modules.map((module) => [
+        module.id,
+        PROGRAM_TIERS
+          .filter((tier) => {
+            const startOrder = lockStartOrderByTier.get(tier.value);
+            return startOrder != null && module.order >= startOrder;
+          })
+          .map((tier) => tier.value),
+      ])
+    );
+  }, [workspace]);
+
   return (
     <AdminShell
       title="Training content"
@@ -383,6 +409,7 @@ export default function AudienceDetailPage() {
                           key={module.id}
                           module={module}
                           audienceLabel={audienceLabel}
+                          effectiveLockedForTiers={effectiveLockedTiersByModuleId.get(module.id) ?? []}
                           onLock={(current) => {
                             setLockForm({
                               moduleId: current.id,
