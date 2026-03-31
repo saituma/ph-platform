@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -22,6 +23,7 @@ import {
 } from "../../components/admin/training-content-v2/api";
 
 export default function ExerciseLibraryAudiencePage() {
+  const router = useRouter();
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
   const [plans, setPlans] = useState<Array<{ id: number; name: string; tier: string; isActive: boolean }>>([]);
   const [activeTab, setActiveTab] = useState<"age" | "others">("age");
@@ -75,18 +77,17 @@ export default function ExerciseLibraryAudiencePage() {
       });
   }, [activeTab]);
 
-  const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
-  const othersCards = plans.map((plan) => {
-    const matchingAudience = audiences.find((audience) => audience.label === plan.name);
-    return {
-      label: plan.name,
-      moduleCount: 0,
-      otherCount: matchingAudience?.otherCount ?? 0,
-      tier: plan.tier,
-      isActive: plan.isActive,
-    };
-  });
+  const preferredOtherPlan = useMemo(() => {
+    if (!plans.length) return null;
+    return plans.find((plan) => plan.isActive) ?? plans[0] ?? null;
+  }, [plans]);
 
+  useEffect(() => {
+    if (activeTab !== "others" || !preferredOtherPlan) return;
+    router.replace(`/exercise-library/${encodeURIComponent(preferredOtherPlan.name)}?view=others`);
+  }, [activeTab, preferredOtherPlan, router]);
+
+  const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
   return (
     <AdminShell title="Training content" subtitle="Start from audience groups, then drill into modules and sessions.">
       <div className="space-y-6">
@@ -130,36 +131,39 @@ export default function ExerciseLibraryAudiencePage() {
             <div className="rounded-2xl border border-dashed border-border bg-secondary/10 p-4 text-sm text-muted-foreground">
               {activeTab === "age"
                 ? "Age shows the audience groups that lead into modules and sessions."
-                : "Others uses your billing plans as the top-level list for mobility, recovery, in-season, off-season, and education content."}
+                : preferredOtherPlan
+                  ? `Opening Others for ${preferredOtherPlan.name}.`
+                  : "Others uses your billing plans for mobility, recovery, in-season, off-season, and education content."}
             </div>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
             {isLoading && activeTab === "age" ? <p className="text-sm text-muted-foreground">Loading audiences...</p> : null}
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {(activeTab === "age" ? audiences : othersCards).map((audience) => (
-                <Link
-                  key={audience.label}
-                  href={`/exercise-library/${encodeURIComponent(audience.label)}${activeTab === "others" ? "?view=others" : ""}`}
-                  className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
-                >
-                  <p className="text-lg font-semibold text-foreground">{audience.label}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {activeTab === "age"
-                      ? `${audience.moduleCount} modules · ${audience.otherCount} other items`
-                      : `${"tier" in audience ? audience.tier : ""}${"isActive" in audience && !audience.isActive ? " · Inactive" : ""}${audience.otherCount ? ` · ${audience.otherCount} other items` : ""}`}
-                  </p>
-                </Link>
-              ))}
-              {!isLoading && activeTab === "age" && audiences.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  No audiences created yet.
-                </div>
-              ) : null}
-              {activeTab === "others" && othersCards.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  No subscription plans yet. Add plans in Billing first.
-                </div>
-              ) : null}
-            </div>
+            {activeTab === "age" ? (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {audiences.map((audience) => (
+                  <Link
+                    key={audience.label}
+                    href={`/exercise-library/${encodeURIComponent(audience.label)}`}
+                    className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <p className="text-lg font-semibold text-foreground">{audience.label}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {`${audience.moduleCount} modules · ${audience.otherCount} other items`}
+                    </p>
+                  </Link>
+                ))}
+                {!isLoading && audiences.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                    No audiences created yet.
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                {preferredOtherPlan
+                  ? `Redirecting to ${preferredOtherPlan.name}...`
+                  : "No subscription plans yet. Add plans in Billing first."}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
