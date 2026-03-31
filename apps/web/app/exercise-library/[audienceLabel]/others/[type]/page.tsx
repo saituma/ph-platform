@@ -169,7 +169,7 @@ export default function OtherContentDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}?view=others`}>
-            <Button variant="outline">Back to plan</Button>
+            <Button variant="outline">Back to others</Button>
           </Link>
           <Button
             className="ml-auto"
