@@ -8,6 +8,25 @@ export const INSEASON_WEEKDAYS = [
   "Sunday",
 ] as const;
 
+export function getInseasonMetadata(metadata?: Record<string, unknown> | null) {
+  return metadata && typeof metadata === "object" ? metadata : null;
+}
+
+export function isInseasonAgeGroup(metadata?: Record<string, unknown> | null) {
+  const resolved = getInseasonMetadata(metadata);
+  return resolved?.kind === "inseason_age_group" || resolved?.kind === "inseason_age_schedule";
+}
+
+export function isInseasonScheduleEntry(metadata?: Record<string, unknown> | null) {
+  const resolved = getInseasonMetadata(metadata);
+  return resolved?.kind === "inseason_schedule_entry";
+}
+
+export function isLegacyInseasonAgeSchedule(metadata?: Record<string, unknown> | null) {
+  const resolved = getInseasonMetadata(metadata);
+  return resolved?.kind === "inseason_age_schedule";
+}
+
 export function formatWeeklySchedule(day: string, time: string) {
   if (!day || !time) return "";
   const [hoursRaw, minutesRaw] = time.split(":");

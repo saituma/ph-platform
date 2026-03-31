@@ -225,10 +225,11 @@ export function AgeBasedTrainingPanel({
           className="rounded-[28px] border px-5 py-5"
           style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}
         >
-          {group?.type === "inseason" && item.metadata?.kind === "inseason_age_schedule" ? (
+          {group?.type === "inseason" &&
+          (item.metadata?.kind === "inseason_schedule_entry" || item.metadata?.kind === "inseason_age_schedule") ? (
             <>
               <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>
-                Weekly in-season schedule
+                {item.title}
               </Text>
               {item.scheduleNote ? (
                 <Text className="mt-2 text-sm font-outfit font-semibold" style={{ color: colors.accent }}>

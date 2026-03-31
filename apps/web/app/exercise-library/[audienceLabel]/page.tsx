@@ -28,6 +28,7 @@ import {
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../../components/admin/training-content-v2/api";
+import { isInseasonAgeGroup } from "./others/inseason-shared";
 import { OTHER_SECTION_CONFIGS } from "./others/shared";
 
 function SortableModuleCard({
@@ -589,6 +590,10 @@ export default function AudienceDetailPage() {
               <div className="space-y-3">
                 {OTHER_SECTION_CONFIGS.map((section) => {
                   const group = workspace?.others.find((item) => item.type === section.type);
+                  const ageGroups =
+                    section.concept === "age-schedule"
+                      ? (group?.items ?? []).filter((item) => isInseasonAgeGroup(item.metadata))
+                      : [];
                   const lockedPlans = plans
                     .filter((plan) => {
                       const planGroup = otherPlanWorkspaces[plan.name]?.others.find((item) => item.type === section.type);
@@ -604,7 +609,13 @@ export default function AudienceDetailPage() {
                         <div className="flex-1 text-left">
                           <p className="text-base font-semibold text-foreground">{section.label}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {group?.items.length ? `${group.items.length} item${group.items.length === 1 ? "" : "s"} added` : "No content created yet."}
+                            {section.concept === "age-schedule"
+                              ? ageGroups.length
+                                ? `${ageGroups.length} age group${ageGroups.length === 1 ? "" : "s"} added`
+                                : "No ages created yet."
+                              : group?.items.length
+                                ? `${group.items.length} item${group.items.length === 1 ? "" : "s"} added`
+                                : "No content created yet."}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">{section.summary}</p>
                           {lockedPlans.length ? (
@@ -676,7 +687,7 @@ export default function AudienceDetailPage() {
                       </div>
                       {section.concept === "age-schedule" ? (
                         <div className="mt-4 space-y-3">
-                          {(group?.items ?? []).map((item) => (
+                          {ageGroups.map((item) => (
                             <Link
                               key={item.id}
                               href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/${section.type}/${item.id}`}
@@ -684,7 +695,7 @@ export default function AudienceDetailPage() {
                             >
                               <p className="text-sm font-semibold text-foreground">{item.title}</p>
                               <p className="mt-1 text-sm text-muted-foreground">
-                                {item.scheduleNote?.trim() ? item.scheduleNote : "Weekly schedule not set yet."}
+                                Open this age to add one or more recurring weekly schedule slots.
                               </p>
                             </Link>
                           ))}
