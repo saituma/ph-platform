@@ -24,11 +24,11 @@ import { Textarea } from "../../../components/ui/textarea";
 import {
   AudienceWorkspace,
   AudienceSummary,
-  OTHER_TYPES,
   PROGRAM_TIERS,
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../../components/admin/training-content-v2/api";
+import { OTHER_SECTION_CONFIGS } from "./others/shared";
 
 function SortableModuleCard({
   module,
@@ -587,30 +587,31 @@ export default function AudienceDetailPage() {
               </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                {OTHER_TYPES.map((type) => {
-                  const group = workspace?.others.find((item) => item.type === type.value);
+                {OTHER_SECTION_CONFIGS.map((section) => {
+                  const group = workspace?.others.find((item) => item.type === section.type);
                   const lockedPlans = plans
                     .filter((plan) => {
-                      const planGroup = otherPlanWorkspaces[plan.name]?.others.find((item) => item.type === type.value);
+                      const planGroup = otherPlanWorkspaces[plan.name]?.others.find((item) => item.type === section.type);
                       return planGroup ? !planGroup.enabled : false;
                     })
                     .map((plan) => plan.name);
                   return (
                     <div
-                      key={type.value}
+                      key={section.type}
                       className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex-1 text-left">
-                          <p className="text-base font-semibold text-foreground">{type.label}</p>
+                          <p className="text-base font-semibold text-foreground">{section.label}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {group?.items.length ? `${group.items.length} item${group.items.length === 1 ? "" : "s"} added` : "No content created yet."}
                           </p>
+                          <p className="mt-1 text-xs text-muted-foreground">{section.summary}</p>
                           {lockedPlans.length ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {lockedPlans.map((planName) => (
                                 <span
-                                  key={`${type.value}-${planName}`}
+                                  key={`${section.type}-${planName}`}
                                   className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
                                 >
                                   Locked for {planName}
@@ -620,16 +621,23 @@ export default function AudienceDetailPage() {
                           ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                              setOtherForm({
-                                id: null,
-                                type: type.value,
-                                title: "",
-                                body: "",
-                                scheduleNote: "",
+                          {section.concept === "age-schedule" ? (
+                            <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/${section.type}`}>
+                              <Button type="button" size="sm">
+                                Open ages
+                              </Button>
+                            </Link>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                setOtherForm({
+                                  id: null,
+                                  type: section.type,
+                                  title: "",
+                                  body: "",
+                                  scheduleNote: "",
                                 videoUrl: "",
                                 order: "",
                               });
@@ -638,6 +646,7 @@ export default function AudienceDetailPage() {
                           >
                             Add content
                           </Button>
+                          )}
                           <Button
                             type="button"
                             size="sm"
@@ -645,8 +654,8 @@ export default function AudienceDetailPage() {
                             onClick={(event) => {
                               event.stopPropagation();
                               setOtherLockForm({
-                                type: type.value,
-                                label: type.label,
+                                type: section.type,
+                                label: section.label,
                                 lockedPlanNames: lockedPlans,
                               });
                               setOtherLockModalOpen(true);
@@ -659,48 +668,65 @@ export default function AudienceDetailPage() {
                               type="checkbox"
                               checked={Boolean(group?.enabled)}
                               onClick={(event) => event.stopPropagation()}
-                              onChange={(event) => void toggleOtherType(type.value, event.target.checked)}
+                              onChange={(event) => void toggleOtherType(section.type, event.target.checked)}
                             />
                             <span>{group?.enabled ? "On" : "Off"}</span>
                           </label>
                         </div>
                       </div>
-                      <div className="mt-4 space-y-3">
-                        {(group?.items ?? []).map((item) => (
-                          <div key={item.id} className="rounded-2xl border border-border/70 p-4">
-                            <p className="text-sm font-semibold text-foreground">
-                              {item.order}. {item.title}
-                            </p>
-                            {item.scheduleNote ? (
-                              <p className="mt-1 text-xs font-semibold text-primary">{item.scheduleNote}</p>
-                            ) : null}
-                            <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
-                            <div className="mt-3 flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setOtherForm({
-                                    id: item.id,
-                                    type: type.value,
-                                    title: item.title,
-                                    body: item.body,
-                                    scheduleNote: item.scheduleNote ?? "",
-                                    videoUrl: item.videoUrl ?? "",
-                                    order: String(item.order),
-                                  });
-                                  setOtherModalOpen(true);
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => void deleteOtherItem(item.id)}>
-                                Delete
-                              </Button>
+                      {section.concept === "age-schedule" ? (
+                        <div className="mt-4 space-y-3">
+                          {(group?.items ?? []).map((item) => (
+                            <Link
+                              key={item.id}
+                              href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/${section.type}/${item.id}`}
+                              className="block rounded-2xl border border-border/70 p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                            >
+                              <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {item.scheduleNote?.trim() ? item.scheduleNote : "Weekly schedule not set yet."}
+                              </p>
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-4 space-y-3">
+                          {(group?.items ?? []).map((item) => (
+                            <div key={item.id} className="rounded-2xl border border-border/70 p-4">
+                              <p className="text-sm font-semibold text-foreground">
+                                {item.order}. {item.title}
+                              </p>
+                              {item.scheduleNote ? (
+                                <p className="mt-1 text-xs font-semibold text-primary">{item.scheduleNote}</p>
+                              ) : null}
+                              <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
+                              <div className="mt-3 flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setOtherForm({
+                                      id: item.id,
+                                      type: section.type,
+                                      title: item.title,
+                                      body: item.body,
+                                      scheduleNote: item.scheduleNote ?? "",
+                                      videoUrl: item.videoUrl ?? "",
+                                      order: String(item.order),
+                                    });
+                                    setOtherModalOpen(true);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => void deleteOtherItem(item.id)}>
+                                  Delete
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

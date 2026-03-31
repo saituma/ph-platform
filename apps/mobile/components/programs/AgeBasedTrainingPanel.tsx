@@ -48,6 +48,11 @@ type OtherGroup = {
     title: string;
     body: string;
     scheduleNote?: string | null;
+    metadata?: {
+      kind?: string | null;
+      scheduleDay?: string | null;
+      scheduleTime?: string | null;
+    } | null;
     order: number;
   }>;
 };
@@ -220,17 +225,35 @@ export function AgeBasedTrainingPanel({
           className="rounded-[28px] border px-5 py-5"
           style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}
         >
-          <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>
-            {item.title}
-          </Text>
-          {item.scheduleNote ? (
-            <Text className="mt-2 text-xs font-outfit font-semibold" style={{ color: colors.accent }}>
-              {item.scheduleNote}
-            </Text>
-          ) : null}
-          <Text className="mt-3 text-sm font-outfit leading-6" style={{ color: colors.textSecondary }}>
-            {item.body}
-          </Text>
+          {group?.type === "inseason" && item.metadata?.kind === "inseason_age_schedule" ? (
+            <>
+              <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>
+                Weekly in-season schedule
+              </Text>
+              {item.scheduleNote ? (
+                <Text className="mt-2 text-sm font-outfit font-semibold" style={{ color: colors.accent }}>
+                  {item.scheduleNote}
+                </Text>
+              ) : null}
+              <Text className="mt-3 text-sm font-outfit leading-6" style={{ color: colors.textSecondary }}>
+                {item.body === "Weekly in-season schedule." ? "Your coach sets this recurring weekly training schedule for your age." : item.body}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>
+                {item.title}
+              </Text>
+              {item.scheduleNote ? (
+                <Text className="mt-2 text-xs font-outfit font-semibold" style={{ color: colors.accent }}>
+                  {item.scheduleNote}
+                </Text>
+              ) : null}
+              <Text className="mt-3 text-sm font-outfit leading-6" style={{ color: colors.textSecondary }}>
+                {item.body}
+              </Text>
+            </>
+          )}
         </View>
       ))}
       {!group?.items.length ? (
