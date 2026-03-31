@@ -337,6 +337,13 @@
       "when": 1773018000000,
       "tag": "0047_training_module_tier_locks",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1773019000000,
+      "tag": "0048_training_session_tier_locks",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ import {
   getTrainingContentMobileWorkspace,
   listTrainingAudiences,
   listTrainingContentAdminWorkspace,
+  updateTrainingSessionTierLocks,
   updateTrainingModuleTierLocks,
   updateTrainingModule,
   updateTrainingModuleSession,
@@ -83,6 +84,12 @@ const updateSessionSchema = z.object({
   title: z.string().min(1).max(255),
   dayLength: z.number().int().min(1).max(365),
   order: z.number().int().min(1).optional().nullable(),
+});
+
+const updateSessionTierLocksSchema = z.object({
+  moduleId: z.number().int().min(1),
+  sessionId: z.number().int().min(1).optional().nullable(),
+  programTiers: z.array(z.enum(ProgramType.enumValues)).min(1),
 });
 
 const createItemSchema = z.object({
@@ -246,6 +253,17 @@ export async function updateTrainingSessionHandler(req: Request, res: Response) 
     return res.status(404).json({ error: "Session not found" });
   }
   return res.status(200).json({ item });
+}
+
+export async function updateTrainingSessionTierLocksHandler(req: Request, res: Response) {
+  const input = updateSessionTierLocksSchema.parse(req.body);
+  const workspace = await updateTrainingSessionTierLocks({
+    moduleId: input.moduleId,
+    sessionId: input.sessionId ?? null,
+    programTiers: input.programTiers,
+    createdBy: req.user!.id,
+  });
+  return res.status(200).json(workspace);
 }
 
 export async function deleteTrainingSessionHandler(req: Request, res: Response) {

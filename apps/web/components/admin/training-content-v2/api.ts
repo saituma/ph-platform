@@ -33,6 +33,7 @@ export type ModuleSession = {
   title: string;
   dayLength: number;
   order: number;
+  lockedForTiers: Array<"PHP" | "PHP_Plus" | "PHP_Premium">;
   items: SessionItem[];
 };
 

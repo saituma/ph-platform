@@ -11,6 +11,7 @@ import {
   trainingModuleTable,
   trainingOtherContentTable,
   trainingOtherSettingTable,
+  trainingSessionTierLockTable,
   trainingOtherType,
   trainingSessionBlockType,
   trainingSessionItemTable,
@@ -186,6 +187,16 @@ async function getTrainingModuleTierLocks(audienceLabel: string) {
     .orderBy(asc(trainingModuleTierLockTable.programTier), asc(trainingModuleTierLockTable.id));
 }
 
+async function getTrainingSessionTierLocks(moduleIds: number[]) {
+  if (!moduleIds.length) return [];
+  const rows = await db
+    .select()
+    .from(trainingSessionTierLockTable)
+    .orderBy(asc(trainingSessionTierLockTable.moduleId), asc(trainingSessionTierLockTable.programTier), asc(trainingSessionTierLockTable.id));
+  const allowedIds = new Set(moduleIds);
+  return rows.filter((row) => allowedIds.has(row.moduleId));
+}
+
 export async function listTrainingAudiences() {
   const [registeredAudiences, modules, others] = await Promise.all([
     db.select({ label: trainingAudienceTable.label }).from(trainingAudienceTable),
@@ -287,6 +298,24 @@ export async function copyTrainingModulesFromAudience(input: {
           })
           .returning();
 
+        for (const programTier of sourceSession.lockedForTiers ?? []) {
+          await tx
+            .insert(trainingSessionTierLockTable)
+            .values({
+              moduleId: createdModule.id,
+              programTier,
+              startSessionId: createdSession.id,
+              createdBy: input.createdBy,
+            })
+            .onConflictDoUpdate({
+              target: [trainingSessionTierLockTable.moduleId, trainingSessionTierLockTable.programTier],
+              set: {
+                startSessionId: createdSession.id,
+                updatedAt: new Date(),
+              },
+            });
+        }
+
         for (const sourceItem of sourceSession.items) {
           await tx.insert(trainingSessionItemTable).values({
             sessionId: createdSession.id,
@@ -356,11 +385,19 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
   const filteredSessions = sessions.filter((session) => moduleIds.has(session.moduleId));
   const sessionIds = new Set(filteredSessions.map((session) => session.id));
   const filteredItems = items.filter((item) => sessionIds.has(item.sessionId));
+  const sessionLocks = await getTrainingSessionTierLocks(modules.map((module) => module.id));
   const moduleLockMap = new Map<number, (typeof ProgramType.enumValues)[number][]>();
   for (const lock of moduleLocks) {
     const current = moduleLockMap.get(lock.startModuleId) ?? [];
     current.push(lock.programTier);
     moduleLockMap.set(lock.startModuleId, current);
+  }
+
+  const sessionLockMap = new Map<number, (typeof ProgramType.enumValues)[number][]>();
+  for (const lock of sessionLocks) {
+    const current = sessionLockMap.get(lock.startSessionId) ?? [];
+    current.push(lock.programTier);
+    sessionLockMap.set(lock.startSessionId, current);
   }
 
   return {
@@ -370,6 +407,7 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
         .filter((session) => session.moduleId === module.id)
         .map((session) => ({
           ...session,
+          lockedForTiers: sessionLockMap.get(session.id) ?? [],
           items: sortItemsByBlockThenOrder(filteredItems.filter((item) => item.sessionId === session.id)),
         }));
       return {
@@ -433,6 +471,7 @@ export async function updateTrainingModule(input: { id: number; title: string; o
 
 export async function deleteTrainingModule(id: number) {
   await db.delete(trainingModuleTierLockTable).where(eq(trainingModuleTierLockTable.startModuleId, id));
+  await db.delete(trainingSessionTierLockTable).where(eq(trainingSessionTierLockTable.moduleId, id));
   const sessions = await db
     .select({ id: trainingModuleSessionTable.id })
     .from(trainingModuleSessionTable)
@@ -485,6 +524,7 @@ export async function updateTrainingModuleSession(input: {
 }
 
 export async function deleteTrainingModuleSession(id: number) {
+  await db.delete(trainingSessionTierLockTable).where(eq(trainingSessionTierLockTable.startSessionId, id));
   await db.delete(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.sessionId, id));
   await db.delete(trainingSessionItemTable).where(eq(trainingSessionItemTable.sessionId, id));
   const [row] = await db.delete(trainingModuleSessionTable).where(eq(trainingModuleSessionTable.id, id)).returning();
@@ -706,6 +746,75 @@ export async function updateTrainingModuleTierLocks(input: {
   return listTrainingContentAdminWorkspace(normalizedAudienceLabel);
 }
 
+export async function updateTrainingSessionTierLocks(input: {
+  moduleId: number;
+  sessionId: number | null;
+  programTiers: (typeof ProgramType.enumValues)[number][];
+  createdBy: number;
+}) {
+  if (!input.programTiers.length) {
+    const moduleRows = await db
+      .select({ audienceLabel: trainingModuleTable.audienceLabel })
+      .from(trainingModuleTable)
+      .where(eq(trainingModuleTable.id, input.moduleId))
+      .limit(1);
+    if (!moduleRows[0]) {
+      throw new Error("Module not found.");
+    }
+    return listTrainingContentAdminWorkspace(moduleRows[0].audienceLabel);
+  }
+
+  const moduleRows = await db
+    .select({ id: trainingModuleTable.id, audienceLabel: trainingModuleTable.audienceLabel })
+    .from(trainingModuleTable)
+    .where(eq(trainingModuleTable.id, input.moduleId))
+    .limit(1);
+  if (!moduleRows[0]) {
+    throw new Error("Module not found.");
+  }
+
+  if (input.sessionId != null) {
+    const sessionRows = await db
+      .select({ id: trainingModuleSessionTable.id, moduleId: trainingModuleSessionTable.moduleId })
+      .from(trainingModuleSessionTable)
+      .where(eq(trainingModuleSessionTable.id, input.sessionId))
+      .limit(1);
+    if (!sessionRows[0] || sessionRows[0].moduleId !== input.moduleId) {
+      throw new Error("Session not found for this module.");
+    }
+  }
+
+  for (const programTier of input.programTiers) {
+    if (input.sessionId == null) {
+      await db
+        .delete(trainingSessionTierLockTable)
+        .where(and(
+          eq(trainingSessionTierLockTable.moduleId, input.moduleId),
+          eq(trainingSessionTierLockTable.programTier, programTier),
+        ));
+      continue;
+    }
+
+    await db
+      .insert(trainingSessionTierLockTable)
+      .values({
+        moduleId: input.moduleId,
+        programTier,
+        startSessionId: input.sessionId,
+        createdBy: input.createdBy,
+      })
+      .onConflictDoUpdate({
+        target: [trainingSessionTierLockTable.moduleId, trainingSessionTierLockTable.programTier],
+        set: {
+          startSessionId: input.sessionId,
+          updatedAt: new Date(),
+        },
+      });
+  }
+
+  return listTrainingContentAdminWorkspace(moduleRows[0].audienceLabel);
+}
+
 export async function getTrainingContentMobileWorkspace(input: {
   age: number;
   athleteId: number | null;
@@ -749,10 +858,19 @@ export async function getTrainingContentMobileWorkspace(input: {
   let priorModuleComplete = true;
   const modules = workspace.modules.map((module) => {
     const tierLocked = tierLockStartOrder != null && module.order >= tierLockStartOrder;
+    const sessionLockStartOrderByTier = new Map<(typeof ProgramType.enumValues)[number], number>();
+    for (const session of module.sessions) {
+      for (const tier of session.lockedForTiers ?? []) {
+        if (sessionLockStartOrderByTier.has(tier)) continue;
+        sessionLockStartOrderByTier.set(tier, session.order);
+      }
+    }
+    const sessionTierLockStartOrder = athleteTier ? sessionLockStartOrderByTier.get(athleteTier) ?? null : null;
     let priorSessionComplete = true;
     const sessions = module.sessions.map((session) => {
       const completed = completionSet.has(session.id);
-      const locked = tierLocked || !priorModuleComplete || !priorSessionComplete;
+      const sessionTierLocked = sessionTierLockStartOrder != null && session.order >= sessionTierLockStartOrder;
+      const locked = tierLocked || sessionTierLocked || !priorModuleComplete || !priorSessionComplete;
       if (!completed) {
         priorSessionComplete = false;
       }
