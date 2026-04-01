@@ -3,6 +3,7 @@ import { Router } from "express";
 import { requireAuth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/roles";
 import {
+  createPhysioReferralBulkAdmin,
   createPhysioReferralAdmin,
   deletePhysioReferralAdmin,
   getPhysioReferral,
@@ -14,6 +15,7 @@ const router = Router();
 
 router.get("/physio-referral", requireAuth, getPhysioReferral);
 router.get("/admin/physio-referrals", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listPhysioReferralsAdmin);
+router.post("/admin/physio-referrals/bulk", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createPhysioReferralBulkAdmin);
 router.post("/admin/physio-referrals", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createPhysioReferralAdmin);
 router.patch(
   "/admin/physio-referrals/:id",

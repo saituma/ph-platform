@@ -394,6 +394,14 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["PhysioReferrals"],
     }),
+    createBulkPhysioReferral: builder.mutation<{ created: any[]; summary: any; skipped: any[] }, any>({
+      query: (body) => ({
+        url: "/admin/physio-referrals/bulk",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["PhysioReferrals"],
+    }),
     updatePhysioReferral: builder.mutation<{ item: any }, { id: number; data: any }>({
       query: ({ id, data }) => ({
         url: `/admin/physio-referrals/${id}`,
@@ -833,6 +841,7 @@ export const {
   useReviewFoodDiaryMutation,
   useGetPhysioReferralsQuery,
   useCreatePhysioReferralMutation,
+  useCreateBulkPhysioReferralMutation,
   useUpdatePhysioReferralMutation,
   useDeletePhysioReferralMutation,
   useGetAgeExperienceRulesQuery,
