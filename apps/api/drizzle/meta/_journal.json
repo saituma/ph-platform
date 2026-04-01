@@ -345,5 +345,12 @@
       "tag": "0048_training_session_tier_locks",
       "breakpoints": true
     }
+    ,{
+      "idx": 49,
+      "version": "7",
+      "when": 1772764800000,
+      "tag": "0049_scheduling_redesign",
+      "breakpoints": true
+    }
   ]
 }
