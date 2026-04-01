@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Linking, TouchableOpacity, View } from "react-native";
+import { Image, Linking, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -18,6 +18,7 @@ export function PhysioReferralPanel() {
         referralType?: string | null;
         providerName?: string | null;
         organizationName?: string | null;
+        imageUrl?: string | null;
         physioName?: string | null;
         clinicName?: string | null;
         location?: string | null;
@@ -84,6 +85,13 @@ export function PhysioReferralPanel() {
 
       {hasMeta && (
         <View className="mt-4 rounded-2xl bg-secondary/10 px-4 py-4 space-y-2">
+          {meta.imageUrl ? (
+            <Image
+              source={{ uri: meta.imageUrl }}
+              style={{ width: "100%", height: 140, borderRadius: 16, marginBottom: 12 }}
+              resizeMode="cover"
+            />
+          ) : null}
           <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[2px] font-bold">
             {referralTypeLabel}
           </Text>

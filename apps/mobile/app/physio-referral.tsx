@@ -1,6 +1,6 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -15,6 +15,7 @@ type PhysioMetadata = {
   referralType?: string | null;
   providerName?: string | null;
   organizationName?: string | null;
+  imageUrl?: string | null;
   physioName?: string | null;
   clinicName?: string | null;
   location?: string | null;
@@ -160,6 +161,16 @@ export default function PhysioReferralScreen() {
                   {referralLink && <Feather name="external-link" size={18} color="#1F6F45" />}
                 </Pressable>
               </View>
+
+              {meta.imageUrl ? (
+                <View className="overflow-hidden rounded-3xl border border-white/5 bg-card">
+                  <Image
+                    source={{ uri: meta.imageUrl }}
+                    style={{ width: "100%", height: 220 }}
+                    resizeMode="cover"
+                  />
+                </View>
+              ) : null}
 
               {/* Physio Details Card */}
               {hasMeta && (

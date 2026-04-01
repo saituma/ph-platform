@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Textarea } from "../../components/ui/textarea";
 import {
   useCreateBulkPhysioReferralMutation,
+  useCreateMediaUploadUrlMutation,
   useCreateReferralGroupMutation,
   useCreatePhysioReferralMutation,
   useDeletePhysioReferralMutation,
@@ -35,6 +36,7 @@ type ReferralMetadata = {
   maxAge?: number | null;
   providerName?: string | null;
   organizationName?: string | null;
+  imageUrl?: string | null;
   physioName?: string | null;
   clinicName?: string | null;
   location?: string | null;
@@ -124,6 +126,7 @@ export default function ReferralsPage() {
   const { data: usersData } = useGetUsersQuery();
   const [createReferral, { isLoading: creating }] = useCreatePhysioReferralMutation();
   const [createBulkReferral, { isLoading: creatingBulk }] = useCreateBulkPhysioReferralMutation();
+  const [createUploadUrl] = useCreateMediaUploadUrlMutation();
   const [createReferralGroup, { isLoading: creatingGroup }] = useCreateReferralGroupMutation();
   const [updateReferral] = useUpdatePhysioReferralMutation();
   const [deleteReferral] = useDeletePhysioReferralMutation();
@@ -148,6 +151,8 @@ export default function ReferralsPage() {
   const [error, setError] = useState<string | null>(null);
   const [providerName, setProviderName] = useState("");
   const [organizationName, setOrganizationName] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [location, setLocation] = useState("");
   const [phone, setPhone] = useState("");
   const [emailField, setEmailField] = useState("");
@@ -161,6 +166,8 @@ export default function ReferralsPage() {
   const [editDiscount, setEditDiscount] = useState("");
   const [editProviderName, setEditProviderName] = useState("");
   const [editOrganizationName, setEditOrganizationName] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
   const [editLocation, setEditLocation] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -176,11 +183,12 @@ export default function ReferralsPage() {
       .filter((user: any) => user.athleteId)
       .map((user: any) => {
         const tier = (user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null) as string | null;
+        const athleteName = String(user.athleteName ?? "Athlete").trim() || "Athlete";
         return {
           athleteId: Number(user.athleteId),
           athleteAge: typeof user.athleteAge === "number" ? user.athleteAge : null,
           tier: tier ?? "",
-          label: `${user.athleteName ?? "Athlete"} (Guardian: ${user.name ?? user.email ?? "Unknown"}) • ${tier ?? "PHP"}`,
+          label: `${athleteName} • ${tier ?? "PHP"}`,
         } satisfies AthleteOption;
       })
       .filter((user) => user.tier && ELIGIBLE_TIERS.has(user.tier));
@@ -263,6 +271,7 @@ export default function ReferralsPage() {
     setDiscountPercent("");
     setProviderName("");
     setOrganizationName("");
+    setImageUrl("");
     setLocation("");
     setPhone("");
     setEmailField("");
@@ -289,6 +298,7 @@ export default function ReferralsPage() {
     if (resolvedType) meta.referralType = resolvedType;
     if (providerName.trim()) meta.providerName = providerName.trim();
     if (organizationName.trim()) meta.organizationName = organizationName.trim();
+    if (imageUrl.trim()) meta.imageUrl = imageUrl.trim();
     if (location.trim()) meta.location = location.trim();
     if (phone.trim()) meta.phone = phone.trim();
     if (emailField.trim()) meta.email = emailField.trim();
@@ -303,6 +313,7 @@ export default function ReferralsPage() {
     if (resolvedType) meta.referralType = resolvedType;
     if (editProviderName.trim()) meta.providerName = editProviderName.trim();
     if (editOrganizationName.trim()) meta.organizationName = editOrganizationName.trim();
+    if (editImageUrl.trim()) meta.imageUrl = editImageUrl.trim();
     if (editLocation.trim()) meta.location = editLocation.trim();
     if (editPhone.trim()) meta.phone = editPhone.trim();
     if (editEmail.trim()) meta.email = editEmail.trim();
@@ -343,6 +354,38 @@ export default function ReferralsPage() {
     } catch (err: any) {
       setError(err?.data?.error || "Failed to save referral group.");
       toast.error("Failed to save group", err?.data?.error || "Please try again.");
+    }
+  };
+
+  const uploadReferralImage = async (
+    file: File,
+    onSuccess: (url: string) => void,
+    setUploading: (value: boolean) => void
+  ) => {
+    try {
+      setUploading(true);
+      const { uploadUrl, publicUrl } = await createUploadUrl({
+        folder: "referrals",
+        fileName: `${Date.now()}-${file.name}`,
+        contentType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+      }).unwrap();
+
+      await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
+      });
+
+      onSuccess(publicUrl);
+      toast.success("Image uploaded", "The referral image is ready.");
+    } catch (err: any) {
+      setError(err?.data?.error || "Failed to upload referral image.");
+      toast.error("Upload failed", err?.data?.error || "Please try again.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -439,6 +482,7 @@ export default function ReferralsPage() {
     setEditDiscount(typeof entry.discountPercent === "number" ? String(entry.discountPercent) : "");
     setEditProviderName(resolveProviderName(meta));
     setEditOrganizationName(resolveOrganizationName(meta));
+    setEditImageUrl(meta.imageUrl ?? "");
     setEditLocation(meta.location ?? "");
     setEditPhone(meta.phone ?? "");
     setEditEmail(meta.email ?? "");
@@ -731,6 +775,39 @@ export default function ReferralsPage() {
                   <Input placeholder="Provider / Contact Name" value={providerName} onChange={(event) => setProviderName(event.target.value)} />
                   <Input placeholder="Organisation / Company" value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referral Image</label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex cursor-pointer items-center rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary/40">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          await uploadReferralImage(file, setImageUrl, setIsUploadingImage);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                      {isUploadingImage ? "Uploading..." : "Upload Image"}
+                    </label>
+                    {imageUrl ? (
+                      <button
+                        type="button"
+                        className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
+                        onClick={() => setImageUrl("")}
+                      >
+                        Remove Image
+                      </button>
+                    ) : null}
+                  </div>
+                  {imageUrl ? (
+                    <img src={imageUrl} alt="Referral preview" className="max-h-48 rounded-2xl border border-border object-cover" />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Optional. Add an image for this referral campaign.</p>
+                  )}
+                </div>
                 <Input placeholder="Location / Address" value={location} onChange={(event) => setLocation(event.target.value)} />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Input placeholder="Phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
@@ -797,6 +874,9 @@ export default function ReferralsPage() {
 
                         {hasMeta && editingId !== entry.id ? (
                           <div className="mt-3 space-y-1 rounded-2xl bg-secondary/30 px-4 py-3">
+                            {meta.imageUrl ? (
+                              <img src={meta.imageUrl} alt={`${referralTypeLabel} referral`} className="mb-3 max-h-48 rounded-2xl border border-border object-cover" />
+                            ) : null}
                             {providerLabel ? <p className="text-sm font-medium text-foreground">{providerLabel}</p> : null}
                             {organizationLabel ? <p className="text-xs text-muted-foreground">{organizationLabel}</p> : null}
                             <div className="mt-1 flex flex-wrap gap-3">
@@ -830,6 +910,36 @@ export default function ReferralsPage() {
                               <div className="grid gap-2 sm:grid-cols-2">
                                 <Input placeholder="Provider / Contact Name" value={editProviderName} onChange={(event) => setEditProviderName(event.target.value)} />
                                 <Input placeholder="Organisation / Company" value={editOrganizationName} onChange={(event) => setEditOrganizationName(event.target.value)} />
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <label className="inline-flex cursor-pointer items-center rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary/40">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={async (event) => {
+                                        const file = event.target.files?.[0];
+                                        if (!file) return;
+                                        await uploadReferralImage(file, setEditImageUrl, setIsUploadingEditImage);
+                                        event.currentTarget.value = "";
+                                      }}
+                                    />
+                                    {isUploadingEditImage ? "Uploading..." : "Upload Image"}
+                                  </label>
+                                  {editImageUrl ? (
+                                    <button
+                                      type="button"
+                                      className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
+                                      onClick={() => setEditImageUrl("")}
+                                    >
+                                      Remove Image
+                                    </button>
+                                  ) : null}
+                                </div>
+                                {editImageUrl ? (
+                                  <img src={editImageUrl} alt="Referral preview" className="max-h-40 rounded-2xl border border-border object-cover" />
+                                ) : null}
                               </div>
                               <Input placeholder="Location" value={editLocation} onChange={(event) => setEditLocation(event.target.value)} />
                               <div className="grid gap-2 sm:grid-cols-2">
