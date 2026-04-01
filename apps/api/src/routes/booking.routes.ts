@@ -8,6 +8,7 @@ import {
   createBookingForUser,
   createService,
   deleteService,
+  listGeneratedAvailabilityForUser,
   listAvailability,
   listBookings,
   listServices,
@@ -22,6 +23,7 @@ router.post("/bookings/services", requireAuth, requireRole(["coach", "admin", "s
 router.patch("/bookings/services/:id", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateService);
 router.delete("/bookings/services/:id", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteService);
 router.get("/bookings/availability", requireAuth, listAvailability);
+router.get("/bookings/generated-availability", requireAuth, listGeneratedAvailabilityForUser);
 router.post("/bookings/availability", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createAvailability);
 router.post("/bookings", requireAuth, createBookingForUser);
 router.get("/bookings", requireAuth, listBookings);

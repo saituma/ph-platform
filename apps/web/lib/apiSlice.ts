@@ -273,12 +273,27 @@ export const apiSlice = createApi({
       },
       providesTags: ["Availability"],
     }),
+    getGeneratedBookingAvailability: builder.query<
+      { items: any[] },
+      { from: string; to: string; serviceTypeId?: number }
+    >({
+      query: ({ from, to, serviceTypeId }) => {
+        const query = new URLSearchParams();
+        query.set("from", from);
+        query.set("to", to);
+        if (serviceTypeId != null) query.set("serviceTypeId", String(serviceTypeId));
+        return `/bookings/generated-availability?${query.toString()}`;
+      },
+      providesTags: ["Availability"],
+    }),
     createBooking: builder.mutation<
       any,
       {
         serviceTypeId: number;
-        startsAt: string;
-        endsAt: string;
+        startsAt?: string;
+        endsAt?: string;
+        occurrenceKey?: string;
+        slotKey?: string;
         location?: string;
         meetingLink?: string;
         timezoneOffsetMinutes?: number;
@@ -838,6 +853,7 @@ export const {
   useGetServicesQuery,
   useGetBookingServicesQuery,
   useGetBookingAvailabilityQuery,
+  useGetGeneratedBookingAvailabilityQuery,
   useCreateBookingMutation,
   useGetThreadsQuery,
   useGetMessagesQuery,

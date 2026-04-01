@@ -3,11 +3,11 @@ import { z } from "zod";
 
 import {
   buildAvailabilitySlots,
-  countActiveBookingsForService,
   createAvailabilityBlock,
   createBooking,
   createServiceType,
   getServiceTypeById,
+  listGeneratedAvailability,
   listAvailabilityBlocks,
   listBookingsForServiceInRange,
   listBookingsForUser,
@@ -16,20 +16,40 @@ import {
   deleteServiceType,
 } from "../services/booking.service";
 import { assertUserCanCreateBooking } from "../services/booking-eligibility.service";
-import { getGuardianAndAthlete } from "../services/user.service";
+import { getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
 import { ProgramType } from "../db/schema";
 import { verifyBookingActionToken } from "../lib/booking-actions";
 import { updateBookingStatusAdmin } from "../services/admin.service";
+
+const planEnum = z.enum(ProgramType.enumValues);
+const weeklyEntrySchema = z.object({
+  weekday: z.number().int().min(1).max(7),
+  time: z.string().min(4),
+});
+const slotDefinitionSchema = z.object({
+  time: z.string().min(4),
+  capacity: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional(),
+});
 
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
   type: z.enum(["call", "group_call", "individual_call", "lift_lab_1on1", "role_model", "one_on_one"]),
   durationMinutes: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)),
-  capacity: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)),
+  capacity: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional(),
   attendeeVisibility: z.boolean().optional(),
   defaultLocation: z.string().optional().nullable(),
   defaultMeetingLink: z.string().optional().nullable(),
-  programTier: z.enum(ProgramType.enumValues).optional().nullable(),
+  programTier: planEnum.optional().nullable(),
+  eligiblePlans: z.array(planEnum).optional(),
+  schedulePattern: z.enum(["one_time", "weekly_recurring"]).optional(),
+  recurrenceEndMode: z.enum(["weeks", "months", "forever"]).optional().nullable(),
+  recurrenceCount: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional().nullable(),
+  weeklyEntries: z.array(weeklyEntrySchema).optional(),
+  oneTimeDate: z.string().optional().nullable(),
+  oneTimeTime: z.string().optional().nullable(),
+  slotMode: z.enum(["shared_capacity", "exact_sub_slots", "both"]).optional(),
+  slotIntervalMinutes: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional().nullable(),
+  slotDefinitions: z.array(slotDefinitionSchema).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -45,11 +65,15 @@ const availabilitySchema = z.object({
 
 const bookingSchema = z.object({
   serviceTypeId: z.number().int().min(1),
-  startsAt: z.string().datetime(),
-  endsAt: z.string().datetime(),
+  startsAt: z.string().datetime().optional(),
+  endsAt: z.string().datetime().optional(),
+  occurrenceKey: z.string().datetime().optional(),
+  slotKey: z.string().datetime().optional(),
   location: z.string().optional(),
   meetingLink: z.string().optional(),
   timezoneOffsetMinutes: z.number().int().optional(),
+}).refine((input) => Boolean(input.occurrenceKey || (input.startsAt && input.endsAt)), {
+  message: "Either occurrenceKey or startsAt/endsAt is required",
 });
 
 const availabilityQuerySchema = z.object({
@@ -58,27 +82,22 @@ const availabilityQuerySchema = z.object({
   to: z.string().datetime(),
 });
 
+const generatedAvailabilityQuerySchema = z.object({
+  from: z.string().datetime(),
+  to: z.string().datetime(),
+  serviceTypeId: z.coerce.number().int().min(1).optional(),
+});
+
 export async function listServices(req: Request, res: Response) {
   const includeInactive =
     req.query.includeInactive === "true" &&
     ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "");
-  const items = await listServiceTypes({ includeInactive });
+  const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
+  const items = await listServiceTypes({ includeInactive, viewerProgramTier: athlete?.currentProgramTier as any });
   if (includeInactive || ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "")) {
     return res.status(200).json({ items });
   }
-
-  const filtered = [];
-  for (const item of items) {
-    if (!item.capacity) {
-      filtered.push(item);
-      continue;
-    }
-    const activeBookings = await countActiveBookingsForService(item.id);
-    if (activeBookings < item.capacity) {
-      filtered.push(item);
-    }
-  }
-  return res.status(200).json({ items: filtered });
+  return res.status(200).json({ items });
 }
 
 export async function createService(req: Request, res: Response) {
@@ -93,6 +112,16 @@ export async function createService(req: Request, res: Response) {
     defaultLocation: input.defaultLocation,
     defaultMeetingLink: input.defaultMeetingLink,
     programTier: input.programTier,
+    eligiblePlans: input.eligiblePlans,
+    schedulePattern: input.schedulePattern,
+    recurrenceEndMode: input.recurrenceEndMode,
+    recurrenceCount: input.recurrenceCount,
+    weeklyEntries: input.weeklyEntries,
+    oneTimeDate: input.oneTimeDate,
+    oneTimeTime: input.oneTimeTime,
+    slotMode: input.slotMode,
+    slotIntervalMinutes: input.slotIntervalMinutes,
+    slotDefinitions: input.slotDefinitions,
     isActive: input.isActive,
     createdBy: req.user!.id,
   });
@@ -164,6 +193,18 @@ export async function listAvailability(req: Request, res: Response) {
   return res.status(200).json({ items, bookings, slots });
 }
 
+export async function listGeneratedAvailabilityForUser(req: Request, res: Response) {
+  const query = generatedAvailabilityQuerySchema.parse(req.query);
+  const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
+  const items = await listGeneratedAvailability({
+    from: new Date(query.from),
+    to: new Date(query.to),
+    serviceTypeId: query.serviceTypeId,
+    viewerProgramTier: athlete?.currentProgramTier as any,
+  });
+  return res.status(200).json({ items });
+}
+
 export async function createBookingForUser(req: Request, res: Response) {
   const input = bookingSchema.parse(req.body);
   const { guardian, athlete } = await getGuardianAndAthlete(req.user!.id);
@@ -177,9 +218,12 @@ export async function createBookingForUser(req: Request, res: Response) {
       athleteId: athlete.id,
       guardianId: guardian.id,
       serviceTypeId: input.serviceTypeId,
-      startsAt: new Date(input.startsAt),
-      endsAt: new Date(input.endsAt),
+      startsAt: input.startsAt ? new Date(input.startsAt) : undefined,
+      endsAt: input.endsAt ? new Date(input.endsAt) : undefined,
+      occurrenceKey: input.occurrenceKey ?? null,
+      slotKey: input.slotKey ?? null,
       createdBy: req.user!.id,
+      viewerProgramTier: athlete.currentProgramTier as any,
       location: input.location,
       meetingLink: input.meetingLink,
       timezoneOffsetMinutes: input.timezoneOffsetMinutes,
