@@ -359,6 +359,10 @@ export const apiSlice = createApi({
       query: () => "/admin/physio-referrals",
       providesTags: ["PhysioReferrals"],
     }),
+    getReferralGroups: builder.query<{ items: any[] }, void>({
+      query: () => "/admin/referral-groups",
+      providesTags: ["PhysioReferrals"],
+    }),
     getAgeExperienceRules: builder.query<{ items: any[] }, void>({
       query: () => "/admin/age-experience",
       providesTags: ["AgeExperience"],
@@ -397,6 +401,14 @@ export const apiSlice = createApi({
     createBulkPhysioReferral: builder.mutation<{ created: any[]; summary: any; skipped: any[] }, any>({
       query: (body) => ({
         url: "/admin/physio-referrals/bulk",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["PhysioReferrals"],
+    }),
+    createReferralGroup: builder.mutation<{ item: any }, any>({
+      query: (body) => ({
+        url: "/admin/referral-groups",
         method: "POST",
         body,
       }),
@@ -840,8 +852,10 @@ export const {
   useGetFoodDiaryQuery,
   useReviewFoodDiaryMutation,
   useGetPhysioReferralsQuery,
+  useGetReferralGroupsQuery,
   useCreatePhysioReferralMutation,
   useCreateBulkPhysioReferralMutation,
+  useCreateReferralGroupMutation,
   useUpdatePhysioReferralMutation,
   useDeletePhysioReferralMutation,
   useGetAgeExperienceRulesQuery,

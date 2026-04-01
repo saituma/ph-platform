@@ -10,11 +10,13 @@ import {
   listPhysioReferrals,
   updatePhysioReferral,
 } from "../services/physio-referral.service";
-import { ProgramType, notificationTable, athleteTable, guardianTable, physioRefferalsTable } from "../db/schema";
+import { ProgramType, notificationTable, athleteTable, guardianTable, physioRefferalsTable, userTable } from "../db/schema";
 import { db } from "../db";
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getSocketServer } from "../socket-hub";
 import { sendPushNotification } from "../services/push.service";
+import { createReferralGroup, getReferralGroupAthletes, listReferralGroups } from "../services/referral-group.service";
+import { sendReferralAssignedEmail } from "../lib/mailer";
 
 const physioMetadataSchema = z.object({
   referralType: z.string().optional().nullable(),
@@ -72,7 +74,7 @@ const bulkTargetingSchema = z.discriminatedUnion("mode", [
   }),
   z.object({
     mode: z.literal("group"),
-    groupKey: z.enum(["php_plus", "php_premium", "all_paid"]),
+    groupId: z.coerce.number().int().min(1),
   }),
 ]).superRefine((value, ctx) => {
   if (value.mode === "age_range" && value.minAge > value.maxAge) {
@@ -94,6 +96,20 @@ const bulkCreatePhysioSchema = z.object({
     }),
   discountPercent: z.number().int().min(0).max(100).optional().nullable(),
   metadata: physioMetadataSchema,
+});
+
+const createReferralGroupSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  expectedSize: z.coerce.number().int().min(1),
+  athleteIds: z.array(z.coerce.number().int().min(1)).min(1),
+}).superRefine((value, ctx) => {
+  if (value.expectedSize !== value.athleteIds.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Expected size must match the number of athletes selected.",
+      path: ["expectedSize"],
+    });
+  }
 });
 
 const ELIGIBLE_TIERS = new Set(["PHP_Plus", "PHP_Premium"]);
@@ -122,14 +138,15 @@ function getReferralProviderLabel(metadata?: Record<string, unknown> | null) {
   return providerName?.trim() || null;
 }
 
-function getAssignmentLabel(input: { mode: "single" | "age_range" | "group"; minAge?: number; maxAge?: number; groupKey?: string }) {
+function getAssignmentLabel(input: { mode: "single" | "age_range" | "group"; minAge?: number; maxAge?: number; groupName?: string }) {
   if (input.mode === "age_range") {
+    if (input.minAge === input.maxAge) {
+      return `Age ${input.minAge}`;
+    }
     return `Ages ${input.minAge}-${input.maxAge}`;
   }
   if (input.mode === "group") {
-    if (input.groupKey === "php_plus") return "PHP Plus";
-    if (input.groupKey === "php_premium") return "PHP Premium";
-    return "All paid athletes";
+    return input.groupName?.trim() || "Referral group";
   }
   return "Individual athlete";
 }
@@ -137,19 +154,16 @@ function getAssignmentLabel(input: { mode: "single" | "age_range" | "group"; min
 async function listEligibleAthleteTargets(input:
   | { mode: "single"; athleteId: number }
   | { mode: "age_range"; minAge: number; maxAge: number }
-  | { mode: "group"; groupKey: "php_plus" | "php_premium" | "all_paid" }
+  | { mode: "group"; groupId: number }
 ) {
   const filters = [] as any[];
   if (input.mode === "single") {
     filters.push(eq(athleteTable.id, input.athleteId));
   } else if (input.mode === "age_range") {
     filters.push(gte(athleteTable.age, input.minAge), lte(athleteTable.age, input.maxAge));
-  } else if (input.groupKey === "php_plus") {
-    filters.push(eq(athleteTable.currentProgramTier, "PHP_Plus"));
-  } else if (input.groupKey === "php_premium") {
-    filters.push(eq(athleteTable.currentProgramTier, "PHP_Premium"));
   } else {
-    filters.push(inArray(athleteTable.currentProgramTier, ["PHP_Plus", "PHP_Premium"]));
+    const members = await getReferralGroupAthletes(input.groupId);
+    return members.filter((row) => row.programTier && ELIGIBLE_TIERS.has(row.programTier));
   }
 
   const rows = await db
@@ -165,7 +179,7 @@ async function listEligibleAthleteTargets(input:
   return rows.filter((row) => row.programTier && ELIGIBLE_TIERS.has(row.programTier));
 }
 
-async function resolveReferralRecipientUserIds(athleteId: number) {
+async function resolveReferralRecipients(athleteId: number) {
   const rows = await db
     .select({
       athleteUserId: athleteTable.userId,
@@ -177,15 +191,27 @@ async function resolveReferralRecipientUserIds(athleteId: number) {
     .limit(1);
 
   const row = rows[0];
-  if (!row) return [] as number[];
+  if (!row) return [] as { userId: number; email: string | null; name: string | null }[];
 
-  return Array.from(
+  const userIds = Array.from(
     new Set(
       [row.athleteUserId, row.guardianUserId].filter(
         (value): value is number => Number.isFinite(value)
       )
     )
   );
+
+  if (!userIds.length) return [];
+  const users = await db
+    .select({
+      userId: userTable.id,
+      email: userTable.email,
+      name: userTable.name,
+    })
+    .from(userTable)
+    .where(inArray(userTable.id, userIds));
+
+  return users;
 }
 
 async function notifyReferralRecipients(input: {
@@ -195,10 +221,21 @@ async function notifyReferralRecipients(input: {
   referralId?: number;
   event: "created" | "updated" | "deleted";
   sendPush?: boolean;
+  sendEmail?: boolean;
+  emailPayload?: {
+    referralType: string;
+    providerName?: string | null;
+    organizationName?: string | null;
+    targetLabel?: string | null;
+    referralLink: string;
+    discountPercent?: number | null;
+    notes?: string | null;
+  };
 }) {
   try {
-    const recipientUserIds = await resolveReferralRecipientUserIds(input.athleteId);
-    if (!recipientUserIds.length) return;
+    const recipients = await resolveReferralRecipients(input.athleteId);
+    if (!recipients.length) return;
+    const recipientUserIds = recipients.map((recipient) => recipient.userId);
 
     if (input.event === "created") {
       await db.insert(notificationTable).values(
@@ -240,6 +277,20 @@ async function notifyReferralRecipients(input: {
         )
       );
     }
+
+    if (input.sendEmail && input.emailPayload) {
+      await Promise.all(
+        recipients
+          .filter((recipient) => recipient.email)
+          .map((recipient) =>
+            sendReferralAssignedEmail({
+              to: recipient.email!,
+              name: recipient.name?.trim() || "there",
+              ...input.emailPayload!,
+            }).catch(() => null)
+          )
+      );
+    }
   } catch {
     // Don't fail referral operations if notification/realtime emit fails
   }
@@ -260,6 +311,25 @@ export async function getPhysioReferral(req: Request, res: Response) {
 export async function listPhysioReferralsAdmin(_req: Request, res: Response) {
   const items = await listPhysioReferrals();
   return res.status(200).json({ items });
+}
+
+export async function listReferralGroupsAdmin(_req: Request, res: Response) {
+  const items = await listReferralGroups();
+  return res.status(200).json({ items });
+}
+
+export async function createReferralGroupAdmin(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const input = createReferralGroupSchema.parse(req.body);
+  const item = await createReferralGroup({
+    name: input.name,
+    expectedSize: input.expectedSize,
+    athleteIds: Array.from(new Set(input.athleteIds)),
+    createdBy: req.user.id,
+  });
+  return res.status(201).json({ item });
 }
 
 export async function createPhysioReferralAdmin(req: Request, res: Response) {
@@ -308,6 +378,16 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     referralId: item.id,
     event: "created",
     sendPush: true,
+    sendEmail: true,
+    emailPayload: {
+      referralType,
+      providerName,
+      organizationName: getMetadataString(input.metadata ?? null, "organizationName") ?? getMetadataString(input.metadata ?? null, "clinicName"),
+      targetLabel: getMetadataString(input.metadata ?? null, "targetLabel"),
+      referralLink: input.referalLink,
+      discountPercent: input.discountPercent ?? null,
+      notes: getMetadataString(input.metadata ?? null, "notes"),
+    },
   });
 
   return res.status(201).json({ item });
@@ -320,18 +400,25 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
   const input = bulkCreatePhysioSchema.parse(req.body);
   const referralType = getReferralTypeLabel(input.metadata ?? null);
   const providerName = getReferralProviderLabel(input.metadata ?? null);
+  const organizationName = getMetadataString(input.metadata ?? null, "organizationName") ?? getMetadataString(input.metadata ?? null, "clinicName");
+  const notes = getMetadataString(input.metadata ?? null, "notes");
+  const targeting = input.targeting;
+  let groupName: string | undefined;
+  if (targeting.mode === "group") {
+    groupName = (await listReferralGroups()).find((group) => group.id === targeting.groupId)?.name ?? "Referral group";
+  }
   const targetLabel =
-    input.targeting.mode === "single"
+    targeting.mode === "single"
       ? "Individual athlete"
-      : input.targeting.mode === "age_range"
+      : targeting.mode === "age_range"
         ? getAssignmentLabel({
             mode: "age_range",
-            minAge: input.targeting.minAge,
-            maxAge: input.targeting.maxAge,
+            minAge: targeting.minAge,
+            maxAge: targeting.maxAge,
           })
-        : getAssignmentLabel({ mode: "group", groupKey: input.targeting.groupKey });
+        : getAssignmentLabel({ mode: "group", groupName });
 
-  const athletes = await listEligibleAthleteTargets(input.targeting as any);
+  const athletes = await listEligibleAthleteTargets(targeting as any);
   if (!athletes.length) {
     return res.status(400).json({ error: "No eligible athletes matched that target." });
   }
@@ -358,11 +445,11 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
 
     const metadata = {
       ...(input.metadata ?? {}),
-      assignmentMode: input.targeting.mode,
+      assignmentMode: targeting.mode,
       targetLabel,
-      targetGroupKey: input.targeting.mode === "group" ? input.targeting.groupKey : null,
-      minAge: input.targeting.mode === "age_range" ? input.targeting.minAge : null,
-      maxAge: input.targeting.mode === "age_range" ? input.targeting.maxAge : null,
+      targetGroupKey: targeting.mode === "group" ? String(targeting.groupId) : null,
+      minAge: targeting.mode === "age_range" ? targeting.minAge : null,
+      maxAge: targeting.mode === "age_range" ? targeting.maxAge : null,
     };
 
     const item = await createPhysioReferral({
@@ -385,6 +472,16 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
       referralId: item.id,
       event: "created",
       sendPush: true,
+      sendEmail: true,
+      emailPayload: {
+        referralType,
+        providerName,
+        organizationName,
+        targetLabel,
+        referralLink: input.referalLink,
+        discountPercent: input.discountPercent ?? null,
+        notes,
+      },
     });
   }
 
