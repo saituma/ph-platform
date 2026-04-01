@@ -13,22 +13,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Textarea } from "../../components/ui/textarea";
 import {
   useCreateBulkPhysioReferralMutation,
+  useCreateReferralGroupMutation,
   useCreatePhysioReferralMutation,
   useDeletePhysioReferralMutation,
   useGetPhysioReferralsQuery,
+  useGetReferralGroupsQuery,
   useGetUsersQuery,
   useUpdatePhysioReferralMutation,
 } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
 type TargetMode = "single" | "age_range" | "group";
-type GroupKey = "php_plus" | "php_premium" | "all_paid";
+type AgeMode = "single_age" | "range_age";
 
 type ReferralMetadata = {
   referralType?: string | null;
   assignmentMode?: TargetMode | null;
   targetLabel?: string | null;
-  targetGroupKey?: GroupKey | null;
+  targetGroupKey?: string | null;
   minAge?: number | null;
   maxAge?: number | null;
   providerName?: string | null;
@@ -60,14 +62,21 @@ type AthleteOption = {
   label: string;
 };
 
+type ReferralGroup = {
+  id: number;
+  name: string;
+  expectedSize: number;
+  members: {
+    athleteId: number;
+    athleteName?: string | null;
+    athleteAge?: number | null;
+    programTier?: string | null;
+  }[];
+};
+
 const ELIGIBLE_TIERS = new Set(["PHP_Plus", "PHP_Premium"]);
 const REFERRAL_TYPE_OPTIONS = ["Physio", "Stocks", "Nutrition", "Recovery", "Doctor", "Specialist", "Other"];
 const PRESET_REFERRAL_TYPES = new Set(REFERRAL_TYPE_OPTIONS.filter((option) => option !== "Other"));
-const GROUP_OPTIONS: { value: GroupKey; label: string; description: string }[] = [
-  { value: "php_plus", label: "PHP Plus", description: "All eligible PHP Plus athletes" },
-  { value: "php_premium", label: "PHP Premium", description: "All eligible PHP Premium athletes" },
-  { value: "all_paid", label: "All Paid Athletes", description: "Both PHP Plus and PHP Premium athletes" },
-];
 
 function resolveReferralType(metadata?: ReferralMetadata | null) {
   const explicitType = metadata?.referralType?.trim();
@@ -95,24 +104,27 @@ function getResolvedReferralType(selectedType: string, customType: string) {
   return (selectedType === "Other" ? customType : selectedType).trim();
 }
 
-function getGroupLabel(value: GroupKey) {
-  return GROUP_OPTIONS.find((option) => option.value === value)?.label ?? "Group";
-}
-
 function getTargetLabel(
   mode: TargetMode,
-  options: { minAge?: string; maxAge?: string; groupKey?: GroupKey }
+  options: { minAge?: string; maxAge?: string; groupName?: string }
 ) {
-  if (mode === "age_range") return `Ages ${options.minAge}-${options.maxAge}`;
-  if (mode === "group") return getGroupLabel(options.groupKey ?? "all_paid");
+  if (mode === "age_range") {
+    if (options.minAge && options.maxAge && options.minAge === options.maxAge) {
+      return `Age ${options.minAge}`;
+    }
+    return `Ages ${options.minAge}-${options.maxAge}`;
+  }
+  if (mode === "group") return options.groupName?.trim() || "Referral group";
   return "Individual athlete";
 }
 
 export default function ReferralsPage() {
   const { data, isLoading } = useGetPhysioReferralsQuery();
+  const { data: referralGroupsData } = useGetReferralGroupsQuery();
   const { data: usersData } = useGetUsersQuery();
   const [createReferral, { isLoading: creating }] = useCreatePhysioReferralMutation();
   const [createBulkReferral, { isLoading: creatingBulk }] = useCreateBulkPhysioReferralMutation();
+  const [createReferralGroup, { isLoading: creatingGroup }] = useCreateReferralGroupMutation();
   const [updateReferral] = useUpdatePhysioReferralMutation();
   const [deleteReferral] = useDeletePhysioReferralMutation();
 
@@ -121,9 +133,14 @@ export default function ReferralsPage() {
   const [athleteId, setAthleteId] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
   const [athleteLabel, setAthleteLabel] = useState<string | null>(null);
+  const [ageMode, setAgeMode] = useState<AgeMode>("single_age");
   const [minAge, setMinAge] = useState("");
   const [maxAge, setMaxAge] = useState("");
-  const [groupKey, setGroupKey] = useState<GroupKey>("all_paid");
+  const [groupId, setGroupId] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [groupSize, setGroupSize] = useState("");
+  const [groupAthleteSearch, setGroupAthleteSearch] = useState("");
+  const [groupAthleteIds, setGroupAthleteIds] = useState<number[]>([]);
   const [referralType, setReferralType] = useState("Physio");
   const [customReferralType, setCustomReferralType] = useState("");
   const [referalLink, setReferalLink] = useState("");
@@ -151,6 +168,7 @@ export default function ReferralsPage() {
   const [editNotes, setEditNotes] = useState("");
 
   const entries: ReferralItem[] = useMemo(() => data?.items ?? [], [data]);
+  const referralGroups: ReferralGroup[] = useMemo(() => referralGroupsData?.items ?? [], [referralGroupsData]);
 
   const athleteOptions = useMemo(() => {
     const users = usersData?.users ?? [];
@@ -189,23 +207,41 @@ export default function ReferralsPage() {
     return athleteOptions.filter((option) => option.label.toLowerCase().includes(needle)).slice(0, 6);
   }, [athleteId, athleteOptions, athleteSearch, targetMode]);
 
+  const selectedReferralGroup = useMemo(
+    () => referralGroups.find((group) => group.id === Number(groupId)) ?? null,
+    [groupId, referralGroups]
+  );
+
+  const filteredGroupAthletes = useMemo(() => {
+    const selected = new Set(groupAthleteIds);
+    const available = athleteOptions.filter((option) => !selected.has(option.athleteId));
+    if (!groupAthleteSearch.trim()) return available.slice(0, 6);
+    const needle = groupAthleteSearch.trim().toLowerCase();
+    return available.filter((option) => option.label.toLowerCase().includes(needle)).slice(0, 6);
+  }, [athleteOptions, groupAthleteIds, groupAthleteSearch]);
+
   const targetedAthletes = useMemo(() => {
     if (targetMode === "single") {
       return athleteId ? athleteOptions.filter((option) => option.athleteId === Number(athleteId)) : [];
     }
     if (targetMode === "age_range") {
       const parsedMin = Number(minAge);
-      const parsedMax = Number(maxAge);
+      const parsedMax = Number(ageMode === "single_age" ? minAge : maxAge);
       if (!Number.isFinite(parsedMin) || !Number.isFinite(parsedMax) || parsedMin > parsedMax) return [];
       return athleteOptions.filter((option) => {
         const age = option.athleteAge;
         return typeof age === "number" && age >= parsedMin && age <= parsedMax;
       });
     }
-    if (groupKey === "php_plus") return athleteOptions.filter((option) => option.tier === "PHP_Plus");
-    if (groupKey === "php_premium") return athleteOptions.filter((option) => option.tier === "PHP_Premium");
-    return athleteOptions.filter((option) => option.tier === "PHP_Plus" || option.tier === "PHP_Premium");
-  }, [athleteId, athleteOptions, groupKey, maxAge, minAge, targetMode]);
+    return (selectedReferralGroup?.members ?? [])
+      .filter((member) => member.programTier && ELIGIBLE_TIERS.has(member.programTier))
+      .map((member) => ({
+        athleteId: member.athleteId,
+        athleteAge: member.athleteAge ?? null,
+        tier: member.programTier ?? "",
+        label: member.athleteName ?? `Athlete #${member.athleteId}`,
+      }));
+  }, [ageMode, athleteId, athleteOptions, maxAge, minAge, selectedReferralGroup, targetMode]);
 
   const eligibleEntries = useMemo(
     () => entries.filter((entry) => ELIGIBLE_TIERS.has(athleteTierById.get(entry.athleteId) ?? entry.programTier ?? "PHP")),
@@ -217,9 +253,10 @@ export default function ReferralsPage() {
     setAthleteId("");
     setAthleteSearch("");
     setAthleteLabel(null);
+    setAgeMode("single_age");
     setMinAge("");
     setMaxAge("");
-    setGroupKey("all_paid");
+    setGroupId("");
     setReferralType("Physio");
     setCustomReferralType("");
     setReferalLink("");
@@ -237,10 +274,17 @@ export default function ReferralsPage() {
     const resolvedType = getResolvedReferralType(referralType, customReferralType);
     const meta: ReferralMetadata = {
       assignmentMode: targetMode,
-      targetLabel: getTargetLabel(targetMode, { minAge, maxAge, groupKey }),
-      targetGroupKey: targetMode === "group" ? groupKey : null,
+      targetLabel: getTargetLabel(targetMode, {
+        minAge,
+        maxAge: targetMode === "age_range" && ageMode === "single_age" ? minAge : maxAge,
+        groupName: selectedReferralGroup?.name,
+      }),
+      targetGroupKey: targetMode === "group" ? groupId : null,
       minAge: targetMode === "age_range" && minAge ? Number(minAge) : null,
-      maxAge: targetMode === "age_range" && maxAge ? Number(maxAge) : null,
+      maxAge:
+        targetMode === "age_range" && (ageMode === "single_age" ? minAge : maxAge)
+          ? Number(ageMode === "single_age" ? minAge : maxAge)
+          : null,
     };
     if (resolvedType) meta.referralType = resolvedType;
     if (providerName.trim()) meta.providerName = providerName.trim();
@@ -267,6 +311,41 @@ export default function ReferralsPage() {
     return Object.keys(meta).length > 0 ? meta : null;
   };
 
+  const handleCreateGroup = async () => {
+    setError(null);
+    const normalizedName = groupName.trim();
+    const expectedSize = Number(groupSize);
+    const uniqueAthleteIds = Array.from(new Set(groupAthleteIds));
+    if (!normalizedName) {
+      setError("Group name is required.");
+      return;
+    }
+    if (!Number.isFinite(expectedSize) || expectedSize <= 0) {
+      setError("Group size must be greater than zero.");
+      return;
+    }
+    if (uniqueAthleteIds.length !== expectedSize) {
+      setError("Group size must match the number of athletes added.");
+      return;
+    }
+    try {
+      const result = await createReferralGroup({
+        name: normalizedName,
+        expectedSize,
+        athleteIds: uniqueAthleteIds,
+      }).unwrap();
+      setGroupId(String(result.item.id));
+      setGroupName("");
+      setGroupSize("");
+      setGroupAthleteSearch("");
+      setGroupAthleteIds([]);
+      toast.success("Referral group saved", "You can reuse this group for future referrals.");
+    } catch (err: any) {
+      setError(err?.data?.error || "Failed to save referral group.");
+      toast.error("Failed to save group", err?.data?.error || "Please try again.");
+    }
+  };
+
   const handleCreate = async () => {
     setError(null);
     const resolvedType = getResolvedReferralType(referralType, customReferralType);
@@ -288,11 +367,15 @@ export default function ReferralsPage() {
     }
     if (targetMode === "age_range") {
       const parsedMin = Number(minAge);
-      const parsedMax = Number(maxAge);
+      const parsedMax = Number(ageMode === "single_age" ? minAge : maxAge);
       if (!Number.isFinite(parsedMin) || !Number.isFinite(parsedMax) || parsedMin > parsedMax) {
         setError("Enter a valid age range.");
         return;
       }
+    }
+    if (targetMode === "group" && !selectedReferralGroup) {
+      setError("Choose a saved referral group.");
+      return;
     }
     if (targetedAthletes.length === 0) {
       setError("No eligible athletes match that target.");
@@ -313,8 +396,12 @@ export default function ReferralsPage() {
         const result = await createBulkReferral({
           targeting:
             targetMode === "age_range"
-              ? { mode: "age_range", minAge: Number(minAge), maxAge: Number(maxAge) }
-              : { mode: "group", groupKey },
+              ? {
+                  mode: "age_range",
+                  minAge: Number(minAge),
+                  maxAge: Number(ageMode === "single_age" ? minAge : maxAge),
+                }
+              : { mode: "group", groupId: Number(groupId) },
           referalLink,
           discountPercent: discountPercent ? Number(discountPercent) : undefined,
           metadata: buildMetadata(),
@@ -509,29 +596,109 @@ export default function ReferralsPage() {
               ) : null}
 
               {targetMode === "age_range" ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Minimum Age</label>
-                    <Input value={minAge} onChange={(event) => setMinAge(event.target.value)} type="number" placeholder="10" />
+                <div className="space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Age Option</label>
+                      <Select value={ageMode} onChange={(event) => setAgeMode(event.target.value as AgeMode)}>
+                        <option value="single_age">Single Age</option>
+                        <option value="range_age">Age Range</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {ageMode === "single_age" ? "Age" : "Minimum Age"}
+                      </label>
+                      <Input
+                        value={minAge}
+                        onChange={(event) => setMinAge(event.target.value)}
+                        type="number"
+                        placeholder={ageMode === "single_age" ? "6" : "10"}
+                      />
+                    </div>
+                    {ageMode === "range_age" ? (
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Maximum Age</label>
+                        <Input value={maxAge} onChange={(event) => setMaxAge(event.target.value)} type="number" placeholder="14" />
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Maximum Age</label>
-                    <Input value={maxAge} onChange={(event) => setMaxAge(event.target.value)} type="number" placeholder="14" />
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {ageMode === "single_age"
+                      ? "Use one exact age like 6, 7, or 8."
+                      : "Use a minimum and maximum age to target a full range."}
+                  </p>
                 </div>
               ) : null}
 
               {targetMode === "group" ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Group</label>
-                  <Select value={groupKey} onChange={(event) => setGroupKey(event.target.value as GroupKey)}>
-                    {GROUP_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {GROUP_OPTIONS.find((option) => option.value === groupKey)?.description}
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saved Group</label>
+                    <Select value={groupId} onChange={(event) => setGroupId(event.target.value)}>
+                      <option value="">Select a saved group</option>
+                      {referralGroups.map((group) => (
+                        <option key={group.id} value={String(group.id)}>
+                          {group.name} ({group.members.length}/{group.expectedSize})
+                        </option>
+                      ))}
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedReferralGroup
+                        ? `${selectedReferralGroup.members.length} athlete${selectedReferralGroup.members.length === 1 ? "" : "s"} in ${selectedReferralGroup.name}.`
+                        : "Choose an existing referral group or create a new reusable one below."}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-border bg-secondary/15 p-4 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Create Referral Group</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input placeholder="Group name" value={groupName} onChange={(event) => setGroupName(event.target.value)} />
+                      <Input placeholder="How many athletes?" type="number" value={groupSize} onChange={(event) => setGroupSize(event.target.value)} />
+                    </div>
+                    <Input
+                      placeholder="Search athletes to add"
+                      value={groupAthleteSearch}
+                      onChange={(event) => setGroupAthleteSearch(event.target.value)}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {groupAthleteIds.map((selectedId) => {
+                        const option = athleteOptions.find((item) => item.athleteId === selectedId);
+                        if (!option) return null;
+                        return (
+                          <button
+                            key={selectedId}
+                            type="button"
+                            className="rounded-full border border-border px-3 py-1 text-xs text-foreground hover:bg-secondary/40"
+                            onClick={() => setGroupAthleteIds((prev) => prev.filter((id) => id !== selectedId))}
+                          >
+                            {option.label} ×
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {filteredGroupAthletes.map((option) => (
+                        <button
+                          key={option.athleteId}
+                          type="button"
+                          className="rounded-2xl border border-border px-3 py-2 text-left text-xs text-foreground hover:bg-secondary/40"
+                          onClick={() => {
+                            setGroupAthleteIds((prev) => Array.from(new Set([...prev, option.athleteId])));
+                            setGroupAthleteSearch("");
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {groupAthleteIds.length} athlete{groupAthleteIds.length === 1 ? "" : "s"}
+                    </p>
+                    <Button type="button" variant="outline" onClick={handleCreateGroup} disabled={creatingGroup}>
+                      {creatingGroup ? "Saving Group..." : "Save Group"}
+                    </Button>
+                  </div>
                 </div>
               ) : null}
 
@@ -543,7 +710,7 @@ export default function ReferralsPage() {
                     ? "Eligible athlete selected"
                     : targetMode === "age_range"
                       ? "Eligible athletes in this age range"
-                      : `Eligible athletes in ${getGroupLabel(groupKey)}`}
+                      : `Eligible athletes in ${selectedReferralGroup?.name ?? "this group"}`}
                 </p>
               </div>
 

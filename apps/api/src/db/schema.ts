@@ -700,6 +700,30 @@ export const chatGroupMessageReactionTable = pgTable(
   })
 );
 
+export const referralGroupTable = pgTable("referral_groups", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar({ length: 255 }).notNull(),
+  expectedSize: integer().notNull().default(0),
+  createdBy: integer().notNull().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
+export const referralGroupMemberTable = pgTable(
+  "referral_group_members",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    groupId: integer().notNull().references(() => referralGroupTable.id),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueAthlete: uniqueIndex("referral_group_members_group_athlete_unique").on(table.groupId, table.athleteId),
+    groupIdx: index("referral_group_members_group_idx").on(table.groupId),
+    athleteIdx: index("referral_group_members_athlete_idx").on(table.athleteId),
+  })
+);
+
 export const bookingTable = pgTable("bookings", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   athleteId: integer().notNull().references(() => athleteTable.id),
