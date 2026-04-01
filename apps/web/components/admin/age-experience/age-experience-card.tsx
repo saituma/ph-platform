@@ -42,7 +42,7 @@ const SECTIONS = [
   { id: "programs", label: "Programs" },
   { id: "videoFeedback", label: "Video Feedback" },
   { id: "foodDiary", label: "Food Diary" },
-  { id: "physioReferrals", label: "Physio Referrals" },
+  { id: "physioReferrals", label: "Referrals" },
   { id: "exerciseLibrary", label: "Exercise Library" },
   { id: "parentPlatform", label: "Parent Platform" },
   { id: "settings", label: "Settings" },

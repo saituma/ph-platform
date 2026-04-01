@@ -1564,7 +1564,7 @@ export async function getDashboardMetrics(coachId: number) {
       detail: `${contentWeek.length} published this week`,
     },
     {
-      label: "Physio Referrals",
+      label: "Referrals",
       value: referralsWeek.length,
       detail: `${referralsWeek.length} issued this week`,
     },

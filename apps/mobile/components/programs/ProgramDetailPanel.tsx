@@ -200,7 +200,7 @@ export function ProgramDetailPanel({
     }
     if (isSectionHidden("physioReferrals")) {
       base = base.filter(
-        (tab) => tab !== "Physio Referral" && tab !== "Physio Referrals",
+        (tab) => tab !== "Physio Referral" && tab !== "Physio Referrals" && tab !== "Referrals",
       );
     }
     return base;
@@ -820,7 +820,7 @@ export function ProgramDetailPanel({
       return <BookingsPanel onOpen={() => onNavigate?.("/(tabs)/schedule")} />;
     }
 
-    if (activeTab === "Physio Referral" || activeTab === "Physio Referrals") {
+    if (activeTab === "Physio Referral" || activeTab === "Physio Referrals" || activeTab === "Referrals") {
       return <PhysioReferralPanel />;
     }
 

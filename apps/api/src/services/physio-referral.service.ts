@@ -13,6 +13,14 @@ export async function getPhysioReferralForAthlete(athleteId: number) {
   return rows[0] ?? null;
 }
 
+export async function getPhysioReferralsForAthlete(athleteId: number) {
+  return db
+    .select()
+    .from(physioRefferalsTable)
+    .where(eq(physioRefferalsTable.athleteId, athleteId))
+    .orderBy(desc(physioRefferalsTable.createdAt));
+}
+
 export async function listPhysioReferrals() {
   return db
     .select({
