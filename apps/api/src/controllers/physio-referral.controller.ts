@@ -27,6 +27,7 @@ const physioMetadataSchema = z.object({
   maxAge: z.number().int().optional().nullable(),
   providerName: z.string().optional().nullable(),
   organizationName: z.string().optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
   physioName: z.string().optional().nullable(),
   clinicName: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
@@ -226,6 +227,7 @@ async function notifyReferralRecipients(input: {
     referralType: string;
     providerName?: string | null;
     organizationName?: string | null;
+    imageUrl?: string | null;
     targetLabel?: string | null;
     referralLink: string;
     discountPercent?: number | null;
@@ -383,6 +385,7 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
       referralType,
       providerName,
       organizationName: getMetadataString(input.metadata ?? null, "organizationName") ?? getMetadataString(input.metadata ?? null, "clinicName"),
+      imageUrl: getMetadataString(input.metadata ?? null, "imageUrl"),
       targetLabel: getMetadataString(input.metadata ?? null, "targetLabel"),
       referralLink: input.referalLink,
       discountPercent: input.discountPercent ?? null,
@@ -401,6 +404,7 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
   const referralType = getReferralTypeLabel(input.metadata ?? null);
   const providerName = getReferralProviderLabel(input.metadata ?? null);
   const organizationName = getMetadataString(input.metadata ?? null, "organizationName") ?? getMetadataString(input.metadata ?? null, "clinicName");
+  const imageUrl = getMetadataString(input.metadata ?? null, "imageUrl");
   const notes = getMetadataString(input.metadata ?? null, "notes");
   const targeting = input.targeting;
   let groupName: string | undefined;
@@ -477,6 +481,7 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
         referralType,
         providerName,
         organizationName,
+        imageUrl,
         targetLabel,
         referralLink: input.referalLink,
         discountPercent: input.discountPercent ?? null,
