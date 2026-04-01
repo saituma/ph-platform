@@ -1,67 +1,70 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 import { ParentShell } from "../../../components/parent/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import { Select } from "../../../components/ui/select";
-import { useEffect, useMemo, useState } from "react";
 import {
   useCreateBookingMutation,
-  useGetBookingServicesQuery,
+  useGetGeneratedBookingAvailabilityQuery,
   useGetUserBookingsQuery,
 } from "../../../lib/apiSlice";
 
+function toDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0));
+}
+
+function endOfMonth(date: Date) {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999));
+}
+
+function titleForType(type?: string) {
+  switch (type) {
+    case "group_call":
+      return "Group Call";
+    case "individual_call":
+    case "one_on_one":
+      return "Individual Call";
+    case "lift_lab_1on1":
+      return "Lift Lab 1:1";
+    case "role_model":
+      return "Premium Call";
+    case "call":
+      return "Call";
+    default:
+      return "Session";
+  }
+}
+
 export default function ParentSchedulePage() {
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  const { data: servicesData, isLoading: servicesLoading } = useGetBookingServicesQuery();
+  const todayKey = toDateKey(today);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(todayKey);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
+  const monthStart = useMemo(() => startOfMonth(calendarMonth), [calendarMonth]);
+  const monthEnd = useMemo(() => endOfMonth(calendarMonth), [calendarMonth]);
+  const { data: availabilityData, isLoading: availabilityLoading, refetch: refetchAvailability } =
+    useGetGeneratedBookingAvailabilityQuery({
+      from: monthStart.toISOString(),
+      to: monthEnd.toISOString(),
+    });
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetUserBookingsQuery();
   const [createBooking, { isLoading: creatingBooking }] = useCreateBookingMutation();
 
-  const services = useMemo(() => servicesData?.items ?? [], [servicesData]);
-  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  });
-  const [selectedTime, setSelectedTime] = useState<string>("09:00");
-  const [location, setLocation] = useState("");
-  const [meetingLink, setMeetingLink] = useState("");
-  const [bookingError, setBookingError] = useState<string | null>(null);
-  const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(todayKey);
-
-  const selectedService = useMemo(
-    () => services.find((service: any) => service.id === selectedServiceId) ?? null,
-    [services, selectedServiceId],
+  const availabilityItems = useMemo(() => availabilityData?.items ?? [], [availabilityData]);
+  const availableDates = useMemo(() => new Set(availabilityItems.map((item: any) => item.dateKey)), [availabilityItems]);
+  const selectedDateItems = useMemo(
+    () => availabilityItems.filter((item: any) => item.dateKey === selectedCalendarDate),
+    [availabilityItems, selectedCalendarDate],
   );
-
-  useEffect(() => {
-    if (!services.length || selectedServiceId) return;
-    setSelectedServiceId(services[0]?.id ?? null);
-  }, [services, selectedServiceId]);
-
-  useEffect(() => {
-    if (selectedService) {
-      setLocation(selectedService.defaultLocation ?? "");
-      setMeetingLink(selectedService.defaultMeetingLink ?? "");
-    }
-  }, [selectedService]);
-
   const bookings = useMemo(() => bookingsData?.items ?? [], [bookingsData]);
-  const eventsByDate = useMemo(() => {
-    const map = new Map<string, any[]>();
-    bookings.forEach((booking: any) => {
-      if (!booking.startsAt) return;
-      const date = new Date(booking.startsAt);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(booking);
-    });
-    return map;
-  }, [bookings]);
 
   const calendarGrid = useMemo(() => {
     const year = calendarMonth.getFullYear();
@@ -73,16 +76,11 @@ export default function ParentSchedulePage() {
     for (let i = 0; i < startOffset; i += 1) cells.push(null);
     for (let day = 1; day <= lastDay.getDate(); day += 1) {
       const date = new Date(year, month, day);
-      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      cells.push({ date, key });
+      cells.push({ date, key: toDateKey(date) });
     }
     while (cells.length % 7 !== 0) cells.push(null);
     return cells;
   }, [calendarMonth]);
-
-  const selectedDayEvents = useMemo(() => {
-    return eventsByDate.get(selectedCalendarDate) ?? [];
-  }, [eventsByDate, selectedCalendarDate]);
 
   const upcomingBookings = useMemo(() => {
     const now = new Date();
@@ -91,36 +89,36 @@ export default function ParentSchedulePage() {
       .sort((a: any, b: any) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   }, [bookings]);
 
-  const titleForType = (type?: string) => {
-    switch (type) {
-      case "group_call":
-        return "Group Call";
-      case "individual_call":
-      case "one_on_one":
-        return "Individual Call";
-      case "lift_lab_1on1":
-        return "Lift Lab 1:1";
-      case "role_model":
-        return "Role Model Call";
-      case "call":
-        return "Call";
-      default:
-        return "Session";
+  const handleRequest = async (item: any, slotKey?: string) => {
+    setBookingError(null);
+    setBookingSuccess(null);
+    try {
+      await createBooking({
+        serviceTypeId: item.serviceTypeId,
+        occurrenceKey: item.occurrenceKey,
+        slotKey,
+        location: item.location ?? undefined,
+        meetingLink: item.meetingLink ?? undefined,
+      }).unwrap();
+      setBookingSuccess("Request sent. Your coach will review it.");
+      await Promise.all([refetchBookings(), refetchAvailability()]);
+    } catch (error: any) {
+      const message =
+        error?.data?.error ??
+        error?.error ??
+        error?.message ??
+        "Failed to submit booking request.";
+      setBookingError(message);
     }
   };
 
   return (
     <ParentShell
       title="Schedule"
-      subtitle="Upcoming sessions and booking requests."
+      subtitle="Choose from coach-published sessions and send a request."
       actions={
-        <Button
-          onClick={() => {
-            setSelectedDate(selectedCalendarDate);
-            document.getElementById("booking-panel")?.scrollIntoView({ behavior: "smooth" });
-          }}
-        >
-          Book Session
+        <Button onClick={() => document.getElementById("booking-panel")?.scrollIntoView({ behavior: "smooth" })}>
+          View Availability
         </Button>
       }
     >
@@ -130,84 +128,11 @@ export default function ParentSchedulePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Pick a session type, choose any date and time, and send the request. The coach confirms before it&apos;s final.
+            Your coach publishes the dates and session types you can request. Pick a marked date on the calendar, then
+            choose the session or slot you want.
           </p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Select
-              value={selectedServiceId ? String(selectedServiceId) : ""}
-              onChange={(event) => setSelectedServiceId(Number(event.target.value))}
-              disabled={servicesLoading || services.length === 0}
-            >
-              <option value="">Select service</option>
-              {services.map((service: any) => (
-                <option key={service.id} value={String(service.id)}>
-                  {service.name}
-                  {service.capacity ? ` • ${service.capacity} max` : ""}
-                </option>
-              ))}
-            </Select>
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
-            />
-          </div>
-
-          <Input
-            type="time"
-            value={selectedTime}
-            onChange={(event) => setSelectedTime(event.target.value)}
-          />
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <Input
-              placeholder="Location (optional)"
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-            />
-            <Input
-              placeholder="Meeting link (optional)"
-              value={meetingLink}
-              onChange={(event) => setMeetingLink(event.target.value)}
-            />
-          </div>
-
           {bookingError ? <p className="text-sm text-red-500">{bookingError}</p> : null}
           {bookingSuccess ? <p className="text-sm text-green-600">{bookingSuccess}</p> : null}
-
-          <Button
-            disabled={!selectedService || !selectedDate || !selectedTime || creatingBooking}
-            onClick={async () => {
-              if (!selectedService || !selectedDate || !selectedTime) {
-                setBookingError("Select a service, date, and time.");
-                return;
-              }
-              setBookingError(null);
-              setBookingSuccess(null);
-              try {
-                const startsAt = new Date(`${selectedDate}T${selectedTime}:00`);
-                if (Number.isNaN(startsAt.getTime())) {
-                  setBookingError("Invalid date or time.");
-                  return;
-                }
-                const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
-                await createBooking({
-                  serviceTypeId: selectedService.id,
-                  startsAt: startsAt.toISOString(),
-                  endsAt: endsAt.toISOString(),
-                  timezoneOffsetMinutes: startsAt.getTimezoneOffset(),
-                  location: location || undefined,
-                  meetingLink: meetingLink || undefined,
-                }).unwrap();
-                setBookingSuccess("Request sent. Your coach will confirm it.");
-                await refetchBookings();
-              } catch (err: any) {
-                setBookingError(err?.message ?? "Failed to submit booking.");
-              }
-            }}
-          >
-            Send request
-          </Button>
         </CardContent>
       </Card>
 
@@ -244,12 +169,10 @@ export default function ParentSchedulePage() {
 
           <div className="grid grid-cols-7 gap-2">
             {calendarGrid.map((cell, index) => {
-              if (!cell) {
-                return <div key={`empty-${index}`} className="h-10" />;
-              }
+              if (!cell) return <div key={`empty-${index}`} className="h-10" />;
               const isSelected = cell.key === selectedCalendarDate;
               const isToday = cell.key === todayKey;
-              const hasEvents = eventsByDate.has(cell.key);
+              const hasAvailability = availableDates.has(cell.key);
               return (
                 <Button
                   key={cell.key}
@@ -257,14 +180,13 @@ export default function ParentSchedulePage() {
                   className={`h-10 w-full ${isToday ? "border-primary" : ""}`}
                   onClick={() => {
                     setSelectedCalendarDate(cell.key);
-                    setSelectedDate(cell.key);
                     setBookingError(null);
                     setBookingSuccess(null);
                   }}
                 >
                   <span className="flex flex-col items-center justify-center gap-1">
                     <span>{cell.date.getDate()}</span>
-                    {hasEvents ? <span className="h-1 w-1 rounded-full bg-primary" /> : null}
+                    {hasAvailability ? <span className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
                   </span>
                 </Button>
               );
@@ -275,39 +197,68 @@ export default function ParentSchedulePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Sessions on Selected Date</CardTitle>
+          <CardTitle>Available on Selected Date</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          {bookingsLoading ? (
-            <p>Loading bookings...</p>
-          ) : selectedDayEvents.length === 0 ? (
-            <div className="flex flex-col gap-2">
-              <p>No sessions scheduled for this date.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => document.getElementById("booking-panel")?.scrollIntoView({ behavior: "smooth" })}
-              >
-                Book this date
-              </Button>
-            </div>
+          {availabilityLoading ? (
+            <p>Loading availability...</p>
+          ) : selectedDateItems.length === 0 ? (
+            <p>No coach-published sessions for this date yet.</p>
           ) : (
-            selectedDayEvents.map((booking: any) => {
-              const start = booking.startsAt ? new Date(booking.startsAt) : null;
-              const time = start ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-              const title = titleForType(booking.type);
-              const status = (booking.status ?? "pending").toString();
+            selectedDateItems.map((item: any) => {
+              const start = new Date(item.startsAt);
+              const time = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+              const title = item.serviceName || titleForType(item.type);
+              const hasSlots = Array.isArray(item.slots) && item.slots.length > 0;
               return (
-                <div key={booking.id} className="rounded-2xl border border-border bg-secondary/40 p-4 text-foreground">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold">{title}</span>
-                    <span className="text-xs text-muted-foreground uppercase tracking-[0.2em]">
-                      {status}
-                    </span>
+                <div key={`${item.serviceTypeId}-${item.occurrenceKey}`} className="rounded-2xl border border-border bg-secondary/40 p-4 text-foreground">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold">{title}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        {time}
+                        {item.location ? ` • ${item.location}` : ""}
+                      </div>
+                      <div className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        {item.remainingCapacity == null ? "Open request" : `${item.remainingCapacity} spot${item.remainingCapacity === 1 ? "" : "s"} left`}
+                      </div>
+                    </div>
+                    {!hasSlots ? (
+                      <Button
+                        disabled={creatingBooking || (item.remainingCapacity != null && item.remainingCapacity <= 0)}
+                        onClick={() => handleRequest(item)}
+                      >
+                        Request
+                      </Button>
+                    ) : null}
                   </div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    {time ? `Starts at ${time}` : "Time TBD"}
-                  </div>
+
+                  {hasSlots ? (
+                    <div className="mt-4 space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Available slots
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {item.slots.map((slot: any) => {
+                          const slotStart = new Date(slot.startsAt);
+                          const slotTime = slotStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                          const disabled = slot.remainingCapacity != null && slot.remainingCapacity <= 0;
+                          return (
+                            <Button
+                              key={slot.slotKey}
+                              size="sm"
+                              variant="outline"
+                              disabled={creatingBooking || disabled}
+                              onClick={() => handleRequest(item, slot.slotKey)}
+                            >
+                              {slotTime}
+                              {slot.remainingCapacity != null ? ` • ${slot.remainingCapacity}` : ""}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               );
             })
@@ -331,15 +282,13 @@ export default function ParentSchedulePage() {
                 ? start.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })
                 : "TBD";
               const time = start ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-              const title = titleForType(booking.type);
+              const title = booking.serviceName || titleForType(booking.type);
               const status = (booking.status ?? "pending").toString();
               return (
                 <div key={booking.id} className="rounded-2xl border border-border bg-secondary/40 p-4 text-foreground">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold">{title}</span>
-                    <span className="text-xs text-muted-foreground uppercase tracking-[0.2em]">
-                      {status}
-                    </span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{status}</span>
                   </div>
                   <div className="mt-2 text-sm text-muted-foreground">
                     {label} {time ? `• ${time}` : ""}

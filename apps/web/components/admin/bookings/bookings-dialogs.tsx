@@ -42,6 +42,16 @@ type ServiceType = {
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;
   programTier?: string | null;
+  eligiblePlans?: string[] | null;
+  schedulePattern?: string | null;
+  recurrenceEndMode?: string | null;
+  recurrenceCount?: number | null;
+  weeklyEntries?: { weekday: number; time: string }[] | null;
+  oneTimeDate?: string | null;
+  oneTimeTime?: string | null;
+  slotMode?: string | null;
+  slotIntervalMinutes?: number | null;
+  slotDefinitions?: { time: string; capacity?: number | null }[] | null;
   isActive?: boolean | null;
 };
 
@@ -138,6 +148,16 @@ export function BookingsDialogs({
   const [durationMinutes, setDurationMinutes] = useState("");
   const [capacity, setCapacity] = useState("");
   const [programTier, setProgramTier] = useState("");
+  const [eligiblePlans, setEligiblePlans] = useState<string[]>([]);
+  const [schedulePattern, setSchedulePattern] = useState("one_time");
+  const [recurrenceEndMode, setRecurrenceEndMode] = useState("forever");
+  const [recurrenceCount, setRecurrenceCount] = useState("");
+  const [weeklyEntries, setWeeklyEntries] = useState<Array<{ weekday: string; time: string }>>([{ weekday: "1", time: "" }]);
+  const [oneTimeDate, setOneTimeDate] = useState("");
+  const [oneTimeTime, setOneTimeTime] = useState("");
+  const [slotMode, setSlotMode] = useState("shared_capacity");
+  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState("");
+  const [slotDefinitions, setSlotDefinitions] = useState<Array<{ time: string; capacity: string }>>([{ time: "", capacity: "" }]);
   const [attendeeVisibility, setAttendeeVisibility] = useState(true);
   const [defaultLocation, setDefaultLocation] = useState("");
   const [defaultVideoLink, setDefaultVideoLink] = useState("");
@@ -164,6 +184,16 @@ export function BookingsDialogs({
       setDurationMinutes("");
       setCapacity("");
       setProgramTier("");
+      setEligiblePlans([]);
+      setSchedulePattern("one_time");
+      setRecurrenceEndMode("forever");
+      setRecurrenceCount("");
+      setWeeklyEntries([{ weekday: "1", time: "" }]);
+      setOneTimeDate("");
+      setOneTimeTime("");
+      setSlotMode("shared_capacity");
+      setSlotIntervalMinutes("");
+      setSlotDefinitions([{ time: "", capacity: "" }]);
       setAttendeeVisibility(true);
       setDefaultLocation("");
       setDefaultVideoLink("");
@@ -192,6 +222,30 @@ export function BookingsDialogs({
       setDurationMinutes(String(selectedService.durationMinutes ?? 30));
       setCapacity(selectedService.capacity ? String(selectedService.capacity) : "");
       setProgramTier(selectedService.programTier ?? "");
+      setEligiblePlans(selectedService.eligiblePlans ?? (selectedService.programTier ? [selectedService.programTier] : []));
+      setSchedulePattern(selectedService.schedulePattern ?? "one_time");
+      setRecurrenceEndMode(selectedService.recurrenceEndMode ?? "forever");
+      setRecurrenceCount(selectedService.recurrenceCount ? String(selectedService.recurrenceCount) : "");
+      setWeeklyEntries(
+        selectedService.weeklyEntries?.length
+          ? selectedService.weeklyEntries.map((entry) => ({
+              weekday: String(entry.weekday),
+              time: entry.time,
+            }))
+          : [{ weekday: "1", time: "" }],
+      );
+      setOneTimeDate(selectedService.oneTimeDate ?? "");
+      setOneTimeTime(selectedService.oneTimeTime ?? "");
+      setSlotMode(selectedService.slotMode ?? "shared_capacity");
+      setSlotIntervalMinutes(selectedService.slotIntervalMinutes ? String(selectedService.slotIntervalMinutes) : "");
+      setSlotDefinitions(
+        selectedService.slotDefinitions?.length
+          ? selectedService.slotDefinitions.map((slot) => ({
+              time: slot.time,
+              capacity: slot.capacity ? String(slot.capacity) : "",
+            }))
+          : [{ time: "", capacity: "" }],
+      );
       setAttendeeVisibility(selectedService.attendeeVisibility ?? true);
       setDefaultLocation(selectedService.defaultLocation ?? "");
       setDefaultVideoLink("");
@@ -311,15 +365,184 @@ export function BookingsDialogs({
                   }}
                 />
                 <div className="text-xs text-muted-foreground">
-                  Total number of active bookings allowed for this service. This is required for every service.
+                  Capacity is used for shared-capacity services and can also backfill exact slots.
                 </div>
               </div>
-              <Select value={programTier} onChange={(e) => setProgramTier(e.target.value)}>
-                <option value="">Program tier (optional)</option>
-                <option value="PHP">PHP</option>
-                <option value="PHP_Plus">PHP Plus</option>
-                <option value="PHP_Premium">PHP Premium</option>
+              <div className="space-y-2 rounded-2xl border border-border bg-secondary/20 p-4">
+                <p className="text-sm font-semibold text-foreground">Eligible plans</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[
+                    { value: "PHP", label: "PHP" },
+                    { value: "PHP_Plus", label: "PHP Plus" },
+                    { value: "PHP_Premium", label: "PHP Premium" },
+                  ].map((plan) => (
+                    <label key={plan.value} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={eligiblePlans.includes(plan.value)}
+                        onChange={(event) => {
+                          if (event.target.checked) {
+                            setEligiblePlans((current) => [...new Set([...current, plan.value])]);
+                          } else {
+                            setEligiblePlans((current) => current.filter((item) => item !== plan.value));
+                          }
+                        }}
+                      />
+                      {plan.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <Select value={schedulePattern} onChange={(e) => setSchedulePattern(e.target.value)}>
+                <option value="one_time">One-time service</option>
+                <option value="weekly_recurring">Weekly recurring</option>
               </Select>
+              {schedulePattern === "one_time" ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input type="date" value={oneTimeDate} onChange={(e) => setOneTimeDate(e.target.value)} />
+                  <Input type="time" value={oneTimeTime} onChange={(e) => setOneTimeTime(e.target.value)} />
+                </div>
+              ) : (
+                <div className="space-y-3 rounded-2xl border border-border bg-secondary/20 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">Weekly schedule</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setWeeklyEntries((current) => [...current, { weekday: "1", time: "" }])}
+                    >
+                      Add day
+                    </Button>
+                  </div>
+                  {weeklyEntries.map((entry, index) => (
+                    <div key={`weekly-${index}`} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                      <Select
+                        value={entry.weekday}
+                        onChange={(e) =>
+                          setWeeklyEntries((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, weekday: e.target.value } : item,
+                            ),
+                          )
+                        }
+                      >
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                        <option value="7">Sunday</option>
+                      </Select>
+                      <Input
+                        type="time"
+                        value={entry.time}
+                        onChange={(e) =>
+                          setWeeklyEntries((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, time: e.target.value } : item,
+                            ),
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={weeklyEntries.length === 1}
+                        onClick={() =>
+                          setWeeklyEntries((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Select value={recurrenceEndMode} onChange={(e) => setRecurrenceEndMode(e.target.value)}>
+                      <option value="forever">Repeat until disabled</option>
+                      <option value="weeks">Repeat for weeks</option>
+                      <option value="months">Repeat for months</option>
+                    </Select>
+                    {recurrenceEndMode === "forever" ? null : (
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder={recurrenceEndMode === "weeks" ? "Number of weeks" : "Number of months"}
+                        value={recurrenceCount}
+                        onChange={(e) => setRecurrenceCount(e.target.value)}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+              <Select value={slotMode} onChange={(e) => setSlotMode(e.target.value)}>
+                <option value="shared_capacity">Shared capacity</option>
+                <option value="exact_sub_slots">Exact sub-slots</option>
+                <option value="both">Both shared and exact slots</option>
+              </Select>
+              {slotMode === "shared_capacity" ? null : (
+                <div className="space-y-3 rounded-2xl border border-border bg-secondary/20 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">Bookable slots</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSlotDefinitions((current) => [...current, { time: "", capacity: "" }])}
+                    >
+                      Add slot
+                    </Button>
+                  </div>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Slot interval in minutes (optional)"
+                    value={slotIntervalMinutes}
+                    onChange={(e) => setSlotIntervalMinutes(e.target.value)}
+                  />
+                  {slotDefinitions.map((slot, index) => (
+                    <div key={`slot-${index}`} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                      <Input
+                        type="time"
+                        value={slot.time}
+                        onChange={(e) =>
+                          setSlotDefinitions((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, time: e.target.value } : item,
+                            ),
+                          )
+                        }
+                      />
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Capacity"
+                        value={slot.capacity}
+                        onChange={(e) =>
+                          setSlotDefinitions((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, capacity: e.target.value } : item,
+                            ),
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={slotDefinitions.length === 1}
+                        onClick={() =>
+                          setSlotDefinitions((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input
                   type="checkbox"
@@ -351,37 +574,77 @@ export function BookingsDialogs({
                 <Button
                   onClick={async () => {
                     setError(null);
-                    if (!capacity) {
-                      setError("Slots available is required.");
+                    if (!serviceName.trim()) {
+                      setError("Service name is required.");
+                      return;
+                    }
+                    if (!durationMinutes) {
+                      setError("Duration is required.");
+                      return;
+                    }
+                    if (schedulePattern === "one_time" && (!oneTimeDate || !oneTimeTime)) {
+                      setError("Set the one-time date and time.");
+                      return;
+                    }
+                    if (
+                      schedulePattern === "weekly_recurring" &&
+                      weeklyEntries.some((entry) => !entry.weekday || !entry.time)
+                    ) {
+                      setError("Each weekly row needs a day and time.");
+                      return;
+                    }
+                    if (recurrenceEndMode !== "forever" && !recurrenceCount) {
+                      setError("Set how long the recurring service should run.");
+                      return;
+                    }
+                    if (slotMode !== "shared_capacity" && slotDefinitions.some((slot) => !slot.time && !slot.capacity)) {
+                      setError("Each slot row needs at least a time.");
                       return;
                     }
                     try {
+                      const normalizedEligiblePlans =
+                        serviceType === "role_model"
+                          ? ["PHP_Premium"]
+                          : eligiblePlans;
+                      const weeklyPayload = weeklyEntries
+                        .filter((entry) => entry.time)
+                        .map((entry) => ({ weekday: Number(entry.weekday), time: entry.time }));
+                      const slotPayload = slotDefinitions
+                        .filter((slot) => slot.time)
+                        .map((slot) => ({
+                          time: slot.time,
+                          capacity: slot.capacity ? Number(slot.capacity) : undefined,
+                        }));
+                      const payload = {
+                        name: serviceName,
+                        type: serviceType,
+                        durationMinutes: Number(durationMinutes),
+                        capacity: capacity ? Number(capacity) : undefined,
+                        attendeeVisibility,
+                        defaultLocation: defaultLocation || undefined,
+                        defaultMeetingLink: undefined,
+                        programTier: serviceType === "role_model" ? "PHP_Premium" : programTier || undefined,
+                        eligiblePlans: normalizedEligiblePlans,
+                        schedulePattern,
+                        recurrenceEndMode: schedulePattern === "weekly_recurring" ? recurrenceEndMode : undefined,
+                        recurrenceCount:
+                          schedulePattern === "weekly_recurring" && recurrenceEndMode !== "forever" && recurrenceCount
+                            ? Number(recurrenceCount)
+                            : undefined,
+                        weeklyEntries: schedulePattern === "weekly_recurring" ? weeklyPayload : undefined,
+                        oneTimeDate: schedulePattern === "one_time" ? oneTimeDate : undefined,
+                        oneTimeTime: schedulePattern === "one_time" ? oneTimeTime : undefined,
+                        slotMode,
+                        slotIntervalMinutes: slotIntervalMinutes ? Number(slotIntervalMinutes) : undefined,
+                        slotDefinitions: slotMode === "shared_capacity" ? undefined : slotPayload,
+                        isActive: serviceIsActive,
+                      };
                       if (active === "new-service") {
-                        await createService({
-                          name: serviceName,
-                          type: serviceType,
-                          durationMinutes: Number(durationMinutes),
-                          capacity: Number(capacity),
-                          attendeeVisibility,
-                          defaultLocation: defaultLocation || undefined,
-                          defaultMeetingLink: undefined,
-                          programTier: programTier || undefined,
-                          isActive: serviceIsActive,
-                        }).unwrap();
+                        await createService(payload).unwrap();
                       } else if (active === "edit-service" && selectedService) {
                         await updateService({
                           id: selectedService.id,
-                          data: {
-                            name: serviceName,
-                            type: serviceType,
-                            durationMinutes: Number(durationMinutes),
-                            capacity: Number(capacity),
-                            attendeeVisibility,
-                            defaultLocation: defaultLocation || null,
-                            defaultMeetingLink: null,
-                            programTier: programTier || null,
-                            isActive: serviceIsActive,
-                          },
+                          data: payload,
                         }).unwrap();
                       }
                       onRefresh?.();
