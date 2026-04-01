@@ -14,10 +14,13 @@ export function PhysioReferralPanel() {
   const [referral, setReferral] = useState<{
     referalLink?: string | null;
     discountPercent?: number | null;
-    metadata?: {
-      physioName?: string | null;
-      clinicName?: string | null;
-      location?: string | null;
+      metadata?: {
+        referralType?: string | null;
+        providerName?: string | null;
+        organizationName?: string | null;
+        physioName?: string | null;
+        clinicName?: string | null;
+        location?: string | null;
       phone?: string | null;
       specialty?: string | null;
     } | null;
@@ -63,26 +66,30 @@ export function PhysioReferralPanel() {
     : null;
   const referralLink = referral?.referalLink ?? null;
   const statusCopy = referralLink
-    ? "Your referral is ready. Tap to book your physio session."
+    ? "Your referral is ready. Tap to open the link your coach shared."
     : "A referral link will appear here once your coach activates it.";
 
   const meta = referral?.metadata ?? {};
-  const hasMeta = !!(meta.physioName || meta.location || meta.phone);
+  const hasMeta = !!(meta.providerName || meta.organizationName || meta.physioName || meta.clinicName || meta.location || meta.phone);
+  const providerLabel = meta.providerName || meta.physioName || "Referral Partner";
+  const organizationLabel = meta.organizationName || meta.clinicName || null;
+  const referralTypeLabel = meta.referralType || "Referral";
 
   return (
     <ProgramPanelCard>
-      <Text className="text-lg font-clash text-app font-bold mb-2">Physio Referral</Text>
+      <Text className="text-lg font-clash text-app font-bold mb-2">Referrals</Text>
       <Text className="text-sm font-outfit text-secondary leading-relaxed">
-        Access our trusted physio partners for injuries and recovery support.
+        Access the latest coach referral you have been assigned.
       </Text>
 
       {hasMeta && (
         <View className="mt-4 rounded-2xl bg-secondary/10 px-4 py-4 space-y-2">
-          {meta.physioName && (
-            <Text className="text-sm font-clash font-bold text-app">{meta.physioName}</Text>
-          )}
-          {meta.clinicName && (
-            <Text className="text-xs font-outfit text-secondary">{meta.clinicName}</Text>
+          <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[2px] font-bold">
+            {referralTypeLabel}
+          </Text>
+          <Text className="text-sm font-clash font-bold text-app">{providerLabel}</Text>
+          {organizationLabel && (
+            <Text className="text-xs font-outfit text-secondary">{organizationLabel}</Text>
           )}
           {meta.location && (
             <View className="flex-row items-center gap-2 mt-1">

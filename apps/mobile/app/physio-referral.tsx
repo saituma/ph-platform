@@ -12,6 +12,9 @@ import { useAppSelector } from "@/store/hooks";
 import { useSocket } from "@/context/SocketContext";
 
 type PhysioMetadata = {
+  referralType?: string | null;
+  providerName?: string | null;
+  organizationName?: string | null;
   physioName?: string | null;
   clinicName?: string | null;
   location?: string | null;
@@ -43,7 +46,7 @@ export default function PhysioReferralScreen() {
       const data = await apiRequest<{ item?: any }>("/physio-referral", { token });
       setReferral(data.item ?? null);
     } catch (err: any) {
-      setError(err?.message ?? "Failed to load physio referral.");
+      setError(err?.message ?? "Failed to load referral.");
     } finally {
       setLoading(false);
     }
@@ -70,16 +73,29 @@ export default function PhysioReferralScreen() {
   }, [loadReferral, socket]);
 
   const meta = referral?.metadata ?? {};
-  const hasMeta = !!(meta.physioName || meta.clinicName || meta.location || meta.phone || meta.email || meta.specialty || meta.notes);
+  const hasMeta = !!(
+    meta.providerName ||
+    meta.organizationName ||
+    meta.physioName ||
+    meta.clinicName ||
+    meta.location ||
+    meta.phone ||
+    meta.email ||
+    meta.specialty ||
+    meta.notes
+  );
   const referralLink = referral?.referalLink;
+  const referralTypeLabel = meta.referralType || "Referral";
+  const providerLabel = meta.providerName || meta.physioName || "Referral Partner";
+  const organizationLabel = meta.organizationName || meta.clinicName || null;
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }} onRefresh={loadReferral}>
         <MoreStackHeader
-          title="Physio Referral"
-          subtitle="Access your rehab partner, clinic details, and referral perks in a more premium surface."
-          badge="Recovery"
+          title="Referrals"
+          subtitle="Access the latest referral your coach has assigned, along with contact details and any partner perks."
+          badge={referralTypeLabel}
           onBack={() => router.back()}
         />
 
@@ -101,7 +117,7 @@ export default function PhysioReferralScreen() {
               </View>
               <Text className="text-lg font-clash text-white font-bold mb-2 text-center">No Referral Yet</Text>
               <Text className="text-sm font-outfit text-secondary text-center leading-relaxed">
-                Your coach has not assigned a physio referral for you yet. They will notify you when one is ready.
+                Your coach has not assigned a referral for you yet. They will notify you when one is ready.
               </Text>
             </View>
           ) : (
@@ -112,7 +128,7 @@ export default function PhysioReferralScreen() {
                   <Feather name="activity" size={120} color="#FFFFFF" />
                 </View>
                 
-                <Text className="text-2xl font-clash text-white font-bold mb-2">Book Session</Text>
+                <Text className="text-2xl font-clash text-white font-bold mb-2">Open Referral</Text>
                 
                 {referral.discountPercent ? (
                   <View className="mb-6 flex-row items-center gap-2">
@@ -122,12 +138,12 @@ export default function PhysioReferralScreen() {
                       </Text>
                     </View>
                     <Text className="text-xs font-outfit text-white/80">
-                      Applied via your referral link.
+                      Included with this referral link.
                     </Text>
                   </View>
                 ) : (
                   <Text className="mb-6 text-sm font-outfit text-white/90">
-                    Use your preferred referral link below.
+                    Use your referral link below.
                   </Text>
                 )}
 
@@ -139,7 +155,7 @@ export default function PhysioReferralScreen() {
                   disabled={!referralLink}
                 >
                   <Text className={`text-base font-outfit font-bold ${referralLink ? "text-[#1F6F45]" : "text-white"}`}>
-                    {referralLink ? "Open Booking Link" : "Link not available"}
+                    {referralLink ? "Open Referral Link" : "Link not available"}
                   </Text>
                   {referralLink && <Feather name="external-link" size={18} color="#1F6F45" />}
                 </Pressable>
@@ -154,14 +170,14 @@ export default function PhysioReferralScreen() {
                     </View>
                     <View className="flex-1">
                       <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[2px] font-bold">
-                        Partner Physio
+                        {referralTypeLabel}
                       </Text>
                       <Text className="text-lg font-clash text-app font-bold mt-0.5" numberOfLines={1}>
-                        {meta.physioName || "Physio Team"}
+                        {providerLabel}
                       </Text>
-                      {meta.clinicName && (
+                      {organizationLabel && (
                         <Text className="text-xs font-outfit text-secondary mt-0.5" numberOfLines={1}>
-                          {meta.clinicName}
+                          {organizationLabel}
                         </Text>
                       )}
                     </View>

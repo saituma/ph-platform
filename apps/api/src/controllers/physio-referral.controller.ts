@@ -6,6 +6,7 @@ import {
   createPhysioReferral,
   deletePhysioReferral,
   getPhysioReferralForAthlete,
+  getPhysioReferralsForAthlete,
   listPhysioReferrals,
   updatePhysioReferral,
 } from "../services/physio-referral.service";
@@ -16,6 +17,9 @@ import { getSocketServer } from "../socket-hub";
 import { sendPushNotification } from "../services/push.service";
 
 const physioMetadataSchema = z.object({
+  referralType: z.string().optional().nullable(),
+  providerName: z.string().optional().nullable(),
+  organizationName: z.string().optional().nullable(),
   physioName: z.string().optional().nullable(),
   clinicName: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
@@ -52,6 +56,30 @@ const updatePhysioSchema = z.object({
 });
 
 const ELIGIBLE_TIERS = new Set(["PHP_Plus", "PHP_Premium"]);
+
+function normalizeReferralType(value?: string | null) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function getMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string
+) {
+  const value = metadata?.[key];
+  return typeof value === "string" ? value : null;
+}
+
+function getReferralTypeLabel(metadata?: Record<string, unknown> | null) {
+  const rawType = getMetadataString(metadata, "referralType");
+  return rawType?.trim() || "General";
+}
+
+function getReferralProviderLabel(metadata?: Record<string, unknown> | null) {
+  const providerName = getMetadataString(metadata, "providerName") ?? getMetadataString(metadata, "physioName");
+  return providerName?.trim() || null;
+}
 
 async function resolveReferralRecipientUserIds(athleteId: number) {
   const rows = await db
@@ -118,7 +146,7 @@ async function notifyReferralRecipients(input: {
     if (input.sendPush) {
       await Promise.all(
         recipientUserIds.map((userId) =>
-          sendPushNotification(userId, "Physio referral", input.content, {
+          sendPushNotification(userId, "Referral", input.content, {
             type: "physio-referral",
             screen: "physio-referral",
             url: "/physio-referral",
@@ -162,11 +190,18 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     .limit(1);
   const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
   if (!athleteTier || !ELIGIBLE_TIERS.has(athleteTier)) {
-    return res.status(400).json({ error: "Physio referrals are only available for PHP Plus and PHP Premium athletes." });
+    return res.status(400).json({ error: "Referrals are only available for PHP Plus and PHP Premium athletes." });
   }
-  const existing = await getPhysioReferralForAthlete(input.athleteId);
-  if (existing) {
-    return res.status(409).json({ error: "Referral already exists for this athlete" });
+  const nextReferralType = normalizeReferralType(input.metadata?.referralType);
+  const existingEntries = await getPhysioReferralsForAthlete(input.athleteId);
+  const duplicate = existingEntries.find((item) => {
+    const existingType = normalizeReferralType(
+      getMetadataString(item.metadata as Record<string, unknown> | null, "referralType")
+    );
+    return existingType === nextReferralType;
+  });
+  if (duplicate) {
+    return res.status(409).json({ error: "A referral of this type already exists for this athlete" });
   }
   const item = await createPhysioReferral({
     athleteId: input.athleteId,
@@ -177,11 +212,11 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     createdBy: req.user.id,
   });
 
-  // Send notification to the athlete
-  const physioName = (input.metadata as any)?.physioName;
-  const notifContent = physioName
-    ? `You have a new physio referral from ${physioName}. Tap to view.`
-    : "You have a new physio referral. Tap to view.";
+  const referralType = getReferralTypeLabel(input.metadata ?? null);
+  const providerName = getReferralProviderLabel(input.metadata ?? null);
+  const notifContent = providerName
+    ? `You have a new ${referralType} referral from ${providerName}. Tap to view.`
+    : `You have a new ${referralType} referral. Tap to view.`;
   await notifyReferralRecipients({
     athleteId: input.athleteId,
     content: notifContent,
@@ -213,7 +248,21 @@ export async function updatePhysioReferralAdmin(req: Request, res: Response) {
     .limit(1);
   const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
   if (!athleteTier || !ELIGIBLE_TIERS.has(athleteTier)) {
-    return res.status(400).json({ error: "Physio referrals are only available for PHP Plus and PHP Premium athletes." });
+    return res.status(400).json({ error: "Referrals are only available for PHP Plus and PHP Premium athletes." });
+  }
+  if (input.metadata) {
+    const nextReferralType = normalizeReferralType(input.metadata.referralType);
+    const existingEntries = await getPhysioReferralsForAthlete(athleteId);
+    const duplicate = existingEntries.find((item) => {
+      if (item.id === id) return false;
+      const existingType = normalizeReferralType(
+        getMetadataString(item.metadata as Record<string, unknown> | null, "referralType")
+      );
+      return existingType === nextReferralType;
+    });
+    if (duplicate) {
+      return res.status(409).json({ error: "A referral of this type already exists for this athlete" });
+    }
   }
   const updated = await updatePhysioReferral({
     id,
@@ -227,7 +276,7 @@ export async function updatePhysioReferralAdmin(req: Request, res: Response) {
   }
   await notifyReferralRecipients({
     athleteId: updated.athleteId,
-    content: "Your physio referral has been updated. Tap to view.",
+    content: `Your ${getReferralTypeLabel(updated.metadata as Record<string, unknown> | null)} referral has been updated. Tap to view.`,
     link: updated.referalLink,
     referralId: updated.id,
     event: "updated",
@@ -243,7 +292,7 @@ export async function deletePhysioReferralAdmin(req: Request, res: Response) {
   }
   await notifyReferralRecipients({
     athleteId: deleted.athleteId,
-    content: "Your physio referral has been removed.",
+    content: "One of your referrals has been removed.",
     link: null,
     referralId: deleted.id,
     event: "deleted",

@@ -180,11 +180,11 @@ export function AdminSidebarContent({
     {
       id: "schedule",
       title: "Schedule & athlete care",
-      description: "Bookings, food diary, physio referrals",
+      description: "Bookings, food diary, referrals",
       items: [
         { label: "Schedule", href: "/bookings", icon: CalendarDays },
         { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
-        { label: "Physio Referrals", href: "/physio-referrals", icon: Stethoscope },
+        { label: "Referrals", href: "/physio-referrals", icon: Stethoscope },
       ],
     },
     {

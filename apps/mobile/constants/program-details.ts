@@ -44,7 +44,7 @@ export function normalizeProgramTabLabel(tab: string): string {
 }
 
 export const PROGRAM_TABS: Record<ProgramId, string[]> = {
-  php: ["Program", WARM_UP_TAB, COOL_DOWN_TAB, "Book In", "Physio Referral"],
+  php: ["Program", WARM_UP_TAB, COOL_DOWN_TAB, "Book In", "Referrals"],
   plus: [
     "Program",
     WARM_UP_TAB,
@@ -53,7 +53,7 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
     "Off Season Program",
     "Parent Education",
     "Nutrition & Food Diaries",
-    "Physio Referrals",
+    "Referrals",
   ],
   premium: [
     "Program",

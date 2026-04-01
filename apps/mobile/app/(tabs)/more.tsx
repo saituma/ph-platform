@@ -336,7 +336,7 @@ export default function MoreScreen() {
                   {canAccessTier(programTier ?? null, "PHP_Plus") ? (
                     <MenuItem
                       icon="activity"
-                      label="Physio Referral"
+                      label="Referrals"
                       isLast={false}
                       onPress={() => router.push("/physio-referral")}
                       accentColor={colors.accent}
