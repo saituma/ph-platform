@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
@@ -200,7 +201,7 @@ export function AdminSidebarContent({
   return (
     <div className="flex h-full flex-col gap-6">
       <div className={cn("px-2", collapsed ? "text-center" : undefined)}>
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 transition hover:opacity-80">
           <img src="/ph.jpg" alt="PH Performance" className="h-10 w-10 rounded-sm object-cover" />
           {collapsed ? null : (
             <div className="border-l border-border pl-3">
@@ -210,7 +211,7 @@ export function AdminSidebarContent({
               </p>
             </div>
           )}
-        </div>
+        </Link>
       </div>
       <AdminNavGrouped groups={navGroups} currentPath={currentPath} collapsed={collapsed} />
       {collapsed ? null : (
