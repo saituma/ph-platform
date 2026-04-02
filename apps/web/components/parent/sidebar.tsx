@@ -40,9 +40,7 @@ export function ParentSidebarContent({
     <div className="flex h-full flex-col gap-6">
       <div className={cn("px-2", collapsed ? "text-center" : undefined)}>
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
-            PH
-          </div>
+          <img src="/ph.jpg" alt="PH Performance" className="h-8 w-8 rounded-lg object-cover" />
           {collapsed ? null : (
             <p className="text-xl font-bold tracking-tight text-foreground">
               PERFORMANCE

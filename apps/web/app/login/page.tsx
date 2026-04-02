@@ -53,7 +53,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
       <Card className="w-full max-w-md">
-        <CardHeader>
+        <CardHeader className="items-center">
+          <img src="/ph.jpg" alt="PH Performance" className="h-16 w-16 rounded-lg object-cover mb-2" />
           <CardTitle>Admin Login</CardTitle>
         </CardHeader>
         <CardContent>

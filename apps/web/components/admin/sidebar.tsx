@@ -201,9 +201,7 @@ export function AdminSidebarContent({
     <div className="flex h-full flex-col gap-6">
       <div className={cn("px-2", collapsed ? "text-center" : undefined)}>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-primary font-black text-primary-foreground text-xl">
-            PH
-          </div>
+          <img src="/ph.jpg" alt="PH Performance" className="h-10 w-10 rounded-sm object-cover" />
           {collapsed ? null : (
             <div className="border-l border-border pl-3">
               <p className="text-xl font-black tracking-tighter text-foreground leading-none">PERFORMANCE</p>

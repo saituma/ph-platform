@@ -15,6 +15,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { Badge } from "../../ui/badge";
 
 const CHART_TYPES = ["LINE", "BAR", "AREA"] as const;
 type ChartType = (typeof CHART_TYPES)[number];
@@ -29,18 +30,24 @@ const SERIES_CONFIG = [
   { key: "bookings", name: "Bookings", color: GREEN_MUTED },
 ] as const;
 
-type EngagementTrendsChartProps = {
-  trainingLoadSeries: number[];
-  messagingSeries: number[];
-  bookingsSeries: number[];
+type MetricData = {
+  title: string;
+  value: string;
+  change: string;
+  series: number[];
 };
 
-export function EngagementTrendsChart({
-  trainingLoadSeries,
-  messagingSeries,
-  bookingsSeries,
-}: EngagementTrendsChartProps) {
+type EngagementTrendsChartProps = {
+  metrics: MetricData[];
+};
+
+export function EngagementTrendsChart({ metrics }: EngagementTrendsChartProps) {
   const [chartType, setChartType] = useState<ChartType>("LINE");
+  const [selectedMetric, setSelectedMetric] = useState<string>("ALL");
+
+  const trainingLoadSeries = metrics[0]?.series ?? [];
+  const messagingSeries = metrics[1]?.series ?? [];
+  const bookingsSeries = metrics[2]?.series ?? [];
 
   const data = useMemo(() => {
     const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -87,6 +94,11 @@ export function EngagementTrendsChart({
     stroke: "hsl(0 0% 15%)",
   };
 
+  const activeSeries =
+    selectedMetric === "ALL"
+      ? SERIES_CONFIG
+      : SERIES_CONFIG.filter((s) => s.key === selectedMetric);
+
   const renderChart = () => {
     switch (chartType) {
       case "BAR":
@@ -100,7 +112,7 @@ export function EngagementTrendsChart({
               iconType="square"
               wrapperStyle={{ fontSize: 10, fontFamily: "monospace", textTransform: "uppercase" }}
             />
-            {SERIES_CONFIG.map((s) => (
+            {activeSeries.map((s) => (
               <Bar
                 key={s.key}
                 dataKey={s.key}
@@ -122,7 +134,7 @@ export function EngagementTrendsChart({
               iconType="square"
               wrapperStyle={{ fontSize: 10, fontFamily: "monospace", textTransform: "uppercase" }}
             />
-            {SERIES_CONFIG.map((s) => (
+            {activeSeries.map((s) => (
               <Area
                 key={s.key}
                 type="monotone"
@@ -147,7 +159,7 @@ export function EngagementTrendsChart({
               iconType="square"
               wrapperStyle={{ fontSize: 10, fontFamily: "monospace", textTransform: "uppercase" }}
             />
-            {SERIES_CONFIG.map((s) => (
+            {activeSeries.map((s) => (
               <Line
                 key={s.key}
                 type="monotone"
@@ -165,34 +177,97 @@ export function EngagementTrendsChart({
   };
 
   return (
-    <div className="rounded-none border border-border bg-card transition duration-200 hover:border-primary">
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground leading-none">
-            Combined Engagement
-          </p>
-          <p className="mt-1 text-[9px] font-mono text-muted-foreground uppercase">
-            ALL METRICS · 7-DAY OVERLAY
-          </p>
-        </div>
-        <div className="flex gap-0">
-          {CHART_TYPES.map((type) => (
+    <div className="rounded-none border border-border bg-card transition duration-200 hover:border-primary flex flex-col md:flex-row">
+      {/* Left Sidebar / Tabs */}
+      <div className="flex w-full flex-col border-b border-border md:w-[280px] md:shrink-0 md:border-b-0 md:border-r bg-secondary/10">
+        <button
+          onClick={() => setSelectedMetric("ALL")}
+          className={`flex flex-col items-start gap-1 p-5 text-left transition ${
+            selectedMetric === "ALL"
+              ? "bg-primary/10 border-l-2 border-primary"
+              : "border-l-2 border-transparent hover:bg-secondary/40"
+          }`}
+        >
+          <div className="flex w-full items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground leading-none">
+              Combined
+            </span>
+            {selectedMetric === "ALL" && (
+              <Badge variant="outline" className="rounded-none border-primary/30 text-primary text-[8px] font-mono leading-none py-[2px] px-1.5 h-auto">
+                ALL METRICS
+              </Badge>
+            )}
+          </div>
+          <span className="mt-2 text-xl font-black font-mono tracking-tighter text-foreground">
+            Overview
+          </span>
+          <span className="mt-1 text-[9px] font-mono text-muted-foreground uppercase">
+            7-Day Overlay
+          </span>
+        </button>
+
+        {metrics.map((metric, i) => {
+          const key = SERIES_CONFIG[i % SERIES_CONFIG.length]?.key ?? "unknown";
+          const isSelected = selectedMetric === key;
+          return (
             <button
-              key={type}
-              onClick={() => setChartType(type)}
-              className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition border ${
-                chartType === type
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              key={key}
+              onClick={() => setSelectedMetric(key)}
+              className={`flex flex-col items-start gap-1 p-5 text-left transition border-t border-border ${
+                isSelected
+                  ? "bg-primary/10 border-l-2 border-l-primary"
+                  : "border-l-2 border-l-transparent hover:bg-secondary/40"
               }`}
             >
-              {type}
+              <div className="flex w-full items-center justify-between gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground leading-none line-clamp-1">
+                  {metric.title}
+                </span>
+                {isSelected && (
+                  <Badge variant="outline" className="rounded-none border-primary/30 text-primary text-[8px] font-mono leading-none py-[2px] px-1.5 h-auto shrink-0">
+                    LIVE_DATA
+                  </Badge>
+                )}
+              </div>
+              <span className="mt-2 text-3xl font-black font-mono tracking-tighter text-foreground">
+                {metric.value}
+              </span>
+              <span className="mt-1 text-[9px] font-mono text-muted-foreground uppercase">
+                {metric.change}
+              </span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
-      <div className="p-5">
-        <div className="h-[350px] w-full">
+
+      {/* Main Chart Area */}
+      <div className="flex flex-1 flex-col min-w-0">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground leading-none">
+              {selectedMetric === "ALL" ? "Combined Engagement" : SERIES_CONFIG.find(s => s.key === selectedMetric)?.name ?? "Metric"}
+            </p>
+            <p className="mt-1 text-[9px] font-mono text-muted-foreground uppercase">
+              {selectedMetric === "ALL" ? "ALL METRICS · " : ""}7-DAY TREND
+            </p>
+          </div>
+          <div className="flex gap-0 shrink-0">
+            {CHART_TYPES.map((type) => (
+              <button
+                key={type}
+                onClick={() => setChartType(type)}
+                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition border ${
+                  chartType === type
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-5 flex-1 min-h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
             {renderChart()}
           </ResponsiveContainer>
