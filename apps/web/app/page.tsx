@@ -198,8 +198,7 @@ export default function Home() {
 
   return (
     <AdminShell title="Coach Control Center" subtitle={todayLabel}>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-8">
+      <div className="space-y-8">
           <div className="space-y-4">
             <DashboardPulseStrip />
             <DashboardQuickLinks />
@@ -528,82 +527,6 @@ export default function Home() {
               )}
             </div>
           </section>
-        </div>
-
-        <aside className="space-y-6 lg:sticky lg:top-24 h-fit">
-          <Card className="overflow-hidden border-border shadow-none">
-            <CardHeader className="border-b border-border bg-secondary/10">
-              <SectionHeader
-                title="CMS CONTENT"
-                description="HOME DASHBOARD CONTROL"
-                actionLabel="MANAGE"
-                onAction={() => router.push("/content")}
-              />
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              {homeItem ? (
-                <>
-                  <div className="rounded-2xl border border-border bg-secondary/40 p-3">
-                    <p className="text-xs text-muted-foreground">Headline</p>
-                    <p className="mt-1 font-semibold text-foreground">
-                      {homeSnapshot.headline || "Add a headline for the home screen."}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-secondary/40 p-3">
-                    <p className="text-xs text-muted-foreground">Admin Story</p>
-                    <p className="mt-1 text-foreground">
-                      {trimText(homeSnapshot.adminStory) || "Add the admin story."}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-secondary/40 p-3">
-                    <p className="text-xs text-muted-foreground">Testimonials</p>
-                    <p className="mt-1 text-foreground">
-                      {testimonialsPreview || "Add testimonials to highlight results."}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-secondary/40 p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground">Professional Photo</p>
-                      <Badge variant={professionalPhoto ? "accent" : "outline"}>
-                        {professionalPhoto ? "Set" : "Missing"}
-                      </Badge>
-                    </div>
-                    {professionalPhoto ? (
-                      <div className="mt-3 h-20 w-full overflow-hidden rounded-2xl border border-border bg-secondary/40">
-                        <img
-                          src={professionalPhoto}
-                          alt="Professional"
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-xs text-muted-foreground">Add a professional photo to build trust.</p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant={homeSnapshot.heroImageUrl ? "accent" : "outline"}>
-                      {homeSnapshot.heroImageUrl ? "Hero image set" : "Hero image missing"}
-                    </Badge>
-                    <Badge variant={homeSnapshot.introVideoUrl ? "accent" : "outline"}>
-                      {homeSnapshot.introVideoUrl ? "Intro video set" : "Intro video missing"}
-                    </Badge>
-                    <Badge variant={homeSnapshot.description ? "accent" : "outline"}>
-                      {homeSnapshot.description ? "Description set" : "Description missing"}
-                    </Badge>
-                    <Badge variant={homeSnapshot.welcome ? "accent" : "outline"}>
-                      {homeSnapshot.welcome ? "Welcome message set" : "Welcome message missing"}
-                    </Badge>
-                  </div>
-                </>
-              ) : (
-                <EmptyState
-                  title="No home content yet"
-                  description="Add your headline, story, testimonials, and professional photos."
-                />
-              )}
-            </CardContent>
-          </Card>
-        </aside>
       </div>
 
       <ActionDialogs active={activeDialog} onClose={() => setActiveDialog(null)} />
