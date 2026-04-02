@@ -14,6 +14,7 @@ import { MiniBars } from "../components/admin/charts";
 import { GreenDoughnutChart, GreenLineChart, GreenStackedBars } from "../components/admin/chartjs";
 import { ActionDialogs, type DashboardDialog } from "../components/admin/dashboard/action-dialogs";
 import { CalendarPanel } from "../components/admin/dashboard/calendar-panel";
+import { EngagementTrendsChart } from "../components/admin/dashboard/engagement-trends-chart";
 import {
   BookingTodayRow,
   DashboardPulseStrip,
@@ -263,6 +264,11 @@ export default function Home() {
               </Card>
             )}
             </div>
+            <EngagementTrendsChart
+              trainingLoadSeries={trendCardsData[0]?.series ?? []}
+              messagingSeries={trendCardsData[1]?.series ?? []}
+              bookingsSeries={trendCardsData[2]?.series ?? []}
+            />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
