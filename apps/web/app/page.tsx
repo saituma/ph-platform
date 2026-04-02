@@ -245,17 +245,8 @@ export default function Home() {
               title="ENGAGEMENT TRENDS"
               description="SEVEN-DAY SPARKINES FOR LOAD, MESSAGING, AND BOOKINGS."
             />
-            <div className="grid gap-6 lg:grid-cols-3">
             {trendCardsData.length ? (
-              trendCardsData.map((card: { title: string; value: string; change: string; series: number[] }) => (
-                <TrendInsightCard
-                  key={card.title}
-                  title={card.title}
-                  value={card.value}
-                  change={card.change}
-                  series={card.series}
-                />
-              ))
+              <EngagementTrendsChart metrics={trendCardsData} />
             ) : (
               <Card className="col-span-full border-dashed">
                 <CardContent>
@@ -263,12 +254,6 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
-            </div>
-            <EngagementTrendsChart
-              trainingLoadSeries={trendCardsData[0]?.series ?? []}
-              messagingSeries={trendCardsData[1]?.series ?? []}
-              bookingsSeries={trendCardsData[2]?.series ?? []}
-            />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">

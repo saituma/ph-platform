@@ -40,9 +40,7 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
               </SheetContent>
             </Sheet>
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-[10px] font-bold text-primary-foreground">
-                PH
-              </div>
+              <img src="/ph.jpg" alt="PH Performance" className="h-6 w-6 rounded-md object-cover" />
               <span className="text-sm font-bold tracking-tight text-foreground uppercase">Performance</span>
             </div>
             <div className="flex items-center gap-2">
