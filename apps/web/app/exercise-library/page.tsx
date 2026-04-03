@@ -299,7 +299,7 @@ export default function ExerciseLibraryAudiencePage() {
                   {teams.map((team) => (
                     <Link
                       key={team.team}
-                      href={`/exercise-library/${encodeURIComponent(team.team)}`}
+                      href={`/exercise-library/teams/${encodeURIComponent(team.team)}`}
                       className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
                     >
                       <p className="text-lg font-semibold text-foreground">{team.team}</p>
@@ -390,7 +390,7 @@ export default function ExerciseLibraryAudiencePage() {
                       </p>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {OTHER_TYPES.map((type) => (
-                          <Link key={`${team.team}-${type.value}`} href={`/exercise-library/${encodeURIComponent(team.team)}/others/${type.value}`}>
+                          <Link key={`${team.team}-${type.value}`} href={`/exercise-library/teams/${encodeURIComponent(team.team)}/others/${type.value}`}>
                             <Button size="sm" variant="outline">{type.label}</Button>
                           </Link>
                         ))}
