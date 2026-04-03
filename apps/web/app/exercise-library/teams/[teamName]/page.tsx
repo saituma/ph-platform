@@ -30,6 +30,12 @@ import {
 import { isInseasonAgeGroup } from "./others/inseason-shared";
 import { OTHER_SECTION_CONFIGS } from "./others/shared";
 
+type TeamSummary = {
+  team: string;
+  memberCount: number;
+  guardianCount: number;
+};
+
 function SortableModuleCard({
   module,
   audienceLabel,
@@ -116,6 +122,7 @@ export default function TeamDetailPage() {
   const activeView = searchParams.get("view") === "others" ? "others" : "modules";
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "" });
   const [otherModalOpen, setOtherModalOpen] = useState(false);
@@ -138,9 +145,13 @@ export default function TeamDetailPage() {
     programTiers: [],
   });
   const [plans, setPlans] = useState<Array<{ id: number; name: string; tier: string; isActive: boolean }>>([]);
+  const [teams, setTeams] = useState<TeamSummary[]>([]);
+  const [copySourceTeam, setCopySourceTeam] = useState("");
+  const [copySearch, setCopySearch] = useState("");
   const [otherPlanWorkspaces, setOtherPlanWorkspaces] = useState<Record<string, AudienceWorkspace>>({});
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
   const [otherLockModalOpen, setOtherLockModalOpen] = useState(false);
   const [isUpdatingOtherLocks, setIsUpdatingOtherLocks] = useState(false);
@@ -168,6 +179,30 @@ export default function TeamDetailPage() {
   useEffect(() => {
     void loadWorkspace();
   }, [audienceLabel]);
+
+  const loadTeams = async () => {
+    try {
+      const response = await fetch("/api/backend/admin/teams", { credentials: "include" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to load teams.");
+      }
+      const nextTeams = Array.isArray(payload?.teams) ? payload.teams : [];
+      setTeams(nextTeams);
+      setCopySourceTeam((current) => {
+        if (current && current !== audienceLabel) return current;
+        const firstAvailable = nextTeams.find((team: TeamSummary) => team.team !== audienceLabel)?.team ?? "";
+        return firstAvailable;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load teams.");
+    }
+  };
+
+  useEffect(() => {
+    if (!copyModalOpen) return;
+    void loadTeams();
+  }, [copyModalOpen, audienceLabel]);
 
   const loadOtherPlans = async () => {
     try {
@@ -303,6 +338,34 @@ export default function TeamDetailPage() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     void reorderModules(Number(active.id), Number(over.id));
+  };
+
+  const filteredCopyTeams = teams.filter(
+    (item) =>
+      item.team !== audienceLabel &&
+      item.team.toLowerCase().includes(copySearch.trim().toLowerCase())
+  );
+
+  const copyModulesFromAnotherTeam = async () => {
+    if (!copySourceTeam || copySourceTeam === audienceLabel) return;
+    setIsCopying(true);
+    try {
+      setError(null);
+      await trainingContentRequest<AudienceWorkspace>("/admin/copy-modules", {
+        method: "POST",
+        body: JSON.stringify({
+          sourceAudienceLabel: copySourceTeam,
+          targetAudienceLabel: audienceLabel,
+        }),
+      });
+      await loadWorkspace();
+      setCopyModalOpen(false);
+      setCopySearch("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to copy modules from another team.");
+    } finally {
+      setIsCopying(false);
+    }
   };
 
   const toggleOtherType = async (type: string, enabled: boolean) => {
@@ -453,14 +516,19 @@ export default function TeamDetailPage() {
           </Link>
           <div className="ml-auto flex flex-wrap gap-2">
             {activeView === "modules" ? (
-            <Button
-              onClick={() => {
-                setModuleForm({ id: null, title: "" });
-                setModalOpen(true);
-              }}
-            >
-              + Add team module
-            </Button>
+              <>
+                <Button variant="outline" onClick={() => setCopyModalOpen(true)}>
+                  Copy from team
+                </Button>
+                <Button
+                  onClick={() => {
+                    setModuleForm({ id: null, title: "" });
+                    setModalOpen(true);
+                  }}
+                >
+                  + Add team module
+                </Button>
+              </>
             ) : null}
           </div>
         </div>
@@ -858,6 +926,85 @@ export default function TeamDetailPage() {
               </Button>
               <Button onClick={saveOtherContent} disabled={isSaving || !otherForm.type}>
                 {otherForm.id ? "Update" : "Create"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy modules from another team</DialogTitle>
+            <DialogDescription>
+              Copy all modules, sessions, and session items from another team into {audienceLabel}. This replaces the current module list for this team.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Search teams</label>
+              <Input
+                placeholder="Search team name"
+                value={copySearch}
+                onChange={(event) => setCopySearch(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Search or scroll the list below, then choose the team you want to copy from.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Available teams</label>
+              <div className="max-h-72 overflow-y-auto rounded-xl border border-border">
+                <div className="divide-y divide-border">
+                  {filteredCopyTeams.map((item) => (
+                    <button
+                      key={item.team}
+                      type="button"
+                      onClick={() => setCopySourceTeam(item.team)}
+                      className={`flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-secondary/40 ${
+                        copySourceTeam === item.team ? "bg-primary/10" : "bg-background"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium text-foreground">{item.team}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.memberCount} athlete{item.memberCount === 1 ? "" : "s"} · {item.guardianCount} guardian{item.guardianCount === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {copySourceTeam === item.team ? "Selected" : "Select"}
+                      </span>
+                    </button>
+                  ))}
+                  {!filteredCopyTeams.length ? (
+                    <div className="px-4 py-6 text-sm text-muted-foreground">
+                      No teams match that search.
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                We will copy the full module structure from the selected team into this one.
+              </p>
+            </div>
+            {isCopying ? (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Copying module data...</p>
+                    <p className="text-xs text-muted-foreground">
+                      Please wait while we copy modules, sessions, and session items from the selected team.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCopyModalOpen(false)} disabled={isCopying}>
+                Cancel
+              </Button>
+              <Button onClick={() => void copyModulesFromAnotherTeam()} disabled={!copySourceTeam || isCopying}>
+                {isCopying ? "Copying..." : "Copy modules"}
               </Button>
             </div>
           </div>
