@@ -20,6 +20,7 @@ import {
   listThreadMessagesAdmin,
   listTeamsAdmin,
   getTeamDetailsAdmin,
+  getTeamMemberAdmin,
   updateTeamMemberAdmin,
   updateTeamDefaultsAdmin,
   listVideoUploadsAdmin,
@@ -241,6 +242,16 @@ export async function getTeamAdminDetails(req: Request, res: Response) {
   const details = await getTeamDetailsAdmin(teamName);
   if (!details) {
     return res.status(404).json({ error: "Team not found" });
+  }
+  return res.status(200).json(details);
+}
+
+export async function getTeamMemberAdminDetails(req: Request, res: Response) {
+  const teamName = z.string().min(1).parse(req.params.teamName);
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const details = await getTeamMemberAdmin({ teamName, athleteId });
+  if (!details) {
+    return res.status(404).json({ error: "Team member not found" });
   }
   return res.status(200).json(details);
 }

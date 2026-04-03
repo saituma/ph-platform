@@ -30,6 +30,7 @@ import {
   sendAdminMessage,
   listAllUsers,
   getTeamAdminDetails,
+  getTeamMemberAdminDetails,
   listTeamsAdminDetails,
   updateExerciseItem,
   updateAdminPreferencesDetails,
@@ -68,6 +69,7 @@ router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]))
 router.get("/admin/users", listAllUsers);
 router.get("/admin/teams", listTeamsAdminDetails);
 router.get("/admin/teams/:teamName", getTeamAdminDetails);
+router.get("/admin/teams/:teamName/members/:athleteId", getTeamMemberAdminDetails);
 router.patch("/admin/teams/:teamName/members/:athleteId", updateTeamMemberAdminDetails);
 router.post("/admin/users/provision", provisionGuardianWithOnboarding);
 router.post("/admin/teams/provision", provisionTeamWithPlan);
