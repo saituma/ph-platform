@@ -18,6 +18,7 @@ import {
   deleteThreadMessagesAdmin,
   listMessageThreadsAdmin,
   listThreadMessagesAdmin,
+  listTeamsAdmin,
   listVideoUploadsAdmin,
   listAvailabilityAdmin,
   markThreadReadAdmin,
@@ -226,6 +227,11 @@ const phpPlusTabsSchema = z.object({
 export async function listAllUsers(_req: Request, res: Response) {
   const users = await listUsers();
   return res.status(200).json({ users });
+}
+
+export async function listTeamsAdminDetails(_req: Request, res: Response) {
+  const teams = await listTeamsAdmin();
+  return res.status(200).json({ teams });
 }
 
 const provisionGuardianSchema = z.object({

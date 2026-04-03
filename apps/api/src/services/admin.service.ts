@@ -509,6 +509,24 @@ export async function listUsers() {
   });
 }
 
+export async function listTeamsAdmin() {
+  const rows = await db
+    .select({
+      team: athleteTable.team,
+      memberCount: sql<number>`count(*)`,
+      guardianCount: sql<number>`count(distinct ${athleteTable.guardianId})`,
+      createdAt: sql<Date>`min(${athleteTable.createdAt})`,
+      updatedAt: sql<Date>`max(${athleteTable.updatedAt})`,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
+    .where(eq(userTable.isDeleted, false))
+    .groupBy(athleteTable.team)
+    .orderBy(desc(sql<number>`count(*)`), athleteTable.team);
+
+  return rows;
+}
+
 export async function setUserBlocked(userId: number, blocked: boolean) {
   const result = await db
     .update(userTable)
