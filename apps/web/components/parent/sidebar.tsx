@@ -15,6 +15,7 @@ import {
 
 import { ParentNav } from "./nav";
 import { cn } from "../../lib/utils";
+import { ScrollArea } from "../ui/scroll-area";
 
 const navItems = [
   { label: "Dashboard", href: "/parent", icon: Home },
@@ -77,11 +78,15 @@ export function ParentSidebar({ collapsed = false }: ParentSidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden flex-col border-r border-border bg-card px-6 py-8 transition-all lg:flex lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto",
-        collapsed ? "w-20 px-3" : "w-72"
+        "hidden flex-col border-r border-border bg-card transition-all lg:flex lg:sticky lg:top-0 lg:h-screen",
+        collapsed ? "w-20" : "w-72"
       )}
     >
-      <ParentSidebarContent currentPath={pathname} collapsed={collapsed} />
+      <ScrollArea className="h-full">
+        <div className={cn("h-full py-8", collapsed ? "px-3" : "px-6")}>
+          <ParentSidebarContent currentPath={pathname} collapsed={collapsed} />
+        </div>
+      </ScrollArea>
     </aside>
   );
 }

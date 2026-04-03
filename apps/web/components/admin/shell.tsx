@@ -5,6 +5,7 @@ import { AdminTopbar } from "./topbar";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { DialogTitle } from "../ui/dialog";
+import { ScrollArea } from "../ui/scroll-area";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -34,9 +35,11 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
               </SheetTrigger>
               <SheetContent className="w-72 border-r border-border bg-card p-0">
                 <DialogTitle className="sr-only">Navigation</DialogTitle>
-                <div className="h-full px-6 py-8">
-                  <AdminSidebarContent currentPath={pathname} />
-                </div>
+                <ScrollArea className="h-full">
+                  <div className="h-full px-6 py-8">
+                    <AdminSidebarContent currentPath={pathname} />
+                  </div>
+                </ScrollArea>
               </SheetContent>
             </Sheet>
             <div className="flex items-center gap-2">
