@@ -53,6 +53,7 @@ import {
   listTrainingSnapshotAdmin,
   listPremiumSessionCheckinsAdmin,
   provisionGuardianWithOnboarding,
+  provisionTeamWithPlan,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -62,6 +63,7 @@ router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]))
 
 router.get("/admin/users", listAllUsers);
 router.post("/admin/users/provision", provisionGuardianWithOnboarding);
+router.post("/admin/teams/provision", provisionTeamWithPlan);
 router.get("/admin/training-snapshot", listTrainingSnapshotAdmin);
 router.post("/admin/users/:userId/block", blockUser);
 router.delete("/admin/users/:userId", deleteUser);
