@@ -601,6 +601,49 @@ export async function getTeamDetailsAdmin(teamName: string) {
   };
 }
 
+export async function getTeamMemberAdmin(input: { teamName: string; athleteId: number }) {
+  const cleanTeamName = input.teamName.trim();
+  if (!cleanTeamName) return null;
+
+  const rows = await db
+    .select({
+      athleteId: athleteTable.id,
+      team: athleteTable.team,
+      athleteName: athleteTable.name,
+      birthDate: athleteTable.birthDate,
+      trainingPerWeek: athleteTable.trainingPerWeek,
+      currentProgramTier: athleteTable.currentProgramTier,
+      createdAt: athleteTable.createdAt,
+      updatedAt: athleteTable.updatedAt,
+      guardianEmail: guardianTable.email,
+      guardianPhone: guardianTable.phoneNumber,
+      relationToAthlete: guardianTable.relationToAthlete,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
+    .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+    .where(and(eq(athleteTable.id, input.athleteId), eq(userTable.isDeleted, false)))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+  if (row.team !== cleanTeamName) return null;
+
+  return {
+    athleteId: row.athleteId,
+    team: row.team,
+    athleteName: row.athleteName,
+    birthDate: row.birthDate,
+    trainingPerWeek: row.trainingPerWeek,
+    currentProgramTier: row.currentProgramTier,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    guardianEmail: row.guardianEmail,
+    guardianPhone: row.guardianPhone,
+    relationToAthlete: row.relationToAthlete,
+  };
+}
+
 export async function updateTeamDefaultsAdmin(input: {
   teamName: string;
   injuries?: string | null;

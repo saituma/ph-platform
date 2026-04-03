@@ -8,9 +8,7 @@ import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../../components/ui/card";
 import { SectionHeader } from "../../../components/admin/section-header";
-import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
-import { Select } from "../../../components/ui/select";
 import { Textarea } from "../../../components/ui/textarea";
 
 type TeamDetails = {
@@ -72,19 +70,8 @@ export default function TeamDetailPage() {
     performanceGoals: "",
     equipmentAccess: "",
   });
-  const [memberDrafts, setMemberDrafts] = useState<Record<number, {
-    athleteName: string;
-    birthDate: string;
-    trainingPerWeek: string;
-    currentProgramTier: string;
-    guardianEmail: string;
-    guardianPhone: string;
-    relationToAthlete: string;
-  }>>({});
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
-  const [memberNotice, setMemberNotice] = useState<string | null>(null);
   const [isSavingDefaults, setIsSavingDefaults] = useState(false);
-  const [isSavingMemberId, setIsSavingMemberId] = useState<number | null>(null);
 
   const loadDetails = async () => {
     setIsLoading(true);
@@ -105,22 +92,6 @@ export default function TeamDetailPage() {
         performanceGoals: next.defaults.performanceGoals ?? "",
         equipmentAccess: next.defaults.equipmentAccess ?? "",
       });
-      setMemberDrafts(
-        Object.fromEntries(
-          next.members.map((member) => [
-            member.athleteId,
-            {
-              athleteName: member.athleteName ?? "",
-              birthDate: member.birthDate ?? "",
-              trainingPerWeek: member.trainingPerWeek != null ? String(member.trainingPerWeek) : "",
-              currentProgramTier: member.currentProgramTier ?? "",
-              guardianEmail: member.guardianEmail ?? "",
-              guardianPhone: member.guardianPhone ?? "",
-              relationToAthlete: member.relationToAthlete ?? "",
-            },
-          ])
-        )
-      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load team details.");
     } finally {
@@ -162,43 +133,6 @@ export default function TeamDetailPage() {
       setDefaultsNotice(err instanceof Error ? err.message : "Failed to save defaults.");
     } finally {
       setIsSavingDefaults(false);
-    }
-  };
-
-  const saveMember = async (athleteId: number) => {
-    const draft = memberDrafts[athleteId];
-    if (!draft) return;
-
-    setMemberNotice(null);
-    setIsSavingMemberId(athleteId);
-    try {
-      const csrfToken = getCsrfToken();
-      const response = await fetch(`/api/backend/admin/teams/${encodeURIComponent(teamName)}/members/${athleteId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({
-          athleteName: draft.athleteName.trim(),
-          birthDate: draft.birthDate.trim() || null,
-          trainingPerWeek: Number.parseInt(draft.trainingPerWeek, 10),
-          currentProgramTier: draft.currentProgramTier || null,
-          guardianEmail: draft.guardianEmail.trim() || null,
-          guardianPhone: draft.guardianPhone.trim() || null,
-          relationToAthlete: draft.relationToAthlete.trim() || null,
-        }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to update team member.");
-      }
-      setMemberNotice(`Saved member ${draft.athleteName || athleteId}.`);
-      await loadDetails();
-    } catch (err) {
-      setMemberNotice(err instanceof Error ? err.message : "Failed to update team member.");
-    } finally {
-      setIsSavingMemberId(null);
     }
   };
 
@@ -299,7 +233,7 @@ export default function TeamDetailPage() {
 
         <Card>
           <CardHeader>
-            <SectionHeader title="Members" description="All athletes and guardian contact info in this team." />
+            <SectionHeader title="Members" description="Team member names. Click a member to open detail page." />
           </CardHeader>
           <CardContent className="space-y-3">
             {isLoading ? (
@@ -308,118 +242,15 @@ export default function TeamDetailPage() {
               <p className="text-sm text-muted-foreground">No members found for this team.</p>
             ) : (
               details.members.map((member) => (
-                <div key={member.athleteId} className="rounded-xl border border-border p-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label>Athlete name</Label>
-                      <Input
-                        value={memberDrafts[member.athleteId]?.athleteName ?? ""}
-                        onChange={(event) =>
-                          setMemberDrafts((current) => ({
-                            ...current,
-                            [member.athleteId]: { ...current[member.athleteId], athleteName: event.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Birth date</Label>
-                      <Input
-                        type="date"
-                        value={memberDrafts[member.athleteId]?.birthDate ?? ""}
-                        onChange={(event) =>
-                          setMemberDrafts((current) => ({
-                            ...current,
-                            [member.athleteId]: { ...current[member.athleteId], birthDate: event.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Training/week</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={memberDrafts[member.athleteId]?.trainingPerWeek ?? ""}
-                        onChange={(event) =>
-                          setMemberDrafts((current) => ({
-                            ...current,
-                            [member.athleteId]: { ...current[member.athleteId], trainingPerWeek: event.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Program tier</Label>
-                      <Select
-                        value={memberDrafts[member.athleteId]?.currentProgramTier ?? ""}
-                        onChange={(event) =>
-                          setMemberDrafts((current) => ({
-                            ...current,
-                            [member.athleteId]: { ...current[member.athleteId], currentProgramTier: event.target.value },
-                          }))
-                        }
-                      >
-                        <option value="">No tier</option>
-                        <option value="PHP">PHP</option>
-                        <option value="PHP_Plus">PHP Plus</option>
-                        <option value="PHP_Premium">PHP Premium</option>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Guardian email</Label>
-                      <Input
-                        type="email"
-                        value={memberDrafts[member.athleteId]?.guardianEmail ?? ""}
-                        onChange={(event) =>
-                          setMemberDrafts((current) => ({
-                            ...current,
-                            [member.athleteId]: { ...current[member.athleteId], guardianEmail: event.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Guardian phone</Label>
-                      <Input
-                        value={memberDrafts[member.athleteId]?.guardianPhone ?? ""}
-                        onChange={(event) =>
-                          setMemberDrafts((current) => ({
-                            ...current,
-                            [member.athleteId]: { ...current[member.athleteId], guardianPhone: event.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Relation</Label>
-                      <Input
-                        value={memberDrafts[member.athleteId]?.relationToAthlete ?? ""}
-                        onChange={(event) =>
-                          setMemberDrafts((current) => ({
-                            ...current,
-                            [member.athleteId]: { ...current[member.athleteId], relationToAthlete: event.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">
-                      Created: {formatDate(member.createdAt)} · Updated: {formatDate(member.updatedAt)}
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => void saveMember(member.athleteId)}
-                      disabled={isSavingMemberId === member.athleteId}
-                    >
-                      {isSavingMemberId === member.athleteId ? "Saving..." : "Save member"}
-                    </Button>
-                  </div>
-                </div>
+                <Link
+                  key={member.athleteId}
+                  href={`/teams/${encodeURIComponent(teamName)}/members/${member.athleteId}`}
+                  className="block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5"
+                >
+                  <p className="text-sm font-semibold text-foreground">{member.athleteName}</p>
+                </Link>
               ))
             )}
-            {memberNotice ? <p className="text-xs text-muted-foreground">{memberNotice}</p> : null}
           </CardContent>
         </Card>
       </div>
