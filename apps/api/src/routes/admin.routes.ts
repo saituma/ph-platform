@@ -55,6 +55,7 @@ import {
   listPremiumSessionCheckinsAdmin,
   provisionGuardianWithOnboarding,
   provisionTeamWithPlan,
+  saveTeamDefaultsAdmin,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -66,6 +67,7 @@ router.get("/admin/users", listAllUsers);
 router.get("/admin/teams", listTeamsAdminDetails);
 router.post("/admin/users/provision", provisionGuardianWithOnboarding);
 router.post("/admin/teams/provision", provisionTeamWithPlan);
+router.post("/admin/teams/defaults", saveTeamDefaultsAdmin);
 router.get("/admin/training-snapshot", listTrainingSnapshotAdmin);
 router.post("/admin/users/:userId/block", blockUser);
 router.delete("/admin/users/:userId", deleteUser);

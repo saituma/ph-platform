@@ -84,6 +84,9 @@ export default function AddTeamPage() {
   const [planError, setPlanError] = useState<string | null>(null);
   const [planSuccess, setPlanSuccess] = useState<string | null>(null);
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+  const [teamDefaultsSuccess, setTeamDefaultsSuccess] = useState<string | null>(null);
+  const [teamDefaultsError, setTeamDefaultsError] = useState<string | null>(null);
+  const [isSavingTeamDefaults, setIsSavingTeamDefaults] = useState(false);
 
   const memberErrors = useMemo(() => members.map((member) => validateMember(member)), [members]);
   const canSubmit =
@@ -106,10 +109,6 @@ export default function AddTeamPage() {
       const csrfToken = getCsrfToken();
       const payload = {
         teamName: teamName.trim(),
-        injuries: injuries.trim() || undefined,
-        growthNotes: growthNotes.trim() || null,
-        performanceGoals: performanceGoals.trim() || null,
-        equipmentAccess: equipmentAccess.trim() || null,
         termsVersion,
         privacyVersion,
         appVersion: "admin-web",
@@ -145,6 +144,39 @@ export default function AddTeamPage() {
       setFormError(typeof message === "string" ? message : "Failed to create team.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const saveTeamDefaults = async () => {
+    setTeamDefaultsError(null);
+    setTeamDefaultsSuccess(null);
+    setIsSavingTeamDefaults(true);
+    try {
+      const csrfToken = getCsrfToken();
+      const response = await fetch("/api/backend/admin/teams/defaults", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({
+          teamName: teamName.trim(),
+          injuries: injuries.trim() || null,
+          growthNotes: growthNotes.trim() || null,
+          performanceGoals: performanceGoals.trim() || null,
+          equipmentAccess: equipmentAccess.trim() || null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to save team defaults.");
+      }
+      setTeamDefaultsSuccess(`Saved defaults for ${payload?.updatedCount ?? 0} team member(s).`);
+    } catch (error: any) {
+      const message = error?.message ?? "Failed to save team defaults.";
+      setTeamDefaultsError(typeof message === "string" ? message : "Failed to save team defaults.");
+    } finally {
+      setIsSavingTeamDefaults(false);
     }
   };
 
@@ -270,43 +302,6 @@ export default function AddTeamPage() {
                   value={teamName}
                   onChange={(event) => setTeamName(event.target.value)}
                   placeholder="e.g. U14 Phoenix"
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="injuries">Injuries / history</Label>
-                <Textarea
-                  id="injuries"
-                  rows={2}
-                  value={injuries}
-                  onChange={(event) => setInjuries(event.target.value)}
-                  placeholder="Optional team-wide default notes"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="growthNotes">Growth notes</Label>
-                <Textarea
-                  id="growthNotes"
-                  rows={2}
-                  value={growthNotes}
-                  onChange={(event) => setGrowthNotes(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="performanceGoals">Performance goals</Label>
-                <Textarea
-                  id="performanceGoals"
-                  rows={2}
-                  value={performanceGoals}
-                  onChange={(event) => setPerformanceGoals(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="equipmentAccess">Equipment access</Label>
-                <Textarea
-                  id="equipmentAccess"
-                  rows={2}
-                  value={equipmentAccess}
-                  onChange={(event) => setEquipmentAccess(event.target.value)}
                 />
               </div>
             </CardContent>
@@ -470,6 +465,71 @@ export default function AddTeamPage() {
         {planError ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
             {planError}
+          </div>
+        ) : null}
+
+        {result ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Team performance defaults</CardTitle>
+              <CardDescription>
+                Add these defaults after the team is created.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="injuries">Injuries / history</Label>
+                <Textarea
+                  id="injuries"
+                  rows={2}
+                  value={injuries}
+                  onChange={(event) => setInjuries(event.target.value)}
+                  placeholder="Optional team-wide default notes"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="growthNotes">Growth notes</Label>
+                <Textarea
+                  id="growthNotes"
+                  rows={2}
+                  value={growthNotes}
+                  onChange={(event) => setGrowthNotes(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="performanceGoals">Performance goals</Label>
+                <Textarea
+                  id="performanceGoals"
+                  rows={2}
+                  value={performanceGoals}
+                  onChange={(event) => setPerformanceGoals(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="equipmentAccess">Equipment access</Label>
+                <Textarea
+                  id="equipmentAccess"
+                  rows={2}
+                  value={equipmentAccess}
+                  onChange={(event) => setEquipmentAccess(event.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2 flex justify-end">
+                <Button type="button" onClick={() => void saveTeamDefaults()} disabled={isSavingTeamDefaults}>
+                  {isSavingTeamDefaults ? "Saving defaults…" : "Save team defaults"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+        {teamDefaultsSuccess ? (
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+            {teamDefaultsSuccess}
+          </div>
+        ) : null}
+        {teamDefaultsError ? (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            {teamDefaultsError}
           </div>
         ) : null}
       </div>

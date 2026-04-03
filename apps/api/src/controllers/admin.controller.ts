@@ -19,6 +19,7 @@ import {
   listMessageThreadsAdmin,
   listThreadMessagesAdmin,
   listTeamsAdmin,
+  updateTeamDefaultsAdmin,
   listVideoUploadsAdmin,
   listAvailabilityAdmin,
   markThreadReadAdmin,
@@ -275,6 +276,14 @@ const provisionTeamSchema = z.object({
   members: z.array(provisionTeamMemberSchema).min(1),
 });
 
+const teamDefaultsSchema = z.object({
+  teamName: z.string().min(1),
+  injuries: z.string().optional().nullable(),
+  growthNotes: z.string().optional().nullable(),
+  performanceGoals: z.string().optional().nullable(),
+  equipmentAccess: z.string().optional().nullable(),
+});
+
 export async function provisionGuardianWithOnboarding(req: Request, res: Response) {
   const parsed = provisionGuardianSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -348,6 +357,25 @@ export async function provisionTeamWithPlan(req: Request, res: Response) {
     const message = typeof error?.message === "string" ? error.message : "Failed to create team.";
     if (status >= 500) {
       console.error("[admin] provisionTeamWithPlan", error);
+    }
+    return res.status(status).json({ error: message });
+  }
+}
+
+export async function saveTeamDefaultsAdmin(req: Request, res: Response) {
+  const parsed = teamDefaultsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+
+  try {
+    const result = await updateTeamDefaultsAdmin(parsed.data);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    const status = typeof error?.status === "number" ? error.status : 500;
+    const message = typeof error?.message === "string" ? error.message : "Failed to save team defaults.";
+    if (status >= 500) {
+      console.error("[admin] saveTeamDefaultsAdmin", error);
     }
     return res.status(status).json({ error: message });
   }
