@@ -29,6 +29,7 @@ import {
   markThreadRead,
   sendAdminMessage,
   listAllUsers,
+  listTeamsAdminDetails,
   updateExerciseItem,
   updateAdminPreferencesDetails,
   updateAdminProfileDetails,
@@ -62,6 +63,7 @@ const router = Router();
 router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]));
 
 router.get("/admin/users", listAllUsers);
+router.get("/admin/teams", listTeamsAdminDetails);
 router.post("/admin/users/provision", provisionGuardianWithOnboarding);
 router.post("/admin/teams/provision", provisionTeamWithPlan);
 router.get("/admin/training-snapshot", listTrainingSnapshotAdmin);
