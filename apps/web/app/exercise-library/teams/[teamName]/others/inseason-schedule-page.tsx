@@ -174,7 +174,7 @@ export function InseasonSchedulePage({
   };
 
   return (
-    <AdminShell title="Training content" subtitle={`Plan: ${normalizedAudienceLabel} -> In-Season Program`}>
+    <AdminShell title="Training content" subtitle={`Team: ${normalizedAudienceLabel} -> In-Season Program`}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Link href={`/exercise-library/teams/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason`}>

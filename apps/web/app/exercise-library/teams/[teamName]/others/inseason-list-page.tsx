@@ -70,14 +70,14 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
       setModalOpen(false);
       await loadWorkspace();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create age entry.");
+      setError(err instanceof Error ? err.message : "Failed to create group entry.");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <AdminShell title="Training content" subtitle={`Plan: ${normalizedAudienceLabel} -> In-Season Program`}>
+    <AdminShell title="Training content" subtitle={`Team: ${normalizedAudienceLabel} -> In-Season Program`}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Link href={`/exercise-library/teams/${encodeURIComponent(normalizedAudienceLabel)}?view=others`}>
@@ -110,7 +110,7 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
               >
                 <p className="text-lg font-semibold text-foreground">{item.title}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Open this age to add one or more recurring weekly schedule slots.
+                  Open this group to add one or more recurring weekly schedule slots.
                 </p>
               </Link>
             ))}
