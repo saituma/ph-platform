@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
@@ -9,15 +9,8 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
-import { Select } from "../../../components/ui/select";
 import { Textarea } from "../../../components/ui/textarea";
-import { useGetOnboardingConfigQuery, useProvisionGuardianMutation } from "../../../lib/apiSlice";
-
-const TIER_OPTIONS: { value: "PHP" | "PHP_Plus" | "PHP_Premium"; label: string }[] = [
-  { value: "PHP", label: "Program (PHP)" },
-  { value: "PHP_Plus", label: "Plus" },
-  { value: "PHP_Premium", label: "Premium" },
-];
+import { useGetOnboardingConfigQuery } from "../../../lib/apiSlice";
 
 type MemberDraft = {
   email: string;
@@ -53,15 +46,28 @@ function validateMember(member: MemberDraft) {
   return null;
 }
 
+function getCsrfToken() {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("csrfToken="))
+      ?.split("=")[1] ?? ""
+  );
+}
+
 export default function AddTeamPage() {
   const { data: configData, isLoading: configLoading } = useGetOnboardingConfigQuery();
-  const [provision, { isLoading: isSubmitting }] = useProvisionGuardianMutation();
 
   const termsVersion = configData?.config?.termsVersion ?? "1.0";
   const privacyVersion = configData?.config?.privacyVersion ?? "1.0";
 
   const [teamName, setTeamName] = useState("");
-  const [desiredProgramType, setDesiredProgramType] = useState<"PHP" | "PHP_Plus" | "PHP_Premium">("PHP");
+  const [teamPlanName, setTeamPlanName] = useState("");
+  const [planNameTouched, setPlanNameTouched] = useState(false);
+  const [monthlyPrice, setMonthlyPrice] = useState("");
+  const [yearlyPrice, setYearlyPrice] = useState("");
   const [injuries, setInjuries] = useState("");
   const [growthNotes, setGrowthNotes] = useState("");
   const [performanceGoals, setPerformanceGoals] = useState("");
@@ -69,13 +75,28 @@ export default function AddTeamPage() {
   const [members, setMembers] = useState<MemberDraft[]>([createEmptyMember()]);
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<{
+    planName: string;
     created: number;
     emailed: number;
     failed: Array<{ member: number; email: string; reason: string }>;
   } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const memberErrors = useMemo(() => members.map((member) => validateMember(member)), [members]);
-  const canSubmit = teamName.trim().length > 0 && members.length > 0 && memberErrors.every((error) => !error);
+
+  useEffect(() => {
+    if (planNameTouched) return;
+    const trimmedTeamName = teamName.trim();
+    setTeamPlanName(trimmedTeamName ? `PHP Team - ${trimmedTeamName}` : "");
+  }, [planNameTouched, teamName]);
+
+  const hasPlanPrice = Boolean(monthlyPrice.trim() || yearlyPrice.trim());
+  const canSubmit =
+    teamName.trim().length > 0 &&
+    teamPlanName.trim().length > 0 &&
+    hasPlanPrice &&
+    members.length > 0 &&
+    memberErrors.every((error) => !error);
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -83,64 +104,65 @@ export default function AddTeamPage() {
     setResult(null);
 
     if (!canSubmit) {
-      setFormError("Complete team details and fix roster errors before creating accounts.");
+      setFormError("Complete team details, plan details, and fix member errors before creating accounts.");
       return;
     }
 
-    const failed: Array<{ member: number; email: string; reason: string }> = [];
-    let created = 0;
-    let emailed = 0;
-
-    for (let index = 0; index < members.length; index += 1) {
-      const member = members[index];
-      const error = validateMember(member);
-      if (error) {
-        failed.push({
-          member: index + 1,
-          email: member.email.trim(),
-          reason: error,
-        });
-        continue;
-      }
-      const trainingPerWeek = Number.parseInt(member.trainingPerWeek, 10);
-      try {
-        const response = await provision({
+    setIsSubmitting(true);
+    try {
+      const csrfToken = getCsrfToken();
+      const payload = {
+        teamName: teamName.trim(),
+        teamPlanName: teamPlanName.trim(),
+        monthlyPrice: monthlyPrice.trim() || null,
+        yearlyPrice: yearlyPrice.trim() || null,
+        injuries: injuries.trim() || undefined,
+        growthNotes: growthNotes.trim() || null,
+        performanceGoals: performanceGoals.trim() || null,
+        equipmentAccess: equipmentAccess.trim() || null,
+        termsVersion,
+        privacyVersion,
+        appVersion: "admin-web",
+        members: members.map((member) => ({
           email: member.email.trim(),
           guardianDisplayName: member.guardianDisplayName.trim(),
           athleteName: member.athleteName.trim(),
           birthDate: member.birthDate.trim(),
-          team: teamName.trim(),
-          trainingPerWeek,
-          injuries: injuries.trim() || undefined,
-          growthNotes: growthNotes.trim() || null,
-          performanceGoals: performanceGoals.trim() || null,
-          equipmentAccess: equipmentAccess.trim() || null,
+          trainingPerWeek: Number.parseInt(member.trainingPerWeek, 10),
           parentPhone: member.parentPhone?.trim() || null,
           relationToAthlete: member.relationToAthlete?.trim() || null,
-          desiredProgramType,
-          termsVersion,
-          privacyVersion,
-          appVersion: "admin-web",
-        }).unwrap();
-        created += 1;
-        if (response.emailSent) emailed += 1;
-      } catch (err: any) {
-        const reason = err?.data?.error ?? err?.message ?? "Could not create user.";
-        failed.push({
-          member: index + 1,
-          email: member.email.trim(),
-          reason: typeof reason === "string" ? reason : "Could not create user.",
-        });
+        })),
+      };
+      const response = await fetch("/api/backend/admin/teams/provision", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      const responsePayload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(responsePayload?.error || "Failed to create team with plan.");
       }
+      setResult({
+        planName: responsePayload?.plan?.name ?? teamPlanName.trim(),
+        created: Number(responsePayload?.created ?? 0),
+        emailed: Number(responsePayload?.emailed ?? 0),
+        failed: Array.isArray(responsePayload?.failed) ? responsePayload.failed : [],
+      });
+    } catch (error: any) {
+      const message = error?.message ?? "Failed to create team with plan.";
+      setFormError(typeof message === "string" ? message : "Failed to create team with plan.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setResult({ created, emailed, failed });
   };
 
   return (
     <AdminShell
       title="Add team"
-      subtitle="Bulk-create guardian + athlete accounts for a full team roster."
+      subtitle="Create a team plan, then bulk-create guardian + athlete accounts for the team roster."
       actions={
         <Button variant="outline" size="sm" asChild>
           <Link href="/users" className="inline-flex items-center gap-2">
@@ -160,7 +182,7 @@ export default function AddTeamPage() {
         {result ? (
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
             <p className="font-medium">
-              Team import complete: {result.created} created, {result.emailed} welcome emails sent.
+              Team plan created ({result.planName}) and import complete: {result.created} created, {result.emailed} welcome emails sent.
             </p>
             {result.failed.length ? (
               <div className="mt-3 space-y-2 text-amber-200/90">
@@ -184,7 +206,9 @@ export default function AddTeamPage() {
           <Card>
             <CardHeader>
               <CardTitle>Team defaults</CardTitle>
-              <CardDescription>These values apply to every athlete created in this import.</CardDescription>
+              <CardDescription>
+                Set team details and create a dedicated team plan before importing members.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -198,21 +222,41 @@ export default function AddTeamPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="desiredProgramType">Desired program tier</Label>
-                <Select
-                  id="desiredProgramType"
-                  value={desiredProgramType}
-                  onChange={(event) =>
-                    setDesiredProgramType(event.target.value as "PHP" | "PHP_Plus" | "PHP_Premium")
-                  }
-                >
-                  {TIER_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
+                <Label htmlFor="teamPlanName">Team plan name</Label>
+                <Input
+                  id="teamPlanName"
+                  required
+                  value={teamPlanName}
+                  onChange={(event) => {
+                    setPlanNameTouched(true);
+                    setTeamPlanName(event.target.value);
+                  }}
+                  placeholder="e.g. PHP Team - U14 Phoenix"
+                />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="monthlyPrice">Monthly price</Label>
+                <Input
+                  id="monthlyPrice"
+                  value={monthlyPrice}
+                  onChange={(event) => setMonthlyPrice(event.target.value)}
+                  placeholder="e.g. $399"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="yearlyPrice">Yearly price</Label>
+                <Input
+                  id="yearlyPrice"
+                  value={yearlyPrice}
+                  onChange={(event) => setYearlyPrice(event.target.value)}
+                  placeholder="e.g. $3990"
+                />
+              </div>
+              {!hasPlanPrice ? (
+                <p className="text-xs text-amber-300 sm:col-span-2">
+                  Add monthly or yearly price to create the team plan.
+                </p>
+              ) : null}
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="injuries">Injuries / history</Label>
                 <Textarea
