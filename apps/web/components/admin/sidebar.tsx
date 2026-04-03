@@ -144,6 +144,7 @@ export function AdminSidebarContent({
       items: [
         { label: "Users & Tiers", href: "/users", icon: Users },
         { label: "Add user", href: "/users/add", icon: UserPlus },
+        { label: "Add team", href: "/users/add-team", icon: Users },
         { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
         { label: "Client training", href: "/training-snapshot", icon: ClipboardList },
         { label: "Billing", href: "/billing", icon: CreditCard },
