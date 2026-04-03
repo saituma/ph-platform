@@ -5,7 +5,7 @@ import {
   AdminDeleteUserCommand,
   AdminGetUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { and, desc, eq, gte, inArray, lte, or, sql, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql, ne } from "drizzle-orm";
 
 import { cognitoClient } from "../lib/aws";
 import { db } from "../db";
@@ -527,6 +527,80 @@ export async function listTeamsAdmin() {
   return rows;
 }
 
+export async function getTeamDetailsAdmin(teamName: string) {
+  const cleanTeamName = teamName.trim();
+  if (!cleanTeamName) return null;
+
+  const rows = await db
+    .select({
+      athleteId: athleteTable.id,
+      athleteName: athleteTable.name,
+      birthDate: athleteTable.birthDate,
+      trainingPerWeek: athleteTable.trainingPerWeek,
+      currentProgramTier: athleteTable.currentProgramTier,
+      injuries: athleteTable.injuries,
+      growthNotes: athleteTable.growthNotes,
+      performanceGoals: athleteTable.performanceGoals,
+      equipmentAccess: athleteTable.equipmentAccess,
+      createdAt: athleteTable.createdAt,
+      updatedAt: athleteTable.updatedAt,
+      guardianId: guardianTable.id,
+      guardianEmail: guardianTable.email,
+      guardianPhone: guardianTable.phoneNumber,
+      relationToAthlete: guardianTable.relationToAthlete,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
+    .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+    .where(and(eq(athleteTable.team, cleanTeamName), eq(userTable.isDeleted, false)))
+    .orderBy(asc(athleteTable.name));
+
+  if (!rows.length) return null;
+
+  const memberCount = rows.length;
+  const guardianCount = new Set(rows.map((row) => row.guardianId).filter((id) => id != null)).size;
+  const createdAt = rows.reduce((min, row) => (row.createdAt < min ? row.createdAt : min), rows[0].createdAt);
+  const updatedAt = rows.reduce((max, row) => (row.updatedAt > max ? row.updatedAt : max), rows[0].updatedAt);
+
+  const defaults = rows.reduce(
+    (acc, row) => ({
+      injuries: acc.injuries ?? (row.injuries ? JSON.stringify(row.injuries) : null),
+      growthNotes: acc.growthNotes ?? row.growthNotes ?? null,
+      performanceGoals: acc.performanceGoals ?? row.performanceGoals ?? null,
+      equipmentAccess: acc.equipmentAccess ?? row.equipmentAccess ?? null,
+    }),
+    {
+      injuries: null as string | null,
+      growthNotes: null as string | null,
+      performanceGoals: null as string | null,
+      equipmentAccess: null as string | null,
+    }
+  );
+
+  return {
+    team: cleanTeamName,
+    summary: {
+      memberCount,
+      guardianCount,
+      createdAt,
+      updatedAt,
+    },
+    defaults,
+    members: rows.map((row) => ({
+      athleteId: row.athleteId,
+      athleteName: row.athleteName,
+      birthDate: row.birthDate,
+      trainingPerWeek: row.trainingPerWeek,
+      currentProgramTier: row.currentProgramTier,
+      guardianEmail: row.guardianEmail,
+      guardianPhone: row.guardianPhone,
+      relationToAthlete: row.relationToAthlete,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    })),
+  };
+}
+
 export async function updateTeamDefaultsAdmin(input: {
   teamName: string;
   injuries?: string | null;
@@ -549,6 +623,60 @@ export async function updateTeamDefaultsAdmin(input: {
   return {
     updatedCount: rows.length,
   };
+}
+
+export async function updateTeamMemberAdmin(input: {
+  teamName: string;
+  athleteId: number;
+  athleteName?: string;
+  birthDate?: string | null;
+  trainingPerWeek?: number;
+  currentProgramTier?: (typeof ProgramType.enumValues)[number] | null;
+  guardianEmail?: string | null;
+  guardianPhone?: string | null;
+  relationToAthlete?: string | null;
+}) {
+  const athleteRows = await db
+    .select({
+      id: athleteTable.id,
+      team: athleteTable.team,
+      guardianId: athleteTable.guardianId,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
+    .where(and(eq(athleteTable.id, input.athleteId), eq(userTable.isDeleted, false)))
+    .limit(1);
+
+  const athlete = athleteRows[0];
+  if (!athlete) {
+    throw { status: 404, message: "Team member not found." };
+  }
+  if (athlete.team !== input.teamName.trim()) {
+    throw { status: 400, message: "Member does not belong to this team." };
+  }
+
+  const athletePatch: Partial<typeof athleteTable.$inferInsert> = {};
+  if (input.athleteName != null) athletePatch.name = input.athleteName.trim();
+  if (input.birthDate !== undefined) athletePatch.birthDate = input.birthDate ? input.birthDate : null;
+  if (input.trainingPerWeek !== undefined) athletePatch.trainingPerWeek = input.trainingPerWeek;
+  if (input.currentProgramTier !== undefined) athletePatch.currentProgramTier = input.currentProgramTier;
+
+  if (Object.keys(athletePatch).length > 0) {
+    athletePatch.updatedAt = new Date();
+    await db.update(athleteTable).set(athletePatch).where(eq(athleteTable.id, athlete.id));
+  }
+
+  const guardianPatch: Partial<typeof guardianTable.$inferInsert> = {};
+  if (input.guardianEmail !== undefined) guardianPatch.email = input.guardianEmail?.trim() || null;
+  if (input.guardianPhone !== undefined) guardianPatch.phoneNumber = input.guardianPhone?.trim() || null;
+  if (input.relationToAthlete !== undefined) guardianPatch.relationToAthlete = input.relationToAthlete?.trim() || null;
+
+  if (Object.keys(guardianPatch).length > 0) {
+    guardianPatch.updatedAt = new Date();
+    await db.update(guardianTable).set(guardianPatch).where(eq(guardianTable.id, athlete.guardianId));
+  }
+
+  return { ok: true };
 }
 
 export async function setUserBlocked(userId: number, blocked: boolean) {

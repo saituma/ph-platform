@@ -77,7 +77,11 @@ export default function TeamsPage() {
               <p className="text-sm text-muted-foreground">No teams yet. Create one from Add team.</p>
             ) : (
               teams.map((team) => (
-                <div key={team.team} className="rounded-xl border border-border p-4">
+                <Link
+                  key={team.team}
+                  href={`/teams/${encodeURIComponent(team.team)}`}
+                  className="block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-base font-semibold text-foreground">{team.team}</p>
                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -92,7 +96,7 @@ export default function TeamsPage() {
                   <p className="mt-2 text-xs text-muted-foreground">
                     Created: {formatDate(team.createdAt)} · Last updated: {formatDate(team.updatedAt)}
                   </p>
-                </div>
+                </Link>
               ))
             )}
           </CardContent>
