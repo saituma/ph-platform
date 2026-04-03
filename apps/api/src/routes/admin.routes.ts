@@ -29,6 +29,7 @@ import {
   markThreadRead,
   sendAdminMessage,
   listAllUsers,
+  getTeamAdminDetails,
   listTeamsAdminDetails,
   updateExerciseItem,
   updateAdminPreferencesDetails,
@@ -56,6 +57,7 @@ import {
   provisionGuardianWithOnboarding,
   provisionTeamWithPlan,
   saveTeamDefaultsAdmin,
+  updateTeamMemberAdminDetails,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -65,6 +67,8 @@ router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]))
 
 router.get("/admin/users", listAllUsers);
 router.get("/admin/teams", listTeamsAdminDetails);
+router.get("/admin/teams/:teamName", getTeamAdminDetails);
+router.patch("/admin/teams/:teamName/members/:athleteId", updateTeamMemberAdminDetails);
 router.post("/admin/users/provision", provisionGuardianWithOnboarding);
 router.post("/admin/teams/provision", provisionTeamWithPlan);
 router.post("/admin/teams/defaults", saveTeamDefaultsAdmin);
