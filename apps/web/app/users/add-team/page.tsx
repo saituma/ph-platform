@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Textarea } from "../../../components/ui/textarea";
@@ -64,10 +65,6 @@ export default function AddTeamPage() {
   const privacyVersion = configData?.config?.privacyVersion ?? "1.0";
 
   const [teamName, setTeamName] = useState("");
-  const [teamPlanName, setTeamPlanName] = useState("");
-  const [planNameTouched, setPlanNameTouched] = useState(false);
-  const [monthlyPrice, setMonthlyPrice] = useState("");
-  const [yearlyPrice, setYearlyPrice] = useState("");
   const [injuries, setInjuries] = useState("");
   const [growthNotes, setGrowthNotes] = useState("");
   const [performanceGoals, setPerformanceGoals] = useState("");
@@ -75,26 +72,22 @@ export default function AddTeamPage() {
   const [members, setMembers] = useState<MemberDraft[]>([createEmptyMember()]);
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<{
-    planName: string;
     created: number;
     emailed: number;
     failed: Array<{ member: number; email: string; reason: string }>;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [planName, setPlanName] = useState("");
+  const [planAmount, setPlanAmount] = useState("");
+  const [planDurationMonths, setPlanDurationMonths] = useState("3");
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [planSuccess, setPlanSuccess] = useState<string | null>(null);
+  const [isCreatingPlan, setIsCreatingPlan] = useState(false);
 
   const memberErrors = useMemo(() => members.map((member) => validateMember(member)), [members]);
-
-  useEffect(() => {
-    if (planNameTouched) return;
-    const trimmedTeamName = teamName.trim();
-    setTeamPlanName(trimmedTeamName ? `PHP Team - ${trimmedTeamName}` : "");
-  }, [planNameTouched, teamName]);
-
-  const hasPlanPrice = Boolean(monthlyPrice.trim() || yearlyPrice.trim());
   const canSubmit =
     teamName.trim().length > 0 &&
-    teamPlanName.trim().length > 0 &&
-    hasPlanPrice &&
     members.length > 0 &&
     memberErrors.every((error) => !error);
 
@@ -104,7 +97,7 @@ export default function AddTeamPage() {
     setResult(null);
 
     if (!canSubmit) {
-      setFormError("Complete team details, plan details, and fix member errors before creating accounts.");
+      setFormError("Complete team details and fix member errors before creating accounts.");
       return;
     }
 
@@ -113,9 +106,6 @@ export default function AddTeamPage() {
       const csrfToken = getCsrfToken();
       const payload = {
         teamName: teamName.trim(),
-        teamPlanName: teamPlanName.trim(),
-        monthlyPrice: monthlyPrice.trim() || null,
-        yearlyPrice: yearlyPrice.trim() || null,
         injuries: injuries.trim() || undefined,
         growthNotes: growthNotes.trim() || null,
         performanceGoals: performanceGoals.trim() || null,
@@ -143,26 +133,87 @@ export default function AddTeamPage() {
       });
       const responsePayload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(responsePayload?.error || "Failed to create team with plan.");
+        throw new Error(responsePayload?.error || "Failed to create team.");
       }
       setResult({
-        planName: responsePayload?.plan?.name ?? teamPlanName.trim(),
         created: Number(responsePayload?.created ?? 0),
         emailed: Number(responsePayload?.emailed ?? 0),
         failed: Array.isArray(responsePayload?.failed) ? responsePayload.failed : [],
       });
     } catch (error: any) {
-      const message = error?.message ?? "Failed to create team with plan.";
-      setFormError(typeof message === "string" ? message : "Failed to create team with plan.");
+      const message = error?.message ?? "Failed to create team.";
+      setFormError(typeof message === "string" ? message : "Failed to create team.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openPlanModal = () => {
+    setPlanError(null);
+    setPlanSuccess(null);
+    if (!planName.trim()) {
+      const trimmedTeamName = teamName.trim();
+      setPlanName(trimmedTeamName ? `PHP Team - ${trimmedTeamName}` : "PHP Team - ");
+    }
+    setPlanModalOpen(true);
+  };
+
+  const createTeamPlan = async () => {
+    setPlanError(null);
+    setPlanSuccess(null);
+    const cleanName = planName.trim();
+    const cleanAmount = planAmount.trim();
+    const months = Number.parseInt(planDurationMonths, 10);
+
+    if (!cleanName) {
+      setPlanError("Plan name is required.");
+      return;
+    }
+    if (!cleanAmount) {
+      setPlanError("Amount is required.");
+      return;
+    }
+    if (!Number.isFinite(months) || months < 1) {
+      setPlanError("Duration (months) must be a positive number.");
+      return;
+    }
+
+    setIsCreatingPlan(true);
+    try {
+      const csrfToken = getCsrfToken();
+      const response = await fetch("/api/backend/admin/subscription-plans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({
+          name: cleanName,
+          tier: "PHP",
+          stripePriceId: "manual",
+          displayPrice: `${cleanAmount} for ${months} month${months === 1 ? "" : "s"}`,
+          billingInterval: `${months}_months`,
+          isActive: true,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to create team plan.");
+      }
+      setPlanSuccess(`Plan created: ${payload?.plan?.name ?? cleanName}`);
+      setPlanModalOpen(false);
+    } catch (error: any) {
+      const message = error?.message ?? "Failed to create team plan.";
+      setPlanError(typeof message === "string" ? message : "Failed to create team plan.");
+    } finally {
+      setIsCreatingPlan(false);
     }
   };
 
   return (
     <AdminShell
       title="Add team"
-      subtitle="Create a team plan, then bulk-create guardian + athlete accounts for the team roster."
+      subtitle="Bulk-create guardian + athlete accounts for the team roster."
       actions={
         <Button variant="outline" size="sm" asChild>
           <Link href="/users" className="inline-flex items-center gap-2">
@@ -182,7 +233,7 @@ export default function AddTeamPage() {
         {result ? (
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
             <p className="font-medium">
-              Team plan created ({result.planName}) and import complete: {result.created} created, {result.emailed} welcome emails sent.
+              Team import complete: {result.created} created, {result.emailed} welcome emails sent.
             </p>
             {result.failed.length ? (
               <div className="mt-3 space-y-2 text-amber-200/90">
@@ -207,7 +258,7 @@ export default function AddTeamPage() {
             <CardHeader>
               <CardTitle>Team defaults</CardTitle>
               <CardDescription>
-                Set team details and create a dedicated team plan before importing members.
+                Set team details used for member onboarding.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -221,42 +272,6 @@ export default function AddTeamPage() {
                   placeholder="e.g. U14 Phoenix"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="teamPlanName">Team plan name</Label>
-                <Input
-                  id="teamPlanName"
-                  required
-                  value={teamPlanName}
-                  onChange={(event) => {
-                    setPlanNameTouched(true);
-                    setTeamPlanName(event.target.value);
-                  }}
-                  placeholder="e.g. PHP Team - U14 Phoenix"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="monthlyPrice">Monthly price</Label>
-                <Input
-                  id="monthlyPrice"
-                  value={monthlyPrice}
-                  onChange={(event) => setMonthlyPrice(event.target.value)}
-                  placeholder="e.g. $399"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="yearlyPrice">Yearly price</Label>
-                <Input
-                  id="yearlyPrice"
-                  value={yearlyPrice}
-                  onChange={(event) => setYearlyPrice(event.target.value)}
-                  placeholder="e.g. $3990"
-                />
-              </div>
-              {!hasPlanPrice ? (
-                <p className="text-xs text-amber-300 sm:col-span-2">
-                  Add monthly or yearly price to create the team plan.
-                </p>
-              ) : null}
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="injuries">Injuries / history</Label>
                 <Textarea
@@ -430,7 +445,81 @@ export default function AddTeamPage() {
             </Button>
           </div>
         </form>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Create plan for this team</CardTitle>
+            <CardDescription>
+              Create a single fixed-duration plan (no monthly/yearly split).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Team: <span className="text-foreground">{teamName.trim() || "Not set yet"}</span>
+            </p>
+            <Button type="button" onClick={openPlanModal} disabled={!teamName.trim()}>
+              Create plan
+            </Button>
+          </CardContent>
+        </Card>
+        {planSuccess ? (
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+            {planSuccess}
+          </div>
+        ) : null}
+        {planError ? (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            {planError}
+          </div>
+        ) : null}
       </div>
+
+      <Dialog open={planModalOpen} onOpenChange={setPlanModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create team plan</DialogTitle>
+            <DialogDescription>Set plan name, amount, and total duration in months.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="plan-name">Plan name</Label>
+              <Input
+                id="plan-name"
+                value={planName}
+                onChange={(event) => setPlanName(event.target.value)}
+                placeholder="e.g. PHP Team - U14 Phoenix"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-amount">How much</Label>
+              <Input
+                id="plan-amount"
+                value={planAmount}
+                onChange={(event) => setPlanAmount(event.target.value)}
+                placeholder="e.g. $399"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-months">How many months it will last</Label>
+              <Input
+                id="plan-months"
+                type="number"
+                min={1}
+                value={planDurationMonths}
+                onChange={(event) => setPlanDurationMonths(event.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setPlanModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void createTeamPlan()} disabled={isCreatingPlan}>
+                {isCreatingPlan ? "Creating plan…" : "Save plan"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }
