@@ -57,7 +57,6 @@ import {
   updatePlanExercise,
   updatePlanSession,
 } from "../services/athlete-plan.service";
-import { createSubscriptionPlan } from "../services/billing.service";
 import { db } from "../db";
 import { notificationTable, serviceTypeTable } from "../db/schema";
 import { ProgramType, sessionType } from "../db/schema";
@@ -266,9 +265,6 @@ const provisionTeamMemberSchema = z.object({
 
 const provisionTeamSchema = z.object({
   teamName: z.string().min(1),
-  teamPlanName: z.string().min(1),
-  monthlyPrice: z.string().optional().nullable(),
-  yearlyPrice: z.string().optional().nullable(),
   injuries: z.unknown().optional(),
   growthNotes: z.string().optional().nullable(),
   performanceGoals: z.string().optional().nullable(),
@@ -278,24 +274,6 @@ const provisionTeamSchema = z.object({
   appVersion: z.string().min(1),
   members: z.array(provisionTeamMemberSchema).min(1),
 });
-
-function buildPlanDisplayPrice(monthlyPrice?: string | null, yearlyPrice?: string | null) {
-  const parts: string[] = [];
-  const monthly = String(monthlyPrice ?? "").trim();
-  const yearly = String(yearlyPrice ?? "").trim();
-  if (monthly) parts.push(`Monthly ${monthly}`);
-  if (yearly) parts.push(`Yearly ${yearly}`);
-  return parts.length ? parts.join(" • ") : "Free";
-}
-
-function normalizePlanBillingInterval(monthlyPrice?: string | null, yearlyPrice?: string | null) {
-  const hasMonthly = Boolean(String(monthlyPrice ?? "").trim());
-  const hasYearly = Boolean(String(yearlyPrice ?? "").trim());
-  if (hasMonthly && hasYearly) return "monthly, yearly";
-  if (hasMonthly) return "monthly";
-  if (hasYearly) return "yearly";
-  return "free";
-}
 
 export async function provisionGuardianWithOnboarding(req: Request, res: Response) {
   const parsed = provisionGuardianSchema.safeParse(req.body);
@@ -322,26 +300,8 @@ export async function provisionTeamWithPlan(req: Request, res: Response) {
   }
 
   const input = parsed.data;
-  const hasAnyPrice = Boolean(String(input.monthlyPrice ?? "").trim() || String(input.yearlyPrice ?? "").trim());
-  if (!hasAnyPrice) {
-    return res.status(400).json({ error: "At least one team plan price (monthly or yearly) is required." });
-  }
 
   try {
-    const createdPlan = await createSubscriptionPlan({
-      name: input.teamPlanName.trim(),
-      tier: "PHP",
-      stripePriceId: "manual",
-      displayPrice: buildPlanDisplayPrice(input.monthlyPrice, input.yearlyPrice),
-      billingInterval: normalizePlanBillingInterval(input.monthlyPrice, input.yearlyPrice),
-      monthlyPrice: String(input.monthlyPrice ?? "").trim() || undefined,
-      yearlyPrice: String(input.yearlyPrice ?? "").trim() || undefined,
-      discountType: "percent",
-      discountValue: JSON.stringify({}),
-      discountAppliesTo: "custom",
-      isActive: true,
-    });
-
     const failed: Array<{ member: number; email: string; reason: string }> = [];
     let created = 0;
     let emailed = 0;
@@ -379,14 +339,13 @@ export async function provisionTeamWithPlan(req: Request, res: Response) {
     }
 
     return res.status(201).json({
-      plan: createdPlan,
       created,
       emailed,
       failed,
     });
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;
-    const message = typeof error?.message === "string" ? error.message : "Failed to create team with plan.";
+    const message = typeof error?.message === "string" ? error.message : "Failed to create team.";
     if (status >= 500) {
       console.error("[admin] provisionTeamWithPlan", error);
     }
