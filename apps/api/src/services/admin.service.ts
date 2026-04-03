@@ -527,6 +527,30 @@ export async function listTeamsAdmin() {
   return rows;
 }
 
+export async function updateTeamDefaultsAdmin(input: {
+  teamName: string;
+  injuries?: string | null;
+  growthNotes?: string | null;
+  performanceGoals?: string | null;
+  equipmentAccess?: string | null;
+}) {
+  const rows = await db
+    .update(athleteTable)
+    .set({
+      injuries: input.injuries?.trim() ? input.injuries.trim() : null,
+      growthNotes: input.growthNotes?.trim() ? input.growthNotes.trim() : null,
+      performanceGoals: input.performanceGoals?.trim() ? input.performanceGoals.trim() : null,
+      equipmentAccess: input.equipmentAccess?.trim() ? input.equipmentAccess.trim() : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(athleteTable.team, input.teamName.trim()))
+    .returning({ id: athleteTable.id });
+
+  return {
+    updatedCount: rows.length,
+  };
+}
+
 export async function setUserBlocked(userId: number, blocked: boolean) {
   const result = await db
     .update(userTable)
