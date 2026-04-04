@@ -151,20 +151,6 @@ export function ThreadMessageList({
                 <p className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}>
                   {formatTime(message.createdAt)}
                 </p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {reactions.map((reaction) => (
-                    <span
-                      key={`${message.id}-${reaction.emoji}`}
-                      className={`rounded-full border px-2 py-0.5 text-xs ${
-                        mine
-                          ? "border-primary-foreground/40 bg-primary-foreground/10"
-                          : "border-border bg-background/60"
-                      }`}
-                    >
-                      {reaction.emoji} {Number(reaction.count ?? 0)}
-                    </span>
-                  ))}
-                </div>
               </div>
               <div data-reaction-picker-root="true" className={`relative ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}>
                 <button
