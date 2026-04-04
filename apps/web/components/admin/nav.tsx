@@ -74,6 +74,9 @@ function NavLinkRow({
       )}
     >
       {isActive ? <span className="absolute left-0 top-2 h-6 w-0.5 rounded-r bg-primary" /> : null}
+      {collapsed && item.badge ? (
+        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" aria-hidden />
+      ) : null}
       <span className={cn("flex min-w-0 items-center gap-2.5", collapsed && "justify-center")}>
         {item.icon ? (
           <item.icon
