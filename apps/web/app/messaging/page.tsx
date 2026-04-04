@@ -34,6 +34,7 @@ import {
   useCreateChatGroupMutation,
   useCreateContentMutation,
   useCreateMediaUploadUrlMutation,
+  useGetAdminProfileQuery,
   useGetAnnouncementsQuery,
   useGetChatGroupMessagesQuery,
   useGetChatGroupsQuery,
@@ -115,6 +116,7 @@ export default function MessagingPage() {
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
 
   const { data: announcementsData, refetch: refetchAnnouncements } = useGetAnnouncementsQuery();
+  const { data: adminProfileData } = useGetAdminProfileQuery();
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
   const { data: groupsData, refetch: refetchGroups } = useGetChatGroupsQuery();
@@ -209,6 +211,15 @@ export default function MessagingPage() {
       totalGroups: groups.length,
     };
   }, [announcements.length, groups.length, threads]);
+
+  const currentUserId = useMemo<number | null>(() => {
+    const profilePayload = adminProfileData as
+      | { id?: number | string; profile?: { id?: number | string } }
+      | undefined;
+    const idValue = profilePayload?.id ?? profilePayload?.profile?.id;
+    const normalized = Number(idValue);
+    return Number.isFinite(normalized) ? normalized : null;
+  }, [adminProfileData]);
 
   const handleCreateAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) return;
@@ -332,15 +343,13 @@ export default function MessagingPage() {
 
   const openGifPicker = (target: "direct" | "group") => {
     setGifTarget(target);
+    setGifQuery("");
     setGifDialogOpen(true);
+    void searchGif("");
   };
 
   const searchGif = async (query: string) => {
     const cleanQuery = query.trim();
-    if (!cleanQuery) {
-      setGifResults([]);
-      return;
-    }
     setGifLoading(true);
     try {
       const response = await fetch(`/api/giphy/search?q=${encodeURIComponent(cleanQuery)}`, {
@@ -536,7 +545,8 @@ export default function MessagingPage() {
         </TabsContent>
 
         <TabsContent value="inbox">
-          <Card>
+          <div className="mx-auto w-full max-w-7xl">
+          <Card className="min-h-[78vh]">
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
                 <SectionHeader
@@ -549,7 +559,7 @@ export default function MessagingPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[520px] pr-3">
+              <ScrollArea className="h-[68vh] pr-3">
                 <div className="space-y-2">
                   {threads.map((thread) => (
                     <button
@@ -573,6 +583,7 @@ export default function MessagingPage() {
               </ScrollArea>
             </CardContent>
           </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="teams">
@@ -661,6 +672,7 @@ export default function MessagingPage() {
               reactionPresets={reactionPresets}
               onReact={handleDirectReaction}
               formatTime={formatTime}
+              currentUserId={currentUserId}
               emptyLabel="No messages yet."
             />
             <ChatComposer
@@ -691,6 +703,7 @@ export default function MessagingPage() {
               reactionPresets={reactionPresets}
               onReact={handleGroupReaction}
               formatTime={formatTime}
+              currentUserId={currentUserId}
               showSenderName
               emptyLabel="No group messages yet."
             />

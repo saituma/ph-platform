@@ -34,6 +34,7 @@ export type ChatReaction = {
 
 export type ChatMessage = {
   id: number | string;
+  senderId?: number | string | null;
   senderRole?: string | null;
   senderName?: string | null;
   content?: string | null;

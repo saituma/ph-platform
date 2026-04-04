@@ -17,6 +17,7 @@ type ThreadMessageListProps = {
   reactionPresets: string[];
   onReact: (messageId: number, emoji: string) => void;
   formatTime: (value?: string | null) => string;
+  currentUserId?: number | null;
   showSenderName?: boolean;
   emptyLabel: string;
 };
@@ -26,6 +27,7 @@ export function ThreadMessageList({
   reactionPresets,
   onReact,
   formatTime,
+  currentUserId,
   showSenderName = false,
   emptyLabel,
 }: ThreadMessageListProps) {
@@ -56,11 +58,11 @@ export function ThreadMessageList({
     <ScrollArea className="h-[420px] rounded-xl border border-border p-3">
       <div className="space-y-3">
         {messages.map((message) => {
+          const senderId = Number(message?.senderId ?? NaN);
           const normalizedRole = String(message?.senderRole ?? "").trim().toLowerCase();
-          const mine =
-            normalizedRole === "admin" ||
-            normalizedRole === "coach" ||
-            normalizedRole === "superadmin";
+          const mineById = Number.isFinite(senderId) && currentUserId != null ? senderId === currentUserId : false;
+          const mineByRole = normalizedRole === "admin" || normalizedRole === "coach" || normalizedRole === "superadmin";
+          const mine = mineById || mineByRole;
           const reactions: ChatReaction[] = Array.isArray(message?.reactions) ? message.reactions : [];
           const messageId = Number(message.id);
           return (
@@ -68,7 +70,7 @@ export function ThreadMessageList({
               <div
                 className={`max-w-[80%] space-y-2 rounded-xl px-3 py-2 ${
                   mine
-                    ? "bg-blue-600 text-white"
+                    ? "bg-emerald-600 text-white"
                     : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                 }`}
               >
