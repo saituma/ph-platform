@@ -18,6 +18,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import {
   AudienceWorkspace,
+  PROGRAM_TIERS,
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../../components/admin/training-content-v2/api";
@@ -56,14 +57,25 @@ export default function AudienceDetailPage() {
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [activeTab, setActiveTab] = useState<"modules" | "others">("modules");
   const [moduleModalOpen, setModuleModalOpen] = useState(false);
+  const [lockModalOpen, setLockModalOpen] = useState(false);
   const [moduleForm, setModuleForm] = useState<ModuleForm>({
     id: null,
     name: "",
     focus: "",
     targetOrder: null,
   });
+  const [lockForm, setLockForm] = useState<{
+    moduleId: number | null;
+    moduleTitle: string;
+    programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>;
+  }>({
+    moduleId: null,
+    moduleTitle: "",
+    programTiers: [],
+  });
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
 
   const loadWorkspace = async () => {
     try {
@@ -132,7 +144,53 @@ export default function AudienceDetailPage() {
     }
   };
 
+  const saveModuleLocks = async (moduleId: number | null, programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>) => {
+    if (!programTiers.length) return;
+    setIsUpdatingLocks(true);
+    try {
+      setError(null);
+      const workspaceResponse = await trainingContentRequest<AudienceWorkspace>("/modules/locks", {
+        method: "PUT",
+        body: JSON.stringify({
+          audienceLabel,
+          moduleId,
+          programTiers,
+        }),
+      });
+      setWorkspace(workspaceResponse);
+      setLockModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update module locks.");
+    } finally {
+      setIsUpdatingLocks(false);
+    }
+  };
+
   const modules = workspace?.modules ?? [];
+  const effectiveLockedTiersByModuleId = useMemo(() => {
+    if (!workspace) return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
+
+    const lockStartOrderByTier = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
+    for (const lock of workspace.moduleLocks) {
+      const lockModule = workspace.modules.find((module) => module.id === lock.startModuleId);
+      if (lockModule) {
+        lockStartOrderByTier.set(lock.programTier, lockModule.order);
+      }
+    }
+
+    return new Map(
+      workspace.modules.map((module) => [
+        module.id,
+        PROGRAM_TIERS
+          .filter((tier) => {
+            const startOrder = lockStartOrderByTier.get(tier.value);
+            return startOrder != null && module.order >= startOrder;
+          })
+          .map((tier) => tier.value),
+      ])
+    );
+  }, [workspace]);
+
   const moduleByOrder = new Map(modules.map((module) => [module.order, module]));
   const moduleSlots = Array.from({ length: 12 }, (_, index) => {
     const order = index + 1;
@@ -192,6 +250,18 @@ export default function AudienceDetailPage() {
                       <p className="mt-2 text-sm text-muted-foreground">
                         {module ? `${module.sessions.length} sessions · ${module.totalDayLength} total days` : "0 sessions · 0 total days"}
                       </p>
+                      {module && (effectiveLockedTiersByModuleId.get(module.id) ?? []).length ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(effectiveLockedTiersByModuleId.get(module.id) ?? []).map((tier) => (
+                            <span
+                              key={`${module.id}-${tier}`}
+                              className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
+                            >
+                              Locked for {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       <div className="mt-3 flex flex-wrap gap-2">
                         {module ? (
                           <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${module.id}`}>
@@ -213,6 +283,22 @@ export default function AudienceDetailPage() {
                         >
                           Edit
                         </Button>
+                        {module ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setLockForm({
+                                moduleId: module.id,
+                                moduleTitle: parsed.name || module.title,
+                                programTiers: module.lockedForTiers,
+                              });
+                              setLockModalOpen(true);
+                            }}
+                          >
+                            Lock plans
+                          </Button>
+                        ) : null}
                         {module ? (
                           <Button size="sm" variant="ghost" onClick={() => void deleteModule(module.id)}>
                             Delete
@@ -302,6 +388,74 @@ export default function AudienceDetailPage() {
               <Button onClick={saveModule} disabled={isSaving || !moduleForm.name.trim()}>
                 {moduleForm.id ? "Update" : "Create"}
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={lockModalOpen} onOpenChange={setLockModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lock module for plans/tiers</DialogTitle>
+            <DialogDescription>
+              Starting from {lockForm.moduleTitle || "this module"}, selected tiers are locked here and for every module below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLockForm((current) => ({ ...current, programTiers: PROGRAM_TIERS.map((tier) => tier.value) }))}
+              >
+                All plans
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLockForm((current) => ({ ...current, programTiers: [] }))}
+              >
+                Clear selection
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {PROGRAM_TIERS.map((tier) => {
+                const checked = lockForm.programTiers.includes(tier.value);
+                return (
+                  <label key={tier.value} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => {
+                        const nextProgramTiers = event.target.checked
+                          ? [...lockForm.programTiers, tier.value]
+                          : lockForm.programTiers.filter((value) => value !== tier.value);
+                        setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
+                      }}
+                    />
+                    <span className="text-sm font-medium text-foreground">{tier.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex justify-between gap-2">
+              <Button
+                variant="ghost"
+                disabled={isUpdatingLocks || !lockForm.programTiers.length}
+                onClick={() => void saveModuleLocks(null, lockForm.programTiers)}
+              >
+                Unlock selected plans
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setLockModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
+                  onClick={() => void saveModuleLocks(lockForm.moduleId, lockForm.programTiers)}
+                >
+                  {isUpdatingLocks ? "Saving..." : "Save locks"}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
