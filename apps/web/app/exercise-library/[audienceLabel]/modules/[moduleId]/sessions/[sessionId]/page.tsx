@@ -322,6 +322,18 @@ export default function SessionDetailPage() {
                 }}
               />
               <Input placeholder="Video URL" value={itemForm.videoUrl} onChange={(event) => setItemForm((current) => ({ ...current, videoUrl: event.target.value }))} />
+              {itemForm.videoUrl.trim() ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Video preview</p>
+                  <video
+                    key={itemForm.videoUrl}
+                    src={itemForm.videoUrl.trim()}
+                    controls
+                    preload="metadata"
+                    className="w-full rounded-lg border border-border bg-black"
+                  />
+                </div>
+              ) : null}
             </div>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <input
