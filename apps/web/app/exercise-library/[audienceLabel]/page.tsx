@@ -226,6 +226,17 @@ export default function AudienceDetailPage() {
       module: moduleByOrder.get(order) ?? null,
     };
   });
+  const lockModalModuleOrder = lockForm.moduleId ? moduleOrderById.get(lockForm.moduleId) ?? null : null;
+  const selectableProgramTiers = useMemo(
+    () =>
+      PROGRAM_TIERS.filter((tier) => {
+        if (lockModalModuleOrder == null) return false;
+        const startOrder = lockStartOrderByTier.get(tier.value);
+        const isLockedHere = startOrder != null && startOrder <= lockModalModuleOrder;
+        return lockModalMode === "lock" ? !isLockedHere : isLockedHere;
+      }),
+    [lockModalMode, lockModalModuleOrder, lockStartOrderByTier],
+  );
 
   const unlockSelectedPlans = async () => {
     if (!lockForm.programTiers.length) return;
@@ -352,8 +363,7 @@ export default function AudienceDetailPage() {
                             size="sm"
                             variant="secondary"
                             onClick={() => {
-                              const isLocked = slotLockedTiers.length > 0;
-                              setLockModalMode(isLocked ? "unlock" : "lock");
+                              setLockModalMode("lock");
                               setLockForm({
                                 moduleId: module.id,
                                 moduleTitle: parsed.name || module.title,
@@ -362,7 +372,25 @@ export default function AudienceDetailPage() {
                               setLockModalOpen(true);
                             }}
                           >
-                            {slotLockedTiers.length ? "Locked plans" : "Lock plans"}
+                            Lock plan
+                          </Button>
+                        ) : null}
+                        {module ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={!slotLockedTiers.length}
+                            onClick={() => {
+                              setLockModalMode("unlock");
+                              setLockForm({
+                                moduleId: module.id,
+                                moduleTitle: parsed.name || module.title,
+                                programTiers: [],
+                              });
+                              setLockModalOpen(true);
+                            }}
+                          >
+                            Unlock plan
                           </Button>
                         ) : null}
                         {module ? (
@@ -470,7 +498,7 @@ export default function AudienceDetailPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-3">
-              {PROGRAM_TIERS.map((tier) => {
+              {selectableProgramTiers.map((tier) => {
                 const checked = lockForm.programTiers.includes(tier.value);
                 const startOrder = lockStartOrderByTier.get(tier.value);
                 return (
@@ -494,13 +522,20 @@ export default function AudienceDetailPage() {
                   </div>
                 );
               })}
+              {!selectableProgramTiers.length ? (
+                <p className="text-sm text-muted-foreground">
+                  {lockModalMode === "lock"
+                    ? "All plans are already locked for this module."
+                    : "No plans are locked for this module."}
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {lockModalMode === "lock" ? (
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
+                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length || !selectableProgramTiers.length}
                   onClick={() => void saveModuleLocks(lockForm.moduleId, lockForm.programTiers)}
                 >
                   Lock from this module
@@ -509,7 +544,7 @@ export default function AudienceDetailPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
+                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length || !selectableProgramTiers.length}
                   onClick={() => void unlockSelectedPlans()}
                 >
                   Unlock through this module
