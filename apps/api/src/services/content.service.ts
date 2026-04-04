@@ -1,9 +1,11 @@
-import { eq, desc, asc } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import {
   athleteTable,
+  chatGroupMemberTable,
   contentTable,
+  guardianTable,
   parentCourseTable,
   ProgramType,
   storyTable,
@@ -35,12 +37,74 @@ export async function getTestimonialSubmissions() {
     .where(eq(contentTable.surface, "testimonial_submissions"));
 }
 
-export async function getAnnouncements() {
-  return db
+const TEAM_TARGET_PREFIX = "target:team:";
+const GROUP_TARGET_PREFIX = "target:group:";
+
+function parseAnnouncementAudience(item: typeof contentTable.$inferSelect) {
+  const category = String(item.category ?? "").trim();
+  if (category.toLowerCase().startsWith(TEAM_TARGET_PREFIX)) {
+    return { type: "team" as const, team: category.slice(TEAM_TARGET_PREFIX.length).trim().toLowerCase() };
+  }
+  if (category.toLowerCase().startsWith(GROUP_TARGET_PREFIX)) {
+    const groupId = Number(category.slice(GROUP_TARGET_PREFIX.length).trim());
+    if (Number.isFinite(groupId)) {
+      return { type: "group" as const, groupId };
+    }
+  }
+  if (Array.isArray(item.ageList) || item.minAge != null || item.maxAge != null) {
+    return { type: "age" as const };
+  }
+  return { type: "all" as const };
+}
+
+async function resolveAnnouncementAudienceContext(userId: number) {
+  const directAthletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId));
+  let relatedAthletes = directAthletes;
+
+  if (!relatedAthletes.length) {
+    const guardian = await db.select({ id: guardianTable.id }).from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
+    if (guardian[0]) {
+      relatedAthletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian[0].id));
+    }
+  }
+
+  const teams = new Set(
+    relatedAthletes
+      .map((athlete) => String(athlete.team ?? "").trim().toLowerCase())
+      .filter((team) => team.length > 0),
+  );
+  const ages = relatedAthletes
+    .map((athlete) => resolveAgeFromAthlete(athlete))
+    .filter((age): age is number => Number.isFinite(age));
+
+  const groupRows = await db
+    .select({ groupId: chatGroupMemberTable.groupId })
+    .from(chatGroupMemberTable)
+    .where(eq(chatGroupMemberTable.userId, userId));
+  const groupIds = new Set(groupRows.map((row) => Number(row.groupId)).filter((value) => Number.isFinite(value)));
+
+  return { teams, ages, groupIds };
+}
+
+export async function getAnnouncements(userId?: number, role?: string) {
+  const items = await db
     .select()
     .from(contentTable)
     .where(eq(contentTable.surface, "announcements"))
     .orderBy(desc(contentTable.updatedAt));
+
+  if (!userId || (role && ADMIN_ROLES.has(role))) {
+    return items;
+  }
+
+  const context = await resolveAnnouncementAudienceContext(userId);
+  return items.filter((item) => {
+    const audience = parseAnnouncementAudience(item);
+    if (audience.type === "all") return true;
+    if (audience.type === "team") return context.teams.has(audience.team);
+    if (audience.type === "group") return context.groupIds.has(audience.groupId);
+    return context.ages.some((age) => matchesAgeRange(item, age));
+  });
 }
 
 export async function listStoriesForUser() {

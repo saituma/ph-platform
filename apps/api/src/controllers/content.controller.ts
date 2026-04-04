@@ -37,6 +37,10 @@ const contentCreateSchema = z.object({
   ageList: z.array(z.number().int().min(0)).optional(),
   minAge: z.number().int().min(0).optional(),
   maxAge: z.number().int().min(0).optional(),
+  announcementAudienceType: z.enum(["all", "age", "team", "group"]).optional(),
+  announcementAudienceAge: z.number().int().min(0).optional(),
+  announcementAudienceTeam: z.string().optional(),
+  announcementAudienceGroupId: z.number().int().min(1).optional(),
 }).superRefine((data, ctx) => {
   if (data.surface !== "announcements") {
     if (!data.title) {
@@ -59,6 +63,30 @@ const contentCreateSchema = z.object({
         exact: false,
         message: "Content is required.",
         path: ["content"],
+      });
+    }
+  }
+  if (data.surface === "announcements") {
+    const audienceType = data.announcementAudienceType ?? "all";
+    if (audienceType === "age" && data.announcementAudienceAge === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Announcement age is required for age audience.",
+        path: ["announcementAudienceAge"],
+      });
+    }
+    if (audienceType === "team" && !data.announcementAudienceTeam?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Team is required for team audience.",
+        path: ["announcementAudienceTeam"],
+      });
+    }
+    if (audienceType === "group" && data.announcementAudienceGroupId === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Group is required for group audience.",
+        path: ["announcementAudienceGroupId"],
       });
     }
   }
@@ -178,7 +206,7 @@ export async function listLegalContent(req: Request, res: Response) {
 }
 
 export async function listAnnouncementsContent(_req: Request, res: Response) {
-  const items = await getAnnouncements();
+  const items = await getAnnouncements(_req.user!.id, (_req.user as { role?: string } | undefined)?.role);
   return res.status(200).json({ items });
 }
 
@@ -217,6 +245,22 @@ export async function createContentItem(req: Request, res: Response) {
   const isAnnouncement = input.surface === "announcements";
   const title = isAnnouncement && !input.title ? "Announcement" : input.title;
   const content = isAnnouncement && !input.content ? "Announcement" : input.content;
+  const audienceType = isAnnouncement ? (input.announcementAudienceType ?? "all") : null;
+  const announcementCategory =
+    !isAnnouncement || audienceType === "all"
+      ? input.category
+      : audienceType === "team"
+        ? `target:team:${input.announcementAudienceTeam?.trim() ?? ""}`
+        : audienceType === "group"
+          ? `target:group:${input.announcementAudienceGroupId ?? ""}`
+          : null;
+  const announcementAgeList =
+    !isAnnouncement || audienceType !== "age" || input.announcementAudienceAge === undefined
+      ? input.ageList
+      : [input.announcementAudienceAge];
+  const announcementMinAge = !isAnnouncement || audienceType !== "age" ? input.minAge : undefined;
+  const announcementMaxAge = !isAnnouncement || audienceType !== "age" ? input.maxAge : undefined;
+
   const item = await createContent({
     title,
     content,
@@ -224,10 +268,10 @@ export async function createContentItem(req: Request, res: Response) {
     body: input.body,
     programTier: input.programTier,
     surface: input.surface,
-    category: input.category,
-    ageList: input.ageList,
-    minAge: input.minAge,
-    maxAge: input.maxAge,
+    category: announcementCategory,
+    ageList: announcementAgeList,
+    minAge: announcementMinAge,
+    maxAge: announcementMaxAge,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });
