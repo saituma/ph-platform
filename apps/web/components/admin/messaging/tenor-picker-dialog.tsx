@@ -35,7 +35,7 @@ export function TenorPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>GIFs from Tenor</DialogTitle>
+          <DialogTitle>GIFs from GIPHY</DialogTitle>
           <DialogDescription>Search and send a GIF.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
