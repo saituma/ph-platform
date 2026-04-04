@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { Button } from "../../../../components/ui/button";
 import {
   AudienceWorkspace,
   normalizeAudienceLabelInput,
@@ -79,60 +78,9 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
     void openCurrentAgeSchedule();
   }, [workspace, isRedirecting, currentAgeEntry, router, normalizedAudienceLabel]);
 
-  const openCurrentAgeScheduleManually = async () => {
-    try {
-      setIsRedirecting(true);
-      setError(null);
-      if (currentAgeEntry) {
-        router.push(`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${currentAgeEntry.id}`);
-        return;
-      }
+  if (!error) {
+    return null;
+  }
 
-      const created = await trainingContentRequest<{ item: { id: number } }>("/others", {
-        method: "POST",
-        body: JSON.stringify({
-          audienceLabel: normalizedAudienceLabel,
-          type: "inseason",
-          title: normalizedAudienceLabel,
-          body: "Weekly in-season schedule.",
-          scheduleNote: null,
-          videoUrl: null,
-          order: null,
-          metadata: {
-            kind: "inseason_age_group",
-          },
-        }),
-      });
-      const createdId = created?.item?.id;
-      if (createdId) {
-        router.push(`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${createdId}`);
-        return;
-      }
-
-      await loadWorkspace();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to open weekly schedule.");
-    } finally {
-      setIsRedirecting(false);
-    }
-  };
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <p className="text-sm font-semibold text-foreground">
-        {isRedirecting ? "Opening in-season schedule..." : "In-season schedule is ready for this age."}
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {isRedirecting
-          ? "Preparing weekly sessions for this age and redirecting you."
-          : "Click below to open the weekly schedule for this age."}
-      </p>
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-      <div className="mt-4">
-        <Button onClick={() => void openCurrentAgeScheduleManually()} disabled={isRedirecting}>
-          {isRedirecting ? "Opening..." : "Open in-season schedule"}
-        </Button>
-      </div>
-    </div>
-  );
+  return <p className="text-sm text-red-600">{error}</p>;
 }
