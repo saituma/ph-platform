@@ -180,7 +180,7 @@ export default function AudienceDetailPage() {
               />
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-3">
                 {moduleSlots.map((slot) => {
                   const module = slot.module;
                   const parsed = module ? parseModuleTitle(module.title) : { name: "", focus: "" };
@@ -230,7 +230,7 @@ export default function AudienceDetailPage() {
             <CardHeader>
               <SectionHeader title="Other editable content" description="Admin can manage these program areas for this age." />
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <CardContent className="space-y-3">
               <div className="rounded-2xl border border-border p-4">
                 <p className="text-sm font-semibold text-foreground">Warm-Up</p>
                 <p className="mt-1 text-sm text-muted-foreground">Managed inside each session detail.</p>
@@ -261,7 +261,7 @@ export default function AudienceDetailPage() {
                 <p className="text-sm font-semibold text-foreground">Recovery</p>
                 <p className="mt-1 text-sm text-muted-foreground">Open and edit recovery content.</p>
               </Link>
-              <div className="rounded-2xl border border-border p-4 sm:col-span-2 xl:col-span-1">
+              <div className="rounded-2xl border border-border p-4">
                 <p className="text-sm font-semibold text-foreground">Cool-Down</p>
                 <p className="mt-1 text-sm text-muted-foreground">Managed inside each session detail.</p>
               </div>
