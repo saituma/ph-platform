@@ -5,18 +5,13 @@ import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
-  Bell,
   ChevronDown,
-  Plus,
-  Search,
-  User,
 } from "lucide-react";
 
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { ThemeToggle } from "./theme-toggle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
-import { Badge } from "../ui/badge";
+import { GlobalCommandPalette } from "./global-command-palette";
 import { useGetAdminProfileQuery } from "../../lib/apiSlice";
 
 type TopbarProps = {
@@ -37,7 +32,6 @@ export function AdminTopbar({
   const [openNotify, setOpenNotify] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
   const [profileAction, setProfileAction] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const router = useRouter();
   const { data } = useGetAdminProfileQuery();
   const displayName = data?.user?.name || "Admin";
@@ -68,22 +62,7 @@ export function AdminTopbar({
       </div>
       <div className="flex flex-1 items-center justify-end gap-4">
         <div className="hidden w-full max-w-sm md:block">
-          <div className="flex items-center gap-2 rounded-none border border-border bg-background px-3 py-1.5 text-xs font-mono">
-            <Search className="h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              placeholder="SYSTEM SEARCH..."
-              className="w-full bg-transparent outline-none placeholder:text-muted-foreground/50 uppercase"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  const query = search.trim();
-                  if (!query) return;
-                  router.push(`/search?q=${encodeURIComponent(query)}`);
-                }
-              }}
-            />
-          </div>
+          <GlobalCommandPalette />
         </div>
         <ThemeToggle />
         {actions ?? null}
