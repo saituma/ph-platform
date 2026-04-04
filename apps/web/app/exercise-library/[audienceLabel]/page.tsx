@@ -496,7 +496,16 @@ export default function AudienceDetailPage() {
                 type="button"
                 variant="outline"
                 disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
-                onClick={() => void saveModuleLocks(lockForm.moduleId, lockForm.programTiers)}
+                onClick={() => {
+                  const planLabels = lockForm.programTiers
+                    .map((tier) => PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier)
+                    .join(", ");
+                  const confirmed = window.confirm(
+                    `Lock ${planLabels} starting from ${lockForm.moduleTitle || "this module"} and all modules below?`,
+                  );
+                  if (!confirmed) return;
+                  void saveModuleLocks(lockForm.moduleId, lockForm.programTiers);
+                }}
               >
                 Lock from this module
               </Button>
@@ -504,7 +513,17 @@ export default function AudienceDetailPage() {
                 type="button"
                 variant="outline"
                 disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
-                onClick={() => void unlockSelectedPlans()}
+                onClick={() => {
+                  const currentOrder = lockForm.moduleId ? moduleOrderById.get(lockForm.moduleId) : null;
+                  const planLabels = lockForm.programTiers
+                    .map((tier) => PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier)
+                    .join(", ");
+                  const confirmed = window.confirm(
+                    `Unlock ${planLabels} through Module ${currentOrder ?? "?"} and keep lock from Module ${(currentOrder ?? 0) + 1} downward?`,
+                  );
+                  if (!confirmed) return;
+                  void unlockSelectedPlans();
+                }}
               >
                 Unlock through this module
               </Button>
