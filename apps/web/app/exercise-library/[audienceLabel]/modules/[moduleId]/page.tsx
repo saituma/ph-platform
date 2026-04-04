@@ -35,6 +35,7 @@ function SortableSessionCard({
   onEdit,
   onDelete,
   onLock,
+  onUnlock,
 }: {
   session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number];
   audienceLabel: string;
@@ -43,6 +44,7 @@ function SortableSessionCard({
   onEdit: (session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number]) => void;
   onDelete: (sessionId: number) => void;
   onLock: (session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number]) => void;
+  onUnlock: (session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number]) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: session.id });
   const style = {
@@ -92,7 +94,10 @@ function SortableSessionCard({
           <Button size="sm">Open session</Button>
         </Link>
         <Button size="sm" variant="secondary" onClick={() => onLock(session)}>
-          Lock plans
+          Lock plan
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => onUnlock(session)} disabled={!effectiveLockedForTiers.length}>
+          Unlock plan
         </Button>
         <Button size="sm" variant="outline" onClick={() => onEdit(session)}>
           Edit
@@ -115,6 +120,7 @@ export default function ModuleSessionsPage() {
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [lockModalOpen, setLockModalOpen] = useState(false);
+  const [lockModalMode, setLockModalMode] = useState<"lock" | "unlock">("lock");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
@@ -308,6 +314,49 @@ export default function ModuleSessionsPage() {
     }
   };
 
+  const sessionOrderById = useMemo(
+    () => new Map((module?.sessions ?? []).map((session) => [session.id, session.order])),
+    [module?.sessions],
+  );
+  const lockStartOrderByTier = useMemo(() => {
+    const map = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
+    for (const session of module?.sessions ?? []) {
+      for (const tier of session.lockedForTiers ?? []) {
+        map.set(tier, session.order);
+      }
+    }
+    return map;
+  }, [module?.sessions]);
+  const lockModalSessionOrder = lockForm.sessionId ? sessionOrderById.get(lockForm.sessionId) ?? null : null;
+  const selectableProgramTiers = useMemo(
+    () =>
+      PROGRAM_TIERS.filter((tier) => {
+        if (lockModalSessionOrder == null) return false;
+        const startOrder = lockStartOrderByTier.get(tier.value);
+        const isLockedHere = startOrder != null && startOrder <= lockModalSessionOrder;
+        return lockModalMode === "lock" ? !isLockedHere : isLockedHere;
+      }),
+    [lockModalMode, lockModalSessionOrder, lockStartOrderByTier],
+  );
+
+  const unlockSelectedPlans = async () => {
+    if (!module || !lockForm.programTiers.length || !lockForm.sessionId) return;
+    const currentOrder = sessionOrderById.get(lockForm.sessionId);
+    if (currentOrder == null) return;
+
+    const tiersToMove = lockForm.programTiers.filter((tier) => {
+      const startOrder = lockStartOrderByTier.get(tier);
+      return startOrder != null && startOrder <= currentOrder;
+    });
+    if (!tiersToMove.length) {
+      setError("Selected plans are already unlocked through this session.");
+      return;
+    }
+
+    const nextSession = module.sessions.find((session) => session.order > currentOrder) ?? null;
+    await saveSessionLocks(nextSession?.id ?? null, tiersToMove);
+  };
+
   return (
     <AdminShell title="Training content" subtitle={`Age ${audienceLabel} · module structure`}>
       <div className="space-y-6">
@@ -357,10 +406,20 @@ export default function ModuleSessionsPage() {
                           moduleId={moduleId}
                           effectiveLockedForTiers={effectiveLockedTiersBySessionId.get(session.id) ?? []}
                           onLock={(current) => {
+                            setLockModalMode("lock");
                             setLockForm({
                               sessionId: current.id,
                               sessionTitle: current.title,
-                              programTiers: current.lockedForTiers,
+                              programTiers: [],
+                            });
+                            setLockModalOpen(true);
+                          }}
+                          onUnlock={(current) => {
+                            setLockModalMode("unlock");
+                            setLockForm({
+                              sessionId: current.id,
+                              sessionTitle: current.title,
+                              programTiers: [],
                             });
                             setLockModalOpen(true);
                           }}
@@ -428,31 +487,18 @@ export default function ModuleSessionsPage() {
       <Dialog open={lockModalOpen} onOpenChange={setLockModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Lock session for plans</DialogTitle>
+            <DialogTitle>{lockModalMode === "lock" ? "Lock session for plans" : "Unlock plans for this session"}</DialogTitle>
             <DialogDescription>
-              Starting from {lockForm.sessionTitle || "this session"}, the selected plan tiers will be locked here and for every session below it on mobile.
+              {lockModalMode === "lock"
+                ? `Starting from ${lockForm.sessionTitle || "this session"}, selected plans will be locked here and below.`
+                : `Selected plans will be unlocked through ${lockForm.sessionTitle || "this session"} and remain locked below.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setLockForm((current) => ({ ...current, programTiers: PROGRAM_TIERS.map((tier) => tier.value) }))}
-              >
-                All plans
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setLockForm((current) => ({ ...current, programTiers: [] }))}
-              >
-                Clear selection
-              </Button>
-            </div>
             <div className="space-y-3">
-              {PROGRAM_TIERS.map((tier) => {
+              {selectableProgramTiers.map((tier) => {
                 const checked = lockForm.programTiers.includes(tier.value);
+                const startOrder = lockStartOrderByTier.get(tier.value);
                 return (
                   <label key={tier.value} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
                     <input
@@ -465,30 +511,44 @@ export default function ModuleSessionsPage() {
                         setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
                       }}
                     />
-                    <span className="text-sm font-medium text-foreground">{tier.label}</span>
+                    <span className="text-sm font-medium text-foreground">
+                      {tier.label}
+                      {startOrder ? ` · starts at Session ${startOrder}` : " · unlocked"}
+                    </span>
                   </label>
                 );
               })}
+              {!selectableProgramTiers.length ? (
+                <p className="text-sm text-muted-foreground">
+                  {lockModalMode === "lock"
+                    ? "All plans are already locked for this session."
+                    : "No plans are locked for this session."}
+                </p>
+              ) : null}
             </div>
-            <div className="flex justify-between gap-2">
-              <Button
-                variant="ghost"
-                disabled={isUpdatingLocks || !lockForm.programTiers.length}
-                onClick={() => void saveSessionLocks(null, lockForm.programTiers)}
-              >
-                Unlock selected plans
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setLockModalOpen(false)}>
-                  Cancel
-                </Button>
+            <div className="flex justify-end gap-2">
+              {lockModalMode === "lock" ? (
                 <Button
-                  disabled={isUpdatingLocks || !lockForm.sessionId || !lockForm.programTiers.length}
+                  type="button"
+                  variant="outline"
+                  disabled={isUpdatingLocks || !lockForm.sessionId || !lockForm.programTiers.length || !selectableProgramTiers.length}
                   onClick={() => void saveSessionLocks(lockForm.sessionId, lockForm.programTiers)}
                 >
-                  {isUpdatingLocks ? "Saving..." : "Save locks"}
+                  {isUpdatingLocks ? "Saving..." : "Lock from this session"}
                 </Button>
-              </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUpdatingLocks || !lockForm.sessionId || !lockForm.programTiers.length || !selectableProgramTiers.length}
+                  onClick={() => void unlockSelectedPlans()}
+                >
+                  {isUpdatingLocks ? "Saving..." : "Unlock through this session"}
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setLockModalOpen(false)}>
+                Close
+              </Button>
             </div>
           </div>
         </DialogContent>
