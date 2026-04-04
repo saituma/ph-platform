@@ -7,6 +7,7 @@ import {
   chatGroupMessageTable,
   messageReactionTable,
   messageTable,
+  userTable,
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 
@@ -129,7 +130,15 @@ export async function toggleDirectMessageReaction(input: {
   if (!message) {
     throw new Error("Message not found");
   }
-  if (message.senderId !== input.userId && message.receiverId !== input.userId) {
+  const actorRows = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, input.userId))
+    .limit(1);
+  const actorRole = actorRows[0]?.role ?? "";
+  const actorIsStaff = actorRole === "admin" || actorRole === "superAdmin" || actorRole === "coach";
+
+  if (!actorIsStaff && message.senderId !== input.userId && message.receiverId !== input.userId) {
     throw new Error("Forbidden");
   }
   const existing = await db
