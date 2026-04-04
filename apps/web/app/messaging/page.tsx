@@ -673,6 +673,9 @@ export default function MessagingPage() {
               onReact={handleDirectReaction}
               formatTime={formatTime}
               currentUserId={currentUserId}
+              mode="direct"
+              directPeerUserId={threadUserId}
+              directPeerName={directThreadName}
               emptyLabel="No messages yet."
             />
             <ChatComposer
@@ -704,6 +707,7 @@ export default function MessagingPage() {
               onReact={handleGroupReaction}
               formatTime={formatTime}
               currentUserId={currentUserId}
+              mode="group"
               showSenderName
               emptyLabel="No group messages yet."
             />
