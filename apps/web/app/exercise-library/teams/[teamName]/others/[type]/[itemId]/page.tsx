@@ -23,8 +23,12 @@ export default function OtherContentItemDetailPage() {
   }
 
   useEffect(() => {
-    router.replace(`/exercise-library/teams/${encodeURIComponent(audienceLabel)}?view=others`);
-  }, [audienceLabel, router]);
+    if (!section) {
+      router.replace(`/exercise-library/teams/${encodeURIComponent(audienceLabel)}`);
+      return;
+    }
+    router.replace(`/exercise-library/teams/${encodeURIComponent(audienceLabel)}/others/${section.type}`);
+  }, [audienceLabel, router, section]);
 
   return null;
 }
