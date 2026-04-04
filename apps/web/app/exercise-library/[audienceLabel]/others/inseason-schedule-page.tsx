@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "../../../../components/ui/dialog";
 import { Input } from "../../../../components/ui/input";
+import { Select } from "../../../../components/ui/select";
 import { Textarea } from "../../../../components/ui/textarea";
 import {
   AudienceWorkspace,
@@ -30,6 +31,30 @@ import {
   isInseasonScheduleEntry,
   parseWeeklySchedule,
 } from "./inseason-shared";
+
+const TIME_HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
+const TIME_MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+
+function parseTimeForPicker(time: string) {
+  const match = String(time).match(/^(\d{2}):(\d{2})$/);
+  const hourFromInput = match ? match[1] : "17";
+  const minuteFromInput = match ? match[2] : "00";
+
+  return {
+    hour: TIME_HOUR_OPTIONS.includes(hourFromInput) ? hourFromInput : "17",
+    minute: TIME_MINUTE_OPTIONS.includes(minuteFromInput) ? minuteFromInput : "00",
+  };
+}
+
+function buildTimeFromPicker(hour: string, minute: string) {
+  const numericHour = Number(hour);
+  const numericMinute = Number(minute);
+  if (!Number.isFinite(numericHour)) return "17:00";
+  if (!Number.isFinite(numericMinute)) return `${String(Math.max(0, Math.min(23, numericHour))).padStart(2, "0")}:00`;
+  const safeHour = Math.max(0, Math.min(23, numericHour));
+  const safeMinute = Math.max(0, Math.min(59, numericMinute));
+  return `${String(safeHour).padStart(2, "0")}:${String(safeMinute).padStart(2, "0")}`;
+}
 
 export function InseasonSchedulePage({
   audienceLabel,
@@ -67,6 +92,7 @@ export function InseasonSchedulePage({
 
   const inseasonItems = workspace?.others.find((item) => item.type === "inseason")?.items ?? [];
   const ageEntry = inseasonItems.find((item) => item.id === itemId && isInseasonAgeGroup(item.metadata)) ?? null;
+  const pickedTime = parseTimeForPicker(form.time);
   const scheduleEntries = inseasonItems.filter((item) => {
     if (item.id === itemId && isLegacyInseasonAgeSchedule(item.metadata)) return true;
     if (!isInseasonScheduleEntry(item.metadata)) return false;
@@ -195,7 +221,7 @@ export function InseasonSchedulePage({
         <Card>
           <CardHeader>
             <SectionHeader
-              title={ageEntry?.title ? `${ageEntry.title} weekly sessions` : "In-Season weekly sessions"}
+              title={ageEntry?.title ? `Age ${ageEntry.title} weekly sessions` : "In-Season weekly sessions"}
               description="Add fixed weekly sessions for this age. Each session repeats every week on the selected day and time."
             />
           </CardHeader>
@@ -267,11 +293,38 @@ export function InseasonSchedulePage({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Time</label>
-                <Input
-                  type="time"
-                  value={form.time}
-                  onChange={(event) => setForm((current) => ({ ...current, time: event.target.value }))}
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Select
+                    value={pickedTime.hour}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        time: buildTimeFromPicker(event.target.value, pickedTime.minute),
+                      }))
+                    }
+                  >
+                    {TIME_HOUR_OPTIONS.map((hour) => (
+                      <option key={hour} value={hour}>
+                        {hour}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
+                    value={pickedTime.minute}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        time: buildTimeFromPicker(pickedTime.hour, event.target.value),
+                      }))
+                    }
+                  >
+                    {TIME_MINUTE_OPTIONS.map((minute) => (
+                      <option key={minute} value={minute}>
+                        {minute}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
             </div>
             <div className="space-y-2">
