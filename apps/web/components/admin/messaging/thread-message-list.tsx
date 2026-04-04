@@ -14,7 +14,6 @@ type EmojiPick = {
 
 type ThreadMessageListProps = {
   messages: ChatMessage[];
-  reactionPresets: string[];
   onReact: (messageId: number, emoji: string) => void;
   formatTime: (value?: string | null) => string;
   currentUserId?: number | null;
@@ -27,7 +26,6 @@ type ThreadMessageListProps = {
 
 export function ThreadMessageList({
   messages,
-  reactionPresets,
   onReact,
   formatTime,
   currentUserId,
@@ -54,9 +52,20 @@ export function ThreadMessageList({
     };
   }, []);
 
-  const handlePickReaction = (messageId: number, emoji: EmojiPick) => {
+  const handlePickReaction = async (message: ChatMessage, emoji: EmojiPick) => {
     if (!emoji.native) return;
-    onReact(messageId, emoji.native);
+    const messageId = Number(message.id);
+    const myReaction =
+      currentUserId == null
+        ? null
+        : (Array.isArray(message.reactions) ? message.reactions : []).find((reaction) =>
+            Array.isArray(reaction.userIds) ? reaction.userIds.includes(currentUserId) : false,
+          ) ?? null;
+
+    if (myReaction?.emoji && myReaction.emoji !== emoji.native) {
+      await Promise.resolve(onReact(messageId, myReaction.emoji));
+    }
+    await Promise.resolve(onReact(messageId, emoji.native));
     setPickerMessageId(null);
   };
 
@@ -96,7 +105,6 @@ export function ThreadMessageList({
             mine = mineByDirectPeerName;
           }
           const reactions: ChatReaction[] = Array.isArray(message?.reactions) ? message.reactions : [];
-          const messageId = Number(message.id);
           const hasImage = Boolean(message.mediaUrl && message.contentType === "image");
           const hasVideo = Boolean(message.mediaUrl && message.contentType === "video");
           const hasMedia = hasImage || hasVideo;
@@ -134,35 +142,7 @@ export function ThreadMessageList({
                 <p className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}>
                   {formatTime(message.createdAt)}
                 </p>
-                <div ref={pickerContainerRef} className="relative flex flex-wrap items-center gap-1.5">
-                  {reactionPresets.map((emoji) => (
-                    <button
-                      key={`${message.id}-${emoji}`}
-                      type="button"
-                      className={`rounded-full border px-2 py-0.5 text-xs ${
-                        mine
-                          ? "border-primary-foreground/40 bg-primary-foreground/10"
-                          : "border-border bg-background/60"
-                      }`}
-                      onClick={() => onReact(messageId, emoji)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className={`rounded-full border px-2 py-0.5 text-xs ${
-                      mine
-                        ? "border-primary-foreground/40 bg-primary-foreground/10"
-                        : "border-border bg-background/60"
-                    }`}
-                    onClick={() =>
-                      setPickerMessageId((current) => (current === String(message.id) ? null : String(message.id)))
-                    }
-                    aria-label="Add custom reaction"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
+                <div className="flex flex-wrap items-center gap-1.5">
                   {reactions.map((reaction) => (
                     <span
                       key={`${message.id}-${reaction.emoji}`}
@@ -175,18 +155,30 @@ export function ThreadMessageList({
                       {reaction.emoji} {Number(reaction.count ?? 0)}
                     </span>
                   ))}
-                  {pickerMessageId === String(message.id) ? (
-                    <div className="absolute bottom-8 left-0 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                      <Picker
-                        data={emojiData}
-                        onEmojiSelect={(emoji: EmojiPick) => handlePickReaction(messageId, emoji)}
-                        previewPosition="none"
-                        skinTonePosition="none"
-                        maxFrequentRows={1}
-                      />
-                    </div>
-                  ) : null}
                 </div>
+              </div>
+              <div ref={pickerContainerRef} className={`relative ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}>
+                <button
+                  type="button"
+                  className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
+                  onClick={() =>
+                    setPickerMessageId((current) => (current === String(message.id) ? null : String(message.id)))
+                  }
+                  aria-label="Add custom reaction"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+                {pickerMessageId === String(message.id) ? (
+                  <div className={`absolute bottom-8 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}>
+                    <Picker
+                      data={emojiData}
+                      onEmojiSelect={(emoji: EmojiPick) => void handlePickReaction(message, emoji)}
+                      previewPosition="none"
+                      skinTonePosition="none"
+                      maxFrequentRows={1}
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
           );
