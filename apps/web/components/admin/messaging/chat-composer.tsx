@@ -3,7 +3,7 @@
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
 import { Paperclip, Send, Smile, Image as ImageIcon, Sticker, Video } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
 import { Textarea } from "../../ui/textarea";
@@ -39,6 +39,25 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const emojiContainerRef = useRef<HTMLDivElement | null>(null);
+  const attachmentContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (emojiContainerRef.current && !emojiContainerRef.current.contains(target)) {
+        setShowEmojiPicker(false);
+      }
+      if (attachmentContainerRef.current && !attachmentContainerRef.current.contains(target)) {
+        setShowAttachmentMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+    };
+  }, []);
 
   const handleEmojiSelect = (emoji: EmojiPick) => {
     if (!emoji?.native) return;
@@ -48,7 +67,7 @@ export function ChatComposer({
   return (
     <div className="rounded-xl border border-border p-3">
       <div className="flex items-end gap-2">
-        <div className="relative">
+        <div ref={emojiContainerRef} className="relative">
           <Button
             variant="outline"
             size="icon"
@@ -72,7 +91,7 @@ export function ChatComposer({
             </div>
           ) : null}
         </div>
-        <div className="relative">
+        <div ref={attachmentContainerRef} className="relative">
           <Button
             variant="outline"
             size="icon"
@@ -115,7 +134,7 @@ export function ChatComposer({
                   onPickGif();
                 }}
               >
-                <Sticker className="h-4 w-4" /> GIF (Tenor)
+                <Sticker className="h-4 w-4" /> GIF (GIPHY)
               </button>
             </div>
           ) : null}

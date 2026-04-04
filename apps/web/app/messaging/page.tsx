@@ -76,16 +76,9 @@ type AdminTeamsResponse = {
   teams?: AdminTeamSummary[];
 };
 
-type TenorApiItem = {
-  id: string | number;
-  media_formats?: {
-    tinygif?: { url?: string };
-    gif?: { url?: string };
-  };
-};
-
-type TenorApiResponse = {
-  results?: TenorApiItem[];
+type GifApiResponse = {
+  error?: string;
+  results?: Array<{ id: string; url: string; previewUrl: string }>;
 };
 
 function formatTime(value?: string | null) {
@@ -108,11 +101,11 @@ export default function MessagingPage() {
   const [groupMessage, setGroupMessage] = useState("");
   const [activeUploadTarget, setActiveUploadTarget] = useState<"direct" | "group" | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-  const [tenorDialogOpen, setTenorDialogOpen] = useState(false);
-  const [tenorTarget, setTenorTarget] = useState<"direct" | "group" | null>(null);
-  const [tenorQuery, setTenorQuery] = useState("");
-  const [tenorResults, setTenorResults] = useState<Array<{ id: string; url: string; previewUrl: string }>>([]);
-  const [tenorLoading, setTenorLoading] = useState(false);
+  const [gifDialogOpen, setGifDialogOpen] = useState(false);
+  const [gifTarget, setGifTarget] = useState<"direct" | "group" | null>(null);
+  const [gifQuery, setGifQuery] = useState("");
+  const [gifResults, setGifResults] = useState<Array<{ id: string; url: string; previewUrl: string }>>([]);
+  const [gifLoading, setGifLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -337,46 +330,42 @@ export default function MessagingPage() {
     fileInputRef.current.click();
   };
 
-  const openTenorPicker = (target: "direct" | "group") => {
-    setTenorTarget(target);
-    setTenorDialogOpen(true);
+  const openGifPicker = (target: "direct" | "group") => {
+    setGifTarget(target);
+    setGifDialogOpen(true);
   };
 
-  const searchTenor = async (query: string) => {
+  const searchGif = async (query: string) => {
     const cleanQuery = query.trim();
     if (!cleanQuery) {
-      setTenorResults([]);
+      setGifResults([]);
       return;
     }
-    setTenorLoading(true);
+    setGifLoading(true);
     try {
-      const key = process.env.NEXT_PUBLIC_TENOR_API_KEY || "LIVDSRZULELA";
-      const response = await fetch(
-        `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(cleanQuery)}&key=${encodeURIComponent(
-          key,
-        )}&limit=24&media_filter=tinygif,gif&contentfilter=medium`,
-      );
-      const payload = (await response.json().catch(() => null)) as TenorApiResponse | null;
+      const response = await fetch(`/api/giphy/search?q=${encodeURIComponent(cleanQuery)}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as GifApiResponse | null;
+      if (!response.ok) {
+        setGifResults([]);
+        toast.error("GIF search unavailable", payload?.error ?? "Could not load GIFs right now.");
+        return;
+      }
       const items = Array.isArray(payload?.results) ? payload.results : [];
-      const mapped = items
-        .map((item) => {
-          const tiny = item?.media_formats?.tinygif?.url;
-          const gif = item?.media_formats?.gif?.url;
-          return tiny && gif ? { id: String(item.id), url: gif, previewUrl: tiny } : null;
-        })
-        .filter(Boolean) as Array<{ id: string; url: string; previewUrl: string }>;
-      setTenorResults(mapped);
+      setGifResults(items);
     } catch {
-      setTenorResults([]);
+      setGifResults([]);
+      toast.error("GIF search unavailable", "Could not load GIFs right now.");
     } finally {
-      setTenorLoading(false);
+      setGifLoading(false);
     }
   };
 
-  const sendTenorGif = async (gifUrl: string) => {
-    if (!tenorTarget) return;
+  const sendGif = async (gifUrl: string) => {
+    if (!gifTarget) return;
     try {
-      if (tenorTarget === "direct" && threadUserId) {
+      if (gifTarget === "direct" && threadUserId) {
         await sendDirect({
           userId: threadUserId,
           content: directMessage.trim() || undefined,
@@ -387,7 +376,7 @@ export default function MessagingPage() {
         refetchDirectMessages();
         refetchThreads();
       }
-      if (tenorTarget === "group" && groupId) {
+      if (gifTarget === "group" && groupId) {
         await sendGroup({
           groupId,
           content: groupMessage.trim() || undefined,
@@ -398,8 +387,8 @@ export default function MessagingPage() {
         refetchGroupMessages();
         refetchGroups();
       }
-      setTenorDialogOpen(false);
-      setTenorTarget(null);
+      setGifDialogOpen(false);
+      setGifTarget(null);
     } catch {
       toast.error("Failed", "Could not send GIF.");
     }
@@ -661,7 +650,7 @@ export default function MessagingPage() {
       </Tabs>
 
       <Dialog open={threadUserId != null} onOpenChange={(open) => (open ? null : setThreadUserId(null))}>
-        <DialogContent className="max-h-[85vh] sm:max-w-2xl">
+        <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{directThreadName || "Conversation"}</DialogTitle>
             <DialogDescription>Direct message thread</DialogDescription>
@@ -684,14 +673,14 @@ export default function MessagingPage() {
               isUploading={isUploadingMedia}
               onPickPhoto={() => openFilePicker("direct", "image/*")}
               onPickVideo={() => openFilePicker("direct", "video/*")}
-              onPickGif={() => openTenorPicker("direct")}
+              onPickGif={() => openGifPicker("direct")}
             />
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={groupId != null} onOpenChange={(open) => (open ? null : setGroupId(null))}>
-        <DialogContent className="max-h-[85vh] sm:max-w-2xl">
+        <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{groups.find((group) => group.id === groupId)?.name ?? "Team chat"}</DialogTitle>
             <DialogDescription>Group thread</DialogDescription>
@@ -715,7 +704,7 @@ export default function MessagingPage() {
               isUploading={isUploadingMedia}
               onPickPhoto={() => openFilePicker("group", "image/*")}
               onPickVideo={() => openFilePicker("group", "video/*")}
-              onPickGif={() => openTenorPicker("group")}
+              onPickGif={() => openGifPicker("group")}
             />
           </div>
         </DialogContent>
@@ -762,14 +751,14 @@ export default function MessagingPage() {
       </Dialog>
 
       <TenorPickerDialog
-        open={tenorDialogOpen}
-        onOpenChange={setTenorDialogOpen}
-        query={tenorQuery}
-        onQueryChange={setTenorQuery}
-        onSearch={searchTenor}
-        results={tenorResults}
-        loading={tenorLoading}
-        onSelectGif={sendTenorGif}
+        open={gifDialogOpen}
+        onOpenChange={setGifDialogOpen}
+        query={gifQuery}
+        onQueryChange={setGifQuery}
+        onSearch={searchGif}
+        results={gifResults}
+        loading={gifLoading}
+        onSelectGif={sendGif}
       />
 
       <input
