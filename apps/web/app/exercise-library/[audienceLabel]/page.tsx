@@ -58,6 +58,7 @@ export default function AudienceDetailPage() {
   const [activeTab, setActiveTab] = useState<"modules" | "others">("modules");
   const [moduleModalOpen, setModuleModalOpen] = useState(false);
   const [lockModalOpen, setLockModalOpen] = useState(false);
+  const [lockModalMode, setLockModalMode] = useState<"lock" | "unlock">("lock");
   const [moduleForm, setModuleForm] = useState<ModuleForm>({
     id: null,
     name: "",
@@ -352,6 +353,8 @@ export default function AudienceDetailPage() {
                             size="sm"
                             variant="secondary"
                             onClick={() => {
+                              const isLocked = slotLockedTiers.length > 0;
+                              setLockModalMode(isLocked ? "unlock" : "lock");
                               setLockForm({
                                 moduleId: module.id,
                                 moduleTitle: parsed.name || module.title,
@@ -459,9 +462,11 @@ export default function AudienceDetailPage() {
       <Dialog open={lockModalOpen} onOpenChange={setLockModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Lock module for plans/tiers</DialogTitle>
+            <DialogTitle>{lockModalMode === "lock" ? "Lock module for plans/tiers" : "Unlock plans for this module"}</DialogTitle>
             <DialogDescription>
-              Locking starts from the selected module downward. Unlocking here removes the lock through this module and keeps the lock starting from the next module, only for selected plans.
+              {lockModalMode === "lock"
+                ? "Select plans to lock from this module downward."
+                : "Select locked plans to unlock through this module. Lock will continue from the next module."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -492,41 +497,25 @@ export default function AudienceDetailPage() {
               })}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
-                onClick={() => {
-                  const planLabels = lockForm.programTiers
-                    .map((tier) => PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier)
-                    .join(", ");
-                  const confirmed = window.confirm(
-                    `Lock ${planLabels} starting from ${lockForm.moduleTitle || "this module"} and all modules below?`,
-                  );
-                  if (!confirmed) return;
-                  void saveModuleLocks(lockForm.moduleId, lockForm.programTiers);
-                }}
-              >
-                Lock from this module
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
-                onClick={() => {
-                  const currentOrder = lockForm.moduleId ? moduleOrderById.get(lockForm.moduleId) : null;
-                  const planLabels = lockForm.programTiers
-                    .map((tier) => PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier)
-                    .join(", ");
-                  const confirmed = window.confirm(
-                    `Unlock ${planLabels} through Module ${currentOrder ?? "?"} and keep lock from Module ${(currentOrder ?? 0) + 1} downward?`,
-                  );
-                  if (!confirmed) return;
-                  void unlockSelectedPlans();
-                }}
-              >
-                Unlock through this module
-              </Button>
+              {lockModalMode === "lock" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
+                  onClick={() => void saveModuleLocks(lockForm.moduleId, lockForm.programTiers)}
+                >
+                  Lock from this module
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
+                  onClick={() => void unlockSelectedPlans()}
+                >
+                  Unlock through this module
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setLockModalOpen(false)}>
                 Close
               </Button>
