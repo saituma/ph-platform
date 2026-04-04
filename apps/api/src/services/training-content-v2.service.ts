@@ -778,10 +778,30 @@ export async function unlockTrainingModuleTierLocks(input: {
     throw new Error("Module not found for this audience.");
   }
 
-  const nextModule = modules.find((module) => module.order > throughModule.order) ?? null;
   const moduleOrderById = new Map(modules.map((module) => [module.id, module.order]));
   const currentLocks = await getTrainingModuleTierLocks(normalizedAudienceLabel);
   const lockByTier = new Map(currentLocks.map((lock) => [lock.programTier, lock]));
+  const targetOrder = throughModule.order + 1;
+
+  let targetModuleId: number | null = null;
+  if (targetOrder <= 12) {
+    const existingTarget = modules.find((module) => module.order === targetOrder) ?? null;
+    if (existingTarget) {
+      targetModuleId = existingTarget.id;
+    } else {
+      const [createdTarget] = await db
+        .insert(trainingModuleTable)
+        .values({
+          age: 0,
+          audienceLabel: normalizedAudienceLabel,
+          title: `Module ${targetOrder}`,
+          order: targetOrder,
+          createdBy: input.createdBy,
+        })
+        .returning({ id: trainingModuleTable.id });
+      targetModuleId = createdTarget?.id ?? null;
+    }
+  }
 
   for (const programTier of input.programTiers) {
     const currentLock = lockByTier.get(programTier);
@@ -792,7 +812,7 @@ export async function unlockTrainingModuleTierLocks(input: {
       continue;
     }
 
-    if (!nextModule) {
+    if (targetModuleId == null) {
       await db.delete(trainingModuleTierLockTable).where(eq(trainingModuleTierLockTable.id, currentLock.id));
       continue;
     }
@@ -800,7 +820,7 @@ export async function unlockTrainingModuleTierLocks(input: {
     await db
       .update(trainingModuleTierLockTable)
       .set({
-        startModuleId: nextModule.id,
+        startModuleId: targetModuleId,
         updatedAt: new Date(),
       })
       .where(eq(trainingModuleTierLockTable.id, currentLock.id));
