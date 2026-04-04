@@ -167,6 +167,14 @@ export default function MessagingPage() {
     return map;
   }, [chatEligibleUsers]);
 
+  const allUserNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    users.forEach((user) => {
+      map.set(user.id, user.name ?? user.email ?? `User ${user.id}`);
+    });
+    return map;
+  }, [users]);
+
   const threads = useMemo<ThreadListItem[]>(() => {
     const source = (threadsData?.threads as ThreadApiItem[] | undefined) ?? [];
     const byUserId = new Map<number, ThreadApiItem>();
@@ -220,6 +228,11 @@ export default function MessagingPage() {
     const normalized = Number(idValue);
     return Number.isFinite(normalized) ? normalized : null;
   }, [adminProfileData]);
+
+  const resolveUserName = (userId: number) => {
+    if (currentUserId != null && userId === currentUserId) return "You";
+    return allUserNameById.get(userId) ?? `User ${userId}`;
+  };
 
   const handleCreateAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) return;
@@ -670,6 +683,7 @@ export default function MessagingPage() {
               onReact={handleDirectReaction}
               formatTime={formatTime}
               currentUserId={currentUserId}
+              resolveUserName={resolveUserName}
               mode="direct"
               directPeerUserId={threadUserId}
               directPeerName={directThreadName}
@@ -703,6 +717,7 @@ export default function MessagingPage() {
               onReact={handleGroupReaction}
               formatTime={formatTime}
               currentUserId={currentUserId}
+              resolveUserName={resolveUserName}
               mode="group"
               showSenderName
               emptyLabel="No group messages yet."

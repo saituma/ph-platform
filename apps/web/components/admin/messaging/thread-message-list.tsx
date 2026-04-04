@@ -17,6 +17,7 @@ type ThreadMessageListProps = {
   onReact: (messageId: number, emoji: string) => void;
   formatTime: (value?: string | null) => string;
   currentUserId?: number | null;
+  resolveUserName?: (userId: number) => string;
   mode?: "direct" | "group";
   directPeerUserId?: number | null;
   directPeerName?: string | null;
@@ -29,6 +30,7 @@ export function ThreadMessageList({
   onReact,
   formatTime,
   currentUserId,
+  resolveUserName,
   mode = "direct",
   directPeerUserId = null,
   directPeerName = null,
@@ -166,10 +168,44 @@ export function ThreadMessageList({
                   }
                   aria-label="Add custom reaction"
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  {reactions.length ? (
+                    <span className="flex items-center gap-1">
+                      <span>{reactions[0].emoji}</span>
+                      <span>{reactions.reduce((sum, reaction) => sum + Number(reaction.count ?? 0), 0)}</span>
+                    </span>
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
                 </button>
                 {pickerMessageId === String(message.id) ? (
                   <div className={`absolute top-full mt-2 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}>
+                    {reactions.length ? (
+                      <div className="max-w-72 border-b border-border px-3 py-2 text-xs">
+                        <p className="mb-1 font-semibold text-foreground">Reactions</p>
+                        <div className="space-y-1.5">
+                          {reactions.map((reaction) => {
+                            const users =
+                              Array.isArray(reaction.userIds) && reaction.userIds.length
+                                ? reaction.userIds.map((userId) =>
+                                    resolveUserName ? resolveUserName(userId) : `User ${userId}`,
+                                  )
+                                : [];
+                            return (
+                              <div key={`detail-${message.id}-${reaction.emoji}`} className="rounded-md bg-secondary/50 px-2 py-1">
+                                <p className="font-medium">
+                                  {reaction.emoji} {reaction.count}
+                                </p>
+                                {users.length ? (
+                                  <p className="truncate text-muted-foreground">{users.join(", ")}</p>
+                                ) : (
+                                  <p className="text-muted-foreground">No user details</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                     <Picker
                       data={emojiData}
                       onEmojiSelect={(emoji: EmojiPick) => void handlePickReaction(message, emoji)}
