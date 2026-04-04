@@ -233,6 +233,15 @@ export default function AudienceDetailPage() {
     const currentOrder = moduleOrderById.get(lockForm.moduleId);
     if (currentOrder == null) return;
 
+    const tiersToMove = lockForm.programTiers.filter((tier) => {
+      const startOrder = lockStartOrderByTier.get(tier);
+      return startOrder != null && startOrder <= currentOrder;
+    });
+    if (!tiersToMove.length) {
+      setError("Selected plans are already unlocked through this module.");
+      return;
+    }
+
     const nextModule = modules.find((module) => module.order === currentOrder + 1) ?? null;
     setIsUpdatingLocks(true);
     try {
@@ -242,52 +251,10 @@ export default function AudienceDetailPage() {
         body: JSON.stringify({
           audienceLabel,
           moduleId: nextModule?.id ?? null,
-          programTiers: lockForm.programTiers,
+          programTiers: tiersToMove,
         }),
       });
       await loadWorkspace();
-      setLockModalOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update module locks.");
-    } finally {
-      setIsUpdatingLocks(false);
-    }
-  };
-
-  const lockTierFromCurrentModule = async (tier: (typeof PROGRAM_TIERS)[number]["value"]) => {
-    if (!lockForm.moduleId) return;
-    await saveModuleLocks(lockForm.moduleId, [tier]);
-  };
-
-  const unlockTierThroughCurrentModule = async (tier: (typeof PROGRAM_TIERS)[number]["value"]) => {
-    if (!lockForm.moduleId) return;
-    const currentOrder = moduleOrderById.get(lockForm.moduleId);
-    if (currentOrder == null) return;
-    const startOrder = lockStartOrderByTier.get(tier);
-    if (startOrder == null) {
-      setError(`${PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier} is already unlocked.`);
-      return;
-    }
-    if (startOrder > currentOrder) {
-      setError(
-        `${PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier} is already unlocked through Module ${currentOrder}.`,
-      );
-      return;
-    }
-    const nextModule = modules.find((module) => module.order === currentOrder + 1) ?? null;
-
-    setIsUpdatingLocks(true);
-    try {
-      setError(null);
-      const workspaceResponse = await trainingContentRequest<AudienceWorkspace>("/modules/locks", {
-        method: "PUT",
-        body: JSON.stringify({
-          audienceLabel,
-          moduleId: nextModule?.id ?? null,
-          programTiers: [tier],
-        }),
-      });
-      setWorkspace(workspaceResponse);
       setLockModalOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update module locks.");
@@ -500,38 +467,47 @@ export default function AudienceDetailPage() {
           <div className="space-y-4">
             <div className="space-y-3">
               {PROGRAM_TIERS.map((tier) => {
+                const checked = lockForm.programTiers.includes(tier.value);
                 const startOrder = lockStartOrderByTier.get(tier.value);
                 return (
                   <div key={tier.value} className="rounded-xl border border-border px-4 py-3">
-                    <p className="text-sm font-medium text-foreground">
-                      {tier.label}
-                      {startOrder ? ` · starts at Module ${startOrder}` : " · unlocked"}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={isUpdatingLocks || !lockForm.moduleId}
-                        onClick={() => void lockTierFromCurrentModule(tier.value)}
-                      >
-                        Lock from this module
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={isUpdatingLocks || !lockForm.moduleId}
-                        onClick={() => void unlockTierThroughCurrentModule(tier.value)}
-                      >
-                        Unlock through this module
-                      </Button>
-                    </div>
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          const nextProgramTiers = event.target.checked
+                            ? [...lockForm.programTiers, tier.value]
+                            : lockForm.programTiers.filter((value) => value !== tier.value);
+                          setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
+                        }}
+                      />
+                      <span className="text-sm font-medium text-foreground">
+                        {tier.label}
+                        {startOrder ? ` · starts at Module ${startOrder}` : " · unlocked"}
+                      </span>
+                    </label>
                   </div>
                 );
               })}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
+                onClick={() => void saveModuleLocks(lockForm.moduleId, lockForm.programTiers)}
+              >
+                Lock from this module
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
+                onClick={() => void unlockSelectedPlans()}
+              >
+                Unlock through this module
+              </Button>
               <Button variant="outline" onClick={() => setLockModalOpen(false)}>
                 Close
               </Button>
