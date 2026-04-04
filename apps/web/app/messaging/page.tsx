@@ -1,7 +1,7 @@
 "use client";
 
 import { skipToken } from "@reduxjs/toolkit/query";
-import { BarChart3, MessageCircle, Megaphone, Plus, Users2 } from "lucide-react";
+import { BarChart3, MessageCircle, Megaphone, Users2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatComposer } from "../../components/admin/messaging/chat-composer";
@@ -32,11 +32,13 @@ import { ScrollArea } from "../../components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Textarea } from "../../components/ui/textarea";
 import {
+  useAddChatGroupMembersMutation,
   useCreateChatGroupMutation,
   useCreateContentMutation,
   useCreateMediaUploadUrlMutation,
   useGetAdminProfileQuery,
   useGetAnnouncementsQuery,
+  useGetChatGroupMembersQuery,
   useGetChatGroupMessagesQuery,
   useGetChatGroupsQuery,
   useGetMessagesQuery,
@@ -96,6 +98,10 @@ export default function MessagingPage() {
   const [newGroupName, setNewGroupName] = useState("");
   const [groupMemberQuery, setGroupMemberQuery] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+  const [manageGroupMembersOpen, setManageGroupMembersOpen] = useState(false);
+  const [manageGroupId, setManageGroupId] = useState<number | null>(null);
+  const [manageMemberQuery, setManageMemberQuery] = useState("");
+  const [manageSelectedMemberIds, setManageSelectedMemberIds] = useState<number[]>([]);
   const [directReactionOverrides, setDirectReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
   const [groupReactionOverrides, setGroupReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
 
@@ -107,12 +113,14 @@ export default function MessagingPage() {
 
   const { data: directMessagesData, refetch: refetchDirectMessages } = useGetMessagesQuery(threadUserId ?? skipToken);
   const { data: groupMessagesData, refetch: refetchGroupMessages } = useGetChatGroupMessagesQuery(groupId ?? skipToken);
+  const { data: groupMembersData } = useGetChatGroupMembersQuery(manageGroupId ?? skipToken);
 
   const [createAnnouncement, { isLoading: isCreatingAnnouncement }] = useCreateContentMutation();
   const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
   const [markThreadRead] = useMarkThreadReadMutation();
   const [sendDirect, { isLoading: isSendingDirect }] = useSendMessageMutation();
   const [sendGroup, { isLoading: isSendingGroup }] = useSendChatGroupMessageMutation();
+  const [addChatGroupMembers, { isLoading: isAddingGroupMembers }] = useAddChatGroupMembersMutation();
   const [toggleDirectReaction] = useToggleMessageReactionMutation();
   const [toggleGroupReaction] = useToggleChatGroupMessageReactionMutation();
   const [createGroup, { isLoading: isCreatingGroup }] = useCreateChatGroupMutation();
@@ -234,6 +242,25 @@ export default function MessagingPage() {
       return name.includes(query) || email.includes(query);
     });
   }, [chatEligibleUsers, groupMemberQuery]);
+
+  const existingManageMemberIds = useMemo<number[]>(
+    () =>
+      ((groupMembersData as { members?: Array<{ userId?: number | string }> } | undefined)?.members ?? [])
+        .map((member) => Number(member.userId))
+        .filter((id) => Number.isFinite(id)),
+    [groupMembersData],
+  );
+
+  const filteredManageMembers = useMemo(() => {
+    const query = manageMemberQuery.trim().toLowerCase();
+    return chatEligibleUsers.filter((user) => {
+      if (existingManageMemberIds.includes(user.id)) return false;
+      if (!query) return true;
+      const name = String(user.name ?? "").toLowerCase();
+      const email = String(user.email ?? "").toLowerCase();
+      return name.includes(query) || email.includes(query);
+    });
+  }, [chatEligibleUsers, existingManageMemberIds, manageMemberQuery]);
 
   const handleCreateAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) return;
@@ -503,6 +530,29 @@ export default function MessagingPage() {
     }
   };
 
+  const openManageGroupMembers = (targetGroupId: number) => {
+    setManageGroupId(targetGroupId);
+    setManageGroupMembersOpen(true);
+    setManageSelectedMemberIds([]);
+    setManageMemberQuery("");
+  };
+
+  const handleAddMembersToGroup = async () => {
+    if (!manageGroupId || !manageSelectedMemberIds.length) return;
+    try {
+      await addChatGroupMembers({
+        groupId: manageGroupId,
+        memberIds: [...new Set(manageSelectedMemberIds)],
+      }).unwrap();
+      toast.success("Members added", "Selected members were added to the group.");
+      setManageGroupMembersOpen(false);
+      setManageSelectedMemberIds([]);
+      setManageMemberQuery("");
+    } catch {
+      toast.error("Failed", "Could not add members to this group.");
+    }
+  };
+
   return (
     <AdminShell
       title="Messaging"
@@ -581,48 +631,61 @@ export default function MessagingPage() {
         </TabsContent>
 
         <TabsContent value="inbox">
-          <InboxThreadPanel
-            threads={threads}
-            onOpenThread={(userId) => void openDirectThread(userId)}
-            onCreateGroup={() => setGroupModalOpen(true)}
-            formatTime={formatTime}
-          />
-        </TabsContent>
-
-        <TabsContent value="teams">
-          <div className="grid gap-6">
+          <div className="space-y-4">
+            <InboxThreadPanel
+              threads={threads}
+              onOpenThread={(userId) => void openDirectThread(userId)}
+              onCreateGroup={() => setGroupModalOpen(true)}
+              formatTime={formatTime}
+            />
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between gap-3">
-                  <SectionHeader
-                    title="Team chats"
-                    description="Open a team thread in modal and chat with group members."
-                  />
-                  <Button size="sm" variant="outline" onClick={() => setGroupModalOpen(true)}>
-                    <Plus className="mr-1.5 h-4 w-4" /> New group
-                  </Button>
-                </div>
+                <SectionHeader
+                  title="Group Chats"
+                  description="Created groups now appear in Inbox."
+                />
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[460px] pr-3">
-                  <div className="space-y-2">
-                    {groups.map((group) => (
-                      <button
-                        key={group.id}
-                        type="button"
-                        onClick={() => setGroupId(group.id)}
-                        className="w-full rounded-xl border border-border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
-                      >
-                        <p className="text-sm font-semibold text-foreground">{group.name}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Created {formatTime(group.createdAt)}</p>
-                      </button>
-                    ))}
-                    {!groups.length ? <p className="text-sm text-muted-foreground">No team groups yet.</p> : null}
-                  </div>
-                </ScrollArea>
+                <div className="space-y-2">
+                  {groups.map((group) => (
+                    <div key={group.id} className="rounded-xl border border-border bg-background p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Created {formatTime(group.createdAt)}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openManageGroupMembers(group.id)}>
+                            Add members
+                          </Button>
+                          <Button size="sm" onClick={() => setGroupId(group.id)}>
+                            Open
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {!groups.length ? <p className="text-sm text-muted-foreground">No group chats yet.</p> : null}
+                </div>
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="teams">
+          <Card>
+            <CardHeader>
+              <SectionHeader
+                title="Moved to Inbox"
+                description="Group chats are now listed under Inbox."
+              />
+            </CardHeader>
+            <CardContent>
+              <Button size="sm" variant="outline" onClick={() => setTab("inbox")}>
+                Open Inbox
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="stats">
@@ -791,6 +854,64 @@ export default function MessagingPage() {
                 disabled={isCreatingGroup || !newGroupName.trim() || !selectedMemberIds.length}
               >
                 {isCreatingGroup ? "Creating..." : "Create group"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manageGroupMembersOpen} onOpenChange={setManageGroupMembersOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Add members</DialogTitle>
+            <DialogDescription>
+              {groups.find((group) => group.id === manageGroupId)?.name ?? "Group"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Search members..."
+              value={manageMemberQuery}
+              onChange={(event) => setManageMemberQuery(event.target.value)}
+            />
+            <ScrollArea className="h-56 rounded-xl border border-border p-2">
+              <div className="space-y-1">
+                {filteredManageMembers.map((user) => {
+                  const selected = manageSelectedMemberIds.includes(user.id);
+                  const label = user.name ?? user.email ?? `User ${user.id}`;
+                  return (
+                    <label
+                      key={`manage-${user.id}`}
+                      className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-secondary/40"
+                    >
+                      <span className="min-w-0 truncate text-sm">{label}</span>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() =>
+                          setManageSelectedMemberIds((current) =>
+                            selected ? current.filter((id) => id !== user.id) : [...current, user.id],
+                          )
+                        }
+                      />
+                    </label>
+                  );
+                })}
+                {!filteredManageMembers.length ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">No members available.</p>
+                ) : null}
+              </div>
+            </ScrollArea>
+            <p className="text-xs text-muted-foreground">{manageSelectedMemberIds.length} members selected</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setManageGroupMembersOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void handleAddMembersToGroup()}
+                disabled={isAddingGroupMembers || !manageSelectedMemberIds.length || !manageGroupId}
+              >
+                {isAddingGroupMembers ? "Adding..." : "Add members"}
               </Button>
             </div>
           </div>
