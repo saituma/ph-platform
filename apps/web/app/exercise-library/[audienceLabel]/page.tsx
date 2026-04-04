@@ -167,15 +167,19 @@ export default function AudienceDetailPage() {
   };
 
   const modules = workspace?.modules ?? [];
-  const lockedTiersByOrder = useMemo(() => {
-    const lockStartOrderByTier = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
+  const moduleOrderById = useMemo(() => new Map(modules.map((module) => [module.id, module.order])), [modules]);
+  const lockStartOrderByTier = useMemo(() => {
+    const map = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
     for (const lock of workspace?.moduleLocks ?? []) {
-      const startModule = modules.find((module) => module.id === lock.startModuleId);
-      if (startModule) {
-        lockStartOrderByTier.set(lock.programTier, startModule.order);
+      const startOrder = moduleOrderById.get(lock.startModuleId);
+      if (startOrder != null) {
+        map.set(lock.programTier, startOrder);
       }
     }
+    return map;
+  }, [moduleOrderById, workspace?.moduleLocks]);
 
+  const lockedTiersByOrder = useMemo(() => {
     return new Map(
       Array.from({ length: 12 }, (_, index) => index + 1).map((order) => [
         order,
@@ -187,7 +191,7 @@ export default function AudienceDetailPage() {
           .map((tier) => tier.value),
       ]),
     );
-  }, [modules, workspace?.moduleLocks]);
+  }, [lockStartOrderByTier]);
 
   const effectiveLockedTiersByModuleId = useMemo(() => {
     if (!workspace) return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
@@ -221,6 +225,38 @@ export default function AudienceDetailPage() {
       module: moduleByOrder.get(order) ?? null,
     };
   });
+
+  const unlockSelectedPlans = async () => {
+    if (!lockForm.programTiers.length) return;
+    if (!lockForm.moduleId) {
+      await saveModuleLocks(null, lockForm.programTiers);
+      return;
+    }
+
+    const currentOrder = moduleOrderById.get(lockForm.moduleId);
+    if (currentOrder == null) {
+      await saveModuleLocks(null, lockForm.programTiers);
+      return;
+    }
+
+    const directTiers = lockForm.programTiers.filter((tier) => (lockStartOrderByTier.get(tier) ?? currentOrder) === currentOrder);
+    const inheritedTiers = lockForm.programTiers.filter((tier) => (lockStartOrderByTier.get(tier) ?? currentOrder) < currentOrder);
+
+    if (directTiers.length) {
+      await saveModuleLocks(null, directTiers);
+    }
+
+    if (inheritedTiers.length) {
+      const inheritedHints = inheritedTiers
+        .map((tier) => {
+          const label = PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier;
+          const startOrder = lockStartOrderByTier.get(tier);
+          return startOrder ? `${label} (starts at Module ${startOrder})` : label;
+        })
+        .join(", ");
+      setError(`These plans are locked from earlier modules. Unlock from their start module: ${inheritedHints}.`);
+    }
+  };
 
   return (
     <AdminShell title="Exercise library" subtitle={`Age ${audienceLabel}`}>
@@ -443,6 +479,7 @@ export default function AudienceDetailPage() {
             <div className="space-y-3">
               {PROGRAM_TIERS.map((tier) => {
                 const checked = lockForm.programTiers.includes(tier.value);
+                const startOrder = lockStartOrderByTier.get(tier.value);
                 return (
                   <label key={tier.value} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
                     <input
@@ -455,7 +492,10 @@ export default function AudienceDetailPage() {
                         setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
                       }}
                     />
-                    <span className="text-sm font-medium text-foreground">{tier.label}</span>
+                    <span className="text-sm font-medium text-foreground">
+                      {tier.label}
+                      {startOrder ? ` · starts at Module ${startOrder}` : ""}
+                    </span>
                   </label>
                 );
               })}
@@ -464,7 +504,7 @@ export default function AudienceDetailPage() {
               <Button
                 variant="ghost"
                 disabled={isUpdatingLocks || !lockForm.programTiers.length}
-                onClick={() => void saveModuleLocks(null, lockForm.programTiers)}
+                onClick={() => void unlockSelectedPlans()}
               >
                 Unlock selected plans
               </Button>
