@@ -669,28 +669,24 @@ export default function MessagingPage() {
               <CardHeader>
                 <SectionHeader
                   title="Group Chats"
-                  description="Created groups now appear in Inbox."
+                  description="Open a group thread directly from this list."
                 />
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {groups.map((group) => (
-                    <div key={group.id} className="rounded-xl border border-border bg-background p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">Created {formatTime(group.createdAt)}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openManageGroupMembers(group.id)}>
-                            Add members
-                          </Button>
-                          <Button size="sm" onClick={() => setGroupId(group.id)}>
-                            Open
-                          </Button>
-                        </div>
+                    <button
+                      key={group.id}
+                      type="button"
+                      onClick={() => setGroupId(group.id)}
+                      className="group flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Created {formatTime(group.createdAt)}</p>
                       </div>
-                    </div>
+                      <span className="text-xs text-muted-foreground transition group-hover:text-foreground">Open</span>
+                    </button>
                   ))}
                   {!groups.length ? <p className="text-sm text-muted-foreground">No group chats yet.</p> : null}
                 </div>
@@ -817,7 +813,14 @@ export default function MessagingPage() {
       <Dialog open={groupId != null} onOpenChange={(open) => (open ? null : setGroupId(null))}>
         <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{groups.find((group) => group.id === groupId)?.name ?? "Team chat"}</DialogTitle>
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle>{groups.find((group) => group.id === groupId)?.name ?? "Group chat"}</DialogTitle>
+              {groupId ? (
+                <Button size="sm" variant="outline" onClick={() => openManageGroupMembers(groupId)}>
+                  Add member
+                </Button>
+              ) : null}
+            </div>
             <DialogDescription>Group thread</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
