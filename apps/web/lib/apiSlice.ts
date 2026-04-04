@@ -151,6 +151,21 @@ export const apiSlice = createApi({
       query: () => "/admin/users",
       providesTags: ["Users"],
     }),
+    getAdminTeams: builder.query<
+      {
+        teams: Array<{
+          team: string;
+          memberCount: number;
+          guardianCount: number;
+          createdAt: string;
+          updatedAt: string;
+        }>;
+      },
+      void
+    >({
+      query: () => "/admin/teams",
+      providesTags: ["Users"],
+    }),
     blockUser: builder.mutation<any, { userId: number; blocked: boolean }>({
       query: ({ userId, blocked }) => ({
         url: `/admin/users/${userId}/block`,
@@ -843,6 +858,7 @@ export const {
   useGetTrainingSnapshotQuery,
   useGetUserLocationsQuery,
   useGetUsersQuery,
+  useGetAdminTeamsQuery,
   useBlockUserMutation,
   useDeleteUserMutation,
   useProvisionGuardianMutation,
