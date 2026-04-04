@@ -75,6 +75,7 @@ export default function AudienceDetailPage() {
     programTiers: [],
   });
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
 
@@ -136,10 +137,42 @@ export default function AudienceDetailPage() {
     if (!window.confirm("Delete this module?")) return;
     setIsSaving(true);
     try {
+      setNotice(null);
       await trainingContentRequest(`/modules/${moduleId}`, { method: "DELETE" });
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete module.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cleanupPlaceholderModules = async () => {
+    if (!window.confirm("Remove auto-created placeholder modules for this age?")) return;
+    setIsSaving(true);
+    try {
+      setError(null);
+      setNotice(null);
+      const response = await trainingContentRequest<{
+        deletedCount: number;
+        deletedModuleOrders: number[];
+        workspace: AudienceWorkspace;
+      }>("/modules/cleanup-placeholders", {
+        method: "POST",
+        body: JSON.stringify({ audienceLabel }),
+      });
+      setWorkspace(response.workspace);
+      if (response.deletedCount > 0) {
+        setNotice(
+          `Removed ${response.deletedCount} placeholder module${response.deletedCount > 1 ? "s" : ""}${
+            response.deletedModuleOrders.length ? ` (Module ${response.deletedModuleOrders.join(", Module ")})` : ""
+          }.`,
+        );
+      } else {
+        setNotice("No removable placeholder modules were found.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clean placeholder modules.");
     } finally {
       setIsSaving(false);
     }
@@ -281,6 +314,9 @@ export default function AudienceDetailPage() {
           <Link href="/exercise-library">
             <Button variant="outline">Back to age groups</Button>
           </Link>
+          <Button variant="outline" disabled={isSaving || isUpdatingLocks} onClick={() => void cleanupPlaceholderModules()}>
+            Clean placeholders
+          </Button>
           <Button
             className="ml-auto"
             onClick={() => {
@@ -302,6 +338,7 @@ export default function AudienceDetailPage() {
         </div>
 
         {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {notice ? <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div> : null}
 
         {activeTab === "modules" ? (
           <Card>

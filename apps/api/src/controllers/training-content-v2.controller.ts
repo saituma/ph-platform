@@ -8,6 +8,7 @@ import {
   createTrainingModuleSession,
   createTrainingOtherContent,
   createTrainingSessionItem,
+  cleanupTrainingPlaceholderModules,
   copyTrainingModulesFromAudience,
   deleteTrainingModule,
   deleteTrainingModuleSession,
@@ -78,6 +79,10 @@ const unlockModuleTierLocksSchema = z.object({
   audienceLabel: z.string().min(1).max(64),
   throughModuleId: z.number().int().min(1),
   programTiers: z.array(z.enum(ProgramType.enumValues)).min(1),
+});
+
+const cleanupPlaceholderModulesSchema = z.object({
+  audienceLabel: z.string().min(1).max(64),
 });
 
 const createSessionSchema = z.object({
@@ -241,6 +246,15 @@ export async function unlockTrainingModuleTierLocksHandler(req: Request, res: Re
     createdBy: req.user!.id,
   });
   return res.status(200).json(workspace);
+}
+
+export async function cleanupTrainingPlaceholderModulesHandler(req: Request, res: Response) {
+  const input = cleanupPlaceholderModulesSchema.parse(req.body);
+  const result = await cleanupTrainingPlaceholderModules({
+    audienceLabel: input.audienceLabel,
+    createdBy: req.user!.id,
+  });
+  return res.status(200).json(result);
 }
 
 export async function deleteTrainingModuleHandler(req: Request, res: Response) {
