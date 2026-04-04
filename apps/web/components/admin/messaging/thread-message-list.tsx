@@ -3,7 +3,7 @@
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
 import { Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ScrollArea } from "../../ui/scroll-area";
 import type { ChatMessage, ChatReaction } from "./types";
@@ -38,14 +38,13 @@ export function ThreadMessageList({
   emptyLabel,
 }: ThreadMessageListProps) {
   const [pickerMessageId, setPickerMessageId] = useState<string | null>(null);
-  const pickerContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (pickerContainerRef.current && !pickerContainerRef.current.contains(target)) {
-        setPickerMessageId(null);
-      }
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest('[data-reaction-picker-root="true"]')) return;
+      setPickerMessageId(null);
     };
 
     document.addEventListener("mousedown", onPointerDown);
@@ -167,13 +166,14 @@ export function ThreadMessageList({
                   ))}
                 </div>
               </div>
-              <div ref={pickerContainerRef} className={`relative ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}>
+              <div data-reaction-picker-root="true" className={`relative ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}>
                 <button
                   type="button"
                   className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
-                  onClick={() =>
+                  onClick={() => {
+                    console.log("[Messaging][Picker] toggle", { messageId: Number(message.id) });
                     setPickerMessageId((current) => (current === String(message.id) ? null : String(message.id)))
-                  }
+                  }}
                   aria-label="Add custom reaction"
                 >
                   {reactions.length ? (
