@@ -263,6 +263,17 @@ export default function AudienceDetailPage() {
     if (!lockForm.moduleId) return;
     const currentOrder = moduleOrderById.get(lockForm.moduleId);
     if (currentOrder == null) return;
+    const startOrder = lockStartOrderByTier.get(tier);
+    if (startOrder == null) {
+      setError(`${PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier} is already unlocked.`);
+      return;
+    }
+    if (startOrder > currentOrder) {
+      setError(
+        `${PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier} is already unlocked through Module ${currentOrder}.`,
+      );
+      return;
+    }
     const nextModule = modules.find((module) => module.order === currentOrder + 1) ?? null;
 
     setIsUpdatingLocks(true);
@@ -487,44 +498,15 @@ export default function AudienceDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setLockForm((current) => ({ ...current, programTiers: PROGRAM_TIERS.map((tier) => tier.value) }))}
-              >
-                All plans
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setLockForm((current) => ({ ...current, programTiers: [] }))}
-              >
-                Clear selection
-              </Button>
-            </div>
             <div className="space-y-3">
               {PROGRAM_TIERS.map((tier) => {
-                const checked = lockForm.programTiers.includes(tier.value);
                 const startOrder = lockStartOrderByTier.get(tier.value);
                 return (
                   <div key={tier.value} className="rounded-xl border border-border px-4 py-3">
-                    <label className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => {
-                          const nextProgramTiers = event.target.checked
-                            ? [...lockForm.programTiers, tier.value]
-                            : lockForm.programTiers.filter((value) => value !== tier.value);
-                          setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
-                        }}
-                      />
-                      <span className="text-sm font-medium text-foreground">
-                        {tier.label}
-                        {startOrder ? ` · starts at Module ${startOrder}` : ""}
-                      </span>
-                    </label>
+                    <p className="text-sm font-medium text-foreground">
+                      {tier.label}
+                      {startOrder ? ` · starts at Module ${startOrder}` : " · unlocked"}
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Button
                         type="button"
@@ -549,25 +531,10 @@ export default function AudienceDetailPage() {
                 );
               })}
             </div>
-            <div className="flex justify-between gap-2">
-              <Button
-                variant="ghost"
-                disabled={isUpdatingLocks || !lockForm.programTiers.length}
-                onClick={() => void unlockSelectedPlans()}
-              >
-                Unlock through this module
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setLockModalOpen(false)}>
+                Close
               </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setLockModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
-                  onClick={() => void saveModuleLocks(lockForm.moduleId, lockForm.programTiers)}
-                >
-                  {isUpdatingLocks ? "Saving..." : "Save locks"}
-                </Button>
-              </div>
             </div>
           </div>
         </DialogContent>
