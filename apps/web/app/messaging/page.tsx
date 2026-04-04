@@ -403,8 +403,6 @@ export default function MessagingPage() {
     }
   };
 
-  const reactionPresets = ["👍", "❤️", "😂", "🔥"];
-
   const handleDirectReaction = async (messageId: number, emoji: string) => {
     try {
       await toggleDirectReaction({ messageId, emoji }).unwrap();
@@ -669,7 +667,6 @@ export default function MessagingPage() {
           <div className="space-y-3">
             <ThreadMessageList
               messages={directMessagesData?.messages ?? []}
-              reactionPresets={reactionPresets}
               onReact={handleDirectReaction}
               formatTime={formatTime}
               currentUserId={currentUserId}
@@ -703,7 +700,6 @@ export default function MessagingPage() {
           <div className="space-y-3">
             <ThreadMessageList
               messages={groupMessagesData?.messages ?? []}
-              reactionPresets={reactionPresets}
               onReact={handleGroupReaction}
               formatTime={formatTime}
               currentUserId={currentUserId}

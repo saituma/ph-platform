@@ -30,6 +30,7 @@ export type ChatGroupItem = {
 export type ChatReaction = {
   emoji: string;
   count: number;
+  userIds?: number[];
 };
 
 export type ChatMessage = {
