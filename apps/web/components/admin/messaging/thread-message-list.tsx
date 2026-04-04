@@ -18,6 +18,9 @@ type ThreadMessageListProps = {
   onReact: (messageId: number, emoji: string) => void;
   formatTime: (value?: string | null) => string;
   currentUserId?: number | null;
+  mode?: "direct" | "group";
+  directPeerUserId?: number | null;
+  directPeerName?: string | null;
   showSenderName?: boolean;
   emptyLabel: string;
 };
@@ -28,6 +31,9 @@ export function ThreadMessageList({
   onReact,
   formatTime,
   currentUserId,
+  mode = "direct",
+  directPeerUserId = null,
+  directPeerName = null,
   showSenderName = false,
   emptyLabel,
 }: ThreadMessageListProps) {
@@ -59,10 +65,36 @@ export function ThreadMessageList({
       <div className="space-y-3">
         {messages.map((message) => {
           const senderId = Number(message?.senderId ?? NaN);
+          const receiverId = Number(message?.receiverId ?? NaN);
           const normalizedRole = String(message?.senderRole ?? "").trim().toLowerCase();
+          const normalizedSenderName = String(message?.senderName ?? "").trim().toLowerCase();
+          const normalizedPeerName = String(directPeerName ?? "").trim().toLowerCase();
           const mineById = Number.isFinite(senderId) && currentUserId != null ? senderId === currentUserId : false;
           const mineByRole = normalizedRole === "admin" || normalizedRole === "coach" || normalizedRole === "superadmin";
-          const mine = mineById || mineByRole;
+          const mineByDirectPeerSender =
+            mode === "direct" && directPeerUserId != null && Number.isFinite(senderId)
+              ? senderId !== directPeerUserId
+              : null;
+          const mineByDirectPeerReceiver =
+            mode === "direct" && directPeerUserId != null && Number.isFinite(receiverId)
+              ? receiverId === directPeerUserId
+              : null;
+          const mineByDirectPeerName =
+            mode === "direct" && normalizedSenderName && normalizedPeerName
+              ? normalizedSenderName !== normalizedPeerName
+              : null;
+          let mine = false;
+          if (mineByDirectPeerSender != null) {
+            mine = mineByDirectPeerSender;
+          } else if (mineByDirectPeerReceiver != null) {
+            mine = mineByDirectPeerReceiver;
+          } else if (mineById) {
+            mine = true;
+          } else if (mineByRole) {
+            mine = true;
+          } else if (mineByDirectPeerName != null) {
+            mine = mineByDirectPeerName;
+          }
           const reactions: ChatReaction[] = Array.isArray(message?.reactions) ? message.reactions : [];
           const messageId = Number(message.id);
           return (
