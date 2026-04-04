@@ -344,12 +344,19 @@
       "when": 1773019000000,
       "tag": "0048_training_session_tier_locks",
       "breakpoints": true
-    }
-    ,{
+    },
+    {
       "idx": 49,
       "version": "7",
       "when": 1772764800000,
       "tag": "0049_scheduling_redesign",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1773020000000,
+      "tag": "0050_training_other_type_warmup_cooldown",
       "breakpoints": true
     }
   ]

@@ -31,6 +31,8 @@ type ExerciseMetadata = {
 };
 
 const OTHER_LABELS: Record<(typeof trainingOtherType.enumValues)[number], string> = {
+  warmup: "Warm-Up",
+  cooldown: "Cool-Down",
   mobility: "Mobility",
   recovery: "Recovery",
   inseason: "In-Season Program",

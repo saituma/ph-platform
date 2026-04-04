@@ -1,12 +1,16 @@
 import type { OtherSectionConfig, OtherSectionType } from "./types";
 
+import { cooldownSection } from "./types/cooldown";
 import { educationSection } from "./types/education";
 import { inseasonSection } from "./types/inseason";
 import { mobilitySection } from "./types/mobility";
 import { offseasonSection } from "./types/offseason";
 import { recoverySection } from "./types/recovery";
+import { warmupSection } from "./types/warmup";
 
 export const OTHER_SECTION_CONFIGS: OtherSectionConfig[] = [
+  warmupSection,
+  cooldownSection,
   mobilitySection,
   recoverySection,
   inseasonSection,
