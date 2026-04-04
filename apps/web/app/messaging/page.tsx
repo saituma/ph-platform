@@ -449,7 +449,9 @@ export default function MessagingPage() {
 
   const handleDirectReaction = async (messageId: number, emoji: string) => {
     try {
+      console.log("[Messaging][DirectReaction] request", { messageId, emoji });
       const result = await toggleDirectReaction({ messageId, emoji }).unwrap();
+      console.log("[Messaging][DirectReaction] response", result);
       if (Array.isArray(result?.reactions)) {
         setDirectReactionOverrides((current) => ({
           ...current,
@@ -457,7 +459,8 @@ export default function MessagingPage() {
         }));
       }
       refetchDirectMessages();
-    } catch {
+    } catch (error) {
+      console.error("[Messaging][DirectReaction] error", { messageId, emoji, error });
       toast.error("Failed", "Could not update reaction.");
     }
   };
@@ -465,7 +468,9 @@ export default function MessagingPage() {
   const handleGroupReaction = async (messageId: number, emoji: string) => {
     if (!groupId) return;
     try {
+      console.log("[Messaging][GroupReaction] request", { groupId, messageId, emoji });
       const result = await toggleGroupReaction({ groupId, messageId, emoji }).unwrap();
+      console.log("[Messaging][GroupReaction] response", result);
       if (Array.isArray(result?.reactions)) {
         setGroupReactionOverrides((current) => ({
           ...current,
@@ -473,7 +478,8 @@ export default function MessagingPage() {
         }));
       }
       refetchGroupMessages();
-    } catch {
+    } catch (error) {
+      console.error("[Messaging][GroupReaction] error", { groupId, messageId, emoji, error });
       toast.error("Failed", "Could not update reaction.");
     }
   };

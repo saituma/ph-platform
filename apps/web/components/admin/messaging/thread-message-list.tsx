@@ -57,6 +57,12 @@ export function ThreadMessageList({
   const handlePickReaction = async (message: ChatMessage, emoji: EmojiPick) => {
     if (!emoji.native) return;
     const messageId = Number(message.id);
+    console.log("[Messaging][Picker] select", {
+      messageId,
+      emoji: emoji.native,
+      reactions: message.reactions ?? [],
+      currentUserId,
+    });
     const myReaction =
       currentUserId == null
         ? null
@@ -65,8 +71,10 @@ export function ThreadMessageList({
           ) ?? null;
 
     if (myReaction?.emoji && myReaction.emoji !== emoji.native) {
+      console.log("[Messaging][Picker] remove-old", { messageId, oldEmoji: myReaction.emoji });
       await Promise.resolve(onReact(messageId, myReaction.emoji));
     }
+    console.log("[Messaging][Picker] apply-new", { messageId, newEmoji: emoji.native });
     await Promise.resolve(onReact(messageId, emoji.native));
     setPickerMessageId(null);
   };
