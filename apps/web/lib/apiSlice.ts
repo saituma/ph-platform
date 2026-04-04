@@ -504,12 +504,14 @@ export const apiSlice = createApi({
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
         videoUploadId?: number;
+        replyToMessageId?: number;
+        replyPreview?: string;
       }
     >({
-      query: ({ userId, content, contentType, mediaUrl, videoUploadId }) => ({
+      query: ({ userId, content, contentType, mediaUrl, videoUploadId, replyToMessageId, replyPreview }) => ({
         url: `/admin/messages/${userId}`,
         method: "POST",
-        body: { content, contentType, mediaUrl, videoUploadId },
+        body: { content, contentType, mediaUrl, videoUploadId, replyToMessageId, replyPreview },
       }),
       invalidatesTags: ["Threads"],
     }),
@@ -807,12 +809,14 @@ export const apiSlice = createApi({
         content?: string;
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
+        replyToMessageId?: number;
+        replyPreview?: string;
       }
     >({
-      query: ({ groupId, content, contentType, mediaUrl }) => ({
+      query: ({ groupId, content, contentType, mediaUrl, replyToMessageId, replyPreview }) => ({
         url: `/chat/groups/${groupId}/messages`,
         method: "POST",
-        body: { content, contentType, mediaUrl },
+        body: { content, contentType, mediaUrl, replyToMessageId, replyPreview },
       }),
     }),
     toggleChatGroupMessageReaction: builder.mutation<

@@ -964,6 +964,8 @@ export async function sendAdminMessage(req: Request, res: Response) {
       contentType: z.enum(["text", "image", "video"]).default("text"),
       mediaUrl: z.string().url().optional(),
       videoUploadId: z.number().int().min(1).optional(),
+      replyToMessageId: z.number().int().min(1).optional(),
+      replyPreview: z.string().trim().max(160).optional(),
     })
     .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
       message: "Message content or mediaUrl is required",
@@ -976,6 +978,8 @@ export async function sendAdminMessage(req: Request, res: Response) {
     contentType: body.contentType,
     mediaUrl: body.mediaUrl,
     videoUploadId: body.videoUploadId,
+    replyToMessageId: body.replyToMessageId,
+    replyPreview: body.replyPreview,
   });
   if (body.contentType === "video" && body.videoUploadId) {
     const content = "Coach sent a response video to your upload.";

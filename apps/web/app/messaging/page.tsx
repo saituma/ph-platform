@@ -102,6 +102,8 @@ export default function MessagingPage() {
 
   const [directMessage, setDirectMessage] = useState("");
   const [groupMessage, setGroupMessage] = useState("");
+  const [directReplyTo, setDirectReplyTo] = useState<{ messageId: number; preview: string } | null>(null);
+  const [groupReplyTo, setGroupReplyTo] = useState<{ messageId: number; preview: string } | null>(null);
   const [activeUploadTarget, setActiveUploadTarget] = useState<"direct" | "group" | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
@@ -286,6 +288,7 @@ export default function MessagingPage() {
   const openDirectThread = async (userId: number) => {
     setThreadUserId(userId);
     setDirectReactionOverrides({});
+    setDirectReplyTo(null);
     try {
       await markThreadRead({ userId }).unwrap();
       refetchThreads();
@@ -298,8 +301,15 @@ export default function MessagingPage() {
   const handleSendDirect = async () => {
     if (!threadUserId || !directMessage.trim()) return;
     try {
-      await sendDirect({ userId: threadUserId, content: directMessage.trim(), contentType: "text" }).unwrap();
+      await sendDirect({
+        userId: threadUserId,
+        content: directMessage.trim(),
+        contentType: "text",
+        replyToMessageId: directReplyTo?.messageId,
+        replyPreview: directReplyTo?.preview,
+      }).unwrap();
       setDirectMessage("");
+      setDirectReplyTo(null);
       refetchDirectMessages();
       refetchThreads();
     } catch {
@@ -310,8 +320,15 @@ export default function MessagingPage() {
   const handleSendGroup = async () => {
     if (!groupId || !groupMessage.trim()) return;
     try {
-      await sendGroup({ groupId, content: groupMessage.trim(), contentType: "text" }).unwrap();
+      await sendGroup({
+        groupId,
+        content: groupMessage.trim(),
+        contentType: "text",
+        replyToMessageId: groupReplyTo?.messageId,
+        replyPreview: groupReplyTo?.preview,
+      }).unwrap();
       setGroupMessage("");
+      setGroupReplyTo(null);
       refetchGroupMessages();
       refetchGroups();
     } catch {
@@ -352,8 +369,11 @@ export default function MessagingPage() {
           content: directMessage.trim() || undefined,
           contentType: resolvedType,
           mediaUrl: presign.publicUrl,
+          replyToMessageId: directReplyTo?.messageId,
+          replyPreview: directReplyTo?.preview,
         }).unwrap();
         setDirectMessage("");
+        setDirectReplyTo(null);
         refetchDirectMessages();
         refetchThreads();
       }
@@ -364,8 +384,11 @@ export default function MessagingPage() {
           content: groupMessage.trim() || undefined,
           contentType: resolvedType,
           mediaUrl: presign.publicUrl,
+          replyToMessageId: groupReplyTo?.messageId,
+          replyPreview: groupReplyTo?.preview,
         }).unwrap();
         setGroupMessage("");
+        setGroupReplyTo(null);
         refetchGroupMessages();
         refetchGroups();
       }
@@ -424,8 +447,11 @@ export default function MessagingPage() {
           content: directMessage.trim() || undefined,
           contentType: "image",
           mediaUrl: gifUrl,
+          replyToMessageId: directReplyTo?.messageId,
+          replyPreview: directReplyTo?.preview,
         }).unwrap();
         setDirectMessage("");
+        setDirectReplyTo(null);
         refetchDirectMessages();
         refetchThreads();
       }
@@ -435,8 +461,11 @@ export default function MessagingPage() {
           content: groupMessage.trim() || undefined,
           contentType: "image",
           mediaUrl: gifUrl,
+          replyToMessageId: groupReplyTo?.messageId,
+          replyPreview: groupReplyTo?.preview,
         }).unwrap();
         setGroupMessage("");
+        setGroupReplyTo(null);
         refetchGroupMessages();
         refetchGroups();
       }
@@ -730,6 +759,7 @@ export default function MessagingPage() {
             <ThreadMessageList
               messages={directMessages}
               onReact={handleDirectReaction}
+              onReply={(payload) => setDirectReplyTo(payload)}
               formatTime={formatTime}
               currentUserId={currentUserId}
               resolveUserName={resolveUserName}
@@ -746,6 +776,8 @@ export default function MessagingPage() {
               canSend={Boolean(threadUserId && directMessage.trim())}
               isSending={isSendingDirect}
               isUploading={isUploadingMedia}
+              replyingTo={directReplyTo ? { preview: directReplyTo.preview } : null}
+              onCancelReply={() => setDirectReplyTo(null)}
               onPickPhoto={() => openFilePicker("direct", "image/*")}
               onPickVideo={() => openFilePicker("direct", "video/*")}
               onPickGif={() => openGifPicker("direct")}
@@ -764,6 +796,7 @@ export default function MessagingPage() {
             <ThreadMessageList
               messages={groupMessages}
               onReact={handleGroupReaction}
+              onReply={(payload) => setGroupReplyTo(payload)}
               formatTime={formatTime}
               currentUserId={currentUserId}
               resolveUserName={resolveUserName}
@@ -779,6 +812,8 @@ export default function MessagingPage() {
               canSend={Boolean(groupId && groupMessage.trim())}
               isSending={isSendingGroup}
               isUploading={isUploadingMedia}
+              replyingTo={groupReplyTo ? { preview: groupReplyTo.preview } : null}
+              onCancelReply={() => setGroupReplyTo(null)}
               onPickPhoto={() => openFilePicker("group", "image/*")}
               onPickVideo={() => openFilePicker("group", "video/*")}
               onPickGif={() => openGifPicker("group")}

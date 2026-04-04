@@ -123,8 +123,16 @@ export async function createGroupMessage(input: {
   content: string;
   contentType?: "text" | "image" | "video";
   mediaUrl?: string | null;
+  replyToMessageId?: number | null;
+  replyPreview?: string | null;
 }) {
-  const safeContent = input.content.trim() || "Attachment";
+  const safeBaseContent = input.content.trim() || "Attachment";
+  const safeReplyPreview = encodeURIComponent((input.replyPreview ?? "").trim().slice(0, 160));
+  const replyPrefix =
+    input.replyToMessageId && Number.isFinite(input.replyToMessageId)
+      ? `[reply:${input.replyToMessageId}:${safeReplyPreview}] `
+      : "";
+  const safeContent = `${replyPrefix}${safeBaseContent}`;
   const result = await db
     .insert(chatGroupMessageTable)
     .values({
