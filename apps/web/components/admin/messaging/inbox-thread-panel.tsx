@@ -15,6 +15,8 @@ type ThreadListItem = {
   preview: string;
   unread: number;
   updatedAt: string;
+  isPremium: boolean;
+  tierLabel: string | null;
 };
 
 type InboxThreadPanelProps = {
@@ -98,7 +100,14 @@ export function InboxThreadPanel({ threads, onOpenThread, onCreateGroup, formatT
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">{thread.name}</p>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-foreground">{thread.name}</p>
+                        {thread.isPremium ? (
+                          <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                            Premium
+                          </span>
+                        ) : null}
+                      </div>
                       <p className="shrink-0 text-xs text-muted-foreground">{formatTime(thread.updatedAt)}</p>
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2">
