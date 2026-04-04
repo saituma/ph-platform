@@ -8,7 +8,12 @@ type GroupItem = {
 type GroupInboxPanelProps = {
   groups: GroupItem[];
   selectedGroupId: number | null;
-  users: any[];
+  users: Array<{
+    id: number;
+    role?: string | null;
+    name?: string | null;
+    email?: string | null;
+  }>;
   selectedMemberIds: number[];
   newGroupName: string;
   isCreatingGroup: boolean;
@@ -44,8 +49,8 @@ export function GroupInboxPanel({
           />
           <div className="grid gap-2">
             {users
-              .filter((user: any) => user.role !== "admin")
-              .map((user: any) => (
+              .filter((user) => user.role !== "admin")
+              .map((user) => (
                 <label key={user.id} className="flex items-center gap-2 text-xs text-foreground">
                   <input
                     type="checkbox"
