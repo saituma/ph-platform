@@ -36,7 +36,14 @@ function initials(name: string) {
 function cleanPreview(raw: string) {
   const input = String(raw ?? "");
   const stripped = input.replace(/^\[reply:\d+:[^\]]*\]\s*/i, "");
-  return stripped || "Attachment";
+  const clean = stripped.trim();
+  if (!clean) return "File";
+
+  const fromAttachedLabel = clean.match(/^file attached:\s*(.+)$/i);
+  if (fromAttachedLabel?.[1]) return fromAttachedLabel[1].trim();
+
+  if (/^attachment$/i.test(clean)) return "File";
+  return clean;
 }
 
 export function InboxThreadPanel({ threads, onOpenThread, onCreateGroup, formatTime }: InboxThreadPanelProps) {
