@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import {
   Activity,
@@ -21,7 +21,6 @@ import {
   Settings,
   SlidersHorizontal,
   Stethoscope,
-  Search,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -32,7 +31,6 @@ import {
   CardContent,
 } from "../ui/card";
 import { cn } from "../../lib/utils";
-import { Input } from "../ui/input";
 import { ScrollArea } from "../ui/scroll-area";
 import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
 
@@ -59,7 +57,6 @@ export function AdminSidebarContent({
   currentPath,
   collapsed = false,
 }: SidebarContentProps) {
-  const [navQuery, setNavQuery] = useState("");
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
   const { data: videosData, refetch: refetchVideos } = useGetVideoUploadsQuery();
@@ -214,21 +211,6 @@ export function AdminSidebarContent({
     },
   ];
 
-  const filteredNavGroups = useMemo<NavGroup[]>(() => {
-    const query = navQuery.trim().toLowerCase();
-    if (!query) return navGroups;
-    return navGroups
-      .map((group) => {
-        const matchesGroup =
-          group.title.toLowerCase().includes(query) || String(group.description ?? "").toLowerCase().includes(query);
-        const items = matchesGroup
-          ? group.items
-          : group.items.filter((item) => item.label.toLowerCase().includes(query));
-        return { ...group, items };
-      })
-      .filter((group) => group.items.length > 0);
-  }, [navGroups, navQuery]);
-
   return (
     <div className="flex h-full flex-col gap-5">
       <div className={cn("px-2", collapsed ? "text-center" : undefined)}>
@@ -244,42 +226,8 @@ export function AdminSidebarContent({
           )}
         </Link>
       </div>
-      {collapsed ? null : (
-        <Card className="border-border/70 bg-gradient-to-br from-card via-card to-secondary/25 shadow-sm">
-          <CardContent className="space-y-3 p-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Coach Console</p>
-              <Activity className="h-4 w-4 text-primary" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg border border-border/70 bg-background/80 px-2 py-1.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Unread</p>
-                <p className="text-sm font-semibold text-foreground">{unreadCount}</p>
-              </div>
-              <div className="rounded-lg border border-border/70 bg-background/80 px-2 py-1.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Video Queue</p>
-                <p className="text-sm font-semibold text-foreground">{pendingVideoCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      {collapsed ? null : (
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={navQuery}
-            onChange={(event) => setNavQuery(event.target.value)}
-            placeholder="Quick find in sidebar..."
-            className="h-9 rounded-xl border-border/70 bg-background/70 pl-9 text-sm"
-          />
-        </div>
-      )}
       <div className="rounded-2xl border border-border/50 bg-background/30 p-2">
-        <AdminNavGrouped groups={collapsed ? navGroups : filteredNavGroups} currentPath={currentPath} collapsed={collapsed} />
-        {!collapsed && filteredNavGroups.length === 0 ? (
-          <p className="px-2 py-3 text-xs text-muted-foreground">No navigation results.</p>
-        ) : null}
+        <AdminNavGrouped groups={navGroups} currentPath={currentPath} collapsed={collapsed} />
       </div>
     </div>
   );
