@@ -40,6 +40,7 @@ export function ThreadMessageList({
   emptyLabel,
 }: ThreadMessageListProps) {
   const [pickerMessageId, setPickerMessageId] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -78,6 +79,17 @@ export function ThreadMessageList({
     console.log("[Messaging][Picker] apply-new", { messageId, newEmoji: emoji.native });
     await Promise.resolve(onReact(messageId, emoji.native));
     setPickerMessageId(null);
+  };
+
+  const jumpToMessage = (messageId: number | null) => {
+    if (!messageId || !Number.isFinite(messageId)) return;
+    const target = document.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+    window.setTimeout(() => {
+      setHighlightedMessageId((current) => (current === messageId ? null : current));
+    }, 1400);
   };
 
   const parseMessage = (raw: string) => {
@@ -154,7 +166,13 @@ export function ThreadMessageList({
             repliedParsed?.text?.trim() ||
             (parsed.replyToId ? `Message #${parsed.replyToId}` : "");
           return (
-            <div key={message.id} className={`flex w-full ${mine ? "justify-end" : "justify-start"}`}>
+            <div
+              key={message.id}
+              data-message-id={Number(message.id)}
+              className={`flex w-full ${mine ? "justify-end" : "justify-start"} ${
+                highlightedMessageId === Number(message.id) ? "rounded-xl ring-2 ring-primary/60 ring-offset-2 ring-offset-background" : ""
+              }`}
+            >
               <div
                 className={`max-w-[80%] space-y-2 rounded-xl px-3 py-2 ${
                   mediaOnly
@@ -166,11 +184,15 @@ export function ThreadMessageList({
               >
                 {showSenderName ? <p className="text-xs opacity-80">{message.senderName ?? "Member"}</p> : null}
                 {replySnippet ? (
-                  <div className={`rounded-lg border px-2 py-1 text-xs ${
-                    mine ? "border-white/30 bg-white/15 text-white/90" : "border-border bg-secondary/50 text-muted-foreground"
-                  }`}>
+                  <button
+                    type="button"
+                    onClick={() => jumpToMessage(parsed.replyToId)}
+                    className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
+                      mine ? "border-white/30 bg-white/15 text-white/90" : "border-border bg-secondary/50 text-muted-foreground"
+                    }`}
+                  >
                     {replySnippet}
-                  </div>
+                  </button>
                 ) : null}
                 {hasImage ? (
                   <img
