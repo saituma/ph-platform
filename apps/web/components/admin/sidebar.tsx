@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import {
+  Activity,
   BadgeCheck,
   BookOpen,
   CalendarDays,
@@ -28,15 +29,9 @@ import { AdminNavGrouped, type NavGroup } from "./nav";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "../ui/card";
 import { cn } from "../../lib/utils";
-import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { ScrollArea } from "../ui/scroll-area";
-import { Select } from "../ui/select";
 import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
 
 type SidebarContentProps = {
@@ -44,11 +39,24 @@ type SidebarContentProps = {
   collapsed?: boolean;
 };
 
+type SidebarUser = {
+  id: number;
+  role?: string | null;
+};
+
+type SidebarThread = {
+  userId: number;
+  unread?: number | null;
+};
+
+type SidebarVideoUpload = {
+  reviewedAt?: string | null;
+};
+
 export function AdminSidebarContent({
   currentPath,
   collapsed = false,
 }: SidebarContentProps) {
-  const [premiumWindowOpen, setPremiumWindowOpen] = useState(false);
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
   const { data: videosData, refetch: refetchVideos } = useGetVideoUploadsQuery();
@@ -111,15 +119,18 @@ export function AdminSidebarContent({
     };
   }, []);
   const guardianIds = new Set(
-    (usersData?.users ?? [])
-      .filter((user: any) => user?.role === "guardian")
-      .map((user: any) => user.id)
+    (((usersData as { users?: SidebarUser[] } | undefined)?.users ?? []) as SidebarUser[])
+      .filter((user) => user?.role === "guardian")
+      .map((user) => Number(user.id))
+      .filter((id) => Number.isFinite(id))
   );
-  const unreadCount = (threadsData?.threads ?? []).reduce((sum: number, thread: any) => {
+  const unreadCount = (((threadsData as { threads?: SidebarThread[] } | undefined)?.threads ?? []) as SidebarThread[]).reduce((sum, thread) => {
     if (guardianIds.size > 0 && !guardianIds.has(thread.userId)) return sum;
     return sum + (thread.unread ?? 0);
   }, 0);
-  const pendingVideoCount = (videosData?.items ?? []).filter((item: any) => !item.reviewedAt).length;
+  const pendingVideoCount = (((videosData as { items?: SidebarVideoUpload[] } | undefined)?.items ?? []) as SidebarVideoUpload[]).filter(
+    (item) => !item.reviewedAt,
+  ).length;
 
   const navGroups: NavGroup[] = [
     {
@@ -200,10 +211,10 @@ export function AdminSidebarContent({
     },
   ];
   return (
-    <div className="flex h-full flex-col gap-6">
+    <div className="flex h-full flex-col gap-5">
       <div className={cn("px-2", collapsed ? "text-center" : undefined)}>
-        <Link href="/" className="flex items-center gap-3 transition hover:opacity-80">
-          <img src="/ph.jpg" alt="PH Performance" className="h-10 w-10 rounded-sm object-cover" />
+        <Link href="/" className="group flex items-center gap-3 transition hover:opacity-90">
+          <img src="/ph.jpg" alt="PH Performance" className="h-10 w-10 rounded-md object-cover ring-1 ring-border/60" />
           {collapsed ? null : (
             <div className="border-l border-border pl-3">
               <p className="text-xl font-black tracking-tighter text-foreground leading-none">PERFORMANCE</p>
@@ -214,82 +225,29 @@ export function AdminSidebarContent({
           )}
         </Link>
       </div>
-      <AdminNavGrouped groups={navGroups} currentPath={currentPath} collapsed={collapsed} />
       {collapsed ? null : (
-        <Card className="mt-auto border-dashed bg-secondary/40">
-          <CardHeader>
-            <CardDescription>Premium call window</CardDescription>
-            <CardTitle className="text-lg">13:00 - 13:30</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Fixed window active for Premium members.
-            </p>
-            <div className="mt-3">
-              <Button size="sm" variant="outline" onClick={() => setPremiumWindowOpen(true)}>
-                Edit Window
-              </Button>
+        <Card className="border-border/70 bg-gradient-to-br from-card via-card to-secondary/25 shadow-sm">
+          <CardContent className="space-y-3 p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Coach Console</p>
+              <Activity className="h-4 w-4 text-primary" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-border/70 bg-background/80 px-2 py-1.5">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Unread</p>
+                <p className="text-sm font-semibold text-foreground">{unreadCount}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 bg-background/80 px-2 py-1.5">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Video Queue</p>
+                <p className="text-sm font-semibold text-foreground">{pendingVideoCount}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
-
-      <Dialog open={premiumWindowOpen} onOpenChange={setPremiumWindowOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Premium Call Window</DialogTitle>
-            <DialogDescription>Update the fixed daily call window.</DialogDescription>
-          </DialogHeader>
-          <div className="mt-6 space-y-4">
-            <Select>
-              <option>Enabled</option>
-              <option>Disabled</option>
-            </Select>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Select>
-                <option>Start hour</option>
-                {Array.from({ length: 24 }).map((_, hour) => (
-                  <option key={`start-${hour}`} value={hour}>
-                    {String(hour).padStart(2, "0")}
-                  </option>
-                ))}
-              </Select>
-              <Select>
-                <option>Start minute</option>
-                {["00", "15", "30", "45"].map((minute) => (
-                  <option key={`start-min-${minute}`} value={minute}>
-                    {minute}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Select>
-                <option>End hour</option>
-                {Array.from({ length: 24 }).map((_, hour) => (
-                  <option key={`end-${hour}`} value={hour}>
-                    {String(hour).padStart(2, "0")}
-                  </option>
-                ))}
-              </Select>
-              <Select>
-                <option>End minute</option>
-                {["00", "15", "30", "45"].map((minute) => (
-                  <option key={`end-min-${minute}`} value={minute}>
-                    {minute}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setPremiumWindowOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setPremiumWindowOpen(false)}>Save</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <div className="rounded-2xl border border-border/50 bg-background/30 p-2">
+        <AdminNavGrouped groups={navGroups} currentPath={currentPath} collapsed={collapsed} />
+      </div>
     </div>
   );
 }
@@ -304,12 +262,12 @@ export function AdminSidebar({ collapsed = false }: AdminSidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden flex-col border-r border-border bg-card transition-all lg:flex lg:sticky lg:top-0 lg:h-screen",
+        "hidden flex-col border-r border-border/70 bg-gradient-to-b from-card via-card to-secondary/20 transition-all lg:sticky lg:top-0 lg:flex lg:h-screen",
         collapsed ? "w-20" : "w-72"
       )}
     >
       <ScrollArea className="h-full">
-        <div className={cn("h-full py-8", collapsed ? "px-3" : "px-6")}>
+        <div className={cn("h-full py-6", collapsed ? "px-3" : "px-4")}>
           <AdminSidebarContent currentPath={pathname} collapsed={collapsed} />
         </div>
       </ScrollArea>
