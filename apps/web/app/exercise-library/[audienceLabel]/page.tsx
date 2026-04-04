@@ -167,6 +167,28 @@ export default function AudienceDetailPage() {
   };
 
   const modules = workspace?.modules ?? [];
+  const lockedTiersByOrder = useMemo(() => {
+    const lockStartOrderByTier = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
+    for (const lock of workspace?.moduleLocks ?? []) {
+      const startModule = modules.find((module) => module.id === lock.startModuleId);
+      if (startModule) {
+        lockStartOrderByTier.set(lock.programTier, startModule.order);
+      }
+    }
+
+    return new Map(
+      Array.from({ length: 12 }, (_, index) => index + 1).map((order) => [
+        order,
+        PROGRAM_TIERS
+          .filter((tier) => {
+            const startOrder = lockStartOrderByTier.get(tier.value);
+            return startOrder != null && order >= startOrder;
+          })
+          .map((tier) => tier.value),
+      ]),
+    );
+  }, [modules, workspace?.moduleLocks]);
+
   const effectiveLockedTiersByModuleId = useMemo(() => {
     if (!workspace) return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
 
@@ -241,6 +263,7 @@ export default function AudienceDetailPage() {
               <div className="space-y-3">
                 {moduleSlots.map((slot) => {
                   const module = slot.module;
+                  const slotLockedTiers = lockedTiersByOrder.get(slot.order) ?? [];
                   const parsed = module ? parseModuleTitle(module.title) : { name: "", focus: "" };
                   return (
                     <div key={slot.order} className="rounded-2xl border border-border p-4">
@@ -250,11 +273,11 @@ export default function AudienceDetailPage() {
                       <p className="mt-2 text-sm text-muted-foreground">
                         {module ? `${module.sessions.length} sessions · ${module.totalDayLength} total days` : "0 sessions · 0 total days"}
                       </p>
-                      {module && (effectiveLockedTiersByModuleId.get(module.id) ?? []).length ? (
+                      {slotLockedTiers.length ? (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {(effectiveLockedTiersByModuleId.get(module.id) ?? []).map((tier) => (
+                          {slotLockedTiers.map((tier) => (
                             <span
-                              key={`${module.id}-${tier}`}
+                              key={`${slot.order}-${tier}`}
                               className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
                             >
                               Locked for {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
@@ -291,12 +314,12 @@ export default function AudienceDetailPage() {
                               setLockForm({
                                 moduleId: module.id,
                                 moduleTitle: parsed.name || module.title,
-                                programTiers: module.lockedForTiers,
+                                programTiers: slotLockedTiers,
                               });
                               setLockModalOpen(true);
                             }}
                           >
-                            Lock plans
+                            {slotLockedTiers.length ? "Locked plans" : "Lock plans"}
                           </Button>
                         ) : null}
                         {module ? (
