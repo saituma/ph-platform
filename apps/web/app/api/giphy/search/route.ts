@@ -29,14 +29,13 @@ function getGiphyApiKey(): string {
 
 export async function GET(req: NextRequest) {
   const query = (req.nextUrl.searchParams.get("q") ?? "").trim();
-  if (!query) {
-    return NextResponse.json({ results: [] });
-  }
 
   const apiKey = getGiphyApiKey();
-  const url = new URL("https://api.giphy.com/v1/gifs/search");
+  const url = new URL(query ? "https://api.giphy.com/v1/gifs/search" : "https://api.giphy.com/v1/gifs/trending");
   url.searchParams.set("api_key", apiKey);
-  url.searchParams.set("q", query);
+  if (query) {
+    url.searchParams.set("q", query);
+  }
   url.searchParams.set("limit", "24");
   url.searchParams.set("offset", "0");
   url.searchParams.set("rating", "pg-13");
