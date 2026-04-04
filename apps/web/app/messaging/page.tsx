@@ -9,6 +9,8 @@ import { TenorPickerDialog } from "../../components/admin/messaging/tenor-picker
 import { ThreadMessageList } from "../../components/admin/messaging/thread-message-list";
 import type {
   AnnouncementItem,
+  ChatMessage,
+  ChatReaction,
   ChatGroupItem,
   MessagingUser,
   ThreadApiItem,
@@ -114,6 +116,8 @@ export default function MessagingPage() {
   const [selectedTeamName, setSelectedTeamName] = useState("");
   const [adminTeams, setAdminTeams] = useState<AdminTeamSummary[]>([]);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [directReactionOverrides, setDirectReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
+  const [groupReactionOverrides, setGroupReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
 
   const { data: announcementsData, refetch: refetchAnnouncements } = useGetAnnouncementsQuery();
   const { data: adminProfileData } = useGetAdminProfileQuery();
@@ -158,6 +162,12 @@ export default function MessagingPage() {
     };
     void loadAdminTeams();
   }, []);
+
+  useEffect(() => {
+    if (groupId == null) {
+      setGroupReactionOverrides({});
+    }
+  }, [groupId]);
 
   const userNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -210,6 +220,26 @@ export default function MessagingPage() {
     return userNameById.get(threadUserId) ?? `User ${threadUserId}`;
   }, [threadUserId, userNameById]);
 
+  const directMessages = useMemo<ChatMessage[]>(() => {
+    const base = (directMessagesData?.messages as ChatMessage[] | undefined) ?? [];
+    return base.map((message) => {
+      const id = Number(message.id);
+      if (!Number.isFinite(id)) return message;
+      const reactions = directReactionOverrides[id];
+      return reactions ? { ...message, reactions } : message;
+    });
+  }, [directMessagesData, directReactionOverrides]);
+
+  const groupMessages = useMemo<ChatMessage[]>(() => {
+    const base = (groupMessagesData?.messages as ChatMessage[] | undefined) ?? [];
+    return base.map((message) => {
+      const id = Number(message.id);
+      if (!Number.isFinite(id)) return message;
+      const reactions = groupReactionOverrides[id];
+      return reactions ? { ...message, reactions } : message;
+    });
+  }, [groupMessagesData, groupReactionOverrides]);
+
   const stats = useMemo(() => {
     const unread = threads.reduce((sum, thread) => sum + thread.unread, 0);
     return {
@@ -255,6 +285,7 @@ export default function MessagingPage() {
 
   const openDirectThread = async (userId: number) => {
     setThreadUserId(userId);
+    setDirectReactionOverrides({});
     try {
       await markThreadRead({ userId }).unwrap();
       refetchThreads();
@@ -418,7 +449,13 @@ export default function MessagingPage() {
 
   const handleDirectReaction = async (messageId: number, emoji: string) => {
     try {
-      await toggleDirectReaction({ messageId, emoji }).unwrap();
+      const result = await toggleDirectReaction({ messageId, emoji }).unwrap();
+      if (Array.isArray(result?.reactions)) {
+        setDirectReactionOverrides((current) => ({
+          ...current,
+          [messageId]: result.reactions as ChatReaction[],
+        }));
+      }
       refetchDirectMessages();
     } catch {
       toast.error("Failed", "Could not update reaction.");
@@ -428,7 +465,13 @@ export default function MessagingPage() {
   const handleGroupReaction = async (messageId: number, emoji: string) => {
     if (!groupId) return;
     try {
-      await toggleGroupReaction({ groupId, messageId, emoji }).unwrap();
+      const result = await toggleGroupReaction({ groupId, messageId, emoji }).unwrap();
+      if (Array.isArray(result?.reactions)) {
+        setGroupReactionOverrides((current) => ({
+          ...current,
+          [messageId]: result.reactions as ChatReaction[],
+        }));
+      }
       refetchGroupMessages();
     } catch {
       toast.error("Failed", "Could not update reaction.");
@@ -679,7 +722,7 @@ export default function MessagingPage() {
           </DialogHeader>
           <div className="space-y-3">
             <ThreadMessageList
-              messages={directMessagesData?.messages ?? []}
+              messages={directMessages}
               onReact={handleDirectReaction}
               formatTime={formatTime}
               currentUserId={currentUserId}
@@ -713,7 +756,7 @@ export default function MessagingPage() {
           </DialogHeader>
           <div className="space-y-3">
             <ThreadMessageList
-              messages={groupMessagesData?.messages ?? []}
+              messages={groupMessages}
               onReact={handleGroupReaction}
               formatTime={formatTime}
               currentUserId={currentUserId}
