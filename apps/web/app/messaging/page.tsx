@@ -1,11 +1,18 @@
 "use client";
 
-import data from "@emoji-mart/data";
-import Picker from "@emoji-mart/react";
 import { skipToken } from "@reduxjs/toolkit/query";
-import { MessageCircle, Megaphone, Send, Users2, BarChart3, Plus, Smile } from "lucide-react";
-import { useMemo, useState } from "react";
+import { BarChart3, MessageCircle, Megaphone, Plus, Users2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ChatComposer } from "../../components/admin/messaging/chat-composer";
+import { TenorPickerDialog } from "../../components/admin/messaging/tenor-picker-dialog";
+import { ThreadMessageList } from "../../components/admin/messaging/thread-message-list";
+import type {
+  AnnouncementItem,
+  ChatGroupItem,
+  MessagingUser,
+  ThreadApiItem,
+} from "../../components/admin/messaging/types";
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Badge } from "../../components/ui/badge";
@@ -20,11 +27,13 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { ScrollArea } from "../../components/ui/scroll-area";
+import { Select } from "../../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Textarea } from "../../components/ui/textarea";
 import {
   useCreateChatGroupMutation,
   useCreateContentMutation,
+  useCreateMediaUploadUrlMutation,
   useGetAnnouncementsQuery,
   useGetChatGroupMessagesQuery,
   useGetChatGroupsQuery,
@@ -34,6 +43,8 @@ import {
   useMarkThreadReadMutation,
   useSendChatGroupMessageMutation,
   useSendMessageMutation,
+  useToggleChatGroupMessageReactionMutation,
+  useToggleMessageReactionMutation,
 } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
@@ -43,6 +54,38 @@ type ThreadListItem = {
   preview: string;
   unread: number;
   updatedAt: string;
+};
+
+type AdminTeamSummary = {
+  team: string;
+  memberCount: number;
+  guardianCount: number;
+  createdAt: string | Date | null;
+  updatedAt: string | Date | null;
+};
+
+type AdminTeamDetails = {
+  team: string;
+  members: Array<{
+    guardianEmail: string | null;
+  }>;
+};
+
+type AdminTeamsResponse = {
+  error?: string;
+  teams?: AdminTeamSummary[];
+};
+
+type TenorApiItem = {
+  id: string | number;
+  media_formats?: {
+    tinygif?: { url?: string };
+    gif?: { url?: string };
+  };
+};
+
+type TenorApiResponse = {
+  results?: TenorApiItem[];
 };
 
 function formatTime(value?: string | null) {
@@ -63,12 +106,20 @@ export default function MessagingPage() {
 
   const [directMessage, setDirectMessage] = useState("");
   const [groupMessage, setGroupMessage] = useState("");
-  const [showDirectEmoji, setShowDirectEmoji] = useState(false);
-  const [showGroupEmoji, setShowGroupEmoji] = useState(false);
+  const [activeUploadTarget, setActiveUploadTarget] = useState<"direct" | "group" | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [tenorDialogOpen, setTenorDialogOpen] = useState(false);
+  const [tenorTarget, setTenorTarget] = useState<"direct" | "group" | null>(null);
+  const [tenorQuery, setTenorQuery] = useState("");
+  const [tenorResults, setTenorResults] = useState<Array<{ id: string; url: string; previewUrl: string }>>([]);
+  const [tenorLoading, setTenorLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+  const [selectedTeamName, setSelectedTeamName] = useState("");
+  const [adminTeams, setAdminTeams] = useState<AdminTeamSummary[]>([]);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
 
   const { data: announcementsData, refetch: refetchAnnouncements } = useGetAnnouncementsQuery();
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
@@ -79,35 +130,57 @@ export default function MessagingPage() {
   const { data: groupMessagesData, refetch: refetchGroupMessages } = useGetChatGroupMessagesQuery(groupId ?? skipToken);
 
   const [createAnnouncement, { isLoading: isCreatingAnnouncement }] = useCreateContentMutation();
+  const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
   const [markThreadRead] = useMarkThreadReadMutation();
   const [sendDirect, { isLoading: isSendingDirect }] = useSendMessageMutation();
   const [sendGroup, { isLoading: isSendingGroup }] = useSendChatGroupMessageMutation();
+  const [toggleDirectReaction] = useToggleMessageReactionMutation();
+  const [toggleGroupReaction] = useToggleChatGroupMessageReactionMutation();
   const [createGroup, { isLoading: isCreatingGroup }] = useCreateChatGroupMutation();
 
-  const users = useMemo(() => usersData?.users ?? [], [usersData]);
+  const users = useMemo<MessagingUser[]>(() => (usersData?.users as MessagingUser[] | undefined) ?? [], [usersData]);
 
   const chatEligibleUsers = useMemo(
-    () => users.filter((user: any) => user?.role !== "admin" && user?.role !== "superAdmin" && user?.role !== "coach"),
+    () => users.filter((user) => user?.role !== "admin" && user?.role !== "superAdmin" && user?.role !== "coach"),
     [users],
   );
 
+  useEffect(() => {
+    const loadAdminTeams = async () => {
+      setIsLoadingTeams(true);
+      try {
+        const response = await fetch("/api/backend/admin/teams", { credentials: "include" });
+        const payload = (await response.json().catch(() => ({}))) as AdminTeamsResponse;
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "Failed to load teams.");
+        }
+        setAdminTeams(Array.isArray(payload?.teams) ? payload.teams : []);
+      } catch {
+        setAdminTeams([]);
+      } finally {
+        setIsLoadingTeams(false);
+      }
+    };
+    void loadAdminTeams();
+  }, []);
+
   const userNameById = useMemo(() => {
     const map = new Map<number, string>();
-    chatEligibleUsers.forEach((user: any) => {
-      map.set(user.id, user.name || user.email || `User ${user.id}`);
+    chatEligibleUsers.forEach((user) => {
+      map.set(user.id, user.name ?? user.email ?? `User ${user.id}`);
     });
     return map;
   }, [chatEligibleUsers]);
 
   const threads = useMemo<ThreadListItem[]>(() => {
-    const source = threadsData?.threads ?? [];
-    const byUserId = new Map<number, any>();
-    source.forEach((thread: any) => {
+    const source = (threadsData?.threads as ThreadApiItem[] | undefined) ?? [];
+    const byUserId = new Map<number, ThreadApiItem>();
+    source.forEach((thread) => {
       byUserId.set(Number(thread.userId), thread);
     });
 
     return chatEligibleUsers
-      .map((user: any) => {
+      .map((user) => {
         const thread = byUserId.get(user.id);
         return {
           userId: user.id,
@@ -123,8 +196,11 @@ export default function MessagingPage() {
       });
   }, [chatEligibleUsers, threadsData, userNameById]);
 
-  const groups = useMemo(() => groupsData?.groups ?? [], [groupsData]);
-  const announcements = useMemo(() => announcementsData?.items ?? [], [announcementsData]);
+  const groups = useMemo<ChatGroupItem[]>(() => (groupsData?.groups as ChatGroupItem[] | undefined) ?? [], [groupsData]);
+  const announcements = useMemo<AnnouncementItem[]>(
+    () => (announcementsData?.items as AnnouncementItem[] | undefined) ?? [],
+    [announcementsData],
+  );
 
   const directThreadName = useMemo(() => {
     if (!threadUserId) return "";
@@ -155,7 +231,7 @@ export default function MessagingPage() {
       setAnnouncementBody("");
       refetchAnnouncements();
       toast.success("Announcement sent", "Your announcement is now visible to users.");
-    } catch (error) {
+    } catch {
       toast.error("Failed", "Could not publish announcement.");
     }
   };
@@ -176,7 +252,6 @@ export default function MessagingPage() {
     try {
       await sendDirect({ userId: threadUserId, content: directMessage.trim(), contentType: "text" }).unwrap();
       setDirectMessage("");
-      setShowDirectEmoji(false);
       refetchDirectMessages();
       refetchThreads();
     } catch {
@@ -189,7 +264,6 @@ export default function MessagingPage() {
     try {
       await sendGroup({ groupId, content: groupMessage.trim(), contentType: "text" }).unwrap();
       setGroupMessage("");
-      setShowGroupEmoji(false);
       refetchGroupMessages();
       refetchGroups();
     } catch {
@@ -197,13 +271,194 @@ export default function MessagingPage() {
     }
   };
 
-  const handleCreateGroup = async () => {
-    if (!newGroupName.trim() || selectedMemberIds.length === 0) return;
+  const uploadAndSendMedia = async (file: File, target: "direct" | "group") => {
+    if (target === "direct" && !threadUserId) return;
+    if (target === "group" && !groupId) return;
+
+    const resolvedType = file.type.startsWith("video/") ? "video" : "image";
+    const safeName = `${Date.now()}-${file.name.replace(/\\s+/g, "-")}`;
     try {
-      const response = await createGroup({ name: newGroupName.trim(), memberIds: selectedMemberIds }).unwrap();
+      setIsUploadingMedia(true);
+      const presign = await createMediaUploadUrl({
+        folder: "messages",
+        fileName: safeName,
+        contentType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+      }).unwrap();
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error("Upload failed."));
+        };
+        xhr.onerror = () => reject(new Error("Upload failed."));
+        xhr.open("PUT", presign.uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      });
+
+      if (target === "direct" && threadUserId) {
+        await sendDirect({
+          userId: threadUserId,
+          content: directMessage.trim() || undefined,
+          contentType: resolvedType,
+          mediaUrl: presign.publicUrl,
+        }).unwrap();
+        setDirectMessage("");
+        refetchDirectMessages();
+        refetchThreads();
+      }
+
+      if (target === "group" && groupId) {
+        await sendGroup({
+          groupId,
+          content: groupMessage.trim() || undefined,
+          contentType: resolvedType,
+          mediaUrl: presign.publicUrl,
+        }).unwrap();
+        setGroupMessage("");
+        refetchGroupMessages();
+        refetchGroups();
+      }
+    } catch {
+      toast.error("Failed", "Could not upload media.");
+    } finally {
+      setIsUploadingMedia(false);
+      setActiveUploadTarget(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const openFilePicker = (target: "direct" | "group", accept: string) => {
+    setActiveUploadTarget(target);
+    if (!fileInputRef.current) return;
+    fileInputRef.current.accept = accept;
+    fileInputRef.current.click();
+  };
+
+  const openTenorPicker = (target: "direct" | "group") => {
+    setTenorTarget(target);
+    setTenorDialogOpen(true);
+  };
+
+  const searchTenor = async (query: string) => {
+    const cleanQuery = query.trim();
+    if (!cleanQuery) {
+      setTenorResults([]);
+      return;
+    }
+    setTenorLoading(true);
+    try {
+      const key = process.env.NEXT_PUBLIC_TENOR_API_KEY || "LIVDSRZULELA";
+      const response = await fetch(
+        `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(cleanQuery)}&key=${encodeURIComponent(
+          key,
+        )}&limit=24&media_filter=tinygif,gif&contentfilter=medium`,
+      );
+      const payload = (await response.json().catch(() => null)) as TenorApiResponse | null;
+      const items = Array.isArray(payload?.results) ? payload.results : [];
+      const mapped = items
+        .map((item) => {
+          const tiny = item?.media_formats?.tinygif?.url;
+          const gif = item?.media_formats?.gif?.url;
+          return tiny && gif ? { id: String(item.id), url: gif, previewUrl: tiny } : null;
+        })
+        .filter(Boolean) as Array<{ id: string; url: string; previewUrl: string }>;
+      setTenorResults(mapped);
+    } catch {
+      setTenorResults([]);
+    } finally {
+      setTenorLoading(false);
+    }
+  };
+
+  const sendTenorGif = async (gifUrl: string) => {
+    if (!tenorTarget) return;
+    try {
+      if (tenorTarget === "direct" && threadUserId) {
+        await sendDirect({
+          userId: threadUserId,
+          content: directMessage.trim() || undefined,
+          contentType: "image",
+          mediaUrl: gifUrl,
+        }).unwrap();
+        setDirectMessage("");
+        refetchDirectMessages();
+        refetchThreads();
+      }
+      if (tenorTarget === "group" && groupId) {
+        await sendGroup({
+          groupId,
+          content: groupMessage.trim() || undefined,
+          contentType: "image",
+          mediaUrl: gifUrl,
+        }).unwrap();
+        setGroupMessage("");
+        refetchGroupMessages();
+        refetchGroups();
+      }
+      setTenorDialogOpen(false);
+      setTenorTarget(null);
+    } catch {
+      toast.error("Failed", "Could not send GIF.");
+    }
+  };
+
+  const reactionPresets = ["👍", "❤️", "😂", "🔥"];
+
+  const handleDirectReaction = async (messageId: number, emoji: string) => {
+    try {
+      await toggleDirectReaction({ messageId, emoji }).unwrap();
+      refetchDirectMessages();
+    } catch {
+      toast.error("Failed", "Could not update reaction.");
+    }
+  };
+
+  const handleGroupReaction = async (messageId: number, emoji: string) => {
+    if (!groupId) return;
+    try {
+      await toggleGroupReaction({ groupId, messageId, emoji }).unwrap();
+      refetchGroupMessages();
+    } catch {
+      toast.error("Failed", "Could not update reaction.");
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!selectedTeamName.trim()) return;
+    try {
+      const teamResponse = await fetch(`/api/backend/admin/teams/${encodeURIComponent(selectedTeamName)}`, {
+        credentials: "include",
+      });
+      const teamPayload = (await teamResponse.json().catch(() => ({}))) as AdminTeamDetails;
+      if (!teamResponse.ok) {
+        throw new Error("Failed to load selected team details.");
+      }
+
+      const teamGuardianEmails = new Set(
+        (teamPayload?.members ?? [])
+          .map((member) => String(member.guardianEmail ?? "").trim().toLowerCase())
+          .filter(Boolean),
+      );
+
+      const memberIds = chatEligibleUsers
+        .filter((user) => teamGuardianEmails.has(String(user.email ?? "").trim().toLowerCase()))
+        .map((user) => Number(user.id))
+        .filter((id) => Number.isFinite(id));
+
+      if (!memberIds.length) {
+        throw new Error("No chat users found for this team.");
+      }
+
+      const response = await createGroup({
+        name: newGroupName.trim() || selectedTeamName.trim(),
+        memberIds: [...new Set(memberIds)],
+      }).unwrap();
       setGroupModalOpen(false);
       setNewGroupName("");
-      setSelectedMemberIds([]);
+      setSelectedTeamName("");
       refetchGroups();
       if (response?.group?.id) {
         setGroupId(response.group.id);
@@ -272,7 +527,7 @@ export default function MessagingPage() {
               <CardContent>
                 <ScrollArea className="h-[430px] pr-3">
                   <div className="space-y-3">
-                    {announcements.map((item: any) => (
+                    {announcements.map((item) => (
                       <div key={item.id} className="rounded-xl border border-border p-4">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-foreground">{item.title}</p>
@@ -332,7 +587,7 @@ export default function MessagingPage() {
         </TabsContent>
 
         <TabsContent value="teams">
-          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="grid gap-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
@@ -348,7 +603,7 @@ export default function MessagingPage() {
               <CardContent>
                 <ScrollArea className="h-[460px] pr-3">
                   <div className="space-y-2">
-                    {groups.map((group: any) => (
+                    {groups.map((group) => (
                       <button
                         key={group.id}
                         type="button"
@@ -362,48 +617,6 @@ export default function MessagingPage() {
                     {!groups.length ? <p className="text-sm text-muted-foreground">No team groups yet.</p> : null}
                   </div>
                 </ScrollArea>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Create team group</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Input
-                  placeholder="Group name"
-                  value={newGroupName}
-                  onChange={(event) => setNewGroupName(event.target.value)}
-                />
-                <ScrollArea className="h-[300px] rounded-xl border border-border p-3">
-                  <div className="space-y-2">
-                    {chatEligibleUsers.map((user: any) => {
-                      const checked = selectedMemberIds.includes(user.id);
-                      return (
-                        <label key={user.id} className="flex items-center gap-2 text-sm text-foreground">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(event) => {
-                              setSelectedMemberIds((current) =>
-                                event.target.checked
-                                  ? [...current, user.id]
-                                  : current.filter((id) => id !== user.id)
-                              );
-                            }}
-                          />
-                          <span>{user.name || user.email || `User ${user.id}`}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-                <Button
-                  onClick={() => void handleCreateGroup()}
-                  disabled={isCreatingGroup || !newGroupName.trim() || selectedMemberIds.length === 0}
-                >
-                  {isCreatingGroup ? "Creating..." : "Create group"}
-                </Button>
               </CardContent>
             </Card>
           </div>
@@ -454,56 +667,25 @@ export default function MessagingPage() {
             <DialogDescription>Direct message thread</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <ScrollArea className="h-[420px] rounded-xl border border-border p-3">
-              <div className="space-y-3">
-                {(directMessagesData?.messages ?? []).map((message: any) => {
-                  const mine = message?.senderRole === "admin" || message?.senderRole === "coach";
-                  return (
-                    <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[80%] rounded-xl px-3 py-2 ${mine ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
-                        <p className="text-sm whitespace-pre-wrap">{message.content || ""}</p>
-                        <p className={`mt-1 text-[10px] ${mine ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                          {formatTime(message.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {!(directMessagesData?.messages ?? []).length ? (
-                  <p className="text-sm text-muted-foreground">No messages yet.</p>
-                ) : null}
-              </div>
-            </ScrollArea>
-            <div className="rounded-xl border border-border p-3">
-              <Textarea
-                value={directMessage}
-                onChange={(event) => setDirectMessage(event.target.value)}
-                placeholder="Type a message..."
-                className="min-h-24"
-              />
-              <div className="mt-3 flex items-center justify-between">
-                <div className="relative">
-                  <Button variant="outline" size="sm" onClick={() => setShowDirectEmoji((current) => !current)}>
-                    <Smile className="mr-1.5 h-4 w-4" /> Emoji
-                  </Button>
-                  {showDirectEmoji ? (
-                    <div className="absolute bottom-11 left-0 z-30">
-                      <Picker
-                        data={data}
-                        onEmojiSelect={(emoji: any) => setDirectMessage((current) => `${current}${emoji?.native ?? ""}`)}
-                        theme="light"
-                        previewPosition="none"
-                        searchPosition="none"
-                        skinTonePosition="none"
-                      />
-                    </div>
-                  ) : null}
-                </div>
-                <Button onClick={() => void handleSendDirect()} disabled={isSendingDirect || !directMessage.trim() || !threadUserId}>
-                  <Send className="mr-1.5 h-4 w-4" /> {isSendingDirect ? "Sending..." : "Send"}
-                </Button>
-              </div>
-            </div>
+            <ThreadMessageList
+              messages={directMessagesData?.messages ?? []}
+              reactionPresets={reactionPresets}
+              onReact={handleDirectReaction}
+              formatTime={formatTime}
+              emptyLabel="No messages yet."
+            />
+            <ChatComposer
+              value={directMessage}
+              onChange={setDirectMessage}
+              placeholder="Type a message..."
+              onSend={() => void handleSendDirect()}
+              canSend={Boolean(threadUserId && directMessage.trim())}
+              isSending={isSendingDirect}
+              isUploading={isUploadingMedia}
+              onPickPhoto={() => openFilePicker("direct", "image/*")}
+              onPickVideo={() => openFilePicker("direct", "video/*")}
+              onPickGif={() => openTenorPicker("direct")}
+            />
           </div>
         </DialogContent>
       </Dialog>
@@ -511,61 +693,30 @@ export default function MessagingPage() {
       <Dialog open={groupId != null} onOpenChange={(open) => (open ? null : setGroupId(null))}>
         <DialogContent className="max-h-[85vh] sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{groups.find((group: any) => group.id === groupId)?.name ?? "Team chat"}</DialogTitle>
+            <DialogTitle>{groups.find((group) => group.id === groupId)?.name ?? "Team chat"}</DialogTitle>
             <DialogDescription>Group thread</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <ScrollArea className="h-[420px] rounded-xl border border-border p-3">
-              <div className="space-y-3">
-                {(groupMessagesData?.messages ?? []).map((message: any) => {
-                  const mine = message?.senderRole === "admin" || message?.senderRole === "coach";
-                  return (
-                    <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[80%] rounded-xl px-3 py-2 ${mine ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
-                        <p className="text-xs opacity-80">{message.senderName ?? "Member"}</p>
-                        <p className="text-sm whitespace-pre-wrap">{message.content || ""}</p>
-                        <p className={`mt-1 text-[10px] ${mine ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                          {formatTime(message.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {!(groupMessagesData?.messages ?? []).length ? (
-                  <p className="text-sm text-muted-foreground">No group messages yet.</p>
-                ) : null}
-              </div>
-            </ScrollArea>
-            <div className="rounded-xl border border-border p-3">
-              <Textarea
-                value={groupMessage}
-                onChange={(event) => setGroupMessage(event.target.value)}
-                placeholder="Type a team message..."
-                className="min-h-24"
-              />
-              <div className="mt-3 flex items-center justify-between">
-                <div className="relative">
-                  <Button variant="outline" size="sm" onClick={() => setShowGroupEmoji((current) => !current)}>
-                    <Smile className="mr-1.5 h-4 w-4" /> Emoji
-                  </Button>
-                  {showGroupEmoji ? (
-                    <div className="absolute bottom-11 left-0 z-30">
-                      <Picker
-                        data={data}
-                        onEmojiSelect={(emoji: any) => setGroupMessage((current) => `${current}${emoji?.native ?? ""}`)}
-                        theme="light"
-                        previewPosition="none"
-                        searchPosition="none"
-                        skinTonePosition="none"
-                      />
-                    </div>
-                  ) : null}
-                </div>
-                <Button onClick={() => void handleSendGroup()} disabled={isSendingGroup || !groupMessage.trim() || !groupId}>
-                  <Send className="mr-1.5 h-4 w-4" /> {isSendingGroup ? "Sending..." : "Send"}
-                </Button>
-              </div>
-            </div>
+            <ThreadMessageList
+              messages={groupMessagesData?.messages ?? []}
+              reactionPresets={reactionPresets}
+              onReact={handleGroupReaction}
+              formatTime={formatTime}
+              showSenderName
+              emptyLabel="No group messages yet."
+            />
+            <ChatComposer
+              value={groupMessage}
+              onChange={setGroupMessage}
+              placeholder="Type a team message..."
+              onSend={() => void handleSendGroup()}
+              canSend={Boolean(groupId && groupMessage.trim())}
+              isSending={isSendingGroup}
+              isUploading={isUploadingMedia}
+              onPickPhoto={() => openFilePicker("group", "image/*")}
+              onPickVideo={() => openFilePicker("group", "video/*")}
+              onPickGif={() => openTenorPicker("group")}
+            />
           </div>
         </DialogContent>
       </Dialog>
@@ -573,43 +724,35 @@ export default function MessagingPage() {
       <Dialog open={groupModalOpen} onOpenChange={setGroupModalOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Create group</DialogTitle>
-            <DialogDescription>Select users and create a new inbox group.</DialogDescription>
+            <DialogTitle>Create team group</DialogTitle>
+            <DialogDescription>Select an admin-created team and create a group from its members.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input
-              placeholder="Group name"
+              placeholder="Group name (optional)"
               value={newGroupName}
               onChange={(event) => setNewGroupName(event.target.value)}
             />
-            <ScrollArea className="h-64 rounded-xl border border-border p-3">
-              <div className="space-y-2">
-                {chatEligibleUsers.map((user: any) => {
-                  const checked = selectedMemberIds.includes(user.id);
-                  return (
-                    <label key={user.id} className="flex items-center gap-2 text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => {
-                          setSelectedMemberIds((current) =>
-                            event.target.checked ? [...current, user.id] : current.filter((id) => id !== user.id)
-                          );
-                        }}
-                      />
-                      <span>{user.name || user.email || `User ${user.id}`}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+            <Select value={selectedTeamName} onChange={(event) => setSelectedTeamName(event.target.value)}>
+              <option value="">Select team</option>
+              {adminTeams.map((team) => (
+                <option key={team.team} value={team.team}>
+                  {team.team}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {isLoadingTeams
+                ? "Loading admin-created teams..."
+                : `Teams available: ${adminTeams.length}`}
+            </p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setGroupModalOpen(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={() => void handleCreateGroup()}
-                disabled={isCreatingGroup || !newGroupName.trim() || selectedMemberIds.length === 0}
+                disabled={isCreatingGroup || !selectedTeamName.trim()}
               >
                 {isCreatingGroup ? "Creating..." : "Create group"}
               </Button>
@@ -617,6 +760,28 @@ export default function MessagingPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <TenorPickerDialog
+        open={tenorDialogOpen}
+        onOpenChange={setTenorDialogOpen}
+        query={tenorQuery}
+        onQueryChange={setTenorQuery}
+        onSearch={searchTenor}
+        results={tenorResults}
+        loading={tenorLoading}
+        onSelectGif={sendTenorGif}
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (!file || !activeUploadTarget) return;
+          void uploadAndSendMedia(file, activeUploadTarget);
+        }}
+      />
     </AdminShell>
   );
 }
