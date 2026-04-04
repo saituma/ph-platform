@@ -454,14 +454,26 @@ export default function AudienceDetailPage() {
               <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Editable in this Others area</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-border bg-background p-3">
-                    <p className="text-sm font-semibold text-foreground">Warm-Up</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Editable from this Others area.</p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-background p-3">
-                    <p className="text-sm font-semibold text-foreground">Cool-Down</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Editable from this Others area.</p>
-                  </div>
+                  <Link
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/warmup`}
+                    className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Warm-Up</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Open and edit warm-up content.</p>
+                    </div>
+                    <span className="text-xs font-medium text-primary transition group-hover:translate-x-0.5">Open</span>
+                  </Link>
+                  <Link
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/cooldown`}
+                    className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Cool-Down</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Open and edit cool-down content.</p>
+                    </div>
+                    <span className="text-xs font-medium text-primary transition group-hover:translate-x-0.5">Open</span>
+                  </Link>
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../../components/admin/shell";
@@ -23,6 +24,7 @@ import {
 import { isInseasonAgeGroup } from "./inseason-shared";
 
 export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
+  const router = useRouter();
   const normalizedAudienceLabel = useMemo(() => normalizeAudienceLabelInput(audienceLabel), [audienceLabel]);
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -46,6 +48,9 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
 
   const inseasonGroup = workspace?.others.find((item) => item.type === "inseason") ?? null;
   const ageGroups = (inseasonGroup?.items ?? []).filter((item) => isInseasonAgeGroup(item.metadata));
+  const currentAgeEntry = ageGroups.find(
+    (item) => item.title.trim().toLowerCase() === normalizedAudienceLabel.trim().toLowerCase(),
+  );
 
   const createAgeEntry = async () => {
     if (!ageLabel.trim()) return;
@@ -76,13 +81,53 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
     }
   };
 
+  const openCurrentAgeSchedule = async () => {
+    setIsSaving(true);
+    try {
+      if (currentAgeEntry) {
+        router.push(`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${currentAgeEntry.id}`);
+        return;
+      }
+
+      const created = await trainingContentRequest<{ item: { id: number } }>("/others", {
+        method: "POST",
+        body: JSON.stringify({
+          audienceLabel: normalizedAudienceLabel,
+          type: "inseason",
+          title: normalizedAudienceLabel,
+          body: "Weekly in-season schedule.",
+          scheduleNote: null,
+          videoUrl: null,
+          order: null,
+          metadata: {
+            kind: "inseason_age_group",
+          },
+        }),
+      });
+      const createdId = created?.item?.id;
+      if (createdId) {
+        router.push(`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${createdId}`);
+        return;
+      }
+
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to open weekly schedule.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <AdminShell title="Training content" subtitle={`Plan: ${normalizedAudienceLabel} -> In-Season Program`}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Link href={`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}?view=others`}>
+          <Link href={`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}`}>
             <Button variant="outline">Back to others</Button>
           </Link>
+          <Button variant="outline" onClick={() => void openCurrentAgeSchedule()} disabled={isSaving}>
+            Manage weekly schedule
+          </Button>
           <Button
             className="ml-auto"
             onClick={() => {
@@ -98,7 +143,7 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
           <CardHeader>
             <SectionHeader
               title="In-Season age groups"
-              description="Create age entries like 6, 8, 10-13, or 8-16. Each age opens into its own weekly schedule page."
+              description="Coaches can set fixed weekly training slots for each age group (for example Monday 17:00, Tuesday 18:30)."
             />
           </CardHeader>
           <CardContent className="space-y-3">

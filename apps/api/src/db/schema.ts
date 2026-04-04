@@ -50,6 +50,8 @@ export const sessionType = pgEnum("session_type", [
   "nutrition",
 ]);
 export const trainingOtherType = pgEnum("training_other_type", [
+  "warmup",
+  "cooldown",
   "mobility",
   "recovery",
   "inseason",

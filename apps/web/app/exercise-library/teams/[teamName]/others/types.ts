@@ -1,4 +1,6 @@
 export type OtherSectionType =
+  | "warmup"
+  | "cooldown"
   | "mobility"
   | "recovery"
   | "inseason"
