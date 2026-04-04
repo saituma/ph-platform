@@ -5,6 +5,7 @@ import { BarChart3, MessageCircle, Megaphone, Plus, Users2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatComposer } from "../../components/admin/messaging/chat-composer";
+import { InboxThreadPanel } from "../../components/admin/messaging/inbox-thread-panel";
 import { TenorPickerDialog } from "../../components/admin/messaging/tenor-picker-dialog";
 import { ThreadMessageList } from "../../components/admin/messaging/thread-message-list";
 import type {
@@ -17,7 +18,6 @@ import type {
 } from "../../components/admin/messaging/types";
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
-import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import {
@@ -634,45 +634,12 @@ export default function MessagingPage() {
         </TabsContent>
 
         <TabsContent value="inbox">
-          <div className="mx-auto w-full max-w-7xl">
-          <Card className="min-h-[78vh]">
-            <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <SectionHeader
-                  title="Inbox"
-                  description="Open a user thread to chat individually in a focused modal."
-                />
-                <Button size="sm" variant="outline" onClick={() => setGroupModalOpen(true)}>
-                  <Plus className="mr-1.5 h-4 w-4" /> Create group
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[68vh] pr-3">
-                <div className="space-y-2">
-                  {threads.map((thread) => (
-                    <button
-                      key={thread.userId}
-                      type="button"
-                      onClick={() => void openDirectThread(thread.userId)}
-                      className="w-full rounded-xl border border-border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-foreground">{thread.name}</p>
-                        <div className="flex items-center gap-2">
-                          {thread.unread > 0 ? <Badge variant="primary">{thread.unread}</Badge> : null}
-                          <span className="text-xs text-muted-foreground">{formatTime(thread.updatedAt)}</span>
-                        </div>
-                      </div>
-                      <p className="mt-1 truncate text-sm text-muted-foreground">{thread.preview}</p>
-                    </button>
-                  ))}
-                  {!threads.length ? <p className="text-sm text-muted-foreground">Inbox is empty.</p> : null}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-          </div>
+          <InboxThreadPanel
+            threads={threads}
+            onOpenThread={(userId) => void openDirectThread(userId)}
+            onCreateGroup={() => setGroupModalOpen(true)}
+            formatTime={formatTime}
+          />
         </TabsContent>
 
         <TabsContent value="teams">
