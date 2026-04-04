@@ -445,34 +445,55 @@ export default function AudienceDetailPage() {
         ) : (
           <Card>
             <CardHeader>
-              <SectionHeader title="Other editable content" description="Admin can manage these program areas for this age." />
+              <SectionHeader
+                title="Other Editable Content"
+                description="Manage supporting program content for this age group."
+              />
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="rounded-2xl border border-border p-4">
-                <p className="text-sm font-semibold text-foreground">Warm-Up</p>
-                <p className="mt-1 text-sm text-muted-foreground">Managed from this Others area.</p>
+              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session-managed blocks</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-sm font-semibold text-foreground">Warm-Up</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Managed from this Others area.</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-sm font-semibold text-foreground">Cool-Down</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Managed from this Others area.</p>
+                  </div>
+                </div>
               </div>
-              <div className="rounded-2xl border border-border p-4">
-                <p className="text-sm font-semibold text-foreground">Session content</p>
-                <p className="mt-1 text-sm text-muted-foreground">Admins can add any exercise content inside each session.</p>
+
+              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session content</p>
+                <p className="mt-1 text-sm text-foreground">Admins can add any exercise content directly inside each session.</p>
               </div>
-              <Link
-                href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/mobility`}
-                className="rounded-2xl border border-border p-4 transition hover:border-primary/40 hover:bg-primary/5"
-              >
-                <p className="text-sm font-semibold text-foreground">Mobility</p>
-                <p className="mt-1 text-sm text-muted-foreground">Open and edit mobility content.</p>
-              </Link>
-              <Link
-                href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/recovery`}
-                className="rounded-2xl border border-border p-4 transition hover:border-primary/40 hover:bg-primary/5"
-              >
-                <p className="text-sm font-semibold text-foreground">Recovery</p>
-                <p className="mt-1 text-sm text-muted-foreground">Open and edit recovery content.</p>
-              </Link>
-              <div className="rounded-2xl border border-border p-4">
-                <p className="text-sm font-semibold text-foreground">Cool-Down</p>
-                <p className="mt-1 text-sm text-muted-foreground">Managed from this Others area.</p>
+
+              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Directly editable here</p>
+                <div className="mt-3 space-y-3">
+                  <Link
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/mobility`}
+                    className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Mobility</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Open and edit mobility content.</p>
+                    </div>
+                    <span className="text-xs font-medium text-primary transition group-hover:translate-x-0.5">Open</span>
+                  </Link>
+                  <Link
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/recovery`}
+                    className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Recovery</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Open and edit recovery content.</p>
+                    </div>
+                    <span className="text-xs font-medium text-primary transition group-hover:translate-x-0.5">Open</span>
+                  </Link>
+                </div>
               </div>
             </CardContent>
           </Card>
