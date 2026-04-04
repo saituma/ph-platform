@@ -169,7 +169,7 @@ export function ThreadMessageList({
                   <Plus className="h-3.5 w-3.5" />
                 </button>
                 {pickerMessageId === String(message.id) ? (
-                  <div className={`absolute bottom-8 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}>
+                  <div className={`absolute top-full mt-2 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}>
                     <Picker
                       data={emojiData}
                       onEmojiSelect={(emoji: EmojiPick) => void handlePickReaction(message, emoji)}
