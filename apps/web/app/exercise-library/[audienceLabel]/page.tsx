@@ -413,7 +413,7 @@ export default function AudienceDetailPage() {
             <CardContent className="space-y-3">
               <div className="rounded-2xl border border-border p-4">
                 <p className="text-sm font-semibold text-foreground">Warm-Up</p>
-                <p className="mt-1 text-sm text-muted-foreground">Managed inside each session detail.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Managed from this Others area.</p>
               </div>
               <div className="rounded-2xl border border-border p-4">
                 <p className="text-sm font-semibold text-foreground">Session A</p>
@@ -443,7 +443,7 @@ export default function AudienceDetailPage() {
               </Link>
               <div className="rounded-2xl border border-border p-4">
                 <p className="text-sm font-semibold text-foreground">Cool-Down</p>
-                <p className="mt-1 text-sm text-muted-foreground">Managed inside each session detail.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Managed from this Others area.</p>
               </div>
             </CardContent>
           </Card>
