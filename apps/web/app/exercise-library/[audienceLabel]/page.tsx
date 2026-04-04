@@ -453,16 +453,8 @@ export default function AudienceDetailPage() {
                 <p className="mt-1 text-sm text-muted-foreground">Managed from this Others area.</p>
               </div>
               <div className="rounded-2xl border border-border p-4">
-                <p className="text-sm font-semibold text-foreground">Session A</p>
-                <p className="mt-1 text-sm text-muted-foreground">Managed inside each session detail.</p>
-              </div>
-              <div className="rounded-2xl border border-border p-4">
-                <p className="text-sm font-semibold text-foreground">Session B</p>
-                <p className="mt-1 text-sm text-muted-foreground">Managed inside each session detail.</p>
-              </div>
-              <div className="rounded-2xl border border-border p-4">
-                <p className="text-sm font-semibold text-foreground">Session C</p>
-                <p className="mt-1 text-sm text-muted-foreground">Managed inside each session detail.</p>
+                <p className="text-sm font-semibold text-foreground">Session content</p>
+                <p className="mt-1 text-sm text-muted-foreground">Admins can add any exercise content inside each session.</p>
               </div>
               <Link
                 href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/mobility`}

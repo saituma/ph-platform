@@ -208,26 +208,6 @@ export default function ModuleSessionsPage() {
     }
   };
 
-  const createSessionPreset = async (title: string) => {
-    if (!module) return;
-    setIsSaving(true);
-    try {
-      await trainingContentRequest("/sessions", {
-        method: "POST",
-        body: JSON.stringify({
-          moduleId: module.id,
-          title,
-          dayLength: 7,
-        }),
-      });
-      await loadWorkspace();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create session.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const deleteSession = async (sessionId: number) => {
     if (!window.confirm("Delete this session?")) return;
     setIsSaving(true);
@@ -379,21 +359,10 @@ export default function ModuleSessionsPage() {
             <CardHeader>
               <SectionHeader
                 title={module ? module.title : "Sessions"}
-                description="Within each module, build Session A, Session B, and Session C. Inside each session, add exercises with sets, reps/time, coaching notes, and video."
+                description="Within each module, create sessions in any structure you want. Inside each session, add exercises with sets, reps/time, coaching notes, and video."
               />
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => void createSessionPreset("Session A")} disabled={isSaving}>
-                  + Session A
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => void createSessionPreset("Session B")} disabled={isSaving}>
-                  + Session B
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => void createSessionPreset("Session C")} disabled={isSaving}>
-                  + Session C
-                </Button>
-              </div>
               {module?.sessions.length ? (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSessionDragEnd}>
                   <SortableContext items={module.sessions.map((session) => session.id)} strategy={verticalListSortingStrategy}>
@@ -447,7 +416,7 @@ export default function ModuleSessionsPage() {
           <DialogHeader>
             <DialogTitle>{sessionForm.id ? "Edit session" : "Add session"}</DialogTitle>
             <DialogDescription>
-              Use names like Session A, Session B, and Session C for {module?.title ?? "this module"}.
+              Choose any session name for {module?.title ?? "this module"}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
