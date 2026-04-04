@@ -25,17 +25,6 @@ import {
 } from "../../../../../../../components/admin/training-content-v2/api";
 import { useCreateMediaUploadUrlMutation } from "../../../../../../../lib/apiSlice";
 
-const SESSION_LANES = ["Session A", "Session B", "Session C"] as const;
-
-function getSessionLane(category: string | null | undefined) {
-  if (!category) return null;
-  const normalized = category.trim().toLowerCase();
-  if (normalized === "session a") return "Session A";
-  if (normalized === "session b") return "Session B";
-  if (normalized === "session c") return "Session C";
-  return null;
-}
-
 function createEmptyItemForm() {
   return {
     id: null as number | null,
@@ -92,12 +81,7 @@ export default function SessionDetailPage() {
 
   const module = workspace?.modules.find((item) => item.id === moduleId) ?? null;
   const session = module?.sessions.find((item) => item.id === sessionId) ?? null;
-  const mainItemsByLane = SESSION_LANES.map((lane) => ({
-    lane,
-    items: (session?.items ?? []).filter(
-      (item) => item.blockType === "main" && getSessionLane(item.metadata?.category) === lane,
-    ),
-  }));
+  const mainItems = (session?.items ?? []).filter((item) => item.blockType === "main");
 
   const uploadLocalVideo = async (file: File) => {
     const maxSizeMb = 250;
@@ -153,10 +137,9 @@ export default function SessionDetailPage() {
     if (!session || !itemForm.title.trim() || !itemForm.body.trim()) return;
     setIsSaving(true);
     try {
-      const lane = getSessionLane(itemForm.category);
       const metadataInput = {
         ...itemForm,
-        category: itemForm.blockType === "main" ? lane ?? "Session A" : itemForm.category,
+        category: itemForm.category,
       };
       const payload = {
         sessionId: session.id,
@@ -224,58 +207,54 @@ export default function SessionDetailPage() {
           <CardHeader>
             <SectionHeader
               title={session ? session.title : "Session blocks"}
-              description="Manage Session A/B/C blocks. Each exercise includes name, sets, reps or time, coaching notes, and video."
+              description="Manage exercises for this session. Each exercise includes name, sets, reps or time, coaching notes, and video."
             />
           </CardHeader>
           <CardContent className="space-y-4">
-            {mainItemsByLane.map((group) => (
-              <div key={group.lane} className="rounded-2xl border border-border p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.lane}</p>
-                <div className="mt-3 space-y-3">
-                  {group.items.map((item) => (
-                    <div key={item.id} className="rounded-xl border border-border bg-secondary/20 p-3">
-                      <p className="font-semibold text-foreground">{item.order}. {item.title}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{item.body}</p>
-                      <div className="mt-3 flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setItemForm({
-                              id: item.id,
-                              blockType: item.blockType,
-                              title: item.title,
-                              body: item.body,
-                              videoUrl: item.videoUrl ?? "",
-                              allowVideoUpload: Boolean(item.allowVideoUpload),
-                              order: String(item.order),
-                              sets: item.metadata?.sets != null ? String(item.metadata.sets) : "",
-                              reps: item.metadata?.reps != null ? String(item.metadata.reps) : "",
-                              duration: item.metadata?.duration != null ? String(item.metadata.duration) : "",
-                              restSeconds: item.metadata?.restSeconds != null ? String(item.metadata.restSeconds) : "",
-                              steps: item.metadata?.steps ?? "",
-                              cues: item.metadata?.cues ?? "",
-                              progression: item.metadata?.progression ?? "",
-                              regression: item.metadata?.regression ?? "",
-                              category: getSessionLane(item.metadata?.category) ?? "Session A",
-                              equipment: item.metadata?.equipment ?? "",
-                            });
-                            setModalOpen(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => void deleteItem(item.id)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {!group.items.length ? <p className="text-sm text-muted-foreground">No exercises in {group.lane} yet.</p> : null}
+            <div className="rounded-2xl border border-border p-4">
+              <div className="space-y-3">
+                {mainItems.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-border bg-secondary/20 p-3">
+                    <p className="font-semibold text-foreground">{item.order}. {item.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.body}</p>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setItemForm({
+                            id: item.id,
+                            blockType: item.blockType,
+                            title: item.title,
+                            body: item.body,
+                            videoUrl: item.videoUrl ?? "",
+                            allowVideoUpload: Boolean(item.allowVideoUpload),
+                            order: String(item.order),
+                            sets: item.metadata?.sets != null ? String(item.metadata.sets) : "",
+                            reps: item.metadata?.reps != null ? String(item.metadata.reps) : "",
+                            duration: item.metadata?.duration != null ? String(item.metadata.duration) : "",
+                            restSeconds: item.metadata?.restSeconds != null ? String(item.metadata.restSeconds) : "",
+                            steps: item.metadata?.steps ?? "",
+                            cues: item.metadata?.cues ?? "",
+                            progression: item.metadata?.progression ?? "",
+                            regression: item.metadata?.regression ?? "",
+                            category: item.metadata?.category ?? "",
+                            equipment: item.metadata?.equipment ?? "",
+                          });
+                          setModalOpen(true);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => void deleteItem(item.id)}>
+                        Delete
+                      </Button>
                 </div>
+                  </div>
+                ))}
+                {!mainItems.length ? <p className="text-sm text-muted-foreground">No exercises in this session yet.</p> : null}
               </div>
-            ))}
-
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -284,21 +263,10 @@ export default function SessionDetailPage() {
           <DialogHeader>
             <DialogTitle>{itemForm.id ? "Edit exercise" : "Add exercise"}</DialogTitle>
             <DialogDescription>
-              Add exercise name, sets, reps or time, coaching notes, and video for Session A/B/C in {session?.title ?? "this session"}.
+              Add exercise name, sets, reps or time, coaching notes, and video in {session?.title ?? "this session"}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={getSessionLane(itemForm.category) ?? "Session A"}
-              onChange={(event) => setItemForm((current) => ({ ...current, blockType: "main", category: event.target.value }))}
-            >
-              {SESSION_LANES.map((lane) => (
-                <option key={lane} value={lane}>
-                  {lane}
-                </option>
-              ))}
-            </select>
             <div className="flex gap-2">
               <Input placeholder="Exercise name" value={itemForm.title} onChange={(event) => setItemForm((current) => ({ ...current, title: event.target.value }))} />
               <Input placeholder="Order" value={itemForm.order} onChange={(event) => setItemForm((current) => ({ ...current, order: event.target.value }))} />
@@ -312,7 +280,7 @@ export default function SessionDetailPage() {
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <Input placeholder="Equipment" value={itemForm.equipment} onChange={(event) => setItemForm((current) => ({ ...current, equipment: event.target.value }))} />
-              <Input placeholder="Category (optional)" value={getSessionLane(itemForm.category) ?? itemForm.category} onChange={(event) => setItemForm((current) => ({ ...current, category: event.target.value }))} />
+              <Input placeholder="Category (optional)" value={itemForm.category} onChange={(event) => setItemForm((current) => ({ ...current, category: event.target.value }))} />
             </div>
             <Textarea placeholder="Extra coaching cues" value={itemForm.cues} onChange={(event) => setItemForm((current) => ({ ...current, cues: event.target.value }))} />
             <Textarea placeholder="Steps" value={itemForm.steps} onChange={(event) => setItemForm((current) => ({ ...current, steps: event.target.value }))} />
