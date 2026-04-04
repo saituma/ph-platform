@@ -36,6 +36,7 @@ import {
   useCreateChatGroupMutation,
   useCreateContentMutation,
   useCreateMediaUploadUrlMutation,
+  useGetAdminTeamsQuery,
   useGetAdminProfileQuery,
   useGetAnnouncementsQuery,
   useGetChatGroupMembersQuery,
@@ -57,6 +58,14 @@ type ThreadListItem = {
   name: string;
   preview: string;
   unread: number;
+  updatedAt: string;
+};
+
+type AdminTeamItem = {
+  team: string;
+  memberCount: number;
+  guardianCount: number;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -109,6 +118,7 @@ export default function MessagingPage() {
   const { data: adminProfileData } = useGetAdminProfileQuery();
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
+  const { data: adminTeamsData } = useGetAdminTeamsQuery();
   const { data: groupsData, refetch: refetchGroups } = useGetChatGroupsQuery();
 
   const { data: directMessagesData, refetch: refetchDirectMessages } = useGetMessagesQuery(threadUserId ?? skipToken);
@@ -179,6 +189,7 @@ export default function MessagingPage() {
   }, [chatEligibleUsers, threadsData, userNameById]);
 
   const groups = useMemo<ChatGroupItem[]>(() => (groupsData?.groups as ChatGroupItem[] | undefined) ?? [], [groupsData]);
+  const teams = useMemo<AdminTeamItem[]>(() => adminTeamsData?.teams ?? [], [adminTeamsData]);
   const announcements = useMemo<AnnouncementItem[]>(
     () => (announcementsData?.items as AnnouncementItem[] | undefined) ?? [],
     [announcementsData],
@@ -215,9 +226,10 @@ export default function MessagingPage() {
       totalAnnouncements: announcements.length,
       totalThreads: threads.length,
       unreadThreads: unread,
+      totalTeams: teams.length,
       totalGroups: groups.length,
     };
-  }, [announcements.length, groups.length, threads]);
+  }, [announcements.length, groups.length, teams.length, threads]);
 
   const currentUserId = useMemo<number | null>(() => {
     const profilePayload = adminProfileData as
@@ -676,20 +688,36 @@ export default function MessagingPage() {
           <Card>
             <CardHeader>
               <SectionHeader
-                title="Moved to Inbox"
-                description="Group chats are now listed under Inbox."
+                title="Teams"
+                description="Real athlete teams from onboarding and program data. This is separate from Inbox group chats."
               />
             </CardHeader>
             <CardContent>
-              <Button size="sm" variant="outline" onClick={() => setTab("inbox")}>
-                Open Inbox
-              </Button>
+              <div className="space-y-2">
+                {teams.map((team) => (
+                  <div key={team.team} className="rounded-xl border border-border bg-background p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{team.team}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {team.memberCount} athletes · {team.guardianCount} guardians
+                        </p>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground">
+                        <p>Updated {formatTime(team.updatedAt)}</p>
+                        <p>Created {formatTime(team.createdAt)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {!teams.length ? <p className="text-sm text-muted-foreground">No teams found.</p> : null}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="stats">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-muted-foreground">Announcements</CardTitle>
@@ -716,7 +744,15 @@ export default function MessagingPage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-muted-foreground">Team groups</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Teams</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-semibold text-foreground">{stats.totalTeams}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Inbox groups</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-semibold text-foreground">{stats.totalGroups}</p>
