@@ -754,6 +754,61 @@ export async function updateTrainingModuleTierLocks(input: {
   return listTrainingContentAdminWorkspace(normalizedAudienceLabel);
 }
 
+export async function unlockTrainingModuleTierLocks(input: {
+  audienceLabel: string;
+  throughModuleId: number;
+  programTiers: (typeof ProgramType.enumValues)[number][];
+  createdBy: number;
+}) {
+  const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
+  await ensureTrainingAudienceExists(normalizedAudienceLabel, input.createdBy);
+
+  if (!input.programTiers.length) {
+    return listTrainingContentAdminWorkspace(normalizedAudienceLabel);
+  }
+
+  const modules = await db
+    .select({ id: trainingModuleTable.id, order: trainingModuleTable.order, audienceLabel: trainingModuleTable.audienceLabel })
+    .from(trainingModuleTable)
+    .where(eq(trainingModuleTable.audienceLabel, normalizedAudienceLabel))
+    .orderBy(asc(trainingModuleTable.order), asc(trainingModuleTable.id));
+
+  const throughModule = modules.find((module) => module.id === input.throughModuleId);
+  if (!throughModule || throughModule.audienceLabel !== normalizedAudienceLabel) {
+    throw new Error("Module not found for this audience.");
+  }
+
+  const nextModule = modules.find((module) => module.order > throughModule.order) ?? null;
+  const moduleOrderById = new Map(modules.map((module) => [module.id, module.order]));
+  const currentLocks = await getTrainingModuleTierLocks(normalizedAudienceLabel);
+  const lockByTier = new Map(currentLocks.map((lock) => [lock.programTier, lock]));
+
+  for (const programTier of input.programTiers) {
+    const currentLock = lockByTier.get(programTier);
+    if (!currentLock) continue;
+
+    const currentStartOrder = moduleOrderById.get(currentLock.startModuleId);
+    if (currentStartOrder == null || currentStartOrder > throughModule.order) {
+      continue;
+    }
+
+    if (!nextModule) {
+      await db.delete(trainingModuleTierLockTable).where(eq(trainingModuleTierLockTable.id, currentLock.id));
+      continue;
+    }
+
+    await db
+      .update(trainingModuleTierLockTable)
+      .set({
+        startModuleId: nextModule.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(trainingModuleTierLockTable.id, currentLock.id));
+  }
+
+  return listTrainingContentAdminWorkspace(normalizedAudienceLabel);
+}
+
 export async function updateTrainingSessionTierLocks(input: {
   moduleId: number;
   sessionId: number | null;

@@ -19,6 +19,7 @@ import {
   listTrainingContentAdminWorkspace,
   updateTrainingSessionTierLocks,
   updateTrainingModuleTierLocks,
+  unlockTrainingModuleTierLocks,
   updateTrainingModule,
   updateTrainingModuleSession,
   updateTrainingOtherContent,
@@ -70,6 +71,12 @@ const updateModuleSchema = z.object({
 const updateModuleTierLocksSchema = z.object({
   audienceLabel: z.string().min(1).max(64),
   moduleId: z.number().int().min(1).optional().nullable(),
+  programTiers: z.array(z.enum(ProgramType.enumValues)).min(1),
+});
+
+const unlockModuleTierLocksSchema = z.object({
+  audienceLabel: z.string().min(1).max(64),
+  throughModuleId: z.number().int().min(1),
   programTiers: z.array(z.enum(ProgramType.enumValues)).min(1),
 });
 
@@ -219,6 +226,17 @@ export async function updateTrainingModuleTierLocksHandler(req: Request, res: Re
   const workspace = await updateTrainingModuleTierLocks({
     audienceLabel: input.audienceLabel,
     moduleId: input.moduleId ?? null,
+    programTiers: input.programTiers,
+    createdBy: req.user!.id,
+  });
+  return res.status(200).json(workspace);
+}
+
+export async function unlockTrainingModuleTierLocksHandler(req: Request, res: Response) {
+  const input = unlockModuleTierLocksSchema.parse(req.body);
+  const workspace = await unlockTrainingModuleTierLocks({
+    audienceLabel: input.audienceLabel,
+    throughModuleId: input.throughModuleId,
     programTiers: input.programTiers,
     createdBy: req.user!.id,
   });
