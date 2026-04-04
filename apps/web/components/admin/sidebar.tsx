@@ -18,7 +18,6 @@ import {
   Library,
   LifeBuoy,
   Settings,
-  Sparkles,
   SlidersHorizontal,
   Stethoscope,
   UserPlus,
@@ -159,7 +158,6 @@ export function AdminSidebarContent({
         { label: "Content", href: "/content", icon: BookOpen },
         { label: "Parent Portal", href: "/parent", icon: Library },
         { label: "Training content", href: "/exercise-library", icon: BadgeCheck },
-        { label: "Age experience", href: "/age-experience", icon: Sparkles },
       ],
     },
     {
