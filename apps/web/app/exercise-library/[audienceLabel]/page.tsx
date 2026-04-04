@@ -254,6 +254,37 @@ export default function AudienceDetailPage() {
     }
   };
 
+  const lockTierFromCurrentModule = async (tier: (typeof PROGRAM_TIERS)[number]["value"]) => {
+    if (!lockForm.moduleId) return;
+    await saveModuleLocks(lockForm.moduleId, [tier]);
+  };
+
+  const unlockTierThroughCurrentModule = async (tier: (typeof PROGRAM_TIERS)[number]["value"]) => {
+    if (!lockForm.moduleId) return;
+    const currentOrder = moduleOrderById.get(lockForm.moduleId);
+    if (currentOrder == null) return;
+    const nextModule = modules.find((module) => module.order === currentOrder + 1) ?? null;
+
+    setIsUpdatingLocks(true);
+    try {
+      setError(null);
+      const workspaceResponse = await trainingContentRequest<AudienceWorkspace>("/modules/locks", {
+        method: "PUT",
+        body: JSON.stringify({
+          audienceLabel,
+          moduleId: nextModule?.id ?? null,
+          programTiers: [tier],
+        }),
+      });
+      setWorkspace(workspaceResponse);
+      setLockModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update module locks.");
+    } finally {
+      setIsUpdatingLocks(false);
+    }
+  };
+
   return (
     <AdminShell title="Exercise library" subtitle={`Age ${audienceLabel}`}>
       <div className="space-y-6">
@@ -477,22 +508,44 @@ export default function AudienceDetailPage() {
                 const checked = lockForm.programTiers.includes(tier.value);
                 const startOrder = lockStartOrderByTier.get(tier.value);
                 return (
-                  <label key={tier.value} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(event) => {
-                        const nextProgramTiers = event.target.checked
-                          ? [...lockForm.programTiers, tier.value]
-                          : lockForm.programTiers.filter((value) => value !== tier.value);
-                        setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
-                      }}
-                    />
-                    <span className="text-sm font-medium text-foreground">
-                      {tier.label}
-                      {startOrder ? ` · starts at Module ${startOrder}` : ""}
-                    </span>
-                  </label>
+                  <div key={tier.value} className="rounded-xl border border-border px-4 py-3">
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          const nextProgramTiers = event.target.checked
+                            ? [...lockForm.programTiers, tier.value]
+                            : lockForm.programTiers.filter((value) => value !== tier.value);
+                          setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
+                        }}
+                      />
+                      <span className="text-sm font-medium text-foreground">
+                        {tier.label}
+                        {startOrder ? ` · starts at Module ${startOrder}` : ""}
+                      </span>
+                    </label>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isUpdatingLocks || !lockForm.moduleId}
+                        onClick={() => void lockTierFromCurrentModule(tier.value)}
+                      >
+                        Lock from this module
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isUpdatingLocks || !lockForm.moduleId}
+                        onClick={() => void unlockTierThroughCurrentModule(tier.value)}
+                      >
+                        Unlock through this module
+                      </Button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
