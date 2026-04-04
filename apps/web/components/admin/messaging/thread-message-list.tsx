@@ -97,24 +97,41 @@ export function ThreadMessageList({
           }
           const reactions: ChatReaction[] = Array.isArray(message?.reactions) ? message.reactions : [];
           const messageId = Number(message.id);
+          const hasImage = Boolean(message.mediaUrl && message.contentType === "image");
+          const hasVideo = Boolean(message.mediaUrl && message.contentType === "video");
+          const hasMedia = hasImage || hasVideo;
+          const normalizedText = String(message.content ?? "").trim().toLowerCase();
+          const hidePlaceholderText = normalizedText === "attachment";
+          const showText = Boolean(message.content && !hidePlaceholderText);
+          const mediaOnly = hasMedia && !showText;
           return (
             <div key={message.id} className={`flex w-full ${mine ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[80%] space-y-2 rounded-xl px-3 py-2 ${
-                  mine
-                    ? "bg-emerald-600 text-white"
-                    : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                  mediaOnly
+                    ? "bg-transparent px-0 py-0 shadow-none"
+                    : mine
+                      ? "bg-emerald-600 text-white"
+                      : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                 }`}
               >
                 {showSenderName ? <p className="text-xs opacity-80">{message.senderName ?? "Member"}</p> : null}
-                {message.mediaUrl && message.contentType === "image" ? (
-                  <img src={message.mediaUrl} alt="Message media" className="max-h-64 w-full rounded-lg object-cover" />
+                {hasImage ? (
+                  <img
+                    src={message.mediaUrl ?? ""}
+                    alt="Message media"
+                    className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
+                  />
                 ) : null}
-                {message.mediaUrl && message.contentType === "video" ? (
-                  <video src={message.mediaUrl} controls className="max-h-64 w-full rounded-lg" />
+                {hasVideo ? (
+                  <video
+                    src={message.mediaUrl ?? ""}
+                    controls
+                    className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full" : "max-h-64 w-full"}`}
+                  />
                 ) : null}
-                {message.content ? <p className="text-sm whitespace-pre-wrap">{message.content}</p> : null}
-                <p className={`mt-1 text-[10px] ${mine ? "text-white/80" : "text-muted-foreground"}`}>
+                {showText ? <p className="text-sm whitespace-pre-wrap">{message.content}</p> : null}
+                <p className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}>
                   {formatTime(message.createdAt)}
                 </p>
                 <div ref={pickerContainerRef} className="relative flex flex-wrap items-center gap-1.5">
