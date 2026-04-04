@@ -29,7 +29,6 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { ScrollArea } from "../../components/ui/scroll-area";
-import { Select } from "../../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Textarea } from "../../components/ui/textarea";
 import {
@@ -57,26 +56,6 @@ type ThreadListItem = {
   preview: string;
   unread: number;
   updatedAt: string;
-};
-
-type AdminTeamSummary = {
-  team: string;
-  memberCount: number;
-  guardianCount: number;
-  createdAt: string | Date | null;
-  updatedAt: string | Date | null;
-};
-
-type AdminTeamDetails = {
-  team: string;
-  members: Array<{
-    guardianEmail: string | null;
-  }>;
-};
-
-type AdminTeamsResponse = {
-  error?: string;
-  teams?: AdminTeamSummary[];
 };
 
 type GifApiResponse = {
@@ -115,9 +94,8 @@ export default function MessagingPage() {
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [selectedTeamName, setSelectedTeamName] = useState("");
-  const [adminTeams, setAdminTeams] = useState<AdminTeamSummary[]>([]);
-  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [groupMemberQuery, setGroupMemberQuery] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [directReactionOverrides, setDirectReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
   const [groupReactionOverrides, setGroupReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
 
@@ -145,25 +123,6 @@ export default function MessagingPage() {
     () => users.filter((user) => user?.role !== "admin" && user?.role !== "superAdmin" && user?.role !== "coach"),
     [users],
   );
-
-  useEffect(() => {
-    const loadAdminTeams = async () => {
-      setIsLoadingTeams(true);
-      try {
-        const response = await fetch("/api/backend/admin/teams", { credentials: "include" });
-        const payload = (await response.json().catch(() => ({}))) as AdminTeamsResponse;
-        if (!response.ok) {
-          throw new Error(payload?.error ?? "Failed to load teams.");
-        }
-        setAdminTeams(Array.isArray(payload?.teams) ? payload.teams : []);
-      } catch {
-        setAdminTeams([]);
-      } finally {
-        setIsLoadingTeams(false);
-      }
-    };
-    void loadAdminTeams();
-  }, []);
 
   useEffect(() => {
     if (groupId == null) {
@@ -265,6 +224,16 @@ export default function MessagingPage() {
     if (currentUserId != null && userId === currentUserId) return "You";
     return allUserNameById.get(userId) ?? `User ${userId}`;
   };
+
+  const filteredGroupMembers = useMemo(() => {
+    const query = groupMemberQuery.trim().toLowerCase();
+    if (!query) return chatEligibleUsers;
+    return chatEligibleUsers.filter((user) => {
+      const name = String(user.name ?? "").toLowerCase();
+      const email = String(user.email ?? "").toLowerCase();
+      return name.includes(query) || email.includes(query);
+    });
+  }, [chatEligibleUsers, groupMemberQuery]);
 
   const handleCreateAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) return;
@@ -514,38 +483,16 @@ export default function MessagingPage() {
   };
 
   const handleCreateGroup = async () => {
-    if (!selectedTeamName.trim()) return;
+    if (!newGroupName.trim() || !selectedMemberIds.length) return;
     try {
-      const teamResponse = await fetch(`/api/backend/admin/teams/${encodeURIComponent(selectedTeamName)}`, {
-        credentials: "include",
-      });
-      const teamPayload = (await teamResponse.json().catch(() => ({}))) as AdminTeamDetails;
-      if (!teamResponse.ok) {
-        throw new Error("Failed to load selected team details.");
-      }
-
-      const teamGuardianEmails = new Set(
-        (teamPayload?.members ?? [])
-          .map((member) => String(member.guardianEmail ?? "").trim().toLowerCase())
-          .filter(Boolean),
-      );
-
-      const memberIds = chatEligibleUsers
-        .filter((user) => teamGuardianEmails.has(String(user.email ?? "").trim().toLowerCase()))
-        .map((user) => Number(user.id))
-        .filter((id) => Number.isFinite(id));
-
-      if (!memberIds.length) {
-        throw new Error("No chat users found for this team.");
-      }
-
       const response = await createGroup({
-        name: newGroupName.trim() || selectedTeamName.trim(),
-        memberIds: [...new Set(memberIds)],
+        name: newGroupName.trim(),
+        memberIds: [...new Set(selectedMemberIds)],
       }).unwrap();
       setGroupModalOpen(false);
       setNewGroupName("");
-      setSelectedTeamName("");
+      setSelectedMemberIds([]);
+      setGroupMemberQuery("");
       refetchGroups();
       if (response?.group?.id) {
         setGroupId(response.group.id);
@@ -792,35 +739,56 @@ export default function MessagingPage() {
       <Dialog open={groupModalOpen} onOpenChange={setGroupModalOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Create team group</DialogTitle>
-            <DialogDescription>Select an admin-created team and create a group from its members.</DialogDescription>
+            <DialogTitle>Create group</DialogTitle>
+            <DialogDescription>Set a group name and choose members.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input
-              placeholder="Group name (optional)"
+              placeholder="Group name"
               value={newGroupName}
               onChange={(event) => setNewGroupName(event.target.value)}
             />
-            <Select value={selectedTeamName} onChange={(event) => setSelectedTeamName(event.target.value)}>
-              <option value="">Select team</option>
-              {adminTeams.map((team) => (
-                <option key={team.team} value={team.team}>
-                  {team.team}
-                </option>
-              ))}
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {isLoadingTeams
-                ? "Loading admin-created teams..."
-                : `Teams available: ${adminTeams.length}`}
-            </p>
+            <Input
+              placeholder="Search members..."
+              value={groupMemberQuery}
+              onChange={(event) => setGroupMemberQuery(event.target.value)}
+            />
+            <ScrollArea className="h-56 rounded-xl border border-border p-2">
+              <div className="space-y-1">
+                {filteredGroupMembers.map((user) => {
+                  const selected = selectedMemberIds.includes(user.id);
+                  const label = user.name ?? user.email ?? `User ${user.id}`;
+                  return (
+                    <label
+                      key={user.id}
+                      className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-secondary/40"
+                    >
+                      <span className="min-w-0 truncate text-sm">{label}</span>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() =>
+                          setSelectedMemberIds((current) =>
+                            selected ? current.filter((id) => id !== user.id) : [...current, user.id],
+                          )
+                        }
+                      />
+                    </label>
+                  );
+                })}
+                {!filteredGroupMembers.length ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">No members found.</p>
+                ) : null}
+              </div>
+            </ScrollArea>
+            <p className="text-xs text-muted-foreground">{selectedMemberIds.length} members selected</p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setGroupModalOpen(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={() => void handleCreateGroup()}
-                disabled={isCreatingGroup || !selectedTeamName.trim()}
+                disabled={isCreatingGroup || !newGroupName.trim() || !selectedMemberIds.length}
               >
                 {isCreatingGroup ? "Creating..." : "Create group"}
               </Button>
