@@ -234,38 +234,17 @@ export default function AudienceDetailPage() {
     if (currentOrder == null) return;
 
     const nextModule = modules.find((module) => module.order === currentOrder + 1) ?? null;
-    const updatesByTarget = new Map<string, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
-
-    for (const tier of lockForm.programTiers) {
-      const startOrder = lockStartOrderByTier.get(tier);
-      if (startOrder == null || startOrder > currentOrder) continue;
-
-      const targetKey = nextModule ? String(nextModule.id) : "null";
-      const current = updatesByTarget.get(targetKey) ?? [];
-      current.push(tier);
-      updatesByTarget.set(targetKey, current);
-    }
-
-    if (!updatesByTarget.size) {
-      setError("No lock changes applied. Selected plans are already unlocked through this module.");
-      return;
-    }
-
     setIsUpdatingLocks(true);
     try {
       setError(null);
-      await Promise.all(
-        Array.from(updatesByTarget.entries()).map(([targetKey, tiers]) =>
-          trainingContentRequest<AudienceWorkspace>("/modules/locks", {
-            method: "PUT",
-            body: JSON.stringify({
-              audienceLabel,
-              moduleId: targetKey === "null" ? null : Number(targetKey),
-              programTiers: tiers,
-            }),
-          })
-        )
-      );
+      await trainingContentRequest<AudienceWorkspace>("/modules/locks", {
+        method: "PUT",
+        body: JSON.stringify({
+          audienceLabel,
+          moduleId: nextModule?.id ?? null,
+          programTiers: lockForm.programTiers,
+        }),
+      });
       await loadWorkspace();
       setLockModalOpen(false);
     } catch (err) {
