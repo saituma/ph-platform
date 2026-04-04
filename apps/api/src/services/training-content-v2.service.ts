@@ -781,27 +781,7 @@ export async function unlockTrainingModuleTierLocks(input: {
   const moduleOrderById = new Map(modules.map((module) => [module.id, module.order]));
   const currentLocks = await getTrainingModuleTierLocks(normalizedAudienceLabel);
   const lockByTier = new Map(currentLocks.map((lock) => [lock.programTier, lock]));
-  const targetOrder = throughModule.order + 1;
-
-  let targetModuleId: number | null = null;
-  if (targetOrder <= 12) {
-    const existingTarget = modules.find((module) => module.order === targetOrder) ?? null;
-    if (existingTarget) {
-      targetModuleId = existingTarget.id;
-    } else {
-      const [createdTarget] = await db
-        .insert(trainingModuleTable)
-        .values({
-          age: 0,
-          audienceLabel: normalizedAudienceLabel,
-          title: `Module ${targetOrder}`,
-          order: targetOrder,
-          createdBy: input.createdBy,
-        })
-        .returning({ id: trainingModuleTable.id });
-      targetModuleId = createdTarget?.id ?? null;
-    }
-  }
+  const nextExistingModule = modules.find((module) => module.order > throughModule.order) ?? null;
 
   for (const programTier of input.programTiers) {
     const currentLock = lockByTier.get(programTier);
@@ -812,7 +792,7 @@ export async function unlockTrainingModuleTierLocks(input: {
       continue;
     }
 
-    if (targetModuleId == null) {
+    if (!nextExistingModule) {
       await db.delete(trainingModuleTierLockTable).where(eq(trainingModuleTierLockTable.id, currentLock.id));
       continue;
     }
@@ -820,13 +800,67 @@ export async function unlockTrainingModuleTierLocks(input: {
     await db
       .update(trainingModuleTierLockTable)
       .set({
-        startModuleId: targetModuleId,
+        startModuleId: nextExistingModule.id,
         updatedAt: new Date(),
       })
       .where(eq(trainingModuleTierLockTable.id, currentLock.id));
   }
 
   return listTrainingContentAdminWorkspace(normalizedAudienceLabel);
+}
+
+export async function cleanupTrainingPlaceholderModules(input: {
+  audienceLabel: string;
+  createdBy: number;
+}) {
+  const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
+  await ensureTrainingAudienceExists(normalizedAudienceLabel, input.createdBy);
+
+  const modules = await db
+    .select({
+      id: trainingModuleTable.id,
+      title: trainingModuleTable.title,
+      order: trainingModuleTable.order,
+    })
+    .from(trainingModuleTable)
+    .where(eq(trainingModuleTable.audienceLabel, normalizedAudienceLabel))
+    .orderBy(asc(trainingModuleTable.order), asc(trainingModuleTable.id));
+
+  if (!modules.length) {
+    return {
+      deletedCount: 0,
+      deletedModuleOrders: [] as number[],
+      workspace: await listTrainingContentAdminWorkspace(normalizedAudienceLabel),
+    };
+  }
+
+  const sessionRows = await db
+    .select({
+      moduleId: trainingModuleSessionTable.moduleId,
+    })
+    .from(trainingModuleSessionTable);
+  const locks = await getTrainingModuleTierLocks(normalizedAudienceLabel);
+
+  const moduleIds = new Set(modules.map((module) => module.id));
+  const modulesWithSessions = new Set(sessionRows.filter((row) => moduleIds.has(row.moduleId)).map((row) => row.moduleId));
+  const lockStartIds = new Set(locks.map((lock) => lock.startModuleId));
+
+  const deletableModules = modules.filter((module) => {
+    const expectedTitle = `Module ${module.order}`;
+    return module.title.trim() === expectedTitle && !modulesWithSessions.has(module.id) && !lockStartIds.has(module.id);
+  });
+
+  if (deletableModules.length) {
+    for (const module of deletableModules) {
+      await db.delete(trainingModuleTable).where(eq(trainingModuleTable.id, module.id));
+    }
+  }
+
+  return {
+    deletedCount: deletableModules.length,
+    deletedModuleOrders: deletableModules.map((module) => module.order),
+    workspace: await listTrainingContentAdminWorkspace(normalizedAudienceLabel),
+  };
 }
 
 export async function updateTrainingSessionTierLocks(input: {

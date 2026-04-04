@@ -4,6 +4,7 @@ import { requireAuth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/roles";
 import {
   copyTrainingModulesFromAudienceHandler,
+  cleanupTrainingPlaceholderModulesHandler,
   createTrainingAudienceHandler,
   createTrainingModuleHandler,
   createTrainingOtherContentHandler,
@@ -39,6 +40,7 @@ router.post("/training-content-v2/mobile/sessions/:sessionId/finish", requireAut
 router.post("/training-content-v2/modules", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createTrainingModuleHandler);
 router.put("/training-content-v2/modules/locks", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateTrainingModuleTierLocksHandler);
 router.put("/training-content-v2/modules/unlocks", requireAuth, requireRole(["coach", "admin", "superAdmin"]), unlockTrainingModuleTierLocksHandler);
+router.post("/training-content-v2/modules/cleanup-placeholders", requireAuth, requireRole(["coach", "admin", "superAdmin"]), cleanupTrainingPlaceholderModulesHandler);
 router.put("/training-content-v2/modules/:moduleId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateTrainingModuleHandler);
 router.delete("/training-content-v2/modules/:moduleId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteTrainingModuleHandler);
 
