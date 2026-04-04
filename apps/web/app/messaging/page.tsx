@@ -29,6 +29,7 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { ScrollArea } from "../../components/ui/scroll-area";
+import { Select } from "../../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Textarea } from "../../components/ui/textarea";
 import {
@@ -97,6 +98,10 @@ export default function MessagingPage() {
 
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementBody, setAnnouncementBody] = useState("");
+  const [announcementAudienceType, setAnnouncementAudienceType] = useState<"all" | "age" | "team" | "group">("all");
+  const [announcementAudienceAge, setAnnouncementAudienceAge] = useState("");
+  const [announcementAudienceTeam, setAnnouncementAudienceTeam] = useState("");
+  const [announcementAudienceGroupId, setAnnouncementAudienceGroupId] = useState("");
 
   const [threadUserId, setThreadUserId] = useState<number | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
@@ -291,6 +296,21 @@ export default function MessagingPage() {
 
   const handleCreateAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) return;
+    const parsedAudienceAge = Number(announcementAudienceAge);
+    const parsedAudienceGroupId = Number(announcementAudienceGroupId);
+    if (announcementAudienceType === "age" && !Number.isFinite(parsedAudienceAge)) {
+      toast.error("Missing age", "Choose an age for this announcement audience.");
+      return;
+    }
+    if (announcementAudienceType === "team" && !announcementAudienceTeam.trim()) {
+      toast.error("Missing team", "Choose a team for this announcement audience.");
+      return;
+    }
+    if (announcementAudienceType === "group" && !Number.isFinite(parsedAudienceGroupId)) {
+      toast.error("Missing group", "Choose a group for this announcement audience.");
+      return;
+    }
+
     try {
       await createAnnouncement({
         title: announcementTitle.trim(),
@@ -298,9 +318,17 @@ export default function MessagingPage() {
         body: announcementBody.trim(),
         type: "article",
         surface: "announcements",
+        announcementAudienceType,
+        announcementAudienceAge: announcementAudienceType === "age" ? parsedAudienceAge : undefined,
+        announcementAudienceTeam: announcementAudienceType === "team" ? announcementAudienceTeam.trim() : undefined,
+        announcementAudienceGroupId: announcementAudienceType === "group" ? parsedAudienceGroupId : undefined,
       }).unwrap();
       setAnnouncementTitle("");
       setAnnouncementBody("");
+      setAnnouncementAudienceType("all");
+      setAnnouncementAudienceAge("");
+      setAnnouncementAudienceTeam("");
+      setAnnouncementAudienceGroupId("");
       refetchAnnouncements();
       toast.success("Announcement sent", "Your announcement is now visible to users.");
     } catch {
@@ -616,6 +644,67 @@ export default function MessagingPage() {
                   value={announcementTitle}
                   onChange={(event) => setAnnouncementTitle(event.target.value)}
                 />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Audience type</p>
+                    <Select
+                      value={announcementAudienceType}
+                      onChange={(event) =>
+                        setAnnouncementAudienceType(event.target.value as "all" | "age" | "team" | "group")
+                      }
+                    >
+                      <option value="all">All users</option>
+                      <option value="age">Specific age</option>
+                      <option value="team">Specific team</option>
+                      <option value="group">Specific group</option>
+                    </Select>
+                  </div>
+                  {announcementAudienceType === "age" ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Age</p>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        placeholder="e.g. 7"
+                        value={announcementAudienceAge}
+                        onChange={(event) => setAnnouncementAudienceAge(event.target.value)}
+                      />
+                    </div>
+                  ) : null}
+                  {announcementAudienceType === "team" ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Team</p>
+                      <Select
+                        value={announcementAudienceTeam}
+                        onChange={(event) => setAnnouncementAudienceTeam(event.target.value)}
+                      >
+                        <option value="">Choose a team</option>
+                        {teams.map((team) => (
+                          <option key={team.team} value={team.team}>
+                            {team.team}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  ) : null}
+                  {announcementAudienceType === "group" ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Group</p>
+                      <Select
+                        value={announcementAudienceGroupId}
+                        onChange={(event) => setAnnouncementAudienceGroupId(event.target.value)}
+                      >
+                        <option value="">Choose a group</option>
+                        {groups.map((group) => (
+                          <option key={group.id} value={String(group.id)}>
+                            {group.name ?? `Group ${group.id}`}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  ) : null}
+                </div>
                 <Textarea
                   placeholder="Write announcement message"
                   value={announcementBody}
@@ -624,7 +713,14 @@ export default function MessagingPage() {
                 />
                 <Button
                   onClick={() => void handleCreateAnnouncement()}
-                  disabled={isCreatingAnnouncement || !announcementTitle.trim() || !announcementBody.trim()}
+                  disabled={
+                    isCreatingAnnouncement ||
+                    !announcementTitle.trim() ||
+                    !announcementBody.trim() ||
+                    (announcementAudienceType === "age" && !announcementAudienceAge) ||
+                    (announcementAudienceType === "team" && !announcementAudienceTeam) ||
+                    (announcementAudienceType === "group" && !announcementAudienceGroupId)
+                  }
                 >
                   {isCreatingAnnouncement ? "Sending..." : "Send announcement"}
                 </Button>
