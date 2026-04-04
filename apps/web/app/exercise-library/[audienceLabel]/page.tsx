@@ -473,7 +473,7 @@ export default function AudienceDetailPage() {
           <DialogHeader>
             <DialogTitle>Lock module for plans/tiers</DialogTitle>
             <DialogDescription>
-              Starting from {lockForm.moduleTitle || "this module"}, selected tiers are locked here and for every module below.
+              Locking starts from the selected module downward. Unlocking here removes the lock through this module and keeps the lock starting from the next module, only for selected plans.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -523,7 +523,7 @@ export default function AudienceDetailPage() {
                 disabled={isUpdatingLocks || !lockForm.programTiers.length}
                 onClick={() => void unlockSelectedPlans()}
               >
-                Unlock selected plans
+                Unlock through this module
               </Button>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setLockModalOpen(false)}>
