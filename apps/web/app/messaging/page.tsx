@@ -59,6 +59,8 @@ type ThreadListItem = {
   preview: string;
   unread: number;
   updatedAt: string;
+  isPremium: boolean;
+  tierLabel: string | null;
 };
 
 type AdminTeamItem = {
@@ -79,6 +81,15 @@ function formatTime(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function getTierFromUser(user: MessagingUser) {
+  return user.programTier ?? user.currentProgramTier ?? user.desiredProgramType ?? null;
+}
+
+function isPremiumTier(tier: string | null) {
+  if (!tier) return false;
+  return tier.toLowerCase().includes("premium");
 }
 
 export default function MessagingPage() {
@@ -174,15 +185,19 @@ export default function MessagingPage() {
     return chatEligibleUsers
       .map((user) => {
         const thread = byUserId.get(user.id);
+        const tier = getTierFromUser(user);
         return {
           userId: user.id,
           name: userNameById.get(user.id) ?? user.name ?? user.email ?? `User ${user.id}`,
           preview: thread?.preview ?? "Start a conversation",
           unread: Number(thread?.unread ?? 0),
           updatedAt: thread?.time ?? "",
+          isPremium: isPremiumTier(tier),
+          tierLabel: tier,
         };
       })
       .sort((a, b) => {
+        if (Number(b.isPremium) !== Number(a.isPremium)) return Number(b.isPremium) - Number(a.isPremium);
         if (b.unread !== a.unread) return b.unread - a.unread;
         return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
       });

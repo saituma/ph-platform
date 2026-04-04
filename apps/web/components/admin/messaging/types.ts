@@ -5,6 +5,9 @@ export type MessagingUser = {
   role?: string | null;
   name?: string | null;
   email?: string | null;
+  programTier?: string | null;
+  currentProgramTier?: string | null;
+  desiredProgramType?: string | null;
 };
 
 export type ThreadApiItem = {
