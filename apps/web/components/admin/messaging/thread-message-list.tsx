@@ -2,7 +2,7 @@
 
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
-import { Plus } from "lucide-react";
+import { CornerUpLeft, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { ScrollArea } from "../../ui/scroll-area";
@@ -15,6 +15,7 @@ type EmojiPick = {
 type ThreadMessageListProps = {
   messages: ChatMessage[];
   onReact: (messageId: number, emoji: string) => void;
+  onReply?: (payload: { messageId: number; preview: string }) => void;
   formatTime: (value?: string | null) => string;
   currentUserId?: number | null;
   resolveUserName?: (userId: number) => string;
@@ -28,6 +29,7 @@ type ThreadMessageListProps = {
 export function ThreadMessageList({
   messages,
   onReact,
+  onReply,
   formatTime,
   currentUserId,
   resolveUserName,
@@ -78,6 +80,29 @@ export function ThreadMessageList({
     setPickerMessageId(null);
   };
 
+  const parseMessage = (raw: string) => {
+    const replyMatch = raw.match(/^\[reply:(\d+):([^\]]*)\]\s*/);
+    if (!replyMatch) {
+      return { replyToId: null as number | null, replyPreview: "", text: raw };
+    }
+    const replyToId = Number(replyMatch[1]);
+    const encodedPreview = replyMatch[2] ?? "";
+    let replyPreview = "";
+    try {
+      replyPreview = decodeURIComponent(encodedPreview);
+    } catch {
+      replyPreview = encodedPreview;
+    }
+    const text = raw.slice(replyMatch[0].length);
+    return { replyToId: Number.isFinite(replyToId) ? replyToId : null, replyPreview, text };
+  };
+
+  const messageById = new Map<number, ChatMessage>();
+  messages.forEach((item) => {
+    const id = Number(item.id);
+    if (Number.isFinite(id)) messageById.set(id, item);
+  });
+
   return (
     <ScrollArea className="h-[420px] rounded-xl border border-border p-3">
       <div className="space-y-3">
@@ -117,10 +142,17 @@ export function ThreadMessageList({
           const hasImage = Boolean(message.mediaUrl && message.contentType === "image");
           const hasVideo = Boolean(message.mediaUrl && message.contentType === "video");
           const hasMedia = hasImage || hasVideo;
-          const normalizedText = String(message.content ?? "").trim().toLowerCase();
+          const parsed = parseMessage(String(message.content ?? ""));
+          const normalizedText = String(parsed.text ?? "").trim().toLowerCase();
           const hidePlaceholderText = normalizedText === "attachment";
-          const showText = Boolean(message.content && !hidePlaceholderText);
+          const showText = Boolean(parsed.text && !hidePlaceholderText);
           const mediaOnly = hasMedia && !showText;
+          const repliedMessage = parsed.replyToId ? messageById.get(parsed.replyToId) : undefined;
+          const repliedParsed = repliedMessage ? parseMessage(String(repliedMessage.content ?? "")) : null;
+          const replySnippet =
+            parsed.replyPreview ||
+            repliedParsed?.text?.trim() ||
+            (parsed.replyToId ? `Message #${parsed.replyToId}` : "");
           return (
             <div key={message.id} className={`flex w-full ${mine ? "justify-end" : "justify-start"}`}>
               <div
@@ -133,6 +165,13 @@ export function ThreadMessageList({
                 }`}
               >
                 {showSenderName ? <p className="text-xs opacity-80">{message.senderName ?? "Member"}</p> : null}
+                {replySnippet ? (
+                  <div className={`rounded-lg border px-2 py-1 text-xs ${
+                    mine ? "border-white/30 bg-white/15 text-white/90" : "border-border bg-secondary/50 text-muted-foreground"
+                  }`}>
+                    {replySnippet}
+                  </div>
+                ) : null}
                 {hasImage ? (
                   <img
                     src={message.mediaUrl ?? ""}
@@ -147,12 +186,25 @@ export function ThreadMessageList({
                     className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full" : "max-h-64 w-full"}`}
                   />
                 ) : null}
-                {showText ? <p className="text-sm whitespace-pre-wrap">{message.content}</p> : null}
+                {showText ? <p className="text-sm whitespace-pre-wrap">{parsed.text}</p> : null}
                 <p className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}>
                   {formatTime(message.createdAt)}
                 </p>
               </div>
-              <div data-reaction-picker-root="true" className={`relative ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}>
+              <div data-reaction-picker-root="true" className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}>
+                {onReply ? (
+                  <button
+                    type="button"
+                    className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
+                    onClick={() => {
+                      const defaultPreview = parsed.text?.trim() || (hasMedia ? "Media message" : "Message");
+                      onReply({ messageId: Number(message.id), preview: defaultPreview.slice(0, 160) });
+                    }}
+                    aria-label="Reply to message"
+                  >
+                    <CornerUpLeft className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"

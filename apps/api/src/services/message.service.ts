@@ -105,11 +105,19 @@ export async function sendMessage(input: {
   contentType: "text" | "image" | "video";
   mediaUrl?: string | null;
   videoUploadId?: number | null;
+  replyToMessageId?: number | null;
+  replyPreview?: string | null;
   clientId?: string | null;
   /** When true, athletes without messaging-enabled tiers can still message a human coach (e.g. app feedback). */
   bypassMessagingTierForCoach?: boolean;
 }) {
-  const safeContent = input.content.trim() || "Attachment";
+  const safeBaseContent = input.content.trim() || "Attachment";
+  const safeReplyPreview = encodeURIComponent((input.replyPreview ?? "").trim().slice(0, 160));
+  const replyPrefix =
+    input.replyToMessageId && Number.isFinite(input.replyToMessageId)
+      ? `[reply:${input.replyToMessageId}:${safeReplyPreview}] `
+      : "";
+  const safeContent = `${replyPrefix}${safeBaseContent}`;
 
   // Detect if message is to AI Coach (virtual ID: -1 or real AI coach user ID)
   let resolvedReceiverId = input.receiverId;

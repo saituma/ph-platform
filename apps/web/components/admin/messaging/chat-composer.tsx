@@ -2,7 +2,7 @@
 
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
-import { Paperclip, Send, Smile, Image as ImageIcon, Sticker, Video } from "lucide-react";
+import { Paperclip, Send, Smile, Image as ImageIcon, Sticker, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
@@ -20,6 +20,8 @@ type ChatComposerProps = {
   canSend: boolean;
   isSending?: boolean;
   isUploading?: boolean;
+  replyingTo?: { preview: string } | null;
+  onCancelReply?: () => void;
   onPickPhoto: () => void;
   onPickVideo: () => void;
   onPickGif: () => void;
@@ -33,6 +35,8 @@ export function ChatComposer({
   canSend,
   isSending = false,
   isUploading = false,
+  replyingTo = null,
+  onCancelReply,
   onPickPhoto,
   onPickVideo,
   onPickGif,
@@ -66,6 +70,17 @@ export function ChatComposer({
 
   return (
     <div className="rounded-xl border border-border p-3">
+      {replyingTo ? (
+        <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted-foreground">Replying to</p>
+            <p className="truncate text-sm text-foreground">{replyingTo.preview}</p>
+          </div>
+          <Button type="button" variant="ghost" size="icon" onClick={onCancelReply} aria-label="Cancel reply">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : null}
       <div className="flex items-end gap-2">
         <div ref={emojiContainerRef} className="relative">
           <Button

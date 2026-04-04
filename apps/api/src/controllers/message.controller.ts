@@ -17,6 +17,8 @@ const sendSchema = z
     contentType: z.enum(["text", "image", "video"]).default("text"),
     mediaUrl: z.string().url().optional(),
     videoUploadId: z.number().int().min(1).optional(),
+    replyToMessageId: z.number().int().min(1).optional(),
+    replyPreview: z.string().trim().max(160).optional(),
     clientId: z.string().trim().min(1).optional(),
     receiverId: z.number().int().optional(),
   })
@@ -80,6 +82,8 @@ export async function sendMessageToCoach(req: Request, res: Response) {
       contentType: input.contentType,
       mediaUrl: input.mediaUrl,
       videoUploadId: input.videoUploadId,
+      replyToMessageId: input.replyToMessageId,
+      replyPreview: input.replyPreview,
       clientId: input.clientId,
     });
     return res.status(201).json({ message });

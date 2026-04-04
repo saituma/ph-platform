@@ -1494,6 +1494,8 @@ export async function sendMessageAdmin(input: {
   contentType?: "text" | "image" | "video";
   mediaUrl?: string;
   videoUploadId?: number;
+  replyToMessageId?: number;
+  replyPreview?: string;
 }) {
   return sendMessage({
     senderId: input.coachId,
@@ -1502,6 +1504,8 @@ export async function sendMessageAdmin(input: {
     contentType: input.contentType ?? "text",
     mediaUrl: input.mediaUrl,
     videoUploadId: input.videoUploadId,
+    replyToMessageId: input.replyToMessageId,
+    replyPreview: input.replyPreview,
   });
 }
 
