@@ -178,7 +178,7 @@ export function InseasonSchedulePage({
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Link href={`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason`}>
-            <Button variant="outline">Back to ages</Button>
+            <Button variant="outline">Back to in-season</Button>
           </Link>
           <Button
             className="ml-auto"
@@ -188,21 +188,21 @@ export function InseasonSchedulePage({
             }}
             disabled={!ageEntry}
           >
-            + Add schedule
+            + Add session
           </Button>
         </div>
         {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
         <Card>
           <CardHeader>
             <SectionHeader
-              title={ageEntry?.title ? `${ageEntry.title} schedule` : "In-Season schedule"}
-              description="Add recurring weekly schedule rows for this age. Each one repeats every week on the selected day and time."
+              title={ageEntry?.title ? `${ageEntry.title} weekly sessions` : "In-Season weekly sessions"}
+              description="Add fixed weekly sessions for this age. Each session repeats every week on the selected day and time."
             />
           </CardHeader>
           <CardContent className="space-y-4">
             {!ageEntry ? <p className="text-sm text-muted-foreground">This age group could not be found.</p> : null}
             {ageEntry && !scheduleEntries.length ? (
-              <p className="text-sm text-muted-foreground">No weekly schedules added yet for this age.</p>
+              <p className="text-sm text-muted-foreground">No weekly sessions added yet for this age.</p>
             ) : null}
             {scheduleEntries.map((schedule) => (
               <div key={schedule.id} className="rounded-2xl border border-border p-4">
@@ -236,23 +236,23 @@ export function InseasonSchedulePage({
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingScheduleId != null ? "Edit weekly schedule" : "Add weekly schedule"}</DialogTitle>
+            <DialogTitle>{editingScheduleId != null ? "Edit session" : "Add session"}</DialogTitle>
             <DialogDescription>
-              Add a recurring day and time for this age. The schedule repeats every week until the coach changes or removes it.
+              Set the day, time, session name, and reason. This session repeats weekly until changed or removed.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Title</label>
+              <label className="text-sm font-medium text-foreground">Name of session</label>
               <Input
                 value={form.title}
                 onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                placeholder="Session title"
+                placeholder="e.g. Strength Maintenance"
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Weekly day</label>
+                <label className="text-sm font-medium text-foreground">Day</label>
                 <select
                   className="h-10 w-full rounded-full border border-input bg-background px-4 text-sm"
                   value={form.weekday}
@@ -266,7 +266,7 @@ export function InseasonSchedulePage({
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Weekly time</label>
+                <label className="text-sm font-medium text-foreground">Time</label>
                 <Input
                   type="time"
                   value={form.time}
@@ -275,9 +275,9 @@ export function InseasonSchedulePage({
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Notes</label>
+              <label className="text-sm font-medium text-foreground">Reason of session</label>
               <Textarea
-                placeholder="Optional coaching notes for this schedule."
+                placeholder="Why this session is scheduled."
                 value={form.notes}
                 onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
               />
@@ -291,7 +291,7 @@ export function InseasonSchedulePage({
                 Cancel
               </Button>
               <Button onClick={saveSchedule} disabled={isSaving || !form.title.trim() || !ageEntry}>
-                {isSaving ? "Saving..." : editingScheduleId != null ? "Save changes" : "Save schedule"}
+                {isSaving ? "Saving..." : editingScheduleId != null ? "Save changes" : "Save session"}
               </Button>
             </div>
           </div>
