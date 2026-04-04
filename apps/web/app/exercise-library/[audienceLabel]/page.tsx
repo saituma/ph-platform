@@ -228,33 +228,50 @@ export default function AudienceDetailPage() {
 
   const unlockSelectedPlans = async () => {
     if (!lockForm.programTiers.length) return;
-    if (!lockForm.moduleId) {
-      await saveModuleLocks(null, lockForm.programTiers);
-      return;
-    }
+    if (!lockForm.moduleId) return;
 
     const currentOrder = moduleOrderById.get(lockForm.moduleId);
-    if (currentOrder == null) {
-      await saveModuleLocks(null, lockForm.programTiers);
+    if (currentOrder == null) return;
+
+    const nextModule = modules.find((module) => module.order === currentOrder + 1) ?? null;
+    const updatesByTarget = new Map<string, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
+
+    for (const tier of lockForm.programTiers) {
+      const startOrder = lockStartOrderByTier.get(tier);
+      if (startOrder == null || startOrder > currentOrder) continue;
+
+      const targetKey = nextModule ? String(nextModule.id) : "null";
+      const current = updatesByTarget.get(targetKey) ?? [];
+      current.push(tier);
+      updatesByTarget.set(targetKey, current);
+    }
+
+    if (!updatesByTarget.size) {
+      setError("No lock changes applied. Selected plans are already unlocked through this module.");
       return;
     }
 
-    const directTiers = lockForm.programTiers.filter((tier) => (lockStartOrderByTier.get(tier) ?? currentOrder) === currentOrder);
-    const inheritedTiers = lockForm.programTiers.filter((tier) => (lockStartOrderByTier.get(tier) ?? currentOrder) < currentOrder);
-
-    if (directTiers.length) {
-      await saveModuleLocks(null, directTiers);
-    }
-
-    if (inheritedTiers.length) {
-      const inheritedHints = inheritedTiers
-        .map((tier) => {
-          const label = PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier;
-          const startOrder = lockStartOrderByTier.get(tier);
-          return startOrder ? `${label} (starts at Module ${startOrder})` : label;
-        })
-        .join(", ");
-      setError(`These plans are locked from earlier modules. Unlock from their start module: ${inheritedHints}.`);
+    setIsUpdatingLocks(true);
+    try {
+      setError(null);
+      await Promise.all(
+        Array.from(updatesByTarget.entries()).map(([targetKey, tiers]) =>
+          trainingContentRequest<AudienceWorkspace>("/modules/locks", {
+            method: "PUT",
+            body: JSON.stringify({
+              audienceLabel,
+              moduleId: targetKey === "null" ? null : Number(targetKey),
+              programTiers: tiers,
+            }),
+          })
+        )
+      );
+      await loadWorkspace();
+      setLockModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update module locks.");
+    } finally {
+      setIsUpdatingLocks(false);
     }
   };
 
