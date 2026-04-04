@@ -109,6 +109,19 @@ export function ThreadMessageList({
     return { replyToId: Number.isFinite(replyToId) ? replyToId : null, replyPreview, text };
   };
 
+  const fileNameFromUrl = (url: string) => {
+    try {
+      const parsed = new URL(url);
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      const last = parts[parts.length - 1];
+      return last ? decodeURIComponent(last) : "File";
+    } catch {
+      const parts = url.split("/").filter(Boolean);
+      const last = parts[parts.length - 1];
+      return last ? decodeURIComponent(last) : "File";
+    }
+  };
+
   const messageById = new Map<number, ChatMessage>();
   messages.forEach((item) => {
     const id = Number(item.id);
@@ -159,6 +172,16 @@ export function ThreadMessageList({
           const hidePlaceholderText = normalizedText === "attachment";
           const showText = Boolean(parsed.text && !hidePlaceholderText);
           const mediaOnly = hasMedia && !showText;
+          const attachmentName =
+            hasMedia && message.mediaUrl
+              ? fileNameFromUrl(message.mediaUrl)
+              : normalizedText.startsWith("file attached:")
+                ? parsed.text.replace(/^file attached:\s*/i, "").trim()
+                : "";
+          const senderLabel =
+            message.senderName?.trim() ||
+            (Number.isFinite(senderId) && resolveUserName ? resolveUserName(senderId) : "") ||
+            "Unknown user";
           const repliedMessage = parsed.replyToId ? messageById.get(parsed.replyToId) : undefined;
           const repliedParsed = repliedMessage ? parseMessage(String(repliedMessage.content ?? "")) : null;
           const replySnippet =
@@ -182,7 +205,7 @@ export function ThreadMessageList({
                       : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                 }`}
               >
-                {showSenderName ? <p className="text-xs opacity-80">{message.senderName ?? "Member"}</p> : null}
+                {showSenderName ? <p className="text-xs opacity-80">{senderLabel}</p> : null}
                 {replySnippet ? (
                   <button
                     type="button"
@@ -209,6 +232,9 @@ export function ThreadMessageList({
                   />
                 ) : null}
                 {showText ? <p className="text-sm whitespace-pre-wrap">{parsed.text}</p> : null}
+                {attachmentName && !showText ? (
+                  <p className={`text-xs ${mine && !mediaOnly ? "text-white/85" : "text-muted-foreground"}`}>{attachmentName}</p>
+                ) : null}
                 <p className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}>
                   {formatTime(message.createdAt)}
                 </p>
