@@ -357,7 +357,7 @@ export default function AudienceDetailPage() {
                               setLockForm({
                                 moduleId: module.id,
                                 moduleTitle: parsed.name || module.title,
-                                programTiers: slotLockedTiers,
+                                programTiers: [],
                               });
                               setLockModalOpen(true);
                             }}
