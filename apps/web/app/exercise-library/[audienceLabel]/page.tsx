@@ -234,16 +234,45 @@ export default function AudienceDetailPage() {
     const currentOrder = moduleOrderById.get(lockForm.moduleId);
     if (currentOrder == null) return;
 
-    const tiersToMove = lockForm.programTiers.filter((tier) => {
-      const startOrder = lockStartOrderByTier.get(tier);
-      return startOrder != null && startOrder <= currentOrder;
-    });
+    const tiersToMove = lockForm.programTiers.filter((tier) => lockStartOrderByTier.get(tier) === currentOrder);
     if (!tiersToMove.length) {
-      setError("Selected plans are already unlocked through this module.");
+      const blocked = lockForm.programTiers
+        .map((tier) => {
+          const label = PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier;
+          const start = lockStartOrderByTier.get(tier);
+          if (start == null) return `${label} (already unlocked)`;
+          if (start < currentOrder) return `${label} (lock starts at Module ${start})`;
+          return `${label} (lock starts below at Module ${start})`;
+        })
+        .join(", ");
+      setError(`Unlock is allowed only at each plan's lock start module. ${blocked}`);
       return;
     }
 
-    const nextModule = modules.find((module) => module.order === currentOrder + 1) ?? null;
+    const targetOrder = currentOrder + 1;
+    const nextModule = modules.find((module) => module.order === targetOrder) ?? null;
+
+    // Preserve "unlock through current, keep lock below":
+    // if next slot should exist (1..12) but no real module exists there yet,
+    // we cannot safely move lock start without changing behavior.
+    if (targetOrder <= 12 && !nextModule) {
+      setError(`Create Module ${targetOrder} first, then unlock here to keep lock starting below.`);
+      return;
+    }
+
+    // Safety guard: unlocking must never move any selected tier lock to an earlier module.
+    const reverseShift = tiersToMove.find((tier) => {
+      const previousStartOrder = lockStartOrderByTier.get(tier);
+      if (previousStartOrder == null) return false;
+      if (!nextModule) return false; // full unlock from last module
+      return nextModule.order <= previousStartOrder;
+    });
+    if (reverseShift) {
+      const label = PROGRAM_TIERS.find((item) => item.value === reverseShift)?.label ?? reverseShift;
+      setError(`Blocked unsafe unlock for ${label}. Please retry from the module where it currently starts.`);
+      return;
+    }
+
     setIsUpdatingLocks(true);
     try {
       setError(null);
