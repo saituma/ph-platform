@@ -146,7 +146,7 @@ function SearchContent() {
                 <button
                   key={thread.userId}
                   className="flex w-full items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-left text-sm transition hover:border-primary/40"
-                  onClick={() => router.push(`/messaging?user=${thread.userId}`)}
+                  onClick={() => router.push(`/messaging?tab=inbox&userId=${thread.userId}`)}
                 >
                   <span>{thread.name ?? "User"}</span>
                   <span className="text-xs text-muted-foreground">{thread.preview ?? ""}</span>

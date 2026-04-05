@@ -19,6 +19,7 @@ type ProgramsGridProps = {
   isLoading?: boolean;
   onManage: (program: ProgramItem) => void;
   onAssign: (program: ProgramItem) => void;
+  highlightedProgramId?: number | null;
 };
 
 export function ProgramsGrid({
@@ -26,6 +27,7 @@ export function ProgramsGrid({
   isLoading = false,
   onManage,
   onAssign,
+  highlightedProgramId = null,
 }: ProgramsGridProps) {
   const formatAgeRange = (program: { minAge?: number | null; maxAge?: number | null }) => {
     if (program.minAge == null && program.maxAge == null) return "All ages";
@@ -69,7 +71,14 @@ export function ProgramsGrid({
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       {programs.map((program) => (
-        <Card key={program.id} className="hover:border-primary/40">
+        <Card
+          key={program.id}
+          className={
+            highlightedProgramId === program.id
+              ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
+              : "hover:border-primary/40"
+          }
+        >
           <CardHeader>
             <CardTitle>{program.name}</CardTitle>
           </CardHeader>

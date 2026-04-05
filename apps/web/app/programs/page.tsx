@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -18,6 +19,7 @@ const accessLabel = (type: string) => {
 };
 
 export default function ProgramsPage() {
+  const searchParams = useSearchParams();
   const { data: programsData, isLoading: programsLoading } = useGetProgramsQuery();
   const { data: usersData } = useGetUsersQuery();
   const [createProgram, { isLoading: isCreating }] = useCreateProgramMutation();
@@ -25,6 +27,7 @@ export default function ProgramsPage() {
   const [assignProgram, { isLoading: isAssigning }] = useAssignProgramMutation();
   const [activeDialog, setActiveDialog] = useState<ProgramsDialog>(null);
   const [selectedProgram, setSelectedProgram] = useState<any | null>(null);
+  const [highlightedProgramId, setHighlightedProgramId] = useState<number | null>(null);
   const [activeChip, setActiveChip] = useState<string>("All");
   const chips = ["All", "Program", "Plus", "Premium", "Templates"];
 
@@ -55,6 +58,32 @@ export default function ProgramsPage() {
   const users = useMemo(() => usersData?.users ?? [], [usersData]);
   const isSaving = isCreating || isUpdating || isAssigning;
 
+  useEffect(() => {
+    const programIdParam = Number(searchParams.get("programId"));
+    if (!Number.isFinite(programIdParam) || programIdParam <= 0) {
+      setHighlightedProgramId(null);
+      return;
+    }
+
+    const target = programs.find((program) => program.id === programIdParam);
+    if (!target) return;
+
+    setHighlightedProgramId(programIdParam);
+    setSelectedProgram(target);
+
+    if (target.type === "PHP_Premium") setActiveChip("Premium");
+    else if (target.type === "PHP_Plus") setActiveChip("Plus");
+    else if (target.type === "PHP") setActiveChip("Program");
+    else setActiveChip("All");
+
+    const actionParam = (searchParams.get("action") ?? "").toLowerCase();
+    if (actionParam === "assign") {
+      setActiveDialog("assign");
+      return;
+    }
+    setActiveDialog("manage");
+  }, [searchParams, programs]);
+
   return (
     <AdminShell
       title="Programs"
@@ -66,6 +95,7 @@ export default function ProgramsPage() {
       <ProgramsGrid
         programs={programs}
         isLoading={programsLoading}
+        highlightedProgramId={highlightedProgramId}
         onManage={(program) => {
           setSelectedProgram(program);
           setActiveDialog("manage");

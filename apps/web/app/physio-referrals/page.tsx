@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { EmptyState } from "../../components/admin/empty-state";
@@ -121,6 +122,7 @@ function getTargetLabel(
 }
 
 export default function ReferralsPage() {
+  const searchParams = useSearchParams();
   const { data, isLoading } = useGetPhysioReferralsQuery();
   const { data: referralGroupsData } = useGetReferralGroupsQuery();
   const { data: usersData } = useGetUsersQuery();
@@ -160,6 +162,7 @@ export default function ReferralsPage() {
   const [notes, setNotes] = useState("");
 
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [highlightedEntryId, setHighlightedEntryId] = useState<number | null>(null);
   const [editReferralType, setEditReferralType] = useState("Physio");
   const [editCustomReferralType, setEditCustomReferralType] = useState("");
   const [editLink, setEditLink] = useState("");
@@ -489,6 +492,36 @@ export default function ReferralsPage() {
     setEditSpecialty(meta.specialty ?? "");
     setEditNotes(meta.notes ?? "");
   };
+
+  useEffect(() => {
+    const tabParam = (searchParams.get("tab") ?? "").trim();
+    if (tabParam === "create" || tabParam === "existing") {
+      setActiveTab(tabParam);
+    }
+
+    const entryIdParam = Number(searchParams.get("entryId"));
+    if (!Number.isFinite(entryIdParam) || entryIdParam <= 0) {
+      setHighlightedEntryId(null);
+      return;
+    }
+
+    const target = eligibleEntries.find((entry) => entry.id === entryIdParam);
+    if (!target) return;
+
+    setActiveTab("existing");
+    setHighlightedEntryId(entryIdParam);
+
+    if (searchParams.get("edit") === "1") {
+      startEdit(target);
+    }
+
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        const el = document.getElementById(`referral-entry-${entryIdParam}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+    }
+  }, [searchParams, eligibleEntries]);
 
   const saveEdit = async (id: number) => {
     setError(null);
@@ -846,7 +879,15 @@ export default function ReferralsPage() {
                     const resolvedTier = athleteTierById.get(entry.athleteId) ?? entry.programTier ?? "PHP";
 
                     return (
-                      <div key={entry.id} className="rounded-3xl border border-border bg-secondary/20 p-4">
+                      <div
+                        key={entry.id}
+                        id={`referral-entry-${entry.id}`}
+                        className={`rounded-3xl border bg-secondary/20 p-4 ${
+                          highlightedEntryId === entry.id
+                            ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
+                            : "border-border"
+                        }`}
+                      >
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="space-y-1">
                             <p className="text-xs uppercase tracking-[2px] text-muted-foreground">{formatDate(entry.createdAt)}</p>
