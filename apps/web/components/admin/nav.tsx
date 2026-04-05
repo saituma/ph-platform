@@ -114,6 +114,13 @@ function pathMatchesGroup(currentPath: string | null | undefined, items: NavItem
 export function AdminNavGrouped({ groups, currentPath, collapsed = false }: AdminNavGroupedProps) {
   /** Explicit expand/collapse; omitted key → fall back to “open if this group has the active route”. */
   const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({});
+  const groupActiveMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    groups.forEach((group) => {
+      map.set(group.id, pathMatchesGroup(currentPath, group.items));
+    });
+    return map;
+  }, [groups, currentPath]);
 
   const groupIsOpen = useCallback(
     (group: NavGroup) => {
@@ -144,14 +151,6 @@ export function AdminNavGrouped({ groups, currentPath, collapsed = false }: Admi
       </nav>
     );
   }
-
-  const groupActiveMap = useMemo(() => {
-    const map = new Map<string, boolean>();
-    groups.forEach((group) => {
-      map.set(group.id, pathMatchesGroup(currentPath, group.items));
-    });
-    return map;
-  }, [groups, currentPath]);
 
   return (
     <nav className="flex flex-col gap-4 text-sm" aria-label="Main">
