@@ -57,8 +57,9 @@ export default function AddUserPage() {
   const [equipmentAccess, setEquipmentAccess] = useState<string[]>([""]);
   const [parentPhone, setParentPhone] = useState("");
   const [relationToAthlete, setRelationToAthlete] = useState("");
-  const [planExpiresAt, setPlanExpiresAt] = useState("");
   const [desiredProgramType, setDesiredProgramType] = useState<"PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro">("PHP");
+  const [planPaymentType, setPlanPaymentType] = useState<"monthly" | "upfront">("monthly");
+  const [planCommitmentMonths, setPlanCommitmentMonths] = useState<6 | 12>(6);
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ userId: number; emailSent: boolean } | null>(null);
 
@@ -121,6 +122,8 @@ export default function AddUserPage() {
             parentPhone: parentPhone.trim() || null,
             relationToAthlete: relationToAthlete.trim() || null,
             desiredProgramType,
+            planPaymentType,
+            planCommitmentMonths,
             termsVersion,
             privacyVersion,
             appVersion: "admin-web",
@@ -135,7 +138,8 @@ export default function AddUserPage() {
             performanceGoals: cleanedPerformanceGoals.length ? cleanedPerformanceGoals.join("\n") : null,
             equipmentAccess: cleanedEquipmentAccess.length ? cleanedEquipmentAccess.join("\n") : null,
             desiredProgramType,
-            planExpiresAt: planExpiresAt.trim() || null,
+            planPaymentType,
+            planCommitmentMonths,
             termsVersion,
             privacyVersion,
             appVersion: "admin-web",
@@ -325,17 +329,28 @@ export default function AddUserPage() {
                   ))}
                 </Select>
               </div>
-              {formType === "adult" ? (
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="planExpiresAt">Plan expires on (optional)</Label>
-                  <Input
-                    id="planExpiresAt"
-                    type="date"
-                    value={planExpiresAt}
-                    onChange={(ev) => setPlanExpiresAt(ev.target.value)}
-                  />
-                </div>
-              ) : null}
+              <div className="space-y-2">
+                <Label htmlFor="planPaymentType">Payment type</Label>
+                <Select
+                  id="planPaymentType"
+                  value={planPaymentType}
+                  onChange={(ev) => setPlanPaymentType(ev.target.value as "monthly" | "upfront")}
+                >
+                  <option value="monthly">Pay monthly</option>
+                  <option value="upfront">Pay upfront (full)</option>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="planCommitmentMonths">Commitment</Label>
+                <Select
+                  id="planCommitmentMonths"
+                  value={String(planCommitmentMonths)}
+                  onChange={(ev) => setPlanCommitmentMonths(Number(ev.target.value) as 6 | 12)}
+                >
+                  <option value="6">6 months</option>
+                  <option value="12">12 months</option>
+                </Select>
+              </div>
             </CardContent>
           </Card>
 

@@ -17,6 +17,7 @@ export const Role = pgEnum("role", ["guardian", "athlete", "coach", "admin", "su
 export const ProgramType = pgEnum("program_type", ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
 export const EnrollmentStatus = pgEnum("enrollment_status", ["pending", "active", "completed", "failed"]);
 export const AthleteType = pgEnum("athlete_type", ["youth", "adult"]);
+export const PlanPaymentType = pgEnum("plan_payment_type", ["monthly", "upfront"]);
 export const bookingStatus = pgEnum("booking_status", ["pending", "confirmed", "declined", "cancelled"]);
 export const bookingType = pgEnum("booking_type", [
   "call",
@@ -163,6 +164,8 @@ export const athleteTable = pgTable("athletes", {
   profilePicture: text(),
   extraResponses: jsonb(),
   currentProgramTier: ProgramType(),
+  planPaymentType: PlanPaymentType(),
+  planCommitmentMonths: integer(),
   /** When paid access ends (monthly/yearly plans). Null = no auto-expiry (e.g. one_time). */
   planExpiresAt: timestamp(),
   /** Set when a renewal reminder email/push was sent for the current period. */
