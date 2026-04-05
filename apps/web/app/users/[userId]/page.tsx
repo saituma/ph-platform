@@ -442,6 +442,8 @@ export default function UserDetailPage() {
   const tierLabel =
     rawUser?.role === "admin" || rawUser?.role === "superAdmin"
       ? "Admin"
+      : resolvedTier === "PHP_Pro"
+        ? "Pro"
       : resolvedTier === "PHP_Premium"
         ? "Premium"
         : resolvedTier === "PHP_Premium_Plus"

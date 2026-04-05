@@ -32,7 +32,7 @@ type UsersListItem = {
   name: string;
   email?: string;
   isBlocked: boolean;
-  tier: "Admin" | "Premium" | "Plus" | "Program";
+  tier: "Admin" | "Pro" | "Premium" | "Plus" | "Program";
   status: "Blocked" | "Active";
   lastActive: string;
   onboarding: "Awaiting review" | "Complete";
@@ -70,13 +70,15 @@ function UsersPageContent() {
       const tierLabel =
         user.role === "admin" || user.role === "superAdmin"
           ? "Admin"
+          : resolvedTier === "PHP_Pro"
+            ? "Pro"
           : resolvedTier === "PHP_Premium"
             ? "Premium"
             : resolvedTier === "PHP_Premium_Plus"
               ? "Plus"
               : "Program";
       const createdAtMs = user?.createdAt ? new Date(user.createdAt).getTime() : 0;
-      const tierPriority = tierLabel === "Premium" ? 0 : tierLabel === "Plus" ? 1 : 2;
+      const tierPriority = tierLabel === "Pro" ? 0 : tierLabel === "Premium" ? 1 : tierLabel === "Plus" ? 2 : 3;
       return {
         id: user.id,
         name: user.name ?? user.email ?? `User ${user.id}`,
@@ -114,7 +116,7 @@ function UsersPageContent() {
   const [activeChip, setActiveChip] = useState<string>("All");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
-  const chips = ["All", "Premium", "Plus", "Program", "Pending"];
+  const chips = ["All", "Pro", "Premium", "Plus", "Program", "Pending"];
 
   const filteredUsers = useMemo(() => {
     let result = users;
