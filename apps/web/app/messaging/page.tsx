@@ -3,6 +3,7 @@
 import { skipToken } from "@reduxjs/toolkit/query";
 import { BarChart3, MessageCircle, Megaphone, Users2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { ChatComposer } from "../../components/admin/messaging/chat-composer";
 import { InboxThreadPanel } from "../../components/admin/messaging/inbox-thread-panel";
@@ -94,6 +95,7 @@ function isPremiumTier(tier: string | null) {
 }
 
 export default function MessagingPage() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState("inbox");
 
   const [announcementTitle, setAnnouncementTitle] = useState("");
@@ -129,6 +131,7 @@ export default function MessagingPage() {
   const [manageSelectedMemberIds, setManageSelectedMemberIds] = useState<number[]>([]);
   const [directReactionOverrides, setDirectReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
   const [groupReactionOverrides, setGroupReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
+  const [highlightedTeamName, setHighlightedTeamName] = useState<string | null>(null);
 
   const { data: announcementsData, refetch: refetchAnnouncements } = useGetAnnouncementsQuery();
   const { data: adminProfileData } = useGetAdminProfileQuery();
@@ -214,6 +217,41 @@ export default function MessagingPage() {
     () => (announcementsData?.items as AnnouncementItem[] | undefined) ?? [],
     [announcementsData],
   );
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["announcement", "inbox", "teams", "stats"].includes(tabParam)) {
+      setTab(tabParam);
+    }
+
+    const userIdParam = Number(searchParams.get("userId"));
+    if (Number.isFinite(userIdParam) && userIdParam > 0) {
+      const exists = chatEligibleUsers.some((user) => user.id === userIdParam);
+      if (exists) {
+        setTab("inbox");
+        setGroupId(null);
+        setThreadUserId(userIdParam);
+      }
+    }
+
+    const groupIdParam = Number(searchParams.get("groupId"));
+    if (Number.isFinite(groupIdParam) && groupIdParam > 0) {
+      const exists = groups.some((group) => group.id === groupIdParam);
+      if (exists) {
+        setTab("inbox");
+        setThreadUserId(null);
+        setGroupId(groupIdParam);
+      }
+    }
+
+    const teamParam = (searchParams.get("team") ?? "").trim();
+    if (teamParam) {
+      setTab("teams");
+      setHighlightedTeamName(teamParam.toLowerCase());
+    } else {
+      setHighlightedTeamName(null);
+    }
+  }, [searchParams, chatEligibleUsers, groups]);
 
   const directThreadName = useMemo(() => {
     if (!threadUserId) return "";
@@ -802,7 +840,14 @@ export default function MessagingPage() {
             <CardContent>
               <div className="space-y-2">
                 {teams.map((team) => (
-                  <div key={team.team} className="rounded-xl border border-border bg-background p-4">
+                  <div
+                    key={team.team}
+                    className={`rounded-xl border bg-background p-4 ${
+                      highlightedTeamName && team.team.toLowerCase() === highlightedTeamName
+                        ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
+                        : "border-border"
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-foreground">{team.team}</p>
