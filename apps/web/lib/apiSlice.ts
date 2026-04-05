@@ -44,8 +44,9 @@ type DashboardTrends = {
 
 type DashboardTopAthlete = {
   name: string;
+  team?: string | null;
   tier: string;
-  score?: number | null;
+  score?: string | number | null;
 };
 
 type DashboardTierDistribution = {
