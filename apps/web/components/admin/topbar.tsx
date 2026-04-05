@@ -44,9 +44,10 @@ export function AdminTopbar({
     return `${first}${second}`.toUpperCase() || "AD";
   }, [displayName]);
   return (
-    <header className="hidden flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-4 lg:flex lg:px-10">
-      <div className="flex items-center gap-4">
+    <header className="hidden min-w-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-4 lg:flex lg:px-10">
+      <div className="flex min-w-0 items-center gap-4">
         <Button
+          type="button"
           variant="outline"
           size="icon"
           onClick={() => onToggleSidebar?.()}
@@ -58,15 +59,15 @@ export function AdminTopbar({
             <ChevronLeft className="h-4 w-4" />
           )}
         </Button>
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
           {subtitle ? (
-            <p className="text-[10px] font-bold uppercase tracking-widest text-primary leading-none mb-1">{subtitle}</p>
+            <p className="mb-1 truncate text-[10px] font-bold uppercase leading-none tracking-widest text-primary">{subtitle}</p>
           ) : null}
-          <h1 className="text-xl font-black tracking-tight text-foreground leading-none">{title}</h1>
+          <h1 className="truncate text-xl font-black leading-none tracking-tight text-foreground">{title}</h1>
         </div>
       </div>
-      <div className="flex flex-1 items-center justify-end gap-4">
-        <div className="hidden w-full max-w-sm md:block">
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-4">
+        <div className="hidden w-full max-w-sm xl:block">
           <GlobalCommandPalette />
         </div>
         <ThemeToggle />
