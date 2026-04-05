@@ -150,6 +150,7 @@ type UserOnboardingAthlete = {
   growthNotes?: string | null;
   performanceGoals?: string;
   equipmentAccess?: string;
+  profilePicture?: string | null;
   onboardingCompleted?: boolean;
   onboardingCompletedAt?: string | null;
   currentProgramTier?: string | null;
@@ -435,6 +436,7 @@ export const apiSlice = createApi({
         parentPhone?: string | null;
         relationToAthlete?: string | null;
         desiredProgramType?: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
+        athleteProfilePicture?: string | null;
         planPaymentType: "monthly" | "upfront";
         planCommitmentMonths: 6 | 12;
         termsVersion: string;
@@ -469,6 +471,7 @@ export const apiSlice = createApi({
         performanceGoals?: string | null;
         equipmentAccess?: string | null;
         desiredProgramType?: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro" | null;
+        athleteProfilePicture?: string | null;
         planPaymentType: "monthly" | "upfront";
         planCommitmentMonths: 6 | 12;
         termsVersion: string;
