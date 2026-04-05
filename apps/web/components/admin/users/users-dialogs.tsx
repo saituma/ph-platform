@@ -21,9 +21,19 @@ type UsersDialogsProps = {
   selectedUserId?: number | null;
 };
 
+type BillingRequest = {
+  userId?: number;
+  planTier?: string | null;
+  displayPrice?: string | null;
+  billingInterval?: string | null;
+  status?: string | null;
+  paymentStatus?: string | null;
+  createdAt?: string | null;
+};
+
 export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsProps) {
   const [error, setError] = useState<string | null>(null);
-  const [programTier, setProgramTier] = useState("PHP");
+  const [programTierSelection, setProgramTierSelection] = useState<{ userId: number; tier: string } | null>(null);
   const [billingStatus, setBillingStatus] = useState<{
     planTier?: string | null;
     displayPrice?: string | null;
@@ -45,11 +55,10 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
     onboarding?.athlete?.currentProgramTier ??
     onboarding?.guardian?.currentProgramTier ??
     "PHP";
-  useEffect(() => {
-    if (!shouldFetch) return;
-    setProgramTier(resolvedTier);
-    setError(null);
-  }, [resolvedTier, shouldFetch]);
+  const programTier =
+    selectedUserId && programTierSelection?.userId === selectedUserId
+      ? programTierSelection.tier
+      : resolvedTier;
   useEffect(() => {
     if (!selectedUserId || !shouldFetch) return;
     let activeRequest = true;
@@ -58,8 +67,8 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
         const res = await fetch("/api/backend/admin/subscription-requests");
         if (!res.ok) return;
         const payload = await res.json();
-        const requests = payload?.requests ?? [];
-        const match = requests.find((request: any) => request.userId === selectedUserId);
+        const requests: BillingRequest[] = Array.isArray(payload?.requests) ? payload.requests : [];
+        const match = requests.find((request) => request.userId === selectedUserId);
         if (!activeRequest) return;
         if (!match) {
           setBillingStatus(null);
@@ -103,7 +112,7 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
               <Select>
                 <option>Program tier</option>
                 <option>PHP Program</option>
-                <option>PHP Plus</option>
+                <option>PHP Premium Plus</option>
                 <option>PHP Premium</option>
               </Select>
               <div className="flex justify-end gap-2">
@@ -181,10 +190,17 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                 </div>
               </div>
               <Textarea placeholder="Coach feedback or notes" />
-              <Select value={programTier} onChange={(e) => setProgramTier(e.target.value)}>
-                <option value="PHP">Approve & Assign PHP</option>
-                <option value="PHP_Plus">Approve & Assign PHP Plus</option>
-                <option value="PHP_Premium">Approve & Assign Premium</option>
+              <Select
+                value={programTier}
+                onChange={(e) => {
+                  if (!selectedUserId) return;
+                  setProgramTierSelection({ userId: selectedUserId, tier: e.target.value });
+                }}
+              >
+                <option value="PHP">Approve & Assign PHP Program</option>
+                <option value="PHP_Premium">Approve & Assign PHP Premium</option>
+                <option value="PHP_Premium_Plus">Approve & Assign PHP Premium Plus</option>
+                <option value="PHP_Pro">Approve & Assign PHP Pro</option>
               </Select>
               {error ? <p className="text-sm text-red-500">{error}</p> : null}
               <div className="flex justify-end gap-2">
@@ -201,7 +217,7 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                     try {
                       await updateProgramTier({ athleteId, programTier }).unwrap();
                       onClose();
-                    } catch (err) {
+                    } catch {
                       setError("Failed to update tier");
                       return;
                     }
@@ -235,10 +251,17 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                   </div>
                 ) : null}
               </div>
-              <Select value={programTier} onChange={(e) => setProgramTier(e.target.value)}>
+              <Select
+                value={programTier}
+                onChange={(e) => {
+                  if (!selectedUserId) return;
+                  setProgramTierSelection({ userId: selectedUserId, tier: e.target.value });
+                }}
+              >
                 <option value="PHP">PHP Program</option>
-                <option value="PHP_Plus">PHP Plus</option>
                 <option value="PHP_Premium">PHP Premium</option>
+                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                <option value="PHP_Pro">PHP Pro</option>
               </Select>
               <Textarea placeholder="Assignment notes" />
               {error ? <p className="text-sm text-red-500">{error}</p> : null}
@@ -256,7 +279,7 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                     try {
                       await updateProgramTier({ athleteId, programTier }).unwrap();
                       onClose();
-                    } catch (err) {
+                    } catch {
                       setError("Failed to update tier");
                       return;
                     }

@@ -14,7 +14,7 @@ import { env } from "../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../lib/mailer";
 import { createBookingActionToken } from "../lib/booking-actions";
 
-type ProgramTier = "PHP" | "PHP_Plus" | "PHP_Premium";
+type ProgramTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 type ServiceTypeKind =
   | "call"
   | "group_call"
@@ -29,7 +29,7 @@ type ServiceTypeRecord = typeof serviceTypeTable.$inferSelect;
 function normalizeEligiblePlans(service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "type">): ProgramTier[] {
   if (Array.isArray(service.eligiblePlans)) {
     return service.eligiblePlans.filter((value): value is ProgramTier =>
-      value === "PHP" || value === "PHP_Plus" || value === "PHP_Premium",
+      value === "PHP" || value === "PHP_Premium" || value === "PHP_Premium_Plus" || value === "PHP_Pro",
     );
   }
   if (service.type === "role_model") return ["PHP_Premium"];

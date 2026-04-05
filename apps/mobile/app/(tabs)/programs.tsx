@@ -43,16 +43,16 @@ export default function ProgramsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerTierId, setPickerTierId] = useState<"php" | "plus" | "premium" | null>(null);
+  const [pickerTierId, setPickerTierId] = useState<"php" | "plus" | "premium" | "pro" | null>(null);
 
   const openProgramDetail = useCallback(
-    (tierId: "php" | "plus" | "premium") => {
+    (tierId: "php" | "plus" | "premium" | "pro") => {
       router.push(`/programs/${tierId}`);
     },
     [router],
   );
 
-  const openPaymentPicker = useCallback((tierId: "php" | "plus" | "premium") => {
+  const openPaymentPicker = useCallback((tierId: "php" | "plus" | "premium" | "pro") => {
     setPickerTierId(tierId);
     setPickerOpen(true);
   }, []);
@@ -191,7 +191,7 @@ export default function ProgramsScreen() {
   }, [dispatch, token]);
 
   const handleApply = useCallback(
-    async (tierId: "php" | "plus" | "premium", interval?: "monthly" | "yearly") => {
+    async (tierId: "php" | "plus" | "premium" | "pro", interval?: "monthly" | "yearly") => {
       if (!token) {
         return;
       }
@@ -199,7 +199,7 @@ export default function ProgramsScreen() {
         return;
       }
       const requiredTier =
-        tierId === "plus" ? "PHP_Plus" : tierId === "premium" ? "PHP_Premium" : "PHP";
+        tierId === "pro" ? "PHP_Pro" : tierId === "plus" ? "PHP_Premium_Plus" : tierId === "premium" ? "PHP_Premium" : "PHP";
 
       const planId = plansByTier[requiredTier];
       const plan = planDetailsByTier[requiredTier];
@@ -400,7 +400,7 @@ export default function ProgramsScreen() {
         <View className="px-6 gap-5 mt-2">
           {tiers.map((tier) => {
             const requiredTier =
-              tier.id === "plus" ? "PHP_Plus" : tier.id === "premium" ? "PHP_Premium" : "PHP";
+              tier.id === "plus" ? "PHP_Premium_Plus" : tier.id === "premium" ? "PHP_Premium" : "PHP";
             const pricing = pricingByTier[requiredTier];
             const plan = planDetailsByTier[requiredTier];
             const isPlanInactive = plan?.isActive === false;
@@ -438,7 +438,7 @@ export default function ProgramsScreen() {
                 sharedBoundTag={`program-card-${tier.id}`}
                 className="rounded-[30px] overflow-hidden"
                 style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
-                onPress={() => openProgramDetail(tier.id as "premium" | "plus" | "php")}
+                onPress={() => openProgramDetail(tier.id as "premium" | "plus" | "php" | "pro")}
               >
                 {/* Card Header */}
                 <View className={`${tier.color} p-5 rounded-b-[24px]`}>
@@ -568,7 +568,7 @@ export default function ProgramsScreen() {
                   <View className="gap-2.5">
                     {/* Detail button — always visible */}
                     <Pressable
-                      onPress={() => openProgramDetail(tier.id as "php" | "plus" | "premium")}
+                      onPress={() => openProgramDetail(tier.id as "php" | "plus" | "premium" | "pro" | "pro")}
                       className="rounded-full py-3 items-center"
                       style={{ borderWidth: 1, borderColor: `${colors.accent}33`, backgroundColor: accentSurface }}
                     >
@@ -585,7 +585,7 @@ export default function ProgramsScreen() {
                             Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
                             return;
                           }
-                          openPaymentPicker(tier.id as "php" | "plus" | "premium");
+                          openPaymentPicker(tier.id as "php" | "plus" | "premium" | "pro" | "pro");
                         }}
                         className={`rounded-full py-3 items-center ${isPlanInactive ? "bg-secondary/20" : "bg-[#2F8F57]"} ${isProcessingPayment ? "opacity-60" : ""}`}
                         disabled={isProcessingPayment || isPlanInactive}
@@ -602,10 +602,10 @@ export default function ProgramsScreen() {
                             return;
                           }
                           if (isPendingPayment) {
-                            openPaymentPicker(tier.id as "php" | "plus" | "premium");
+                            openPaymentPicker(tier.id as "php" | "plus" | "premium" | "pro" | "pro");
                             return;
                           }
-                          handleApply(tier.id as "php" | "plus" | "premium");
+                          handleApply(tier.id as "php" | "plus" | "premium" | "pro" | "pro");
                         }}
                         className={`rounded-full py-3 items-center ${
                           isPlanInactive || isTierEnrolled || isPendingApproval
@@ -648,7 +648,7 @@ export default function ProgramsScreen() {
             {(() => {
               if (!pickerTierId) return null;
               const requiredTier =
-                pickerTierId === "plus" ? "PHP_Plus" : pickerTierId === "premium" ? "PHP_Premium" : "PHP";
+                pickerTierId === "pro" ? "PHP_Pro" : pickerTierId === "plus" ? "PHP_Premium_Plus" : pickerTierId === "premium" ? "PHP_Premium" : "PHP";
               const plan = planDetailsByTier[requiredTier];
               const discountCopy = getDiscountCopy(plan);
               if (!discountCopy) return null;
@@ -662,7 +662,7 @@ export default function ProgramsScreen() {
               {(() => {
                 if (!pickerTierId) return null;
                 const requiredTier =
-                  pickerTierId === "plus" ? "PHP_Plus" : pickerTierId === "premium" ? "PHP_Premium" : "PHP";
+                  pickerTierId === "pro" ? "PHP_Pro" : pickerTierId === "plus" ? "PHP_Premium_Plus" : pickerTierId === "premium" ? "PHP_Premium" : "PHP";
                 const pricing = pricingByTier[requiredTier];
                 const monthlyEntry = pricing?.entries?.find((entry) => entry.label === "Monthly");
                 const yearlyEntry = pricing?.entries?.find((entry) => entry.label === "Yearly");

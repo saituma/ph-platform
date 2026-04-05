@@ -114,7 +114,7 @@ export default function ParentPlatformScreen() {
     }));
   }, [filteredItems]);
 
-  const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
+  const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Premium_Plus");
   const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium");
   const visibleGroups = grouped.filter((cat) => cat.items.length > 0);
   const visibleItems: ParentCourseItem[] = [];
@@ -263,7 +263,7 @@ export default function ParentPlatformScreen() {
                     key={`featured-${item.id}`}
                     item={item}
                     isLocked={isLocked}
-                    onPress={() => openCourse(item, `Parent education is included with PHP Plus and Premium plans.`)}
+                    onPress={() => openCourse(item, `Parent education is included with PHP Premium Plus and Premium plans.`)}
                     colors={colors}
                     isDark={isDark}
                   />
@@ -293,7 +293,7 @@ export default function ParentPlatformScreen() {
             </View>
 
             <Text className="text-base font-outfit text-secondary leading-relaxed">
-              Parent education is available on PHP Plus and PHP Premium plans.
+              Parent education is available on PHP Premium Plus and PHP Premium plans.
             </Text>
 
             <View className="mt-4 gap-3">
@@ -372,7 +372,7 @@ export default function ParentPlatformScreen() {
                         key={item.id}
                         item={item}
                         isLocked={isLocked}
-                        onPress={() => openCourse(item, "Parent education is included with PHP Plus and Premium plans.")}
+                        onPress={() => openCourse(item, "Parent education is included with PHP Premium Plus and Premium plans.")}
                         colors={colors}
                         isDark={isDark}
                       />
@@ -411,7 +411,7 @@ export default function ParentPlatformScreen() {
             </View>
           </View>
           <Text className="text-base font-outfit leading-relaxed text-app">
-            PHP Plus and Premium members receive exclusive articles, video guides, and deeper education in every category.
+            PHP Premium Plus and Premium members receive exclusive articles, video guides, and deeper education in every category.
           </Text>
         </View>
       </ThemedScrollView>

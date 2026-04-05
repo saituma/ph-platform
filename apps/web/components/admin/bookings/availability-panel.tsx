@@ -4,6 +4,19 @@ import { Input } from "../../ui/input";
 import { Select } from "../../ui/select";
 import { Skeleton } from "../../ui/skeleton";
 import { useCreateAvailabilityMutation } from "../../../lib/apiSlice";
+
+type ApiErrorLike = {
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 type AvailabilityPanelProps = {
   isLoading?: boolean;
   services?: { id: number; name: string }[];
@@ -58,8 +71,8 @@ export function AvailabilityPanel({
       setEndMinute("");
       setServiceId("");
       setSuccess("Time range saved successfully.");
-    } catch (err: any) {
-      setError(err.message ?? "Failed to save time range");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to save time range"));
     }
   };
 

@@ -1,6 +1,234 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from "@reduxjs/toolkit/query";
 
+type ApiPayload = Record<string, unknown>;
+
+type AdminProfileUser = {
+  id?: number;
+  name?: string;
+  email?: string;
+  profilePicture?: string | null;
+};
+
+type AdminProfileSettings = {
+  title?: string | null;
+  bio?: string | null;
+  timezone?: string;
+  notificationSummary?: string;
+  workStartHour?: number;
+  workStartMinute?: number;
+  workEndHour?: number;
+  workEndMinute?: number;
+};
+
+type AdminProfileResponse = {
+  user?: AdminProfileUser;
+  settings?: AdminProfileSettings;
+};
+
+type DashboardKpis = {
+  totalAthletes: number;
+  premiumClients: number;
+  unreadMessages: number;
+  bookingsToday: number;
+};
+
+type DashboardTrends = {
+  trainingLoad: number;
+  messagingResponseRate: number;
+  bookingsUtilization: number;
+  trainingSeries?: number[];
+  messagingSeries?: number[];
+  bookingSeries?: number[];
+};
+
+type DashboardTopAthlete = {
+  name: string;
+  tier: string;
+  score?: number | null;
+};
+
+type DashboardTierDistribution = {
+  total: number;
+  program: number;
+  premium: number;
+  premiumPlus: number;
+  pro: number;
+};
+
+type DashboardWeeklyVolume = {
+  bars?: number[];
+  totals?: {
+    messages: number;
+    bookings: number;
+    uploads: number;
+  };
+};
+
+type DashboardWeeklyProgress = {
+  labels?: string[];
+  series?: number[];
+};
+
+type DashboardHighlight = {
+  label: string;
+  value: string;
+  detail: string;
+};
+
+type DashboardProgramOpsItem = {
+  title: string;
+  detail: string;
+};
+
+type DashboardBookingToday = {
+  serviceName?: string | null;
+  type?: string | null;
+  athleteName?: string | null;
+  startsAt?: string | null;
+};
+
+type DashboardResponse = {
+  kpis?: DashboardKpis;
+  trends?: DashboardTrends;
+  weeklyVolume?: DashboardWeeklyVolume;
+  topAthletes?: DashboardTopAthlete[];
+  tierDistribution?: DashboardTierDistribution;
+  weeklyProgress?: DashboardWeeklyProgress;
+  highlights?: DashboardHighlight[];
+  programOps?: DashboardProgramOpsItem[];
+  bookingsToday?: DashboardBookingToday[];
+};
+
+type TrainingSnapshotRow = {
+  athleteId: number;
+  athleteName: string;
+  programTier?: string | null;
+  guardianUserId: number;
+  athleteUserId?: number | null;
+  sectionCompletions30d: number;
+  premiumExercisesTotal: number;
+  premiumExercisesDone: number;
+};
+
+type UserListRow = {
+  id: number;
+  name: string;
+  email: string;
+  role?: string;
+  isBlocked?: boolean;
+  onboardingCompleted?: boolean;
+  onboarding_completed?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  cognitoSub?: string | null;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  programTier?: string | null;
+  guardianProgramTier?: string | null;
+};
+
+type UserOnboardingGuardian = {
+  id?: number;
+  email?: string;
+  phoneNumber?: string;
+  relationToAthlete?: string;
+  currentProgramTier?: string | null;
+  activeAthleteId?: number | null;
+  createdAt?: string | null;
+};
+
+type UserOnboardingAthlete = {
+  id?: number;
+  name?: string;
+  age?: number;
+  birthDate?: string | null;
+  team?: string;
+  trainingPerWeek?: number;
+  injuries?: string | null;
+  growthNotes?: string | null;
+  performanceGoals?: string;
+  equipmentAccess?: string;
+  onboardingCompleted?: boolean;
+  onboardingCompletedAt?: string | null;
+  currentProgramTier?: string | null;
+  createdAt?: string | null;
+  extraResponses?: Record<string, unknown> | null;
+};
+
+type UserOnboardingResponse = {
+  guardian?: UserOnboardingGuardian;
+  athlete?: UserOnboardingAthlete;
+};
+
+type BookingStatus = "pending" | "confirmed" | "requested" | "declined" | "cancelled" | string;
+
+type BookingRecord = {
+  id: number;
+  serviceTypeId?: number | null;
+  serviceName?: string | null;
+  name?: string | null;
+  type?: string | null;
+  status?: BookingStatus | null;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  athlete?: string | null;
+  guardianId?: number | null;
+  guardianName?: string | null;
+  guardianEmail?: string | null;
+  startsAt?: string | null;
+  endTime?: string | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  slotsTotal?: number | null;
+  slotsUsed?: number | null;
+};
+
+type BookingServiceRecord = {
+  id: number;
+  name: string;
+  type: string;
+  durationMinutes: number;
+  capacity?: number | null;
+  fixedStartTime?: string | null;
+  attendeeVisibility?: boolean | null;
+  defaultLocation?: string | null;
+  defaultMeetingLink?: string | null;
+  programTier?: string | null;
+  eligiblePlans?: string[] | null;
+  schedulePattern?: string | null;
+  recurrenceEndMode?: string | null;
+  recurrenceCount?: number | null;
+  weeklyEntries?: Array<{ weekday: number; time: string }> | null;
+  oneTimeDate?: string | null;
+  oneTimeTime?: string | null;
+  slotMode?: string | null;
+  slotIntervalMinutes?: number | null;
+  slotDefinitions?: Array<{ time: string; capacity?: number | null }> | null;
+  isActive?: boolean | null;
+};
+
+type BookingAvailabilitySlot = {
+  slotKey: string;
+  startsAt: string;
+  remainingCapacity?: number | null;
+};
+
+type BookingAvailabilityItem = {
+  dateKey: string;
+  serviceTypeId: number;
+  occurrenceKey: string;
+  startsAt: string;
+  serviceName?: string | null;
+  type?: string | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  remainingCapacity?: number | null;
+  slots?: BookingAvailabilitySlot[] | null;
+};
+
 const getCsrfToken = () => {
   if (typeof document === "undefined") return "";
   return (
@@ -91,17 +319,17 @@ export const apiSlice = createApi({
     "UserLocations",
   ],
   endpoints: (builder) => ({
-    getAdminProfile: builder.query<any, void>({
+    getAdminProfile: builder.query<AdminProfileResponse, void>({
       query: () => "/admin/profile",
     }),
-    updateAdminProfile: builder.mutation<any, any>({
+    updateAdminProfile: builder.mutation<AdminProfileResponse, ApiPayload>({
       query: (body) => ({
         url: "/admin/profile",
         method: "PUT",
         body,
       }),
     }),
-    updateAdminPreferences: builder.mutation<any, any>({
+    updateAdminPreferences: builder.mutation<AdminProfileResponse, ApiPayload>({
       query: (body) => ({
         url: "/admin/preferences",
         method: "PUT",
@@ -130,11 +358,11 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Threads"],
     }),
-    getDashboard: builder.query<any, void>({
+    getDashboard: builder.query<DashboardResponse, void>({
       query: () => "/admin/dashboard",
       providesTags: ["Dashboard"],
     }),
-    getTrainingSnapshot: builder.query<{ items: any[] }, void>({
+    getTrainingSnapshot: builder.query<{ items: TrainingSnapshotRow[] }, void>({
       query: () => "/admin/training-snapshot",
       providesTags: ["Users"],
     }),
@@ -147,7 +375,7 @@ export const apiSlice = createApi({
       },
       providesTags: ["UserLocations"],
     }),
-    getUsers: builder.query<{ users: any[] }, void>({
+    getUsers: builder.query<{ users: UserListRow[] }, void>({
       query: () => "/admin/users",
       providesTags: ["Users"],
     }),
@@ -202,7 +430,7 @@ export const apiSlice = createApi({
         equipmentAccess?: string | null;
         parentPhone?: string | null;
         relationToAthlete?: string | null;
-        desiredProgramType?: "PHP" | "PHP_Plus" | "PHP_Premium";
+        desiredProgramType?: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
         termsVersion: string;
         privacyVersion: string;
         appVersion: string;
@@ -216,19 +444,19 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    getBookings: builder.query<{ bookings: any[] }, void>({
+    getBookings: builder.query<{ bookings: BookingRecord[] }, void>({
       query: () => "/admin/bookings",
       providesTags: ["Bookings"],
     }),
-    getBookingById: builder.query<{ booking: any }, number>({
+    getBookingById: builder.query<{ booking: BookingRecord }, number>({
       query: (bookingId) => `/admin/bookings/${bookingId}`,
       providesTags: ["Bookings"],
     }),
-    getUserBookings: builder.query<{ items: any[] }, void>({
+    getUserBookings: builder.query<{ items: BookingRecord[] }, void>({
       query: () => "/bookings",
       providesTags: ["Bookings"],
     }),
-    updateBookingStatus: builder.mutation<any, { bookingId: number; status: string }>({
+    updateBookingStatus: builder.mutation<{ booking?: BookingRecord; status?: BookingStatus }, { bookingId: number; status: string }>({
       query: ({ bookingId, status }) => ({
         url: `/admin/bookings/${bookingId}`,
         method: "PATCH",
@@ -237,7 +465,7 @@ export const apiSlice = createApi({
       invalidatesTags: ["Bookings"],
     }),
     createAdminBooking: builder.mutation<
-      any,
+      { booking?: BookingRecord; id?: number; message?: string },
       {
         userId: number;
         serviceTypeId: number;
@@ -267,16 +495,16 @@ export const apiSlice = createApi({
       query: ({ sectionType }) => `/program-section-content?sectionType=${encodeURIComponent(sectionType)}`,
       providesTags: ["Content"],
     }),
-    getServices: builder.query<{ items: any[] }, void>({
+    getServices: builder.query<{ items: BookingServiceRecord[] }, void>({
       query: () => "/bookings/services?includeInactive=true",
       providesTags: ["Services"],
     }),
-    getBookingServices: builder.query<{ items: any[] }, void>({
+    getBookingServices: builder.query<{ items: BookingServiceRecord[] }, void>({
       query: () => "/bookings/services",
       providesTags: ["Services"],
     }),
     getBookingAvailability: builder.query<
-      { items: any[]; bookings?: any[]; slots?: string[] },
+      { items: BookingAvailabilityItem[]; bookings?: BookingRecord[]; slots?: string[] },
       { serviceTypeId: number; from: string; to: string }
     >({
       query: ({ serviceTypeId, from, to }) => {
@@ -289,7 +517,7 @@ export const apiSlice = createApi({
       providesTags: ["Availability"],
     }),
     getGeneratedBookingAvailability: builder.query<
-      { items: any[] },
+      { items: BookingAvailabilityItem[] },
       { from: string; to: string; serviceTypeId?: number }
     >({
       query: ({ from, to, serviceTypeId }) => {
@@ -302,7 +530,7 @@ export const apiSlice = createApi({
       providesTags: ["Availability"],
     }),
     createBooking: builder.mutation<
-      any,
+      { booking?: BookingRecord; id?: number; message?: string },
       {
         serviceTypeId: number;
         startsAt?: string;
@@ -327,7 +555,7 @@ export const apiSlice = createApi({
     }),
     getMessages: builder.query<{ messages: any[] }, number>({
       query: (userId) => `/admin/messages/${userId}`,
-      providesTags: (result, error, userId) => [{ type: "Threads", id: userId } as any],
+      providesTags: (_result, _error, userId) => [{ type: "Threads", id: userId }],
     }),
     getParentContent: builder.query<{ items: any[] }, void>({
       query: () => "/content/parent-platform",
@@ -397,7 +625,7 @@ export const apiSlice = createApi({
       query: () => "/admin/age-experience",
       providesTags: ["AgeExperience"],
     }),
-    createAgeExperienceRule: builder.mutation<{ item: any }, any>({
+    createAgeExperienceRule: builder.mutation<{ item: any }, ApiPayload>({
       query: (body) => ({
         url: "/admin/age-experience",
         method: "POST",
@@ -405,7 +633,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["AgeExperience"],
     }),
-    updateAgeExperienceRule: builder.mutation<{ item: any }, { id: number; data: any }>({
+    updateAgeExperienceRule: builder.mutation<{ item: any }, { id: number; data: ApiPayload }>({
       query: ({ id, data }) => ({
         url: `/admin/age-experience/${id}`,
         method: "PATCH",
@@ -420,7 +648,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["AgeExperience"],
     }),
-    createPhysioReferral: builder.mutation<{ item: any }, any>({
+    createPhysioReferral: builder.mutation<{ item: any }, ApiPayload>({
       query: (body) => ({
         url: "/admin/physio-referrals",
         method: "POST",
@@ -428,7 +656,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["PhysioReferrals"],
     }),
-    createBulkPhysioReferral: builder.mutation<{ created: any[]; summary: any; skipped: any[] }, any>({
+    createBulkPhysioReferral: builder.mutation<{ created: any[]; summary: any; skipped: any[] }, ApiPayload>({
       query: (body) => ({
         url: "/admin/physio-referrals/bulk",
         method: "POST",
@@ -436,7 +664,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["PhysioReferrals"],
     }),
-    createReferralGroup: builder.mutation<{ item: any }, any>({
+    createReferralGroup: builder.mutation<{ item: any }, ApiPayload>({
       query: (body) => ({
         url: "/admin/referral-groups",
         method: "POST",
@@ -444,7 +672,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["PhysioReferrals"],
     }),
-    updatePhysioReferral: builder.mutation<{ item: any }, { id: number; data: any }>({
+    updatePhysioReferral: builder.mutation<{ item: any }, { id: number; data: ApiPayload }>({
       query: ({ id, data }) => ({
         url: `/admin/physio-referrals/${id}`,
         method: "PATCH",
@@ -471,9 +699,9 @@ export const apiSlice = createApi({
     }),
     getParentCourse: builder.query<{ item: any }, number>({
       query: (courseId) => `/content/parent-courses/${courseId}`,
-      providesTags: (result, error, courseId) => [{ type: "ParentCourses", id: courseId } as any],
+      providesTags: (_result, _error, courseId) => [{ type: "ParentCourses", id: courseId }],
     }),
-    createParentCourse: builder.mutation<{ item: any }, any>({
+    createParentCourse: builder.mutation<{ item: any }, ApiPayload>({
       query: (body) => ({
         url: "/content/parent-courses",
         method: "POST",
@@ -481,7 +709,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["ParentCourses"],
     }),
-    updateParentCourse: builder.mutation<{ item: any }, { id: number; data: any }>({
+    updateParentCourse: builder.mutation<{ item: any }, { id: number; data: ApiPayload }>({
       query: ({ id, data }) => ({
         url: `/content/parent-courses/${id}`,
         method: "PUT",
@@ -489,7 +717,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["ParentCourses"],
     }),
-    updateContent: builder.mutation<{ item: any }, { id: number; data: any }>({
+    updateContent: builder.mutation<{ item: any }, { id: number; data: ApiPayload }>({
       query: ({ id, data }) => ({
         url: `/content/${id}`,
         method: "PUT",
@@ -552,7 +780,7 @@ export const apiSlice = createApi({
         method: "DELETE",
       }),
     }),
-    createService: builder.mutation<any, any>({
+    createService: builder.mutation<any, ApiPayload>({
       query: (body) => ({
         url: "/bookings/services",
         method: "POST",
@@ -560,7 +788,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Services", "Bookings"],
     }),
-    updateService: builder.mutation<any, { id: number; data: any }>({
+    updateService: builder.mutation<any, { id: number; data: ApiPayload }>({
       query: ({ id, data }) => ({
         url: `/bookings/services/${id}`,
         method: "PATCH",
@@ -575,7 +803,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Services", "Bookings", "Availability"],
     }),
-    createAvailability: builder.mutation<any, any>({
+    createAvailability: builder.mutation<any, ApiPayload>({
       query: (body) => ({
         url: "/bookings/availability",
         method: "POST",
@@ -583,7 +811,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Availability"],
     }),
-    createContent: builder.mutation<any, any>({
+    createContent: builder.mutation<any, ApiPayload>({
       query: (body) => ({
         url: "/content",
         method: "POST",
@@ -606,7 +834,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Content"],
     }),
-    getUserOnboarding: builder.query<any, number>({
+    getUserOnboarding: builder.query<UserOnboardingResponse, number>({
       query: (userId) => `/admin/users/${userId}/onboarding`,
       providesTags: ["Users"],
     }),
@@ -627,7 +855,7 @@ export const apiSlice = createApi({
     getExercises: builder.query<{ exercises: any[] }, void>({
       query: () => "/admin/exercises",
       providesTags: ["Content"],
-      transformResponse: (response: any) => ({ exercises: response?.exercises ?? [] }),
+      transformResponse: (response: { exercises?: any[] } | undefined) => ({ exercises: response?.exercises ?? [] }),
     }),
     createExercise: builder.mutation<
       { exercise: any },
@@ -689,7 +917,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    updateUserPremiumPlanSession: builder.mutation<{ item: any }, { userId: number; sessionId: number; patch: any }>({
+    updateUserPremiumPlanSession: builder.mutation<{ item: any }, { userId: number; sessionId: number; patch: ApiPayload }>({
       query: ({ userId, sessionId, patch }) => ({
         url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}`,
         method: "PATCH",
@@ -704,7 +932,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    addUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; sessionId: number; body: any }>({
+    addUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; sessionId: number; body: ApiPayload }>({
       query: ({ userId, sessionId, body }) => ({
         url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}/exercises`,
         method: "POST",
@@ -712,7 +940,7 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    updateUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; planExerciseId: number; patch: any }>({
+    updateUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; planExerciseId: number; patch: ApiPayload }>({
       query: ({ userId, planExerciseId, patch }) => ({
         url: `/admin/users/${userId}/premium-plan/exercises/${planExerciseId}`,
         method: "PATCH",
@@ -779,7 +1007,7 @@ export const apiSlice = createApi({
     getPhpPlusTabs: builder.query<{ tabs: string[] }, void>({
       query: () => "/admin/php-plus-tabs",
     }),
-    updateOnboardingConfig: builder.mutation<{ config: any }, any>({
+    updateOnboardingConfig: builder.mutation<{ config: any }, ApiPayload>({
       query: (body) => ({
         url: "/admin/onboarding-config",
         method: "PUT",

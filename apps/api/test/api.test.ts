@@ -519,7 +519,7 @@ describe("API routes", () => {
   });
 
   it("POST /api/billing/downgrade", async () => {
-    const res = await request(app).post("/api/billing/downgrade").send({ tier: "PHP_Plus" });
+    const res = await request(app).post("/api/billing/downgrade").send({ tier: "PHP_Premium_Plus" });
     expect(res.status).toBe(200);
   });
 

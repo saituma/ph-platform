@@ -10,6 +10,35 @@ import { SectionHeader } from "../../../../components/admin/section-header";
 import { useGetFoodDiaryQuery, useReviewFoodDiaryMutation } from "../../../../lib/apiSlice";
 import { toast } from "../../../../lib/toast";
 
+type FoodDiaryEntry = {
+  id: number;
+  date?: string | null;
+  athleteName?: string | null;
+  guardianName?: string | null;
+  guardianEmail?: string | null;
+  guardianUserId?: number | null;
+  athleteId?: number | null;
+  photoUrl?: string | null;
+  meals?: Record<string, string> | null;
+  notes?: string | null;
+  feedback?: string | null;
+  reviewedAt?: string | null;
+};
+
+type ApiErrorLike = {
+  data?: { error?: string };
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.data?.error === "string") return e.data.error;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 export default function FoodDiaryEntryDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -22,8 +51,8 @@ export default function FoodDiaryEntryDetailPage() {
   const [reviewFoodDiary, { isLoading: isSubmitting }] = useReviewFoodDiaryMutation();
   const [feedback, setFeedback] = useState("");
 
-  const entries = data?.items ?? [];
-  const entry = entries.find((e: any) => e.id === entryId);
+  const entries: FoodDiaryEntry[] = Array.isArray(data?.items) ? data.items : [];
+  const entry = entries.find((item) => item.id === entryId);
 
   const formatDate = (value?: string | null) => {
     if (!value) return "Today";
@@ -48,8 +77,8 @@ export default function FoodDiaryEntryDetailPage() {
       await reviewFoodDiary({ entryId, feedback: feedback.trim() || null }).unwrap();
       toast.success("Feedback saved", "The guardian will be notified.");
       setFeedback("");
-    } catch (e: any) {
-      toast.error("Failed to save", e?.data?.error ?? e?.message ?? "Please try again.");
+    } catch (e: unknown) {
+      toast.error("Failed to save", getErrorMessage(e, "Please try again."));
     }
   }, [entryId, feedback, reviewFoodDiary]);
 

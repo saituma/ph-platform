@@ -54,7 +54,7 @@ export function ActionDialogs({ active, onClose }: ActionDialogsProps) {
               <Select>
                 <option>Tier</option>
                 <option>PHP Program</option>
-                <option>PHP Plus</option>
+                <option>PHP Premium Plus</option>
                 <option>PHP Premium</option>
               </Select>
               <Textarea placeholder="Summary" />

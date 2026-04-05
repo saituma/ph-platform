@@ -45,7 +45,7 @@ export default function ParentPhpPlusPage() {
   const handleSavePhpPlusPrograms = async () => {
     try {
       await updatePhpPlusTabs({ tabs: phpPlusProgramTabs }).unwrap();
-      setSaveStatus({ type: "success", message: "PHP Plus programs updated." });
+      setSaveStatus({ type: "success", message: "PHP Premium Plus programs updated." });
     } catch (error: unknown) {
       const message =
         typeof error === "object" && error !== null && "message" in error
@@ -62,8 +62,8 @@ export default function ParentPhpPlusPage() {
 
   return (
     <ParentShell
-      title="PHP Plus Programs"
-      subtitle="Choose which programs are included for PHP Plus subscribers."
+      title="PHP Premium Plus Programs"
+      subtitle="Choose which programs are included for PHP Premium Plus subscribers."
       actions={
         <Link
           href="/parent"
@@ -98,7 +98,7 @@ export default function ParentPhpPlusPage() {
                 <p className="text-2xl font-semibold text-foreground">
                   {selectedCount} / {totalCount}
                 </p>
-                <p className="text-xs text-muted-foreground">Programs enabled for PHP Plus</p>
+                <p className="text-xs text-muted-foreground">Programs enabled for PHP Premium Plus</p>
               </div>
             </div>
           </div>
@@ -106,7 +106,7 @@ export default function ParentPhpPlusPage() {
             <div className="flex items-start gap-3">
               <Info className="h-5 w-5 shrink-0 text-muted-foreground" />
               <div className="text-sm text-muted-foreground">
-                These tabs appear in the mobile app for users on the PHP Plus plan. Toggle each
+                These tabs appear in the mobile app for users on the PHP Premium Plus plan. Toggle each
                 program to include or exclude it from the plan.
               </div>
             </div>
@@ -116,9 +116,9 @@ export default function ParentPhpPlusPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3">
             <div>
-              <CardTitle>PHP Plus Plan Programs</CardTitle>
+              <CardTitle>PHP Premium Plus Plan Programs</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Select which programs are included for PHP Plus.
+                Select which programs are included for PHP Premium Plus.
               </p>
             </div>
             <Button onClick={handleSavePhpPlusPrograms} disabled={isSavingTabs}>

@@ -20,6 +20,20 @@ const CATEGORIES = [
 
 type Variant = "admin" | "parent";
 
+type ApiErrorLike = {
+  data?: { error?: string };
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.data?.error === "string") return e.data.error;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 export function AppFeedbackPanel({
   variant,
   className,
@@ -51,9 +65,9 @@ export function AppFeedbackPanel({
       await submitFeedback({ category, message: body }).unwrap();
       toast.success("Sent", "Your message was delivered to the team. It appears in Messaging like other coach DMs.");
       setMessage("");
-    } catch (err: any) {
-      const detail = err?.data?.error ?? err?.message ?? "Please try again.";
-      toast.error("Could not send", typeof detail === "string" ? detail : "Please try again.");
+    } catch (err: unknown) {
+      const detail = getErrorMessage(err, "Please try again.");
+      toast.error("Could not send", detail);
     }
   };
 

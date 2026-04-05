@@ -108,7 +108,7 @@ export default function PreferencesPage() {
             <Select>
               <option>Default program tier</option>
               <option>PHP Program</option>
-              <option>PHP Plus</option>
+              <option>PHP Premium Plus</option>
               <option>PHP Premium</option>
             </Select>
             <Select>

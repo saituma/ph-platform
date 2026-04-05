@@ -51,6 +51,7 @@ export default function BookingDetailPage() {
 
   const booking = data?.booking ?? null;
   const statusKey = booking?.status ?? "unknown";
+  const bookingTypeKey = booking?.type ?? "";
 
   const handleApprove = async () => {
     if (!booking) return;
@@ -110,7 +111,7 @@ export default function BookingDetailPage() {
                     {booking.serviceName ?? "Session"}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    {BOOKING_TYPE_LABELS[booking.type] ?? booking.type ?? "Session"}
+                    {BOOKING_TYPE_LABELS[bookingTypeKey] ?? booking.type ?? "Session"}
                   </p>
                 </div>
                 <Badge

@@ -829,7 +829,7 @@ describe("integration: routes (real DB/Stripe)", () => {
     const res = await request(app)
       .post("/api/billing/downgrade")
       .set(testHeaders(ctx.guardianUserId!))
-      .send({ tier: "PHP_Plus" });
+      .send({ tier: "PHP_Premium_Plus" });
     expect(res.status).toBe(200);
   });
 

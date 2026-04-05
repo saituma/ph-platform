@@ -1655,7 +1655,7 @@ export async function getDashboardMetrics(coachId: number) {
     .from(athleteTable)
     .groupBy(athleteTable.currentProgramTier);
 
-  const tierCounts = { PHP: 0, PHP_Plus: 0, PHP_Premium: 0 };
+  const tierCounts = { PHP: 0, PHP_Premium: 0, PHP_Premium_Plus: 0, PHP_Pro: 0 };
   for (const row of tierRows) {
     const key = row.tier ?? "PHP";
     tierCounts[key as keyof typeof tierCounts] += Number(row.count ?? 0);
@@ -1800,9 +1800,10 @@ export async function getDashboardMetrics(coachId: number) {
     topAthletes,
     tierDistribution: {
       program: tierCounts.PHP,
-      plus: tierCounts.PHP_Plus,
       premium: tierCounts.PHP_Premium,
-      total: tierCounts.PHP + tierCounts.PHP_Plus + tierCounts.PHP_Premium,
+      premiumPlus: tierCounts.PHP_Premium_Plus,
+      pro: tierCounts.PHP_Pro,
+      total: tierCounts.PHP + tierCounts.PHP_Premium + tierCounts.PHP_Premium_Plus + tierCounts.PHP_Pro,
     },
     weeklyVolume: {
       totals: weeklyTotals,

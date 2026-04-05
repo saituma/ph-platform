@@ -49,7 +49,7 @@ export async function getProgramCards(userId: number) {
     }
   }
 
-  return ["PHP", "PHP_Plus", "PHP_Premium"].map((type) => {
+  return ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"].map((type) => {
     const enrollment = enrollments.find((e) => e.programType === type);
     return {
       type,

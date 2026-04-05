@@ -14,6 +14,14 @@ type BillingSummary = {
   pendingApprovalCount: number;
 };
 
+type PlanSummaryItem = {
+  isActive?: boolean;
+};
+
+type ApprovalRequestSummaryItem = {
+  status?: string;
+};
+
 const DEFAULT_SUMMARY: BillingSummary = {
   planCount: 0,
   activePlanCount: 0,
@@ -31,12 +39,12 @@ export default function BillingOverviewPage() {
         fetch("/api/backend/admin/subscription-plans").then((res) => res.json()),
         fetch("/api/backend/admin/subscription-requests").then((res) => res.json()),
       ]);
-      const plans = plansRes.plans ?? [];
-      const requests = requestsRes.requests ?? [];
+      const plans: PlanSummaryItem[] = Array.isArray(plansRes?.plans) ? plansRes.plans : [];
+      const requests: ApprovalRequestSummaryItem[] = Array.isArray(requestsRes?.requests) ? requestsRes.requests : [];
       setSummary({
         planCount: plans.length,
-        activePlanCount: plans.filter((plan: any) => plan.isActive).length,
-        pendingApprovalCount: requests.filter((request: any) => request.status === "pending").length,
+        activePlanCount: plans.filter((plan) => plan.isActive).length,
+        pendingApprovalCount: requests.filter((request) => request.status === "pending").length,
       });
     } catch {
       setSummary(DEFAULT_SUMMARY);

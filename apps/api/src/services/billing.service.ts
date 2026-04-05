@@ -68,17 +68,20 @@ function resolveTierFallbackPrice(
 ) {
   if (interval === "monthly") {
     if (tier === "PHP") return env.stripePricePhpMonthly || env.stripePricePhp;
-    if (tier === "PHP_Plus") return env.stripePricePlusMonthly || env.stripePricePlus;
     if (tier === "PHP_Premium") return env.stripePricePremiumMonthly || env.stripePricePremium;
+    if (tier === "PHP_Premium_Plus") return env.stripePricePlusMonthly || env.stripePricePlus;
+    if (tier === "PHP_Pro") return env.stripePriceProMonthly || env.stripePricePro;
   }
   if (interval === "yearly") {
     if (tier === "PHP") return env.stripePricePhpYearly || env.stripePricePhp;
-    if (tier === "PHP_Plus") return env.stripePricePlusYearly || env.stripePricePlus;
     if (tier === "PHP_Premium") return env.stripePricePremiumYearly || env.stripePricePremium;
+    if (tier === "PHP_Premium_Plus") return env.stripePricePlusYearly || env.stripePricePlus;
+    if (tier === "PHP_Pro") return env.stripePriceProYearly || env.stripePricePro;
   }
   if (tier === "PHP") return env.stripePricePhp;
-  if (tier === "PHP_Plus") return env.stripePricePlus;
   if (tier === "PHP_Premium") return env.stripePricePremium;
+  if (tier === "PHP_Premium_Plus") return env.stripePricePlus;
+  if (tier === "PHP_Pro") return env.stripePricePro;
   return "";
 }
 

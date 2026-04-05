@@ -13,6 +13,41 @@ import { UsersCards } from "../../components/admin/users/users-cards";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { useBlockUserMutation, useDeleteUserMutation, useGetUsersQuery } from "../../lib/apiSlice";
 
+type AdminUser = {
+  id: number;
+  role?: string | null;
+  name?: string | null;
+  email?: string | null;
+  isBlocked?: boolean | null;
+  onboardingCompleted?: boolean | null;
+  createdAt?: string | null;
+  athleteId?: number | null;
+  programTier?: string | null;
+  guardianProgramTier?: string | null;
+};
+
+type UsersListItem = {
+  id: number;
+  name: string;
+  email?: string;
+  isBlocked: boolean;
+  tier: "Admin" | "Premium" | "Plus" | "Program";
+  status: "Blocked" | "Active";
+  lastActive: string;
+  onboarding: "Awaiting review" | "Complete";
+  createdAtMs: number;
+  tierPriority: number;
+};
+
+function getErrorMessage(err: unknown, fallback: string) {
+  if (typeof err === "object" && err !== null && "data" in err) {
+    const data = (err as { data?: { error?: string } }).data;
+    if (data?.error) return data.error;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 function UsersPageContent() {
   const router = useRouter();
   const { data: usersData, isLoading } = useGetUsersQuery();
@@ -21,23 +56,23 @@ function UsersPageContent() {
   const [deleteUser] = useDeleteUserMutation();
 
   const users = useMemo(() => {
-    const source = (usersData?.users ?? []).filter((user: any) => user.role === "guardian");
-    const mapped = source.map((user: any) => {
+    const source = ((usersData?.users ?? []) as AdminUser[]).filter((user) => user.role === "guardian");
+    const mapped: UsersListItem[] = source.map((user) => {
       const resolvedTier = user.programTier ?? user.guardianProgramTier ?? null;
       const tierLabel =
         user.role === "admin" || user.role === "superAdmin"
           ? "Admin"
           : resolvedTier === "PHP_Premium"
             ? "Premium"
-            : resolvedTier === "PHP_Plus"
+            : resolvedTier === "PHP_Premium_Plus"
               ? "Plus"
               : "Program";
       const createdAtMs = user?.createdAt ? new Date(user.createdAt).getTime() : 0;
       const tierPriority = tierLabel === "Premium" ? 0 : tierLabel === "Plus" ? 1 : 2;
       return {
         id: user.id,
-        name: user.name ?? user.email,
-        email: user.email,
+        name: user.name ?? user.email ?? `User ${user.id}`,
+        email: user.email ?? undefined,
         isBlocked: Boolean(user.isBlocked),
         tier: tierLabel,
         status: user.isBlocked ? "Blocked" : "Active",
@@ -50,11 +85,20 @@ function UsersPageContent() {
 
     return mapped
       .slice()
-      .sort((a: any, b: any) => {
+      .sort((a, b) => {
         if (a.tierPriority !== b.tierPriority) return a.tierPriority - b.tierPriority;
         return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
       })
-      .map(({ createdAtMs: _createdAtMs, tierPriority: _tierPriority, ...rest }: any) => rest);
+      .map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isBlocked: user.isBlocked,
+        tier: user.tier,
+        status: user.status,
+        lastActive: user.lastActive,
+        onboarding: user.onboarding,
+      }));
   }, [usersData]);
   const hasUsers = users.length > 0;
   const [activeDialog, setActiveDialog] = useState<UsersDialog>(null);
@@ -93,7 +137,7 @@ function UsersPageContent() {
     } else if (athleteIdParam && usersData?.users) {
       const parsed = Number(athleteIdParam);
       if (Number.isFinite(parsed)) {
-        const match = usersData.users.find((user: any) => user.athleteId === parsed);
+        const match = (usersData.users as AdminUser[]).find((user) => user.athleteId === parsed);
         resolvedUserId = match?.id ?? null;
       }
     }
@@ -145,8 +189,8 @@ function UsersPageContent() {
                     setActionError(null);
                     try {
                       await blockUser({ userId, blocked }).unwrap();
-                    } catch (err: any) {
-                      setActionError(err?.data?.error || "Failed to update user status.");
+                    } catch (err: unknown) {
+                      setActionError(getErrorMessage(err, "Failed to update user status."));
                     }
                   }}
                   onDelete={async (userId) => {
@@ -155,8 +199,8 @@ function UsersPageContent() {
                     setActionError(null);
                     try {
                       await deleteUser({ userId }).unwrap();
-                    } catch (err: any) {
-                      setActionError(err?.data?.error || "Failed to delete user.");
+                    } catch (err: unknown) {
+                      setActionError(getErrorMessage(err, "Failed to delete user."));
                     }
                   }}
                 />
@@ -174,8 +218,8 @@ function UsersPageContent() {
                     setActionError(null);
                     try {
                       await blockUser({ userId, blocked }).unwrap();
-                    } catch (err: any) {
-                      setActionError(err?.data?.error || "Failed to update user status.");
+                    } catch (err: unknown) {
+                      setActionError(getErrorMessage(err, "Failed to update user status."));
                     }
                   }}
                   onDelete={async (userId) => {
@@ -184,8 +228,8 @@ function UsersPageContent() {
                     setActionError(null);
                     try {
                       await deleteUser({ userId }).unwrap();
-                    } catch (err: any) {
-                      setActionError(err?.data?.error || "Failed to delete user.");
+                    } catch (err: unknown) {
+                      setActionError(getErrorMessage(err, "Failed to delete user."));
                     }
                   }}
                 />

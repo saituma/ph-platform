@@ -119,7 +119,7 @@ export default function ParentCourseDetail() {
 
   const isLocked =
     item && !canAccessTier(programTier, item.programTier ?? null) && !item.isPreview;
-  const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Plus");
+  const hasParentProgramAccess = tierRank(programTier) >= tierRank("PHP_Premium_Plus");
 
 
   return (
@@ -160,7 +160,7 @@ export default function ParentCourseDetail() {
             Parent Program is locked on PHP
           </Text>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Upgrade to PHP Plus or PHP Premium to access this content.
+            Upgrade to PHP Premium Plus or PHP Premium to access this content.
           </Text>
           <TouchableOpacity
             onPress={() => router.push("/plans")}
@@ -227,7 +227,7 @@ export default function ParentCourseDetail() {
                 Upgrade to unlock this course
               </Text>
               <Text className="text-base font-outfit text-secondary leading-relaxed">
-                Parent education is included with PHP Plus and Premium plans.
+                Parent education is included with PHP Premium Plus and Premium plans.
               </Text>
               <TouchableOpacity
                 onPress={() => router.push("/plans")}

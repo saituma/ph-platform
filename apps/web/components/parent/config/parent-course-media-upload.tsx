@@ -5,6 +5,18 @@ import { useRef, useState } from "react";
 import { Button } from "../../ui/button";
 import { useCreateMediaUploadUrlMutation } from "../../../lib/apiSlice";
 
+type ApiErrorLike = {
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 export function ParentCourseMediaUpload({
   label,
   folder,
@@ -69,8 +81,8 @@ export function ParentCourseMediaUpload({
       });
 
       onUploaded(result.publicUrl);
-    } catch (err: any) {
-      setError(err?.message ?? "Upload failed.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Upload failed."));
     } finally {
       setIsUploading(false);
       setProgress(0);

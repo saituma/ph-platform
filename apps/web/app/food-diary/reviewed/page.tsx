@@ -8,9 +8,20 @@ import { SectionHeader } from "../../../components/admin/section-header";
 import { EmptyState } from "../../../components/admin/empty-state";
 import { useGetFoodDiaryQuery } from "../../../lib/apiSlice";
 
+type FoodDiaryEntry = {
+  id: number;
+  reviewedAt?: string | null;
+  date?: string | null;
+  athleteName?: string | null;
+  guardianName?: string | null;
+  guardianEmail?: string | null;
+};
+
 export default function FoodDiaryReviewedPage() {
   const { data, isLoading } = useGetFoodDiaryQuery();
-  const entries = (data?.items ?? []).filter((e: any) => e.reviewedAt);
+  const entries: FoodDiaryEntry[] = (Array.isArray(data?.items) ? data.items : []).filter(
+    (entry) => Boolean(entry.reviewedAt)
+  );
 
   const formatDate = (value?: string | null) => {
     if (!value) return "Today";
@@ -46,7 +57,7 @@ export default function FoodDiaryReviewedPage() {
             />
           ) : (
             <div className="mt-6 space-y-4">
-              {entries.map((entry: any) => (
+              {entries.map((entry) => (
                 <Link
                   key={entry.id}
                   href={`/food-diary/entry/${entry.id}`}

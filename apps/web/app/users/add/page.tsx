@@ -14,11 +14,26 @@ import { Select } from "../../../components/ui/select";
 import { Textarea } from "../../../components/ui/textarea";
 import { useGetOnboardingConfigQuery, useProvisionGuardianMutation } from "../../../lib/apiSlice";
 
-const TIER_OPTIONS: { value: "PHP" | "PHP_Plus" | "PHP_Premium"; label: string }[] = [
-  { value: "PHP", label: "Program (PHP)" },
-  { value: "PHP_Plus", label: "Plus" },
-  { value: "PHP_Premium", label: "Premium" },
+const TIER_OPTIONS: { value: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro"; label: string }[] = [
+  { value: "PHP", label: "PHP Program" },
+  { value: "PHP_Premium", label: "PHP Premium" },
+  { value: "PHP_Premium_Plus", label: "PHP Premium Plus" },
+  { value: "PHP_Pro", label: "PHP Pro" },
 ];
+
+type ApiErrorLike = {
+  data?: { error?: string };
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const apiError = error as ApiErrorLike;
+    if (typeof apiError.data?.error === "string") return apiError.data.error;
+    if (typeof apiError.message === "string") return apiError.message;
+  }
+  return fallback;
+}
 
 export default function AddUserPage() {
   const router = useRouter();
@@ -40,7 +55,7 @@ export default function AddUserPage() {
   const [equipmentAccess, setEquipmentAccess] = useState("");
   const [parentPhone, setParentPhone] = useState("");
   const [relationToAthlete, setRelationToAthlete] = useState("");
-  const [desiredProgramType, setDesiredProgramType] = useState<"PHP" | "PHP_Plus" | "PHP_Premium">("PHP");
+  const [desiredProgramType, setDesiredProgramType] = useState<"PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro">("PHP");
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ userId: number; emailSent: boolean } | null>(null);
 
@@ -84,9 +99,8 @@ export default function AddUserPage() {
         appVersion: "admin-web",
       }).unwrap();
       setSuccess({ userId: result.userId, emailSent: result.emailSent });
-    } catch (err: any) {
-      const msg = err?.data?.error ?? err?.message ?? "Could not create user.";
-      setFormError(typeof msg === "string" ? msg : "Could not create user.");
+    } catch (err: unknown) {
+      setFormError(getErrorMessage(err, "Could not create user."));
     }
   };
 
@@ -215,7 +229,7 @@ export default function AddUserPage() {
                   id="desiredProgramType"
                   value={desiredProgramType}
                   onChange={(ev) =>
-                    setDesiredProgramType(ev.target.value as "PHP" | "PHP_Plus" | "PHP_Premium")
+                    setDesiredProgramType(ev.target.value as "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro")
                   }
                 >
                   {TIER_OPTIONS.map((opt) => (

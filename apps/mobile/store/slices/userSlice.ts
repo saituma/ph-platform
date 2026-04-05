@@ -55,7 +55,7 @@ const initialState: UserState = {
   athleteUserId: null,
   managedAthletes: [],
   programTier: null,
-  messagingAccessTiers: ["PHP", "PHP_Plus", "PHP_Premium"],
+  messagingAccessTiers: ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
   latestSubscriptionRequest: null,
 };
 
@@ -111,7 +111,7 @@ const userSlice = createSlice({
       state.athleteUserId = null;
       state.managedAthletes = [];
       state.programTier = null;
-      state.messagingAccessTiers = ["PHP", "PHP_Plus", "PHP_Premium"];
+      state.messagingAccessTiers = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"];
       state.latestSubscriptionRequest = null;
     },
   },

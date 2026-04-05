@@ -39,6 +39,20 @@ type VideoItem = {
   createdAt?: string | null;
 };
 
+type RawVideoUpload = {
+  id: number;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  athleteUserId?: number | null;
+  reviewedAt?: string | null;
+  createdAt?: string | null;
+  programSectionType?: string | null;
+  programSectionTitle?: string | null;
+  videoUrl?: string | null;
+  notes?: string | null;
+  feedback?: string | null;
+};
+
 export default function AthleteVideoHistoryPage() {
   const router = useRouter();
   const params = useParams<{ athleteId: string }>();
@@ -54,14 +68,12 @@ export default function AthleteVideoHistoryPage() {
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
 
   const videos = useMemo<VideoItem[]>(() => {
-    const items = videosData?.items ?? [];
+    const items: RawVideoUpload[] = Array.isArray(videosData?.items) ? videosData.items : [];
     return items
-      .filter((item: any) => Number(item.athleteId) === athleteId)
-      .map((item: any) => {
+      .filter((item) => Number(item.athleteId) === athleteId)
+      .map((item) => {
         const reviewed = Boolean(item.reviewedAt);
-        const createdAt = item.createdAt ? new Date(item.createdAt) : null;
-        const daysOpen = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24) : 0;
-        const status = reviewed ? "Reviewed" : daysOpen >= 7 ? "Priority" : "Awaiting";
+        const status = reviewed ? "Reviewed" : "Awaiting";
         const sectionType = item.programSectionType ?? "program";
         const sectionTitle = item.programSectionTitle ?? null;
         const topic = sectionTitle ?? "Video upload";
@@ -76,7 +88,7 @@ export default function AthleteVideoHistoryPage() {
           notes: item.notes ?? null,
           feedback: item.feedback ?? null,
           createdAt: item.createdAt ?? null,
-        } as VideoItem;
+        };
       });
   }, [videosData, athleteId]);
 
@@ -170,4 +182,3 @@ export default function AthleteVideoHistoryPage() {
     </AdminShell>
   );
 }
-

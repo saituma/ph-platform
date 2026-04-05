@@ -235,9 +235,10 @@ export function PlansManager() {
                 value={form.tier}
                 onChange={(event) => setForm((prev) => ({ ...prev, tier: event.target.value as PlanTier }))}
               >
-                <option value="PHP">PHP</option>
-                <option value="PHP_Plus">PHP Plus</option>
+                <option value="PHP">PHP Program</option>
                 <option value="PHP_Premium">PHP Premium</option>
+                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                <option value="PHP_Pro">PHP Pro</option>
               </Select>
             </div>
             <div className="space-y-2">

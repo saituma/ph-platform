@@ -27,7 +27,7 @@ export type BookingServiceRow = {
 
 const TIER_LABELS: Record<string, string> = {
   PHP: "PHP",
-  PHP_Plus: "PHP Plus",
+  PHP_Premium_Plus: "PHP Premium Plus",
   PHP_Premium: "PHP Premium",
 };
 

@@ -21,6 +21,17 @@ type VideoItem = {
   createdAt?: string | null;
 };
 
+type RawVideoUpload = {
+  id: number;
+  athleteName?: string | null;
+  athleteUserId?: number | null;
+  reviewedAt?: string | null;
+  createdAt?: string | null;
+  programSectionContentId?: number | null;
+  programSectionTitle?: string | null;
+  programSectionType?: string | null;
+};
+
 type AthleteCard = {
   id: string;
   name: string;
@@ -47,16 +58,10 @@ export default function TrainingDetailPage() {
   const { data: videosData, isLoading } = useGetVideoUploadsQuery();
 
   const videos = useMemo<VideoItem[]>(() => {
-    const items = videosData?.items ?? [];
-    return items.map((item: any) => {
+    const items: RawVideoUpload[] = Array.isArray(videosData?.items) ? videosData.items : [];
+    return items.map((item) => {
       const reviewed = Boolean(item.reviewedAt);
-      const createdAt = item.createdAt ? new Date(item.createdAt) : null;
-      const daysOpen = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24) : 0;
-      const status = reviewed
-        ? "Reviewed"
-        : daysOpen >= 7
-          ? "Priority"
-          : "Awaiting";
+      const status = reviewed ? "Reviewed" : "Awaiting";
       return {
         id: item.id,
         athlete: item.athleteName ?? "Athlete",

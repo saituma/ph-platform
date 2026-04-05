@@ -105,8 +105,9 @@ export async function downgradePlan(req: Request, res: Response) {
 
   const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
     PHP: 1,
-    PHP_Plus: 2,
-    PHP_Premium: 3,
+    PHP_Premium: 2,
+    PHP_Premium_Plus: 3,
+    PHP_Pro: 4,
   };
   const currentTier = athlete.currentProgramTier as (typeof ProgramType.enumValues)[number];
   const targetTier = parsed.data.tier as (typeof ProgramType.enumValues)[number];

@@ -16,8 +16,30 @@ import {
 } from "../../ui/table";
 import { getCsrfToken } from "./billing-admin-utils";
 
+type ApprovalRequest = {
+  requestId: number;
+  userName?: string | null;
+  userEmail?: string | null;
+  planName?: string | null;
+  displayPrice?: string | null;
+  billingInterval?: string | null;
+  status?: string | null;
+};
+
+type ApiErrorLike = {
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 export function PendingApprovalsManager() {
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const [approvalSearch, setApprovalSearch] = useState("");
@@ -27,9 +49,9 @@ export function PendingApprovalsManager() {
     setActionError(null);
     try {
       const requestsRes = await fetch("/api/backend/admin/subscription-requests").then((res) => res.json());
-      setRequests(requestsRes.requests ?? []);
-    } catch (error: any) {
-      setActionError(error?.message || "Failed to load approval requests.");
+      setRequests(Array.isArray(requestsRes?.requests) ? requestsRes.requests : []);
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to load approval requests."));
     } finally {
       setIsLoading(false);
     }
@@ -52,8 +74,8 @@ export function PendingApprovalsManager() {
         throw new Error(payload?.error || "Failed to approve request.");
       }
       await loadRequests();
-    } catch (error: any) {
-      setActionError(error?.message || "Failed to approve request.");
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to approve request."));
     }
   };
 
@@ -70,8 +92,8 @@ export function PendingApprovalsManager() {
         throw new Error(payload?.error || "Failed to reject request.");
       }
       await loadRequests();
-    } catch (error: any) {
-      setActionError(error?.message || "Failed to reject request.");
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to reject request."));
     }
   };
 

@@ -23,11 +23,37 @@ const CATEGORIES = [
 ];
 
 const CONTENT_TYPES = ["article", "video", "pdf", "faq"] as const;
+type ContentType = (typeof CONTENT_TYPES)[number];
+type ParentContentItem = {
+  id: number;
+  title?: string | null;
+  content?: string | null;
+  body?: string | null;
+  category?: string | null;
+  type?: ContentType | null;
+  programTier?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  ageList?: number[] | null;
+};
+
+type ApiErrorLike = {
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
 const TIER_OPTIONS = [
   { value: "", label: "All tiers" },
   { value: "PHP", label: "PHP Program" },
-  { value: "PHP_Plus", label: "PHP Plus" },
   { value: "PHP_Premium", label: "PHP Premium" },
+  { value: "PHP_Premium_Plus", label: "PHP Premium Plus" },
+  { value: "PHP_Pro", label: "PHP Pro" },
 ];
 
 export function ParentContentCard() {
@@ -46,7 +72,7 @@ export function ParentContentCard() {
   const [ageList, setAgeList] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [editingItem, setEditingItem] = useState<ParentContentItem | null>(null);
 
   const formatAgeRange = (item: { minAge?: number | null; maxAge?: number | null; ageList?: number[] | null }) => {
     if (Array.isArray(item.ageList) && item.ageList.length) {
@@ -69,10 +95,10 @@ export function ParentContentCard() {
   };
 
   const grouped = useMemo(() => {
-    const items = data?.items ?? [];
+    const items: ParentContentItem[] = Array.isArray(data?.items) ? data.items : [];
     return CATEGORIES.map((cat) => ({
       category: cat,
-      items: items.filter((item: any) => item.category === cat),
+      items: items.filter((item) => item.category === cat),
     }));
   }, [data]);
 
@@ -129,17 +155,17 @@ export function ParentContentCard() {
         setModalOpen(false);
       }
       refetch();
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to publish content.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to publish content."));
     }
   };
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: ParentContentItem) => {
     setEditingItem(item);
     setTitle(item.title ?? "");
     setSummary(item.content ?? "");
     setBody(item.body ?? "");
-    setType((item.type as any) ?? "article");
+    setType(item.type ?? "article");
     setTier(item.programTier ?? "");
     setMinAge(item.minAge != null ? String(item.minAge) : "");
     setMaxAge(item.maxAge != null ? String(item.maxAge) : "");
@@ -203,8 +229,8 @@ export function ParentContentCard() {
       resetForm();
       setModalOpen(false);
       refetch();
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to update content.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to update content."));
     }
   };
 
@@ -238,7 +264,7 @@ export function ParentContentCard() {
                 </div>
                 {group.items.length ? (
                   <div className="grid gap-2 md:grid-cols-2">
-                    {group.items.map((item: any) => (
+                    {group.items.map((item) => (
                       <div
                         key={item.id}
                         className="rounded-xl border border-border p-3 text-left hover:border-primary/60"
@@ -325,7 +351,7 @@ export function ParentContentCard() {
                 </div>
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <Select value={type} onChange={(e) => setType(e.target.value as any)}>
+                  <Select value={type} onChange={(e) => setType(e.target.value as ContentType)}>
                     {CONTENT_TYPES.map((item) => (
                       <option key={item} value={item}>
                         {item.toUpperCase()}

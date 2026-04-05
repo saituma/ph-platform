@@ -28,6 +28,16 @@ import { ParentCourseMediaUpload } from "./parent-course-media-upload";
 
 const INITIAL_MODULE_TYPE: ModuleType = "article";
 
+type ApiIssue = {
+  path: string[];
+  message: string;
+};
+
+type ApiErrorLike = {
+  data?: { error?: string; issues?: ApiIssue[] };
+  message?: string;
+};
+
 export function ParentCoursesCard() {
   const { data, refetch, isLoading } = useGetParentCoursesQuery();
   const [createCourse, { isLoading: isCreating }] = useCreateParentCourseMutation();
@@ -128,21 +138,22 @@ export function ParentCoursesCard() {
       }
       resetForm();
       refetch();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as ApiErrorLike;
       console.error("Course save error:", err);
       let msg = "Failed to save course.";
-      if (err?.data?.error === "Invalid request" && err?.data?.issues) {
-        const issues = err.data.issues as any[];
+      if (error?.data?.error === "Invalid request" && error?.data?.issues) {
+        const issues = error.data.issues;
         const errors = issues.map((issue) => {
           const path = issue.path.join(".");
           const field = path.replace(/modules\.(\d+)\./, (match: string, p1: string) => `Module ${parseInt(p1) + 1} `);
           return `${field}: ${issue.message}`;
         });
         msg = `Validation Error: ${errors.join(" | ")}`;
-      } else if (err?.data?.error) {
-        msg = err.data.error;
-      } else if (err?.message) {
-        msg = err.message;
+      } else if (error?.data?.error) {
+        msg = error.data.error;
+      } else if (error?.message) {
+        msg = error.message;
       }
       setError(msg);
     }

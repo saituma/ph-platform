@@ -58,7 +58,7 @@ export default function MoreScreen() {
   const transition = useSharedValue(1);
   const showParentPlatform = Boolean(isAuthenticated && hasPaidProgramTier(programTier));
   const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
-  const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Plus");
+  const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Premium_Plus");
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -128,7 +128,7 @@ export default function MoreScreen() {
             setMessagingAccessTiers(
               Array.isArray(status?.messagingAccessTiers)
                 ? status!.messagingAccessTiers!
-                : ["PHP", "PHP_Plus", "PHP_Premium"]
+                : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]
             )
           );
           dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
@@ -333,7 +333,7 @@ export default function MoreScreen() {
                       accentColor={colors.accent}
                     />
                   ) : null}
-                  {canAccessTier(programTier ?? null, "PHP_Plus") ? (
+                  {canAccessTier(programTier ?? null, "PHP_Premium_Plus") ? (
                     <MenuItem
                       icon="activity"
                       label="Referrals"

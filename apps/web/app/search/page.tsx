@@ -14,6 +14,37 @@ import {
   useGetVideoUploadsQuery,
 } from "../../lib/apiSlice";
 
+type SearchUser = {
+  id: number;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  programTier?: string | null;
+  guardianProgramTier?: string | null;
+  currentProgramTier?: string | null;
+};
+
+type SearchBooking = {
+  id?: number | null;
+  serviceName?: string | null;
+  athleteName?: string | null;
+  type?: string | null;
+  startsAt?: string | null;
+};
+
+type SearchThread = {
+  userId: number;
+  name?: string | null;
+  preview?: string | null;
+};
+
+type SearchVideo = {
+  id: number;
+  athleteName?: string | null;
+  notes?: string | null;
+  feedback?: string | null;
+};
+
 function normalize(value: string) {
   return value.toLowerCase();
 }
@@ -30,17 +61,17 @@ function SearchContent() {
   const { data: videosData, isLoading: videosLoading } = useGetVideoUploadsQuery();
 
   const users = useMemo(() => {
-    const list = usersData?.users ?? [];
+    const list = (usersData?.users ?? []) as SearchUser[];
     if (!q) return [];
-    return list.filter((user: any) =>
+    return list.filter((user) =>
       [user.name, user.email, user.role].filter(Boolean).some((value) => normalize(String(value)).includes(q))
     );
   }, [usersData, q]);
 
   const bookings = useMemo(() => {
-    const list = bookingsData?.bookings ?? [];
+    const list = (bookingsData?.bookings ?? []) as SearchBooking[];
     if (!q) return [];
-    return list.filter((booking: any) =>
+    return list.filter((booking) =>
       [booking.serviceName, booking.athleteName, booking.type]
         .filter(Boolean)
         .some((value) => normalize(String(value)).includes(q))
@@ -48,25 +79,25 @@ function SearchContent() {
   }, [bookingsData, q]);
 
   const threads = useMemo(() => {
-    const list = threadsData?.threads ?? [];
-    const users = usersData?.users ?? [];
+    const list = (threadsData?.threads ?? []) as SearchThread[];
+    const users = (usersData?.users ?? []) as SearchUser[];
     const premiumUserIds = new Set(
       users
-        .filter((u: any) => (u.programTier ?? u.guardianProgramTier ?? u.currentProgramTier) === "PHP_Premium")
-        .map((u: any) => u.id)
+        .filter((u) => (u.programTier ?? u.guardianProgramTier ?? u.currentProgramTier) === "PHP_Premium")
+        .map((u) => u.id)
     );
     if (!q) return [];
     return list
-      .filter((thread: any) => premiumUserIds.has(thread.userId))
-      .filter((thread: any) =>
+      .filter((thread) => premiumUserIds.has(thread.userId))
+      .filter((thread) =>
         [thread.name, thread.preview].filter(Boolean).some((value) => normalize(String(value)).includes(q))
       );
   }, [threadsData, usersData, q]);
 
   const videos = useMemo(() => {
-    const list = videosData?.items ?? [];
+    const list = (videosData?.items ?? []) as SearchVideo[];
     if (!q) return [];
-    return list.filter((video: any) =>
+    return list.filter((video) =>
       [video.athleteName, video.notes, video.feedback]
         .filter(Boolean)
         .some((value) => normalize(String(value)).includes(q))
@@ -106,7 +137,7 @@ function SearchContent() {
           <Card>
             <CardContent className="space-y-3 p-6">
               <p className="text-sm font-semibold text-foreground">Users</p>
-              {users.map((user: any) => (
+              {users.map((user) => (
                 <button
                   key={user.id}
                   className="flex w-full items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-left text-sm transition hover:border-primary/40"
@@ -124,7 +155,7 @@ function SearchContent() {
           <Card>
             <CardContent className="space-y-3 p-6">
               <p className="text-sm font-semibold text-foreground">Bookings</p>
-              {bookings.map((booking: any) => (
+              {bookings.map((booking) => (
                 <button
                   key={booking.id ?? `${booking.athleteName}-${booking.startsAt}`}
                   className="flex w-full items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-left text-sm transition hover:border-primary/40"
@@ -142,7 +173,7 @@ function SearchContent() {
           <Card>
             <CardContent className="space-y-3 p-6">
               <p className="text-sm font-semibold text-foreground">Messages</p>
-              {threads.map((thread: any) => (
+              {threads.map((thread) => (
                 <button
                   key={thread.userId}
                   className="flex w-full items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-left text-sm transition hover:border-primary/40"
@@ -160,7 +191,7 @@ function SearchContent() {
           <Card>
             <CardContent className="space-y-3 p-6">
               <p className="text-sm font-semibold text-foreground">Video Feedback</p>
-              {videos.map((video: any) => (
+              {videos.map((video) => (
                 <button
                   key={video.id}
                   className="flex w-full items-center justify-between rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-left text-sm transition hover:border-primary/40"

@@ -22,8 +22,8 @@ const CONFIG_CARDS = [
   {
     id: "php-plus",
     href: "/parent/php-plus",
-    title: "PHP Plus Programs",
-    description: "Choose which programs are included for PHP Plus subscribers.",
+    title: "PHP Premium Plus Programs",
+    description: "Choose which programs are included for PHP Premium Plus subscribers.",
     icon: GraduationCap,
     color: "from-amber-500/20 to-orange-600/20 border-amber-500/30 hover:border-amber-500/60",
     iconBg: "bg-amber-500/20 text-amber-600 dark:text-amber-400",

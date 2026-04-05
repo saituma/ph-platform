@@ -113,7 +113,7 @@ const createReferralGroupSchema = z.object({
   }
 });
 
-const ELIGIBLE_TIERS = new Set(["PHP_Plus", "PHP_Premium"]);
+const ELIGIBLE_TIERS = new Set(["PHP_Premium_Plus", "PHP_Premium"]);
 
 function normalizeReferralType(value?: string | null) {
   return String(value ?? "")
@@ -346,7 +346,7 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     .limit(1);
   const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
   if (!athleteTier || !ELIGIBLE_TIERS.has(athleteTier)) {
-    return res.status(400).json({ error: "Referrals are only available for PHP Plus and PHP Premium athletes." });
+    return res.status(400).json({ error: "Referrals are only available for PHP Premium Plus and PHP Premium athletes." });
   }
   const nextReferralType = normalizeReferralType(input.metadata?.referralType);
   const existingEntries = await getPhysioReferralsForAthlete(input.athleteId);
@@ -522,7 +522,7 @@ export async function updatePhysioReferralAdmin(req: Request, res: Response) {
     .limit(1);
   const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
   if (!athleteTier || !ELIGIBLE_TIERS.has(athleteTier)) {
-    return res.status(400).json({ error: "Referrals are only available for PHP Plus and PHP Premium athletes." });
+    return res.status(400).json({ error: "Referrals are only available for PHP Premium Plus and PHP Premium athletes." });
   }
   if (input.metadata) {
     const nextReferralType = normalizeReferralType(input.metadata.referralType);

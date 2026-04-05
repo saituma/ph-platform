@@ -48,6 +48,18 @@ type ServiceType = {
   isActive?: boolean | null;
 };
 
+type RawBooking = {
+  id: number;
+  serviceName?: string | null;
+  athleteName?: string | null;
+  startsAt?: string | null;
+  type?: string | null;
+  status?: string | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  endTime?: string | null;
+};
+
 export default function BookingsPage() {
   const [activeDialog, setActiveDialog] = useState<BookingsDialog>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
@@ -73,8 +85,8 @@ export default function BookingsPage() {
 
 
   const bookings = useMemo<BookingItem[]>(() => {
-    const items = bookingsData?.bookings ?? [];
-    return items.map((item: any) => ({
+    const items: RawBooking[] = Array.isArray(bookingsData?.bookings) ? bookingsData.bookings : [];
+    return items.map((item) => ({
       id: item.id,
       name: item.serviceName ?? item.type ?? "Session",
       athlete: item.athleteName ?? "Unknown athlete",

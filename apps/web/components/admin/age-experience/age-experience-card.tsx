@@ -67,6 +67,18 @@ const formatAgeRange = (rule: { minAge?: number | null; maxAge?: number | null }
   return `Up to ${rule.maxAge}`;
 };
 
+type ApiErrorLike = {
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 export function AgeExperienceCard() {
   const { data, refetch, isLoading } = useGetAgeExperienceRulesQuery();
   const [createRule, { isLoading: isSaving }] = useCreateAgeExperienceRuleMutation();
@@ -146,8 +158,8 @@ export function AgeExperienceCard() {
       resetForm();
       setModalOpen(false);
       refetch();
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to create rule.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to create rule."));
     }
   };
 
@@ -186,8 +198,8 @@ export function AgeExperienceCard() {
       resetForm();
       setModalOpen(false);
       refetch();
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to update rule.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to update rule."));
     }
   };
 
@@ -196,8 +208,8 @@ export function AgeExperienceCard() {
     try {
       await deleteRule({ id: item.id }).unwrap();
       refetch();
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to delete rule.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to delete rule."));
     }
   };
 

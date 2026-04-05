@@ -29,6 +29,47 @@ import { useGetDashboardQuery, useGetHomeContentQuery } from "../lib/apiSlice";
 
 const KPI_ICONS = [Users, Crown, MessageCircle, CalendarDays] as const;
 
+type DashboardBooking = {
+  serviceName?: string | null;
+  type?: string | null;
+  athleteName?: string | null;
+  startsAt?: string | null;
+};
+
+type DashboardTopAthlete = {
+  name: string;
+  tier?: string | null;
+  score?: number | null;
+};
+
+type TierDistributionDatum = {
+  label: string;
+  value: number;
+  color: string;
+};
+
+type ActivityMixDatum = {
+  label: string;
+  segments: Array<{ value: number; color: string }>;
+};
+
+type HomeBody = {
+  headline?: string;
+  description?: string;
+  welcome?: string;
+  introVideoUrl?: string;
+  testimonials?: unknown[] | string;
+  heroImageUrl?: string;
+  adminStory?: string;
+  professionalPhoto?: string;
+  professionalPhotos?: string[] | string;
+};
+
+type ProgramOpsItem = {
+  title: string;
+  detail: string;
+};
+
 export default function Home() {
   const { data: dashboardData, isLoading } = useGetDashboardQuery();
   const { data: homeContentData } = useGetHomeContentQuery();
@@ -41,7 +82,8 @@ export default function Home() {
 
   const { dashboardKpis, todayBookings } = useMemo(() => {
     const kpiData = dashboardData?.kpis;
-    const mappedBookings = (dashboardData?.bookingsToday ?? []).map((b: any) => ({
+    const bookingsToday: DashboardBooking[] = Array.isArray(dashboardData?.bookingsToday) ? dashboardData.bookingsToday : [];
+    const mappedBookings = bookingsToday.map((b) => ({
       name: b.serviceName ?? b.type ?? "Session",
       athlete: b.athleteName ?? "Athlete",
       time: b.startsAt
@@ -110,34 +152,42 @@ export default function Home() {
 
   const topAthletesData = useMemo(() => {
     if (!dashboardData?.topAthletes?.length) return [];
-    return dashboardData.topAthletes.map((athlete: any) => ({
+    return (dashboardData.topAthletes as DashboardTopAthlete[]).map((athlete) => ({
       name: athlete.name,
-      tier: athlete.tier === "PHP_Premium" ? "Premium" : athlete.tier === "PHP_Plus" ? "Plus" : "Program",
+      tier:
+        athlete.tier === "PHP_Pro"
+          ? "Pro"
+          : athlete.tier === "PHP_Premium_Plus"
+            ? "Premium Plus"
+            : athlete.tier === "PHP_Premium"
+              ? "Premium"
+              : "Program",
       score: athlete.score != null ? String(athlete.score) : "",
     }));
   }, [dashboardData]);
 
   const tierSummary = dashboardData?.tierDistribution;
-  const tierDistributionData = tierSummary
+  const tierDistributionData: TierDistributionDatum[] = tierSummary
     ? [
         { label: "Program", value: tierSummary.program, color: "hsl(142 20% 40%)" },
-        { label: "Plus", value: tierSummary.plus, color: "hsl(142 45% 45%)" },
-        { label: "Premium", value: tierSummary.premium, color: "hsl(142 71% 45%)" },
+        { label: "Premium", value: tierSummary.premium, color: "hsl(142 45% 45%)" },
+        { label: "Premium Plus", value: tierSummary.premiumPlus, color: "hsl(142 71% 45%)" },
+        { label: "Pro", value: tierSummary.pro, color: "hsl(150 85% 35%)" },
       ]
     : [];
 
-  const tierTotal = tierSummary?.total ?? tierDistributionData.reduce((sum, item: any) => sum + item.value, 0);
+  const tierTotal = tierSummary?.total ?? tierDistributionData.reduce((sum, item) => sum + item.value, 0);
   const tierRatios = tierTotal
-    ? tierDistributionData.map((item: any) => item.value / tierTotal)
-    : [0.5, 0.3, 0.2];
+    ? tierDistributionData.map((item) => item.value / tierTotal)
+    : [0.35, 0.25, 0.25, 0.15];
 
-  const activityMixData = useMemo(() => {
+  const activityMixData = useMemo<ActivityMixDatum[]>(() => {
     const totalMessages = weeklyTotals.messages;
     const totalBookings = weeklyTotals.bookings;
     const totalUploads = weeklyTotals.uploads;
-    const colors = ["hsl(142 71% 45%)", "hsl(142 45% 45%)", "hsl(142 20% 40%)"];
+    const colors = ["hsl(142 71% 45%)", "hsl(142 45% 45%)", "hsl(142 20% 40%)", "hsl(150 85% 35%)"];
     const toSegments = (total: number) =>
-      tierRatios.map((ratio: any, index: number) => ({
+      tierRatios.map((ratio, index: number) => ({
         value: Math.round(total * ratio),
         color: colors[index],
       }));
@@ -153,13 +203,13 @@ export default function Home() {
 
   const highlightsData = dashboardData?.highlights ?? [];
 
-  const programOpsData = dashboardData?.programOps ?? [];
+  const programOpsData: ProgramOpsItem[] = Array.isArray(dashboardData?.programOps) ? dashboardData.programOps : [];
 
   const homeItem = (homeContentData?.items ?? [])[0] ?? null;
-  let homeBody: any = {};
+  let homeBody: HomeBody = {};
   if (homeItem?.body && typeof homeItem.body === "string") {
     try {
-      homeBody = JSON.parse(homeItem.body);
+      homeBody = JSON.parse(homeItem.body) as HomeBody;
     } catch {
       homeBody = {};
     }
@@ -332,12 +382,12 @@ export default function Home() {
                   <>
                     <div className="h-[220px] w-[220px]">
                       <GreenDoughnutChart
-                        labels={tierDistributionData.map((tier: any) => tier.label)}
-                        values={tierDistributionData.map((tier: any) => tier.value)}
+                        labels={tierDistributionData.map((tier) => tier.label)}
+                        values={tierDistributionData.map((tier) => tier.value)}
                       />
                     </div>
                     <div className="space-y-3 text-sm">
-                      {tierDistributionData.map((tier: any) => (
+                      {tierDistributionData.map((tier) => (
                         <div key={tier.label} className="flex items-center gap-3">
                           <span
                             className="h-3 w-3 rounded-full"
@@ -371,11 +421,11 @@ export default function Home() {
                 {activityMixData.length ? (
                   <div className="h-[220px]">
                     <GreenStackedBars
-                      labels={activityMixData.map((item: any) => item.label)}
+                      labels={activityMixData.map((item) => item.label)}
                       datasets={[
-                        { label: "Program", data: activityMixData.map((item: any) => item.segments[2]?.value ?? 0) },
-                        { label: "Plus", data: activityMixData.map((item: any) => item.segments[1]?.value ?? 0) },
-                        { label: "Premium", data: activityMixData.map((item: any) => item.segments[0]?.value ?? 0) },
+                        { label: "Program", data: activityMixData.map((item) => item.segments[2]?.value ?? 0) },
+                        { label: "Plus", data: activityMixData.map((item) => item.segments[1]?.value ?? 0) },
+                        { label: "Premium", data: activityMixData.map((item) => item.segments[0]?.value ?? 0) },
                       ]}
                     />
                   </div>
@@ -493,7 +543,7 @@ export default function Home() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {programOpsData.length ? (
-                  programOpsData.map((item: any) => (
+                  programOpsData.map((item) => (
                     <div key={item.title} className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
                       <p className="font-semibold text-foreground">{item.title}</p>
                       <p className="text-xs text-muted-foreground">{item.detail}</p>

@@ -84,7 +84,7 @@ export function RegisterFormFields({
         tier.id === "php"
           ? "PHP"
           : tier.id === "plus"
-            ? "PHP_Plus"
+            ? "PHP_Premium_Plus"
             : "PHP_Premium";
       map.set(key, tier);
     });
@@ -94,7 +94,7 @@ export function RegisterFormFields({
   const normalizeProgramOption = (option: string) => {
     const normalized = option.trim().toLowerCase();
     if (normalized.includes("premium")) return "PHP_Premium";
-    if (normalized.includes("plus")) return "PHP_Plus";
+    if (normalized.includes("plus")) return "PHP_Premium_Plus";
     if (normalized.includes("php")) return "PHP";
     return null;
   };
@@ -412,7 +412,7 @@ export function RegisterFormFields({
               <View className="gap-2">
                 {PROGRAM_TIERS.map((tier) => {
                   const tierKey =
-                    tier.id === "php" ? "PHP" : tier.id === "plus" ? "PHP_Plus" : "PHP_Premium";
+                    tier.id === "php" ? "PHP" : tier.id === "plus" ? "PHP_Premium_Plus" : "PHP_Premium";
                   const isSelected = value === tierKey;
                   return (
                     <Pressable

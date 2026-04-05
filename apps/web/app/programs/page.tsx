@@ -12,9 +12,29 @@ import { ProgramsFilters } from "../../components/admin/programs/programs-filter
 import { ProgramsGrid } from "../../components/admin/programs/programs-grid";
 import { useCreateProgramMutation, useGetProgramsQuery, useGetUsersQuery, useAssignProgramMutation, useUpdateProgramMutation } from "../../lib/apiSlice";
 
+type ProgramRecord = {
+  id: number;
+  name: string;
+  type: string;
+  description?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+};
+
+type GridProgram = {
+  id: number;
+  name: string;
+  summary?: string | null;
+  access: string;
+  type: string;
+  minAge?: number | null;
+  maxAge?: number | null;
+};
+
 const accessLabel = (type: string) => {
-  if (type === "PHP_Premium") return "Approval required";
-  if (type === "PHP_Plus") return "Coach assigned";
+  if (type === "PHP_Pro") return "Elite access";
+  if (type === "PHP_Premium_Plus") return "Semi-private access";
+  if (type === "PHP_Premium") return "Premium access";
   return "Self-enroll";
 };
 
@@ -26,24 +46,25 @@ export default function ProgramsPage() {
   const [updateProgram, { isLoading: isUpdating }] = useUpdateProgramMutation();
   const [assignProgram, { isLoading: isAssigning }] = useAssignProgramMutation();
   const [activeDialog, setActiveDialog] = useState<ProgramsDialog>(null);
-  const [selectedProgram, setSelectedProgram] = useState<any | null>(null);
+  const [selectedProgram, setSelectedProgram] = useState<GridProgram | null>(null);
   const [highlightedProgramId, setHighlightedProgramId] = useState<number | null>(null);
   const [activeChip, setActiveChip] = useState<string>("All");
-  const chips = ["All", "Program", "Plus", "Premium", "Templates"];
+  const chips = ["All", "Program", "Premium", "Premium Plus", "Pro", "Templates"];
 
   const filteredPrograms = useMemo(() => {
-    const source = programsData?.programs ?? [];
+    const source = (programsData?.programs ?? []) as ProgramRecord[];
     if (activeChip === "All") return source;
     if (activeChip === "Templates") return source;
-    if (activeChip === "Premium") return source.filter((program: any) => program.type === "PHP_Premium");
-    if (activeChip === "Plus") return source.filter((program: any) => program.type === "PHP_Plus");
-    if (activeChip === "Program") return source.filter((program: any) => program.type === "PHP");
+    if (activeChip === "Premium") return source.filter((program) => program.type === "PHP_Premium");
+    if (activeChip === "Premium Plus") return source.filter((program) => program.type === "PHP_Premium_Plus");
+    if (activeChip === "Pro") return source.filter((program) => program.type === "PHP_Pro");
+    if (activeChip === "Program") return source.filter((program) => program.type === "PHP");
     return source;
   }, [activeChip, programsData]);
 
-  const programs = useMemo(
+  const programs = useMemo<GridProgram[]>(
     () =>
-      filteredPrograms.map((program: any) => ({
+      filteredPrograms.map((program) => ({
         id: program.id,
         name: program.name,
         summary: program.description ?? "",
@@ -55,7 +76,16 @@ export default function ProgramsPage() {
     [filteredPrograms]
   );
 
-  const users = useMemo(() => usersData?.users ?? [], [usersData]);
+  const users = useMemo(
+    () =>
+      (usersData?.users ?? []).map((user) => ({
+        id: user.id,
+        name: user.name ?? user.email,
+        email: user.email,
+        athleteId: user.athleteId ?? null,
+      })),
+    [usersData]
+  );
   const isSaving = isCreating || isUpdating || isAssigning;
 
   useEffect(() => {
@@ -71,8 +101,9 @@ export default function ProgramsPage() {
     setHighlightedProgramId(programIdParam);
     setSelectedProgram(target);
 
-    if (target.type === "PHP_Premium") setActiveChip("Premium");
-    else if (target.type === "PHP_Plus") setActiveChip("Plus");
+    if (target.type === "PHP_Pro") setActiveChip("Pro");
+    else if (target.type === "PHP_Premium_Plus") setActiveChip("Premium Plus");
+    else if (target.type === "PHP_Premium") setActiveChip("Premium");
     else if (target.type === "PHP") setActiveChip("Program");
     else setActiveChip("All");
 

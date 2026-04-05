@@ -11,6 +11,49 @@ import {
   useGetUserBookingsQuery,
 } from "../../../lib/apiSlice";
 
+type AvailabilitySlot = {
+  slotKey: string;
+  startsAt: string;
+  remainingCapacity?: number | null;
+};
+
+type AvailabilityItem = {
+  dateKey: string;
+  serviceTypeId: number;
+  occurrenceKey: string;
+  startsAt: string;
+  serviceName?: string | null;
+  type?: string | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  remainingCapacity?: number | null;
+  slots?: AvailabilitySlot[] | null;
+};
+
+type BookingItem = {
+  id: number;
+  startsAt?: string | null;
+  serviceName?: string | null;
+  type?: string | null;
+  status?: string | null;
+};
+
+type ApiErrorLike = {
+  data?: { error?: string };
+  error?: string;
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.data?.error === "string") return e.data.error;
+    if (typeof e.error === "string") return e.error;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 function toDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -23,7 +66,7 @@ function endOfMonth(date: Date) {
   return new Date(Date.UTC(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999));
 }
 
-function titleForType(type?: string) {
+function titleForType(type?: string | null) {
   switch (type) {
     case "group_call":
       return "Group Call";
@@ -58,13 +101,22 @@ export default function ParentSchedulePage() {
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetUserBookingsQuery();
   const [createBooking, { isLoading: creatingBooking }] = useCreateBookingMutation();
 
-  const availabilityItems = useMemo(() => availabilityData?.items ?? [], [availabilityData]);
-  const availableDates = useMemo(() => new Set(availabilityItems.map((item: any) => item.dateKey)), [availabilityItems]);
+  const availabilityItems = useMemo<AvailabilityItem[]>(
+    () => (Array.isArray(availabilityData?.items) ? availabilityData.items : []),
+    [availabilityData]
+  );
+  const availableDates = useMemo(
+    () => new Set(availabilityItems.map((item) => item.dateKey)),
+    [availabilityItems]
+  );
   const selectedDateItems = useMemo(
-    () => availabilityItems.filter((item: any) => item.dateKey === selectedCalendarDate),
+    () => availabilityItems.filter((item) => item.dateKey === selectedCalendarDate),
     [availabilityItems, selectedCalendarDate],
   );
-  const bookings = useMemo(() => bookingsData?.items ?? [], [bookingsData]);
+  const bookings = useMemo<BookingItem[]>(
+    () => (Array.isArray(bookingsData?.items) ? bookingsData.items : []),
+    [bookingsData]
+  );
 
   const calendarGrid = useMemo(() => {
     const year = calendarMonth.getFullYear();
@@ -85,11 +137,11 @@ export default function ParentSchedulePage() {
   const upcomingBookings = useMemo(() => {
     const now = new Date();
     return bookings
-      .filter((booking: any) => booking.startsAt && new Date(booking.startsAt) >= now)
-      .sort((a: any, b: any) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+      .filter((booking) => booking.startsAt && new Date(booking.startsAt) >= now)
+      .sort((a, b) => new Date(a.startsAt as string).getTime() - new Date(b.startsAt as string).getTime());
   }, [bookings]);
 
-  const handleRequest = async (item: any, slotKey?: string) => {
+  const handleRequest = async (item: AvailabilityItem, slotKey?: string) => {
     setBookingError(null);
     setBookingSuccess(null);
     try {
@@ -102,12 +154,8 @@ export default function ParentSchedulePage() {
       }).unwrap();
       setBookingSuccess("Request sent. Your coach will review it.");
       await Promise.all([refetchBookings(), refetchAvailability()]);
-    } catch (error: any) {
-      const message =
-        error?.data?.error ??
-        error?.error ??
-        error?.message ??
-        "Failed to submit booking request.";
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, "Failed to submit booking request.");
       setBookingError(message);
     }
   };
@@ -205,11 +253,12 @@ export default function ParentSchedulePage() {
           ) : selectedDateItems.length === 0 ? (
             <p>No coach-published sessions for this date yet.</p>
           ) : (
-            selectedDateItems.map((item: any) => {
+            selectedDateItems.map((item) => {
               const start = new Date(item.startsAt);
               const time = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
               const title = item.serviceName || titleForType(item.type);
-              const hasSlots = Array.isArray(item.slots) && item.slots.length > 0;
+              const slots = item.slots ?? [];
+              const hasSlots = slots.length > 0;
               return (
                 <div key={`${item.serviceTypeId}-${item.occurrenceKey}`} className="rounded-2xl border border-border bg-secondary/40 p-4 text-foreground">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -239,7 +288,7 @@ export default function ParentSchedulePage() {
                         Available slots
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {item.slots.map((slot: any) => {
+                        {slots.map((slot) => {
                           const slotStart = new Date(slot.startsAt);
                           const slotTime = slotStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                           const disabled = slot.remainingCapacity != null && slot.remainingCapacity <= 0;
@@ -276,7 +325,7 @@ export default function ParentSchedulePage() {
           ) : upcomingBookings.length === 0 ? (
             <p>No upcoming sessions scheduled.</p>
           ) : (
-            upcomingBookings.map((booking: any) => {
+            upcomingBookings.map((booking) => {
               const start = booking.startsAt ? new Date(booking.startsAt) : null;
               const label = start
                 ? start.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })

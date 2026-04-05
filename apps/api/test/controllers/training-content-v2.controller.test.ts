@@ -129,7 +129,7 @@ describe("training content v2 controller", () => {
   it("updates module tier locks", async () => {
     (updateTrainingModuleTierLocks as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
     const req = {
-      body: { audienceLabel: "8", moduleId: 4, programTiers: ["PHP_Plus", "PHP_Premium"] },
+      body: { audienceLabel: "8", moduleId: 4, programTiers: ["PHP_Premium_Plus", "PHP_Premium"] },
       user: { id: 7 },
     } as any;
     const res = createRes();
@@ -139,7 +139,7 @@ describe("training content v2 controller", () => {
     expect(updateTrainingModuleTierLocks).toHaveBeenCalledWith({
       audienceLabel: "8",
       moduleId: 4,
-      programTiers: ["PHP_Plus", "PHP_Premium"],
+      programTiers: ["PHP_Premium_Plus", "PHP_Premium"],
       createdBy: 7,
     });
     expect(res.status).toHaveBeenCalledWith(200);

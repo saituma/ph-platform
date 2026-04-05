@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -10,17 +10,40 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Textarea } from "../../ui/textarea";
 import { ParentCourseMediaUpload } from "../../parent/config/parent-course-media-upload";
 
+export type TestimonialEntry = {
+  id?: string | number;
+  name?: string;
+  quote?: string;
+  mediaType?: "text" | "image" | "video";
+  photoUrl?: string;
+  videoUrl?: string;
+  aspectRatio?: "reel" | "landscape" | "square";
+};
+
+type TestimonialSubmission = {
+  id: number;
+  body?: string | null;
+  title?: string | null;
+  content?: string | null;
+};
+
+type SubmissionBody = {
+  name?: string;
+  quote?: string;
+  photoUrl?: string | null;
+};
+
 type ContentTabsProps = {
   initialHome?: {
     introVideoUrl?: string;
     adminStory?: string;
     professionalPhoto?: string;
-    testimonials?: any[] | string;
+    testimonials?: TestimonialEntry[] | string;
   } | null;
   onSaveProfile: (data: { adminStory: string; professionalPhoto: string }) => void;
-  onSaveTestimonials: (data: { testimonials: any[] }) => void;
+  onSaveTestimonials: (data: { testimonials: TestimonialEntry[] }) => void;
   onSaveIntroVideo: (data: { introVideoUrl: string }) => void;
-  testimonialSubmissions?: any[];
+  testimonialSubmissions?: TestimonialSubmission[];
   onApproveTestimonial?: (submissionId: number) => void;
   onRejectTestimonial?: (submissionId: number) => void;
 };
@@ -36,12 +59,22 @@ export function ContentTabs({
 }: ContentTabsProps) {
   const adminStoryRef = useRef<HTMLTextAreaElement | null>(null);
   const [showAdminStoryPreview, setShowAdminStoryPreview] = useState(false);
-  const [homeIntroVideo, setHomeIntroVideo] = useState("");
-  const [homeProfessionalPhoto, setHomeProfessionalPhoto] = useState("");
-  const [hasTouchedProfessionalPhoto, setHasTouchedProfessionalPhoto] = useState(false);
-  const [adminStory, setAdminStory] = useState("");
-  const initialProfessionalPhotoRef = useRef("");
-  const [homeTestimonials, setHomeTestimonials] = useState<any[]>([]);
+  const [homeIntroVideo, setHomeIntroVideo] = useState(() => initialHome?.introVideoUrl ?? "");
+  const [homeProfessionalPhoto, setHomeProfessionalPhoto] = useState(() => initialHome?.professionalPhoto ?? "");
+  const [adminStory, setAdminStory] = useState(() => initialHome?.adminStory ?? "");
+  const [homeTestimonials, setHomeTestimonials] = useState<TestimonialEntry[]>(() => {
+    const value = initialHome?.testimonials;
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string" && value.trim().length) {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed) ? (parsed as TestimonialEntry[]) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [testimonialName, setTestimonialName] = useState("");
   const [testimonialQuote, setTestimonialQuote] = useState("");
   const [testimonialPhoto, setTestimonialPhoto] = useState("");
@@ -54,52 +87,6 @@ export function ContentTabs({
     const normalized = value.trim().toLowerCase();
     return normalized.includes("vimeo.com");
   };
-  useEffect(() => {
-    if (!initialHome) return;
-    if (initialHome.introVideoUrl !== undefined) setHomeIntroVideo(initialHome.introVideoUrl ?? "");
-    if (adminStoryRef.current && initialHome.adminStory !== undefined) {
-      adminStoryRef.current.value = initialHome.adminStory ?? "";
-    }
-    if (initialHome.adminStory !== undefined) {
-      setAdminStory(initialHome.adminStory ?? "");
-    }
-    if (initialHome.professionalPhoto !== undefined) {
-      setHomeProfessionalPhoto(initialHome.professionalPhoto ?? "");
-      initialProfessionalPhotoRef.current = initialHome.professionalPhoto ?? "";
-      setHasTouchedProfessionalPhoto(false);
-    }
-    if (initialHome.testimonials !== undefined) {
-      const value = initialHome.testimonials;
-      if (Array.isArray(value)) {
-        setHomeTestimonials(value);
-      } else if (typeof value === "string" && value.trim().length) {
-        try {
-          const parsed = JSON.parse(value);
-          setHomeTestimonials(Array.isArray(parsed) ? parsed : []);
-        } catch {
-          setHomeTestimonials([]);
-        }
-      } else {
-        setHomeTestimonials([]);
-      }
-    }
-  }, [initialHome]);
-
-  const insertAtCursor = (ref: React.RefObject<HTMLTextAreaElement | null>, value: string) => {
-    const el = ref.current;
-    if (!el) return;
-    const start = el.selectionStart ?? 0;
-    const end = el.selectionEnd ?? 0;
-    const text = el.value;
-    el.value = text.slice(0, start) + value + text.slice(end);
-    const cursor = start + value.length;
-    el.focus();
-    el.setSelectionRange(cursor, cursor);
-    if (ref === adminStoryRef) {
-      setAdminStory(el.value);
-    }
-  };
-
   const wrapSelection = (
     ref: React.RefObject<HTMLTextAreaElement | null>,
     prefix: string,
@@ -164,7 +151,7 @@ export function ContentTabs({
 
   const adminStoryPreview = useMemo(
     () => renderMarkdown(adminStory),
-    [adminStory, showAdminStoryPreview]
+    [adminStory]
   );
 
   const toolbar = [
@@ -238,7 +225,6 @@ export function ContentTabs({
                 maxSizeMb={10}
                 onUploaded={(url) => {
                   setHomeProfessionalPhoto(url);
-                  setHasTouchedProfessionalPhoto(true);
                 }}
               />
               {homeProfessionalPhoto ? (
@@ -250,7 +236,6 @@ export function ContentTabs({
                       variant="outline"
                       onClick={() => {
                         setHomeProfessionalPhoto("");
-                        setHasTouchedProfessionalPhoto(true);
                       }}
                     >
                       Remove
@@ -271,9 +256,7 @@ export function ContentTabs({
                 onClick={() => {
                   onSaveProfile({
                     adminStory,
-                    professionalPhoto: hasTouchedProfessionalPhoto
-                      ? homeProfessionalPhoto
-                      : initialProfessionalPhotoRef.current,
+                    professionalPhoto: homeProfessionalPhoto,
                   });
                 }}
               >
@@ -399,7 +382,7 @@ export function ContentTabs({
               className="w-full"
               variant="outline"
               onClick={() => {
-                const cleaned = homeTestimonials.filter((item: any) => {
+                const cleaned = homeTestimonials.filter((item) => {
                   if (!item?.name?.trim?.()) return false;
                   const q = String(item?.quote ?? "").trim();
                   const photo = String(item?.photoUrl ?? "").trim();
@@ -417,7 +400,7 @@ export function ContentTabs({
             </Button>
             {homeTestimonials.length ? (
               <div className="space-y-3">
-                {homeTestimonials.map((item: any, index: number) => (
+                {homeTestimonials.map((item, index: number) => (
                   <div
                     key={item?.id ?? `testimonial-${index}`}
                     className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs"
@@ -438,7 +421,7 @@ export function ContentTabs({
                         variant="outline"
                         onClick={() =>
                           setHomeTestimonials((prev) =>
-                            prev.filter((_: any, i: number) => i !== index)
+                            prev.filter((_, i: number) => i !== index)
                           )
                         }
                       >
@@ -466,11 +449,11 @@ export function ContentTabs({
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   Pending Submissions
                 </p>
-                {testimonialSubmissions.map((submission: any) => {
-                  let body: any = {};
+                {testimonialSubmissions.map((submission) => {
+                  let body: SubmissionBody = {};
                   if (submission?.body && typeof submission.body === "string") {
                     try {
-                      body = JSON.parse(submission.body);
+                      body = JSON.parse(submission.body) as SubmissionBody;
                     } catch {
                       body = {};
                     }

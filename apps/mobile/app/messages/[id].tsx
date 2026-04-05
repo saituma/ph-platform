@@ -34,7 +34,7 @@ export default function ThreadScreen() {
           setMessagingAccessTiers(
             Array.isArray(status?.messagingAccessTiers)
               ? status!.messagingAccessTiers!
-              : ["PHP", "PHP_Plus", "PHP_Premium"],
+              : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
           ),
         );
       } catch {

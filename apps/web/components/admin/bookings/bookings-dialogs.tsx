@@ -373,7 +373,7 @@ export function BookingsDialogs({
                 <div className="grid gap-2 sm:grid-cols-3">
                   {[
                     { value: "PHP", label: "PHP" },
-                    { value: "PHP_Plus", label: "PHP Plus" },
+                    { value: "PHP_Premium_Plus", label: "PHP Premium Plus" },
                     { value: "PHP_Premium", label: "PHP Premium" },
                   ].map((plan) => (
                     <label key={plan.value} className="flex items-center gap-2 text-sm text-muted-foreground">

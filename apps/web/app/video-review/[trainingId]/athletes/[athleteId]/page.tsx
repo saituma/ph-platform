@@ -30,6 +30,20 @@ type VideoItem = {
   createdAt?: string | null;
 };
 
+type RawVideoUpload = {
+  id: number;
+  athleteName?: string | null;
+  athleteUserId?: number | null;
+  reviewedAt?: string | null;
+  createdAt?: string | null;
+  programSectionContentId?: number | null;
+  programSectionTitle?: string | null;
+  programSectionType?: string | null;
+  videoUrl?: string | null;
+  notes?: string | null;
+  feedback?: string | null;
+};
+
 function parseTrainingParam(value: string) {
   if (value.startsWith("id-")) {
     const id = Number(value.replace("id-", ""));
@@ -63,16 +77,10 @@ export default function AthleteVideoDetailPage() {
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
 
   const videos = useMemo<VideoItem[]>(() => {
-    const items = videosData?.items ?? [];
-    return items.map((item: any) => {
+    const items: RawVideoUpload[] = Array.isArray(videosData?.items) ? videosData.items : [];
+    return items.map((item) => {
       const reviewed = Boolean(item.reviewedAt);
-      const createdAt = item.createdAt ? new Date(item.createdAt) : null;
-      const daysOpen = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24) : 0;
-      const status = reviewed
-        ? "Reviewed"
-        : daysOpen >= 7
-          ? "Priority"
-          : "Awaiting";
+      const status = reviewed ? "Reviewed" : "Awaiting";
       const sectionTitle = item.programSectionTitle ?? null;
       const notes = item.notes ?? null;
       const topic = sectionTitle ?? "Video upload";
