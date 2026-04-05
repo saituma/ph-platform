@@ -30,33 +30,29 @@ function parseDiscountConfig(plan: any) {
 
   const empty = {
     monthly: null as string | null,
-    yearly: null as string | null,
   };
 
   if (!rawValue) return empty;
 
   if (appliesTo === "custom") {
     try {
-      const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown };
+      const parsed = JSON.parse(rawValue) as { monthly?: unknown };
       return {
         monthly: parsed.monthly == null ? null : String(parsed.monthly).trim() || null,
-        yearly: parsed.yearly == null ? null : String(parsed.yearly).trim() || null,
       };
     } catch {
       return empty;
     }
   }
 
-  if (appliesTo === "monthly") return { monthly: rawValue, yearly: null };
-  if (appliesTo === "yearly") return { monthly: null, yearly: rawValue };
-  if (appliesTo === "both") return { monthly: rawValue, yearly: rawValue };
+  if (appliesTo === "monthly") return { monthly: rawValue };
 
   return empty;
 }
 
 export function buildPlanPricing(plan: any): PlanPricing {
   const apiPricing = plan?.pricing;
-  if (apiPricing && (apiPricing.monthly || apiPricing.yearly)) {
+  if (apiPricing && apiPricing.monthly) {
     const entries: NonNullable<PlanPricing["entries"]> = [];
     const lines: string[] = [];
 
@@ -76,8 +72,6 @@ export function buildPlanPricing(plan: any): PlanPricing {
     };
 
     addStructuredEntry(apiPricing.monthly);
-    addStructuredEntry(apiPricing.yearly);
-
     return {
       badge: apiPricing.badge ?? plan?.displayPrice ?? lines[0],
       lines,
@@ -88,7 +82,6 @@ export function buildPlanPricing(plan: any): PlanPricing {
   const lines: string[] = [];
   const entries: PlanPricing["entries"] = [];
   const monthlyRaw = plan?.monthlyPrice ? String(plan.monthlyPrice) : "";
-  const yearlyRaw = plan?.yearlyPrice ? String(plan.yearlyPrice) : "";
   const parsedDiscounts = parseDiscountConfig(plan);
 
   const addLine = (label: string, rawValue: string, intervalDiscountValue?: string | null) => {
@@ -119,16 +112,10 @@ export function buildPlanPricing(plan: any): PlanPricing {
   };
 
   addLine("Monthly", monthlyRaw, parsedDiscounts.monthly);
-  addLine("Yearly", yearlyRaw, parsedDiscounts.yearly);
 
   const discountNote =
-    parsedDiscounts.monthly || parsedDiscounts.yearly
-      ? [
-          parsedDiscounts.monthly ? `Monthly ${parsedDiscounts.monthly}% off` : null,
-          parsedDiscounts.yearly ? `Yearly ${parsedDiscounts.yearly}% off` : null,
-        ]
-          .filter(Boolean)
-          .join(" • ")
+    parsedDiscounts.monthly
+      ? `Monthly ${parsedDiscounts.monthly}% off`
       : undefined;
 
   const badge = plan?.displayPrice

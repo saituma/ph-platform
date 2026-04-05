@@ -3,7 +3,7 @@ import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, InteractionManager, Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { Alert, InteractionManager, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import {
@@ -42,8 +42,6 @@ export default function ProgramsScreen() {
   const [pricingByTier, setPricingByTier] = useState<Record<string, PlanPricing>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerTierId, setPickerTierId] = useState<"php" | "plus" | "premium" | "pro" | null>(null);
 
   const openProgramDetail = useCallback(
     (tierId: "php" | "plus" | "premium" | "pro") => {
@@ -52,22 +50,13 @@ export default function ProgramsScreen() {
     [router],
   );
 
-  const openPaymentPicker = useCallback((tierId: "php" | "plus" | "premium" | "pro") => {
-    setPickerTierId(tierId);
-    setPickerOpen(true);
-  }, []);
-
-  const closePaymentPicker = useCallback(() => {
-    setPickerOpen(false);
-  }, []);
-
   const waitForInteractions = useCallback(
     () => new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve())),
     [],
   );
   const getDiscountCopy = useCallback((plan?: any | null) => {
     const pricing = plan?.pricing;
-    const discountedEntries = [pricing?.monthly, pricing?.yearly].filter((entry: any) => entry?.hasDiscount);
+    const discountedEntries = [pricing?.monthly].filter((entry: any) => entry?.hasDiscount);
     if (discountedEntries.length > 0) {
       return discountedEntries
         .map((entry: any) =>
@@ -84,10 +73,6 @@ export default function ProgramsScreen() {
     const applies =
       plan.discountAppliesTo === "monthly"
         ? "monthly"
-        : plan.discountAppliesTo === "yearly"
-        ? "yearly"
-        : plan.discountAppliesTo === "both"
-        ? "monthly + yearly"
         : "plans";
     return `Discount: ${value}${unit} (${applies})`;
   }, []);
@@ -191,7 +176,7 @@ export default function ProgramsScreen() {
   }, [dispatch, token]);
 
   const handleApply = useCallback(
-    async (tierId: "php" | "plus" | "premium" | "pro", interval?: "monthly" | "yearly") => {
+    async (tierId: "php" | "plus" | "premium" | "pro") => {
       if (!token) {
         return;
       }
@@ -207,7 +192,7 @@ export default function ProgramsScreen() {
         return;
       }
 
-      const startCheckout = async (selectedInterval?: "monthly" | "yearly") => {
+      const startCheckout = async () => {
         setIsProcessingPayment(true);
         try {
           await waitForInteractions();
@@ -219,7 +204,7 @@ export default function ProgramsScreen() {
             request?: any;
           }>("/billing/payment-sheet", {
             method: "POST",
-            body: { planId, interval: selectedInterval },
+            body: { planId, interval: "monthly" },
             token,
           });
 
@@ -256,19 +241,7 @@ export default function ProgramsScreen() {
           setIsProcessingPayment(false);
         }
       };
-
-      if (interval) {
-        await startCheckout(interval);
-        return;
-      }
-
-      if (plan.billingInterval?.includes("monthly") && plan.billingInterval?.includes("yearly")) {
-        await startCheckout("monthly");
-        return;
-      }
-
-      const defaultInterval = plan.billingInterval?.includes("yearly") ? "yearly" : "monthly";
-      await startCheckout(defaultInterval);
+      await startCheckout();
     },
     [dispatch, isProcessingPayment, planDetailsByTier, plansByTier, token, waitForInteractions],
   );
@@ -400,13 +373,10 @@ export default function ProgramsScreen() {
         <View className="px-6 gap-5 mt-2">
           {tiers.map((tier) => {
             const requiredTier =
-              tier.id === "plus" ? "PHP_Premium_Plus" : tier.id === "premium" ? "PHP_Premium" : "PHP";
+              tier.id === "pro" ? "PHP_Pro" : tier.id === "plus" ? "PHP_Premium_Plus" : tier.id === "premium" ? "PHP_Premium" : "PHP";
             const pricing = pricingByTier[requiredTier];
             const plan = planDetailsByTier[requiredTier];
             const isPlanInactive = plan?.isActive === false;
-            const hasBothIntervals =
-              plan?.billingInterval?.includes("monthly") &&
-              plan?.billingInterval?.includes("yearly");
             const isTierEnrolled = normalizeProgramTier(programTier) === requiredTier;
             const hasTierAccess = canAccessTier(programTier, requiredTier);
             const requestStatus = String(latestSubscriptionRequest?.status ?? "");
@@ -568,7 +538,7 @@ export default function ProgramsScreen() {
                   <View className="gap-2.5">
                     {/* Detail button — always visible */}
                     <Pressable
-                      onPress={() => openProgramDetail(tier.id as "php" | "plus" | "premium" | "pro" | "pro")}
+                      onPress={() => openProgramDetail(tier.id as "php" | "plus" | "premium" | "pro")}
                       className="rounded-full py-3 items-center"
                       style={{ borderWidth: 1, borderColor: `${colors.accent}33`, backgroundColor: accentSurface }}
                     >
@@ -578,49 +548,27 @@ export default function ProgramsScreen() {
                     </Pressable>
 
                     {/* Subscribe / Apply buttons */}
-                    {hasBothIntervals && !isTierEnrolled && !isPendingApproval && !isPendingPayment ? (
-                      <Pressable
-                        onPress={() => {
-                          if (isPlanInactive) {
-                            Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
-                            return;
-                          }
-                          openPaymentPicker(tier.id as "php" | "plus" | "premium" | "pro" | "pro");
-                        }}
-                        className={`rounded-full py-3 items-center ${isPlanInactive ? "bg-secondary/20" : "bg-[#2F8F57]"} ${isProcessingPayment ? "opacity-60" : ""}`}
-                        disabled={isProcessingPayment || isPlanInactive}
-                      >
-                        <Text className={`text-sm font-outfit font-semibold ${isPlanInactive ? "text-secondary" : "text-white"}`}>
-                          Pay Now
-                        </Text>
-                      </Pressable>
-                    ) : (
-                      <Pressable
-                        onPress={() => {
-                          if (isPlanInactive) {
-                            Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
-                            return;
-                          }
-                          if (isPendingPayment) {
-                            openPaymentPicker(tier.id as "php" | "plus" | "premium" | "pro" | "pro");
-                            return;
-                          }
-                          handleApply(tier.id as "php" | "plus" | "premium" | "pro" | "pro");
-                        }}
-                        className={`rounded-full py-3 items-center ${
-                          isPlanInactive || isTierEnrolled || isPendingApproval
-                            ? "bg-secondary/20"
-                            : "bg-[#2F8F57]"
-                        } ${isProcessingPayment ? "opacity-60" : ""}`}
-                        disabled={isPlanInactive || isTierEnrolled || isPendingApproval || isProcessingPayment}
-                      >
-                        <Text className={`text-sm font-outfit font-semibold ${
-                          isPlanInactive || isTierEnrolled || isPendingApproval ? "text-secondary" : "text-white"
-                        }`}>
-                          {primaryLabel}
-                        </Text>
-                      </Pressable>
-                    )}
+                    <Pressable
+                      onPress={() => {
+                        if (isPlanInactive) {
+                          Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
+                          return;
+                        }
+                        handleApply(tier.id as "php" | "plus" | "premium" | "pro");
+                      }}
+                      className={`rounded-full py-3 items-center ${
+                        isPlanInactive || isTierEnrolled || isPendingApproval
+                          ? "bg-secondary/20"
+                          : "bg-[#2F8F57]"
+                      } ${isProcessingPayment ? "opacity-60" : ""}`}
+                      disabled={isPlanInactive || isTierEnrolled || isPendingApproval || isProcessingPayment}
+                    >
+                      <Text className={`text-sm font-outfit font-semibold ${
+                        isPlanInactive || isTierEnrolled || isPendingApproval ? "text-secondary" : "text-white"
+                      }`}>
+                        {primaryLabel}
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
               </Transition.Pressable>
@@ -628,121 +576,6 @@ export default function ProgramsScreen() {
           })}
         </View>
       </ScrollView>
-
-      <Modal
-        visible={pickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={closePaymentPicker}
-      >
-        <Pressable className="flex-1 items-center justify-center px-6" style={{ backgroundColor: overlayColor }} onPress={closePaymentPicker}>
-          <Pressable
-            className="w-full rounded-[30px] p-5"
-            style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.lg) }}
-            onPress={(event) => event.stopPropagation()}
-          >
-            <Text className="text-lg font-clash text-app font-bold">Choose billing</Text>
-            <Text className="text-sm font-outfit text-secondary mt-1">
-              Select a billing interval to continue.
-            </Text>
-            {(() => {
-              if (!pickerTierId) return null;
-              const requiredTier =
-                pickerTierId === "pro" ? "PHP_Pro" : pickerTierId === "plus" ? "PHP_Premium_Plus" : pickerTierId === "premium" ? "PHP_Premium" : "PHP";
-              const plan = planDetailsByTier[requiredTier];
-              const discountCopy = getDiscountCopy(plan);
-              if (!discountCopy) return null;
-              return (
-                <View className="mt-3 rounded-2xl border border-app/15 bg-white/10 px-3 py-2">
-                  <Text className="text-xs font-outfit text-secondary">{discountCopy}</Text>
-                </View>
-              );
-            })()}
-            <View className="mt-4 gap-2.5">
-              {(() => {
-                if (!pickerTierId) return null;
-                const requiredTier =
-                  pickerTierId === "pro" ? "PHP_Pro" : pickerTierId === "plus" ? "PHP_Premium_Plus" : pickerTierId === "premium" ? "PHP_Premium" : "PHP";
-                const pricing = pricingByTier[requiredTier];
-                const monthlyEntry = pricing?.entries?.find((entry) => entry.label === "Monthly");
-                const yearlyEntry = pricing?.entries?.find((entry) => entry.label === "Yearly");
-                return (
-                  <>
-                    <Pressable
-                      onPress={() => {
-                        closePaymentPicker();
-                        handleApply(pickerTierId, "monthly");
-                      }}
-                      className={`rounded-full py-3 items-center bg-[#2F8F57] ${isProcessingPayment ? "opacity-60" : ""}`}
-                      disabled={isProcessingPayment}
-                    >
-                      <Text className="text-sm font-outfit text-white font-semibold">Monthly</Text>
-                      {monthlyEntry?.discounted ? (
-                        <View className="mt-1 items-center">
-                          {monthlyEntry.discountLabel ? (
-                            <Text className="text-[10px] font-outfit text-red-200">
-                              {monthlyEntry.discountLabel}
-                            </Text>
-                          ) : null}
-                          <View className="mt-1 flex-row items-center gap-2">
-                            <Text className="text-[10px] font-outfit text-red-200 line-through">
-                              {monthlyEntry.original}
-                            </Text>
-                            <Text className="text-xs font-outfit text-white">
-                              {monthlyEntry.discounted}
-                            </Text>
-                          </View>
-                        </View>
-                      ) : monthlyEntry ? (
-                        <Text className="text-xs font-outfit text-white mt-1">
-                          {monthlyEntry.original}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                    <Pressable
-                      onPress={() => {
-                        closePaymentPicker();
-                        handleApply(pickerTierId, "yearly");
-                      }}
-                      className={`rounded-full py-3 items-center bg-[#1F6F45] ${isProcessingPayment ? "opacity-60" : ""}`}
-                      disabled={isProcessingPayment}
-                    >
-                      <Text className="text-sm font-outfit text-white font-semibold">Yearly</Text>
-                      {yearlyEntry?.discounted ? (
-                        <View className="mt-1 items-center">
-                          {yearlyEntry.discountLabel ? (
-                            <Text className="text-[10px] font-outfit text-red-200">
-                              {yearlyEntry.discountLabel}
-                            </Text>
-                          ) : null}
-                          <View className="mt-1 flex-row items-center gap-2">
-                            <Text className="text-[10px] font-outfit text-red-200 line-through">
-                              {yearlyEntry.original}
-                            </Text>
-                            <Text className="text-xs font-outfit text-white">
-                              {yearlyEntry.discounted}
-                            </Text>
-                          </View>
-                        </View>
-                      ) : yearlyEntry ? (
-                        <Text className="text-xs font-outfit text-white mt-1">
-                          {yearlyEntry.original}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  </>
-                );
-              })()}
-              <Pressable
-                onPress={closePaymentPicker}
-                className="rounded-full py-3 items-center border border-app/20 bg-white/10"
-              >
-                <Text className="text-sm font-outfit text-secondary">Cancel</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }

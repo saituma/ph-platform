@@ -123,7 +123,7 @@ export default function PlansScreen() {
   }, [refreshBillingStatus]);
 
   const handleCheckout = useCallback(
-    async (planId: number, interval?: "monthly" | "yearly") => {
+    async (planId: number) => {
       if (isProcessingPayment) {
         return;
       }
@@ -144,7 +144,7 @@ export default function PlansScreen() {
           request?: any;
         }>("/billing/payment-sheet", {
           method: "POST",
-          body: { planId, interval },
+          body: { planId, interval: "monthly" },
           token,
         });
 
@@ -391,32 +391,14 @@ export default function PlansScreen() {
                   "Changing plans will start a new payment and require coach approval.",
                   [
                     { text: "Continue", onPress: () => {
-                      if (plan.billingInterval?.includes("monthly") && plan.billingInterval?.includes("yearly")) {
-                        Alert.alert("Choose billing", "Select a billing interval", [
-                          { text: "Monthly", onPress: () => handleCheckout(plan.id, "monthly") },
-                          { text: "Yearly", onPress: () => handleCheckout(plan.id, "yearly") },
-                          { text: "Cancel", style: "cancel" },
-                        ]);
-                        return;
-                      }
-                      const interval = plan.billingInterval?.includes("yearly") ? "yearly" : "monthly";
-                      handleCheckout(plan.id, interval);
+                      handleCheckout(plan.id);
                     }},
                     { text: "Cancel", style: "cancel" },
                   ]
                 );
                 return;
               }
-              if (plan.billingInterval?.includes("monthly") && plan.billingInterval?.includes("yearly")) {
-                Alert.alert("Choose billing", "Select a billing interval", [
-                  { text: "Monthly", onPress: () => handleCheckout(plan.id, "monthly") },
-                  { text: "Yearly", onPress: () => handleCheckout(plan.id, "yearly") },
-                  { text: "Cancel", style: "cancel" },
-                ]);
-                return;
-              }
-              const interval = plan.billingInterval?.includes("yearly") ? "yearly" : "monthly";
-              handleCheckout(plan.id, interval);
+              handleCheckout(plan.id);
             };
             return (
               <ProgramCard

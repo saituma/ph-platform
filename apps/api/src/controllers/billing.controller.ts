@@ -27,7 +27,7 @@ import { updateAthleteProgramTier } from "../services/admin.service";
 
 const checkoutSchema = z.object({
   planId: z.number().int().min(1),
-  interval: z.enum(["monthly", "yearly"]).optional(),
+  interval: z.literal("monthly").optional(),
 });
 
 const confirmSchema = z.object({
@@ -152,7 +152,7 @@ export async function createCheckout(req: Request, res: Response) {
       userEmail: req.user!.email,
       athleteId: athlete.id,
       planId: parsed.data.planId,
-      interval: parsed.data.interval,
+      interval: "monthly",
     });
     return res.status(200).json({
       checkoutUrl: session.url,
@@ -186,7 +186,7 @@ export async function createPaymentSheet(req: Request, res: Response) {
       userEmail: req.user!.email,
       athleteId: athlete.id,
       planId: parsed.data.planId,
-      interval: parsed.data.interval,
+      interval: "monthly",
     });
     return res.status(200).json({
       customerId: result.customerId,

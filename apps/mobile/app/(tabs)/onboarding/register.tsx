@@ -109,7 +109,7 @@ export default function RegisterScreen() {
   }, []);
 
   const handlePayPlan = React.useCallback(
-    async (tierKey: string, interval?: "monthly" | "yearly") => {
+    async (tierKey: string) => {
       if (isPaying) return;
       const plan = planByTier[tierKey];
       if (!plan?.id) {
@@ -138,7 +138,7 @@ export default function RegisterScreen() {
           request?: any;
         }>("/billing/payment-sheet", {
           method: "POST",
-          body: { planId: plan.id, interval },
+          body: { planId: plan.id, interval: "monthly" },
           token,
         });
 

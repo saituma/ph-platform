@@ -6,7 +6,6 @@ import { Button } from "../../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 
 type PlanTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
@@ -17,12 +16,9 @@ type PlanFormState = {
   displayPrice: string;
   billingInterval: string;
   monthlyPrice: string;
-  yearlyPrice: string;
   discountType: string;
   monthlyDiscountEnabled: boolean;
   monthlyDiscountValue: string;
-  yearlyDiscountEnabled: boolean;
-  yearlyDiscountValue: string;
   isActive: boolean;
 };
 
@@ -33,7 +29,6 @@ type BillingPlan = {
   displayPrice?: string;
   billingInterval?: string;
   monthlyPrice?: string;
-  yearlyPrice?: string;
   discountType?: string;
   discountValue?: string;
   discountAppliesTo?: string;
@@ -62,26 +57,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-const BILLING_INTERVALS = ["monthly", "yearly"] as const;
 const getCsrfToken = () =>
   document.cookie
     .split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith("csrfToken="))
     ?.split("=")[1] ?? "";
-
-function parseIntervals(value: string) {
-  return new Set(
-    value
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean)
-  );
-}
-
-function formatIntervals(values: Set<string>) {
-  return Array.from(values).join(", ");
-}
 
 const PLAN_DEFINITIONS: PlanFormState[] = [
   {
@@ -90,12 +71,9 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
     displayPrice: "£34.99/month",
     billingInterval: "monthly",
     monthlyPrice: "£34.99",
-    yearlyPrice: "",
     discountType: "percent",
     monthlyDiscountEnabled: false,
     monthlyDiscountValue: "",
-    yearlyDiscountEnabled: false,
-    yearlyDiscountValue: "",
     isActive: true,
   },
   {
@@ -104,12 +82,9 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
     displayPrice: "£69.99/month",
     billingInterval: "monthly",
     monthlyPrice: "£69.99",
-    yearlyPrice: "",
     discountType: "percent",
     monthlyDiscountEnabled: false,
     monthlyDiscountValue: "",
-    yearlyDiscountEnabled: false,
-    yearlyDiscountValue: "",
     isActive: true,
   },
   {
@@ -118,12 +93,9 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
     displayPrice: "£99/month",
     billingInterval: "monthly",
     monthlyPrice: "£99",
-    yearlyPrice: "",
     discountType: "percent",
     monthlyDiscountEnabled: false,
     monthlyDiscountValue: "",
-    yearlyDiscountEnabled: false,
-    yearlyDiscountValue: "",
     isActive: true,
   },
   {
@@ -132,12 +104,9 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
     displayPrice: "£249.99/month",
     billingInterval: "monthly",
     monthlyPrice: "£249.99",
-    yearlyPrice: "",
     discountType: "percent",
     monthlyDiscountEnabled: false,
     monthlyDiscountValue: "",
-    yearlyDiscountEnabled: false,
-    yearlyDiscountValue: "",
     isActive: true,
   },
 ];
@@ -149,67 +118,45 @@ function parseDiscountFields(plan: BillingPlan | null | undefined) {
     return {
       monthlyDiscountEnabled: false,
       monthlyDiscountValue: "",
-      yearlyDiscountEnabled: false,
-      yearlyDiscountValue: "",
     };
   }
   if (appliesTo === "custom") {
     try {
-      const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown };
+      const parsed = JSON.parse(rawValue) as { monthly?: unknown };
       const monthlyValue = parsed.monthly == null ? "" : String(parsed.monthly);
-      const yearlyValue = parsed.yearly == null ? "" : String(parsed.yearly);
       return {
         monthlyDiscountEnabled: Boolean(monthlyValue.trim()),
         monthlyDiscountValue: monthlyValue,
-        yearlyDiscountEnabled: Boolean(yearlyValue.trim()),
-        yearlyDiscountValue: yearlyValue,
       };
     } catch {
       return {
         monthlyDiscountEnabled: false,
         monthlyDiscountValue: "",
-        yearlyDiscountEnabled: false,
-        yearlyDiscountValue: "",
       };
     }
   }
   if (appliesTo === "monthly") {
-    return { monthlyDiscountEnabled: true, monthlyDiscountValue: rawValue, yearlyDiscountEnabled: false, yearlyDiscountValue: "" };
-  }
-  if (appliesTo === "yearly") {
-    return { monthlyDiscountEnabled: false, monthlyDiscountValue: "", yearlyDiscountEnabled: true, yearlyDiscountValue: rawValue };
-  }
-  if (appliesTo === "both") {
-    return { monthlyDiscountEnabled: true, monthlyDiscountValue: rawValue, yearlyDiscountEnabled: true, yearlyDiscountValue: rawValue };
+    return { monthlyDiscountEnabled: true, monthlyDiscountValue: rawValue };
   }
   return {
     monthlyDiscountEnabled: false,
     monthlyDiscountValue: "",
-    yearlyDiscountEnabled: false,
-    yearlyDiscountValue: "",
   };
 }
 
 function buildDisplayPrice(plan: PlanFormState) {
   const monthly = plan.monthlyPrice?.trim();
-  const yearly = plan.yearlyPrice?.trim();
-  const parts: string[] = [];
-  if (monthly) parts.push(`Monthly ${monthly}`);
-  if (yearly) parts.push(`Yearly ${yearly}`);
-  if (parts.length === 0) return "Free";
-  return parts.join(" • ");
+  if (!monthly) return "Free";
+  return `Monthly ${monthly}`;
 }
 
 function normalizePlan(plan: PlanFormState) {
   return {
     ...plan,
     monthlyPrice: plan.monthlyPrice ?? "",
-    yearlyPrice: plan.yearlyPrice ?? "",
     discountType: plan.discountType ?? "percent",
     monthlyDiscountEnabled: plan.monthlyDiscountEnabled ?? false,
     monthlyDiscountValue: plan.monthlyDiscountValue ?? "",
-    yearlyDiscountEnabled: plan.yearlyDiscountEnabled ?? false,
-    yearlyDiscountValue: plan.yearlyDiscountValue ?? "",
     billingInterval: plan.billingInterval ?? "monthly",
     displayPrice: buildDisplayPrice(plan),
   };
@@ -252,7 +199,6 @@ export function BillingSection() {
             displayPrice: existing.displayPrice ?? "",
             billingInterval: existing.billingInterval ?? plan.billingInterval,
             monthlyPrice: existing.monthlyPrice ?? "",
-            yearlyPrice: existing.yearlyPrice ?? "",
             discountType: existing.discountType ?? "percent",
             ...parseDiscountFields(existing),
             isActive: existing.isActive ?? true,
@@ -293,13 +239,10 @@ export function BillingSection() {
             displayPrice: buildDisplayPrice(plan),
             billingInterval: plan.billingInterval,
             monthlyPrice: plan.monthlyPrice,
-            yearlyPrice: plan.yearlyPrice,
+            yearlyPrice: "",
             discountType: "percent",
-            discountValue: JSON.stringify({
-              monthly: plan.monthlyDiscountEnabled ? plan.monthlyDiscountValue.trim() || undefined : undefined,
-              yearly: plan.yearlyDiscountEnabled ? plan.yearlyDiscountValue.trim() || undefined : undefined,
-            }),
-            discountAppliesTo: "custom",
+            discountValue: plan.monthlyDiscountEnabled ? plan.monthlyDiscountValue.trim() : "",
+            discountAppliesTo: "monthly",
             isActive: plan.isActive,
             stripePriceId: "manual",
           }),
@@ -421,40 +364,8 @@ export function BillingSection() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Yearly Price</Label>
-                      <Input
-                        value={plan.yearlyPrice ?? ""}
-                        onChange={(event) => updatePlanAt(index, (item) => ({ ...item, yearlyPrice: event.target.value }))}
-                        placeholder="$290"
-                      />
-                    </div>
-                    <div className="space-y-2">
                       <Label>Billing Interval</Label>
-                      <div className="flex flex-wrap gap-3 text-sm text-white/80">
-                        {BILLING_INTERVALS.map((interval) => {
-                          const selected = parseIntervals(plan.billingInterval);
-                          const isChecked = selected.has(interval);
-                          return (
-                            <label key={interval} className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(event) => {
-                                  const next = new Set(selected);
-                                  if (event.target.checked) {
-                                    next.add(interval);
-                                  } else {
-                                    next.delete(interval);
-                                  }
-                                  const formatted = formatIntervals(next);
-                                  updatePlanAt(index, (item) => ({ ...item, billingInterval: formatted }));
-                                }}
-                              />
-                              <span className="capitalize">{interval}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
+                      <Input value="monthly" readOnly />
                     </div>
                     <div className="space-y-2">
                       <Label>Discount Type</Label>
@@ -477,25 +388,6 @@ export function BillingSection() {
                         onChange={(event) => updatePlanAt(index, (item) => ({ ...item, monthlyDiscountValue: event.target.value }))}
                         placeholder="0"
                         disabled={!plan.monthlyDiscountEnabled}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Yearly Discount (%)</Label>
-                      <label className="flex items-center gap-2 text-sm text-white/80">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(plan.yearlyDiscountEnabled)}
-                          onChange={(event) =>
-                            updatePlanAt(index, (item) => ({ ...item, yearlyDiscountEnabled: event.target.checked }))
-                          }
-                        />
-                        <span>Enable yearly discount</span>
-                      </label>
-                      <Input
-                        value={plan.yearlyDiscountValue ?? ""}
-                        onChange={(event) => updatePlanAt(index, (item) => ({ ...item, yearlyDiscountValue: event.target.value }))}
-                        placeholder="0"
-                        disabled={!plan.yearlyDiscountEnabled}
                       />
                     </div>
                   </div>
