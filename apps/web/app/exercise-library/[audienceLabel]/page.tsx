@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../components/admin/shell";
@@ -49,10 +49,17 @@ function buildModuleTitle(name: string, focus: string) {
 
 export default function AudienceDetailPage() {
   const params = useParams<{ audienceLabel: string }>();
+  const searchParams = useSearchParams();
   const audienceLabel = useMemo(
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
     [params.audienceLabel],
   );
+  const isAdultTierAudience = useMemo(
+    () => PROGRAM_TIERS.some((tier) => tier.label === audienceLabel),
+    [audienceLabel],
+  );
+  const fromAdultMode = searchParams.get("mode") === "adult" || isAdultTierAudience;
+  const audienceNoun = fromAdultMode ? "adult tier" : "age";
 
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [activeTab, setActiveTab] = useState<"modules" | "others">("modules");
@@ -85,7 +92,7 @@ export default function AudienceDetailPage() {
       const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`);
       setWorkspace(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load age workspace.");
+      setError(err instanceof Error ? err.message : `Failed to load ${audienceNoun} workspace.`);
     }
   };
 
@@ -148,7 +155,7 @@ export default function AudienceDetailPage() {
   };
 
   const cleanupPlaceholderModules = async () => {
-    if (!window.confirm("Remove auto-created placeholder modules for this age?")) return;
+    if (!window.confirm(`Remove auto-created placeholder modules for this ${audienceNoun}?`)) return;
     setIsSaving(true);
     try {
       setError(null);
@@ -308,11 +315,11 @@ export default function AudienceDetailPage() {
   };
 
   return (
-    <AdminShell title="Exercise library" subtitle={`Age ${audienceLabel}`}>
+    <AdminShell title="Exercise library" subtitle={fromAdultMode ? `Adult tier ${audienceLabel}` : `Age ${audienceLabel}`}>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/exercise-library">
-            <Button variant="outline">Back to age groups</Button>
+          <Link href={fromAdultMode ? "/exercise-library?mode=adult" : "/exercise-library"}>
+            <Button variant="outline">{fromAdultMode ? "Back to adult tiers" : "Back to age groups"}</Button>
           </Link>
           <Button variant="outline" disabled={isSaving || isUpdatingLocks} onClick={() => void cleanupPlaceholderModules()}>
             Clean placeholders
@@ -345,7 +352,7 @@ export default function AudienceDetailPage() {
             <CardHeader>
               <SectionHeader
                 title="Program modules (1-12)"
-                description="Build the age program as Module 1 through Module 12. Each module includes module number, module name, and focus."
+                description={`Build the ${audienceNoun} program as Module 1 through Module 12. Each module includes module number, module name, and focus.`}
               />
             </CardHeader>
             <CardContent className="space-y-3">
@@ -447,7 +454,7 @@ export default function AudienceDetailPage() {
             <CardHeader>
               <SectionHeader
                 title="Other Editable Content"
-                description="Manage supporting program content for this age group."
+                description={`Manage supporting program content for this ${audienceNoun}.`}
               />
             </CardHeader>
             <CardContent className="space-y-3">
@@ -527,7 +534,7 @@ export default function AudienceDetailPage() {
           <DialogHeader>
             <DialogTitle>{moduleForm.id ? "Edit module" : "Add module"}</DialogTitle>
             <DialogDescription>
-              {moduleForm.targetOrder ? `This will save into Module ${moduleForm.targetOrder}.` : "Set module name and module focus for this age."}
+              {moduleForm.targetOrder ? `This will save into Module ${moduleForm.targetOrder}.` : `Set module name and module focus for this ${audienceNoun}.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
