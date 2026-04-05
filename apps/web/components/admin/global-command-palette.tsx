@@ -136,12 +136,6 @@ const NAV_ITEMS: PaletteList = {
       href: "/",
       keywords: ["dashboard", "home"],
     },
-    {
-      id: "coaching",
-      children: "1:1 Coaching",
-      href: "/coaching",
-      keywords: ["premium", "athlete"],
-    },
     { id: "users", children: "Users & Tiers", href: "/users" },
     { id: "add-user", children: "Add user", href: "/users/add" },
     { id: "add-team", children: "Add team", href: "/users/add-team" },

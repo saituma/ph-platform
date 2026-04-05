@@ -12,7 +12,6 @@ import {
   ClipboardCheck,
   ClipboardList,
   CreditCard,
-  Crown,
   Home,
   MessageCircle,
   PlaySquare,
@@ -138,14 +137,6 @@ export function AdminSidebarContent({
       title: "Overview",
       description: "Coach dashboard & snapshot KPIs",
       items: [{ label: "Overview", href: "/", icon: Home }],
-    },
-    {
-      id: "coaching",
-      title: "Premium coaching",
-      description: "1:1 athlete plans, check-ins, and progress",
-      items: [
-        { label: "1:1 Coaching", href: "/coaching", icon: Crown },
-      ],
     },
     {
       id: "people",
