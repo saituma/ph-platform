@@ -608,6 +608,22 @@ export async function getTeamDetailsAdmin(teamName: string) {
   };
 }
 
+function normalizeInjuriesForText(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    const flattened = value
+      .map((item) => (typeof item === "string" ? item.trim() : String(item)))
+      .filter(Boolean);
+    return flattened.length ? flattened.join(", ") : null;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 export async function getTeamMemberAdmin(input: { teamName: string; athleteId: number }) {
   const cleanTeamName = input.teamName.trim();
   if (!cleanTeamName) return null;
@@ -647,7 +663,7 @@ export async function getTeamMemberAdmin(input: { teamName: string; athleteId: n
     birthDate: row.birthDate,
     trainingPerWeek: row.trainingPerWeek,
     currentProgramTier: row.currentProgramTier,
-    injuries: row.injuries ? JSON.stringify(row.injuries) : null,
+    injuries: normalizeInjuriesForText(row.injuries),
     growthNotes: row.growthNotes,
     performanceGoals: row.performanceGoals,
     equipmentAccess: row.equipmentAccess,
