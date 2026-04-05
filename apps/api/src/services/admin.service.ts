@@ -706,7 +706,7 @@ export async function updateTeamMemberAdmin(input: {
   birthDate?: string | null;
   trainingPerWeek?: number;
   currentProgramTier?: (typeof ProgramType.enumValues)[number] | null;
-  injuries?: string | null;
+  injuries?: unknown;
   growthNotes?: string | null;
   performanceGoals?: string | null;
   equipmentAccess?: string | null;
@@ -738,7 +738,19 @@ export async function updateTeamMemberAdmin(input: {
   if (input.birthDate !== undefined) athletePatch.birthDate = input.birthDate ? input.birthDate : null;
   if (input.trainingPerWeek !== undefined) athletePatch.trainingPerWeek = input.trainingPerWeek;
   if (input.currentProgramTier !== undefined) athletePatch.currentProgramTier = input.currentProgramTier;
-  if (input.injuries !== undefined) athletePatch.injuries = input.injuries?.trim() ? input.injuries.trim() : null;
+  if (input.injuries !== undefined) {
+    if (Array.isArray(input.injuries)) {
+      const normalized = input.injuries
+        .map((item) => (typeof item === "string" ? item.trim() : String(item)))
+        .filter(Boolean);
+      athletePatch.injuries = normalized.length ? normalized : null;
+    } else if (typeof input.injuries === "string") {
+      const trimmed = input.injuries.trim();
+      athletePatch.injuries = trimmed ? [trimmed] : null;
+    } else {
+      athletePatch.injuries = null;
+    }
+  }
   if (input.growthNotes !== undefined) athletePatch.growthNotes = input.growthNotes?.trim() ? input.growthNotes.trim() : null;
   if (input.performanceGoals !== undefined) athletePatch.performanceGoals = input.performanceGoals?.trim() ? input.performanceGoals.trim() : null;
   if (input.equipmentAccess !== undefined) athletePatch.equipmentAccess = input.equipmentAccess?.trim() ? input.equipmentAccess.trim() : null;
