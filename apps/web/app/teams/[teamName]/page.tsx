@@ -9,6 +9,7 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../../components/ui/card";
 import { SectionHeader } from "../../../components/admin/section-header";
 import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 
 type TeamDetails = {
@@ -75,11 +76,23 @@ export default function TeamDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [pageNotice, setPageNotice] = useState<string | null>(null);
   const [attachModalOpen, setAttachModalOpen] = useState(false);
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [athleteSearch, setAthleteSearch] = useState("");
   const [availableAthletes, setAvailableAthletes] = useState<AvailableAthlete[]>([]);
   const [isLoadingAvailableAthletes, setIsLoadingAvailableAthletes] = useState(false);
   const [isAttachingAthlete, setIsAttachingAthlete] = useState(false);
   const [selectedAthleteId, setSelectedAthleteId] = useState<number | null>(null);
+  const [isRegisteringAthlete, setIsRegisteringAthlete] = useState(false);
+  const [registerForm, setRegisterForm] = useState({
+    email: "",
+    guardianDisplayName: "",
+    athleteName: "",
+    birthDate: "",
+    trainingPerWeek: "3",
+    parentPhone: "",
+    relationToAthlete: "Guardian",
+    desiredProgramType: "PHP",
+  });
 
   const loadDetails = async () => {
     setIsLoading(true);
@@ -172,6 +185,70 @@ export default function TeamDetailPage() {
     }
   };
 
+  const registerNewAthlete = async () => {
+    if (!registerForm.email.trim() || !registerForm.guardianDisplayName.trim() || !registerForm.athleteName.trim() || !registerForm.birthDate.trim()) {
+      setPageNotice("Please fill all required fields.");
+      return;
+    }
+
+    const trainingPerWeek = Number.parseInt(registerForm.trainingPerWeek, 10);
+    if (!Number.isFinite(trainingPerWeek) || trainingPerWeek < 0) {
+      setPageNotice("Training/week must be a valid number.");
+      return;
+    }
+
+    setPageNotice(null);
+    setIsRegisteringAthlete(true);
+    try {
+      const csrfToken = getCsrfToken();
+      const response = await fetch("/api/backend/admin/users/provision", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email: registerForm.email.trim(),
+          guardianDisplayName: registerForm.guardianDisplayName.trim(),
+          athleteName: registerForm.athleteName.trim(),
+          birthDate: registerForm.birthDate.trim(),
+          team: teamName.trim(),
+          trainingPerWeek,
+          parentPhone: registerForm.parentPhone.trim() || null,
+          relationToAthlete: registerForm.relationToAthlete.trim() || null,
+          desiredProgramType: registerForm.desiredProgramType as "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro",
+          planPaymentType: "monthly",
+          planCommitmentMonths: 6,
+          termsVersion: "1.0",
+          privacyVersion: "1.0",
+          appVersion: "admin-web",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to register player.");
+      }
+      setRegisterModalOpen(false);
+      setRegisterForm({
+        email: "",
+        guardianDisplayName: "",
+        athleteName: "",
+        birthDate: "",
+        trainingPerWeek: "3",
+        parentPhone: "",
+        relationToAthlete: "Guardian",
+        desiredProgramType: "PHP",
+      });
+      setPageNotice(payload?.emailSent ? "Player registered and invite email sent." : "Player registered. Email sending failed.");
+      await loadDetails();
+    } catch (err) {
+      setPageNotice(err instanceof Error ? err.message : "Failed to register player.");
+    } finally {
+      setIsRegisteringAthlete(false);
+    }
+  };
+
   const filteredAvailableAthletes = availableAthletes.filter((athlete) => {
     const normalized = athleteSearch.trim().toLowerCase();
     if (!normalized) return true;
@@ -190,8 +267,14 @@ export default function TeamDetailPage() {
 
         <Card>
           <CardContent className="flex flex-wrap items-center gap-2 pt-6">
-            <Button size="sm" asChild>
-              <Link href={`/users/add?team=${encodeURIComponent(teamName)}&type=youth`}>Register new player</Link>
+            <Button
+              size="sm"
+              onClick={() => {
+                setRegisterModalOpen(true);
+                setRegisterForm((current) => ({ ...current, relationToAthlete: current.relationToAthlete || "Guardian" }));
+              }}
+            >
+              Register new player
             </Button>
             <Button variant="outline" size="sm" onClick={() => setAttachModalOpen(true)}>
               Add existing athlete
@@ -311,6 +394,95 @@ export default function TeamDetailPage() {
                 disabled={!selectedAthleteId || isAttachingAthlete || isLoadingAvailableAthletes}
               >
                 {isAttachingAthlete ? "Adding..." : "Add athlete"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={registerModalOpen} onOpenChange={setRegisterModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Register new player</DialogTitle>
+            <DialogDescription>Create a youth player and assign them directly to {teamName}.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Guardian email</Label>
+              <Input
+                type="email"
+                value={registerForm.email}
+                onChange={(event) => setRegisterForm((current) => ({ ...current, email: event.target.value }))}
+                placeholder="guardian@email.com"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Guardian name</Label>
+              <Input
+                value={registerForm.guardianDisplayName}
+                onChange={(event) => setRegisterForm((current) => ({ ...current, guardianDisplayName: event.target.value }))}
+                placeholder="Parent / guardian name"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Athlete name</Label>
+              <Input
+                value={registerForm.athleteName}
+                onChange={(event) => setRegisterForm((current) => ({ ...current, athleteName: event.target.value }))}
+                placeholder="Player full name"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Birth date</Label>
+              <Input
+                type="date"
+                value={registerForm.birthDate}
+                onChange={(event) => setRegisterForm((current) => ({ ...current, birthDate: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Training/week</Label>
+              <Input
+                type="number"
+                min={0}
+                value={registerForm.trainingPerWeek}
+                onChange={(event) => setRegisterForm((current) => ({ ...current, trainingPerWeek: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Program tier</Label>
+              <select
+                className="h-10 w-full rounded-full border border-input bg-background px-4 text-sm"
+                value={registerForm.desiredProgramType}
+                onChange={(event) => setRegisterForm((current) => ({ ...current, desiredProgramType: event.target.value }))}
+              >
+                <option value="PHP">PHP Program</option>
+                <option value="PHP_Premium">PHP Premium</option>
+                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                <option value="PHP_Pro">PHP Pro</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>Guardian phone (optional)</Label>
+              <Input
+                value={registerForm.parentPhone}
+                onChange={(event) => setRegisterForm((current) => ({ ...current, parentPhone: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Relation (optional)</Label>
+              <Input
+                value={registerForm.relationToAthlete}
+                onChange={(event) => setRegisterForm((current) => ({ ...current, relationToAthlete: event.target.value }))}
+                placeholder="Guardian"
+              />
+            </div>
+            <div className="sm:col-span-2 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRegisterModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void registerNewAthlete()} disabled={isRegisteringAthlete}>
+                {isRegisteringAthlete ? "Registering..." : "Register player"}
               </Button>
             </div>
           </div>
