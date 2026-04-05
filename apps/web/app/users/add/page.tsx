@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
@@ -36,7 +36,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function AddUserPage() {
-  const router = useRouter();
   const { data: configData, isLoading: configLoading } = useGetOnboardingConfigQuery();
   const [provision, { isLoading: isSubmitting }] = useProvisionGuardianMutation();
   const [provisionAdult, { isLoading: isSubmittingAdult }] = useProvisionAdultAthleteMutation();
@@ -60,8 +59,6 @@ export default function AddUserPage() {
   const [desiredProgramType, setDesiredProgramType] = useState<"PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro">("PHP");
   const [planPaymentType, setPlanPaymentType] = useState<"monthly" | "upfront">("monthly");
   const [planCommitmentMonths, setPlanCommitmentMonths] = useState<6 | 12>(6);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ userId: number; emailSent: boolean } | null>(null);
 
   const submitting = isSubmitting || isSubmittingAdult;
 
@@ -78,19 +75,35 @@ export default function AddUserPage() {
     return true;
   }, [formType, email, guardianDisplayName, athleteName, birthDate, team, trainingPerWeek]);
 
+  const resetForm = () => {
+    setEmail("");
+    setGuardianDisplayName("");
+    setAthleteName("");
+    setBirthDate("");
+    setTeam("");
+    setTrainingPerWeek("3");
+    setInjuries([""]);
+    setGrowthNotes([""]);
+    setPerformanceGoals([""]);
+    setEquipmentAccess([""]);
+    setParentPhone("");
+    setRelationToAthlete("");
+    setDesiredProgramType("PHP");
+    setPlanPaymentType("monthly");
+    setPlanCommitmentMonths(6);
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
-    setSuccess(null);
     const n = Number.parseInt(trainingPerWeek, 10);
     if (!Number.isFinite(n) || n < 0) {
-      setFormError("Training days per week must be a valid number.");
+      toast.error("Training days per week must be a valid number.");
       return;
     }
     if (formType === "adult") {
       const birth = new Date(birthDate);
       if (Number.isNaN(birth.getTime())) {
-        setFormError("Birth date is invalid.");
+        toast.error("Birth date is invalid.");
         return;
       }
       const now = new Date();
@@ -98,7 +111,7 @@ export default function AddUserPage() {
       const monthDiff = now.getMonth() - birth.getMonth();
       if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age -= 1;
       if (age < 18) {
-        setFormError("Adult athletes must be 18 or older.");
+        toast.error("Adult athletes must be 18 or older.");
         return;
       }
     }
@@ -144,9 +157,14 @@ export default function AddUserPage() {
             privacyVersion,
             appVersion: "admin-web",
           }).unwrap();
-      setSuccess({ userId: result.userId, emailSent: result.emailSent });
+      resetForm();
+      if (result.emailSent) {
+        toast.success("User created successfully. Temporary password sent by email.");
+      } else {
+        toast.success("User created successfully, but welcome email could not be sent.");
+      }
     } catch (err: unknown) {
-      setFormError(getErrorMessage(err, formType === "youth" ? "Could not create youth user." : "Could not create adult athlete."));
+      toast.error(getErrorMessage(err, formType === "youth" ? "Could not create youth user." : "Could not create adult athlete."));
     }
   };
 
@@ -166,35 +184,6 @@ export default function AddUserPage() {
       <div className="mx-auto grid max-w-3xl gap-6">
         {configLoading ? (
           <p className="text-sm text-muted-foreground">Loading onboarding defaults…</p>
-        ) : null}
-
-        {formError ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{formError}</div>
-        ) : null}
-
-        {success ? (
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-            <p className="font-medium">User created successfully.</p>
-            {success.emailSent ? (
-              <p className="mt-2 text-emerald-200/90">
-                A temporary password was sent to their email. They should sign in on the mobile app and set a new password
-                when prompted.
-              </p>
-            ) : (
-              <p className="mt-2 text-amber-200/90">
-                The account was created, but the welcome email could not be sent. Ask them to use &quot;Forgot
-                password&quot; on the app, or contact support.
-              </p>
-            )}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" size="sm" onClick={() => router.push(`/users/${success.userId}`)}>
-                Open profile
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => router.push("/users")}>
-                All users
-              </Button>
-            </div>
-          </div>
         ) : null}
 
         <form onSubmit={onSubmit} className="grid gap-6">
