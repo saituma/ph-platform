@@ -75,6 +75,7 @@ export function InseasonSchedulePage({
   );
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
@@ -86,12 +87,15 @@ export function InseasonSchedulePage({
   });
 
   const loadWorkspace = async () => {
+    setIsLoading(true);
     try {
       setError(null);
       const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`);
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load schedule.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -239,8 +243,9 @@ export function InseasonSchedulePage({
             />
           </CardHeader>
           <CardContent className="space-y-4">
-            {!ageEntry ? <p className="text-sm text-muted-foreground">This age group could not be found.</p> : null}
-            {ageEntry && !scheduleEntries.length ? (
+            {isLoading ? <p className="text-sm text-muted-foreground">Loading weekly sessions...</p> : null}
+            {!isLoading && !ageEntry ? <p className="text-sm text-muted-foreground">This plan could not be found.</p> : null}
+            {!isLoading && ageEntry && !scheduleEntries.length ? (
               <p className="text-sm text-muted-foreground">
                 No weekly sessions added yet for this {isAdultContext ? "plan" : "age"}.
               </p>
