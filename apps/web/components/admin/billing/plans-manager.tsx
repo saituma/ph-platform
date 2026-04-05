@@ -78,7 +78,6 @@ export function PlansManager() {
       displayPrice: plan.displayPrice ?? "",
       billingInterval: plan.billingInterval ?? "",
       monthlyPrice: plan.monthlyPrice ?? "",
-      yearlyPrice: plan.yearlyPrice ?? "",
       discountType: plan.discountType ?? "percent",
       ...parseDiscountFields(plan),
       isActive: Boolean(plan.isActive),
@@ -98,13 +97,10 @@ export function PlansManager() {
         displayPrice: buildDisplayPrice(form),
         billingInterval: normalizeBillingInterval(form),
         monthlyPrice: form.monthlyPrice,
-        yearlyPrice: form.yearlyPrice,
+        yearlyPrice: "",
         discountType: form.discountType,
-        discountValue: JSON.stringify({
-          monthly: form.monthlyDiscountEnabled ? form.monthlyDiscountValue.trim() || undefined : undefined,
-          yearly: form.yearlyDiscountEnabled ? form.yearlyDiscountValue.trim() || undefined : undefined,
-        }),
-        discountAppliesTo: "custom",
+        discountValue: form.monthlyDiscountEnabled ? form.monthlyDiscountValue.trim() : "",
+        discountAppliesTo: "monthly",
         isActive: form.isActive,
       };
       const isEditing = Boolean(form.id);
@@ -213,8 +209,8 @@ export function PlansManager() {
             <DialogTitle>{isEditing ? "Edit Plan" : "Add Plan"}</DialogTitle>
             <DialogDescription>
               {isEditing
-                ? "Update the selected plan's name, pricing, discounts, billing interval, and status."
-                : "Create a new plan with a name, tier, pricing, discounts, and active status."}
+                ? "Update the selected plan's name, monthly pricing, discount, and status."
+                : "Create a new plan with a name, monthly price, discount, and active status."}
             </DialogDescription>
           </DialogHeader>
 
@@ -263,14 +259,6 @@ export function PlansManager() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Yearly Price</Label>
-              <Input
-                value={form.yearlyPrice}
-                onChange={(event) => setForm((prev) => ({ ...prev, yearlyPrice: event.target.value }))}
-                placeholder="$290"
-              />
-            </div>
-            <div className="space-y-2">
               <Label>Discount Type</Label>
               <Input value="Percent" readOnly />
             </div>
@@ -291,25 +279,6 @@ export function PlansManager() {
                 onChange={(event) => setForm((prev) => ({ ...prev, monthlyDiscountValue: event.target.value }))}
                 placeholder="0"
                 disabled={!form.monthlyDiscountEnabled}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Yearly Discount (%)</Label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={form.yearlyDiscountEnabled}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, yearlyDiscountEnabled: event.target.checked }))
-                  }
-                />
-                <span>Enable yearly discount</span>
-              </label>
-              <Input
-                value={form.yearlyDiscountValue}
-                onChange={(event) => setForm((prev) => ({ ...prev, yearlyDiscountValue: event.target.value }))}
-                placeholder="0"
-                disabled={!form.yearlyDiscountEnabled}
               />
             </div>
             <div className="space-y-2 md:col-span-2">

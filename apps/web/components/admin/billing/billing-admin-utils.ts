@@ -10,7 +10,6 @@ export type SubscriptionPlan = {
   displayPrice: string;
   billingInterval: string;
   monthlyPrice: string | null;
-  yearlyPrice: string | null;
   discountType: string | null;
   discountValue: string | null;
   discountAppliesTo: string | null;
@@ -25,12 +24,9 @@ export type PlanFormState = {
   displayPrice: string;
   billingInterval: string;
   monthlyPrice: string;
-  yearlyPrice: string;
   discountType: string;
   monthlyDiscountEnabled: boolean;
   monthlyDiscountValue: string;
-  yearlyDiscountEnabled: boolean;
-  yearlyDiscountValue: string;
   isActive: boolean;
 };
 
@@ -42,12 +38,9 @@ export const defaultForm: PlanFormState = {
   displayPrice: "",
   billingInterval: "",
   monthlyPrice: "",
-  yearlyPrice: "",
   discountType: "percent",
   monthlyDiscountEnabled: false,
   monthlyDiscountValue: "",
-  yearlyDiscountEnabled: false,
-  yearlyDiscountValue: "",
   isActive: true,
 };
 
@@ -60,27 +53,20 @@ export function parseDiscountFields(
     return {
       monthlyDiscountEnabled: false,
       monthlyDiscountValue: "",
-      yearlyDiscountEnabled: false,
-      yearlyDiscountValue: "",
     };
   }
   if (appliesTo === "custom") {
     try {
-      const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown };
+      const parsed = JSON.parse(rawValue) as { monthly?: unknown };
       const monthlyValue = parsed.monthly == null ? "" : String(parsed.monthly);
-      const yearlyValue = parsed.yearly == null ? "" : String(parsed.yearly);
       return {
         monthlyDiscountEnabled: Boolean(monthlyValue.trim()),
         monthlyDiscountValue: monthlyValue,
-        yearlyDiscountEnabled: Boolean(yearlyValue.trim()),
-        yearlyDiscountValue: yearlyValue,
       };
     } catch {
       return {
         monthlyDiscountEnabled: false,
         monthlyDiscountValue: "",
-        yearlyDiscountEnabled: false,
-        yearlyDiscountValue: "",
       };
     }
   }
@@ -88,31 +74,11 @@ export function parseDiscountFields(
     return {
       monthlyDiscountEnabled: true,
       monthlyDiscountValue: rawValue,
-      yearlyDiscountEnabled: false,
-      yearlyDiscountValue: "",
-    };
-  }
-  if (appliesTo === "yearly") {
-    return {
-      monthlyDiscountEnabled: false,
-      monthlyDiscountValue: "",
-      yearlyDiscountEnabled: true,
-      yearlyDiscountValue: rawValue,
-    };
-  }
-  if (appliesTo === "both") {
-    return {
-      monthlyDiscountEnabled: true,
-      monthlyDiscountValue: rawValue,
-      yearlyDiscountEnabled: true,
-      yearlyDiscountValue: rawValue,
     };
   }
   return {
     monthlyDiscountEnabled: false,
     monthlyDiscountValue: "",
-    yearlyDiscountEnabled: false,
-    yearlyDiscountValue: "",
   };
 }
 
@@ -130,22 +96,15 @@ export const getCsrfToken = () =>
     .find((part) => part.startsWith("csrfToken="))
     ?.split("=")[1] ?? "";
 
-export function buildDisplayPrice(plan: Pick<PlanFormState, "monthlyPrice" | "yearlyPrice">) {
-  const parts: string[] = [];
+export function buildDisplayPrice(plan: Pick<PlanFormState, "monthlyPrice">) {
   const monthly = plan.monthlyPrice.trim();
-  const yearly = plan.yearlyPrice.trim();
-  if (monthly) parts.push(`Monthly ${monthly}`);
-  if (yearly) parts.push(`Yearly ${yearly}`);
-  return parts.length ? parts.join(" • ") : "Free";
+  return monthly ? `Monthly ${monthly}` : "Free";
 }
 
 export function normalizeBillingInterval(
-  plan: Pick<PlanFormState, "monthlyPrice" | "yearlyPrice" | "billingInterval">
+  plan: Pick<PlanFormState, "monthlyPrice" | "billingInterval">
 ) {
   const hasMonthly = Boolean(plan.monthlyPrice.trim());
-  const hasYearly = Boolean(plan.yearlyPrice.trim());
-  if (hasMonthly && hasYearly) return "monthly, yearly";
   if (hasMonthly) return "monthly";
-  if (hasYearly) return "yearly";
   return plan.billingInterval.trim() || "free";
 }
