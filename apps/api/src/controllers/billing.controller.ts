@@ -72,11 +72,13 @@ export async function getBillingStatus(req: Request, res: Response) {
       messagingAccessTiers,
     });
   }
-  const guardianRows = await db
-    .select({ userId: guardianTable.userId })
-    .from(guardianTable)
-    .where(eq(guardianTable.id, athlete.guardianId))
-    .limit(1);
+  const guardianRows = athlete.guardianId
+    ? await db
+        .select({ userId: guardianTable.userId })
+        .from(guardianTable)
+        .where(eq(guardianTable.id, athlete.guardianId))
+        .limit(1)
+    : [];
   const requestUserId = guardianRows[0]?.userId ?? req.user!.id;
   const latestRequest = await getLatestSubscriptionRequest({
     userId: requestUserId,

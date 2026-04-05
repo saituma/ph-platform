@@ -32,12 +32,14 @@ async function processExpiredPlans(now: Date) {
     );
 
   for (const athlete of expired) {
-    const guardianRows = await db
-      .select({ userId: guardianTable.userId })
-      .from(guardianTable)
-      .where(eq(guardianTable.id, athlete.guardianId))
-      .limit(1);
-    const payerUserId = guardianRows[0]?.userId;
+    const guardianRows = athlete.guardianId
+      ? await db
+          .select({ userId: guardianTable.userId })
+          .from(guardianTable)
+          .where(eq(guardianTable.id, athlete.guardianId))
+          .limit(1)
+      : [];
+    const payerUserId = guardianRows[0]?.userId ?? athlete.userId;
     const userRows = payerUserId
       ? await db.select().from(userTable).where(eq(userTable.id, payerUserId)).limit(1)
       : [];
@@ -91,12 +93,14 @@ async function processExpiringReminders(now: Date, horizon: Date) {
     );
 
   for (const athlete of rows) {
-    const guardianRows = await db
-      .select({ userId: guardianTable.userId })
-      .from(guardianTable)
-      .where(eq(guardianTable.id, athlete.guardianId))
-      .limit(1);
-    const payerUserId = guardianRows[0]?.userId;
+    const guardianRows = athlete.guardianId
+      ? await db
+          .select({ userId: guardianTable.userId })
+          .from(guardianTable)
+          .where(eq(guardianTable.id, athlete.guardianId))
+          .limit(1)
+      : [];
+    const payerUserId = guardianRows[0]?.userId ?? athlete.userId;
     const userRows = payerUserId
       ? await db.select().from(userTable).where(eq(userTable.id, payerUserId)).limit(1)
       : [];

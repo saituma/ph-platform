@@ -56,6 +56,7 @@ import {
   listTrainingSnapshotAdmin,
   listPremiumSessionCheckinsAdmin,
   provisionGuardianWithOnboarding,
+  provisionAdultAthlete,
   provisionTeamWithPlan,
   saveTeamDefaultsAdmin,
   updateTeamMemberAdminDetails,
@@ -72,6 +73,7 @@ router.get("/admin/teams/:teamName", getTeamAdminDetails);
 router.get("/admin/teams/:teamName/members/:athleteId", getTeamMemberAdminDetails);
 router.patch("/admin/teams/:teamName/members/:athleteId", updateTeamMemberAdminDetails);
 router.post("/admin/users/provision", provisionGuardianWithOnboarding);
+router.post("/admin/users/provision-adult", provisionAdultAthlete);
 router.post("/admin/teams/provision", provisionTeamWithPlan);
 router.post("/admin/teams/defaults", saveTeamDefaultsAdmin);
 router.get("/admin/training-snapshot", listTrainingSnapshotAdmin);

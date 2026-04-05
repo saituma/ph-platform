@@ -11,6 +11,7 @@ import { cognitoClient } from "../lib/aws";
 import { db } from "../db";
 import {
   adminSettingsTable,
+  AthleteType,
   athleteTable,
   onboardingConfigTable,
   availabilityBlockTable,
@@ -19,6 +20,7 @@ import {
   enrollmentTable,
   exerciseTable,
   guardianTable,
+  legalAcceptanceTable,
   messageTable,
   physioRefferalsTable,
   programTable,
@@ -37,6 +39,7 @@ import { ensureAthleteUserRecord, submitOnboarding } from "./onboarding.service"
 import { createUserFromCognito, getAthleteForUser, getUserByEmail } from "./user.service";
 import { getAdminCoachIds, sendMessage } from "./message.service";
 import { attachDirectMessageReactions } from "./reaction.service";
+import { calculateAge, parseISODate } from "../lib/age";
 
 const defaultOnboardingConfig = {
   version: 1,
@@ -468,6 +471,7 @@ export async function listUsers() {
       .where(inArray(athleteTable.id, activeAthleteIds));
 
     for (const athlete of activeAthletes) {
+      if (!athlete.guardianId) continue;
       const guardian = guardianById.get(athlete.guardianId);
       if (!guardian || !athlete.programTier) continue;
       if (tierByUserId.has(guardian.userId)) continue;
@@ -493,6 +497,7 @@ export async function listUsers() {
       .orderBy(athleteTable.guardianId, athleteTable.createdAt);
 
     for (const athlete of fallbackAthletes) {
+      if (!athlete.guardianId) continue;
       const guardian = guardianById.get(athlete.guardianId);
       if (!guardian || tierByUserId.has(guardian.userId)) continue;
       if (athlete.programTier) {
@@ -715,6 +720,9 @@ export async function updateTeamMemberAdmin(input: {
   if (input.relationToAthlete !== undefined) guardianPatch.relationToAthlete = input.relationToAthlete?.trim() || null;
 
   if (Object.keys(guardianPatch).length > 0) {
+    if (!athlete.guardianId) {
+      throw { status: 400, message: "Adult athletes do not have guardian details." };
+    }
     guardianPatch.updatedAt = new Date();
     await db.update(guardianTable).set(guardianPatch).where(eq(guardianTable.id, athlete.guardianId));
   }
@@ -1307,7 +1315,7 @@ export async function listMessageThreadsAdmin(coachId: number) {
       .from(athleteTable)
       .where(inArray(athleteTable.userId, userIds));
 
-    const guardianIds = Array.from(new Set(athleteRows.map((row) => row.guardianId)));
+    const guardianIds = Array.from(new Set(athleteRows.map((row) => row.guardianId).filter((id): id is number => id != null)));
     if (guardianIds.length) {
       const guardianRows = await db
         .select({
@@ -1329,6 +1337,7 @@ export async function listMessageThreadsAdmin(coachId: number) {
       }
 
       for (const row of athleteRows) {
+        if (!row.guardianId) continue;
         const guardianName = guardianNameById.get(row.guardianId);
         if (guardianName) {
           guardianNameByAthleteUserId.set(row.athleteUserId, guardianName);
@@ -1879,6 +1888,24 @@ export type CreateGuardianWithOnboardingAdminInput = {
   extraResponses?: Record<string, unknown>;
 };
 
+export type CreateAdultAthleteAdminInput = {
+  email: string;
+  athleteName: string;
+  birthDate: string;
+  team: string;
+  trainingPerWeek: number;
+  injuries?: unknown;
+  growthNotes?: string | null;
+  performanceGoals?: string | null;
+  equipmentAccess?: string | null;
+  desiredProgramType?: (typeof ProgramType.enumValues)[number] | null;
+  planExpiresAt?: string | null;
+  termsVersion: string;
+  privacyVersion: string;
+  appVersion: string;
+  extraResponses?: Record<string, unknown>;
+};
+
 /**
  * Creates a guardian login (Cognito or local auth), completes onboarding as that user, and emails a temporary password.
  */
@@ -2010,6 +2037,194 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
       athleteId: onboardingResult.athleteId,
       athleteUserId: onboardingResult.athleteUserId,
       status: onboardingResult.status,
+      emailSent,
+    };
+  } catch (error: any) {
+    if (userId) {
+      await softDeleteUser(userId);
+    }
+    if (env.authMode !== "local" && cognitoProvisioned) {
+      await deleteCognitoUserByEmail(createdEmail);
+    }
+    throw error;
+  }
+}
+
+export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInput) {
+  const email = input.email.trim().toLowerCase();
+  const athleteName = input.athleteName.trim();
+  const existing = await getUserByEmail(email);
+  if (existing) {
+    throw { status: 409, message: "An account with this email already exists." };
+  }
+
+  const parsedBirthDate = parseISODate(input.birthDate);
+  if (!parsedBirthDate) {
+    throw { status: 400, message: "Birth date is invalid." };
+  }
+  const age = calculateAge(parsedBirthDate, new Date());
+  if (age < 18) {
+    throw { status: 400, message: "Adult athletes must be 18 or older." };
+  }
+
+  const desiredProgramType = input.desiredProgramType ?? null;
+  let planExpiresAt: Date | null = null;
+  if (input.planExpiresAt) {
+    const parsedExpiry = new Date(input.planExpiresAt);
+    if (Number.isNaN(parsedExpiry.getTime())) {
+      throw { status: 400, message: "Plan expiry date is invalid." };
+    }
+    parsedExpiry.setHours(23, 59, 59, 999);
+    planExpiresAt = parsedExpiry;
+  }
+
+  const tempPassword = generateProvisionPassword();
+  let userId: number | null = null;
+  const createdEmail = email;
+  let cognitoProvisioned = false;
+
+  try {
+    if (env.authMode === "local") {
+      const { hash, salt } = hashLocalProvisionPassword(tempPassword);
+      const inserted = await db
+        .insert(userTable)
+        .values({
+          cognitoSub: `local:${uuidv4()}`,
+          name: athleteName,
+          email,
+          role: "athlete",
+          passwordHash: hash,
+          passwordSalt: salt,
+          emailVerified: true,
+          verificationCode: null,
+          verificationExpiresAt: null,
+          verificationAttempts: 0,
+        })
+        .returning();
+      userId = inserted[0]?.id ?? null;
+      if (!userId) {
+        throw new Error("User insert failed");
+      }
+    } else {
+      if (!env.cognitoUserPoolId) {
+        throw { status: 500, message: "Authentication is not configured for provisioning." };
+      }
+      try {
+        await cognitoClient.send(
+          new AdminCreateUserCommand({
+            UserPoolId: env.cognitoUserPoolId,
+            Username: email,
+            UserAttributes: [
+              { Name: "email", Value: email },
+              { Name: "email_verified", Value: "true" },
+              { Name: "name", Value: athleteName },
+            ],
+            TemporaryPassword: tempPassword,
+            MessageAction: "SUPPRESS",
+          })
+        );
+      } catch (error: any) {
+        if (error?.name === "UsernameExistsException") {
+          throw { status: 409, message: "An account with this email already exists in Cognito." };
+        }
+        if (error?.name === "InvalidPasswordException") {
+          throw {
+            status: 400,
+            message: "Temporary password did not meet your Cognito password policy. Try again or contact support.",
+          };
+        }
+        throw error;
+      }
+      cognitoProvisioned = true;
+
+      const cognitoUser = await cognitoClient.send(
+        new AdminGetUserCommand({
+          UserPoolId: env.cognitoUserPoolId,
+          Username: email,
+        })
+      );
+      const sub = cognitoUser.UserAttributes?.find((attr) => attr.Name === "sub")?.Value;
+      if (!sub) {
+        await deleteCognitoUserByEmail(createdEmail);
+        throw new Error("Missing Cognito sub after user creation");
+      }
+
+      const cognitoRow = await createUserFromCognito({
+        sub,
+        email,
+        name: athleteName,
+        role: "athlete",
+      });
+      userId = cognitoRow.id;
+      await db
+        .update(userTable)
+        .set({ emailVerified: true, updatedAt: new Date() })
+        .where(eq(userTable.id, userId));
+    }
+
+    const now = new Date();
+    const insertedAthlete = await db
+      .insert(athleteTable)
+      .values({
+        userId: userId!,
+        guardianId: null,
+        athleteType: "adult" as (typeof AthleteType.enumValues)[number],
+        name: athleteName,
+        age,
+        birthDate: input.birthDate,
+        team: input.team.trim(),
+        trainingPerWeek: input.trainingPerWeek,
+        injuries: input.injuries ?? null,
+        growthNotes: input.growthNotes ?? null,
+        performanceGoals: input.performanceGoals ?? null,
+        equipmentAccess: input.equipmentAccess ?? null,
+        extraResponses: input.extraResponses ?? null,
+        currentProgramTier: desiredProgramType,
+        planExpiresAt,
+        onboardingCompleted: true,
+        onboardingCompletedAt: now,
+      })
+      .returning();
+    const athlete = insertedAthlete[0];
+    if (!athlete) {
+      throw new Error("Athlete row insert failed.");
+    }
+
+    await db.insert(legalAcceptanceTable).values({
+      athleteId: athlete.id,
+      termsAcceptedAt: now,
+      termsVersion: input.termsVersion,
+      privacyAcceptedAt: now,
+      privacyVersion: input.privacyVersion,
+      appVersion: input.appVersion,
+    });
+
+    if (desiredProgramType) {
+      await db.insert(enrollmentTable).values({
+        athleteId: athlete.id,
+        programType: desiredProgramType,
+        status: "active",
+        assignedByCoach: null,
+      });
+    }
+
+    let emailSent = true;
+    try {
+      await sendAdminWelcomeCredentialsEmail({
+        to: email,
+        guardianName: athleteName,
+        temporaryPassword: tempPassword,
+      });
+    } catch (mailErr) {
+      console.error("[admin] Adult welcome email failed after provisioning", mailErr);
+      emailSent = false;
+    }
+
+    return {
+      userId: userId!,
+      athleteId: athlete.id,
+      athleteUserId: athlete.userId,
+      status: desiredProgramType ? "active" : "completed",
       emailSent,
     };
   } catch (error: any) {

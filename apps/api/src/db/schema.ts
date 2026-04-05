@@ -16,6 +16,7 @@ import {
 export const Role = pgEnum("role", ["guardian", "athlete", "coach", "admin", "superAdmin"]);
 export const ProgramType = pgEnum("program_type", ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
 export const EnrollmentStatus = pgEnum("enrollment_status", ["pending", "active", "completed", "failed"]);
+export const AthleteType = pgEnum("athlete_type", ["youth", "adult"]);
 export const bookingStatus = pgEnum("booking_status", ["pending", "confirmed", "declined", "cancelled"]);
 export const bookingType = pgEnum("booking_type", [
   "call",
@@ -148,7 +149,8 @@ export const guardianTable = pgTable("guardians", {
 export const athleteTable = pgTable("athletes", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   userId: integer().notNull().references(() => userTable.id),
-  guardianId: integer().notNull().references(() => guardianTable.id),
+  guardianId: integer().references(() => guardianTable.id),
+  athleteType: AthleteType().notNull().default("youth"),
   name: varchar({ length: 255 }).notNull(),
   age: integer().notNull(),
   birthDate: date(),
