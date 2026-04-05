@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Camera, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdminShell } from "../../../components/admin/shell";
@@ -12,7 +12,12 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Select } from "../../../components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "../../../components/ui/tabs";
-import { useGetOnboardingConfigQuery, useProvisionAdultAthleteMutation, useProvisionGuardianMutation } from "../../../lib/apiSlice";
+import {
+  useCreateMediaUploadUrlMutation,
+  useGetOnboardingConfigQuery,
+  useProvisionAdultAthleteMutation,
+  useProvisionGuardianMutation,
+} from "../../../lib/apiSlice";
 
 const TIER_OPTIONS: { value: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro"; label: string }[] = [
   { value: "PHP", label: "PHP Program" },
@@ -39,6 +44,7 @@ export default function AddUserPage() {
   const { data: configData, isLoading: configLoading } = useGetOnboardingConfigQuery();
   const [provision, { isLoading: isSubmitting }] = useProvisionGuardianMutation();
   const [provisionAdult, { isLoading: isSubmittingAdult }] = useProvisionAdultAthleteMutation();
+  const [createUploadUrl] = useCreateMediaUploadUrlMutation();
 
   const termsVersion = configData?.config?.termsVersion ?? "1.0";
   const privacyVersion = configData?.config?.privacyVersion ?? "1.0";
@@ -60,6 +66,7 @@ export default function AddUserPage() {
   const [desiredProgramType, setDesiredProgramType] = useState<"PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro">("PHP");
   const [planPaymentType, setPlanPaymentType] = useState<"monthly" | "upfront">("monthly");
   const [planCommitmentMonths, setPlanCommitmentMonths] = useState<6 | 12>(6);
+  const [isUploadingAthletePhoto, setIsUploadingAthletePhoto] = useState(false);
 
   const submitting = isSubmitting || isSubmittingAdult;
 
@@ -93,6 +100,38 @@ export default function AddUserPage() {
     setDesiredProgramType("PHP");
     setPlanPaymentType("monthly");
     setPlanCommitmentMonths(6);
+  };
+
+  const handleAthletePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingAthletePhoto(true);
+      const { uploadUrl, publicUrl } = await createUploadUrl({
+        folder: "athlete-profile-pictures",
+        fileName: `${Date.now()}-${file.name}`,
+        contentType: file.type,
+        sizeBytes: file.size,
+      }).unwrap();
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      if (!uploadResponse.ok) {
+        throw new Error("Upload failed");
+      }
+
+      setAthleteProfilePicture(publicUrl);
+      toast.success("Athlete photo uploaded.");
+    } catch {
+      toast.error("Failed to upload athlete photo.");
+    } finally {
+      setIsUploadingAthletePhoto(false);
+      event.target.value = "";
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -280,14 +319,47 @@ export default function AddUserPage() {
                 />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="athleteProfilePicture">Athlete photo URL (optional)</Label>
-                <Input
-                  id="athleteProfilePicture"
-                  type="url"
-                  value={athleteProfilePicture}
-                  onChange={(ev) => setAthleteProfilePicture(ev.target.value)}
-                  placeholder="https://..."
-                />
+                <Label>Athlete photo (optional)</Label>
+                <div className="flex items-center gap-4">
+                  <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-input bg-secondary/20">
+                    {athleteProfilePicture ? (
+                      <img src={athleteProfilePicture} alt="Athlete preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <User className="h-8 w-8" />
+                      </div>
+                    )}
+                    {isUploadingAthletePhoto ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+                        <Loader2 className="h-5 w-5 animate-spin text-white" />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-sm hover:bg-secondary/70">
+                      <Camera className="h-4 w-4" />
+                      Upload photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAthletePhotoUpload}
+                        disabled={isUploadingAthletePhoto}
+                      />
+                    </label>
+                    {athleteProfilePicture ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 justify-start px-2 text-xs"
+                        onClick={() => setAthleteProfilePicture("")}
+                      >
+                        Remove photo
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="birthDate">Birth date</Label>
