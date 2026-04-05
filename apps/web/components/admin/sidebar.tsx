@@ -52,6 +52,10 @@ type SidebarVideoUpload = {
   reviewedAt?: string | null;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export function AdminSidebarContent({
   currentPath,
   collapsed = false,
@@ -124,11 +128,14 @@ export function AdminSidebarContent({
       .filter((id) => Number.isFinite(id))
   );
   const unreadCount = (((threadsData as { threads?: SidebarThread[] } | undefined)?.threads ?? []) as SidebarThread[]).reduce((sum, thread) => {
-    if (guardianIds.size > 0 && !guardianIds.has(thread.userId)) return sum;
-    return sum + (thread.unread ?? 0);
+    if (!isRecord(thread)) return sum;
+    const userId = Number(thread.userId);
+    if (!Number.isFinite(userId)) return sum;
+    if (guardianIds.size > 0 && !guardianIds.has(userId)) return sum;
+    return sum + Number(thread.unread ?? 0);
   }, 0);
   const pendingVideoCount = (((videosData as { items?: SidebarVideoUpload[] } | undefined)?.items ?? []) as SidebarVideoUpload[]).filter(
-    (item) => !item.reviewedAt,
+    (item) => isRecord(item) && !item.reviewedAt,
   ).length;
 
   const navGroups: NavGroup[] = [

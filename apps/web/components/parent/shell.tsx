@@ -22,10 +22,10 @@ export function ParentShell({ title, subtitle, actions, children }: ParentShellP
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex min-h-screen">
+    <div className="min-h-screen overflow-x-hidden bg-background">
+      <div className="flex min-h-screen min-w-0">
         <AdminSidebar collapsed={isSidebarCollapsed} />
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between border-b border-border bg-card px-4 py-4 lg:hidden">
             <Sheet>
               <SheetTrigger asChild>
@@ -33,10 +33,10 @@ export function ParentShell({ title, subtitle, actions, children }: ParentShellP
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-72 border-r border-border bg-card p-0">
+              <SheetContent className="w-[86vw] max-w-[320px] border-r border-border bg-card p-0">
                 <DialogTitle className="sr-only">Navigation</DialogTitle>
                 <ScrollArea className="h-full">
-                  <div className="h-full px-6 py-8">
+                  <div className="h-full px-4 py-6">
                     <AdminSidebarContent currentPath={pathname} />
                   </div>
                 </ScrollArea>
@@ -53,14 +53,14 @@ export function ParentShell({ title, subtitle, actions, children }: ParentShellP
               </div>
             </div>
           </div>
-          <div className="border-b border-border bg-card px-6 py-5 lg:hidden">
+          <div className="border-b border-border bg-card px-4 py-4 lg:hidden">
             {subtitle ? (
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="truncate text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 {subtitle}
               </p>
             ) : null}
             <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-              <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+              <h1 className="min-w-0 truncate text-xl font-semibold text-foreground">{title}</h1>
               {actions ? <div>{actions}</div> : null}
             </div>
           </div>
@@ -71,7 +71,7 @@ export function ParentShell({ title, subtitle, actions, children }: ParentShellP
             isSidebarCollapsed={isSidebarCollapsed}
             onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
           />
-          <main className="mx-auto w-full max-w-[1300px] space-y-8 px-6 py-8 lg:px-10">
+          <main className="mx-auto w-full min-w-0 max-w-[1300px] space-y-6 px-3 py-5 sm:px-4 sm:py-6 lg:space-y-8 lg:px-8 lg:py-8 xl:px-10">
             {children}
           </main>
         </div>

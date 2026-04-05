@@ -32,7 +32,7 @@ function pathMatchesNavItem(pathOnly: string, href: string) {
 
 type AdminNavProps = {
   items: NavItem[];
-  currentPath: string;
+  currentPath?: string | null;
   collapsed?: boolean;
 };
 
@@ -54,11 +54,12 @@ function NavLinkRow({
   nested,
 }: {
   item: NavItem;
-  currentPath: string;
+  currentPath?: string | null;
   collapsed?: boolean;
   nested?: boolean;
 }) {
-  const pathOnly = currentPath.split("?")[0] ?? currentPath;
+  const normalizedPath = currentPath ?? "";
+  const pathOnly = normalizedPath.split("?")[0] ?? normalizedPath;
   const isActive = pathMatchesNavItem(pathOnly, item.href);
   return (
     <Link
@@ -100,12 +101,13 @@ function NavLinkRow({
 
 type AdminNavGroupedProps = {
   groups: NavGroup[];
-  currentPath: string;
+  currentPath?: string | null;
   collapsed?: boolean;
 };
 
-function pathMatchesGroup(currentPath: string, items: NavItem[]): boolean {
-  const pathOnly = currentPath.split("?")[0] ?? currentPath;
+function pathMatchesGroup(currentPath: string | null | undefined, items: NavItem[]): boolean {
+  const normalizedPath = currentPath ?? "";
+  const pathOnly = normalizedPath.split("?")[0] ?? normalizedPath;
   return items.some((item) => pathMatchesNavItem(pathOnly, item.href));
 }
 
