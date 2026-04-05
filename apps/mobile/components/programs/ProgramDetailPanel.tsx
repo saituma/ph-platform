@@ -58,7 +58,7 @@ import { Transition } from "@/components/navigation/TransitionStack";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
-  plus: "PHP Plus",
+  plus: "PHP Premium Plus",
   premium: "PHP Premium",
 };
 
@@ -295,7 +295,7 @@ export function ProgramDetailPanel({
           setMessagingAccessTiers(
             Array.isArray(status?.messagingAccessTiers)
               ? status!.messagingAccessTiers!
-              : ["PHP", "PHP_Plus", "PHP_Premium"],
+              : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
           ),
         );
       } catch {

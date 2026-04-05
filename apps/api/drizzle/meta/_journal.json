@@ -358,6 +358,13 @@
       "when": 1773020000000,
       "tag": "0050_training_other_type_warmup_cooldown",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1773021000000,
+      "tag": "0051_membership_tiers_refresh",
+      "breakpoints": true
     }
   ]
 }

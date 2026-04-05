@@ -12,8 +12,9 @@ export const PARENT_MODULE_TYPES = ["article", "video", "pdf", "faq"] as const;
 export const PARENT_TIER_OPTIONS = [
   { value: "", label: "All tiers" },
   { value: "PHP", label: "PHP Program" },
-  { value: "PHP_Plus", label: "PHP Plus" },
   { value: "PHP_Premium", label: "PHP Premium" },
+  { value: "PHP_Premium_Plus", label: "PHP Premium Plus" },
+  { value: "PHP_Pro", label: "PHP Pro" },
 ];
 
 export type ModuleType = (typeof PARENT_MODULE_TYPES)[number];

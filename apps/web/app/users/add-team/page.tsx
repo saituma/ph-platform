@@ -23,6 +23,18 @@ type MemberDraft = {
   relationToAthlete: string | null;
 };
 
+type ApiErrorLike = {
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const apiError = error as ApiErrorLike;
+    if (typeof apiError.message === "string") return apiError.message;
+  }
+  return fallback;
+}
+
 function createEmptyMember(): MemberDraft {
   return {
     email: "",
@@ -139,9 +151,8 @@ export default function AddTeamPage() {
         emailed: Number(responsePayload?.emailed ?? 0),
         failed: Array.isArray(responsePayload?.failed) ? responsePayload.failed : [],
       });
-    } catch (error: any) {
-      const message = error?.message ?? "Failed to create team.";
-      setFormError(typeof message === "string" ? message : "Failed to create team.");
+    } catch (error: unknown) {
+      setFormError(getErrorMessage(error, "Failed to create team."));
     } finally {
       setIsSubmitting(false);
     }
@@ -172,9 +183,8 @@ export default function AddTeamPage() {
         throw new Error(payload?.error ?? "Failed to save team defaults.");
       }
       setTeamDefaultsSuccess(`Saved defaults for ${payload?.updatedCount ?? 0} team member(s).`);
-    } catch (error: any) {
-      const message = error?.message ?? "Failed to save team defaults.";
-      setTeamDefaultsError(typeof message === "string" ? message : "Failed to save team defaults.");
+    } catch (error: unknown) {
+      setTeamDefaultsError(getErrorMessage(error, "Failed to save team defaults."));
     } finally {
       setIsSavingTeamDefaults(false);
     }
@@ -234,9 +244,8 @@ export default function AddTeamPage() {
       }
       setPlanSuccess(`Plan created: ${payload?.plan?.name ?? cleanName}`);
       setPlanModalOpen(false);
-    } catch (error: any) {
-      const message = error?.message ?? "Failed to create team plan.";
-      setPlanError(typeof message === "string" ? message : "Failed to create team plan.");
+    } catch (error: unknown) {
+      setPlanError(getErrorMessage(error, "Failed to create team plan."));
     } finally {
       setIsCreatingPlan(false);
     }

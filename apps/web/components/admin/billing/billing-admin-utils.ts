@@ -1,6 +1,6 @@
 "use client";
 
-export type PlanTier = "PHP" | "PHP_Plus" | "PHP_Premium";
+export type PlanTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 
 export type SubscriptionPlan = {
   id: number;

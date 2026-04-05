@@ -11,6 +11,18 @@ import { toast } from "../../../lib/toast";
 
 export type VideoReviewDialog = null | "review" | "queue";
 
+type ApiErrorLike = {
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 type VideoDialogsProps = {
   active: VideoReviewDialog;
   onClose: () => void;
@@ -75,10 +87,12 @@ export function VideoDialogs({
       setResponseError(null);
       setResponseUrl(null);
       setRecordedBlob(null);
-      if (recordedPreview) {
-        URL.revokeObjectURL(recordedPreview);
-        setRecordedPreview(null);
-      }
+      setRecordedPreview((previous) => {
+        if (previous) {
+          URL.revokeObjectURL(previous);
+        }
+        return null;
+      });
     }
   }, [active, selectedVideo?.id]);
 
@@ -155,8 +169,8 @@ export function VideoDialogs({
       recorderRef.current = recorder;
       recorder.start();
       setIsRecording(true);
-    } catch (error: any) {
-      setResponseError(error?.message ?? "Unable to access camera.");
+    } catch (error: unknown) {
+      setResponseError(getErrorMessage(error, "Unable to access camera."));
       stopRecording();
     }
   };
@@ -211,8 +225,8 @@ export function VideoDialogs({
         xhr.send(blob);
       });
       setResponseUrl(result.publicUrl);
-    } catch (err: any) {
-      setResponseError(err?.message ?? "Upload failed.");
+    } catch (err: unknown) {
+      setResponseError(getErrorMessage(err, "Upload failed."));
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -276,9 +290,10 @@ export function VideoDialogs({
         URL.revokeObjectURL(recordedPreview);
         setRecordedPreview(null);
       }
-    } catch (error: any) {
-      setResponseError(error?.message ?? "Failed to mark reviewed.");
-      toast.error("Review failed", error?.message ?? "Failed to mark reviewed.");
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, "Failed to mark reviewed.");
+      setResponseError(message);
+      toast.error("Review failed", message);
     }
   };
 

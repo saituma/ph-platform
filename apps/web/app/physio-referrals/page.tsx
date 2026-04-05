@@ -65,6 +65,15 @@ type AthleteOption = {
   label: string;
 };
 
+type ReferralUser = {
+  athleteId?: number | null;
+  athleteAge?: number | null;
+  athleteName?: string | null;
+  programTier?: string | null;
+  guardianProgramTier?: string | null;
+  currentProgramTier?: string | null;
+};
+
 type ReferralGroup = {
   id: number;
   name: string;
@@ -77,7 +86,7 @@ type ReferralGroup = {
   }[];
 };
 
-const ELIGIBLE_TIERS = new Set(["PHP_Plus", "PHP_Premium"]);
+const ELIGIBLE_TIERS = new Set(["PHP_Premium_Plus", "PHP_Premium"]);
 const REFERRAL_TYPE_OPTIONS = ["Physio", "Stocks", "Nutrition", "Recovery", "Doctor", "Specialist", "Other"];
 const PRESET_REFERRAL_TYPES = new Set(REFERRAL_TYPE_OPTIONS.filter((option) => option !== "Other"));
 
@@ -119,6 +128,15 @@ function getTargetLabel(
   }
   if (mode === "group") return options.groupName?.trim() || "Referral group";
   return "Individual athlete";
+}
+
+function getErrorMessage(err: unknown, fallback: string) {
+  if (typeof err === "object" && err !== null && "data" in err) {
+    const data = (err as { data?: { error?: string } }).data;
+    if (data?.error) return data.error;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
 }
 
 export default function ReferralsPage() {
@@ -181,10 +199,10 @@ export default function ReferralsPage() {
   const referralGroups: ReferralGroup[] = useMemo(() => referralGroupsData?.items ?? [], [referralGroupsData]);
 
   const athleteOptions = useMemo(() => {
-    const users = usersData?.users ?? [];
+    const users = (usersData?.users ?? []) as ReferralUser[];
     return users
-      .filter((user: any) => user.athleteId)
-      .map((user: any) => {
+      .filter((user) => user.athleteId)
+      .map((user) => {
         const tier = (user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null) as string | null;
         const athleteName = String(user.athleteName ?? "Athlete").trim() || "Athlete";
         return {
@@ -354,9 +372,10 @@ export default function ReferralsPage() {
       setGroupAthleteSearch("");
       setGroupAthleteIds([]);
       toast.success("Referral group saved", "You can reuse this group for future referrals.");
-    } catch (err: any) {
-      setError(err?.data?.error || "Failed to save referral group.");
-      toast.error("Failed to save group", err?.data?.error || "Please try again.");
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, "Please try again.");
+      setError(message);
+      toast.error("Failed to save group", message);
     }
   };
 
@@ -384,9 +403,10 @@ export default function ReferralsPage() {
 
       onSuccess(publicUrl);
       toast.success("Image uploaded", "The referral image is ready.");
-    } catch (err: any) {
-      setError(err?.data?.error || "Failed to upload referral image.");
-      toast.error("Upload failed", err?.data?.error || "Please try again.");
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, "Please try again.");
+      setError(message);
+      toast.error("Upload failed", message);
     } finally {
       setUploading(false);
     }
@@ -408,7 +428,7 @@ export default function ReferralsPage() {
       return;
     }
     if (targetMode === "single" && (!selectedAthleteTier || !ELIGIBLE_TIERS.has(selectedAthleteTier))) {
-      setError("Referrals can only be sent to PHP Plus or PHP Premium athletes.");
+      setError("Referrals can only be sent to PHP Premium Plus or PHP Premium athletes.");
       return;
     }
     if (targetMode === "age_range") {
@@ -459,18 +479,22 @@ export default function ReferralsPage() {
       }
       resetCreateForm();
       setActiveTab("existing");
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (
-        err?.status === 409 ||
-        err?.data?.error === "Referral already exists for this athlete" ||
-        err?.data?.error === "A referral of this type already exists for this athlete"
+        (typeof err === "object" &&
+          err !== null &&
+          "status" in err &&
+          (err as { status?: number }).status === 409) ||
+        getErrorMessage(err, "") === "Referral already exists for this athlete" ||
+        getErrorMessage(err, "") === "A referral of this type already exists for this athlete"
       ) {
         setError("A matching referral type already exists for one or more selected athletes.");
         toast.warning("Referral already exists", "Edit the existing referral instead.");
         return;
       }
-      setError(err?.data?.error || "Failed to create referral.");
-      toast.error("Failed to create referral", err?.data?.error || "Please try again.");
+      const message = getErrorMessage(err, "Please try again.");
+      setError(message);
+      toast.error("Failed to create referral", message);
     }
   };
 
@@ -541,14 +565,21 @@ export default function ReferralsPage() {
       }).unwrap();
       setEditingId(null);
       toast.success("Referral updated", "Changes saved successfully.");
-    } catch (err: any) {
-      if (err?.status === 409 || err?.data?.error === "A referral of this type already exists for this athlete") {
+    } catch (err: unknown) {
+      if (
+        (typeof err === "object" &&
+          err !== null &&
+          "status" in err &&
+          (err as { status?: number }).status === 409) ||
+        getErrorMessage(err, "") === "A referral of this type already exists for this athlete"
+      ) {
         setError("This athlete already has another referral with that type.");
         toast.warning("Duplicate referral type", "Choose a different referral type or edit the existing one.");
         return;
       }
-      setError(err?.data?.error || "Failed to update referral.");
-      toast.error("Update failed", err?.data?.error || "Please try again.");
+      const message = getErrorMessage(err, "Please try again.");
+      setError(message);
+      toast.error("Update failed", message);
     }
   };
 
@@ -558,9 +589,10 @@ export default function ReferralsPage() {
     try {
       await deleteReferral({ id }).unwrap();
       toast.success("Referral deleted", "The referral has been removed.");
-    } catch (err: any) {
-      setError(err?.data?.error || "Failed to delete referral.");
-      toast.error("Delete failed", err?.data?.error || "Please try again.");
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, "Please try again.");
+      setError(message);
+      toast.error("Delete failed", message);
     }
   };
 
@@ -665,7 +697,7 @@ export default function ReferralsPage() {
                     ))}
                   </div>
                   {!athleteId ? (
-                    <p className="text-xs text-muted-foreground">Only PHP Plus and PHP Premium athletes can receive referrals.</p>
+                    <p className="text-xs text-muted-foreground">Only PHP Premium Plus and PHP Premium athletes can receive referrals.</p>
                   ) : selectedAthleteTier ? (
                     <p className="text-xs text-muted-foreground">Program tier: <span className="text-foreground">{selectedAthleteTier}</span></p>
                   ) : null}

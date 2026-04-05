@@ -192,9 +192,10 @@ export default function TeamMemberDetailPage() {
                     onChange={(event) => setForm((current) => ({ ...current, currentProgramTier: event.target.value }))}
                   >
                     <option value="">No tier</option>
-                    <option value="PHP">PHP</option>
-                    <option value="PHP_Plus">PHP Plus</option>
+                    <option value="PHP">PHP Program</option>
                     <option value="PHP_Premium">PHP Premium</option>
+                    <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                    <option value="PHP_Pro">PHP Pro</option>
                   </Select>
                 </div>
                 <div className="space-y-1">

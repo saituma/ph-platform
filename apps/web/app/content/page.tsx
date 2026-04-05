@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { ContentDialogs, type ContentDialog } from "../../components/admin/content/content-dialogs";
-import { ContentTabs } from "../../components/admin/content/content-tabs";
+import { ContentTabs, type TestimonialEntry } from "../../components/admin/content/content-tabs";
 import {
   useApproveTestimonialSubmissionMutation,
   useRejectTestimonialSubmissionMutation,
@@ -16,6 +16,15 @@ import {
   useGetTestimonialSubmissionsQuery,
   useUpdateContentMutation,
 } from "../../lib/apiSlice";
+
+type HomeDraft = {
+  introVideoUrl?: string;
+  testimonials?: TestimonialEntry[] | string;
+  adminStory?: string;
+  professionalPhoto?: string;
+  professionalPhotos?: string | string[];
+  headline?: string;
+};
 
 export default function ContentPage() {
   const [createContent, { isLoading }] = useCreateContentMutation();
@@ -29,18 +38,15 @@ export default function ContentPage() {
   const [error, setError] = useState<string | null>(null);
 
   const homeItem = (homeData?.items ?? [])[0] ?? null;
-  let homeBody: any = {};
+  let homeBody: HomeDraft = {};
   if (homeItem?.body && typeof homeItem.body === "string") {
     try {
-      homeBody = JSON.parse(homeItem.body);
+      homeBody = JSON.parse(homeItem.body) as HomeDraft;
     } catch {
       homeBody = {};
     }
   }
-  const [homeDraft, setHomeDraft] = useState<any>({});
-  useEffect(() => {
-    setHomeDraft(homeBody ?? {});
-  }, [homeItem?.id, homeItem?.body]);
+  const homeDraft = homeBody;
   const baseHomeTitle =
     homeItem?.title?.trim() ||
     homeItem?.content?.trim() ||
@@ -106,10 +112,9 @@ export default function ContentPage() {
                   } else {
                     await createContent(payload).unwrap();
                   }
-                  setHomeDraft(nextDraft);
                   refetchHome();
                   setActiveDialog("home");
-                } catch (err) {
+                } catch {
                   setError("Failed to save profile content");
                 }
               }}
@@ -132,10 +137,9 @@ export default function ContentPage() {
                   } else {
                     await createContent(payload).unwrap();
                   }
-                  setHomeDraft(nextDraft);
                   refetchHome();
                   setActiveDialog("home");
-                } catch (err) {
+                } catch {
                   setError("Failed to save testimonials");
                 }
               }}
@@ -158,10 +162,9 @@ export default function ContentPage() {
                   } else {
                     await createContent(payload).unwrap();
                   }
-                  setHomeDraft(nextDraft);
                   refetchHome();
                   setActiveDialog("home");
-                } catch (err) {
+                } catch {
                   setError("Failed to save intro video");
                 }
               }}
@@ -172,7 +175,7 @@ export default function ContentPage() {
                   await approveSubmission({ submissionId }).unwrap();
                   setActiveDialog("home");
                   refetchSubmissions();
-                } catch (err) {
+                } catch {
                   setError("Failed to approve testimonial");
                 }
               }}
@@ -181,7 +184,7 @@ export default function ContentPage() {
                 try {
                   await rejectSubmission({ submissionId }).unwrap();
                   refetchSubmissions();
-                } catch (err) {
+                } catch {
                   setError("Failed to reject testimonial");
                 }
               }}

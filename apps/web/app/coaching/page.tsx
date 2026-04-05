@@ -15,6 +15,7 @@ import {
   TrendingUp,
   User,
   Video,
+  type LucideIcon,
 } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -35,6 +36,85 @@ import {
   useGetUserOnboardingQuery,
 } from "../../lib/apiSlice";
 
+type TrainingSnapshotAthlete = {
+  athleteId: number;
+  athleteUserId?: number | null;
+  guardianUserId?: number | null;
+  athleteName?: string | null;
+  programTier?: string | null;
+  premiumExercisesDone?: number;
+  premiumExercisesTotal?: number;
+  sectionCompletions30d?: number;
+};
+
+type BaseExercise = {
+  name?: string | null;
+  sets?: number | null;
+  reps?: number | null;
+  restSeconds?: number | null;
+  videoUrl?: string | null;
+};
+
+type PlanExercise = {
+  id: number;
+  order?: number | null;
+  completed?: boolean | null;
+  sets?: number | null;
+  reps?: number | null;
+  restSeconds?: number | null;
+  coachingNotes?: string | null;
+  exercise?: BaseExercise | null;
+};
+
+type PlanSession = {
+  id: number;
+  weekNumber: number;
+  sessionNumber: number;
+  title?: string | null;
+  notes?: string | null;
+  exercises?: PlanExercise[] | null;
+};
+
+type SessionCheckin = {
+  id: number;
+  completedAt?: string | null;
+  weekNumber?: number | null;
+  sessionNumber?: number | null;
+  sessionTitle?: string | null;
+  rpe?: number | null;
+  soreness?: number | null;
+  fatigue?: number | null;
+  notes?: string | null;
+};
+
+type ProgramCompletion = {
+  id: number;
+  completedAt?: string | null;
+  contentTitle?: string | null;
+  title?: string | null;
+  sectionTitle?: string | null;
+  weekNumber?: number | null;
+  sessionNumber?: number | null;
+  sessionTitle?: string | null;
+  rpe?: number | null;
+  soreness?: number | null;
+  fatigue?: number | null;
+  notes?: string | null;
+};
+
+type VideoUpload = {
+  id: number;
+  athleteId?: number | null;
+  athlete?: { id?: number | null } | null;
+  reviewedAt?: string | null;
+  createdAt?: string | null;
+  sectionTitle?: string | null;
+  title?: string | null;
+  notes?: string | null;
+  videoUrl?: string | null;
+  feedback?: string | null;
+};
+
 export default function CoachingPage() {
   const { data: snapshotData, isLoading: snapshotLoading } = useGetTrainingSnapshotQuery();
   const { data: usersData } = useGetUsersQuery();
@@ -43,9 +123,9 @@ export default function CoachingPage() {
   const [selectedAthleteUserId, setSelectedAthleteUserId] = useState<number | null>(null);
 
   const premiumAthletes = useMemo(() => {
-    const items = snapshotData?.items ?? [];
+    const items: TrainingSnapshotAthlete[] = Array.isArray(snapshotData?.items) ? snapshotData.items : [];
     return items.filter(
-      (a: any) =>
+      (a) =>
         a.programTier === "PHP_Premium" || a.programTier === "premium",
     );
   }, [snapshotData]);
@@ -53,14 +133,15 @@ export default function CoachingPage() {
   const filtered = useMemo(() => {
     if (!search.trim()) return premiumAthletes;
     const q = search.toLowerCase();
-    return premiumAthletes.filter((a: any) =>
+    return premiumAthletes.filter((a) =>
       a.athleteName?.toLowerCase().includes(q),
     );
   }, [premiumAthletes, search]);
 
   const pendingVideosByAthlete = useMemo(() => {
     const map = new Map<number, number>();
-    for (const v of videosData?.items ?? []) {
+    const items: VideoUpload[] = Array.isArray(videosData?.items) ? videosData.items : [];
+    for (const v of items) {
       if (v.reviewedAt) continue;
       const athleteId = v.athleteId ?? v.athlete?.id;
       if (!athleteId) continue;
@@ -100,15 +181,17 @@ export default function CoachingPage() {
                 No Premium athletes found.
               </div>
             ) : (
-              filtered.map((athlete: any) => {
-                const athleteUserId = athlete.athleteUserId ?? athlete.guardianUserId;
+              filtered.map((athlete) => {
+                const athleteUserId = athlete.athleteUserId ?? athlete.guardianUserId ?? null;
                 const isActive = selectedAthleteUserId === athleteUserId;
-                const progress = athlete.premiumExercisesTotal
-                  ? Math.round((athlete.premiumExercisesDone / athlete.premiumExercisesTotal) * 100)
+                const premiumDone = athlete.premiumExercisesDone ?? 0;
+                const premiumTotal = athlete.premiumExercisesTotal ?? 0;
+                const progress = premiumTotal
+                  ? Math.round((premiumDone / premiumTotal) * 100)
                   : 0;
-                const exerciseSummary = athlete.premiumExercisesTotal > 0
-                  ? `${athlete.premiumExercisesDone}/${athlete.premiumExercisesTotal} exercises`
-                  : athlete.sectionCompletions30d > 0
+                const exerciseSummary = premiumTotal > 0
+                  ? `${premiumDone}/${premiumTotal} exercises`
+                  : (athlete.sectionCompletions30d ?? 0) > 0
                     ? `${athlete.sectionCompletions30d} completed`
                     : "No completed training yet";
                 const pendingVideos = pendingVideosByAthlete.get(athlete.athleteId) ?? 0;
@@ -153,7 +236,7 @@ export default function CoachingPage() {
                       </div>
                     </div>
 
-                    {athlete.premiumExercisesTotal > 0 && (
+                    {premiumTotal > 0 && (
                       <div className="mt-3">
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
                           <div
@@ -197,18 +280,24 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
   const { data: checkinsData, isLoading: checkinsLoading } = useGetUserPremiumSessionCheckinsQuery({ userId, limit: 30 });
   const { data: completionsData, isLoading: completionsLoading } = useGetUserProgramSectionCompletionsQuery({ userId, limit: 30 });
   const { data: videosData } = useGetVideoUploadsQuery();
-  const [activeVideo, setActiveVideo] = useState<any | null>(null);
+  const [activeVideo, setActiveVideo] = useState<VideoUpload | null>(null);
 
   const athleteName = onboarding?.athlete?.name ?? "Athlete";
   const athleteAge = onboarding?.athlete?.age ?? null;
   const team = onboarding?.athlete?.team ?? null;
-  const injuries = onboarding?.athlete?.injuries ?? null;
+  const injuriesRaw = onboarding?.athlete?.injuries;
+  const injuries =
+    typeof injuriesRaw === "string"
+      ? injuriesRaw
+      : injuriesRaw != null
+        ? JSON.stringify(injuriesRaw)
+        : null;
   const goals = onboarding?.athlete?.performanceGoals ?? null;
 
   const sessions = useMemo(() => {
-    const items = planData?.items ?? [];
+    const items: PlanSession[] = Array.isArray(planData?.items) ? planData.items : [];
     return items.slice().sort(
-      (a: any, b: any) =>
+      (a, b) =>
         Number(a.weekNumber) - Number(b.weekNumber) ||
         Number(a.sessionNumber) - Number(b.sessionNumber),
     );
@@ -224,16 +313,19 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
   const displayWeek = activeWeek ?? weeks[weeks.length - 1] ?? 1;
 
   const weekSessions = useMemo(
-    () => sessions.filter((s: any) => Number(s.weekNumber) === displayWeek),
+    () => sessions.filter((s) => Number(s.weekNumber) === displayWeek),
     [displayWeek, sessions],
   );
 
-  const checkins = checkinsData?.items ?? [];
-  const programCompletions = completionsData?.items ?? [];
+  const checkins: SessionCheckin[] = Array.isArray(checkinsData?.items) ? checkinsData.items : [];
+  const programCompletions = useMemo<ProgramCompletion[]>(
+    () => (Array.isArray(completionsData?.items) ? completionsData.items : []),
+    [completionsData]
+  );
   const fallbackCheckins = useMemo(
     () =>
       programCompletions.filter(
-        (c: any) => c.rpe != null || c.soreness != null || c.fatigue != null || c.notes,
+        (c) => c.rpe != null || c.soreness != null || c.fatigue != null || c.notes,
       ),
     [programCompletions],
   );
@@ -242,23 +334,22 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
   const athleteVideos = useMemo(() => {
     const athleteId = onboarding?.athlete?.id;
     if (!athleteId) return [];
-    return (videosData?.items ?? []).filter(
-      (v: any) => (v.athleteId ?? v.athlete?.id) === athleteId,
-    );
+    const items: VideoUpload[] = Array.isArray(videosData?.items) ? videosData.items : [];
+    return items.filter((v) => (v.athleteId ?? v.athlete?.id) === athleteId);
   }, [onboarding?.athlete?.id, videosData]);
 
   const avgRpe = useMemo(() => {
-    const vals = displayCheckins.filter((c: any) => c.rpe != null).map((c: any) => c.rpe);
+    const vals = displayCheckins.filter((c) => c.rpe != null).map((c) => c.rpe as number);
     return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(1) : "—";
   }, [displayCheckins]);
 
   const avgSoreness = useMemo(() => {
-    const vals = displayCheckins.filter((c: any) => c.soreness != null).map((c: any) => c.soreness);
+    const vals = displayCheckins.filter((c) => c.soreness != null).map((c) => c.soreness as number);
     return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(1) : "—";
   }, [displayCheckins]);
 
   const avgFatigue = useMemo(() => {
-    const vals = displayCheckins.filter((c: any) => c.fatigue != null).map((c: any) => c.fatigue);
+    const vals = displayCheckins.filter((c) => c.fatigue != null).map((c) => c.fatigue as number);
     return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(1) : "—";
   }, [displayCheckins]);
 
@@ -355,7 +446,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
                     Completed Mobile Training
                   </p>
                   <div className="space-y-2">
-                    {programCompletions.slice(0, 10).map((completion: any) => {
+                    {programCompletions.slice(0, 10).map((completion) => {
                       const completedAt = completion.completedAt ? new Date(completion.completedAt) : null;
                       return (
                         <div key={completion.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
@@ -397,11 +488,11 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
                 <div className="text-sm text-muted-foreground">No sessions in Week {displayWeek}.</div>
               ) : (
                 <div className="space-y-3">
-                  {weekSessions.map((session: any) => {
+                  {weekSessions.map((session) => {
                     const exercises = (session.exercises ?? [])
                       .slice()
-                      .sort((a: any, b: any) => Number(a.order) - Number(b.order));
-                    const done = exercises.filter((e: any) => e.completed).length;
+                      .sort((a, b) => Number(a.order) - Number(b.order));
+                    const done = exercises.filter((e) => e.completed).length;
                     return (
                       <div key={session.id} className="rounded-xl border border-border bg-card overflow-hidden">
                         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 bg-secondary/30">
@@ -419,7 +510,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
                           </Badge>
                         </div>
                         <div className="divide-y divide-border">
-                          {exercises.map((ex: any) => {
+                          {exercises.map((ex) => {
                             const base = ex.exercise ?? null;
                             const name = base?.name ?? "Exercise";
                             const stats = [
@@ -474,7 +565,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
             </div>
           ) : (
             <div className="space-y-2">
-              {displayCheckins.map((c: any) => {
+              {displayCheckins.map((c) => {
                 const date = c.completedAt ? new Date(c.completedAt) : null;
                 const isPremiumPlanCheckin = c.weekNumber != null || c.sessionNumber != null;
                 return (
@@ -541,7 +632,7 @@ function AthleteCoachingPanel({ userId }: { userId: number }) {
             </div>
           ) : (
             <div className="space-y-2">
-              {athleteVideos.map((v: any) => {
+              {athleteVideos.map((v) => {
                 const uploaded = v.createdAt ? new Date(v.createdAt) : null;
                 const reviewed = !!v.reviewedAt;
                 return (
@@ -685,7 +776,7 @@ function StatCard({
   value,
   color,
 }: {
-  icon: any;
+  icon: LucideIcon;
   label: string;
   value: string;
   color?: string;

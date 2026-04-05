@@ -1,6 +1,6 @@
 import { getAthleteForUser } from "./user.service";
 
-const PAID_PROGRAM_TIERS = new Set(["PHP", "PHP_Plus", "PHP_Premium"]);
+const PAID_PROGRAM_TIERS = new Set(["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
 
 /**
  * Session booking is limited to athletes with an assigned paid program tier (post coach approval).

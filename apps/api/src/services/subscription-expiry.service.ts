@@ -5,7 +5,7 @@ import { athleteTable, guardianTable, notificationTable, userTable } from "../db
 import { sendPlanExpiredEmail, sendPlanExpiringSoonEmail } from "../lib/mailer";
 import { sendPushNotification } from "./push.service";
 
-const PAID_TIERS = ["PHP", "PHP_Plus", "PHP_Premium"] as const;
+const PAID_TIERS = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const;
 
 const REMINDER_DAYS = 7;
 

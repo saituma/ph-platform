@@ -13,7 +13,7 @@ export default function FoodDiaryScreen() {
   const router = useRouter();
   const programTier = useAppSelector((state) => state.user.programTier);
   const { colors, isDark } = useAppTheme();
-  const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Plus");
+  const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Premium_Plus");
 
   if (!canAccessFoodDiary) {
     return (
@@ -21,7 +21,7 @@ export default function FoodDiaryScreen() {
         <MoreStackHeader title="Food Diary" subtitle="Submit food diaries for coach feedback." />
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-base font-outfit text-secondary text-center">
-            Food diary is available on PHP Plus and Premium plans.
+            Food diary is available on PHP Premium Plus and Premium plans.
           </Text>
         </View>
       </SafeAreaView>

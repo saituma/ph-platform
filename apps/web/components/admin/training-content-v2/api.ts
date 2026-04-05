@@ -33,7 +33,7 @@ export type ModuleSession = {
   title: string;
   dayLength: number;
   order: number;
-  lockedForTiers: Array<"PHP" | "PHP_Plus" | "PHP_Premium">;
+  lockedForTiers: Array<"PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro">;
   items: SessionItem[];
 };
 
@@ -43,14 +43,14 @@ export type Module = {
   title: string;
   order: number;
   totalDayLength: number;
-  lockedForTiers: Array<"PHP" | "PHP_Plus" | "PHP_Premium">;
+  lockedForTiers: Array<"PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro">;
   sessions: ModuleSession[];
 };
 
 export type ModuleLock = {
   id: number;
   audienceLabel: string;
-  programTier: "PHP" | "PHP_Plus" | "PHP_Premium";
+  programTier: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
   label: string;
   startModuleId: number;
 };
@@ -104,9 +104,10 @@ export const BLOCK_TYPES = [
 ] as const;
 
 export const PROGRAM_TIERS = [
-  { value: "PHP", label: "PHP" },
-  { value: "PHP_Plus", label: "PHP Plus" },
+  { value: "PHP", label: "PHP Program" },
   { value: "PHP_Premium", label: "PHP Premium" },
+  { value: "PHP_Premium_Plus", label: "PHP Premium Plus" },
+  { value: "PHP_Pro", label: "PHP Pro" },
 ] as const;
 
 function getCsrfToken() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Eye, EyeOff, UploadCloud } from "lucide-react";
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -16,6 +16,36 @@ import {
   useChangePasswordMutation,
 } from "../../lib/apiSlice";
 
+type ApiErrorLike = {
+  data?: { error?: string };
+  message?: string;
+};
+
+type ProfileState = {
+  name: string;
+  email: string;
+  title: string;
+  bio: string;
+};
+
+type PreferencesState = {
+  timezone: string;
+  notificationSummary: string;
+  workStartHour: string;
+  workStartMinute: string;
+  workEndHour: string;
+  workEndMinute: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const apiError = error as ApiErrorLike;
+    if (typeof apiError.data?.error === "string") return apiError.data.error;
+    if (typeof apiError.message === "string") return apiError.message;
+  }
+  return fallback;
+}
+
 export default function ProfilePage() {
   const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [preferencesMessage, setPreferencesMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -26,21 +56,42 @@ export default function ProfilePage() {
   const [updatePreferences, { isLoading: isSavingPreferences }] = useUpdateAdminPreferencesMutation();
   const [changePassword, { isLoading: isSavingPassword }] = useChangePasswordMutation();
 
-  const [profile, setProfile] = useState({
-    name: "",
-    email: "",
-    title: "",
-    bio: "",
-  });
+  const initialProfile = useMemo<ProfileState>(
+    () => ({
+      name: data?.user?.name ?? "",
+      email: data?.user?.email ?? "",
+      title: data?.settings?.title ?? "",
+      bio: data?.settings?.bio ?? "",
+    }),
+    [data?.settings?.bio, data?.settings?.title, data?.user?.email, data?.user?.name]
+  );
+  const initialPreferences = useMemo<PreferencesState>(
+    () => ({
+      timezone: data?.settings?.timezone ?? "Europe/London",
+      notificationSummary: data?.settings?.notificationSummary ?? "Weekly",
+      workStartHour: String(data?.settings?.workStartHour ?? 8).padStart(2, "0"),
+      workStartMinute: String(data?.settings?.workStartMinute ?? 0).padStart(2, "0"),
+      workEndHour: String(data?.settings?.workEndHour ?? 18).padStart(2, "0"),
+      workEndMinute: String(data?.settings?.workEndMinute ?? 0).padStart(2, "0"),
+    }),
+    [
+      data?.settings?.notificationSummary,
+      data?.settings?.timezone,
+      data?.settings?.workEndHour,
+      data?.settings?.workEndMinute,
+      data?.settings?.workStartHour,
+      data?.settings?.workStartMinute,
+    ]
+  );
+  const initialProfileImage = data?.user?.profilePicture ?? null;
 
-  const [preferences, setPreferences] = useState({
-    timezone: "Europe/London",
-    notificationSummary: "Weekly",
-    workStartHour: "08",
-    workStartMinute: "00",
-    workEndHour: "18",
-    workEndMinute: "00",
-  });
+  const [profileDraft, setProfileDraft] = useState<ProfileState | null>(null);
+  const [preferencesDraft, setPreferencesDraft] = useState<PreferencesState | null>(null);
+  const [profileImageDraft, setProfileImageDraft] = useState<string | null | undefined>(undefined);
+
+  const profile = profileDraft ?? initialProfile;
+  const preferences = preferencesDraft ?? initialPreferences;
+  const profileImage = profileImageDraft === undefined ? initialProfileImage : profileImageDraft;
 
   const [security, setSecurity] = useState({
     currentPassword: "",
@@ -52,7 +103,6 @@ export default function ProfilePage() {
     next: false,
     confirm: false,
   });
-  const [profileImage, setProfileImage] = useState<string | null>(null);
   const clearProfileMessage = () => {
     setTimeout(() => setProfileMessage(null), 2500);
   };
@@ -64,25 +114,6 @@ export default function ProfilePage() {
   const clearPasswordMessage = () => {
     setTimeout(() => setPasswordMessage(null), 2500);
   };
-
-  useEffect(() => {
-    if (!data?.user || !data?.settings) return;
-    setProfile({
-      name: data.user.name ?? "",
-      email: data.user.email ?? "",
-      title: data.settings.title ?? "",
-      bio: data.settings.bio ?? "",
-    });
-    setPreferences({
-      timezone: data.settings.timezone ?? "Europe/London",
-      notificationSummary: data.settings.notificationSummary ?? "Weekly",
-      workStartHour: String(data.settings.workStartHour ?? 8).padStart(2, "0"),
-      workStartMinute: String(data.settings.workStartMinute ?? 0).padStart(2, "0"),
-      workEndHour: String(data.settings.workEndHour ?? 18).padStart(2, "0"),
-      workEndMinute: String(data.settings.workEndMinute ?? 0).padStart(2, "0"),
-    });
-    setProfileImage(data.user.profilePicture ?? null);
-  }, [data]);
 
   const handleSaveProfile = async () => {
     setProfileMessage(null);
@@ -96,8 +127,8 @@ export default function ProfilePage() {
       }).unwrap();
       setProfileMessage({ type: "success", text: "Profile saved successfully." });
       clearProfileMessage();
-    } catch (error: any) {
-      const message = error?.data?.error || "Failed to save profile.";
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, "Failed to save profile.");
       setProfileMessage({ type: "error", text: message });
     }
   };
@@ -115,8 +146,8 @@ export default function ProfilePage() {
       }).unwrap();
       setPreferencesMessage({ type: "success", text: "Preferences saved successfully." });
       clearPreferencesMessage();
-    } catch (error: any) {
-      const message = error?.data?.error || "Failed to save preferences.";
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, "Failed to save preferences.");
       setPreferencesMessage({ type: "error", text: message });
     }
   };
@@ -141,8 +172,8 @@ export default function ProfilePage() {
         clearPasswordMessage();
         setSecurity({ currentPassword: "", newPassword: "", confirmPassword: "" });
       })
-      .catch((error: any) => {
-        const message = error?.data?.error || "Failed to update password.";
+      .catch((error: unknown) => {
+        const message = getErrorMessage(error, "Failed to update password.");
         setPasswordMessage({ type: "error", text: message });
       });
   };
@@ -200,7 +231,7 @@ export default function ProfilePage() {
                         const file = event.target.files?.[0];
                         if (!file) return;
                         const reader = new FileReader();
-                        reader.onload = () => setProfileImage(reader.result as string);
+                        reader.onload = () => setProfileImageDraft(reader.result as string);
                         reader.readAsDataURL(file);
                       }}
                     />
@@ -212,25 +243,25 @@ export default function ProfilePage() {
               placeholder="Name"
               disabled={isLoading}
               value={profile.name}
-              onChange={(event) => setProfile({ ...profile, name: event.target.value })}
+              onChange={(event) => setProfileDraft({ ...profile, name: event.target.value })}
             />
             <Input
               placeholder="Email"
               disabled={isLoading}
               value={profile.email}
-              onChange={(event) => setProfile({ ...profile, email: event.target.value })}
+              onChange={(event) => setProfileDraft({ ...profile, email: event.target.value })}
             />
             <Input
               placeholder="Title"
               disabled={isLoading}
               value={profile.title}
-              onChange={(event) => setProfile({ ...profile, title: event.target.value })}
+              onChange={(event) => setProfileDraft({ ...profile, title: event.target.value })}
             />
             <Textarea
               placeholder="Bio"
               disabled={isLoading}
               value={profile.bio}
-              onChange={(event) => setProfile({ ...profile, bio: event.target.value })}
+              onChange={(event) => setProfileDraft({ ...profile, bio: event.target.value })}
             />
             <Button onClick={handleSaveProfile} disabled={isSavingProfile || isLoading}>
               {isSavingProfile ? "Saving..." : "Save Profile"}
@@ -259,7 +290,7 @@ export default function ProfilePage() {
                 value={preferences.timezone}
                 disabled={isLoading}
                 onChange={(event) =>
-                  setPreferences({ ...preferences, timezone: event.target.value })
+                  setPreferencesDraft({ ...preferences, timezone: event.target.value })
                 }
               >
                 <option value="Europe/London">Europe/London</option>
@@ -297,7 +328,7 @@ export default function ProfilePage() {
                 value={preferences.notificationSummary}
                 disabled={isLoading}
                 onChange={(event) =>
-                  setPreferences({ ...preferences, notificationSummary: event.target.value })
+                  setPreferencesDraft({ ...preferences, notificationSummary: event.target.value })
                 }
               >
                 <option value="Real-time">Real-time</option>
@@ -315,7 +346,7 @@ export default function ProfilePage() {
                     value={preferences.workStartHour}
                     disabled={isLoading}
                     onChange={(event) =>
-                      setPreferences({ ...preferences, workStartHour: event.target.value })
+                      setPreferencesDraft({ ...preferences, workStartHour: event.target.value })
                     }
                   >
                     {Array.from({ length: 24 }).map((_, hour) => (
@@ -328,7 +359,7 @@ export default function ProfilePage() {
                     value={preferences.workStartMinute}
                     disabled={isLoading}
                     onChange={(event) =>
-                      setPreferences({ ...preferences, workStartMinute: event.target.value })
+                      setPreferencesDraft({ ...preferences, workStartMinute: event.target.value })
                     }
                   >
                     {["00", "15", "30", "45"].map((minute) => (
@@ -344,7 +375,7 @@ export default function ProfilePage() {
                     value={preferences.workEndHour}
                     disabled={isLoading}
                     onChange={(event) =>
-                      setPreferences({ ...preferences, workEndHour: event.target.value })
+                      setPreferencesDraft({ ...preferences, workEndHour: event.target.value })
                     }
                   >
                     {Array.from({ length: 24 }).map((_, hour) => (
@@ -357,7 +388,7 @@ export default function ProfilePage() {
                     value={preferences.workEndMinute}
                     disabled={isLoading}
                     onChange={(event) =>
-                      setPreferences({ ...preferences, workEndMinute: event.target.value })
+                      setPreferencesDraft({ ...preferences, workEndMinute: event.target.value })
                     }
                   >
                     {["00", "15", "30", "45"].map((minute) => (

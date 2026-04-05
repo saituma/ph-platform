@@ -42,8 +42,9 @@ type ProgramsDialogsProps = {
 };
 
 const programLabel = (type: string) => {
-  if (type === "PHP_Plus") return "PHP Plus";
   if (type === "PHP_Premium") return "PHP Premium";
+  if (type === "PHP_Premium_Plus") return "PHP Premium Plus";
+  if (type === "PHP_Pro") return "PHP Pro";
   return "PHP Program";
 };
 
@@ -121,8 +122,9 @@ export function ProgramsDialogs({
               <Input placeholder="Template name" value={name} onChange={(e) => setName(e.target.value)} />
               <Select value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="PHP">PHP Program</option>
-                <option value="PHP_Plus">PHP Plus</option>
                 <option value="PHP_Premium">PHP Premium</option>
+                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                <option value="PHP_Pro">PHP Pro</option>
               </Select>
               <Textarea placeholder="Template summary" value={description} onChange={(e) => setDescription(e.target.value)} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -178,8 +180,9 @@ export function ProgramsDialogs({
               />
               <Select value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="PHP">PHP Program</option>
-                <option value="PHP_Plus">PHP Plus</option>
                 <option value="PHP_Premium">PHP Premium</option>
+                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                <option value="PHP_Pro">PHP Pro</option>
               </Select>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input

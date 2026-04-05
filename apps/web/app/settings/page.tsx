@@ -19,6 +19,28 @@ import {
   useCreateMediaUploadUrlMutation,
 } from "../../lib/apiSlice";
 
+type ProfileState = {
+  name: string;
+  email: string;
+  profilePicture: string;
+  title: string;
+  bio: string;
+};
+
+type ApiErrorLike = {
+  data?: { error?: string };
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const apiError = error as ApiErrorLike;
+    if (typeof apiError.data?.error === "string") return apiError.data.error;
+    if (typeof apiError.message === "string") return apiError.message;
+  }
+  return fallback;
+}
+
 export default function SettingsPage() {
   const { data, isLoading } = useGetAdminProfileQuery();
   const [updateProfile, { isLoading: isSavingProfile }] = useUpdateAdminProfileMutation();
@@ -28,7 +50,7 @@ export default function SettingsPage() {
   const [preferencesMessage, setPreferencesMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<ProfileState>({
     name: "",
     email: "",
     profilePicture: "",
@@ -69,7 +91,7 @@ export default function SettingsPage() {
     });
   }, [data]);
 
-  const handleSaveProfile = async (overrides?: any) => {
+  const handleSaveProfile = async (overrides?: Partial<ProfileState>) => {
     setProfileMessage(null);
     try {
       await updateProfile({
@@ -81,8 +103,8 @@ export default function SettingsPage() {
       }).unwrap();
       setProfileMessage({ type: "success", text: "Profile updated." });
       setTimeout(() => setProfileMessage(null), 2000);
-    } catch (error: any) {
-      const message = error?.data?.error || "Failed to update profile.";
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, "Failed to update profile.");
       setProfileMessage({ type: "error", text: message });
     }
   };
@@ -110,7 +132,7 @@ export default function SettingsPage() {
 
       setProfile((prev) => ({ ...prev, profilePicture: publicUrl }));
       await handleSaveProfile({ profilePicture: publicUrl });
-    } catch (error) {
+    } catch {
       setProfileMessage({ type: "error", text: "Failed to upload image." });
     } finally {
       setIsUploading(false);
@@ -126,8 +148,8 @@ export default function SettingsPage() {
       }).unwrap();
       setPreferencesMessage({ type: "success", text: "Preferences saved." });
       setTimeout(() => setPreferencesMessage(null), 2000);
-    } catch (error: any) {
-      const message = error?.data?.error || "Failed to save preferences.";
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, "Failed to save preferences.");
       setPreferencesMessage({ type: "error", text: message });
     }
   };
@@ -152,8 +174,8 @@ export default function SettingsPage() {
         setTimeout(() => setPasswordMessage(null), 2000);
         setSecurity({ currentPassword: "", newPassword: "", confirmPassword: "" });
       })
-      .catch((error: any) => {
-        const message = error?.data?.error || "Failed to update password.";
+      .catch((error: unknown) => {
+        const message = getErrorMessage(error, "Failed to update password.");
         setPasswordMessage({ type: "error", text: message });
       });
   };

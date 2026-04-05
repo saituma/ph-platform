@@ -377,7 +377,7 @@ export function OnboardingConfigEditor() {
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label>PHP Plus tab labels (one per line)</Label>
+            <Label>PHP Premium Plus tab labels (one per line)</Label>
             <Textarea
               value={phpPlusTabsLines}
               onChange={(e) => setPhpPlusTabsLines(e.target.value)}

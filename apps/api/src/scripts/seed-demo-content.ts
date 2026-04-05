@@ -25,7 +25,7 @@ import {
 } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 
-type Tier = "PHP" | "PHP_Plus" | "PHP_Premium";
+type Tier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 
 type SessionSection =
   | "program"
@@ -60,12 +60,12 @@ async function resolveAdminId(): Promise<number> {
 
 function tierTag(tier: Tier): string {
   if (tier === "PHP") return "Foundation block — own every rep before adding load.";
-  if (tier === "PHP_Plus") return "Development phase — progressive overload with technical non‑negotiables.";
+  if (tier === "PHP_Premium_Plus") return "Development phase — progressive overload with technical non‑negotiables.";
   return "Performance phase — train like you compete, recover like a pro.";
 }
 
 async function ensurePrograms(adminId: number) {
-  const tiers: Tier[] = ["PHP", "PHP_Plus", "PHP_Premium"];
+  const tiers: Tier[] = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"];
   const copy: Record<Tier, { name: string; description: string; minAge: number; maxAge: number }> = {
     PHP: {
       name: "PHP — Foundation",
@@ -74,8 +74,8 @@ async function ensurePrograms(adminId: number) {
       minAge: 11,
       maxAge: 15,
     },
-    PHP_Plus: {
-      name: "PHP Plus — Development",
+    PHP_Premium_Plus: {
+      name: "PHP Premium Plus — Development",
       description:
         "Progressive loading and single-leg work with intro to explosive prep and higher training density. Assumes consistent attendance and competent lifting basics.",
       minAge: 12,
@@ -87,6 +87,13 @@ async function ensurePrograms(adminId: number) {
         "Full microcycle planning with screening, mobility, recovery protocols, and in-season maintenance options. Best for committed athletes preparing for higher-level competition.",
       minAge: 14,
       maxAge: 19,
+    },
+    PHP_Pro: {
+      name: "PHP Pro — Elite",
+      description:
+        "Highest-touch program with advanced periodization, close feedback loops, and competition-focused planning for athletes operating at elite standards.",
+      minAge: 15,
+      maxAge: 21,
     },
   };
   for (const tier of tiers) {
@@ -125,7 +132,7 @@ function rx(
       restSeconds: Math.max(60, base.restSeconds - 20),
     };
   }
-  if (tier === "PHP_Plus") {
+  if (tier === "PHP_Premium_Plus") {
     return base;
   }
   return {
@@ -510,7 +517,7 @@ function stretchingPlus(): ExerciseSeed[] {
 }
 
 function offseasonBlock(tier: Tier): ExerciseSeed[] {
-  const label = tier === "PHP_Plus" ? "GPP — volume" : "GPP — capacity";
+  const label = tier === "PHP_Premium_Plus" ? "GPP — volume" : "GPP — capacity";
   return [
     {
       sectionType: "offseason",
@@ -787,7 +794,7 @@ function catalogForTier(tier: Tier): ExerciseSeed[] {
   if (tier === "PHP") {
     return core;
   }
-  if (tier === "PHP_Plus") {
+  if (tier === "PHP_Premium_Plus") {
     return [...core, ...stretchingPlus(), ...offseasonBlock(tier)];
   }
   return [
@@ -841,7 +848,7 @@ async function seedCanonicalServiceTypes(adminId: number) {
 }
 
 async function seedSectionContent(adminId: number) {
-  const tiers: Tier[] = ["PHP", "PHP_Plus", "PHP_Premium"];
+  const tiers: Tier[] = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"];
   for (const tier of tiers) {
     const catalog = catalogForTier(tier);
     const rows = catalog.map((row) => ({

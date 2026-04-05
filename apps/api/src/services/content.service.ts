@@ -14,8 +14,9 @@ import { calculateAge, normalizeDate } from "../lib/age";
 
 const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
   PHP: 1,
-  PHP_Plus: 2,
-  PHP_Premium: 3,
+  PHP_Premium: 2,
+  PHP_Premium_Plus: 3,
+  PHP_Pro: 4,
 };
 
 export async function getHomeContent() {

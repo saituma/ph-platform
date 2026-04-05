@@ -34,8 +34,10 @@ export default function PlansScreen() {
         const key =
           tier.id === "php"
             ? "PHP"
+            : tier.id === "pro"
+              ? "PHP_Pro"
             : tier.id === "plus"
-              ? "PHP_Plus"
+              ? "PHP_Premium_Plus"
               : "PHP_Premium";
         return [key, tier];
       })

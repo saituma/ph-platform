@@ -9,7 +9,7 @@ import { Label } from "../../ui/label";
 import { Select } from "../../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 
-type PlanTier = "PHP" | "PHP_Plus" | "PHP_Premium";
+type PlanTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 type PlanFormState = {
   id?: number;
   name: string;
@@ -25,6 +25,42 @@ type PlanFormState = {
   yearlyDiscountValue: string;
   isActive: boolean;
 };
+
+type BillingPlan = {
+  id: number;
+  tier: PlanTier;
+  name?: string;
+  displayPrice?: string;
+  billingInterval?: string;
+  monthlyPrice?: string;
+  yearlyPrice?: string;
+  discountType?: string;
+  discountValue?: string;
+  discountAppliesTo?: string;
+  isActive?: boolean;
+};
+
+type BillingRequest = {
+  requestId: number;
+  userName?: string | null;
+  userEmail?: string | null;
+  planName?: string | null;
+  displayPrice?: string | null;
+  billingInterval?: string | null;
+  status?: string | null;
+};
+
+type ApiErrorLike = {
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
 
 const BILLING_INTERVALS = ["monthly", "yearly"] as const;
 const getCsrfToken = () =>
@@ -51,9 +87,9 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
   {
     name: "PHP Program",
     tier: "PHP",
-    displayPrice: "",
+    displayPrice: "£34.99/month",
     billingInterval: "monthly",
-    monthlyPrice: "",
+    monthlyPrice: "£34.99",
     yearlyPrice: "",
     discountType: "percent",
     monthlyDiscountEnabled: false,
@@ -63,25 +99,39 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
     isActive: true,
   },
   {
-    name: "PHP Plus",
-    tier: "PHP_Plus",
-    displayPrice: "",
-    billingInterval: "monthly",
-    monthlyPrice: "",
-    yearlyPrice: "",
-    discountType: "percent",
-    monthlyDiscountEnabled: false,
-    monthlyDiscountValue: "",
-    yearlyDiscountEnabled: false,
-    yearlyDiscountValue: "",
-    isActive: true,
-  },
-  {
-    name: "PHP Premium (1:1)",
+    name: "PHP Premium",
     tier: "PHP_Premium",
-    displayPrice: "",
+    displayPrice: "£69.99/month",
     billingInterval: "monthly",
-    monthlyPrice: "",
+    monthlyPrice: "£69.99",
+    yearlyPrice: "",
+    discountType: "percent",
+    monthlyDiscountEnabled: false,
+    monthlyDiscountValue: "",
+    yearlyDiscountEnabled: false,
+    yearlyDiscountValue: "",
+    isActive: true,
+  },
+  {
+    name: "PHP Premium Plus",
+    tier: "PHP_Premium_Plus",
+    displayPrice: "£99/month",
+    billingInterval: "monthly",
+    monthlyPrice: "£99",
+    yearlyPrice: "",
+    discountType: "percent",
+    monthlyDiscountEnabled: false,
+    monthlyDiscountValue: "",
+    yearlyDiscountEnabled: false,
+    yearlyDiscountValue: "",
+    isActive: true,
+  },
+  {
+    name: "PHP Pro",
+    tier: "PHP_Pro",
+    displayPrice: "£249.99/month",
+    billingInterval: "monthly",
+    monthlyPrice: "£249.99",
     yearlyPrice: "",
     discountType: "percent",
     monthlyDiscountEnabled: false,
@@ -92,7 +142,7 @@ const PLAN_DEFINITIONS: PlanFormState[] = [
   },
 ];
 
-function parseDiscountFields(plan: any) {
+function parseDiscountFields(plan: BillingPlan | null | undefined) {
   const rawValue = String(plan?.discountValue ?? "").trim();
   const appliesTo = String(plan?.discountAppliesTo ?? "").trim().toLowerCase();
   if (!rawValue) {
@@ -166,9 +216,9 @@ function normalizePlan(plan: PlanFormState) {
 }
 
 export function BillingSection() {
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [formPlans, setFormPlans] = useState<PlanFormState[]>(PLAN_DEFINITIONS);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<BillingRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<Record<
@@ -189,11 +239,11 @@ export function BillingSection() {
         fetch("/api/backend/admin/subscription-plans").then((res) => res.json()),
         fetch("/api/backend/admin/subscription-requests").then((res) => res.json()),
       ]);
-      const loadedPlans = plansRes.plans ?? [];
+      const loadedPlans: BillingPlan[] = Array.isArray(plansRes?.plans) ? plansRes.plans : [];
       setPlans(loadedPlans);
       setFormPlans((prev) =>
         prev.map((plan) => {
-          const existing = loadedPlans.find((item: any) => item.tier === plan.tier);
+          const existing = loadedPlans.find((item) => item.tier === plan.tier);
           if (!existing) return plan;
           const merged: PlanFormState = {
             ...plan,
@@ -210,9 +260,9 @@ export function BillingSection() {
           return normalizePlan(merged);
         })
       );
-      setRequests(requestsRes.requests ?? []);
-    } catch (error: any) {
-      setActionError(error?.message || "Failed to load billing data.");
+      setRequests(Array.isArray(requestsRes?.requests) ? requestsRes.requests : []);
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to load billing data."));
     } finally {
       setIsLoading(false);
     }
@@ -261,8 +311,8 @@ export function BillingSection() {
       }
       await loadData();
       setSaveStatus((prev) => ({ ...prev, [key]: { type: "success", message: "Saved successfully." } }));
-    } catch (error: any) {
-      const message = error?.message || "Failed to save plan.";
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, "Failed to save plan.");
       setActionError(message);
       setSaveStatus((prev) => ({ ...prev, [key]: { type: "error", message: "Failed." } }));
     } finally {
@@ -289,8 +339,8 @@ export function BillingSection() {
         throw new Error(payload?.error || "Failed to approve request.");
       }
       await loadData();
-    } catch (error: any) {
-      setActionError(error?.message || "Failed to approve request.");
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to approve request."));
     }
   };
 
@@ -307,8 +357,8 @@ export function BillingSection() {
         throw new Error(payload?.error || "Failed to reject request.");
       }
       await loadData();
-    } catch (error: any) {
-      setActionError(error?.message || "Failed to reject request.");
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to reject request."));
     }
   };
 

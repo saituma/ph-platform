@@ -41,6 +41,82 @@ import {
   useUpdateProgramTierMutation,
 } from "../../../lib/apiSlice";
 
+type AdminUserRow = {
+  id: number;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  isBlocked?: boolean | null;
+  onboardingCompleted?: boolean | null;
+  onboarding_completed?: boolean | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  cognitoSub?: string | null;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  programTier?: string | null;
+  guardianProgramTier?: string | null;
+};
+
+type ExerciseLibraryItem = {
+  id: number;
+  name?: string | null;
+  videoUrl?: string | null;
+  sets?: number | null;
+  reps?: number | null;
+  duration?: number | null;
+  restSeconds?: number | null;
+};
+
+type PremiumPlanExercise = {
+  id: number;
+  order?: number | null;
+  exerciseId?: number | null;
+  sets?: number | null;
+  reps?: number | null;
+  duration?: number | null;
+  restSeconds?: number | null;
+  coachingNotes?: string | null;
+  exercise?: ExerciseLibraryItem | null;
+};
+
+type PremiumPlanSession = {
+  id: number;
+  weekNumber?: number | null;
+  sessionNumber?: number | null;
+  title?: string | null;
+  notes?: string | null;
+  exercises?: PremiumPlanExercise[] | null;
+};
+
+type BillingRequest = {
+  userId?: number;
+  planTier?: string | null;
+  displayPrice?: string | null;
+  billingInterval?: string | null;
+  status?: string | null;
+  paymentStatus?: string | null;
+  createdAt?: string | null;
+};
+
+type ApiErrorLike = {
+  data?: { error?: string; message?: string };
+  error?: string;
+  message?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const e = error as ApiErrorLike;
+    if (typeof e.data?.error === "string") return e.data.error;
+    if (typeof e.data?.message === "string") return e.data.message;
+    if (typeof e.error === "string") return e.error;
+    if (typeof e.message === "string") return e.message;
+  }
+  return fallback;
+}
+
 export default function UserDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -57,7 +133,7 @@ export default function UserDetailPage() {
     return from.toISOString();
   }, []);
   const { data: completionsData, isFetching: completionsLoading } = useGetUserProgramSectionCompletionsQuery(
-    isValidId ? { userId, from: fromIso, limit: 200 } : (skipToken as any)
+    isValidId ? { userId, from: fromIso, limit: 200 } : skipToken
   );
   const { data: exercisesData } = useGetExercisesQuery();
   const [createExercise, { isLoading: isCreatingExercise }] = useCreateExerciseMutation();
@@ -86,7 +162,7 @@ export default function UserDetailPage() {
   } | null>(null);
 
   const rawUser = useMemo(
-    () => (usersData?.users ?? []).find((u: any) => u.id === userId),
+    () => ((usersData?.users ?? []) as AdminUserRow[]).find((u) => u.id === userId),
     [usersData, userId]
   );
 
@@ -119,12 +195,15 @@ export default function UserDetailPage() {
 
   const [planWeek, setPlanWeek] = useState<number>(1);
   const { data: premiumPlanData, isFetching: premiumPlanLoading } = useGetUserPremiumPlanQuery(
-    isValidId && resolvedTier === "PHP_Premium" ? { userId } : (skipToken as any)
+    isValidId && resolvedTier === "PHP_Premium" ? { userId } : skipToken
   );
-  const planSessions = useMemo(() => premiumPlanData?.items ?? [], [premiumPlanData]);
+  const planSessions = useMemo<PremiumPlanSession[]>(
+    () => (Array.isArray(premiumPlanData?.items) ? premiumPlanData.items : []),
+    [premiumPlanData]
+  );
   const planWeeks = useMemo(() => {
     const set = new Set<number>();
-    (planSessions ?? []).forEach((s: any) => {
+    planSessions.forEach((s) => {
       if (typeof s.weekNumber === "number") set.add(s.weekNumber);
     });
     return Array.from(set.values()).sort((a, b) => a - b);
@@ -136,13 +215,16 @@ export default function UserDetailPage() {
   }, [planWeeks, planWeek]);
 
   const visiblePlanSessions = useMemo(() => {
-    return (planSessions ?? []).filter((s: any) => Number(s.weekNumber) === Number(planWeek));
+    return planSessions.filter((s) => Number(s.weekNumber) === Number(planWeek));
   }, [planSessions, planWeek]);
 
-  const exerciseOptions = useMemo(() => exercisesData?.exercises ?? [], [exercisesData]);
+  const exerciseOptions = useMemo<ExerciseLibraryItem[]>(
+    () => (Array.isArray(exercisesData?.exercises) ? exercisesData.exercises : []),
+    [exercisesData]
+  );
   const nextSessionNumberForWeek = useMemo(() => {
-    const nums = (visiblePlanSessions ?? [])
-      .map((s: any) => Number(s.sessionNumber))
+    const nums = visiblePlanSessions
+      .map((s) => Number(s.sessionNumber))
       .filter((n: number) => Number.isFinite(n));
     return nums.length ? Math.max(...nums) + 1 : 1;
   }, [visiblePlanSessions]);
@@ -207,7 +289,7 @@ export default function UserDetailPage() {
   useEffect(() => {
     setSessionDrafts((prev) => {
       const next = { ...prev };
-      (planSessions ?? []).forEach((session: any) => {
+      planSessions.forEach((session) => {
         if (!session?.id) return;
         if (next[session.id]) return;
         next[session.id] = { title: session.title ?? "", notes: session.notes ?? "" };
@@ -216,8 +298,8 @@ export default function UserDetailPage() {
     });
     setExerciseDrafts((prev) => {
       const next = { ...prev };
-      (planSessions ?? []).forEach((session: any) => {
-        (session.exercises ?? []).forEach((ex: any) => {
+      planSessions.forEach((session) => {
+        (session.exercises ?? []).forEach((ex) => {
           if (!ex?.id) return;
           if (next[ex.id]) return;
           next[ex.id] = {
@@ -251,15 +333,8 @@ export default function UserDetailPage() {
     return () => window.clearTimeout(t);
   }, [planNotice]);
 
-  const planErrorMessage = useCallback((err: any) => {
-    const msg =
-      err?.data?.error ??
-      err?.data?.message ??
-      err?.error ??
-      err?.message ??
-      (typeof err === "string" ? err : null) ??
-      "Something went wrong";
-    return String(msg);
+  const planErrorMessage = useCallback((err: unknown) => {
+    return getErrorMessage(err, "Something went wrong");
   }, []);
 
   const toNumOrUndefined = useCallback((v: string) => {
@@ -279,8 +354,8 @@ export default function UserDetailPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((payload) => {
         if (!active) return;
-        const requests = payload?.requests ?? [];
-        const match = requests.find((r: any) => r.userId === userId);
+        const requests: BillingRequest[] = Array.isArray(payload?.requests) ? payload.requests : [];
+        const match = requests.find((r) => r.userId === userId);
         setBillingStatus(
           match
             ? {
@@ -308,8 +383,8 @@ export default function UserDetailPage() {
       await blockUser({ userId, blocked: !rawUser?.isBlocked }).unwrap();
       if (rawUser?.isBlocked) return;
       router.push("/users");
-    } catch (err: any) {
-      setActionError(err?.data?.error ?? "Failed to update block status.");
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, "Failed to update block status."));
     }
   }, [userId, rawUser?.isBlocked, blockUser, router]);
 
@@ -319,8 +394,8 @@ export default function UserDetailPage() {
     try {
       await deleteUser({ userId }).unwrap();
       router.push("/users");
-    } catch (err: any) {
-      setActionError(err?.data?.error ?? "Failed to delete user.");
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, "Failed to delete user."));
     }
   }, [userId, deleteUser, router]);
 
@@ -332,8 +407,8 @@ export default function UserDetailPage() {
     setActionError(null);
     try {
       await updateProgramTier({ athleteId, programTier }).unwrap();
-    } catch (err: any) {
-      setActionError(err?.data?.error ?? "Failed to update program tier.");
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, "Failed to update program tier."));
     }
   }, [athleteId, programTier, updateProgramTier]);
 
@@ -369,7 +444,7 @@ export default function UserDetailPage() {
       ? "Admin"
       : resolvedTier === "PHP_Premium"
         ? "Premium"
-        : resolvedTier === "PHP_Plus"
+        : resolvedTier === "PHP_Premium_Plus"
           ? "Plus"
           : "Program";
 
@@ -739,11 +814,11 @@ export default function UserDetailPage() {
 	                ) : (
                   visiblePlanSessions
                     .slice()
-                    .sort((a: any, b: any) => Number(a.sessionNumber) - Number(b.sessionNumber))
-                    .map((session: any) => {
+                    .sort((a, b) => Number(a.sessionNumber) - Number(b.sessionNumber))
+                    .map((session) => {
                       const draft = sessionDrafts[session.id] ?? { title: "", notes: "" };
-                      const exercises = (session.exercises ?? []).slice().sort((a: any, b: any) => Number(a.order) - Number(b.order));
-                      const nextOrder = exercises.length ? Math.max(...exercises.map((e: any) => Number(e.order ?? 0))) + 1 : 1;
+                      const exercises = (session.exercises ?? []).slice().sort((a, b) => Number(a.order) - Number(b.order));
+                      const nextOrder = exercises.length ? Math.max(...exercises.map((e) => Number(e.order ?? 0))) + 1 : 1;
                       const selectedExerciseId = addExerciseSelection[session.id] ?? "";
                       return (
                         <div key={session.id} className="rounded-2xl border border-border bg-card p-4">
@@ -842,7 +917,7 @@ export default function UserDetailPage() {
 	                                  className="min-w-[240px]"
 	                                >
 	                                  <option value="">Select exercise…</option>
-	                                  {exerciseOptions.map((ex: any) => (
+	                                  {exerciseOptions.map((ex) => (
 	                                    <option key={ex.id} value={String(ex.id)}>
 	                                      {ex.name}
 	                                    </option>
@@ -897,7 +972,7 @@ export default function UserDetailPage() {
                               {exercises.length === 0 ? (
                                 <div className="text-xs text-muted-foreground">No exercises yet.</div>
                               ) : (
-                                exercises.map((ex: any) => {
+                                exercises.map((ex) => {
                                   const base = ex.exercise ?? null;
                                   const d = exerciseDrafts[ex.id] ?? {
                                     sets: "",
@@ -1340,8 +1415,9 @@ export default function UserDetailPage() {
                 className="min-w-[160px]"
               >
                 <option value="PHP">PHP Program</option>
-                <option value="PHP_Plus">PHP Plus</option>
                 <option value="PHP_Premium">PHP Premium</option>
+                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                <option value="PHP_Pro">PHP Pro</option>
               </Select>
               <Button onClick={handleUpdateTier} disabled={!athleteId || tierLoading}>
                 {tierLoading ? "Saving..." : "Update tier"}

@@ -34,7 +34,7 @@ export function CalendarPanel({ visible, onOpenSlots }: CalendarPanelProps) {
       date: "Feb 12",
       sessions: [
         { time: "13:00", label: "Premium Call", athlete: "Miles T.", type: "Video" },
-        { time: "18:00", label: "Group Call", athlete: "PHP Plus", type: "Video" },
+        { time: "18:00", label: "Group Call", athlete: "PHP Premium Plus", type: "Video" },
         { time: "19:30", label: "Lift Lab 1:1", athlete: "Liam R.", type: "In-person" },
       ],
     },

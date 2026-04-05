@@ -1,6 +1,6 @@
 import { normalizeProgramTier, type ProgramTierName } from "@/lib/planAccess";
 
-const ALL: ProgramTierName[] = ["PHP", "PHP_Plus", "PHP_Premium"];
+const ALL: ProgramTierName[] = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"];
 
 export function canUseCoachMessaging(
   programTier: string | null | undefined,

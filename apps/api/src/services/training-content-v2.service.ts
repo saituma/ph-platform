@@ -47,9 +47,10 @@ const BLOCK_ORDER: Record<(typeof trainingSessionBlockType.enumValues)[number], 
 };
 
 const PROGRAM_TIER_LABELS: Record<(typeof ProgramType.enumValues)[number], string> = {
-  PHP: "PHP",
-  PHP_Plus: "PHP Plus",
+  PHP: "PHP Program",
   PHP_Premium: "PHP Premium",
+  PHP_Premium_Plus: "PHP Premium Plus",
+  PHP_Pro: "PHP Pro",
 };
 
 function normalizeAudienceLabel(input: string) {
