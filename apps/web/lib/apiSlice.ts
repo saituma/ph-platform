@@ -456,7 +456,7 @@ export const apiSlice = createApi({
         email: string;
         athleteName: string;
         birthDate: string;
-        team: string;
+        team?: string | null;
         trainingPerWeek: number;
         injuries?: unknown;
         growthNotes?: string | null;

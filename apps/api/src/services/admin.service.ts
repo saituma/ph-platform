@@ -1892,7 +1892,7 @@ export type CreateAdultAthleteAdminInput = {
   email: string;
   athleteName: string;
   birthDate: string;
-  team: string;
+  team?: string | null;
   trainingPerWeek: number;
   injuries?: unknown;
   growthNotes?: string | null;
@@ -2068,6 +2068,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
   }
 
   const desiredProgramType = input.desiredProgramType ?? null;
+  const resolvedTeam = input.team?.trim() || "Adult";
   let planExpiresAt: Date | null = null;
   if (input.planExpiresAt) {
     const parsedExpiry = new Date(input.planExpiresAt);
@@ -2172,7 +2173,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
         name: athleteName,
         age,
         birthDate: input.birthDate,
-        team: input.team.trim(),
+        team: resolvedTeam,
         trainingPerWeek: input.trainingPerWeek,
         injuries: input.injuries ?? null,
         growthNotes: input.growthNotes ?? null,
