@@ -281,7 +281,7 @@ const provisionAdultAthleteSchema = z.object({
   email: z.string().email(),
   athleteName: z.string().min(1),
   birthDate: z.string().min(1),
-  team: z.string().min(1),
+  team: z.string().optional().nullable(),
   trainingPerWeek: z.coerce.number().int().min(0),
   injuries: z.unknown().optional(),
   growthNotes: z.string().optional().nullable(),
