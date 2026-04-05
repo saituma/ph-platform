@@ -431,6 +431,8 @@ export const apiSlice = createApi({
         parentPhone?: string | null;
         relationToAthlete?: string | null;
         desiredProgramType?: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
+        planPaymentType: "monthly" | "upfront";
+        planCommitmentMonths: 6 | 12;
         termsVersion: string;
         privacyVersion: string;
         appVersion: string;
@@ -463,7 +465,8 @@ export const apiSlice = createApi({
         performanceGoals?: string | null;
         equipmentAccess?: string | null;
         desiredProgramType?: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro" | null;
-        planExpiresAt?: string | null;
+        planPaymentType: "monthly" | "upfront";
+        planCommitmentMonths: 6 | 12;
         termsVersion: string;
         privacyVersion: string;
         appVersion: string;

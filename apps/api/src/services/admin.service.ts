@@ -24,6 +24,7 @@ import {
   messageTable,
   physioRefferalsTable,
   programTable,
+  PlanPaymentType,
   serviceTypeTable,
   sessionExerciseTable,
   sessionTable,
@@ -1852,6 +1853,13 @@ function hashLocalProvisionPassword(password: string) {
   return { hash, salt };
 }
 
+function computePlanExpiryFromCommitment(months: 6 | 12) {
+  const end = new Date();
+  end.setMonth(end.getMonth() + months);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
 async function deleteCognitoUserByEmail(email: string) {
   if (!env.cognitoUserPoolId) return;
   try {
@@ -1882,6 +1890,8 @@ export type CreateGuardianWithOnboardingAdminInput = {
   parentPhone?: string | null;
   relationToAthlete?: string | null;
   desiredProgramType?: (typeof ProgramType.enumValues)[number];
+  planPaymentType: (typeof PlanPaymentType.enumValues)[number];
+  planCommitmentMonths: 6 | 12;
   termsVersion: string;
   privacyVersion: string;
   appVersion: string;
@@ -1899,7 +1909,8 @@ export type CreateAdultAthleteAdminInput = {
   performanceGoals?: string | null;
   equipmentAccess?: string | null;
   desiredProgramType?: (typeof ProgramType.enumValues)[number] | null;
-  planExpiresAt?: string | null;
+  planPaymentType: (typeof PlanPaymentType.enumValues)[number];
+  planCommitmentMonths: 6 | 12;
   termsVersion: string;
   privacyVersion: string;
   appVersion: string;
@@ -2020,6 +2031,17 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
       extraResponses: input.extraResponses,
     });
 
+    const commitmentExpiry = computePlanExpiryFromCommitment(input.planCommitmentMonths);
+    await db
+      .update(athleteTable)
+      .set({
+        planPaymentType: input.planPaymentType,
+        planCommitmentMonths: input.planCommitmentMonths,
+        planExpiresAt: commitmentExpiry,
+        updatedAt: new Date(),
+      })
+      .where(eq(athleteTable.id, onboardingResult.athleteId));
+
     let emailSent = true;
     try {
       await sendAdminWelcomeCredentialsEmail({
@@ -2069,15 +2091,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
 
   const desiredProgramType = input.desiredProgramType ?? null;
   const resolvedTeam = input.team?.trim() || "Adult";
-  let planExpiresAt: Date | null = null;
-  if (input.planExpiresAt) {
-    const parsedExpiry = new Date(input.planExpiresAt);
-    if (Number.isNaN(parsedExpiry.getTime())) {
-      throw { status: 400, message: "Plan expiry date is invalid." };
-    }
-    parsedExpiry.setHours(23, 59, 59, 999);
-    planExpiresAt = parsedExpiry;
-  }
+  const planExpiresAt = computePlanExpiryFromCommitment(input.planCommitmentMonths);
 
   const tempPassword = generateProvisionPassword();
   let userId: number | null = null;
@@ -2181,6 +2195,8 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
         equipmentAccess: input.equipmentAccess ?? null,
         extraResponses: input.extraResponses ?? null,
         currentProgramTier: desiredProgramType,
+        planPaymentType: input.planPaymentType,
+        planCommitmentMonths: input.planCommitmentMonths,
         planExpiresAt,
         onboardingCompleted: true,
         onboardingCompletedAt: now,
