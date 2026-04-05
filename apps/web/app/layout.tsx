@@ -5,6 +5,7 @@ import "./fullcalendar.css";
 import "./globals.css";
 import { Providers } from "./providers";
 import { SileoToaster } from "../components/ui/sileo-toaster";
+import { SonnerToaster } from "../components/ui/sonner-toaster";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff2",
@@ -55,6 +56,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <SileoToaster />
+          <SonnerToaster />
         </Providers>
       </body>
     </html>
