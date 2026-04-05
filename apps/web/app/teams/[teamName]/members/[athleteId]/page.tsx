@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader } from "../../../../../components/ui/card
 import { Input } from "../../../../../components/ui/input";
 import { Label } from "../../../../../components/ui/label";
 import { Select } from "../../../../../components/ui/select";
+import { Textarea } from "../../../../../components/ui/textarea";
 import { SectionHeader } from "../../../../../components/admin/section-header";
 
 type TeamMemberDetails = {
@@ -19,6 +20,10 @@ type TeamMemberDetails = {
   birthDate: string | null;
   trainingPerWeek: number | null;
   currentProgramTier: string | null;
+  injuries: string | null;
+  growthNotes: string | null;
+  performanceGoals: string | null;
+  equipmentAccess: string | null;
   createdAt: string | Date | null;
   updatedAt: string | Date | null;
   guardianEmail: string | null;
@@ -56,6 +61,10 @@ export default function TeamMemberDetailPage() {
     birthDate: "",
     trainingPerWeek: "",
     currentProgramTier: "",
+    injuries: "",
+    growthNotes: "",
+    performanceGoals: "",
+    equipmentAccess: "",
     guardianEmail: "",
     guardianPhone: "",
     relationToAthlete: "",
@@ -84,6 +93,10 @@ export default function TeamMemberDetailPage() {
         birthDate: next.birthDate ?? "",
         trainingPerWeek: next.trainingPerWeek != null ? String(next.trainingPerWeek) : "",
         currentProgramTier: next.currentProgramTier ?? "",
+        injuries: next.injuries ?? "",
+        growthNotes: next.growthNotes ?? "",
+        performanceGoals: next.performanceGoals ?? "",
+        equipmentAccess: next.equipmentAccess ?? "",
         guardianEmail: next.guardianEmail ?? "",
         guardianPhone: next.guardianPhone ?? "",
         relationToAthlete: next.relationToAthlete ?? "",
@@ -116,6 +129,10 @@ export default function TeamMemberDetailPage() {
           birthDate: form.birthDate.trim() || null,
           trainingPerWeek: Number.parseInt(form.trainingPerWeek, 10),
           currentProgramTier: form.currentProgramTier || null,
+          injuries: form.injuries.trim() || null,
+          growthNotes: form.growthNotes.trim() || null,
+          performanceGoals: form.performanceGoals.trim() || null,
+          equipmentAccess: form.equipmentAccess.trim() || null,
           guardianEmail: form.guardianEmail.trim() || null,
           guardianPhone: form.guardianPhone.trim() || null,
           relationToAthlete: form.relationToAthlete.trim() || null,
@@ -135,15 +152,7 @@ export default function TeamMemberDetailPage() {
   };
 
   return (
-    <AdminShell
-      title={details?.athleteName || "Team member"}
-      subtitle={`Team: ${teamName || "—"}`}
-      actions={
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/teams/${encodeURIComponent(teamName)}`}>Back to team</Link>
-        </Button>
-      }
-    >
+    <AdminShell title={details?.athleteName || "Team member"} subtitle={`Team: ${teamName || "—"}`}>
       <div className="grid gap-6">
         {error ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>
@@ -151,6 +160,14 @@ export default function TeamMemberDetailPage() {
         {notice ? (
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">{notice}</div>
         ) : null}
+
+        <Card>
+          <CardContent className="pt-6">
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/teams/${encodeURIComponent(teamName)}`}>Back to team</Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -218,6 +235,38 @@ export default function TeamMemberDetailPage() {
                   <Input
                     value={form.relationToAthlete}
                     onChange={(event) => setForm((current) => ({ ...current, relationToAthlete: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label>Injuries / history</Label>
+                  <Textarea
+                    rows={2}
+                    value={form.injuries}
+                    onChange={(event) => setForm((current) => ({ ...current, injuries: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Growth notes</Label>
+                  <Textarea
+                    rows={2}
+                    value={form.growthNotes}
+                    onChange={(event) => setForm((current) => ({ ...current, growthNotes: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Performance goals</Label>
+                  <Textarea
+                    rows={2}
+                    value={form.performanceGoals}
+                    onChange={(event) => setForm((current) => ({ ...current, performanceGoals: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label>Equipment access</Label>
+                  <Textarea
+                    rows={2}
+                    value={form.equipmentAccess}
+                    onChange={(event) => setForm((current) => ({ ...current, equipmentAccess: event.target.value }))}
                   />
                 </div>
                 <div className="sm:col-span-2 flex items-center justify-between">

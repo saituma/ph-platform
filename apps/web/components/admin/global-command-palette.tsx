@@ -130,18 +130,36 @@ const NAV_ITEMS: PaletteList = {
   id: "pages",
   heading: "Pages",
   items: [
-    { id: "home", children: "Overview", href: "/", keywords: ["dashboard", "home"] },
-    { id: "coaching", children: "1:1 Coaching", href: "/coaching", keywords: ["premium", "athlete"] },
+    {
+      id: "home",
+      children: "Overview",
+      href: "/",
+      keywords: ["dashboard", "home"],
+    },
+    {
+      id: "coaching",
+      children: "1:1 Coaching",
+      href: "/coaching",
+      keywords: ["premium", "athlete"],
+    },
     { id: "users", children: "Users & Tiers", href: "/users" },
     { id: "add-user", children: "Add user", href: "/users/add" },
     { id: "add-team", children: "Add team", href: "/users/add-team" },
     { id: "teams", children: "Teams", href: "/teams" },
     { id: "onboarding", children: "Onboarding", href: "/onboarding-config" },
-    { id: "training-snapshot", children: "Client training", href: "/training-snapshot" },
+    {
+      id: "training-snapshot",
+      children: "Client training",
+      href: "/training-snapshot",
+    },
     { id: "billing", children: "Billing", href: "/billing" },
     { id: "content", children: "Content", href: "/content" },
     { id: "parent", children: "Parent Portal", href: "/parent" },
-    { id: "exercise-library", children: "Training content", href: "/exercise-library" },
+    {
+      id: "exercise-library",
+      children: "Training content",
+      href: "/exercise-library",
+    },
     { id: "messaging", children: "Messaging", href: "/messaging" },
     { id: "video-review", children: "Video Feedback", href: "/video-review" },
     { id: "bookings", children: "Schedule", href: "/bookings" },
@@ -162,14 +180,30 @@ export function GlobalCommandPalette() {
   const query = search.trim().toLowerCase();
 
   const { data: usersData } = useGetUsersQuery(undefined, { skip: !isOpen });
-  const { data: teamsData } = useGetAdminTeamsQuery(undefined, { skip: !isOpen });
-  const { data: bookingsData } = useGetBookingsQuery(undefined, { skip: !isOpen });
-  const { data: threadsData } = useGetThreadsQuery(undefined, { skip: !isOpen });
-  const { data: videosData } = useGetVideoUploadsQuery(undefined, { skip: !isOpen });
-  const { data: programsData } = useGetProgramsQuery(undefined, { skip: !isOpen });
-  const { data: foodDiaryData } = useGetFoodDiaryQuery(undefined, { skip: !isOpen });
-  const { data: referralsData } = useGetPhysioReferralsQuery(undefined, { skip: !isOpen });
-  const { data: chatGroupsData } = useGetChatGroupsQuery(undefined, { skip: !isOpen });
+  const { data: teamsData } = useGetAdminTeamsQuery(undefined, {
+    skip: !isOpen,
+  });
+  const { data: bookingsData } = useGetBookingsQuery(undefined, {
+    skip: !isOpen,
+  });
+  const { data: threadsData } = useGetThreadsQuery(undefined, {
+    skip: !isOpen,
+  });
+  const { data: videosData } = useGetVideoUploadsQuery(undefined, {
+    skip: !isOpen,
+  });
+  const { data: programsData } = useGetProgramsQuery(undefined, {
+    skip: !isOpen,
+  });
+  const { data: foodDiaryData } = useGetFoodDiaryQuery(undefined, {
+    skip: !isOpen,
+  });
+  const { data: referralsData } = useGetPhysioReferralsQuery(undefined, {
+    skip: !isOpen,
+  });
+  const { data: chatGroupsData } = useGetChatGroupsQuery(undefined, {
+    skip: !isOpen,
+  });
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -200,7 +234,9 @@ export function GlobalCommandPalette() {
       items: [
         {
           id: "search-current",
-          children: query ? `Search all data for \"${search.trim()}\"` : "Search all data",
+          children: query
+            ? `Search all data for \"${search.trim()}\"`
+            : "Search all data",
           closeOnSelect: true,
           onClick: () => {
             const text = search.trim();
@@ -240,7 +276,8 @@ export function GlobalCommandPalette() {
               headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
             });
 
-            const { clearDesktopNotificationPromptFlag } = await import("@/lib/desktop-notifications");
+            const { clearDesktopNotificationPromptFlag } =
+              await import("@/lib/desktop-notifications");
             clearDesktopNotificationPromptFlag();
             router.replace("/login");
           },
@@ -248,7 +285,7 @@ export function GlobalCommandPalette() {
         },
       ],
     }),
-    [query, router, search]
+    [query, router, search],
   );
 
   const dataLists = useMemo<PaletteList[]>(() => {
@@ -265,7 +302,7 @@ export function GlobalCommandPalette() {
           user?.programTier,
           user?.currentProgramTier,
           user?.guardianProgramTier,
-        ])
+        ]),
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((user) => ({
@@ -285,23 +322,41 @@ export function GlobalCommandPalette() {
       }));
 
     if (users.length) {
-      lists.push({ id: "users-live", heading: `Users (${users.length})`, items: users });
+      lists.push({
+        id: "users-live",
+        heading: `Users (${users.length})`,
+        items: users,
+      });
     }
 
     const teamItems = (teamsData?.teams ?? []) as PaletteTeam[];
     const teams = teamItems
-      .filter((team) => matchesQuery(query, [team?.team, team?.memberCount, team?.guardianCount]))
+      .filter((team) =>
+        matchesQuery(query, [
+          team?.team,
+          team?.memberCount,
+          team?.guardianCount,
+        ]),
+      )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((team) => ({
         id: `team-${team.team}`,
         children: `Team: ${team.team} (${team.memberCount} athletes, ${team.guardianCount} guardians)`,
         closeOnSelect: true,
         onClick: () => router.push(`/teams/${encodeURIComponent(team.team)}`),
-        keywords: toKeywords([team?.team, team?.memberCount, team?.guardianCount]),
+        keywords: toKeywords([
+          team?.team,
+          team?.memberCount,
+          team?.guardianCount,
+        ]),
       }));
 
     if (teams.length) {
-      lists.push({ id: "teams-live", heading: `Teams (${teams.length})`, items: teams });
+      lists.push({
+        id: "teams-live",
+        heading: `Teams (${teams.length})`,
+        items: teams,
+      });
     }
 
     const bookingItems = (bookingsData?.bookings ?? []) as PaletteBooking[];
@@ -315,12 +370,16 @@ export function GlobalCommandPalette() {
           booking?.serviceName,
           booking?.type,
           booking?.status,
-        ])
+        ]),
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((booking) => {
         const bookingId = booking?.id;
-        const title = booking?.name ?? booking?.serviceName ?? booking?.type ?? `Booking ${bookingId ?? ""}`;
+        const title =
+          booking?.name ??
+          booking?.serviceName ??
+          booking?.type ??
+          `Booking ${bookingId ?? ""}`;
         const athlete = booking?.athlete ?? booking?.athleteName ?? "Athlete";
         return {
           id: `booking-${bookingId ?? title}`,
@@ -346,46 +405,83 @@ export function GlobalCommandPalette() {
       });
 
     if (bookings.length) {
-      lists.push({ id: "bookings-live", heading: `Bookings (${bookings.length})`, items: bookings });
+      lists.push({
+        id: "bookings-live",
+        heading: `Bookings (${bookings.length})`,
+        items: bookings,
+      });
     }
 
     const threadItems = (threadsData?.threads ?? []) as PaletteThread[];
     const threads = threadItems
-      .filter((thread) => matchesQuery(query, [thread?.name, thread?.preview, thread?.unread, thread?.userId]))
+      .filter((thread) =>
+        matchesQuery(query, [
+          thread?.name,
+          thread?.preview,
+          thread?.unread,
+          thread?.userId,
+        ]),
+      )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((thread) => ({
         id: `thread-${thread.userId}`,
         children: `Message: ${thread?.name ?? `User ${thread.userId}`} ${thread?.preview ? `- ${thread.preview}` : ""}`,
         closeOnSelect: true,
         onClick: () =>
-          router.push(`/messaging?tab=inbox&userId=${encodeURIComponent(String(thread.userId))}`),
-        keywords: toKeywords([thread?.name, thread?.preview, thread?.userId, thread?.unread]),
+          router.push(
+            `/messaging?tab=inbox&userId=${encodeURIComponent(String(thread.userId))}`,
+          ),
+        keywords: toKeywords([
+          thread?.name,
+          thread?.preview,
+          thread?.userId,
+          thread?.unread,
+        ]),
       }));
 
     if (threads.length) {
-      lists.push({ id: "threads-live", heading: `Messages (${threads.length})`, items: threads });
+      lists.push({
+        id: "threads-live",
+        heading: `Messages (${threads.length})`,
+        items: threads,
+      });
     }
 
     const groupItems = (chatGroupsData?.groups ?? []) as PaletteGroup[];
     const groups = groupItems
-      .filter((group) => matchesQuery(query, [group?.id, group?.name, group?.createdAt]))
+      .filter((group) =>
+        matchesQuery(query, [group?.id, group?.name, group?.createdAt]),
+      )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((group) => ({
         id: `group-${group.id}`,
         children: `Group: ${group?.name ?? `Group ${group.id}`}`,
         closeOnSelect: true,
         onClick: () =>
-          router.push(`/messaging?tab=inbox&groupId=${encodeURIComponent(String(group.id))}`),
+          router.push(
+            `/messaging?tab=inbox&groupId=${encodeURIComponent(String(group.id))}`,
+          ),
         keywords: toKeywords([group?.id, group?.name, group?.createdAt]),
       }));
 
     if (groups.length) {
-      lists.push({ id: "groups-live", heading: `Groups (${groups.length})`, items: groups });
+      lists.push({
+        id: "groups-live",
+        heading: `Groups (${groups.length})`,
+        items: groups,
+      });
     }
 
     const videoItems = (videosData?.items ?? []) as PaletteVideo[];
     const videos = videoItems
-      .filter((video) => matchesQuery(query, [video?.id, video?.athleteName, video?.notes, video?.feedback]))
+      .filter((video) =>
+        matchesQuery(query, [
+          video?.id,
+          video?.athleteName,
+          video?.notes,
+          video?.feedback,
+        ]),
+      )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((video) => ({
         id: `video-${video.id}`,
@@ -397,22 +493,40 @@ export function GlobalCommandPalette() {
             router.push("/video-review");
             return;
           }
-          const tab = String(video?.programSectionType ?? "program").toLowerCase();
+          const tab = String(
+            video?.programSectionType ?? "program",
+          ).toLowerCase();
           router.push(
-            `/video-review/athletes/${athleteId}?tab=${encodeURIComponent(tab)}&videoId=${encodeURIComponent(String(video.id))}`
+            `/video-review/athletes/${athleteId}?tab=${encodeURIComponent(tab)}&videoId=${encodeURIComponent(String(video.id))}`,
           );
         },
-        keywords: toKeywords([video?.id, video?.athleteName, video?.notes, video?.feedback]),
+        keywords: toKeywords([
+          video?.id,
+          video?.athleteName,
+          video?.notes,
+          video?.feedback,
+        ]),
       }));
 
     if (videos.length) {
-      lists.push({ id: "videos-live", heading: `Videos (${videos.length})`, items: videos });
+      lists.push({
+        id: "videos-live",
+        heading: `Videos (${videos.length})`,
+        items: videos,
+      });
     }
 
     const programItems = (programsData?.programs ?? []) as PaletteProgram[];
     const programs = programItems
       .filter((program) =>
-        matchesQuery(query, [program?.id, program?.name, program?.type, program?.description, program?.minAge, program?.maxAge])
+        matchesQuery(query, [
+          program?.id,
+          program?.name,
+          program?.type,
+          program?.description,
+          program?.minAge,
+          program?.maxAge,
+        ]),
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((program) => ({
@@ -421,13 +535,24 @@ export function GlobalCommandPalette() {
         closeOnSelect: true,
         onClick: () =>
           router.push(
-            `/programs?programId=${encodeURIComponent(String(program.id))}&action=manage`
+            `/programs?programId=${encodeURIComponent(String(program.id))}&action=manage`,
           ),
-        keywords: toKeywords([program?.id, program?.name, program?.type, program?.description, program?.minAge, program?.maxAge]),
+        keywords: toKeywords([
+          program?.id,
+          program?.name,
+          program?.type,
+          program?.description,
+          program?.minAge,
+          program?.maxAge,
+        ]),
       }));
 
     if (programs.length) {
-      lists.push({ id: "programs-live", heading: `Programs (${programs.length})`, items: programs });
+      lists.push({
+        id: "programs-live",
+        heading: `Programs (${programs.length})`,
+        items: programs,
+      });
     }
 
     const foodItems = (foodDiaryData?.items ?? []) as PaletteFoodEntry[];
@@ -441,14 +566,17 @@ export function GlobalCommandPalette() {
           entry?.guardianEmail,
           entry?.notes,
           entry?.feedback,
-        ])
+        ]),
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((entry) => ({
         id: `food-${entry.id}`,
         children: `Food diary: ${entry?.athleteName ?? `Athlete ${entry?.athleteId ?? ""}`} ${entry?.notes ? `- ${entry.notes}` : ""}`,
         closeOnSelect: true,
-        onClick: () => router.push(entry?.id ? `/food-diary/entry/${entry.id}` : "/food-diary"),
+        onClick: () =>
+          router.push(
+            entry?.id ? `/food-diary/entry/${entry.id}` : "/food-diary",
+          ),
         keywords: toKeywords([
           entry?.id,
           entry?.athleteId,
@@ -461,10 +589,15 @@ export function GlobalCommandPalette() {
       }));
 
     if (foodEntries.length) {
-      lists.push({ id: "food-live", heading: `Food diary (${foodEntries.length})`, items: foodEntries });
+      lists.push({
+        id: "food-live",
+        heading: `Food diary (${foodEntries.length})`,
+        items: foodEntries,
+      });
     }
 
-    const referralItems = (referralsData?.items ?? []) as PaletteReferralEntry[];
+    const referralItems = (referralsData?.items ??
+      []) as PaletteReferralEntry[];
     const referrals = referralItems
       .filter((entry) =>
         matchesQuery(query, [
@@ -474,7 +607,7 @@ export function GlobalCommandPalette() {
           entry?.programTier,
           entry?.referalLink,
           entry?.status,
-        ])
+        ]),
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((entry) => ({
@@ -483,13 +616,24 @@ export function GlobalCommandPalette() {
         closeOnSelect: true,
         onClick: () =>
           router.push(
-            `/physio-referrals?tab=existing&entryId=${encodeURIComponent(String(entry.id))}&edit=1`
+            `/physio-referrals?tab=existing&entryId=${encodeURIComponent(String(entry.id))}&edit=1`,
           ),
-        keywords: toKeywords([entry?.id, entry?.athleteId, entry?.athleteName, entry?.programTier, entry?.referalLink, entry?.status]),
+        keywords: toKeywords([
+          entry?.id,
+          entry?.athleteId,
+          entry?.athleteName,
+          entry?.programTier,
+          entry?.referalLink,
+          entry?.status,
+        ]),
       }));
 
     if (referrals.length) {
-      lists.push({ id: "referrals-live", heading: `Referrals (${referrals.length})`, items: referrals });
+      lists.push({
+        id: "referrals-live",
+        heading: `Referrals (${referrals.length})`,
+        items: referrals,
+      });
     }
 
     return lists;
@@ -509,7 +653,7 @@ export function GlobalCommandPalette() {
 
   const totalDynamicItems = useMemo(
     () => dataLists.reduce((sum, list) => sum + list.items.length, 0),
-    [dataLists]
+    [dataLists],
   );
 
   const paletteItems = useMemo(() => {
@@ -527,10 +671,13 @@ export function GlobalCommandPalette() {
       })),
     }));
   }, [dataLists, quickActions, router]);
+  <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+    Ctrl/Cmd K
+  </kbd>;
 
   const filteredItems = useMemo(
     () => filterItems(paletteItems, search, { filterOnListHeading: true }),
-    [paletteItems, search]
+    [paletteItems, search],
   );
 
   return (
@@ -541,8 +688,12 @@ export function GlobalCommandPalette() {
         onClick={() => setIsOpen(true)}
       >
         <Search className="h-3.5 w-3.5 text-muted-foreground transition group-hover:text-primary" />
-        <span className="flex-1 text-muted-foreground">Find users, bookings, teams, messages, content...</span>
-        <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">Ctrl/Cmd K</kbd>
+        <span className="flex-1 text-muted-foreground">
+          Find users, bookings, teams, messages, content...
+        </span>
+        <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          Ctrl/Cmd K
+        </kbd>
       </button>
 
       <CommandPalette

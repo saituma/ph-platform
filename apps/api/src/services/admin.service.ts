@@ -620,6 +620,10 @@ export async function getTeamMemberAdmin(input: { teamName: string; athleteId: n
       birthDate: athleteTable.birthDate,
       trainingPerWeek: athleteTable.trainingPerWeek,
       currentProgramTier: athleteTable.currentProgramTier,
+      injuries: athleteTable.injuries,
+      growthNotes: athleteTable.growthNotes,
+      performanceGoals: athleteTable.performanceGoals,
+      equipmentAccess: athleteTable.equipmentAccess,
       createdAt: athleteTable.createdAt,
       updatedAt: athleteTable.updatedAt,
       guardianEmail: guardianTable.email,
@@ -643,6 +647,10 @@ export async function getTeamMemberAdmin(input: { teamName: string; athleteId: n
     birthDate: row.birthDate,
     trainingPerWeek: row.trainingPerWeek,
     currentProgramTier: row.currentProgramTier,
+    injuries: row.injuries ? JSON.stringify(row.injuries) : null,
+    growthNotes: row.growthNotes,
+    performanceGoals: row.performanceGoals,
+    equipmentAccess: row.equipmentAccess,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     guardianEmail: row.guardianEmail,
@@ -682,6 +690,10 @@ export async function updateTeamMemberAdmin(input: {
   birthDate?: string | null;
   trainingPerWeek?: number;
   currentProgramTier?: (typeof ProgramType.enumValues)[number] | null;
+  injuries?: string | null;
+  growthNotes?: string | null;
+  performanceGoals?: string | null;
+  equipmentAccess?: string | null;
   guardianEmail?: string | null;
   guardianPhone?: string | null;
   relationToAthlete?: string | null;
@@ -710,6 +722,10 @@ export async function updateTeamMemberAdmin(input: {
   if (input.birthDate !== undefined) athletePatch.birthDate = input.birthDate ? input.birthDate : null;
   if (input.trainingPerWeek !== undefined) athletePatch.trainingPerWeek = input.trainingPerWeek;
   if (input.currentProgramTier !== undefined) athletePatch.currentProgramTier = input.currentProgramTier;
+  if (input.injuries !== undefined) athletePatch.injuries = input.injuries?.trim() ? input.injuries.trim() : null;
+  if (input.growthNotes !== undefined) athletePatch.growthNotes = input.growthNotes?.trim() ? input.growthNotes.trim() : null;
+  if (input.performanceGoals !== undefined) athletePatch.performanceGoals = input.performanceGoals?.trim() ? input.performanceGoals.trim() : null;
+  if (input.equipmentAccess !== undefined) athletePatch.equipmentAccess = input.equipmentAccess?.trim() ? input.equipmentAccess.trim() : null;
 
   if (Object.keys(athletePatch).length > 0) {
     athletePatch.updatedAt = new Date();

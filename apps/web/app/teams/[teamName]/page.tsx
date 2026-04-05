@@ -9,8 +9,6 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../../components/ui/card";
 import { SectionHeader } from "../../../components/admin/section-header";
 import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
-import { Textarea } from "../../../components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 
 type TeamDetails = {
@@ -20,12 +18,6 @@ type TeamDetails = {
     guardianCount: number;
     createdAt: string | Date | null;
     updatedAt: string | Date | null;
-  };
-  defaults: {
-    injuries: string | null;
-    growthNotes: string | null;
-    performanceGoals: string | null;
-    equipmentAccess: string | null;
   };
   members: Array<{
     athleteId: number;
@@ -81,14 +73,7 @@ export default function TeamDetailPage() {
   const [details, setDetails] = useState<TeamDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [defaultsForm, setDefaultsForm] = useState({
-    injuries: "",
-    growthNotes: "",
-    performanceGoals: "",
-    equipmentAccess: "",
-  });
-  const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
-  const [isSavingDefaults, setIsSavingDefaults] = useState(false);
+  const [pageNotice, setPageNotice] = useState<string | null>(null);
   const [attachModalOpen, setAttachModalOpen] = useState(false);
   const [athleteSearch, setAthleteSearch] = useState("");
   const [availableAthletes, setAvailableAthletes] = useState<AvailableAthlete[]>([]);
@@ -109,12 +94,6 @@ export default function TeamDetailPage() {
       }
       const next = payload as TeamDetails;
       setDetails(next);
-      setDefaultsForm({
-        injuries: next.defaults.injuries ?? "",
-        growthNotes: next.defaults.growthNotes ?? "",
-        performanceGoals: next.defaults.performanceGoals ?? "",
-        equipmentAccess: next.defaults.equipmentAccess ?? "",
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load team details.");
     } finally {
@@ -150,7 +129,7 @@ export default function TeamDetailPage() {
       setAvailableAthletes(nextAthletes);
       setSelectedAthleteId(nextAthletes[0]?.athleteId ?? null);
     } catch (err) {
-      setDefaultsNotice(err instanceof Error ? err.message : "Failed to load athletes.");
+      setPageNotice(err instanceof Error ? err.message : "Failed to load athletes.");
     } finally {
       setIsLoadingAvailableAthletes(false);
     }
@@ -161,41 +140,9 @@ export default function TeamDetailPage() {
     void loadAvailableAthletes();
   }, [attachModalOpen]);
 
-  const saveDefaults = async () => {
-    setDefaultsNotice(null);
-    setIsSavingDefaults(true);
-    try {
-      const csrfToken = getCsrfToken();
-      const response = await fetch("/api/backend/admin/teams/defaults", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify({
-          teamName,
-          injuries: defaultsForm.injuries.trim() || null,
-          growthNotes: defaultsForm.growthNotes.trim() || null,
-          performanceGoals: defaultsForm.performanceGoals.trim() || null,
-          equipmentAccess: defaultsForm.equipmentAccess.trim() || null,
-        }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to save defaults.");
-      }
-      setDefaultsNotice("Team defaults saved.");
-      await loadDetails();
-    } catch (err) {
-      setDefaultsNotice(err instanceof Error ? err.message : "Failed to save defaults.");
-    } finally {
-      setIsSavingDefaults(false);
-    }
-  };
-
   const attachExistingAthlete = async () => {
     if (!selectedAthleteId) return;
-    setDefaultsNotice(null);
+    setPageNotice(null);
     setIsAttachingAthlete(true);
     try {
       const csrfToken = getCsrfToken();
@@ -216,10 +163,10 @@ export default function TeamDetailPage() {
       }
       setAttachModalOpen(false);
       setAthleteSearch("");
-      setDefaultsNotice("Athlete added to team.");
+      setPageNotice("Athlete added to team.");
       await loadDetails();
     } catch (err) {
-      setDefaultsNotice(err instanceof Error ? err.message : "Failed to add athlete to this team.");
+      setPageNotice(err instanceof Error ? err.message : "Failed to add athlete to this team.");
     } finally {
       setIsAttachingAthlete(false);
     }
@@ -232,27 +179,28 @@ export default function TeamDetailPage() {
   });
 
   return (
-    <AdminShell
-      title={teamName || "Team details"}
-      subtitle="Team details and member list."
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" asChild>
-            <Link href={`/users/add?team=${encodeURIComponent(teamName)}&type=youth`}>Register new player</Link>
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setAttachModalOpen(true)}>
-            Add existing athlete
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/teams">Back to teams</Link>
-          </Button>
-        </div>
-      }
-    >
+    <AdminShell title={teamName || "Team details"} subtitle="Team details and member list.">
       <div className="grid gap-6">
         {error ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>
         ) : null}
+        {pageNotice ? (
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">{pageNotice}</div>
+        ) : null}
+
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-2 pt-6">
+            <Button size="sm" asChild>
+              <Link href={`/users/add?team=${encodeURIComponent(teamName)}&type=youth`}>Register new player</Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setAttachModalOpen(true)}>
+              Add existing athlete
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/teams">Back to teams</Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -281,56 +229,6 @@ export default function TeamDetailPage() {
                 </div>
               </>
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <SectionHeader title="Team defaults" description="Shared defaults currently saved on this team." />
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="defaults-injuries">Injuries / history</Label>
-              <Textarea
-                id="defaults-injuries"
-                rows={2}
-                value={defaultsForm.injuries}
-                onChange={(event) => setDefaultsForm((current) => ({ ...current, injuries: event.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="defaults-growth">Growth notes</Label>
-              <Textarea
-                id="defaults-growth"
-                rows={2}
-                value={defaultsForm.growthNotes}
-                onChange={(event) => setDefaultsForm((current) => ({ ...current, growthNotes: event.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="defaults-goals">Performance goals</Label>
-              <Textarea
-                id="defaults-goals"
-                rows={2}
-                value={defaultsForm.performanceGoals}
-                onChange={(event) => setDefaultsForm((current) => ({ ...current, performanceGoals: event.target.value }))}
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="defaults-equipment">Equipment access</Label>
-              <Textarea
-                id="defaults-equipment"
-                rows={2}
-                value={defaultsForm.equipmentAccess}
-                onChange={(event) => setDefaultsForm((current) => ({ ...current, equipmentAccess: event.target.value }))}
-              />
-            </div>
-            <div className="sm:col-span-2 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">{defaultsNotice ?? " "}</p>
-              <Button type="button" onClick={() => void saveDefaults()} disabled={isSavingDefaults}>
-                {isSavingDefaults ? "Saving..." : "Save defaults"}
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
