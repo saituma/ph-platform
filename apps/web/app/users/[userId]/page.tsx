@@ -546,6 +546,20 @@ export default function UserDetailPage() {
               <div className="px-5 py-6 text-sm text-muted-foreground">Loading…</div>
             ) : (
               <>
+                {onboarding?.athlete?.profilePicture ? (
+                  <div className="px-5 py-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                      Athlete photo
+                    </div>
+                    <div className="mt-2">
+                      <img
+                        src={onboarding.athlete.profilePicture}
+                        alt={onboarding?.athlete?.name ? `${onboarding.athlete.name} profile` : "Athlete profile"}
+                        className="h-28 w-28 rounded-xl border border-border object-cover"
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 <ProfileField label="Athlete ID" value={onboarding?.athlete?.id ?? rawUser?.athleteId} />
                 <ProfileField label="Name" value={onboarding?.athlete?.name ?? rawUser?.athleteName} />
                 <ProfileField label="Age" value={onboarding?.athlete?.age} />

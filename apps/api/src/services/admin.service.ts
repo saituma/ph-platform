@@ -1891,6 +1891,7 @@ export type CreateGuardianWithOnboardingAdminInput = {
   parentPhone?: string | null;
   relationToAthlete?: string | null;
   desiredProgramType?: (typeof ProgramType.enumValues)[number];
+  athleteProfilePicture?: string | null;
   planPaymentType: (typeof PlanPaymentType.enumValues)[number];
   planCommitmentMonths: 6 | 12;
   termsVersion: string;
@@ -1910,6 +1911,7 @@ export type CreateAdultAthleteAdminInput = {
   performanceGoals?: string | null;
   equipmentAccess?: string | null;
   desiredProgramType?: (typeof ProgramType.enumValues)[number] | null;
+  athleteProfilePicture?: string | null;
   planPaymentType: (typeof PlanPaymentType.enumValues)[number];
   planCommitmentMonths: 6 | 12;
   termsVersion: string;
@@ -2039,6 +2041,7 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
         planPaymentType: input.planPaymentType,
         planCommitmentMonths: input.planCommitmentMonths,
         planExpiresAt: commitmentExpiry,
+        profilePicture: input.athleteProfilePicture?.trim() || null,
         updatedAt: new Date(),
       })
       .where(eq(athleteTable.id, onboardingResult.athleteId));
@@ -2196,6 +2199,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
         equipmentAccess: input.equipmentAccess ?? null,
         extraResponses: input.extraResponses ?? null,
         currentProgramTier: desiredProgramType,
+        profilePicture: input.athleteProfilePicture?.trim() || null,
         planPaymentType: input.planPaymentType,
         planCommitmentMonths: input.planCommitmentMonths,
         planExpiresAt,

@@ -48,6 +48,7 @@ export default function AddUserPage() {
   const [guardianDisplayName, setGuardianDisplayName] = useState("");
   const [athleteName, setAthleteName] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [athleteProfilePicture, setAthleteProfilePicture] = useState("");
   const [team, setTeam] = useState("");
   const [trainingPerWeek, setTrainingPerWeek] = useState("3");
   const [injuries, setInjuries] = useState<string[]>([""]);
@@ -80,6 +81,7 @@ export default function AddUserPage() {
     setGuardianDisplayName("");
     setAthleteName("");
     setBirthDate("");
+    setAthleteProfilePicture("");
     setTeam("");
     setTrainingPerWeek("3");
     setInjuries([""]);
@@ -135,6 +137,7 @@ export default function AddUserPage() {
             parentPhone: parentPhone.trim() || null,
             relationToAthlete: relationToAthlete.trim() || null,
             desiredProgramType,
+            athleteProfilePicture: athleteProfilePicture.trim() || null,
             planPaymentType,
             planCommitmentMonths,
             termsVersion,
@@ -151,6 +154,7 @@ export default function AddUserPage() {
             performanceGoals: cleanedPerformanceGoals.length ? cleanedPerformanceGoals.join("\n") : null,
             equipmentAccess: cleanedEquipmentAccess.length ? cleanedEquipmentAccess.join("\n") : null,
             desiredProgramType,
+            athleteProfilePicture: athleteProfilePicture.trim() || null,
             planPaymentType,
             planCommitmentMonths,
             termsVersion,
@@ -273,6 +277,16 @@ export default function AddUserPage() {
                   required
                   value={athleteName}
                   onChange={(ev) => setAthleteName(ev.target.value)}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="athleteProfilePicture">Athlete photo URL (optional)</Label>
+                <Input
+                  id="athleteProfilePicture"
+                  type="url"
+                  value={athleteProfilePicture}
+                  onChange={(ev) => setAthleteProfilePicture(ev.target.value)}
+                  placeholder="https://..."
                 />
               </div>
               <div className="space-y-2">
