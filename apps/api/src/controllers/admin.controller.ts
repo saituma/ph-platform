@@ -44,6 +44,7 @@ import {
   listProgramTemplates,
   updateProgramTemplate,
   updateBookingStatusAdmin,
+  createAdultAthleteAdmin,
   createGuardianWithOnboardingAdmin,
 } from "../services/admin.service";
 import { createBooking } from "../services/booking.service";
@@ -276,6 +277,24 @@ const provisionGuardianSchema = z.object({
   extraResponses: z.record(z.string(), z.any()).optional(),
 });
 
+const provisionAdultAthleteSchema = z.object({
+  email: z.string().email(),
+  athleteName: z.string().min(1),
+  birthDate: z.string().min(1),
+  team: z.string().min(1),
+  trainingPerWeek: z.coerce.number().int().min(0),
+  injuries: z.unknown().optional(),
+  growthNotes: z.string().optional().nullable(),
+  performanceGoals: z.string().optional().nullable(),
+  equipmentAccess: z.string().optional().nullable(),
+  desiredProgramType: z.enum(ProgramType.enumValues).optional().nullable(),
+  planExpiresAt: z.string().optional().nullable(),
+  termsVersion: z.string().min(1),
+  privacyVersion: z.string().min(1),
+  appVersion: z.string().min(1),
+  extraResponses: z.record(z.string(), z.any()).optional(),
+});
+
 const provisionTeamMemberSchema = z.object({
   email: z.string().email(),
   guardianDisplayName: z.string().min(1),
@@ -329,6 +348,24 @@ export async function provisionGuardianWithOnboarding(req: Request, res: Respons
     const message = typeof error?.message === "string" ? error.message : "Failed to create user";
     if (status >= 500) {
       console.error("[admin] provisionGuardianWithOnboarding", error);
+    }
+    return res.status(status).json({ error: message });
+  }
+}
+
+export async function provisionAdultAthlete(req: Request, res: Response) {
+  const parsed = provisionAdultAthleteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+  try {
+    const result = await createAdultAthleteAdmin(parsed.data);
+    return res.status(201).json(result);
+  } catch (error: any) {
+    const status = typeof error?.status === "number" ? error.status : 500;
+    const message = typeof error?.message === "string" ? error.message : "Failed to create adult athlete";
+    if (status >= 500) {
+      console.error("[admin] provisionAdultAthlete", error);
     }
     return res.status(status).json({ error: message });
   }

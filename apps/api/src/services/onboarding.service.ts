@@ -276,6 +276,9 @@ export async function submitOnboarding(input: {
   let athleteRow: typeof athleteTable.$inferSelect | null = null;
 
   if (existingAthlete) {
+    if (!existingAthlete.guardianId) {
+      throw new Error("Youth onboarding requires a guardian.");
+    }
     guardianId = existingAthlete.guardianId;
     await db
       .update(guardianTable)

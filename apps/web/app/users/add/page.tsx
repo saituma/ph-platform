@@ -11,8 +11,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Select } from "../../../components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { Textarea } from "../../../components/ui/textarea";
-import { useGetOnboardingConfigQuery, useProvisionGuardianMutation } from "../../../lib/apiSlice";
+import { useGetOnboardingConfigQuery, useProvisionAdultAthleteMutation, useProvisionGuardianMutation } from "../../../lib/apiSlice";
 
 const TIER_OPTIONS: { value: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro"; label: string }[] = [
   { value: "PHP", label: "PHP Program" },
@@ -39,10 +40,12 @@ export default function AddUserPage() {
   const router = useRouter();
   const { data: configData, isLoading: configLoading } = useGetOnboardingConfigQuery();
   const [provision, { isLoading: isSubmitting }] = useProvisionGuardianMutation();
+  const [provisionAdult, { isLoading: isSubmittingAdult }] = useProvisionAdultAthleteMutation();
 
   const termsVersion = configData?.config?.termsVersion ?? "1.0";
   const privacyVersion = configData?.config?.privacyVersion ?? "1.0";
 
+  const [formType, setFormType] = useState<"youth" | "adult">("youth");
   const [email, setEmail] = useState("");
   const [guardianDisplayName, setGuardianDisplayName] = useState("");
   const [athleteName, setAthleteName] = useState("");
@@ -55,20 +58,25 @@ export default function AddUserPage() {
   const [equipmentAccess, setEquipmentAccess] = useState("");
   const [parentPhone, setParentPhone] = useState("");
   const [relationToAthlete, setRelationToAthlete] = useState("");
+  const [planExpiresAt, setPlanExpiresAt] = useState("");
   const [desiredProgramType, setDesiredProgramType] = useState<"PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro">("PHP");
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ userId: number; emailSent: boolean } | null>(null);
 
+  const submitting = isSubmitting || isSubmittingAdult;
+
   const canSubmit = useMemo(() => {
-    return (
+    const hasCore =
       email.trim().length > 3 &&
-      guardianDisplayName.trim().length > 0 &&
       athleteName.trim().length > 0 &&
       birthDate.trim().length > 0 &&
       team.trim().length > 0 &&
-      trainingPerWeek.trim().length > 0
-    );
-  }, [email, guardianDisplayName, athleteName, birthDate, team, trainingPerWeek]);
+      trainingPerWeek.trim().length > 0;
+
+    if (!hasCore) return false;
+    if (formType === "youth") return guardianDisplayName.trim().length > 0;
+    return true;
+  }, [formType, email, guardianDisplayName, athleteName, birthDate, team, trainingPerWeek]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,35 +87,67 @@ export default function AddUserPage() {
       setFormError("Training days per week must be a valid number.");
       return;
     }
+    if (formType === "adult") {
+      const birth = new Date(birthDate);
+      if (Number.isNaN(birth.getTime())) {
+        setFormError("Birth date is invalid.");
+        return;
+      }
+      const now = new Date();
+      let age = now.getFullYear() - birth.getFullYear();
+      const monthDiff = now.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age -= 1;
+      if (age < 18) {
+        setFormError("Adult athletes must be 18 or older.");
+        return;
+      }
+    }
     try {
-      const result = await provision({
-        email: email.trim(),
-        guardianDisplayName: guardianDisplayName.trim(),
-        athleteName: athleteName.trim(),
-        birthDate: birthDate.trim(),
-        team: team.trim(),
-        trainingPerWeek: n,
-        injuries: injuries.trim() || undefined,
-        growthNotes: growthNotes.trim() || null,
-        performanceGoals: performanceGoals.trim() || null,
-        equipmentAccess: equipmentAccess.trim() || null,
-        parentPhone: parentPhone.trim() || null,
-        relationToAthlete: relationToAthlete.trim() || null,
-        desiredProgramType,
-        termsVersion,
-        privacyVersion,
-        appVersion: "admin-web",
-      }).unwrap();
+      const result = formType === "youth"
+        ? await provision({
+            email: email.trim(),
+            guardianDisplayName: guardianDisplayName.trim(),
+            athleteName: athleteName.trim(),
+            birthDate: birthDate.trim(),
+            team: team.trim(),
+            trainingPerWeek: n,
+            injuries: injuries.trim() || undefined,
+            growthNotes: growthNotes.trim() || null,
+            performanceGoals: performanceGoals.trim() || null,
+            equipmentAccess: equipmentAccess.trim() || null,
+            parentPhone: parentPhone.trim() || null,
+            relationToAthlete: relationToAthlete.trim() || null,
+            desiredProgramType,
+            termsVersion,
+            privacyVersion,
+            appVersion: "admin-web",
+          }).unwrap()
+        : await provisionAdult({
+            email: email.trim(),
+            athleteName: athleteName.trim(),
+            birthDate: birthDate.trim(),
+            team: team.trim(),
+            trainingPerWeek: n,
+            injuries: injuries.trim() || undefined,
+            growthNotes: growthNotes.trim() || null,
+            performanceGoals: performanceGoals.trim() || null,
+            equipmentAccess: equipmentAccess.trim() || null,
+            desiredProgramType,
+            planExpiresAt: planExpiresAt.trim() || null,
+            termsVersion,
+            privacyVersion,
+            appVersion: "admin-web",
+          }).unwrap();
       setSuccess({ userId: result.userId, emailSent: result.emailSent });
     } catch (err: unknown) {
-      setFormError(getErrorMessage(err, "Could not create user."));
+      setFormError(getErrorMessage(err, formType === "youth" ? "Could not create youth user." : "Could not create adult athlete."));
     }
   };
 
   return (
     <AdminShell
       title="Add user"
-      subtitle="Create a guardian login, complete onboarding on their behalf, and send a temporary password to their email."
+      subtitle="Create youth athletes with guardians or adult athletes with direct login access."
       actions={
         <Button variant="outline" size="sm" asChild>
           <Link href="/users" className="inline-flex items-center gap-2">
@@ -154,6 +194,22 @@ export default function AddUserPage() {
         <form onSubmit={onSubmit} className="grid gap-6">
           <Card>
             <CardHeader>
+              <CardTitle>Athlete type</CardTitle>
+              <CardDescription>Choose who you are registering.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={formType} onValueChange={(value) => setFormType(value as "youth" | "adult")}>
+                <TabsList>
+                  <TabsTrigger value="youth">Youth athlete</TabsTrigger>
+                  <TabsTrigger value="adult">Adult athlete</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </CardContent>
+          </Card>
+
+          {formType === "youth" ? (
+          <Card>
+            <CardHeader>
               <CardTitle>Guardian account</CardTitle>
               <CardDescription>Login email and display name for the parent or guardian app account.</CardDescription>
             </CardHeader>
@@ -182,11 +238,37 @@ export default function AddUserPage() {
               </div>
             </CardContent>
           </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Adult athlete account</CardTitle>
+                <CardDescription>Adult athlete login email and identity (no guardian account).</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(ev) => setEmail(ev.target.value)}
+                    placeholder="adult@example.com"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
-              <CardTitle>Athlete</CardTitle>
-              <CardDescription>Same details you would collect during mobile onboarding.</CardDescription>
+              <CardTitle>{formType === "youth" ? "Athlete" : "Adult athlete details"}</CardTitle>
+              <CardDescription>
+                {formType === "youth"
+                  ? "Same details you would collect during mobile onboarding."
+                  : "Adult athlete profile, tier assignment, and optional plan expiry."}
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
@@ -239,6 +321,17 @@ export default function AddUserPage() {
                   ))}
                 </Select>
               </div>
+              {formType === "adult" ? (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="planExpiresAt">Plan expires on (optional)</Label>
+                  <Input
+                    id="planExpiresAt"
+                    type="date"
+                    value={planExpiresAt}
+                    onChange={(ev) => setPlanExpiresAt(ev.target.value)}
+                  />
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -276,34 +369,36 @@ export default function AddUserPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Guardian contact</CardTitle>
-              <CardDescription>Parent phone and relationship; login email above is used for guardian email.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="parentPhone">Phone</Label>
-                <Input id="parentPhone" value={parentPhone} onChange={(ev) => setParentPhone(ev.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="relationToAthlete">Relation to athlete</Label>
-                <Input
-                  id="relationToAthlete"
-                  value={relationToAthlete}
-                  onChange={(ev) => setRelationToAthlete(ev.target.value)}
-                  placeholder="e.g. Parent"
-                />
-              </div>
-            </CardContent>
-          </Card>
+          {formType === "youth" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Guardian contact</CardTitle>
+                <CardDescription>Parent phone and relationship; login email above is used for guardian email.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="parentPhone">Phone</Label>
+                  <Input id="parentPhone" value={parentPhone} onChange={(ev) => setParentPhone(ev.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="relationToAthlete">Relation to athlete</Label>
+                  <Input
+                    id="relationToAthlete"
+                    value={relationToAthlete}
+                    onChange={(ev) => setRelationToAthlete(ev.target.value)}
+                    placeholder="e.g. Parent"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Button type="button" variant="ghost" asChild>
               <Link href="/users">Cancel</Link>
             </Button>
-            <Button type="submit" disabled={!canSubmit || isSubmitting || configLoading}>
-              {isSubmitting ? "Creating…" : "Create user & send password"}
+            <Button type="submit" disabled={!canSubmit || submitting || configLoading}>
+              {submitting ? "Creating…" : formType === "youth" ? "Create youth user & send password" : "Create adult athlete & send password"}
             </Button>
           </div>
         </form>
