@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CalendarDays } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Calendar } from "../../../components/ui/calendar";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
 import { Select } from "../../../components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { useGetOnboardingConfigQuery, useProvisionAdultAthleteMutation, useProvisionGuardianMutation } from "../../../lib/apiSlice";
@@ -33,6 +35,44 @@ function getErrorMessage(error: unknown, fallback: string): string {
     if (typeof apiError.message === "string") return apiError.message;
   }
   return fallback;
+}
+
+function formatDateValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function parseDateValue(value: string): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date;
+}
+
+function BirthDatePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const selectedDate = parseDateValue(value);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" className="w-full justify-start text-left font-normal">
+          <CalendarDays className="h-4 w-4" />
+          {selectedDate ? selectedDate.toLocaleDateString() : "Pick birth date"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="p-0">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={(date) => onChange(date ? formatDateValue(date) : "")}
+          captionLayout="dropdown"
+          fromYear={1950}
+          toYear={new Date().getFullYear()}
+        />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export default function AddUserPage() {
@@ -284,14 +324,8 @@ export default function AddUserPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="birthDate">Birth date</Label>
-                <Input
-                  id="birthDate"
-                  type="date"
-                  required
-                  value={birthDate}
-                  onChange={(ev) => setBirthDate(ev.target.value)}
-                />
+                <Label>Birth date</Label>
+                <BirthDatePicker value={birthDate} onChange={setBirthDate} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="team">Team</Label>
