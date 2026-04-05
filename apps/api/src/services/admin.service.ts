@@ -400,6 +400,7 @@ export async function listUsers() {
       athleteId: athleteTable.id,
       athleteName: athleteTable.name,
       athleteAge: athleteTable.age,
+      athleteType: athleteTable.athleteType,
       programTier: athleteTable.currentProgramTier,
       onboardingCompleted: sql<boolean>`
         coalesce(

@@ -22,6 +22,7 @@ type AdminUser = {
   onboardingCompleted?: boolean | null;
   createdAt?: string | null;
   athleteId?: number | null;
+  athleteType?: "youth" | "adult" | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;
 };
@@ -56,7 +57,9 @@ function UsersPageContent() {
   const [deleteUser] = useDeleteUserMutation();
 
   const users = useMemo(() => {
-    const source = ((usersData?.users ?? []) as AdminUser[]).filter((user) => user.role === "guardian");
+    const source = ((usersData?.users ?? []) as AdminUser[]).filter(
+      (user) => user.role === "guardian" || (user.role === "athlete" && user.athleteType === "adult")
+    );
     const mapped: UsersListItem[] = source.map((user) => {
       const resolvedTier = user.programTier ?? user.guardianProgramTier ?? null;
       const tierLabel =

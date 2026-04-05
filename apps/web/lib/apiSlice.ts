@@ -124,6 +124,7 @@ type UserListRow = {
   cognitoSub?: string | null;
   athleteId?: number | null;
   athleteName?: string | null;
+  athleteType?: "youth" | "adult" | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;
 };
