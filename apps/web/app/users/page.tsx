@@ -58,7 +58,12 @@ function UsersPageContent() {
 
   const users = useMemo(() => {
     const source = ((usersData?.users ?? []) as AdminUser[]).filter(
-      (user) => user.role === "guardian" || (user.role === "athlete" && user.athleteType === "adult")
+      (user) =>
+        user.role === "guardian" ||
+        (user.role === "athlete" &&
+          (user.athleteType === "adult" ||
+            // Fallback for older API responses that may not yet include athleteType.
+            !String(user.email ?? "").endsWith("@athlete.local")))
     );
     const mapped: UsersListItem[] = source.map((user) => {
       const resolvedTier = user.programTier ?? user.guardianProgramTier ?? null;
