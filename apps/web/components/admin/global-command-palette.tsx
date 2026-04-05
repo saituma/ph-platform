@@ -146,6 +146,7 @@ const NAV_ITEMS: PaletteList = {
       children: "Client training",
       href: "/training-snapshot",
     },
+    { id: "stats", children: "Stats", href: "/stats" },
     { id: "billing", children: "Billing", href: "/billing" },
     { id: "content", children: "Content", href: "/content" },
     { id: "parent", children: "Parent Portal", href: "/parent" },
