@@ -13,6 +13,7 @@ import { Select } from "../../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Textarea } from "../../components/ui/textarea";
 import {
+  useGetAdminTeamsQuery,
   useCreateBulkPhysioReferralMutation,
   useCreateMediaUploadUrlMutation,
   useCreateReferralGroupMutation,
@@ -25,7 +26,7 @@ import {
 } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
-type TargetMode = "single" | "age_range" | "group";
+type TargetMode = "single" | "team" | "age_range" | "group";
 type AgeMode = "single_age" | "range_age";
 
 type ReferralMetadata = {
@@ -33,6 +34,7 @@ type ReferralMetadata = {
   assignmentMode?: TargetMode | null;
   targetLabel?: string | null;
   targetGroupKey?: string | null;
+  targetTeam?: string | null;
   minAge?: number | null;
   maxAge?: number | null;
   providerName?: string | null;
@@ -62,6 +64,7 @@ type AthleteOption = {
   athleteId: number;
   athleteAge?: number | null;
   tier: string;
+  team: string;
   label: string;
 };
 
@@ -69,6 +72,7 @@ type ReferralUser = {
   athleteId?: number | null;
   athleteAge?: number | null;
   athleteName?: string | null;
+  team?: string | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;
   currentProgramTier?: string | null;
@@ -86,7 +90,6 @@ type ReferralGroup = {
   }[];
 };
 
-const ELIGIBLE_TIERS = new Set(["PHP_Premium_Plus", "PHP_Premium"]);
 const REFERRAL_TYPE_OPTIONS = ["Physio", "Stocks", "Nutrition", "Recovery", "Doctor", "Specialist", "Other"];
 const PRESET_REFERRAL_TYPES = new Set(REFERRAL_TYPE_OPTIONS.filter((option) => option !== "Other"));
 
@@ -118,8 +121,11 @@ function getResolvedReferralType(selectedType: string, customType: string) {
 
 function getTargetLabel(
   mode: TargetMode,
-  options: { minAge?: string; maxAge?: string; groupName?: string }
+  options: { teamName?: string; minAge?: string; maxAge?: string; groupName?: string }
 ) {
+  if (mode === "team") {
+    return options.teamName?.trim() ? `Team ${options.teamName.trim()}` : "Team";
+  }
   if (mode === "age_range") {
     if (options.minAge && options.maxAge && options.minAge === options.maxAge) {
       return `Age ${options.minAge}`;
@@ -143,6 +149,7 @@ export default function ReferralsPage() {
   const searchParams = useSearchParams();
   const { data, isLoading } = useGetPhysioReferralsQuery();
   const { data: referralGroupsData } = useGetReferralGroupsQuery();
+  const { data: teamsData } = useGetAdminTeamsQuery();
   const { data: usersData } = useGetUsersQuery();
   const [createReferral, { isLoading: creating }] = useCreatePhysioReferralMutation();
   const [createBulkReferral, { isLoading: creatingBulk }] = useCreateBulkPhysioReferralMutation();
@@ -154,6 +161,7 @@ export default function ReferralsPage() {
   const [activeTab, setActiveTab] = useState("create");
   const [targetMode, setTargetMode] = useState<TargetMode>("single");
   const [athleteId, setAthleteId] = useState("");
+  const [teamName, setTeamName] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
   const [athleteLabel, setAthleteLabel] = useState<string | null>(null);
   const [ageMode, setAgeMode] = useState<AgeMode>("single_age");
@@ -204,15 +212,16 @@ export default function ReferralsPage() {
       .filter((user) => user.athleteId)
       .map((user) => {
         const tier = (user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null) as string | null;
+        const team = String(user.team ?? "").trim();
         const athleteName = String(user.athleteName ?? "Athlete").trim() || "Athlete";
         return {
           athleteId: Number(user.athleteId),
           athleteAge: typeof user.athleteAge === "number" ? user.athleteAge : null,
           tier: tier ?? "",
-          label: `${athleteName} • ${tier ?? "PHP"}`,
+          team: team || "Unknown",
+          label: `${athleteName} • ${tier ?? "PHP"} • ${team || "Unknown"}`,
         } satisfies AthleteOption;
-      })
-      .filter((user) => user.tier && ELIGIBLE_TIERS.has(user.tier));
+      });
   }, [usersData]);
 
   const athleteTierById = useMemo(() => {
@@ -228,6 +237,16 @@ export default function ReferralsPage() {
     if (!Number.isFinite(id) || id <= 0) return null;
     return athleteTierById.get(id) ?? null;
   }, [athleteId, athleteTierById]);
+
+  const teamOptions = useMemo(() => {
+    const fromApi = (teamsData?.teams ?? [])
+      .map((item) => String(item?.team ?? "").trim())
+      .filter((item) => item.length > 0);
+    const fromAthletes = athleteOptions
+      .map((option) => option.team)
+      .filter((item) => item.length > 0);
+    return Array.from(new Set([...fromApi, ...fromAthletes])).sort((a, b) => a.localeCompare(b));
+  }, [athleteOptions, teamsData]);
 
   const filteredAthletes = useMemo(() => {
     if (targetMode !== "single" || athleteId) return [];
@@ -253,6 +272,10 @@ export default function ReferralsPage() {
     if (targetMode === "single") {
       return athleteId ? athleteOptions.filter((option) => option.athleteId === Number(athleteId)) : [];
     }
+    if (targetMode === "team") {
+      if (!teamName.trim()) return [];
+      return athleteOptions.filter((option) => option.team === teamName.trim());
+    }
     if (targetMode === "age_range") {
       const parsedMin = Number(minAge);
       const parsedMax = Number(ageMode === "single_age" ? minAge : maxAge);
@@ -263,23 +286,21 @@ export default function ReferralsPage() {
       });
     }
     return (selectedReferralGroup?.members ?? [])
-      .filter((member) => member.programTier && ELIGIBLE_TIERS.has(member.programTier))
       .map((member) => ({
         athleteId: member.athleteId,
         athleteAge: member.athleteAge ?? null,
         tier: member.programTier ?? "",
+        team: "Unknown",
         label: member.athleteName ?? `Athlete #${member.athleteId}`,
       }));
-  }, [ageMode, athleteId, athleteOptions, maxAge, minAge, selectedReferralGroup, targetMode]);
+  }, [ageMode, athleteId, athleteOptions, maxAge, minAge, selectedReferralGroup, targetMode, teamName]);
 
-  const eligibleEntries = useMemo(
-    () => entries.filter((entry) => ELIGIBLE_TIERS.has(athleteTierById.get(entry.athleteId) ?? entry.programTier ?? "PHP")),
-    [athleteTierById, entries]
-  );
+  const eligibleEntries = entries;
 
   const resetCreateForm = () => {
     setTargetMode("single");
     setAthleteId("");
+    setTeamName("");
     setAthleteSearch("");
     setAthleteLabel(null);
     setAgeMode("single_age");
@@ -305,11 +326,13 @@ export default function ReferralsPage() {
     const meta: ReferralMetadata = {
       assignmentMode: targetMode,
       targetLabel: getTargetLabel(targetMode, {
+        teamName,
         minAge,
         maxAge: targetMode === "age_range" && ageMode === "single_age" ? minAge : maxAge,
         groupName: selectedReferralGroup?.name,
       }),
       targetGroupKey: targetMode === "group" ? groupId : null,
+      targetTeam: targetMode === "team" ? teamName.trim() || null : null,
       minAge: targetMode === "age_range" && minAge ? Number(minAge) : null,
       maxAge:
         targetMode === "age_range" && (ageMode === "single_age" ? minAge : maxAge)
@@ -427,8 +450,8 @@ export default function ReferralsPage() {
       setError("Choose an athlete for single-athlete referrals.");
       return;
     }
-    if (targetMode === "single" && (!selectedAthleteTier || !ELIGIBLE_TIERS.has(selectedAthleteTier))) {
-      setError("Referrals can only be sent to PHP Premium Plus or PHP Premium athletes.");
+    if (targetMode === "team" && !teamName.trim()) {
+      setError("Choose a team.");
       return;
     }
     if (targetMode === "age_range") {
@@ -444,7 +467,7 @@ export default function ReferralsPage() {
       return;
     }
     if (targetedAthletes.length === 0) {
-      setError("No eligible athletes match that target.");
+      setError("No athletes match that target.");
       return;
     }
 
@@ -461,7 +484,12 @@ export default function ReferralsPage() {
       } else {
         const result = await createBulkReferral({
           targeting:
-            targetMode === "age_range"
+            targetMode === "team"
+              ? {
+                  mode: "team",
+                  team: teamName.trim(),
+                }
+              : targetMode === "age_range"
               ? {
                   mode: "age_range",
                   minAge: Number(minAge),
@@ -640,6 +668,7 @@ export default function ReferralsPage() {
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target Mode</label>
                   <Select value={targetMode} onChange={(event) => setTargetMode(event.target.value as TargetMode)}>
                     <option value="single">Single Athlete</option>
+                    <option value="team">Team</option>
                     <option value="age_range">Age Range</option>
                     <option value="group">Group</option>
                   </Select>
@@ -697,10 +726,25 @@ export default function ReferralsPage() {
                     ))}
                   </div>
                   {!athleteId ? (
-                    <p className="text-xs text-muted-foreground">Only PHP Premium Plus and PHP Premium athletes can receive referrals.</p>
+                    <p className="text-xs text-muted-foreground">You can target youth and adult athletes.</p>
                   ) : selectedAthleteTier ? (
                     <p className="text-xs text-muted-foreground">Program tier: <span className="text-foreground">{selectedAthleteTier}</span></p>
                   ) : null}
+                </div>
+              ) : null}
+
+              {targetMode === "team" ? (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team</label>
+                  <Select value={teamName} onChange={(event) => setTeamName(event.target.value)}>
+                    <option value="">Select a team</option>
+                    {teamOptions.map((team) => (
+                      <option key={team} value={team}>
+                        {team}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-muted-foreground">All athletes in this team are eligible (youth and adult).</p>
                 </div>
               ) : null}
 
@@ -817,6 +861,8 @@ export default function ReferralsPage() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {targetMode === "single"
                     ? "Eligible athlete selected"
+                    : targetMode === "team"
+                      ? `Eligible athletes in ${teamName || "this team"}`
                     : targetMode === "age_range"
                       ? "Eligible athletes in this age range"
                       : `Eligible athletes in ${selectedReferralGroup?.name ?? "this group"}`}
