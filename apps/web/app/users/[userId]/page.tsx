@@ -535,7 +535,11 @@ export default function UserDetailPage() {
         {(onboarding?.athlete || rawUser?.athleteId) && (
           <UserProfileSection
             title="Athlete"
-            description="The athlete profile this guardian manages — onboarding and training context."
+            description={
+              rawUser?.role === "athlete"
+                ? "Adult athlete profile, training profile, and plan details."
+                : "The athlete profile this guardian manages — onboarding and training context."
+            }
             icon={UserRound}
           >
             {onboardingLoading ? (
@@ -577,6 +581,32 @@ export default function UserDetailPage() {
                   }
                 />
                 <ProfileField label="Current program tier" value={onboarding?.athlete?.currentProgramTier} />
+                <ProfileField
+                  label="Plan payment type"
+                  value={
+                    onboarding?.athlete?.planPaymentType === "upfront"
+                      ? "Upfront (full)"
+                      : onboarding?.athlete?.planPaymentType === "monthly"
+                        ? "Monthly"
+                        : null
+                  }
+                />
+                <ProfileField
+                  label="Plan commitment"
+                  value={
+                    onboarding?.athlete?.planCommitmentMonths
+                      ? `${onboarding.athlete.planCommitmentMonths} months`
+                      : null
+                  }
+                />
+                <ProfileField
+                  label="Plan expires"
+                  value={
+                    onboarding?.athlete?.planExpiresAt
+                      ? new Date(onboarding.athlete.planExpiresAt).toLocaleDateString()
+                      : null
+                  }
+                />
                 <ProfileField
                   label="Created"
                   value={

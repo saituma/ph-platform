@@ -153,6 +153,9 @@ type UserOnboardingAthlete = {
   onboardingCompleted?: boolean;
   onboardingCompletedAt?: string | null;
   currentProgramTier?: string | null;
+  planPaymentType?: "monthly" | "upfront" | null;
+  planCommitmentMonths?: number | null;
+  planExpiresAt?: string | null;
   createdAt?: string | null;
   extraResponses?: Record<string, unknown> | null;
 };
