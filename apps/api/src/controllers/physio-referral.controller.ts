@@ -20,9 +20,10 @@ import { sendReferralAssignedEmail } from "../lib/mailer";
 
 const physioMetadataSchema = z.object({
   referralType: z.string().optional().nullable(),
-  assignmentMode: z.enum(["single", "age_range", "group"]).optional().nullable(),
+  assignmentMode: z.enum(["single", "team", "age_range", "group"]).optional().nullable(),
   targetLabel: z.string().optional().nullable(),
   targetGroupKey: z.string().optional().nullable(),
+  targetTeam: z.string().optional().nullable(),
   minAge: z.number().int().optional().nullable(),
   maxAge: z.number().int().optional().nullable(),
   providerName: z.string().optional().nullable(),
@@ -69,6 +70,10 @@ const bulkTargetingSchema = z.discriminatedUnion("mode", [
     athleteId: z.coerce.number().int().min(1),
   }),
   z.object({
+    mode: z.literal("team"),
+    team: z.string().trim().min(1),
+  }),
+  z.object({
     mode: z.literal("age_range"),
     minAge: z.coerce.number().int().min(1),
     maxAge: z.coerce.number().int().min(1),
@@ -113,8 +118,6 @@ const createReferralGroupSchema = z.object({
   }
 });
 
-const ELIGIBLE_TIERS = new Set(["PHP_Premium_Plus", "PHP_Premium"]);
-
 function normalizeReferralType(value?: string | null) {
   return String(value ?? "")
     .trim()
@@ -139,7 +142,10 @@ function getReferralProviderLabel(metadata?: Record<string, unknown> | null) {
   return providerName?.trim() || null;
 }
 
-function getAssignmentLabel(input: { mode: "single" | "age_range" | "group"; minAge?: number; maxAge?: number; groupName?: string }) {
+function getAssignmentLabel(input: { mode: "single" | "team" | "age_range" | "group"; team?: string; minAge?: number; maxAge?: number; groupName?: string }) {
+  if (input.mode === "team") {
+    return input.team?.trim() ? `Team ${input.team.trim()}` : "Team";
+  }
   if (input.mode === "age_range") {
     if (input.minAge === input.maxAge) {
       return `Age ${input.minAge}`;
@@ -154,17 +160,20 @@ function getAssignmentLabel(input: { mode: "single" | "age_range" | "group"; min
 
 async function listEligibleAthleteTargets(input:
   | { mode: "single"; athleteId: number }
+  | { mode: "team"; team: string }
   | { mode: "age_range"; minAge: number; maxAge: number }
   | { mode: "group"; groupId: number }
 ) {
   const filters = [] as any[];
   if (input.mode === "single") {
     filters.push(eq(athleteTable.id, input.athleteId));
+  } else if (input.mode === "team") {
+    filters.push(eq(athleteTable.team, input.team));
   } else if (input.mode === "age_range") {
     filters.push(gte(athleteTable.age, input.minAge), lte(athleteTable.age, input.maxAge));
   } else {
     const members = await getReferralGroupAthletes(input.groupId);
-    return members.filter((row) => row.programTier && ELIGIBLE_TIERS.has(row.programTier));
+    return members;
   }
 
   const rows = await db
@@ -177,7 +186,7 @@ async function listEligibleAthleteTargets(input:
     .from(athleteTable)
     .where(and(...filters));
 
-  return rows.filter((row) => row.programTier && ELIGIBLE_TIERS.has(row.programTier));
+  return rows;
 }
 
 async function resolveReferralRecipients(athleteId: number) {
@@ -345,8 +354,8 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     .where(eq(athleteTable.id, input.athleteId))
     .limit(1);
   const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
-  if (!athleteTier || !ELIGIBLE_TIERS.has(athleteTier)) {
-    return res.status(400).json({ error: "Referrals are only available for PHP Premium Plus and PHP Premium athletes." });
+  if (!athleteTier) {
+    return res.status(400).json({ error: "Athlete program tier is missing." });
   }
   const nextReferralType = normalizeReferralType(input.metadata?.referralType);
   const existingEntries = await getPhysioReferralsForAthlete(input.athleteId);
@@ -414,6 +423,8 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
   const targetLabel =
     targeting.mode === "single"
       ? "Individual athlete"
+      : targeting.mode === "team"
+        ? getAssignmentLabel({ mode: "team", team: targeting.team })
       : targeting.mode === "age_range"
         ? getAssignmentLabel({
             mode: "age_range",
@@ -424,7 +435,7 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
 
   const athletes = await listEligibleAthleteTargets(targeting as any);
   if (!athletes.length) {
-    return res.status(400).json({ error: "No eligible athletes matched that target." });
+    return res.status(400).json({ error: "No athletes matched that target." });
   }
 
   const created: any[] = [];
@@ -451,6 +462,7 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
       ...(input.metadata ?? {}),
       assignmentMode: targeting.mode,
       targetLabel,
+      targetTeam: targeting.mode === "team" ? targeting.team : null,
       targetGroupKey: targeting.mode === "group" ? String(targeting.groupId) : null,
       minAge: targeting.mode === "age_range" ? targeting.minAge : null,
       maxAge: targeting.mode === "age_range" ? targeting.maxAge : null,
@@ -521,8 +533,8 @@ export async function updatePhysioReferralAdmin(req: Request, res: Response) {
     .where(eq(athleteTable.id, athleteId))
     .limit(1);
   const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
-  if (!athleteTier || !ELIGIBLE_TIERS.has(athleteTier)) {
-    return res.status(400).json({ error: "Referrals are only available for PHP Premium Plus and PHP Premium athletes." });
+  if (!athleteTier) {
+    return res.status(400).json({ error: "Athlete program tier is missing." });
   }
   if (input.metadata) {
     const nextReferralType = normalizeReferralType(input.metadata.referralType);
