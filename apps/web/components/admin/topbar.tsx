@@ -46,7 +46,12 @@ export function AdminTopbar({
   return (
     <header className="hidden flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-4 lg:flex lg:px-10">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={onToggleSidebar} className="h-8 w-8 rounded-none border-border hover:bg-primary hover:text-primary-foreground">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onToggleSidebar?.()}
+          className="h-8 w-8 rounded-none border-border hover:bg-primary hover:text-primary-foreground"
+        >
           {isSidebarCollapsed ? (
             <ChevronRight className="h-4 w-4" />
           ) : (

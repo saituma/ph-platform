@@ -671,9 +671,6 @@ export function GlobalCommandPalette() {
       })),
     }));
   }, [dataLists, quickActions, router]);
-  <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
-    Ctrl/Cmd K
-  </kbd>;
 
   const filteredItems = useMemo(
     () => filterItems(paletteItems, search, { filterOnListHeading: true }),
