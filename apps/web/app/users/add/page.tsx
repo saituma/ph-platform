@@ -12,7 +12,6 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Select } from "../../../components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "../../../components/ui/tabs";
-import { Textarea } from "../../../components/ui/textarea";
 import { useGetOnboardingConfigQuery, useProvisionAdultAthleteMutation, useProvisionGuardianMutation } from "../../../lib/apiSlice";
 
 const TIER_OPTIONS: { value: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro"; label: string }[] = [
@@ -52,10 +51,10 @@ export default function AddUserPage() {
   const [birthDate, setBirthDate] = useState("");
   const [team, setTeam] = useState("");
   const [trainingPerWeek, setTrainingPerWeek] = useState("3");
-  const [injuries, setInjuries] = useState("");
-  const [growthNotes, setGrowthNotes] = useState("");
-  const [performanceGoals, setPerformanceGoals] = useState("");
-  const [equipmentAccess, setEquipmentAccess] = useState("");
+  const [injuries, setInjuries] = useState<string[]>([""]);
+  const [growthNotes, setGrowthNotes] = useState<string[]>([""]);
+  const [performanceGoals, setPerformanceGoals] = useState<string[]>([""]);
+  const [equipmentAccess, setEquipmentAccess] = useState<string[]>([""]);
   const [parentPhone, setParentPhone] = useState("");
   const [relationToAthlete, setRelationToAthlete] = useState("");
   const [planExpiresAt, setPlanExpiresAt] = useState("");
@@ -102,6 +101,10 @@ export default function AddUserPage() {
         return;
       }
     }
+    const cleanedInjuries = injuries.map((item) => item.trim()).filter((item) => item.length > 0);
+    const cleanedGrowthNotes = growthNotes.map((item) => item.trim()).filter((item) => item.length > 0);
+    const cleanedPerformanceGoals = performanceGoals.map((item) => item.trim()).filter((item) => item.length > 0);
+    const cleanedEquipmentAccess = equipmentAccess.map((item) => item.trim()).filter((item) => item.length > 0);
     try {
       const result = formType === "youth"
         ? await provision({
@@ -111,10 +114,10 @@ export default function AddUserPage() {
             birthDate: birthDate.trim(),
             team: team.trim(),
             trainingPerWeek: n,
-            injuries: injuries.trim() || undefined,
-            growthNotes: growthNotes.trim() || null,
-            performanceGoals: performanceGoals.trim() || null,
-            equipmentAccess: equipmentAccess.trim() || null,
+            injuries: cleanedInjuries.length ? cleanedInjuries : undefined,
+            growthNotes: cleanedGrowthNotes.length ? cleanedGrowthNotes.join("\n") : null,
+            performanceGoals: cleanedPerformanceGoals.length ? cleanedPerformanceGoals.join("\n") : null,
+            equipmentAccess: cleanedEquipmentAccess.length ? cleanedEquipmentAccess.join("\n") : null,
             parentPhone: parentPhone.trim() || null,
             relationToAthlete: relationToAthlete.trim() || null,
             desiredProgramType,
@@ -128,10 +131,10 @@ export default function AddUserPage() {
             birthDate: birthDate.trim(),
             team: team.trim(),
             trainingPerWeek: n,
-            injuries: injuries.trim() || undefined,
-            growthNotes: growthNotes.trim() || null,
-            performanceGoals: performanceGoals.trim() || null,
-            equipmentAccess: equipmentAccess.trim() || null,
+            injuries: cleanedInjuries.length ? cleanedInjuries : undefined,
+            growthNotes: cleanedGrowthNotes.length ? cleanedGrowthNotes.join("\n") : null,
+            performanceGoals: cleanedPerformanceGoals.length ? cleanedPerformanceGoals.join("\n") : null,
+            equipmentAccess: cleanedEquipmentAccess.length ? cleanedEquipmentAccess.join("\n") : null,
             desiredProgramType,
             planExpiresAt: planExpiresAt.trim() || null,
             termsVersion,
@@ -341,30 +344,130 @@ export default function AddUserPage() {
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="injuries">Injuries / history</Label>
-                <Textarea id="injuries" value={injuries} onChange={(ev) => setInjuries(ev.target.value)} rows={3} />
+                <Label>Injuries / history</Label>
+                <div className="space-y-2">
+                  {injuries.map((value, index) => (
+                    <div key={`injury-${index}`} className="flex items-center gap-2">
+                      <Input
+                        value={value}
+                        onChange={(ev) =>
+                          setInjuries((prev) => prev.map((item, i) => (i === index ? ev.target.value : item)))
+                        }
+                        placeholder="Optional injury or history note"
+                      />
+                      {injuries.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setInjuries((prev) => prev.filter((_, i) => i !== index))}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => setInjuries((prev) => [...prev, ""])}>
+                    Add another
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="growthNotes">Growth notes</Label>
-                <Textarea id="growthNotes" value={growthNotes} onChange={(ev) => setGrowthNotes(ev.target.value)} rows={2} />
+                <Label>Growth notes</Label>
+                <div className="space-y-2">
+                  {growthNotes.map((value, index) => (
+                    <div key={`growth-${index}`} className="flex items-center gap-2">
+                      <Input
+                        value={value}
+                        onChange={(ev) =>
+                          setGrowthNotes((prev) => prev.map((item, i) => (i === index ? ev.target.value : item)))
+                        }
+                        placeholder="Optional growth note"
+                      />
+                      {growthNotes.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setGrowthNotes((prev) => prev.filter((_, i) => i !== index))}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => setGrowthNotes((prev) => [...prev, ""])}>
+                    Add another
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="performanceGoals">Performance goals</Label>
-                <Textarea
-                  id="performanceGoals"
-                  value={performanceGoals}
-                  onChange={(ev) => setPerformanceGoals(ev.target.value)}
-                  rows={3}
-                />
+                <Label>Performance goals</Label>
+                <div className="space-y-2">
+                  {performanceGoals.map((value, index) => (
+                    <div key={`performance-${index}`} className="flex items-center gap-2">
+                      <Input
+                        value={value}
+                        onChange={(ev) =>
+                          setPerformanceGoals((prev) => prev.map((item, i) => (i === index ? ev.target.value : item)))
+                        }
+                        placeholder="Optional performance goal"
+                      />
+                      {performanceGoals.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPerformanceGoals((prev) => prev.filter((_, i) => i !== index))}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPerformanceGoals((prev) => [...prev, ""])}
+                  >
+                    Add another
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="equipmentAccess">Equipment access</Label>
-                <Textarea
-                  id="equipmentAccess"
-                  value={equipmentAccess}
-                  onChange={(ev) => setEquipmentAccess(ev.target.value)}
-                  rows={2}
-                />
+                <Label>Equipment access</Label>
+                <div className="space-y-2">
+                  {equipmentAccess.map((value, index) => (
+                    <div key={`equipment-${index}`} className="flex items-center gap-2">
+                      <Input
+                        value={value}
+                        onChange={(ev) =>
+                          setEquipmentAccess((prev) => prev.map((item, i) => (i === index ? ev.target.value : item)))
+                        }
+                        placeholder="Optional equipment note"
+                      />
+                      {equipmentAccess.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEquipmentAccess((prev) => prev.filter((_, i) => i !== index))}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEquipmentAccess((prev) => [...prev, ""])}
+                  >
+                    Add another
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
