@@ -732,6 +732,42 @@ export async function updateTeamMemberAdmin(input: {
   return { ok: true };
 }
 
+export async function attachAthleteToTeamAdmin(input: { teamName: string; athleteId: number }) {
+  const cleanTeamName = input.teamName.trim();
+  if (!cleanTeamName) {
+    throw { status: 400, message: "Team name is required." };
+  }
+
+  const rows = await db
+    .select({
+      id: athleteTable.id,
+      team: athleteTable.team,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
+    .where(and(eq(athleteTable.id, input.athleteId), eq(userTable.isDeleted, false)))
+    .limit(1);
+
+  const athlete = rows[0];
+  if (!athlete) {
+    throw { status: 404, message: "Athlete not found." };
+  }
+
+  if (athlete.team === cleanTeamName) {
+    return { ok: true, alreadyInTeam: true };
+  }
+
+  await db
+    .update(athleteTable)
+    .set({
+      team: cleanTeamName,
+      updatedAt: new Date(),
+    })
+    .where(eq(athleteTable.id, athlete.id));
+
+  return { ok: true, alreadyInTeam: false };
+}
+
 export async function setUserBlocked(userId: number, blocked: boolean) {
   const result = await db
     .update(userTable)

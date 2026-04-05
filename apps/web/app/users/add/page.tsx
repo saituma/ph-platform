@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Camera, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,6 +42,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function AddUserPage() {
+  const searchParams = useSearchParams();
   const { data: configData, isLoading: configLoading } = useGetOnboardingConfigQuery();
   const [provision, { isLoading: isSubmitting }] = useProvisionGuardianMutation();
   const [provisionAdult, { isLoading: isSubmittingAdult }] = useProvisionAdultAthleteMutation();
@@ -67,6 +69,17 @@ export default function AddUserPage() {
   const [planPaymentType, setPlanPaymentType] = useState<"monthly" | "upfront">("monthly");
   const [planCommitmentMonths, setPlanCommitmentMonths] = useState<6 | 12>(6);
   const [isUploadingAthletePhoto, setIsUploadingAthletePhoto] = useState(false);
+
+  useEffect(() => {
+    const prefTeam = searchParams.get("team");
+    const prefType = searchParams.get("type");
+    if (prefType === "adult" || prefType === "youth") {
+      setFormType(prefType);
+    }
+    if (prefTeam) {
+      setTeam(prefTeam);
+    }
+  }, [searchParams]);
 
   const submitting = isSubmitting || isSubmittingAdult;
 
