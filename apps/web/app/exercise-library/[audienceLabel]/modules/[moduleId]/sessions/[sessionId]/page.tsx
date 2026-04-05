@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminShell } from "../../../../../../../components/admin/shell";
@@ -20,7 +20,9 @@ import { Textarea } from "../../../../../../../components/ui/textarea";
 import {
   AudienceWorkspace,
   buildMetadata,
+  isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
+  toStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../../../../../components/admin/training-content-v2/api";
 import { useCreateMediaUploadUrlMutation } from "../../../../../../../lib/apiSlice";
@@ -49,9 +51,15 @@ function createEmptyItemForm() {
 
 export default function SessionDetailPage() {
   const params = useParams<{ audienceLabel: string; moduleId: string; sessionId: string }>();
+  const searchParams = useSearchParams();
   const audienceLabel = useMemo(
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
     [params.audienceLabel],
+  );
+  const fromAdultMode = searchParams.get("mode") === "adult" || isProgramTierAudienceLabel(audienceLabel);
+  const storageAudienceLabel = useMemo(
+    () => toStorageAudienceLabel({ audienceLabel, adultMode: fromAdultMode }),
+    [audienceLabel, fromAdultMode],
   );
   const moduleId = Number(params.moduleId);
   const sessionId = Number(params.sessionId);
@@ -68,7 +76,7 @@ export default function SessionDetailPage() {
   const loadWorkspace = async () => {
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`);
+      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`);
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load session.");
@@ -77,7 +85,7 @@ export default function SessionDetailPage() {
 
   useEffect(() => {
     void loadWorkspace();
-  }, [audienceLabel]);
+  }, [storageAudienceLabel]);
 
   const module = workspace?.modules.find((item) => item.id === moduleId) ?? null;
   const session = module?.sessions.find((item) => item.id === sessionId) ?? null;
@@ -186,10 +194,12 @@ export default function SessionDetailPage() {
   };
 
   return (
-    <AdminShell title="Training content" subtitle={`${audienceLabel} -> module -> session`}>
+    <AdminShell title="Training content" subtitle={`${fromAdultMode ? "Adult tier" : "Age"} ${audienceLabel} -> module -> session`}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}`}>
+          <Link
+            href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}${fromAdultMode ? "?mode=adult" : ""}`}
+          >
             <Button variant="outline">Back to module</Button>
           </Link>
           <Button
