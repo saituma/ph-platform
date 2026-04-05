@@ -150,6 +150,7 @@ export function AdminSidebarContent({
         { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
         { label: "Client training", href: "/training-snapshot", icon: ClipboardList },
         { label: "Billing", href: "/billing", icon: CreditCard },
+        { label: "Stats", href: "/stats", icon: Activity },
       ],
     },
     {
