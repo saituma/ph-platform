@@ -17,8 +17,11 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import {
+  fromStorageAudienceLabel,
   AudienceSummary,
   PROGRAM_TIERS,
+  isAdultStorageAudienceLabel,
+  isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../components/admin/training-content-v2/api";
@@ -65,7 +68,11 @@ export default function ExerciseLibraryAudiencePage() {
   const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
 
   const cards = useMemo<AudienceCard[]>(() => {
-    const byLabel = new Map(audiences.map((audience) => [audience.label, audience]));
+    const youthAudiences = audiences.filter((audience) => {
+      if (isAdultStorageAudienceLabel(audience.label)) return false;
+      return !isProgramTierAudienceLabel(audience.label);
+    });
+    const byLabel = new Map(youthAudiences.map((audience) => [normalizeAudienceLabelInput(audience.label), audience]));
 
     const primary = BASE_AGE_CARDS.map((label) => {
       const existing = byLabel.get(label);
@@ -76,11 +83,11 @@ export default function ExerciseLibraryAudiencePage() {
       };
     });
 
-    const additional = audiences
-      .filter((audience) => !BASE_AGE_CARDS.includes(audience.label))
+    const additional = youthAudiences
+      .filter((audience) => !BASE_AGE_CARDS.includes(normalizeAudienceLabelInput(audience.label)))
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
       .map((audience) => ({
-        label: audience.label,
+        label: normalizeAudienceLabelInput(audience.label),
         moduleCount: audience.moduleCount,
         otherCount: audience.otherCount,
       }));
@@ -89,7 +96,11 @@ export default function ExerciseLibraryAudiencePage() {
   }, [audiences]);
 
   const adultTierCards = useMemo<AudienceCard[]>(() => {
-    const byLabel = new Map(audiences.map((audience) => [audience.label, audience]));
+    const byLabel = new Map(
+      audiences
+        .filter((audience) => isAdultStorageAudienceLabel(audience.label))
+        .map((audience) => [fromStorageAudienceLabel(audience.label), audience])
+    );
     return ADULT_TIER_CARDS.map((label) => {
       const existing = byLabel.get(label);
       return {

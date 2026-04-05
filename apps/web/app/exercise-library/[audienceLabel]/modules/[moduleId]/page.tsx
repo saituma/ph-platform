@@ -5,7 +5,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../../../components/admin/shell";
@@ -23,13 +23,16 @@ import { Input } from "../../../../../components/ui/input";
 import {
   AudienceWorkspace,
   PROGRAM_TIERS,
+  isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
+  toStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../../../components/admin/training-content-v2/api";
 
 function SortableSessionCard({
   session,
   audienceLabel,
+  fromAdultMode,
   moduleId,
   effectiveLockedForTiers,
   onEdit,
@@ -39,6 +42,7 @@ function SortableSessionCard({
 }: {
   session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number];
   audienceLabel: string;
+  fromAdultMode: boolean;
   moduleId: number;
   effectiveLockedForTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>;
   onEdit: (session: NonNullable<AudienceWorkspace["modules"][number]>["sessions"][number]) => void;
@@ -90,7 +94,11 @@ function SortableSessionCard({
         </div>
       ) : null}
       <div className="mt-3 flex gap-2">
-        <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}/sessions/${session.id}`}>
+        <Link
+          href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${moduleId}/sessions/${session.id}${
+            fromAdultMode ? "?mode=adult" : ""
+          }`}
+        >
           <Button size="sm">Open session</Button>
         </Link>
         <Button size="sm" variant="secondary" onClick={() => onLock(session)}>
@@ -112,9 +120,15 @@ function SortableSessionCard({
 
 export default function ModuleSessionsPage() {
   const params = useParams<{ audienceLabel: string; moduleId: string }>();
+  const searchParams = useSearchParams();
   const audienceLabel = useMemo(
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
     [params.audienceLabel],
+  );
+  const fromAdultMode = searchParams.get("mode") === "adult" || isProgramTierAudienceLabel(audienceLabel);
+  const storageAudienceLabel = useMemo(
+    () => toStorageAudienceLabel({ audienceLabel, adultMode: fromAdultMode }),
+    [audienceLabel, fromAdultMode],
   );
   const moduleId = Number(params.moduleId);
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
@@ -139,7 +153,7 @@ export default function ModuleSessionsPage() {
   const loadWorkspace = async () => {
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`);
+      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`);
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load module.");
@@ -148,7 +162,7 @@ export default function ModuleSessionsPage() {
 
   useEffect(() => {
     void loadWorkspace();
-  }, [audienceLabel]);
+  }, [storageAudienceLabel]);
 
   const module = workspace?.modules.find((item) => item.id === moduleId) ?? null;
 
@@ -338,10 +352,10 @@ export default function ModuleSessionsPage() {
   };
 
   return (
-    <AdminShell title="Training content" subtitle={`Age ${audienceLabel} · module structure`}>
+    <AdminShell title="Training content" subtitle={`${fromAdultMode ? "Adult tier" : "Age"} ${audienceLabel} · module structure`}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}`}>
+          <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}${fromAdultMode ? "?mode=adult" : ""}`}>
             <Button variant="outline">Back to audience</Button>
           </Link>
           <Button
@@ -372,6 +386,7 @@ export default function ModuleSessionsPage() {
                           key={session.id}
                           session={session}
                           audienceLabel={audienceLabel}
+                          fromAdultMode={fromAdultMode}
                           moduleId={moduleId}
                           effectiveLockedForTiers={effectiveLockedTiersBySessionId.get(session.id) ?? []}
                           onLock={(current) => {

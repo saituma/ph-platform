@@ -20,7 +20,9 @@ import { Textarea } from "../../../../components/ui/textarea";
 import {
   AudienceWorkspace,
   OtherItem,
+  isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
+  toStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../../components/admin/training-content-v2/api";
 import {
@@ -59,11 +61,18 @@ function buildTimeFromPicker(hour: string, minute: string) {
 export function InseasonSchedulePage({
   audienceLabel,
   itemId,
+  fromAdultMode,
 }: {
   audienceLabel: string;
   itemId: number;
+  fromAdultMode?: boolean;
 }) {
   const normalizedAudienceLabel = useMemo(() => normalizeAudienceLabelInput(audienceLabel), [audienceLabel]);
+  const isAdultContext = fromAdultMode || isProgramTierAudienceLabel(normalizedAudienceLabel);
+  const storageAudienceLabel = useMemo(
+    () => toStorageAudienceLabel({ audienceLabel: normalizedAudienceLabel, adultMode: isAdultContext }),
+    [normalizedAudienceLabel, isAdultContext],
+  );
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,7 +88,7 @@ export function InseasonSchedulePage({
   const loadWorkspace = async () => {
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(normalizedAudienceLabel)}`);
+      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`);
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load schedule.");
@@ -88,7 +97,7 @@ export function InseasonSchedulePage({
 
   useEffect(() => {
     void loadWorkspace();
-  }, [normalizedAudienceLabel]);
+  }, [storageAudienceLabel]);
 
   const inseasonItems = workspace?.others.find((item) => item.type === "inseason")?.items ?? [];
   const ageEntry = inseasonItems.find((item) => item.id === itemId && isInseasonAgeGroup(item.metadata)) ?? null;
@@ -160,7 +169,7 @@ export function InseasonSchedulePage({
         await trainingContentRequest("/others", {
           method: "POST",
           body: JSON.stringify({
-            audienceLabel: normalizedAudienceLabel,
+            audienceLabel: storageAudienceLabel,
             type: "inseason",
             title: form.title.trim(),
             body: form.notes.trim() || "Weekly in-season schedule.",
@@ -203,7 +212,11 @@ export function InseasonSchedulePage({
     <AdminShell title="Training content" subtitle={`Plan: ${normalizedAudienceLabel} -> In-Season Program`}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Link href={`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason`}>
+          <Link
+            href={`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason${
+              isAdultContext ? "?mode=adult" : ""
+            }`}
+          >
             <Button variant="outline">Back to in-season</Button>
           </Link>
           <Button
@@ -222,13 +235,15 @@ export function InseasonSchedulePage({
           <CardHeader>
             <SectionHeader
               title={ageEntry?.title ? `Age ${ageEntry.title} weekly sessions` : "In-Season weekly sessions"}
-              description="Add fixed weekly sessions for this age. Each session repeats every week on the selected day and time."
+              description={`Add fixed weekly sessions for this ${isAdultContext ? "plan" : "age"}. Each session repeats every week on the selected day and time.`}
             />
           </CardHeader>
           <CardContent className="space-y-4">
             {!ageEntry ? <p className="text-sm text-muted-foreground">This age group could not be found.</p> : null}
             {ageEntry && !scheduleEntries.length ? (
-              <p className="text-sm text-muted-foreground">No weekly sessions added yet for this age.</p>
+              <p className="text-sm text-muted-foreground">
+                No weekly sessions added yet for this {isAdultContext ? "plan" : "age"}.
+              </p>
             ) : null}
             {scheduleEntries.map((schedule) => (
               <div key={schedule.id} className="rounded-2xl border border-border p-4">

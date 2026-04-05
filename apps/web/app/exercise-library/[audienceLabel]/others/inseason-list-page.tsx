@@ -5,14 +5,21 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   AudienceWorkspace,
+  isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
+  toStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../../components/admin/training-content-v2/api";
 import { isInseasonAgeGroup } from "./inseason-shared";
 
-export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
+export function InseasonListPage({ audienceLabel, fromAdultMode }: { audienceLabel: string; fromAdultMode?: boolean }) {
   const router = useRouter();
   const normalizedAudienceLabel = useMemo(() => normalizeAudienceLabelInput(audienceLabel), [audienceLabel]);
+  const isAdultContext = fromAdultMode || isProgramTierAudienceLabel(normalizedAudienceLabel);
+  const storageAudienceLabel = useMemo(
+    () => toStorageAudienceLabel({ audienceLabel: normalizedAudienceLabel, adultMode: isAdultContext }),
+    [normalizedAudienceLabel, isAdultContext],
+  );
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -20,7 +27,7 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
   const loadWorkspace = async () => {
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(normalizedAudienceLabel)}`);
+      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`);
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load in-season ages.");
@@ -29,7 +36,7 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
 
   useEffect(() => {
     void loadWorkspace();
-  }, [normalizedAudienceLabel]);
+  }, [storageAudienceLabel]);
 
   const inseasonGroup = workspace?.others.find((item) => item.type === "inseason") ?? null;
   const ageGroups = (inseasonGroup?.items ?? []).filter((item) => isInseasonAgeGroup(item.metadata));
@@ -44,14 +51,18 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
       setError(null);
       try {
         if (currentAgeEntry) {
-          router.replace(`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${currentAgeEntry.id}`);
+          router.replace(
+            `/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${currentAgeEntry.id}${
+              isAdultContext ? "?mode=adult" : ""
+            }`
+          );
           return;
         }
 
         const created = await trainingContentRequest<{ item: { id: number } }>("/others", {
           method: "POST",
           body: JSON.stringify({
-            audienceLabel: normalizedAudienceLabel,
+            audienceLabel: storageAudienceLabel,
             type: "inseason",
             title: normalizedAudienceLabel,
             body: "Weekly in-season schedule.",
@@ -65,7 +76,11 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
         });
         const createdId = created?.item?.id;
         if (createdId) {
-          router.replace(`/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${createdId}`);
+          router.replace(
+            `/exercise-library/${encodeURIComponent(normalizedAudienceLabel)}/others/inseason/${createdId}${
+              isAdultContext ? "?mode=adult" : ""
+            }`
+          );
           return;
         }
         setError("Could not open in-season schedule for this age.");
@@ -76,7 +91,7 @@ export function InseasonListPage({ audienceLabel }: { audienceLabel: string }) {
       }
     };
     void openCurrentAgeSchedule();
-  }, [workspace, isRedirecting, currentAgeEntry, router, normalizedAudienceLabel]);
+  }, [workspace, isRedirecting, currentAgeEntry, router, normalizedAudienceLabel, storageAudienceLabel, isAdultContext]);
 
   if (!error) {
     return null;

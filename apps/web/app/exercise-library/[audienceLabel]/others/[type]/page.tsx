@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../../../components/admin/shell";
@@ -19,7 +19,9 @@ import { Input } from "../../../../../components/ui/input";
 import { Textarea } from "../../../../../components/ui/textarea";
 import {
   AudienceWorkspace,
+  isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
+  toStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../../../components/admin/training-content-v2/api";
 import { InseasonListPage } from "../inseason-list-page";
@@ -27,10 +29,16 @@ import { getOtherSectionConfig } from "../shared";
 
 export default function OtherContentDetailPage() {
   const params = useParams<{ audienceLabel: string; type: string }>();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const audienceLabel = useMemo(
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
     [params.audienceLabel],
+  );
+  const fromAdultMode = searchParams.get("mode") === "adult" || isProgramTierAudienceLabel(audienceLabel);
+  const storageAudienceLabel = useMemo(
+    () => toStorageAudienceLabel({ audienceLabel, adultMode: fromAdultMode }),
+    [audienceLabel, fromAdultMode],
   );
   const type = String(params.type ?? "");
   const section = getOtherSectionConfig(type);
@@ -51,7 +59,7 @@ export default function OtherContentDetailPage() {
   const loadWorkspace = async () => {
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`);
+      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`);
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load content.");
@@ -60,17 +68,17 @@ export default function OtherContentDetailPage() {
 
   useEffect(() => {
     if (!section) {
-      router.replace(`/exercise-library/${encodeURIComponent(audienceLabel)}`);
+      router.replace(`/exercise-library/${encodeURIComponent(audienceLabel)}${fromAdultMode ? "?mode=adult" : ""}`);
       return;
     }
     if (section.type === "inseason") return;
     void loadWorkspace();
-  }, [audienceLabel, router, section]);
+  }, [audienceLabel, fromAdultMode, router, section, storageAudienceLabel]);
 
   if (!section) return null;
 
   if (section.type === "inseason") {
-    return <InseasonListPage audienceLabel={audienceLabel} />;
+    return <InseasonListPage audienceLabel={audienceLabel} fromAdultMode={fromAdultMode} />;
   }
 
   const group = workspace?.others.find((item) => item.type === section.type) ?? null;
@@ -81,7 +89,7 @@ export default function OtherContentDetailPage() {
     setIsSaving(true);
     try {
       const payload = {
-        audienceLabel,
+        audienceLabel: storageAudienceLabel,
         type: section.type,
         title: form.title.trim(),
         body: form.body.trim(),
@@ -134,11 +142,11 @@ export default function OtherContentDetailPage() {
   };
 
   return (
-    <AdminShell title="Exercise library" subtitle={`Age ${audienceLabel} -> ${section.label}`}>
+    <AdminShell title="Exercise library" subtitle={`${fromAdultMode ? "Adult tier" : "Age"} ${audienceLabel} -> ${section.label}`}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}`}>
-            <Button variant="outline">Back to age</Button>
+          <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}${fromAdultMode ? "?mode=adult" : ""}`}>
+            <Button variant="outline">{fromAdultMode ? "Back to adult tier" : "Back to age"}</Button>
           </Link>
           <Button
             className="ml-auto"

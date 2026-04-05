@@ -19,7 +19,9 @@ import { Input } from "../../../components/ui/input";
 import {
   AudienceWorkspace,
   PROGRAM_TIERS,
+  isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
+  toStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../components/admin/training-content-v2/api";
 
@@ -54,11 +56,12 @@ export default function AudienceDetailPage() {
     () => normalizeAudienceLabelInput(decodeURIComponent(String(params.audienceLabel ?? "All"))),
     [params.audienceLabel],
   );
-  const isAdultTierAudience = useMemo(
-    () => PROGRAM_TIERS.some((tier) => tier.label === audienceLabel),
-    [audienceLabel],
-  );
+  const isAdultTierAudience = useMemo(() => isProgramTierAudienceLabel(audienceLabel), [audienceLabel]);
   const fromAdultMode = searchParams.get("mode") === "adult" || isAdultTierAudience;
+  const storageAudienceLabel = useMemo(
+    () => toStorageAudienceLabel({ audienceLabel, adultMode: fromAdultMode }),
+    [audienceLabel, fromAdultMode],
+  );
   const audienceNoun = fromAdultMode ? "adult tier" : "age";
 
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
@@ -89,7 +92,7 @@ export default function AudienceDetailPage() {
   const loadWorkspace = async () => {
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`);
+      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`);
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to load ${audienceNoun} workspace.`);
@@ -98,7 +101,7 @@ export default function AudienceDetailPage() {
 
   useEffect(() => {
     void loadWorkspace();
-  }, [audienceLabel]);
+  }, [storageAudienceLabel]);
 
   const saveModule = async () => {
     if (!moduleForm.name.trim()) return;
@@ -114,7 +117,7 @@ export default function AudienceDetailPage() {
         const created = await trainingContentRequest<{ id: number }>("/modules", {
           method: "POST",
           body: JSON.stringify({
-            audienceLabel,
+            audienceLabel: storageAudienceLabel,
             title,
           }),
         });
@@ -166,7 +169,7 @@ export default function AudienceDetailPage() {
         workspace: AudienceWorkspace;
       }>("/modules/cleanup-placeholders", {
         method: "POST",
-        body: JSON.stringify({ audienceLabel }),
+        body: JSON.stringify({ audienceLabel: storageAudienceLabel }),
       });
       setWorkspace(response.workspace);
       if (response.deletedCount > 0) {
@@ -193,7 +196,7 @@ export default function AudienceDetailPage() {
       const workspaceResponse = await trainingContentRequest<AudienceWorkspace>("/modules/locks", {
         method: "PUT",
         body: JSON.stringify({
-          audienceLabel,
+          audienceLabel: storageAudienceLabel,
           moduleId,
           programTiers,
         }),
@@ -300,7 +303,7 @@ export default function AudienceDetailPage() {
       await trainingContentRequest<AudienceWorkspace>("/modules/unlocks", {
         method: "PUT",
         body: JSON.stringify({
-          audienceLabel,
+          audienceLabel: storageAudienceLabel,
           throughModuleId: lockForm.moduleId,
           programTiers: tiersToMove,
         }),
@@ -383,7 +386,7 @@ export default function AudienceDetailPage() {
                       ) : null}
                       <div className="mt-3 flex flex-wrap gap-2">
                         {module ? (
-                          <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${module.id}`}>
+                          <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${module.id}${fromAdultMode ? "?mode=adult" : ""}`}>
                             <Button size="sm">Open module</Button>
                           </Link>
                         ) : null}
@@ -462,7 +465,7 @@ export default function AudienceDetailPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Editable in this Others area</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <Link
-                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/warmup`}
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/warmup${fromAdultMode ? "?mode=adult" : ""}`}
                     className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
                   >
                     <div>
@@ -472,7 +475,7 @@ export default function AudienceDetailPage() {
                     <span className="text-xs font-medium text-primary transition group-hover:translate-x-0.5">Open</span>
                   </Link>
                   <Link
-                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/cooldown`}
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/cooldown${fromAdultMode ? "?mode=adult" : ""}`}
                     className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
                   >
                     <div>
@@ -493,7 +496,7 @@ export default function AudienceDetailPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Directly editable here</p>
                 <div className="mt-3 space-y-3">
                   <Link
-                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/mobility`}
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/mobility${fromAdultMode ? "?mode=adult" : ""}`}
                     className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
                   >
                     <div>
@@ -503,7 +506,7 @@ export default function AudienceDetailPage() {
                     <span className="text-xs font-medium text-primary transition group-hover:translate-x-0.5">Open</span>
                   </Link>
                   <Link
-                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/recovery`}
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/recovery${fromAdultMode ? "?mode=adult" : ""}`}
                     className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
                   >
                     <div>
@@ -513,7 +516,7 @@ export default function AudienceDetailPage() {
                     <span className="text-xs font-medium text-primary transition group-hover:translate-x-0.5">Open</span>
                   </Link>
                   <Link
-                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/inseason`}
+                    href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/inseason${fromAdultMode ? "?mode=adult" : ""}`}
                     className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
                   >
                     <div>

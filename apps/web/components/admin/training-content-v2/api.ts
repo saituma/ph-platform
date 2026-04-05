@@ -110,6 +110,8 @@ export const PROGRAM_TIERS = [
   { value: "PHP_Pro", label: "PHP Pro" },
 ] as const;
 
+export const ADULT_AUDIENCE_PREFIX = "adult::";
+
 function getCsrfToken() {
   if (typeof document === "undefined") return "";
   return (
@@ -152,6 +154,27 @@ export function normalizeAudienceLabelInput(input: string) {
   const exact = cleaned.match(/^(\d{1,2})$/);
   if (exact) return String(Number(exact[1]));
   return cleaned;
+}
+
+export function isProgramTierAudienceLabel(label: string) {
+  const normalized = normalizeAudienceLabelInput(label);
+  return PROGRAM_TIERS.some((tier) => tier.label === normalized);
+}
+
+export function isAdultStorageAudienceLabel(label: string) {
+  return normalizeAudienceLabelInput(label).startsWith(ADULT_AUDIENCE_PREFIX);
+}
+
+export function toStorageAudienceLabel(input: { audienceLabel: string; adultMode?: boolean }) {
+  const normalized = normalizeAudienceLabelInput(input.audienceLabel);
+  if (!input.adultMode) return normalized;
+  return `${ADULT_AUDIENCE_PREFIX}${normalized}`;
+}
+
+export function fromStorageAudienceLabel(label: string) {
+  const normalized = normalizeAudienceLabelInput(label);
+  if (!normalized.startsWith(ADULT_AUDIENCE_PREFIX)) return normalized;
+  return normalizeAudienceLabelInput(normalized.slice(ADULT_AUDIENCE_PREFIX.length));
 }
 
 export function buildMetadata(input: {
