@@ -165,6 +165,7 @@ export default function Home() {
       score: athlete.score != null ? String(athlete.score) : "",
     }));
   }, [dashboardData]);
+  const topAthletesPreview = topAthletesData.slice(0, 3);
 
   const tierSummary = dashboardData?.tierDistribution;
   const tierDistributionData: TierDistributionDatum[] = tierSummary
@@ -343,11 +344,13 @@ export default function Home() {
                 <SectionHeader
                   title="TOP ATHLETES"
                   description="MOST ACTIVE THIS PERIOD."
+                  actionLabel="SEE FULL STATS"
+                  onAction={() => router.push("/top-athletes")}
                 />
               </CardHeader>
               <CardContent className="space-y-3">
-                {topAthletesData.length ? (
-                  topAthletesData.map(
+                {topAthletesPreview.length ? (
+                  topAthletesPreview.map(
                     (
                       athlete: { name: string; tier: string; score: string },
                       index: number

@@ -1636,24 +1636,26 @@ export async function getDashboardMetrics(coachId: number) {
     .where(gte(bookingTable.startsAt, startMonth))
     .groupBy(bookingTable.athleteId)
     .orderBy(desc(sql`count(*)`))
-    .limit(4);
+    .limit(50);
 
   const topAthleteIds = topByBookings.map((row) => row.athleteId);
   const topAthletesRaw = topAthleteIds.length
     ? await db.select().from(athleteTable).where(inArray(athleteTable.id, topAthleteIds))
-    : await db.select().from(athleteTable).orderBy(desc(athleteTable.createdAt)).limit(4);
+    : await db.select().from(athleteTable).orderBy(desc(athleteTable.createdAt)).limit(50);
 
   const topAthletes = topAthleteIds.length
     ? topByBookings.map((row) => {
         const athlete = topAthletesRaw.find((item) => item.id === row.athleteId);
         return {
           name: athlete?.name ?? "Athlete",
+          team: athlete?.team ?? null,
           tier: athlete?.currentProgramTier ?? "PHP",
           score: `${row.count} sessions last 30d`,
         };
       })
     : topAthletesRaw.map((athlete) => ({
         name: athlete.name,
+        team: athlete.team ?? null,
         tier: athlete.currentProgramTier ?? "PHP",
         score: "New athlete",
       }));
