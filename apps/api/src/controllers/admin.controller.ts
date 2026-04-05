@@ -336,7 +336,7 @@ const teamMemberUpdateSchema = z.object({
   birthDate: z.string().optional().nullable(),
   trainingPerWeek: z.coerce.number().int().min(0).optional(),
   currentProgramTier: z.enum(ProgramType.enumValues).optional().nullable(),
-  injuries: z.string().optional().nullable(),
+  injuries: z.union([z.string(), z.array(z.string())]).optional().nullable(),
   growthNotes: z.string().optional().nullable(),
   performanceGoals: z.string().optional().nullable(),
   equipmentAccess: z.string().optional().nullable(),
