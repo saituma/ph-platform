@@ -8,8 +8,10 @@ import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../../components/ui/card";
 import { SectionHeader } from "../../../components/admin/section-header";
+import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Textarea } from "../../../components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 
 type TeamDetails = {
   team: string;
@@ -37,6 +39,21 @@ type TeamDetails = {
     createdAt: string | Date | null;
     updatedAt: string | Date | null;
   }>;
+};
+
+type AdminUser = {
+  id: number;
+  role?: string | null;
+  name?: string | null;
+  email?: string | null;
+  athleteId?: number | null;
+  athleteName?: string | null;
+};
+
+type AvailableAthlete = {
+  athleteId: number;
+  displayName: string;
+  email: string;
 };
 
 function formatDate(value: string | Date | null) {
@@ -72,6 +89,12 @@ export default function TeamDetailPage() {
   });
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
   const [isSavingDefaults, setIsSavingDefaults] = useState(false);
+  const [attachModalOpen, setAttachModalOpen] = useState(false);
+  const [athleteSearch, setAthleteSearch] = useState("");
+  const [availableAthletes, setAvailableAthletes] = useState<AvailableAthlete[]>([]);
+  const [isLoadingAvailableAthletes, setIsLoadingAvailableAthletes] = useState(false);
+  const [isAttachingAthlete, setIsAttachingAthlete] = useState(false);
+  const [selectedAthleteId, setSelectedAthleteId] = useState<number | null>(null);
 
   const loadDetails = async () => {
     setIsLoading(true);
@@ -103,6 +126,40 @@ export default function TeamDetailPage() {
     if (!teamName) return;
     void loadDetails();
   }, [teamName]);
+
+  const loadAvailableAthletes = async () => {
+    if (!details) return;
+    setIsLoadingAvailableAthletes(true);
+    try {
+      const response = await fetch("/api/backend/admin/users", { credentials: "include" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to load athletes.");
+      }
+      const teamMemberIds = new Set(details.members.map((member) => member.athleteId));
+      const nextAthletes = (Array.isArray(payload?.users) ? payload.users : [])
+        .filter((user: AdminUser) => user.role === "athlete" && Number.isFinite(user.athleteId))
+        .map((user: AdminUser): AvailableAthlete => ({
+          athleteId: Number(user.athleteId),
+          displayName: user.athleteName ?? user.name ?? `Athlete ${user.athleteId}`,
+          email: user.email ?? "—",
+        }))
+        .filter((athlete: AvailableAthlete) => !teamMemberIds.has(athlete.athleteId))
+        .sort((a: AvailableAthlete, b: AvailableAthlete) => a.displayName.localeCompare(b.displayName));
+
+      setAvailableAthletes(nextAthletes);
+      setSelectedAthleteId(nextAthletes[0]?.athleteId ?? null);
+    } catch (err) {
+      setDefaultsNotice(err instanceof Error ? err.message : "Failed to load athletes.");
+    } finally {
+      setIsLoadingAvailableAthletes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!attachModalOpen) return;
+    void loadAvailableAthletes();
+  }, [attachModalOpen]);
 
   const saveDefaults = async () => {
     setDefaultsNotice(null);
@@ -136,14 +193,60 @@ export default function TeamDetailPage() {
     }
   };
 
+  const attachExistingAthlete = async () => {
+    if (!selectedAthleteId) return;
+    setDefaultsNotice(null);
+    setIsAttachingAthlete(true);
+    try {
+      const csrfToken = getCsrfToken();
+      const response = await fetch(
+        `/api/backend/admin/teams/${encodeURIComponent(teamName)}/athletes/${selectedAthleteId}/attach`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
+          credentials: "include",
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to add athlete to this team.");
+      }
+      setAttachModalOpen(false);
+      setAthleteSearch("");
+      setDefaultsNotice("Athlete added to team.");
+      await loadDetails();
+    } catch (err) {
+      setDefaultsNotice(err instanceof Error ? err.message : "Failed to add athlete to this team.");
+    } finally {
+      setIsAttachingAthlete(false);
+    }
+  };
+
+  const filteredAvailableAthletes = availableAthletes.filter((athlete) => {
+    const normalized = athleteSearch.trim().toLowerCase();
+    if (!normalized) return true;
+    return `${athlete.displayName} ${athlete.email}`.toLowerCase().includes(normalized);
+  });
+
   return (
     <AdminShell
       title={teamName || "Team details"}
       subtitle="Team details and member list."
       actions={
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/teams">Back to teams</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" asChild>
+            <Link href={`/users/add?team=${encodeURIComponent(teamName)}&type=youth`}>Register new player</Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setAttachModalOpen(true)}>
+            Add existing athlete
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/teams">Back to teams</Link>
+          </Button>
+        </div>
       }
     >
       <div className="grid gap-6">
@@ -247,13 +350,74 @@ export default function TeamDetailPage() {
                   href={`/teams/${encodeURIComponent(teamName)}/members/${member.athleteId}`}
                   className="block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5"
                 >
-                  <p className="text-sm font-semibold text-foreground">{member.athleteName}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{member.athleteName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Tier: {member.currentProgramTier ?? "—"} · Training/week: {member.trainingPerWeek ?? "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Guardian: {member.guardianEmail ?? "N/A"}
+                      </p>
+                    </div>
+                    <span className="text-xs font-medium text-primary">Open member</span>
+                  </div>
                 </Link>
               ))
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={attachModalOpen} onOpenChange={setAttachModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add existing athlete</DialogTitle>
+            <DialogDescription>Select an athlete to attach to {teamName}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Search athlete name or email"
+              value={athleteSearch}
+              onChange={(event) => setAthleteSearch(event.target.value)}
+            />
+            <div className="max-h-72 space-y-2 overflow-auto rounded-xl border border-border p-2">
+              {isLoadingAvailableAthletes ? (
+                <p className="p-2 text-sm text-muted-foreground">Loading athletes...</p>
+              ) : filteredAvailableAthletes.length === 0 ? (
+                <p className="p-2 text-sm text-muted-foreground">No available athletes found.</p>
+              ) : (
+                filteredAvailableAthletes.map((athlete) => (
+                  <button
+                    key={athlete.athleteId}
+                    type="button"
+                    onClick={() => setSelectedAthleteId(athlete.athleteId)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                      selectedAthleteId === athlete.athleteId
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-foreground">{athlete.displayName}</p>
+                    <p className="text-xs text-muted-foreground">{athlete.email}</p>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAttachModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void attachExistingAthlete()}
+                disabled={!selectedAthleteId || isAttachingAthlete || isLoadingAvailableAthletes}
+              >
+                {isAttachingAthlete ? "Adding..." : "Add athlete"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }

@@ -46,6 +46,7 @@ import {
   updateBookingStatusAdmin,
   createAdultAthleteAdmin,
   createGuardianWithOnboardingAdmin,
+  attachAthleteToTeamAdmin,
 } from "../services/admin.service";
 import { createBooking } from "../services/booking.service";
 import { getGuardianAndAthlete } from "../services/user.service";
@@ -477,6 +478,22 @@ export async function updateTeamMemberAdminDetails(req: Request, res: Response) 
     const message = typeof error?.message === "string" ? error.message : "Failed to update team member.";
     if (status >= 500) {
       console.error("[admin] updateTeamMemberAdminDetails", error);
+    }
+    return res.status(status).json({ error: message });
+  }
+}
+
+export async function attachAthleteToTeamAdminDetails(req: Request, res: Response) {
+  const teamName = z.string().min(1).parse(req.params.teamName);
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  try {
+    const result = await attachAthleteToTeamAdmin({ teamName, athleteId });
+    return res.status(200).json(result);
+  } catch (error: any) {
+    const status = typeof error?.status === "number" ? error.status : 500;
+    const message = typeof error?.message === "string" ? error.message : "Failed to attach athlete to team.";
+    if (status >= 500) {
+      console.error("[admin] attachAthleteToTeamAdminDetails", error);
     }
     return res.status(status).json({ error: message });
   }

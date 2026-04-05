@@ -60,6 +60,7 @@ import {
   provisionTeamWithPlan,
   saveTeamDefaultsAdmin,
   updateTeamMemberAdminDetails,
+  attachAthleteToTeamAdminDetails,
 } from "../controllers/admin.controller";
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -72,6 +73,7 @@ router.get("/admin/teams", listTeamsAdminDetails);
 router.get("/admin/teams/:teamName", getTeamAdminDetails);
 router.get("/admin/teams/:teamName/members/:athleteId", getTeamMemberAdminDetails);
 router.patch("/admin/teams/:teamName/members/:athleteId", updateTeamMemberAdminDetails);
+router.post("/admin/teams/:teamName/athletes/:athleteId/attach", attachAthleteToTeamAdminDetails);
 router.post("/admin/users/provision", provisionGuardianWithOnboarding);
 router.post("/admin/users/provision-adult", provisionAdultAthlete);
 router.post("/admin/teams/provision", provisionTeamWithPlan);
