@@ -32,6 +32,83 @@ type PaletteList = {
   items: PaletteItem[];
 };
 
+type PaletteUser = {
+  id: number;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  team?: string | null;
+  programTier?: string | null;
+  currentProgramTier?: string | null;
+  guardianProgramTier?: string | null;
+};
+
+type PaletteTeam = {
+  team: string;
+  memberCount: number;
+  guardianCount: number;
+};
+
+type PaletteBooking = {
+  id?: number | null;
+  name?: string | null;
+  athlete?: string | null;
+  athleteName?: string | null;
+  serviceName?: string | null;
+  type?: string | null;
+  status?: string | null;
+};
+
+type PaletteThread = {
+  userId: number;
+  name?: string | null;
+  preview?: string | null;
+  unread?: number | null;
+};
+
+type PaletteGroup = {
+  id: number;
+  name?: string | null;
+  createdAt?: string | null;
+};
+
+type PaletteVideo = {
+  id: number;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  notes?: string | null;
+  feedback?: string | null;
+  programSectionType?: string | null;
+};
+
+type PaletteProgram = {
+  id: number;
+  name?: string | null;
+  type?: string | null;
+  description?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+};
+
+type PaletteFoodEntry = {
+  id: number;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  guardianName?: string | null;
+  guardianEmail?: string | null;
+  notes?: string | null;
+  feedback?: string | null;
+};
+
+type PaletteReferralEntry = {
+  id: number;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  programTier?: string | null;
+  referalLink?: string | null;
+  status?: string | null;
+};
+
 const MAX_RESULTS_PER_GROUP = 10;
 
 function normalize(value: unknown) {
@@ -177,8 +254,9 @@ export function GlobalCommandPalette() {
   const dataLists = useMemo<PaletteList[]>(() => {
     const lists: PaletteList[] = [];
 
-    const users = (usersData?.users ?? [])
-      .filter((user: any) =>
+    const userItems = (usersData?.users ?? []) as PaletteUser[];
+    const users = userItems
+      .filter((user) =>
         matchesQuery(query, [
           user?.name,
           user?.email,
@@ -190,7 +268,7 @@ export function GlobalCommandPalette() {
         ])
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((user: any) => ({
+      .map((user) => ({
         id: `user-${user.id}`,
         children: `User: ${user?.name ?? user?.email ?? `#${user.id}`} ${user?.role ? `(${user.role})` : ""}`,
         closeOnSelect: true,
@@ -210,10 +288,11 @@ export function GlobalCommandPalette() {
       lists.push({ id: "users-live", heading: `Users (${users.length})`, items: users });
     }
 
-    const teams = (teamsData?.teams ?? [])
-      .filter((team: any) => matchesQuery(query, [team?.team, team?.memberCount, team?.guardianCount]))
+    const teamItems = (teamsData?.teams ?? []) as PaletteTeam[];
+    const teams = teamItems
+      .filter((team) => matchesQuery(query, [team?.team, team?.memberCount, team?.guardianCount]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((team: any) => ({
+      .map((team) => ({
         id: `team-${team.team}`,
         children: `Team: ${team.team} (${team.memberCount} athletes, ${team.guardianCount} guardians)`,
         closeOnSelect: true,
@@ -225,8 +304,9 @@ export function GlobalCommandPalette() {
       lists.push({ id: "teams-live", heading: `Teams (${teams.length})`, items: teams });
     }
 
-    const bookings = (bookingsData?.bookings ?? [])
-      .filter((booking: any) =>
+    const bookingItems = (bookingsData?.bookings ?? []) as PaletteBooking[];
+    const bookings = bookingItems
+      .filter((booking) =>
         matchesQuery(query, [
           booking?.id,
           booking?.name,
@@ -238,7 +318,7 @@ export function GlobalCommandPalette() {
         ])
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((booking: any) => {
+      .map((booking) => {
         const bookingId = booking?.id;
         const title = booking?.name ?? booking?.serviceName ?? booking?.type ?? `Booking ${bookingId ?? ""}`;
         const athlete = booking?.athlete ?? booking?.athleteName ?? "Athlete";
@@ -269,10 +349,11 @@ export function GlobalCommandPalette() {
       lists.push({ id: "bookings-live", heading: `Bookings (${bookings.length})`, items: bookings });
     }
 
-    const threads = (threadsData?.threads ?? [])
-      .filter((thread: any) => matchesQuery(query, [thread?.name, thread?.preview, thread?.unread, thread?.userId]))
+    const threadItems = (threadsData?.threads ?? []) as PaletteThread[];
+    const threads = threadItems
+      .filter((thread) => matchesQuery(query, [thread?.name, thread?.preview, thread?.unread, thread?.userId]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((thread: any) => ({
+      .map((thread) => ({
         id: `thread-${thread.userId}`,
         children: `Message: ${thread?.name ?? `User ${thread.userId}`} ${thread?.preview ? `- ${thread.preview}` : ""}`,
         closeOnSelect: true,
@@ -285,10 +366,11 @@ export function GlobalCommandPalette() {
       lists.push({ id: "threads-live", heading: `Messages (${threads.length})`, items: threads });
     }
 
-    const groups = (chatGroupsData?.groups ?? [])
-      .filter((group: any) => matchesQuery(query, [group?.id, group?.name, group?.createdAt]))
+    const groupItems = (chatGroupsData?.groups ?? []) as PaletteGroup[];
+    const groups = groupItems
+      .filter((group) => matchesQuery(query, [group?.id, group?.name, group?.createdAt]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((group: any) => ({
+      .map((group) => ({
         id: `group-${group.id}`,
         children: `Group: ${group?.name ?? `Group ${group.id}`}`,
         closeOnSelect: true,
@@ -301,10 +383,11 @@ export function GlobalCommandPalette() {
       lists.push({ id: "groups-live", heading: `Groups (${groups.length})`, items: groups });
     }
 
-    const videos = (videosData?.items ?? [])
-      .filter((video: any) => matchesQuery(query, [video?.id, video?.athleteName, video?.notes, video?.feedback]))
+    const videoItems = (videosData?.items ?? []) as PaletteVideo[];
+    const videos = videoItems
+      .filter((video) => matchesQuery(query, [video?.id, video?.athleteName, video?.notes, video?.feedback]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((video: any) => ({
+      .map((video) => ({
         id: `video-${video.id}`,
         children: `Video: ${video?.athleteName ?? `Athlete ${video?.athleteId ?? ""}`} ${video?.notes ? `- ${video.notes}` : ""}`,
         closeOnSelect: true,
@@ -326,12 +409,13 @@ export function GlobalCommandPalette() {
       lists.push({ id: "videos-live", heading: `Videos (${videos.length})`, items: videos });
     }
 
-    const programs = (programsData?.programs ?? [])
-      .filter((program: any) =>
+    const programItems = (programsData?.programs ?? []) as PaletteProgram[];
+    const programs = programItems
+      .filter((program) =>
         matchesQuery(query, [program?.id, program?.name, program?.type, program?.description, program?.minAge, program?.maxAge])
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((program: any) => ({
+      .map((program) => ({
         id: `program-${program.id}`,
         children: `Program: ${program?.name ?? `#${program.id}`} (${program?.type ?? "type n/a"})`,
         closeOnSelect: true,
@@ -346,8 +430,9 @@ export function GlobalCommandPalette() {
       lists.push({ id: "programs-live", heading: `Programs (${programs.length})`, items: programs });
     }
 
-    const foodEntries = (foodDiaryData?.items ?? [])
-      .filter((entry: any) =>
+    const foodItems = (foodDiaryData?.items ?? []) as PaletteFoodEntry[];
+    const foodEntries = foodItems
+      .filter((entry) =>
         matchesQuery(query, [
           entry?.id,
           entry?.athleteId,
@@ -359,7 +444,7 @@ export function GlobalCommandPalette() {
         ])
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((entry: any) => ({
+      .map((entry) => ({
         id: `food-${entry.id}`,
         children: `Food diary: ${entry?.athleteName ?? `Athlete ${entry?.athleteId ?? ""}`} ${entry?.notes ? `- ${entry.notes}` : ""}`,
         closeOnSelect: true,
@@ -379,8 +464,9 @@ export function GlobalCommandPalette() {
       lists.push({ id: "food-live", heading: `Food diary (${foodEntries.length})`, items: foodEntries });
     }
 
-    const referrals = (referralsData?.items ?? [])
-      .filter((entry: any) =>
+    const referralItems = (referralsData?.items ?? []) as PaletteReferralEntry[];
+    const referrals = referralItems
+      .filter((entry) =>
         matchesQuery(query, [
           entry?.id,
           entry?.athleteId,
@@ -391,7 +477,7 @@ export function GlobalCommandPalette() {
         ])
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((entry: any) => ({
+      .map((entry) => ({
         id: `referral-${entry.id}`,
         children: `Referral: ${entry?.athleteName ?? `Athlete ${entry?.athleteId ?? ""}`} ${entry?.programTier ? `(${entry.programTier})` : ""}`,
         closeOnSelect: true,
@@ -464,6 +550,7 @@ export function GlobalCommandPalette() {
         onChangeOpen={setIsOpen}
         search={search}
         isOpen={isOpen}
+        page="root"
         placeholder="Search everything... users, teams, bookings, messages"
         footer={
           <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground">
