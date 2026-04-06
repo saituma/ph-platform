@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircleMore, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardHeader } from "../../ui/card";
@@ -21,6 +21,7 @@ type ThreadListItem = {
 
 type InboxThreadPanelProps = {
   threads: ThreadListItem[];
+  highlightedUserId?: number | null;
   onOpenThread: (userId: number) => void;
   onCreateGroup: () => void;
   formatTime: (value?: string | null) => string;
@@ -46,8 +47,15 @@ function cleanPreview(raw: string) {
   return clean;
 }
 
-export function InboxThreadPanel({ threads, onOpenThread, onCreateGroup, formatTime }: InboxThreadPanelProps) {
+export function InboxThreadPanel({
+  threads,
+  highlightedUserId = null,
+  onOpenThread,
+  onCreateGroup,
+  formatTime,
+}: InboxThreadPanelProps) {
   const [query, setQuery] = useState("");
+  const threadRowRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
   const filteredThreads = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -63,6 +71,14 @@ export function InboxThreadPanel({ threads, onOpenThread, onCreateGroup, formatT
     () => filteredThreads.reduce((sum, thread) => sum + Number(thread.unread ?? 0), 0),
     [filteredThreads],
   );
+
+  useEffect(() => {
+    if (!highlightedUserId) return;
+    const target = threadRowRefs.current[highlightedUserId];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightedUserId]);
 
   return (
     <div className="mx-auto w-full max-w-7xl">
@@ -98,9 +114,16 @@ export function InboxThreadPanel({ threads, onOpenThread, onCreateGroup, formatT
               {filteredThreads.map((thread) => (
                 <button
                   key={thread.userId}
+                  ref={(node) => {
+                    threadRowRefs.current[thread.userId] = node;
+                  }}
                   type="button"
                   onClick={() => onOpenThread(thread.userId)}
-                  className="group flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-card/60 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                  className={`group flex w-full items-center gap-3 rounded-2xl border bg-card/60 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
+                    highlightedUserId === thread.userId
+                      ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+                      : "border-border/70"
+                  }`}
                 >
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
                     {initials(thread.name)}

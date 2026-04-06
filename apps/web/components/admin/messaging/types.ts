@@ -27,6 +27,7 @@ export type AnnouncementItem = {
 export type ChatGroupItem = {
   id: number;
   name?: string | null;
+  category?: "announcement" | "coach_group" | "team" | null;
   createdAt?: string | null;
 };
 
