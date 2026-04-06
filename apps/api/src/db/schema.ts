@@ -37,6 +37,7 @@ export const contentSurface = pgEnum("content_surface", [
   "testimonial_submissions",
 ]);
 export const messageType = pgEnum("message_type", ["text", "image", "video"]);
+export const chatGroupCategory = pgEnum("chat_group_category", ["announcement", "coach_group", "team"]);
 export const subscriptionStatus = pgEnum("subscription_status", ["pending_payment", "pending_approval", "approved", "rejected"]);
 export const sessionType = pgEnum("session_type", [
   "program",
@@ -644,6 +645,7 @@ export const messageTable = pgTable(
 export const chatGroupTable = pgTable("chat_groups", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 255 }).notNull(),
+  category: chatGroupCategory().notNull().default("coach_group"),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
 });

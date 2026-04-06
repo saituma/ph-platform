@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, physioRefferalsTable } from "../db/schema";
@@ -21,7 +21,27 @@ export async function getPhysioReferralsForAthlete(athleteId: number) {
     .orderBy(desc(physioRefferalsTable.createdAt));
 }
 
-export async function listPhysioReferrals() {
+export async function listPhysioReferrals(options?: { q?: string; limit?: number }) {
+  const q = options?.q?.trim() ?? "";
+  const requestedLimit = options?.limit;
+  const limit =
+    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+      : 50;
+
+  const conditions = [];
+  if (q) {
+    const pattern = `%${q}%`;
+    conditions.push(
+      or(
+        ilike(athleteTable.name, pattern),
+        ilike(physioRefferalsTable.referalLink, pattern),
+        sql`${physioRefferalsTable.programTier}::text ILIKE ${pattern}`,
+        sql`${physioRefferalsTable.id}::text ILIKE ${pattern}`,
+      ),
+    );
+  }
+
   return db
     .select({
       id: physioRefferalsTable.id,
@@ -35,7 +55,9 @@ export async function listPhysioReferrals() {
     })
     .from(physioRefferalsTable)
     .leftJoin(athleteTable, eq(physioRefferalsTable.athleteId, athleteTable.id))
-    .orderBy(desc(physioRefferalsTable.createdAt));
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(physioRefferalsTable.createdAt))
+    .limit(limit);
 }
 
 export async function createPhysioReferral(input: {

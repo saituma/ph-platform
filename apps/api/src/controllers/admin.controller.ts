@@ -229,8 +229,14 @@ const phpPlusTabsSchema = z.object({
   tabs: z.array(z.string().min(1)),
 });
 
-export async function listAllUsers(_req: Request, res: Response) {
-  const users = await listUsers();
+const adminSearchQuerySchema = z.object({
+  q: z.string().trim().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
+
+export async function listAllUsers(req: Request, res: Response) {
+  const { q, limit } = adminSearchQuerySchema.parse(req.query ?? {});
+  const users = await listUsers({ q, limit });
   return res.status(200).json({ users });
 }
 
@@ -829,7 +835,8 @@ export async function createProgram(req: Request, res: Response) {
 }
 
 export async function listPrograms(_req: Request, res: Response) {
-  const programs = await listProgramTemplates();
+  const { q, limit } = adminSearchQuerySchema.parse(_req.query ?? {});
+  const programs = await listProgramTemplates({ q, limit });
   return res.status(200).json({ programs });
 }
 
@@ -924,7 +931,8 @@ export async function deleteSessionExerciseItem(req: Request, res: Response) {
 }
 
 export async function listBookings(req: Request, res: Response) {
-  const bookings = await listBookingsAdmin();
+  const { q, limit } = adminSearchQuerySchema.parse(req.query ?? {});
+  const bookings = await listBookingsAdmin({ q, limit });
   return res.status(200).json({ bookings });
 }
 
@@ -994,12 +1002,14 @@ export async function listAvailability(_req: Request, res: Response) {
 }
 
 export async function listVideosAdmin(_req: Request, res: Response) {
-  const items = await listVideoUploadsAdmin();
+  const { q, limit } = adminSearchQuerySchema.parse(_req.query ?? {});
+  const items = await listVideoUploadsAdmin({ q, limit });
   return res.status(200).json({ items });
 }
 
 export async function listMessageThreads(req: Request, res: Response) {
-  const threads = await listMessageThreadsAdmin(req.user!.id);
+  const { q, limit } = adminSearchQuerySchema.parse(req.query ?? {});
+  const threads = await listMessageThreadsAdmin(req.user!.id, { q, limit });
   return res.status(200).json({ threads });
 }
 

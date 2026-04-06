@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, foodDiaryTable, guardianTable, userTable } from "../db/schema";
@@ -25,7 +25,12 @@ export async function listFoodDiaryForGuardian(guardianId: number) {
     .orderBy(desc(foodDiaryTable.date), desc(foodDiaryTable.createdAt));
 }
 
-export async function listFoodDiaryEntries(input: { guardianId?: number; athleteId?: number }) {
+export async function listFoodDiaryEntries(input: {
+  guardianId?: number;
+  athleteId?: number;
+  q?: string;
+  limit?: number;
+}) {
   const filters = [];
   if (input.guardianId) {
     filters.push(eq(foodDiaryTable.guardianId, input.guardianId));
@@ -33,6 +38,25 @@ export async function listFoodDiaryEntries(input: { guardianId?: number; athlete
   if (input.athleteId) {
     filters.push(eq(foodDiaryTable.athleteId, input.athleteId));
   }
+  const q = input.q?.trim() ?? "";
+  if (q) {
+    const pattern = `%${q}%`;
+    filters.push(
+      or(
+        ilike(athleteTable.name, pattern),
+        ilike(userTable.name, pattern),
+        ilike(guardianTable.email, pattern),
+        ilike(foodDiaryTable.notes, pattern),
+        ilike(foodDiaryTable.feedback, pattern),
+        sql`${foodDiaryTable.id}::text ILIKE ${pattern}`,
+      ),
+    );
+  }
+  const requestedLimit = input.limit;
+  const limit =
+    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+      : 50;
   return db
     .select({
       id: foodDiaryTable.id,
@@ -58,7 +82,8 @@ export async function listFoodDiaryEntries(input: { guardianId?: number; athlete
     .leftJoin(guardianTable, eq(foodDiaryTable.guardianId, guardianTable.id))
     .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
     .where(filters.length ? and(...filters) : undefined)
-    .orderBy(desc(foodDiaryTable.date), desc(foodDiaryTable.createdAt));
+    .orderBy(desc(foodDiaryTable.date), desc(foodDiaryTable.createdAt))
+    .limit(limit);
 }
 
 export async function createFoodDiaryEntry(input: {

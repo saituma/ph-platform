@@ -320,7 +320,10 @@ export async function getPhysioReferral(req: Request, res: Response) {
 }
 
 export async function listPhysioReferralsAdmin(_req: Request, res: Response) {
-  const items = await listPhysioReferrals();
+  const q = typeof _req.query.q === "string" ? _req.query.q : undefined;
+  const limitRaw = _req.query.limit ? Number(_req.query.limit) : undefined;
+  const limit = limitRaw && Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, Math.floor(limitRaw))) : undefined;
+  const items = await listPhysioReferrals({ q, limit });
   return res.status(200).json({ items });
 }
 

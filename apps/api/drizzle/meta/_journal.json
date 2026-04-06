@@ -386,6 +386,20 @@
       "when": 1773024000000,
       "tag": "0054_plan_commitment_options",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1773025000000,
+      "tag": "0055_command_palette_scaling_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1773026000000,
+      "tag": "0056_chat_group_category",
+      "breakpoints": true
     }
   ]
 }

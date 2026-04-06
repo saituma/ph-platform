@@ -15,6 +15,7 @@ import { toggleGroupMessageReaction } from "../services/reaction.service";
 
 const createGroupSchema = z.object({
   name: z.string().min(1),
+  category: z.enum(["announcement", "coach_group", "team"]).default("coach_group"),
   memberIds: z.array(z.number().int().min(1)).default([]),
 });
 
@@ -38,8 +39,14 @@ const reactionSchema = z.object({
   emoji: z.string().min(1).max(16),
 });
 
+const listGroupsQuerySchema = z.object({
+  q: z.string().trim().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 export async function listGroups(req: Request, res: Response) {
-  const groups = await listGroupsForUser(req.user!.id);
+  const { q, limit } = listGroupsQuerySchema.parse(req.query ?? {});
+  const groups = await listGroupsForUser(req.user!.id, { q, limit });
   return res.status(200).json({ groups });
 }
 
@@ -47,6 +54,7 @@ export async function createGroupChat(req: Request, res: Response) {
   const input = createGroupSchema.parse(req.body);
   const group = await createGroup({
     name: input.name,
+    category: input.category,
     createdBy: req.user!.id,
     memberIds: input.memberIds,
   });
