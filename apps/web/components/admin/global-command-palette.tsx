@@ -153,6 +153,16 @@ function classifyGroupCategory(group: {
   return "coach_group";
 }
 
+function formatGroupLabel(category: PaletteGroupCategory, name: string) {
+  if (category === "announcement") {
+    return `Announcement: ${name}`;
+  }
+  if (category === "team") {
+    return `Team chat: ${name}`;
+  }
+  return `Coach inbox: ${name}`;
+}
+
 const NAV_ITEMS: PaletteList = {
   id: "pages",
   heading: "Pages",
@@ -502,30 +512,39 @@ export function GlobalCommandPalette() {
     }
 
     const groupItems = (chatGroupsData?.groups ?? []) as PaletteGroup[];
-    const groups = groupItems
+    const matchedGroups = groupItems
       .filter((group) =>
         matchesQuery(query, [group?.id, group?.name, group?.createdAt]),
       )
-      .slice(0, MAX_RESULTS_PER_GROUP)
       .map((group) => {
         const category = classifyGroupCategory(group);
+        const groupName = group?.name ?? `Group ${group.id}`;
         return {
           category,
           item: {
             id: `group-${group.id}`,
-            children: `Group: ${group?.name ?? `Group ${group.id}`}`,
+            children: formatGroupLabel(category, groupName),
             closeOnSelect: true,
             onClick: () =>
               router.push(
                 `/messaging?tab=inbox&groupId=${encodeURIComponent(String(group.id))}`,
               ),
-            keywords: toKeywords([group?.id, group?.name, group?.createdAt]),
+            keywords: toKeywords([
+              group?.id,
+              group?.name,
+              group?.createdAt,
+              category,
+              category === "coach_group" ? "coach inbox" : null,
+              category === "team" ? "team inbox team chat" : null,
+              category === "announcement" ? "coach announcement broadcast" : null,
+            ]),
           },
         };
       });
 
-    const announcementGroups = groups
+    const announcementGroups = matchedGroups
       .filter((group) => group.category === "announcement")
+      .slice(0, MAX_RESULTS_PER_GROUP)
       .map((group) => group.item);
     if (announcementGroups.length) {
       lists.push({
@@ -535,19 +554,21 @@ export function GlobalCommandPalette() {
       });
     }
 
-    const coachGroups = groups
+    const coachGroups = matchedGroups
       .filter((group) => group.category === "coach_group")
+      .slice(0, MAX_RESULTS_PER_GROUP)
       .map((group) => group.item);
     if (coachGroups.length) {
       lists.push({
         id: "groups-coach-live",
-        heading: `Coach groups (${coachGroups.length})`,
+        heading: `Coach inbox (${coachGroups.length})`,
         items: coachGroups,
       });
     }
 
-    const teamGroups = groups
+    const teamGroups = matchedGroups
       .filter((group) => group.category === "team")
+      .slice(0, MAX_RESULTS_PER_GROUP)
       .map((group) => group.item);
     if (teamGroups.length) {
       lists.push({
