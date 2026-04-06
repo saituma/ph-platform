@@ -34,6 +34,7 @@ export default function ProgramsScreen() {
     profile,
     athleteUserId,
     managedAthletes,
+    appRole,
   } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
 
@@ -123,6 +124,45 @@ export default function ProgramsScreen() {
         highlight: tier.id === "premium" ? "Limited spots" : tier.highlight,
       })),
     [],
+  );
+
+  const tierToRequiredTier = useCallback(
+    (tierId: ProgramTier["id"]) =>
+      tierId === "pro"
+        ? "PHP_Pro"
+        : tierId === "plus"
+          ? "PHP_Premium_Plus"
+          : tierId === "premium"
+            ? "PHP_Premium"
+            : "PHP",
+    [],
+  );
+
+  const orderedTiers = useMemo(() => {
+    const normalized = normalizeProgramTier(programTier);
+    const enriched = tiers.map((tier, index) => {
+      const requiredTier = tierToRequiredTier(tier.id);
+      const isCurrent = normalized === requiredTier;
+      return { tier, requiredTier, isCurrent, index };
+    });
+    if (appRole !== "youth_athlete_team_guardian") {
+      return enriched;
+    }
+    return enriched
+      .slice()
+      .sort((a, b) => {
+        if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
+        return a.index - b.index;
+      });
+  }, [appRole, programTier, tierToRequiredTier, tiers]);
+
+  const currentTierCards = useMemo(
+    () => orderedTiers.filter((item) => item.isCurrent),
+    [orderedTiers],
+  );
+  const otherTierCards = useMemo(
+    () => orderedTiers.filter((item) => !item.isCurrent),
+    [orderedTiers],
   );
 
   const activeAthlete = useMemo(() => {
@@ -371,9 +411,233 @@ export default function ProgramsScreen() {
         </View>
 
         <View className="px-6 gap-5 mt-2">
-          {tiers.map((tier) => {
-            const requiredTier =
-              tier.id === "pro" ? "PHP_Pro" : tier.id === "plus" ? "PHP_Premium_Plus" : tier.id === "premium" ? "PHP_Premium" : "PHP";
+          {appRole === "youth_athlete_team_guardian" ? (
+            <View className="mb-1 rounded-[24px] border px-4 py-4" style={{ borderColor: borderSoft, backgroundColor: surfaceColor }}>
+              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                Team mode
+              </Text>
+              <Text className="mt-1 text-sm font-outfit" style={{ color: colors.textSecondary }}>
+                Your current team plan appears first. Other available plans are listed below.
+              </Text>
+            </View>
+          ) : null}
+
+          {currentTierCards.length > 0 ? (
+            <View className="gap-4">
+              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                Current plan
+              </Text>
+              {currentTierCards.map(({ tier, requiredTier }) => {
+                const pricing = pricingByTier[requiredTier];
+                const plan = planDetailsByTier[requiredTier];
+                const isPlanInactive = plan?.isActive === false;
+                const isTierEnrolled = normalizeProgramTier(programTier) === requiredTier;
+                const hasTierAccess = canAccessTier(programTier, requiredTier);
+                const requestStatus = String(latestSubscriptionRequest?.status ?? "");
+                const isPendingApproval =
+                  !isPlanInactive &&
+                  !isTierEnrolled &&
+                  latestSubscriptionRequest?.planTier === requiredTier &&
+                  requestStatus === "pending_approval";
+                const isPendingPayment =
+                  !isPlanInactive &&
+                  !isTierEnrolled &&
+                  latestSubscriptionRequest?.planTier === requiredTier &&
+                  requestStatus === "pending_payment";
+                const primaryLabel = isPlanInactive
+                  ? "Locked"
+                  : isTierEnrolled
+                  ? "Current"
+                  : isPendingApproval
+                    ? "Pending"
+                    : isPendingPayment
+                      ? "Pay Now"
+                      : tier.id === "premium"
+                        ? "Apply"
+                        : "Get Started";
+
+                return (
+                  <Transition.Pressable
+                    key={tier.id}
+                    sharedBoundTag={`program-card-${tier.id}`}
+                    className="rounded-[30px] overflow-hidden"
+                    style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
+                    onPress={() => openProgramDetail(tier.id as "premium" | "plus" | "php" | "pro")}
+                  >
+                    {/* Card Header */}
+                    <View className={`${tier.color} p-5 rounded-b-[24px]`}>
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1 mr-4">
+                          <View className="flex-row flex-wrap items-center gap-2 mb-2">
+                            {tier.highlight && (
+                              <View className="px-3 py-1 rounded-full bg-white/20">
+                                <Text
+                                  className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                                  style={{ color: "#F2F6F2" }}
+                                >
+                                  {tier.highlight}
+                                </Text>
+                              </View>
+                            )}
+                            {isTierEnrolled && (
+                              <View className="px-3 py-1 rounded-full bg-white/25">
+                                <Text
+                                  className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                                  style={{ color: "#F2F6F2" }}
+                                >
+                                  Current Plan
+                                </Text>
+                              </View>
+                            )}
+                            {isPlanInactive ? (
+                              <View className="px-3 py-1 rounded-full bg-white/15">
+                                <Text
+                                  className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                                  style={{ color: "#F2F6F2" }}
+                                >
+                                  Inactive
+                                </Text>
+                              </View>
+                            ) : null}
+                            {!hasTierAccess && tier.id !== "php" ? (
+                              <View className="px-3 py-1 rounded-full bg-white/15">
+                                <Text
+                                  className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                                  style={{ color: "#F2F6F2" }}
+                                >
+                                  Locked
+                                </Text>
+                              </View>
+                            ) : null}
+                            {pricing?.badge && (
+                              <View className="px-3 py-1 rounded-full bg-white/15">
+                                <Text
+                                  className="text-[0.625rem] font-bold uppercase tracking-[2px]"
+                                  style={{ color: "#F2F6F2" }}
+                                >
+                                  {pricing.badge}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text
+                            className="text-[1.375rem] leading-tight font-telma-bold font-bold mb-1"
+                            style={{ color: "#F2F6F2" }}
+                          >
+                            {plan?.name ?? tier.name}
+                          </Text>
+                          <Text className="font-outfit text-sm leading-snug" style={{ color: "#E6F2E6" }}>
+                            {tier.description}
+                          </Text>
+                        </View>
+                        <View className="h-12 w-12 bg-white/20 rounded-2xl items-center justify-center">
+                          <Ionicons name={tier.icon as any} size={22} color="white" />
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Card Body */}
+                    <View className="p-5">
+                      <View className="mb-4 flex-row gap-2">
+                        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+                          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                            {tier.id === "premium" ? "1:1 support" : tier.id === "plus" ? "Enhanced support" : "Structured training"}
+                          </Text>
+                        </View>
+                        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-secondary">
+                            {isPlanInactive ? "Locked in admin" : hasTierAccess ? "Available" : "Upgrade path"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {getDiscountCopy(plan) ? (
+                        <View
+                          className="mb-4 rounded-2xl border px-4 py-3"
+                          style={{
+                            backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
+                            borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.16)",
+                          }}
+                        >
+                          <Text
+                            className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                            style={{ color: colors.accent }}
+                          >
+                            Discount
+                          </Text>
+                          <Text className="mt-1 text-[13px] font-outfit" style={{ color: colors.text }}>
+                            {getDiscountCopy(plan)}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {pricing ? (
+                        <View className="mb-4">{renderPricingLines(pricing)}</View>
+                      ) : null}
+
+                      <View className="gap-2.5 mb-5">
+                        {tier.features.map((feature) => (
+                          <View key={feature} className="flex-row items-center gap-2.5">
+                            <View className="h-5 w-5 bg-[#2F8F57]/15 rounded-full items-center justify-center">
+                              <Ionicons name="checkmark" size={12} color="#2F8F57" />
+                            </View>
+                            <Text className="text-[13px] font-outfit text-app flex-1">
+                              {feature}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Action buttons */}
+                      <View className="gap-2.5">
+                        {/* Detail button — always visible */}
+                        <Pressable
+                          onPress={() => openProgramDetail(tier.id as "php" | "plus" | "premium" | "pro")}
+                          className="rounded-full py-3 items-center"
+                          style={{ borderWidth: 1, borderColor: `${colors.accent}33`, backgroundColor: accentSurface }}
+                        >
+                          <Text className="text-sm font-outfit font-semibold" style={{ color: colors.accent }}>
+                            View Program Details
+                          </Text>
+                        </Pressable>
+
+                        {/* Subscribe / Apply buttons */}
+                        <Pressable
+                          onPress={() => {
+                            if (isPlanInactive) {
+                              Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
+                              return;
+                            }
+                            handleApply(tier.id as "php" | "plus" | "premium" | "pro");
+                          }}
+                          className={`rounded-full py-3 items-center ${
+                            isPlanInactive || isTierEnrolled || isPendingApproval
+                              ? "bg-secondary/20"
+                              : "bg-[#2F8F57]"
+                          } ${isProcessingPayment ? "opacity-60" : ""}`}
+                          disabled={isPlanInactive || isTierEnrolled || isPendingApproval || isProcessingPayment}
+                        >
+                          <Text className={`text-sm font-outfit font-semibold ${
+                            isPlanInactive || isTierEnrolled || isPendingApproval ? "text-secondary" : "text-white"
+                          }`}>
+                            {primaryLabel}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </Transition.Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
+          {appRole === "youth_athlete_team_guardian" && otherTierCards.length > 0 ? (
+            <Text className="mt-2 text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.textSecondary }}>
+              Other plans
+            </Text>
+          ) : null}
+
+          {(appRole === "youth_athlete_team_guardian" ? otherTierCards : orderedTiers).map(({ tier, requiredTier }) => {
             const pricing = pricingByTier[requiredTier];
             const plan = planDetailsByTier[requiredTier];
             const isPlanInactive = plan?.isActive === false;

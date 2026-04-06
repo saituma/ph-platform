@@ -165,6 +165,7 @@ export function ProgramDetailPanel({
     managedAthletes,
     messagingAccessTiers,
     latestSubscriptionRequest: latestRequestFromStore,
+    appRole,
   } = useAppSelector((state) => state.user);
   const { colors, isDark } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
@@ -474,6 +475,59 @@ export function ProgramDetailPanel({
     setUploadPickerOpen(true);
   }, [openUploadFlow, uploadEnabledContent]);
 
+  const teamModeWorkspaceStatus = useMemo(() => {
+    if (appRole !== "youth_athlete_team_guardian" || !trainingContentV2?.modules?.length) {
+      return {
+        hasLockedModules: false,
+        hasUnlockedIncompleteModule: false,
+        unlockedModuleCount: 0,
+        lockedFromModuleOrder: null as number | null,
+      };
+    }
+    const unlockedModules = trainingContentV2.modules.filter((module) => !module.locked);
+    const lockedModules = trainingContentV2.modules.filter((module) => module.locked);
+    const hasUnlockedIncompleteModule = unlockedModules.some((module) => !module.completed);
+    const firstLocked = lockedModules
+      .slice()
+      .sort((a, b) => Number(a.order) - Number(b.order))[0];
+
+    return {
+      hasLockedModules: lockedModules.length > 0,
+      hasUnlockedIncompleteModule,
+      unlockedModuleCount: unlockedModules.length,
+      lockedFromModuleOrder: firstLocked?.order ?? null,
+    };
+  }, [appRole, trainingContentV2]);
+
+  const isTeamPlanBoundaryReached =
+    teamModeWorkspaceStatus.hasLockedModules &&
+    !teamModeWorkspaceStatus.hasUnlockedIncompleteModule;
+
+  const renderTeamPlanLockedCard = () => (
+    <View
+      className="rounded-[28px] border px-5 py-5"
+      style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}
+    >
+      <View className="flex-row items-center gap-2">
+        <Feather name="lock" size={16} color={colors.accent} />
+        <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.accent }}>
+          Plan locked
+        </Text>
+      </View>
+      <Text className="mt-2 text-base font-clash font-bold" style={{ color: colors.text }}>
+        You&apos;ve reached the current release limit.
+      </Text>
+      <Text className="mt-2 text-sm font-outfit leading-6" style={{ color: colors.textSecondary }}>
+        Your coach/admin has opened modules up to
+        {" "}
+        {teamModeWorkspaceStatus.lockedFromModuleOrder != null
+          ? `Module ${Math.max(1, teamModeWorkspaceStatus.lockedFromModuleOrder - 1)}`
+          : "the current stage"}
+        . New modules, sessions, and extra tabs will unlock when the plan is advanced.
+      </Text>
+    </View>
+  );
+
   const renderTrainingContent = () => {
     const visibleContent = sectionContent;
     const showContentLoading = isLoadingContent;
@@ -712,25 +766,47 @@ export function ProgramDetailPanel({
       );
     }
     if (trainingContentV2?.tabs?.includes(activeTab)) {
+      if (activeTab !== "Modules" && isTeamPlanBoundaryReached) {
+        return renderTeamPlanLockedCard();
+      }
       return (
-        <AgeBasedTrainingPanel
-          workspace={trainingContentV2}
-          activeTab={activeTab}
-          onFinishSession={(sessionId) => {
-            void (async () => {
-              if (!token) return;
-              try {
-                await apiRequest(`/training-content-v2/mobile/sessions/${sessionId}/finish`, {
-                  method: "POST",
-                  token,
-                });
-                await loadTrainingContentV2({ force: true });
-              } catch {
-                Alert.alert("Session", "Could not mark session finished.");
-              }
-            })();
-          }}
-        />
+        <View className="gap-4">
+          {activeTab === "Modules" && teamModeWorkspaceStatus.hasLockedModules ? (
+            <View
+              className="rounded-[20px] border px-4 py-4"
+              style={{
+                backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
+                borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.18)",
+              }}
+            >
+              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.accent }}>
+                Progress unlocks content
+              </Text>
+              <Text className="mt-1 text-sm font-outfit leading-6" style={{ color: colors.textSecondary }}>
+                Complete each session in order to unlock the next one. Modules unlock one by one. When you reach the admin release limit, the plan will show as locked until more content is opened.
+              </Text>
+            </View>
+          ) : null}
+          <AgeBasedTrainingPanel
+            workspace={trainingContentV2}
+            activeTab={activeTab}
+            onFinishSession={(sessionId) => {
+              void (async () => {
+                if (!token) return;
+                try {
+                  await apiRequest(`/training-content-v2/mobile/sessions/${sessionId}/finish`, {
+                    method: "POST",
+                    token,
+                  });
+                  await loadTrainingContentV2({ force: true });
+                } catch {
+                  Alert.alert("Session", "Could not mark session finished.");
+                }
+              })();
+            }}
+          />
+          {activeTab === "Modules" && isTeamPlanBoundaryReached ? renderTeamPlanLockedCard() : null}
+        </View>
       );
     }
     if (activeTab === "Program") {
