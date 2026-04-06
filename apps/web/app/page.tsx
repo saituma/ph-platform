@@ -25,7 +25,7 @@ import {
   TopAthleteRow,
   TrendInsightCard,
 } from "../components/admin/dashboard/dashboard-overview";
-import { useGetDashboardQuery, useGetHomeContentQuery } from "../lib/apiSlice";
+import { useGetAdminTeamsQuery, useGetDashboardQuery, useGetHomeContentQuery } from "../lib/apiSlice";
 
 const KPI_ICONS = [Users, Crown, MessageCircle, CalendarDays] as const;
 
@@ -73,11 +73,18 @@ type ProgramOpsItem = {
 export default function Home() {
   const { data: dashboardData, isLoading } = useGetDashboardQuery();
   const { data: homeContentData } = useGetHomeContentQuery();
+  const { data: teamsData, isLoading: isTeamsLoading } = useGetAdminTeamsQuery();
   const router = useRouter();
 
   const todayLabel = useMemo(() => {
     const now = new Date();
     return now.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short" });
+  }, []);
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
   }, []);
 
   const { dashboardKpis, todayBookings } = useMemo(() => {
@@ -167,6 +174,15 @@ export default function Home() {
   }, [dashboardData]);
   const topAthletesPreview = topAthletesData.slice(0, 3);
 
+  const teamRows = useMemo(() => {
+    const rows = teamsData?.teams ?? [];
+    return [...rows].sort((a, b) => b.memberCount - a.memberCount);
+  }, [teamsData]);
+
+  const totalTeams = teamRows.length;
+  const totalTeamAthletes = teamRows.reduce((sum, team) => sum + (team.memberCount ?? 0), 0);
+  const totalGuardians = teamRows.reduce((sum, team) => sum + (team.guardianCount ?? 0), 0);
+
   const tierSummary = dashboardData?.tierDistribution;
   const tierDistributionData: TierDistributionDatum[] = tierSummary
     ? [
@@ -248,12 +264,76 @@ export default function Home() {
       : "";
 
   return (
-    <AdminShell title="Coach Control Center" subtitle={todayLabel}>
+    <AdminShell title={greeting} subtitle={todayLabel}>
       <div className="space-y-8">
-          <div className="space-y-4">
-            <DashboardPulseStrip />
+          <section className="space-y-4">
+            <DashboardSectionHeading
+              title="TEAM"
+              description="LIVE TEAM ROSTER SUMMARY."
+            />
+            <Card>
+              <CardContent className="grid gap-3 p-5 sm:grid-cols-3">
+                <div className="rounded-xl border border-border bg-secondary/20 p-3">
+                  <p className="text-[10px] uppercase text-muted-foreground">Teams</p>
+                  <p className="mt-1 text-2xl font-black font-mono text-foreground">
+                    {isTeamsLoading ? "--" : totalTeams}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-secondary/20 p-3">
+                  <p className="text-[10px] uppercase text-muted-foreground">Athletes In Teams</p>
+                  <p className="mt-1 text-2xl font-black font-mono text-foreground">
+                    {isTeamsLoading ? "--" : totalTeamAthletes}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-secondary/20 p-3">
+                  <p className="text-[10px] uppercase text-muted-foreground">Guardians In Teams</p>
+                  <p className="mt-1 text-2xl font-black font-mono text-foreground">
+                    {isTeamsLoading ? "--" : totalGuardians}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          <section className="space-y-4">
             <DashboardQuickLinks />
-          </div>
+          </section>
+
+          <section className="space-y-4">
+            <DashboardSectionHeading
+              title="ADMIN PROFILE"
+              description="PHOTO, STORY, AND TESTIMONIAL SNAPSHOT."
+            />
+            <Card>
+              <CardContent className="grid gap-4 p-5 md:grid-cols-[160px_1fr]">
+                <div className="overflow-hidden rounded-xl border border-border bg-secondary/20">
+                  {professionalPhoto ? (
+                    <img
+                      src={professionalPhoto}
+                      alt="Admin professional"
+                      className="h-40 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+                      No photo
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    {homeSnapshot.headline || "Coach profile"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {trimText(homeSnapshot.adminStory || homeSnapshot.description || homeSnapshot.welcome, 320) || "No story added yet."}
+                  </p>
+                  <div className="rounded-lg border border-border bg-secondary/20 px-3 py-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Testimonials:</span>{" "}
+                    {testimonialsPreview || "No testimonials yet."}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
 
           {isLoading ? (
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
