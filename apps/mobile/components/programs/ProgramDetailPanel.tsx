@@ -167,6 +167,9 @@ export function ProgramDetailPanel({
     latestSubscriptionRequest: latestRequestFromStore,
     appRole,
   } = useAppSelector((state) => state.user);
+  const isYouthAthleteRole =
+    appRole === "youth_athlete_guardian_only" ||
+    appRole === "youth_athlete_team_guardian";
   const { colors, isDark } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
@@ -311,6 +314,32 @@ export function ProgramDetailPanel({
   useEffect(() => {
     if (!tabs.length) return;
     setActiveTab((prev) => (tabs.includes(prev) ? prev : tabs[0]!));
+  }, [tabs]);
+
+  const firstOtherTab = useMemo(() => {
+    return (
+      tabs.find(
+        (tab) =>
+          tab !== "Program" &&
+          tab !== "Modules" &&
+          !TRAINING_TABS.has(tab) &&
+          tab !== "Book In" &&
+          tab !== "Bookings",
+      ) ?? null
+    );
+  }, [tabs]);
+
+  const otherTabPreviewText = useMemo(() => {
+    const labels = tabs.filter(
+      (tab) =>
+        tab !== "Program" &&
+        tab !== "Modules" &&
+        !TRAINING_TABS.has(tab) &&
+        tab !== "Book In" &&
+        tab !== "Bookings",
+    );
+    if (!labels.length) return null;
+    return labels.slice(0, 2).join(" • ");
   }, [tabs]);
 
   const canMessageCoach = useMemo(
@@ -476,7 +505,7 @@ export function ProgramDetailPanel({
   }, [openUploadFlow, uploadEnabledContent]);
 
   const teamModeWorkspaceStatus = useMemo(() => {
-    if (appRole !== "youth_athlete_team_guardian" || !trainingContentV2?.modules?.length) {
+    if (!isYouthAthleteRole || !trainingContentV2?.modules?.length) {
       return {
         hasLockedModules: false,
         hasUnlockedIncompleteModule: false,
@@ -497,7 +526,7 @@ export function ProgramDetailPanel({
       unlockedModuleCount: unlockedModules.length,
       lockedFromModuleOrder: firstLocked?.order ?? null,
     };
-  }, [appRole, trainingContentV2]);
+  }, [isYouthAthleteRole, trainingContentV2]);
 
   const isTeamPlanBoundaryReached =
     teamModeWorkspaceStatus.hasLockedModules &&
@@ -977,6 +1006,77 @@ export function ProgramDetailPanel({
         contentContainerStyle={{ paddingBottom: uploadEnabledContent.length ? 120 : 40, paddingTop: 20 }}
         nestedScrollEnabled
       >
+        {isYouthAthleteRole ? (
+          <View className="px-5 mb-4">
+            <View
+              className="rounded-[24px] border px-4 py-4"
+              style={{
+                backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
+                borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.18)",
+              }}
+            >
+              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                Continue your plan
+              </Text>
+              <Text className="mt-1 text-sm font-outfit" style={{ color: colors.textSecondary }}>
+                Use Modules for your core progression, then open your unlocked support tabs.
+              </Text>
+              {otherTabPreviewText ? (
+                <Text className="mt-2 text-xs font-outfit font-semibold" style={{ color: colors.text }}>
+                  Tabs available: {otherTabPreviewText}
+                </Text>
+              ) : null}
+              <View className="mt-3 flex-row items-center gap-2">
+                <View
+                  className="rounded-full px-3 py-1.5"
+                  style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF" }}
+                >
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.text }}>
+                    Active tab: {activeTab}
+                  </Text>
+                </View>
+                <View
+                  className="rounded-full px-3 py-1.5"
+                  style={{
+                    backgroundColor: isTeamPlanBoundaryReached
+                      ? (isDark ? "rgba(245,158,11,0.18)" : "#FEF3C7")
+                      : (isDark ? "rgba(34,197,94,0.18)" : "#DCFCE7"),
+                  }}
+                >
+                  <Text
+                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                    style={{ color: isTeamPlanBoundaryReached ? "#B45309" : "#15803D" }}
+                  >
+                    {isTeamPlanBoundaryReached ? "Plan boundary reached" : "Progress active"}
+                  </Text>
+                </View>
+              </View>
+              <View className="mt-3 flex-row gap-2">
+                {tabs.includes("Modules") ? (
+                  <Pressable
+                    onPress={() => setActiveTab("Modules")}
+                    className="flex-1 rounded-full py-2.5 items-center"
+                    style={{ backgroundColor: colors.accent }}
+                  >
+                    <Text className="text-xs font-outfit font-bold text-white">Open Modules</Text>
+                  </Pressable>
+                ) : null}
+                {firstOtherTab ? (
+                  <Pressable
+                    onPress={() => setActiveTab(firstOtherTab)}
+                    className="flex-1 rounded-full py-2.5 items-center border"
+                    style={{ borderColor: borderSoft, backgroundColor: colors.card }}
+                  >
+                    <Text className="text-xs font-outfit font-bold" style={{ color: colors.text }}>
+                      Open {firstOtherTab}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         {trainingProgress && activeTab === "Program" && !trainingContentV2?.tabs?.includes(activeTab) ? (
           <View className="px-5 mb-6">
             <AchievementsStrip stats={trainingProgress.stats} achievements={trainingProgress.achievements} />

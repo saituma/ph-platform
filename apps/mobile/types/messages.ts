@@ -4,6 +4,7 @@ export type MessageThread = {
   id: string;
   name: string;
   role: string;
+  channelType?: "announcement" | "coach_group" | "direct" | "team";
   preview: string;
   time: string;
   pinned: boolean;

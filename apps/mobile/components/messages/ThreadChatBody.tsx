@@ -48,6 +48,7 @@ type ThreadChatBodyProps = {
   } | null;
   onRemovePendingAttachment?: () => void;
   isUploadingAttachment?: boolean;
+  coachingContextLabel?: string;
 };
 
 function formatFileSize(sizeBytes: number) {
@@ -256,6 +257,7 @@ function ThreadChatBodyBase({
   pendingAttachment = null,
   onRemovePendingAttachment,
   isUploadingAttachment = false,
+  coachingContextLabel,
 }: ThreadChatBodyProps) {
   const { colors, isDark } = useAppTheme();
   let headerHeight = 0;
@@ -286,7 +288,9 @@ function ThreadChatBodyBase({
   const introTitle = isGroupThread ? "Keep everyone in sync" : "Focused coaching chat";
   const introSubtitle = isGroupThread
     ? "Share updates, clips, and questions without losing the thread."
-    : "Send quick check-ins, clips, and feedback in one calm conversation.";
+    : coachingContextLabel
+      ? `Send check-ins, clips, and progress notes for ${coachingContextLabel} in one calm conversation.`
+      : "Send quick check-ins, clips, and feedback in one calm conversation.";
   const attachmentMeta = React.useMemo(() => 
     pendingAttachment
       ? `${pendingAttachment.isImage ? "Image" : "Attachment"} • ${formatFileSize(pendingAttachment.sizeBytes)}`
@@ -495,15 +499,16 @@ function ThreadChatBodyBase({
             {[
               getThreadTone(thread),
               thread.responseTime ?? "Fast replies",
+              coachingContextLabel ? `Athlete: ${coachingContextLabel}` : null,
               messages.length > 0 ? `${messages.length} updates` : "Fresh thread"
-            ].map((tag) => (
+            ].filter(Boolean).map((tag) => (
               <View
-                key={tag}
+                key={String(tag)}
                 className="rounded-full px-4 py-2"
                 style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)" }}
               >
                 <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                  {tag}
+                  {String(tag)}
                 </Text>
               </View>
             ))}
