@@ -2,6 +2,8 @@
 export type OnboardingApiAthlete = {
   onboardingCompleted?: boolean;
   userId?: number;
+  athleteType?: "youth" | "adult" | null;
+  team?: string | null;
 } | null;
 
 /**

@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import type { AppRole } from "@/lib/appRole";
 
 interface UserProfile {
   id: string | null;
@@ -37,6 +38,7 @@ interface UserState {
     planTier?: string | null;
     createdAt?: string | null;
   } | null;
+  appRole: AppRole | null;
 }
 
 const initialState: UserState = {
@@ -57,6 +59,7 @@ const initialState: UserState = {
   programTier: null,
   messagingAccessTiers: ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
   latestSubscriptionRequest: null,
+  appRole: null,
 };
 
 const userSlice = createSlice({
@@ -96,6 +99,9 @@ const userSlice = createSlice({
     ) => {
       state.latestSubscriptionRequest = action.payload;
     },
+    setAppRole: (state, action: PayloadAction<AppRole | null>) => {
+      state.appRole = action.payload;
+    },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
@@ -113,6 +119,7 @@ const userSlice = createSlice({
       state.programTier = null;
       state.messagingAccessTiers = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"];
       state.latestSubscriptionRequest = null;
+      state.appRole = null;
     },
   },
 });
@@ -126,6 +133,7 @@ export const {
   setProgramTier,
   setMessagingAccessTiers,
   setLatestSubscriptionRequest,
+  setAppRole,
   setLoading,
   setHydrated,
   logout,

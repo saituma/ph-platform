@@ -14,11 +14,13 @@ import {
   setLatestSubscriptionRequest,
   updateProfile,
   setManagedAthletes,
+  setAppRole,
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
+import { resolveAppRole } from "@/lib/appRole";
 
 const STORAGE_KEYS = {
   token: "authToken",
@@ -207,14 +209,41 @@ export function AuthPersist() {
     if (!hydrated || !isAuthenticated || !token) return;
     let active = true;
     let initialized = false;
+    let latestUserRole: string | null = null;
+    let latestOnboardingAthlete: {
+      onboardingCompleted?: boolean;
+      userId?: number;
+      athleteType?: "youth" | "adult" | null;
+      team?: string | null;
+    } | null = null;
+
+    const syncResolvedAppRole = () => {
+      if (!active || !latestUserRole) return;
+      dispatch(
+        setAppRole(
+          resolveAppRole({
+            userRole: latestUserRole,
+            athlete: latestOnboardingAthlete,
+          }),
+        ),
+      );
+    };
 
     const syncProfile = async () => {
       try {
-        const me = await apiRequest<{ user?: { name?: string | null; email?: string | null; profilePicture?: string | null } }>(
+        const me = await apiRequest<{
+          user?: {
+            name?: string | null;
+            email?: string | null;
+            role?: string | null;
+            profilePicture?: string | null;
+          };
+        }>(
           "/auth/me",
           { token, suppressStatusCodes: [401, 403] }
         );
         if (!active || !me.user) return;
+        latestUserRole = me.user.role ?? null;
         dispatch(
           updateProfile({
             name: me.user.name ?? null,
@@ -222,6 +251,7 @@ export function AuthPersist() {
             avatar: me.user.profilePicture ?? null,
           })
         );
+        syncResolvedAppRole();
       } catch {
         if (!active) return;
       }
@@ -229,11 +259,20 @@ export function AuthPersist() {
 
     const syncOnboarding = async () => {
       try {
-        const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
+        const onboarding = await apiRequest<{
+          athlete: {
+            onboardingCompleted?: boolean;
+            userId?: number;
+            athleteType?: "youth" | "adult" | null;
+            team?: string | null;
+          } | null;
+        }>(
           "/onboarding",
           { token, suppressStatusCodes: [401, 403, 500], skipCache: true, forceRefresh: true }
         );
         if (!active) return;
+        latestOnboardingAthlete = onboarding.athlete ?? null;
+        syncResolvedAppRole();
         if (onboarding.athlete == null) {
           if (__DEV__) {
             console.log("[AuthPersist] GET /onboarding returned no athlete; keeping existing onboarding state");
@@ -249,8 +288,10 @@ export function AuthPersist() {
       } catch (error) {
         if (!active) return;
         if (isUnauthorizedError(error)) {
+          latestOnboardingAthlete = null;
           dispatch(setOnboardingCompleted(null));
           dispatch(setAthleteUserId(null));
+          syncResolvedAppRole();
         }
       }
     };
