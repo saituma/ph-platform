@@ -69,26 +69,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
     borderRadius: 99,
+    borderWidth: 1,
   },
   tabActive: {
     backgroundColor: "#22C55E",
+    borderColor: "#16A34A",
   },
   tabActiveDark: {
     backgroundColor: "#22C55E",
+    borderColor: "#16A34A",
   },
   tabIdle: {
-    backgroundColor: "transparent",
+    backgroundColor: "rgba(15,23,42,0.04)",
+    borderColor: "rgba(15,23,42,0.08)",
   },
   tabIdleDark: {
-    backgroundColor: "transparent",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "rgba(255,255,255,0.10)",
   },
   tabText: {
     fontSize: 14,
-    fontFamily: "Outfit_600SemiBold",
-    fontWeight: "600",
+    fontFamily: "Outfit-ExtraBold",
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   tabTextActive: {
     color: "#FFFFFF",

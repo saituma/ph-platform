@@ -12,14 +12,36 @@ import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { apiRequest } from "@/lib/api";
 import { setMessagingAccessTiers, setProgramTier } from "@/store/slices/userSlice";
 import { useLocalSearchParams } from "expo-router";
+import { useRouter } from "expo-router";
+import { requestGlobalTabChange } from "@/context/ActiveTabContext";
+import { Text } from "@/components/ScaledText";
+import { Pressable } from "react-native";
 
 export default function ThreadScreen() {
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const token = useAppSelector((state) => state.user.token);
   const programTier = useAppSelector((state) => state.user.programTier);
   const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
+  const appRole = useAppSelector((state) => state.user.appRole);
+  const profile = useAppSelector((state) => state.user.profile);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+  const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
+  const isYouthAthleteRole =
+    appRole === "youth_athlete_guardian_only" ||
+    appRole === "youth_athlete_team_guardian";
+  const focusAthlete = React.useMemo(() => {
+    if (!managedAthletes.length) return null;
+    return (
+      managedAthletes.find(
+        (athlete) =>
+          athlete.id === athleteUserId || athlete.userId === athleteUserId,
+      ) ?? managedAthletes[0]
+    );
+  }, [athleteUserId, managedAthletes]);
+  const focusName = focusAthlete?.name || profile?.name || "Athlete";
 
   React.useEffect(() => {
     if (!token) return;
@@ -75,12 +97,17 @@ export default function ThreadScreen() {
   } = useMessagesController();
 
   const handleLockedPress = React.useCallback(() => {
-    Alert.alert(
-      "Messaging locked",
-      "Messaging isn’t enabled for your current plan.",
-      [{ text: "OK" }],
-    );
-  }, []);
+    Alert.alert("Messaging locked", "Messaging isn’t enabled for your current plan.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Open Programs",
+        onPress: () => {
+          requestGlobalTabChange(0);
+          router.replace("/(tabs)/programs");
+        },
+      },
+    ]);
+  }, [router]);
 
   const handleLongPressMessage = React.useCallback((message: ChatMessage) => {
     const isOwn = message.from === "user";
@@ -124,6 +151,24 @@ export default function ThreadScreen() {
         sharedBoundTag={sharedBoundTag}
         sharedAvatarTag={sharedAvatarTag}
       />
+      {isYouthAthleteRole ? (
+        <View className="px-4 pb-2">
+          <View
+            className="rounded-2xl px-4 py-3 border"
+            style={{
+              backgroundColor: "rgba(34,197,94,0.08)",
+              borderColor: "rgba(34,197,94,0.16)",
+            }}
+          >
+            <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+              Coaching thread
+            </Text>
+            <Text className="mt-1 text-sm font-outfit" style={{ color: colors.textSecondary }}>
+              Keep {focusName}&apos;s progress updates in one thread for faster coach feedback.
+            </Text>
+          </View>
+        </View>
+      ) : null}
       <ThreadChatBody
         thread={currentThread}
         messages={localMessages}
@@ -143,6 +188,7 @@ export default function ThreadScreen() {
         isUploadingAttachment={isUploadingAttachment}
         disabledMessage={!canMessage ? "Messaging isn’t enabled for your plan." : undefined}
         onDisabledPress={handleLockedPress}
+        coachingContextLabel={isYouthAthleteRole ? focusName : undefined}
       />
       <ReactionPickerModal
         reactionTarget={reactionTarget}

@@ -25,6 +25,10 @@ export default function MessagesScreen() {
   const token = useAppSelector((state) => state.user.token);
   const programTier = useAppSelector((state) => state.user.programTier);
   const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
+  const appRole = useAppSelector((state) => state.user.appRole);
+  const profile = useAppSelector((state) => state.user.profile);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+  const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const { isSectionHidden } = useAgeExperience();
   const insets = useSafeAreaInsets();
 
@@ -41,6 +45,26 @@ export default function MessagesScreen() {
   const router = useRouter();
   const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
   const paidPlan = hasPaidProgramTier(programTier);
+  const isYouthAthleteRole =
+    appRole === "youth_athlete_guardian_only" ||
+    appRole === "youth_athlete_team_guardian";
+  const unreadCount = React.useMemo(
+    () => sortedThreads.reduce((sum, thread) => sum + (Number(thread.unread) || 0), 0),
+    [sortedThreads],
+  );
+  const activeAthlete = React.useMemo(() => {
+    if (!managedAthletes.length) return null;
+    return (
+      managedAthletes.find(
+        (athlete) =>
+          athlete.id === athleteUserId || athlete.userId === athleteUserId,
+      ) ?? managedAthletes[0]
+    );
+  }, [athleteUserId, managedAthletes]);
+  const focusName = activeAthlete?.name || profile?.name || "Athlete";
+  const heroSubtitle = isYouthAthleteRole
+    ? `Stay connected with your coach and keep ${focusName}'s plan on track.`
+    : "Cleaner chat, faster replies, and a calmer mobile flow.";
 
   React.useEffect(() => {
     if (!token) return;
@@ -110,7 +134,9 @@ export default function MessagesScreen() {
           <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
             {paidPlan
               ? "Messaging is not enabled for your current plan. Ask your coach if you need access."
-              : "Choose a training plan in the Programs tab to unlock messaging with your coach."}
+              : isYouthAthleteRole
+                ? "Open your current plan in Programs and unlock coach messaging for this athlete."
+                : "Choose a training plan in the Programs tab to unlock messaging with your coach."}
           </Text>
           {!paidPlan ? (
             <Pressable
@@ -139,7 +165,7 @@ export default function MessagesScreen() {
                 Messages
               </Text>
               <Text className="mt-2 text-base font-outfit" style={{ color: colors.textSecondary }}>
-                Cleaner chat, faster replies, and a calmer mobile flow.
+                {heroSubtitle}
               </Text>
             </View>
             <View className="h-12 w-12 rounded-2xl items-center justify-center" style={{ backgroundColor: colors.backgroundSecondary }}>
@@ -154,15 +180,26 @@ export default function MessagesScreen() {
             </View>
             <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.backgroundSecondary }}>
               <Text className="text-[11px] font-outfit font-semibold text-app">
-                Real-time updates
+                {unreadCount} unread
               </Text>
             </View>
             <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.backgroundSecondary }}>
               <Text className="text-[11px] font-outfit font-semibold text-app">
-                Media sharing
+                {isYouthAthleteRole ? "Coach support" : "Media sharing"}
               </Text>
             </View>
           </View>
+          {isYouthAthleteRole && sortedThreads[0] ? (
+            <Pressable
+              onPress={() => openThread(sortedThreads[0]!) }
+              className="mt-4 rounded-full py-3 items-center"
+              style={{ backgroundColor: colors.accent }}
+            >
+              <Text className="text-sm font-outfit font-bold text-white">
+                Open latest thread
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 

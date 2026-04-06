@@ -126,10 +126,22 @@ export function useMessagesController() {
         }),
       ]);
 
+      const classifyGroupThread = (groupName: string | null | undefined) => {
+        const normalized = String(groupName ?? "").trim().toLowerCase();
+        if (/(announce|announcement|broadcast)/i.test(normalized)) {
+          return "announcement" as const;
+        }
+        if (/(team|squad|club)/i.test(normalized)) {
+          return "team" as const;
+        }
+        return "coach_group" as const;
+      };
+
       const groupThreads = (groupsData.groups ?? []).map((group) => ({
         id: `group:${group.id}`,
         name: group.name,
-        role: "Group",
+        role: classifyGroupThread(group.name) === "team" ? "Team" : "Group",
+        channelType: classifyGroupThread(group.name),
         preview: "Group chat",
         time: "",
         pinned: false,
@@ -154,6 +166,7 @@ export function useMessagesController() {
           id: String(c.id),
           name: c.name,
           role: c.role ?? "Coach",
+          channelType: "direct" as const,
           preview: lastMsg ? lastMsg.content : "Start the conversation",
           time: lastMsg?.createdAt
             ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })

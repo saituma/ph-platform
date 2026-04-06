@@ -42,6 +42,18 @@ function InboxScreenBase({
   const { colors, isDark } = useAppTheme();
   const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const mutedPill = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.04)";
+  const groupedSections = React.useMemo(() => {
+    const announcements = threads.filter((thread) => thread.channelType === "announcement");
+    const coachGroups = threads.filter((thread) => thread.channelType === "coach_group");
+    const direct = threads.filter((thread) => thread.channelType === "direct" || !thread.id.startsWith("group:"));
+    const team = threads.filter((thread) => thread.channelType === "team");
+    return [
+      { key: "announcement", title: "Coach announcements", items: announcements },
+      { key: "coach_group", title: "Coach groups", items: coachGroups },
+      { key: "direct", title: "Direct inbox", items: direct },
+      { key: "team", title: "Team inbox", items: team },
+    ].filter((section) => section.items.length > 0);
+  }, [threads]);
 
   return (
     <ThemedScrollView
@@ -69,7 +81,17 @@ function InboxScreenBase({
               </View>
             ))
           ) : threads.length > 0 ? (
-            threads.map((thread) => {
+            groupedSections.map((section) => (
+              <View key={section.key} className="gap-3">
+                <View className="px-1 pt-1">
+                  <Text
+                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    {section.title}
+                  </Text>
+                </View>
+                {section.items.map((thread) => {
               const typingKey = thread.id.startsWith("group:")
                 ? thread.id
                 : `user:${thread.id}`;
@@ -215,7 +237,9 @@ function InboxScreenBase({
                     </View>
                 </Transition.Pressable>
               );
-            })
+                })}
+              </View>
+            ))
           ) : (
             /* Empty State */
             <View className="py-20 items-center">

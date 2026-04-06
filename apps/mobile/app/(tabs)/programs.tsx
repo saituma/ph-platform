@@ -3,7 +3,17 @@ import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canAccessTier, normalizeProgramTier } from "@/lib/planAccess";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, InteractionManager, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import {
+  Alert,
+  InteractionManager,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  UIManager,
+  View,
+} from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import {
@@ -37,12 +47,22 @@ export default function ProgramsScreen() {
     appRole,
   } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
+  const isYouthAthleteRole =
+    appRole === "youth_athlete_guardian_only" ||
+    appRole === "youth_athlete_team_guardian";
 
   const [plansByTier, setPlansByTier] = useState<Record<string, number>>({});
   const [planDetailsByTier, setPlanDetailsByTier] = useState<Record<string, any>>({});
   const [pricingByTier, setPricingByTier] = useState<Record<string, PlanPricing>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showOtherYouthPlans, setShowOtherYouthPlans] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
 
   const openProgramDetail = useCallback(
     (tierId: "php" | "plus" | "premium" | "pro") => {
@@ -145,7 +165,7 @@ export default function ProgramsScreen() {
       const isCurrent = normalized === requiredTier;
       return { tier, requiredTier, isCurrent, index };
     });
-    if (appRole !== "youth_athlete_team_guardian") {
+    if (!isYouthAthleteRole) {
       return enriched;
     }
     return enriched
@@ -154,7 +174,7 @@ export default function ProgramsScreen() {
         if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
         return a.index - b.index;
       });
-  }, [appRole, programTier, tierToRequiredTier, tiers]);
+  }, [isYouthAthleteRole, programTier, tierToRequiredTier, tiers]);
 
   const currentTierCards = useMemo(
     () => orderedTiers.filter((item) => item.isCurrent),
@@ -411,14 +431,29 @@ export default function ProgramsScreen() {
         </View>
 
         <View className="px-6 gap-5 mt-2">
-          {appRole === "youth_athlete_team_guardian" ? (
+          {isYouthAthleteRole ? (
             <View className="mb-1 rounded-[24px] border px-4 py-4" style={{ borderColor: borderSoft, backgroundColor: surfaceColor }}>
               <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                Team mode
+                Youth program mode
               </Text>
               <Text className="mt-1 text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                Your current team plan appears first. Other available plans are listed below.
+                Your current plan appears first. Open it to continue in Modules and the plan-specific header tabs.
               </Text>
+              {currentTierCards[0]?.tier?.id ? (
+                <Pressable
+                  onPress={() =>
+                    openProgramDetail(
+                      currentTierCards[0]!.tier.id as "premium" | "plus" | "php" | "pro",
+                    )
+                  }
+                  className="mt-3 rounded-full py-3 items-center"
+                  style={{ backgroundColor: colors.accent }}
+                >
+                  <Text className="text-sm font-outfit font-bold text-white">
+                    Open Current Plan
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
@@ -461,7 +496,12 @@ export default function ProgramsScreen() {
                     key={tier.id}
                     sharedBoundTag={`program-card-${tier.id}`}
                     className="rounded-[30px] overflow-hidden"
-                    style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
+                    style={{
+                      backgroundColor: surfaceColor,
+                      borderWidth: 2,
+                      borderColor: colors.accent,
+                      ...(isDark ? Shadows.none : Shadows.md),
+                    }}
                     onPress={() => openProgramDetail(tier.id as "premium" | "plus" | "php" | "pro")}
                   >
                     {/* Card Header */}
@@ -631,13 +671,30 @@ export default function ProgramsScreen() {
             </View>
           ) : null}
 
-          {appRole === "youth_athlete_team_guardian" && otherTierCards.length > 0 ? (
-            <Text className="mt-2 text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.textSecondary }}>
-              Other plans
-            </Text>
+          {isYouthAthleteRole && otherTierCards.length > 0 ? (
+            <Pressable
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setShowOtherYouthPlans((prev) => !prev);
+              }}
+              className="mt-2 rounded-[18px] border px-4 py-3 flex-row items-center justify-between"
+              style={{ borderColor: borderSoft, backgroundColor: surfaceColor }}
+            >
+              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.textSecondary }}>
+                Other plans
+              </Text>
+              <Text className="text-xs font-outfit font-bold" style={{ color: colors.accent }}>
+                {showOtherYouthPlans ? "Hide" : `Show (${otherTierCards.length})`}
+              </Text>
+            </Pressable>
           ) : null}
 
-          {(appRole === "youth_athlete_team_guardian" ? otherTierCards : orderedTiers).map(({ tier, requiredTier }) => {
+          {(isYouthAthleteRole
+            ? showOtherYouthPlans
+              ? otherTierCards
+              : []
+            : orderedTiers
+          ).map(({ tier, requiredTier }) => {
             const pricing = pricingByTier[requiredTier];
             const plan = planDetailsByTier[requiredTier];
             const isPlanInactive = plan?.isActive === false;
@@ -671,7 +728,7 @@ export default function ProgramsScreen() {
                 key={tier.id}
                 sharedBoundTag={`program-card-${tier.id}`}
                 className="rounded-[30px] overflow-hidden"
-                style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.md) }}
+                style={{ backgroundColor: surfaceColor, opacity: isYouthAthleteRole ? 0.92 : 1, ...(isDark ? Shadows.none : Shadows.md) }}
                 onPress={() => openProgramDetail(tier.id as "premium" | "plus" | "php" | "pro")}
               >
                 {/* Card Header */}
