@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ilike, ne } from "drizzle-orm";
 import { sendPushNotification } from "./push.service";
 
 import { db } from "../db";
@@ -35,11 +35,17 @@ export async function createDirectMessage(input: {
   return result[0];
 }
 
-export async function createGroup(input: { name: string; createdBy: number; memberIds: number[] }) {
+export async function createGroup(input: {
+  name: string;
+  category?: "announcement" | "coach_group" | "team";
+  createdBy: number;
+  memberIds: number[];
+}) {
   const group = await db
     .insert(chatGroupTable)
     .values({
       name: input.name,
+      category: input.category ?? "coach_group",
       createdBy: input.createdBy,
     })
     .returning();
@@ -72,17 +78,33 @@ export async function addGroupMembers(groupId: number, memberIds: number[]) {
   return unique;
 }
 
-export async function listGroupsForUser(userId: number) {
-  return db
+export async function listGroupsForUser(userId: number, options?: { q?: string; limit?: number }) {
+  const q = options?.q?.trim() ?? "";
+  const requestedLimit = options?.limit;
+  const limit =
+    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+      : 50;
+
+  const query = db
     .select({
       id: chatGroupTable.id,
       name: chatGroupTable.name,
+      category: chatGroupTable.category,
       createdBy: chatGroupTable.createdBy,
       createdAt: chatGroupTable.createdAt,
     })
     .from(chatGroupMemberTable)
     .innerJoin(chatGroupTable, eq(chatGroupMemberTable.groupId, chatGroupTable.id))
-    .where(eq(chatGroupMemberTable.userId, userId));
+    .where(
+      and(
+        eq(chatGroupMemberTable.userId, userId),
+        q ? ilike(chatGroupTable.name, `%${q}%`) : undefined,
+      ),
+    )
+    .orderBy(desc(chatGroupTable.createdAt))
+    .limit(limit);
+  return query;
 }
 
 export async function listGroupMembers(groupId: number) {

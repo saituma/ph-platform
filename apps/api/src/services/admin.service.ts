@@ -5,7 +5,7 @@ import {
   AdminDeleteUserCommand,
   AdminGetUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { and, asc, desc, eq, gte, inArray, lte, or, sql, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, lte, or, sql, ne } from "drizzle-orm";
 
 import { cognitoClient } from "../lib/aws";
 import { db } from "../db";
@@ -373,20 +373,44 @@ export async function updateOnboardingConfig(
   return created[0];
 }
 
-export async function listUsers() {
-  const staleAthletes = await db
-    .select({ athlete: athleteTable, role: userTable.role })
-    .from(athleteTable)
-    .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
-    // Avoid enum comparison issues by comparing text
-    .where(sql`${userTable.role}::text <> 'athlete'`);
-  for (const row of staleAthletes) {
-    if (row.athlete) {
-      await ensureAthleteUserRecord(row.athlete);
+export async function listUsers(options?: { q?: string; limit?: number }) {
+  const q = options?.q?.trim() ?? "";
+  const requestedLimit = options?.limit;
+  const limit =
+    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(200, Math.floor(requestedLimit)))
+      : undefined;
+
+  // Keep data-repair behavior for full admin listing, but skip for targeted search.
+  if (!q) {
+    const staleAthletes = await db
+      .select({ athlete: athleteTable, role: userTable.role })
+      .from(athleteTable)
+      .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
+      // Avoid enum comparison issues by comparing text
+      .where(sql`${userTable.role}::text <> 'athlete'`);
+    for (const row of staleAthletes) {
+      if (row.athlete) {
+        await ensureAthleteUserRecord(row.athlete);
+      }
     }
   }
 
-  const users = await db
+  const filterConditions = [eq(userTable.isDeleted, false)];
+  if (q) {
+    const pattern = `%${q}%`;
+    filterConditions.push(
+      or(
+        ilike(userTable.name, pattern),
+        ilike(userTable.email, pattern),
+        sql`${userTable.role}::text ILIKE ${pattern}`,
+        ilike(athleteTable.name, pattern),
+        ilike(athleteTable.team, pattern),
+      )!,
+    );
+  }
+
+  const baseUsersQuery = db
     .select({
       id: userTable.id,
       cognitoSub: userTable.cognitoSub,
@@ -420,7 +444,10 @@ export async function listUsers() {
     .from(userTable)
     .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
     .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
-    .where(eq(userTable.isDeleted, false));
+    .where(and(...filterConditions))
+    .orderBy(desc(userTable.updatedAt));
+
+  const users = limit ? await baseUsersQuery.limit(limit) : await baseUsersQuery;
 
   const guardianUsers = users.filter((user) => user.role === "guardian");
   if (!guardianUsers.length) {
@@ -903,12 +930,32 @@ export async function createProgramTemplate(input: {
   return result[0];
 }
 
-export async function listProgramTemplates() {
+export async function listProgramTemplates(options?: { q?: string; limit?: number }) {
+  const q = options?.q?.trim() ?? "";
+  const requestedLimit = options?.limit;
+  const limit =
+    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+      : 50;
+  const conditions = [eq(programTable.isTemplate, true)];
+  if (q) {
+    const pattern = `%${q}%`;
+    conditions.push(
+      or(
+        ilike(programTable.name, pattern),
+        sql`${programTable.type}::text ILIKE ${pattern}`,
+        ilike(programTable.description, pattern),
+        sql`${programTable.id}::text ILIKE ${pattern}`,
+      )!,
+    );
+  }
+
   return db
     .select()
     .from(programTable)
-    .where(eq(programTable.isTemplate, true))
-    .orderBy(desc(programTable.createdAt));
+    .where(and(...conditions))
+    .orderBy(desc(programTable.createdAt))
+    .limit(limit);
 }
 
 export async function updateProgramTemplate(input: {
@@ -1083,7 +1130,27 @@ export async function deleteSessionExercise(sessionExerciseId: number) {
   return result[0] ?? null;
 }
 
-export async function listBookingsAdmin() {
+export async function listBookingsAdmin(options?: { q?: string; limit?: number }) {
+  const q = options?.q?.trim() ?? "";
+  const requestedLimit = options?.limit;
+  const limit =
+    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+      : 50;
+  const filters = [];
+  if (q) {
+    const pattern = `%${q}%`;
+    filters.push(
+      or(
+        ilike(serviceTypeTable.name, pattern),
+        ilike(athleteTable.name, pattern),
+        sql`${bookingTable.type}::text ILIKE ${pattern}`,
+        sql`${bookingTable.status}::text ILIKE ${pattern}`,
+        sql`${bookingTable.id}::text ILIKE ${pattern}`,
+      ),
+    );
+  }
+
   const rows = await db
     .select({
       id: bookingTable.id,
@@ -1098,7 +1165,10 @@ export async function listBookingsAdmin() {
     })
     .from(bookingTable)
     .leftJoin(serviceTypeTable, eq(bookingTable.serviceTypeId, serviceTypeTable.id))
-    .leftJoin(athleteTable, eq(bookingTable.athleteId, athleteTable.id));
+    .leftJoin(athleteTable, eq(bookingTable.athleteId, athleteTable.id))
+    .where(filters.length ? and(...filters) : undefined)
+    .orderBy(desc(bookingTable.startsAt))
+    .limit(limit);
 
   return rows;
 }
@@ -1313,7 +1383,26 @@ export async function listAvailabilityAdmin() {
     .limit(20);
 }
 
-export async function listVideoUploadsAdmin() {
+export async function listVideoUploadsAdmin(options?: { q?: string; limit?: number }) {
+  const q = options?.q?.trim() ?? "";
+  const requestedLimit = options?.limit;
+  const limit =
+    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+      : 50;
+  const filters = [];
+  if (q) {
+    const pattern = `%${q}%`;
+    filters.push(
+      or(
+        ilike(athleteTable.name, pattern),
+        ilike(videoUploadTable.notes, pattern),
+        ilike(videoUploadTable.feedback, pattern),
+        sql`${videoUploadTable.id}::text ILIKE ${pattern}`,
+      ),
+    );
+  }
+
   return db
     .select({
       id: videoUploadTable.id,
@@ -1332,10 +1421,21 @@ export async function listVideoUploadsAdmin() {
     .from(videoUploadTable)
     .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))
     .leftJoin(programSectionContentTable, eq(videoUploadTable.programSectionContentId, programSectionContentTable.id))
-    .orderBy(desc(videoUploadTable.createdAt));
+    .where(filters.length ? and(...filters) : undefined)
+    .orderBy(desc(videoUploadTable.createdAt))
+    .limit(limit);
 }
 
-export async function listMessageThreadsAdmin(coachId: number) {
+export async function listMessageThreadsAdmin(
+  coachId: number,
+  options?: { q?: string; limit?: number },
+) {
+  const q = options?.q?.trim().toLowerCase() ?? "";
+  const requestedLimit = options?.limit;
+  const limit =
+    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+      : 50;
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
@@ -1356,30 +1456,88 @@ export async function listMessageThreadsAdmin(coachId: number) {
     }
   }
 
-  const messages = await db
-    .select()
+  const rawThreadStats = await db
+    .select({
+      rawOtherId: sql<number>`CASE WHEN ${inArray(messageTable.senderId, adminIds)} THEN ${messageTable.receiverId} ELSE ${messageTable.senderId} END`,
+      latestAt: sql<Date>`max(${messageTable.createdAt})`,
+      unread: sql<number>`
+        sum(
+          CASE
+            WHEN ${inArray(messageTable.senderId, adminIds)} THEN 0
+            WHEN ${messageTable.read} = false THEN 1
+            ELSE 0
+          END
+        )
+      `,
+    })
     .from(messageTable)
-    .where(or(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, adminIds)));
+    .where(
+      and(
+        or(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, adminIds)),
+        sql`NOT (${inArray(messageTable.senderId, adminIds)} AND ${inArray(messageTable.receiverId, adminIds)})`,
+      ),
+    )
+    .groupBy(
+      sql`CASE WHEN ${inArray(messageTable.senderId, adminIds)} THEN ${messageTable.receiverId} ELSE ${messageTable.senderId} END`,
+    )
+    .orderBy(desc(sql`max(${messageTable.createdAt})`))
+    .limit(limit * 8);
 
-  const threads = new Map<number, { lastMessage: typeof messages[number]; unread: number }>();
-  for (const msg of messages) {
-    if (adminSet.has(msg.senderId) && adminSet.has(msg.receiverId)) {
+  const rawOtherUserIds = rawThreadStats.map((row) => Number(row.rawOtherId)).filter((id) => Number.isFinite(id));
+  if (!rawOtherUserIds.length) return [];
+
+  const latestMessageCandidates = await db
+    .select({
+      senderId: messageTable.senderId,
+      receiverId: messageTable.receiverId,
+      content: messageTable.content,
+      createdAt: messageTable.createdAt,
+    })
+    .from(messageTable)
+    .where(
+      or(
+        and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, rawOtherUserIds)),
+        and(inArray(messageTable.senderId, rawOtherUserIds), inArray(messageTable.receiverId, adminIds)),
+      ),
+    )
+    .orderBy(desc(messageTable.createdAt))
+    .limit(Math.max(limit * 20, 200));
+
+  const latestByRawUserId = new Map<number, { content: string; createdAt: Date | string }>();
+  for (const row of latestMessageCandidates) {
+    const rawOtherId = adminSet.has(row.senderId) ? row.receiverId : row.senderId;
+    if (!latestByRawUserId.has(rawOtherId)) {
+      latestByRawUserId.set(rawOtherId, {
+        content: row.content,
+        createdAt: row.createdAt,
+      });
+    }
+  }
+
+  const threads = new Map<number, { latestAt: Date | string; preview: string; unread: number }>();
+  for (const stat of rawThreadStats) {
+    const rawOtherId = Number(stat.rawOtherId);
+    if (!Number.isFinite(rawOtherId)) continue;
+    const otherId = athleteToGuardian.get(rawOtherId) ?? rawOtherId;
+    const latest = latestByRawUserId.get(rawOtherId);
+    const preview = latest?.content ?? "Start the conversation";
+    const latestAt = latest?.createdAt ?? stat.latestAt;
+    const unread = Number(stat.unread ?? 0);
+    const current = threads.get(otherId);
+    if (!current) {
+      threads.set(otherId, { latestAt, preview, unread });
       continue;
     }
-    const rawOtherId = adminSet.has(msg.senderId) ? msg.receiverId : msg.senderId;
-    const otherId = athleteToGuardian.get(rawOtherId) ?? rawOtherId;
-    const current = threads.get(otherId);
-    const isUnread = !adminSet.has(msg.senderId) && !msg.read;
-    if (!current || new Date(msg.createdAt) > new Date(current.lastMessage.createdAt)) {
-      threads.set(otherId, { lastMessage: msg, unread: (current?.unread ?? 0) + (isUnread ? 1 : 0) });
-    } else if (isUnread) {
-      current.unread += 1;
+    current.unread += unread;
+    if (new Date(latestAt).getTime() > new Date(current.latestAt).getTime()) {
+      current.latestAt = latestAt;
+      current.preview = preview;
     }
   }
 
   const userIds = Array.from(threads.keys()).sort((a, b) => {
-    const timeA = new Date(threads.get(a)!.lastMessage.createdAt).getTime();
-    const timeB = new Date(threads.get(b)!.lastMessage.createdAt).getTime();
+    const timeA = new Date(threads.get(a)!.latestAt).getTime();
+    const timeB = new Date(threads.get(b)!.latestAt).getTime();
     return timeB - timeA;
   });
   
@@ -1461,7 +1619,7 @@ export async function listMessageThreadsAdmin(coachId: number) {
     }
   }
 
-  return userIds.map((id) => {
+  const mapped = userIds.map((id) => {
     const info = threads.get(id)!;
     const user = users.find((u) => u.id === id);
     const guardianName = guardianNameByAthleteUserId.get(id);
@@ -1469,13 +1627,22 @@ export async function listMessageThreadsAdmin(coachId: number) {
     return {
       userId: id,
       name: guardianName ?? user?.name ?? user?.email ?? "Unknown",
-      preview: info.lastMessage.content,
-      time: info.lastMessage.createdAt,
+      preview: info.preview,
+      time: info.latestAt,
       unread: info.unread,
       programTier,
       premium: programTier === "PHP_Premium",
     };
   });
+
+  const filtered = q
+    ? mapped.filter((item) =>
+        [item.name, item.preview, item.programTier, item.userId]
+          .map((value) => String(value ?? "").toLowerCase())
+          .some((value) => value.includes(q)),
+      )
+    : mapped;
+  return filtered.slice(0, limit);
 }
 
 export async function listThreadMessagesAdmin(coachId: number, userId: number) {

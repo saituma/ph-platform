@@ -69,8 +69,11 @@ type PaletteThread = {
 type PaletteGroup = {
   id: number;
   name?: string | null;
+  category?: PaletteGroupCategory | null;
   createdAt?: string | null;
 };
+
+type PaletteGroupCategory = "announcement" | "coach_group" | "team";
 
 type PaletteVideo = {
   id: number;
@@ -110,6 +113,9 @@ type PaletteReferralEntry = {
 };
 
 const MAX_RESULTS_PER_GROUP = 10;
+const USER_SEARCH_MIN_QUERY_LENGTH = 2;
+const USER_SEARCH_FETCH_LIMIT = 50;
+const SEARCH_RESOURCE_FETCH_LIMIT = 50;
 
 function normalize(value: unknown) {
   return String(value ?? "").toLowerCase();
@@ -124,6 +130,27 @@ function toKeywords(values: unknown[]) {
   return values
     .filter((value) => value != null && String(value).trim().length > 0)
     .map((value) => String(value));
+}
+
+function classifyGroupCategory(group: {
+  category?: string | null;
+  name?: string | null;
+}): PaletteGroupCategory {
+  if (
+    group?.category === "announcement" ||
+    group?.category === "coach_group" ||
+    group?.category === "team"
+  ) {
+    return group.category;
+  }
+  const normalized = String(group?.name ?? "").trim().toLowerCase();
+  if (/(announce|announcement|broadcast)/i.test(normalized)) {
+    return "announcement";
+  }
+  if (/(team|squad|club)/i.test(normalized)) {
+    return "team";
+  }
+  return "coach_group";
 }
 
 const NAV_ITEMS: PaletteList = {
@@ -173,32 +200,64 @@ export function GlobalCommandPalette() {
   const [search, setSearch] = useState("");
 
   const query = search.trim().toLowerCase();
+  const trimmedSearch = search.trim();
 
-  const { data: usersData } = useGetUsersQuery(undefined, { skip: !isOpen });
+  const shouldFetchUsers = isOpen && query.length >= USER_SEARCH_MIN_QUERY_LENGTH;
+  const shouldFetchSearchResources = isOpen && query.length >= USER_SEARCH_MIN_QUERY_LENGTH;
+  const { data: usersData } = useGetUsersQuery(
+    shouldFetchUsers
+      ? {
+          q: trimmedSearch,
+          limit: USER_SEARCH_FETCH_LIMIT,
+        }
+      : undefined,
+    { skip: !shouldFetchUsers },
+  );
   const { data: teamsData } = useGetAdminTeamsQuery(undefined, {
     skip: !isOpen,
   });
-  const { data: bookingsData } = useGetBookingsQuery(undefined, {
-    skip: !isOpen,
-  });
-  const { data: threadsData } = useGetThreadsQuery(undefined, {
-    skip: !isOpen,
-  });
-  const { data: videosData } = useGetVideoUploadsQuery(undefined, {
-    skip: !isOpen,
-  });
-  const { data: programsData } = useGetProgramsQuery(undefined, {
-    skip: !isOpen,
-  });
-  const { data: foodDiaryData } = useGetFoodDiaryQuery(undefined, {
-    skip: !isOpen,
-  });
-  const { data: referralsData } = useGetPhysioReferralsQuery(undefined, {
-    skip: !isOpen,
-  });
-  const { data: chatGroupsData } = useGetChatGroupsQuery(undefined, {
-    skip: !isOpen,
-  });
+  const { data: bookingsData } = useGetBookingsQuery(
+    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    {
+      skip: !shouldFetchSearchResources,
+    },
+  );
+  const { data: threadsData } = useGetThreadsQuery(
+    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    {
+      skip: !shouldFetchSearchResources,
+    },
+  );
+  const { data: videosData } = useGetVideoUploadsQuery(
+    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    {
+      skip: !shouldFetchSearchResources,
+    },
+  );
+  const { data: programsData } = useGetProgramsQuery(
+    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    {
+      skip: !shouldFetchSearchResources,
+    },
+  );
+  const { data: foodDiaryData } = useGetFoodDiaryQuery(
+    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    {
+      skip: !shouldFetchSearchResources,
+    },
+  );
+  const { data: referralsData } = useGetPhysioReferralsQuery(
+    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    {
+      skip: !shouldFetchSearchResources,
+    },
+  );
+  const { data: chatGroupsData } = useGetChatGroupsQuery(
+    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    {
+      skip: !shouldFetchSearchResources,
+    },
+  );
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -448,22 +507,53 @@ export function GlobalCommandPalette() {
         matchesQuery(query, [group?.id, group?.name, group?.createdAt]),
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((group) => ({
-        id: `group-${group.id}`,
-        children: `Group: ${group?.name ?? `Group ${group.id}`}`,
-        closeOnSelect: true,
-        onClick: () =>
-          router.push(
-            `/messaging?tab=inbox&groupId=${encodeURIComponent(String(group.id))}`,
-          ),
-        keywords: toKeywords([group?.id, group?.name, group?.createdAt]),
-      }));
+      .map((group) => {
+        const category = classifyGroupCategory(group);
+        return {
+          category,
+          item: {
+            id: `group-${group.id}`,
+            children: `Group: ${group?.name ?? `Group ${group.id}`}`,
+            closeOnSelect: true,
+            onClick: () =>
+              router.push(
+                `/messaging?tab=inbox&groupId=${encodeURIComponent(String(group.id))}`,
+              ),
+            keywords: toKeywords([group?.id, group?.name, group?.createdAt]),
+          },
+        };
+      });
 
-    if (groups.length) {
+    const announcementGroups = groups
+      .filter((group) => group.category === "announcement")
+      .map((group) => group.item);
+    if (announcementGroups.length) {
       lists.push({
-        id: "groups-live",
-        heading: `Groups (${groups.length})`,
-        items: groups,
+        id: "groups-announcements-live",
+        heading: `Coach announcements (${announcementGroups.length})`,
+        items: announcementGroups,
+      });
+    }
+
+    const coachGroups = groups
+      .filter((group) => group.category === "coach_group")
+      .map((group) => group.item);
+    if (coachGroups.length) {
+      lists.push({
+        id: "groups-coach-live",
+        heading: `Coach groups (${coachGroups.length})`,
+        items: coachGroups,
+      });
+    }
+
+    const teamGroups = groups
+      .filter((group) => group.category === "team")
+      .map((group) => group.item);
+    if (teamGroups.length) {
+      lists.push({
+        id: "groups-team-live",
+        heading: `Team inbox (${teamGroups.length})`,
+        items: teamGroups,
       });
     }
 

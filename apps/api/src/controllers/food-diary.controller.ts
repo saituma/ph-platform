@@ -123,7 +123,10 @@ export async function listFoodDiaryAdmin(req: Request, res: Response) {
   const guardianRaw = req.query.guardianId ? Number(req.query.guardianId) : undefined;
   const athleteId = athleteRaw && Number.isFinite(athleteRaw) ? athleteRaw : undefined;
   const guardianId = guardianRaw && Number.isFinite(guardianRaw) ? guardianRaw : undefined;
-  const items = await listFoodDiaryEntries({ athleteId, guardianId });
+  const q = typeof req.query.q === "string" ? req.query.q : undefined;
+  const limitRaw = req.query.limit ? Number(req.query.limit) : undefined;
+  const limit = limitRaw && Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, Math.floor(limitRaw))) : undefined;
+  const items = await listFoodDiaryEntries({ athleteId, guardianId, q, limit });
   return res.status(200).json({ items });
 }
 

@@ -381,8 +381,15 @@ export const apiSlice = createApi({
       },
       providesTags: ["UserLocations"],
     }),
-    getUsers: builder.query<{ users: UserListRow[] }, void>({
-      query: () => "/admin/users",
+    getUsers: builder.query<{ users: UserListRow[] }, { q?: string; limit?: number } | void>({
+      query: (params) => {
+        if (!params) return "/admin/users";
+        const query = new URLSearchParams();
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
+        const queryString = query.toString();
+        return queryString ? `/admin/users?${queryString}` : "/admin/users";
+      },
       providesTags: ["Users"],
     }),
     getAdminTeams: builder.query<
@@ -488,8 +495,15 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    getBookings: builder.query<{ bookings: BookingRecord[] }, void>({
-      query: () => "/admin/bookings",
+    getBookings: builder.query<{ bookings: BookingRecord[] }, { q?: string; limit?: number } | void>({
+      query: (params) => {
+        if (!params) return "/admin/bookings";
+        const query = new URLSearchParams();
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
+        const queryString = query.toString();
+        return queryString ? `/admin/bookings?${queryString}` : "/admin/bookings";
+      },
       providesTags: ["Bookings"],
     }),
     getBookingById: builder.query<{ booking: BookingRecord }, number>({
@@ -531,8 +545,15 @@ export const apiSlice = createApi({
       query: () => "/admin/availability",
       providesTags: ["Availability"],
     }),
-    getVideoUploads: builder.query<{ items: any[] }, void>({
-      query: () => "/admin/videos",
+    getVideoUploads: builder.query<{ items: any[] }, { q?: string; limit?: number } | void>({
+      query: (params) => {
+        if (!params) return "/admin/videos";
+        const query = new URLSearchParams();
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
+        const queryString = query.toString();
+        return queryString ? `/admin/videos?${queryString}` : "/admin/videos";
+      },
       providesTags: ["Content"],
     }),
     getProgramSectionContent: builder.query<{ items: any[] }, { sectionType: string }>({
@@ -593,8 +614,15 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Bookings"],
     }),
-    getThreads: builder.query<{ threads: any[] }, void>({
-      query: () => "/admin/messages/threads",
+    getThreads: builder.query<{ threads: any[] }, { q?: string; limit?: number } | void>({
+      query: (params) => {
+        if (!params) return "/admin/messages/threads";
+        const query = new URLSearchParams();
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
+        const queryString = query.toString();
+        return queryString ? `/admin/messages/threads?${queryString}` : "/admin/messages/threads";
+      },
       providesTags: ["Threads"],
     }),
     getMessages: builder.query<{ messages: any[] }, number>({
@@ -639,12 +667,14 @@ export const apiSlice = createApi({
       query: () => "/content/parent-courses",
       providesTags: ["ParentCourses"],
     }),
-    getFoodDiary: builder.query<{ items: any[] }, { athleteId?: number; guardianId?: number } | void>({
+    getFoodDiary: builder.query<{ items: any[] }, { athleteId?: number; guardianId?: number; q?: string; limit?: number } | void>({
       query: (params) => {
         if (!params) return "/admin/food-diary";
         const query = new URLSearchParams();
         if (params.athleteId) query.set("athleteId", String(params.athleteId));
         if (params.guardianId) query.set("guardianId", String(params.guardianId));
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
         return `/admin/food-diary?${query.toString()}`;
       },
       providesTags: ["FoodDiary"],
@@ -657,8 +687,15 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["FoodDiary"],
     }),
-    getPhysioReferrals: builder.query<{ items: any[] }, void>({
-      query: () => "/admin/physio-referrals",
+    getPhysioReferrals: builder.query<{ items: any[] }, { q?: string; limit?: number } | void>({
+      query: (params) => {
+        if (!params) return "/admin/physio-referrals";
+        const query = new URLSearchParams();
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
+        const queryString = query.toString();
+        return queryString ? `/admin/physio-referrals?${queryString}` : "/admin/physio-referrals";
+      },
       providesTags: ["PhysioReferrals"],
     }),
     getReferralGroups: builder.query<{ items: any[] }, void>({
@@ -1015,8 +1052,15 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    getPrograms: builder.query<{ programs: any[] }, void>({
-      query: () => "/admin/programs",
+    getPrograms: builder.query<{ programs: any[] }, { q?: string; limit?: number } | void>({
+      query: (params) => {
+        if (!params) return "/admin/programs";
+        const query = new URLSearchParams();
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
+        const queryString = query.toString();
+        return queryString ? `/admin/programs?${queryString}` : "/admin/programs";
+      },
       providesTags: ["Programs"],
     }),
     createProgram: builder.mutation<
@@ -1066,8 +1110,15 @@ export const apiSlice = createApi({
         body,
       }),
     }),
-    getChatGroups: builder.query<{ groups: any[] }, void>({
-      query: () => "/chat/groups",
+    getChatGroups: builder.query<{ groups: any[] }, { q?: string; limit?: number } | void>({
+      query: (params) => {
+        if (!params) return "/chat/groups";
+        const query = new URLSearchParams();
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
+        const queryString = query.toString();
+        return queryString ? `/chat/groups?${queryString}` : "/chat/groups";
+      },
     }),
     createChatGroup: builder.mutation<{ group: any }, { name: string; memberIds: number[] }>({
       query: (body) => ({
