@@ -18,7 +18,7 @@ import ScheduleScreen from "./schedule";
 
 let lastTabKey = "index";
 
-const TAB_ROUTES: TabConfig[] = [
+const TEAM_MODE_TAB_ROUTES: TabConfig[] = [
   { key: "programs", label: "Programs", icon: "pulse", iconOutline: "pulse-outline" },
   {
     key: "messages",
@@ -30,6 +30,8 @@ const TAB_ROUTES: TabConfig[] = [
   { key: "schedule", label: "Schedule", icon: "calendar", iconOutline: "calendar-outline" },
   { key: "more", label: "More", icon: "menu", iconOutline: "menu-outline" },
 ];
+
+const DEFAULT_TAB_ROUTES: TabConfig[] = TEAM_MODE_TAB_ROUTES;
 
 const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
   index: React.memo(HomeScreen),
@@ -51,6 +53,7 @@ export default function TabLayout() {
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const token = useAppSelector((state) => state.user.token);
   const profile = useAppSelector((state) => state.user.profile);
+  const appRole = useAppSelector((state) => state.user.appRole);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const programTier = useAppSelector((state) => state.user.programTier);
   const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
@@ -264,14 +267,21 @@ export default function TabLayout() {
     });
   }, [messagesUnread]);
 
+  const baseTabs = useMemo(() => {
+    if (appRole === "youth_athlete_team_guardian") {
+      return TEAM_MODE_TAB_ROUTES;
+    }
+    return DEFAULT_TAB_ROUTES;
+  }, [appRole]);
+
   const visibleTabs = useMemo(() => {
-    return TAB_ROUTES.map((tab) => {
+    return baseTabs.map((tab) => {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
       return tab;
     });
-  }, [messagesUnread]);
+  }, [baseTabs, messagesUnread]);
 
   const initialIndex = useMemo(() => {
     if (!pathname.startsWith("/(tabs)")) {

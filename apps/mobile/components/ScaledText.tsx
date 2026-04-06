@@ -18,7 +18,7 @@ const InteropTextInput = cssInterop(RNTextInput, { className: "style" });
 const AnimatedInteropText = Animated.createAnimatedComponent(InteropText);
 
 const baseTextStyle: TextStyle = {
-  fontFamily: "Outfit",
+  fontFamily: "Outfit-Medium",
   ...(Platform.OS === "android" ? { includeFontPadding: false } : {}),
 };
 
