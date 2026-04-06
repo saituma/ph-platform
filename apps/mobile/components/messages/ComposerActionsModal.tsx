@@ -1,9 +1,10 @@
 import React from "react";
-import { Modal, Pressable, View, TouchableOpacity } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { Feather } from "@/components/ui/theme-icons";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { Shadows } from "@/constants/theme";
 
 type ComposerActionsModalProps = {
@@ -16,22 +17,33 @@ type ComposerActionsModalProps = {
   onRecordVideo: () => void;
 };
 
-const ActionItem = ({ icon, label, onPress, color, isDark }: any) => (
+type ActionItemProps = {
+  icon: React.ComponentProps<typeof Feather>["name"];
+  label: string;
+  onPress: () => void;
+  color: string;
+  isDark: boolean;
+};
+
+const ActionItem = ({ icon, label, onPress, color, isDark }: ActionItemProps) => (
   <TouchableOpacity
     onPress={onPress}
     activeOpacity={0.7}
-    className="items-center justify-center gap-2 w-[30%]"
+    className="w-[30%] items-center justify-center gap-2"
   >
-    <View 
-      className="h-16 w-16 rounded-[22px] items-center justify-center border"
-      style={{ 
+    <View
+      className="h-16 w-16 items-center justify-center rounded-[22px] border"
+      style={{
         backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.03)",
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)"
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
       }}
     >
       <Feather name={icon} size={24} color={color} />
     </View>
-    <Text className="text-[11px] font-outfit font-bold uppercase tracking-wider text-center" style={{ color: isDark ? "#94A3B8" : "#64748B" }}>
+    <Text
+      className="text-center font-outfit text-[11px] font-bold uppercase tracking-wider"
+      style={{ color: isDark ? "#94A3B8" : "#64748B" }}
+    >
       {label}
     </Text>
   </TouchableOpacity>
@@ -47,89 +59,123 @@ export function ComposerActionsModal({
   onRecordVideo,
 }: ComposerActionsModalProps) {
   const { colors, isDark } = useAppTheme();
+  const modalRef = React.useRef<BottomSheetModal>(null);
+  const snapPoints = React.useMemo(() => ["58%"], []);
 
-  if (!open) return null;
+  React.useEffect(() => {
+    const modal = modalRef.current;
+    if (!modal) return;
+    if (open) {
+      modal.present();
+      return;
+    }
+    modal.dismiss();
+  }, [open]);
 
   return (
-    <Modal visible={open} transparent animationType="none" onRequestClose={onClose}>
-      <View className="flex-1">
-        <Animated.View 
-          entering={FadeIn}
-          exiting={FadeOut}
-          className="absolute inset-0 bg-black/40"
+    <BottomSheetModal
+      ref={modalRef}
+      index={0}
+      snapPoints={snapPoints}
+      onDismiss={onClose}
+      enablePanDownToClose
+      backdropComponent={(props) => (
+        <BottomSheetBackdrop
+          {...props}
+          appearsOnIndex={0}
+          disappearsOnIndex={-1}
+          opacity={0.4}
+          pressBehavior="close"
+        />
+      )}
+      backgroundStyle={{
+        backgroundColor: colors.card,
+      }}
+      handleIndicatorStyle={{
+        backgroundColor: isDark ? "rgba(255,255,255,0.28)" : "rgba(15,23,42,0.25)",
+      }}
+    >
+      <BottomSheetView className="px-6 pb-8">
+        <View
+          className="rounded-[28px] border p-6"
+          style={{
+            backgroundColor: colors.card,
+            borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+            ...(isDark ? Shadows.none : Shadows.lg),
+          }}
         >
-          <Pressable className="flex-1" onPress={onClose} />
-        </Animated.View>
-
-        <View className="flex-1 justify-end px-4 pb-10">
-          <Animated.View 
-            entering={SlideInDown.springify().damping(25)}
-            exiting={SlideOutDown}
-            className="rounded-[36px] overflow-hidden border p-6"
-            style={{ 
-              backgroundColor: colors.card,
-              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
-              ...(isDark ? Shadows.none : Shadows.lg)
-            }}
-          >
-            <View className="flex-row items-center justify-between mb-6">
-              <View>
-                <Text className="text-[20px] font-clash font-bold" style={{ color: colors.text }}>
-                  Add content
-                </Text>
-                <Text className="text-[13px] font-outfit mt-0.5" style={{ color: colors.textSecondary }}>
-                  Share media or files with your coach
-                </Text>
-              </View>
-              <TouchableOpacity 
-                onPress={onClose}
-                className="h-10 w-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)" }}
-              >
-                <Feather name="x" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
+          <View className="mb-6 flex-row items-center justify-between">
+            <View>
+              <Text className="font-clash text-[20px] font-bold" style={{ color: colors.text }}>
+                Add content
+              </Text>
+              <Text className="mt-0.5 font-outfit text-[13px]" style={{ color: colors.textSecondary }}>
+                Share media or files with your coach
+              </Text>
             </View>
+            <TouchableOpacity
+              onPress={onClose}
+              className="h-10 w-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)" }}
+            >
+              <Feather name="x" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-            <View className="flex-row flex-wrap justify-between gap-y-6">
-              <ActionItem 
-                icon="image" 
-                label="Gallery" 
-                onPress={() => { onAttachImage(); onClose(); }} 
-                color="#3B82F6" 
-                isDark={isDark} 
-              />
-              <ActionItem 
-                icon="camera" 
-                label="Camera" 
-                onPress={() => { onTakePhoto(); onClose(); }} 
-                color="#10B981" 
-                isDark={isDark} 
-              />
-              <ActionItem 
-                icon="video" 
-                label="Video" 
-                onPress={() => { onAttachVideo(); onClose(); }} 
-                color="#8B5CF6" 
-                isDark={isDark} 
-              />
-              <ActionItem 
-                icon="file-text" 
-                label="Files" 
-                onPress={() => { onAttachFile(); onClose(); }} 
-                color="#F59E0B" 
-                isDark={isDark} 
-              />
-              <ActionItem 
-                icon="video" 
-                label="Record" 
-                onPress={() => { onRecordVideo(); onClose(); }} 
-                color="#EF4444" 
-                isDark={isDark} 
-              />
-            </View>
-          </Animated.View>
+          <View className="flex-row flex-wrap justify-between gap-y-6">
+            <ActionItem
+              icon="image"
+              label="Gallery"
+              onPress={() => {
+                onAttachImage();
+                onClose();
+              }}
+              color="#3B82F6"
+              isDark={isDark}
+            />
+            <ActionItem
+              icon="camera"
+              label="Camera"
+              onPress={() => {
+                onTakePhoto();
+                onClose();
+              }}
+              color="#10B981"
+              isDark={isDark}
+            />
+            <ActionItem
+              icon="video"
+              label="Video"
+              onPress={() => {
+                onAttachVideo();
+                onClose();
+              }}
+              color="#8B5CF6"
+              isDark={isDark}
+            />
+            <ActionItem
+              icon="file-text"
+              label="Files"
+              onPress={() => {
+                onAttachFile();
+                onClose();
+              }}
+              color="#F59E0B"
+              isDark={isDark}
+            />
+            <ActionItem
+              icon="video"
+              label="Record"
+              onPress={() => {
+                onRecordVideo();
+                onClose();
+              }}
+              color="#EF4444"
+              isDark={isDark}
+            />
+          </View>
         </View>
-      </View>
-    </Modal>
+      </BottomSheetView>
+    </BottomSheetModal>
   );
 }

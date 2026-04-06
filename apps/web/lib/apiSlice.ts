@@ -1120,7 +1120,10 @@ export const apiSlice = createApi({
         return queryString ? `/chat/groups?${queryString}` : "/chat/groups";
       },
     }),
-    createChatGroup: builder.mutation<{ group: any }, { name: string; memberIds: number[] }>({
+    createChatGroup: builder.mutation<
+      { group: any },
+      { name: string; category?: "announcement" | "coach_group" | "team"; memberIds: number[] }
+    >({
       query: (body) => ({
         url: "/chat/groups",
         method: "POST",

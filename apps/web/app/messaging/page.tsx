@@ -19,6 +19,7 @@ import type {
 } from "../../components/admin/messaging/types";
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
+import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import {
@@ -94,6 +95,22 @@ function isPremiumTier(tier: string | null) {
   return tier.toLowerCase().includes("premium");
 }
 
+function resolveGroupCategory(group: Pick<ChatGroupItem, "category" | "name">): "announcement" | "coach_group" | "team" {
+  if (group.category === "announcement" || group.category === "coach_group" || group.category === "team") {
+    return group.category;
+  }
+  const normalized = String(group.name ?? "").trim().toLowerCase();
+  if (/(announce|announcement|broadcast)/i.test(normalized)) return "announcement";
+  if (/(team|squad|club)/i.test(normalized)) return "team";
+  return "coach_group";
+}
+
+function categoryLabel(category: "announcement" | "coach_group" | "team") {
+  if (category === "announcement") return "Coach announcements";
+  if (category === "team") return "Team inbox";
+  return "Coach groups";
+}
+
 export default function MessagingPage() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState("inbox");
@@ -106,6 +123,7 @@ export default function MessagingPage() {
   const [announcementAudienceGroupId, setAnnouncementAudienceGroupId] = useState("");
 
   const [threadUserId, setThreadUserId] = useState<number | null>(null);
+  const [highlightedInboxThreadUserId, setHighlightedInboxThreadUserId] = useState<number | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
 
   const [directMessage, setDirectMessage] = useState("");
@@ -123,6 +141,7 @@ export default function MessagingPage() {
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupCategory, setNewGroupCategory] = useState<"announcement" | "coach_group" | "team">("coach_group");
   const [groupMemberQuery, setGroupMemberQuery] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [manageGroupMembersOpen, setManageGroupMembersOpen] = useState(false);
@@ -132,6 +151,8 @@ export default function MessagingPage() {
   const [directReactionOverrides, setDirectReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
   const [groupReactionOverrides, setGroupReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
   const [highlightedTeamName, setHighlightedTeamName] = useState<string | null>(null);
+  const [highlightedInboxGroupId, setHighlightedInboxGroupId] = useState<number | null>(null);
+  const groupRowRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
   const { data: announcementsData, refetch: refetchAnnouncements } = useGetAnnouncementsQuery();
   const { data: adminProfileData } = useGetAdminProfileQuery();
@@ -212,6 +233,20 @@ export default function MessagingPage() {
   }, [chatEligibleUsers, threadsData, userNameById]);
 
   const groups = useMemo<ChatGroupItem[]>(() => (groupsData?.groups as ChatGroupItem[] | undefined) ?? [], [groupsData]);
+  const groupedInboxSections = useMemo(
+    () => ({
+      announcements: groups
+        .filter((group) => resolveGroupCategory(group) === "announcement")
+        .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()),
+      coachGroups: groups
+        .filter((group) => resolveGroupCategory(group) === "coach_group")
+        .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()),
+      teamInbox: groups
+        .filter((group) => resolveGroupCategory(group) === "team")
+        .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()),
+    }),
+    [groups],
+  );
   const teams = useMemo<AdminTeamItem[]>(() => adminTeamsData?.teams ?? [], [adminTeamsData]);
   const announcements = useMemo<AnnouncementItem[]>(
     () => (announcementsData?.items as AnnouncementItem[] | undefined) ?? [],
@@ -230,6 +265,7 @@ export default function MessagingPage() {
       if (exists) {
         setTab("inbox");
         setGroupId(null);
+        setHighlightedInboxThreadUserId(userIdParam);
         setThreadUserId(userIdParam);
       }
     }
@@ -240,6 +276,7 @@ export default function MessagingPage() {
       if (exists) {
         setTab("inbox");
         setThreadUserId(null);
+        setHighlightedInboxGroupId(groupIdParam);
         setGroupId(groupIdParam);
       }
     }
@@ -252,6 +289,14 @@ export default function MessagingPage() {
       setHighlightedTeamName(null);
     }
   }, [searchParams, chatEligibleUsers, groups]);
+
+  useEffect(() => {
+    if (tab !== "inbox" || !highlightedInboxGroupId) return;
+    const target = groupRowRefs.current[highlightedInboxGroupId];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [tab, highlightedInboxGroupId]);
 
   const directThreadName = useMemo(() => {
     if (!threadUserId) return "";
@@ -607,10 +652,12 @@ export default function MessagingPage() {
     try {
       const response = await createGroup({
         name: newGroupName.trim(),
+        category: newGroupCategory,
         memberIds: [...new Set(selectedMemberIds)],
       }).unwrap();
       setGroupModalOpen(false);
       setNewGroupName("");
+      setNewGroupCategory("coach_group");
       setSelectedMemberIds([]);
       setGroupMemberQuery("");
       refetchGroups();
@@ -795,7 +842,11 @@ export default function MessagingPage() {
           <div className="space-y-4">
             <InboxThreadPanel
               threads={threads}
-              onOpenThread={(userId) => void openDirectThread(userId)}
+              highlightedUserId={highlightedInboxThreadUserId}
+              onOpenThread={(userId) => {
+                setHighlightedInboxThreadUserId(userId);
+                void openDirectThread(userId);
+              }}
               onCreateGroup={() => setGroupModalOpen(true)}
               formatTime={formatTime}
             />
@@ -803,26 +854,57 @@ export default function MessagingPage() {
               <CardHeader>
                 <SectionHeader
                   title="Group Chats"
-                  description="Open a group thread directly from this list."
+                  description="Organized as coach announcements, coach groups, and team inbox."
                 />
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {groups.map((group) => (
-                    <button
-                      key={group.id}
-                      type="button"
-                      onClick={() => setGroupId(group.id)}
-                      className="group flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Created {formatTime(group.createdAt)}</p>
+                <div className="space-y-4">
+                  {[
+                    { key: "announcements", title: "Coach announcements", items: groupedInboxSections.announcements, tone: "bg-amber-500/10 text-amber-200 border-amber-500/30" },
+                    { key: "coach-groups", title: "Coach groups", items: groupedInboxSections.coachGroups, tone: "bg-sky-500/10 text-sky-200 border-sky-500/30" },
+                    { key: "team-inbox", title: "Team inbox", items: groupedInboxSections.teamInbox, tone: "bg-emerald-500/10 text-emerald-200 border-emerald-500/30" },
+                  ].map((section) => (
+                    <div key={section.key} className="space-y-2">
+                      <div className="sticky top-0 z-10 flex items-center justify-between rounded-lg bg-background/95 py-1 backdrop-blur">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</p>
+                        <Badge variant="outline">{section.items.length}</Badge>
                       </div>
-                      <span className="text-xs text-muted-foreground transition group-hover:text-foreground">Open</span>
-                    </button>
+                      {section.items.map((group) => (
+                        <button
+                          key={group.id}
+                          ref={(node) => {
+                            groupRowRefs.current[group.id] = node;
+                          }}
+                          type="button"
+                          onClick={() => {
+                            setHighlightedInboxGroupId(group.id);
+                            setGroupId(group.id);
+                          }}
+                          className={`group flex w-full items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
+                            highlightedInboxGroupId === group.id
+                              ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+                              : "border-border"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
+                              <span className={`rounded-full border px-2 py-0.5 text-[10px] ${section.tone}`}>
+                                {categoryLabel(resolveGroupCategory(group))}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">Created {formatTime(group.createdAt)}</p>
+                          </div>
+                          <span className="text-xs text-muted-foreground transition group-hover:text-foreground">Open</span>
+                        </button>
+                      ))}
+                      {!section.items.length ? (
+                        <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                          No {section.title.toLowerCase()}.
+                        </p>
+                      ) : null}
+                    </div>
                   ))}
-                  {!groups.length ? <p className="text-sm text-muted-foreground">No group chats yet.</p> : null}
                 </div>
               </CardContent>
             </Card>
@@ -1006,6 +1088,19 @@ export default function MessagingPage() {
               value={newGroupName}
               onChange={(event) => setNewGroupName(event.target.value)}
             />
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Group type</p>
+              <Select
+                value={newGroupCategory}
+                onChange={(event) =>
+                  setNewGroupCategory(event.target.value as "announcement" | "coach_group" | "team")
+                }
+              >
+                <option value="coach_group">Coach group</option>
+                <option value="announcement">Coach announcement</option>
+                <option value="team">Team inbox</option>
+              </Select>
+            </div>
             <Input
               placeholder="Search members..."
               value={groupMemberQuery}
