@@ -15,6 +15,7 @@ import MessagesScreen from "./messages";
 import MoreScreen from "./more";
 import ProgramsScreen from "./programs";
 import ScheduleScreen from "./schedule";
+import TrackingLayout from "./tracking/_layout";
 
 let lastTabKey = "index";
 
@@ -28,6 +29,7 @@ const TEAM_MODE_TAB_ROUTES: TabConfig[] = [
   },
   { key: "index", label: "Home", icon: "home", iconOutline: "home-outline" },
   { key: "schedule", label: "Schedule", icon: "calendar", iconOutline: "calendar-outline" },
+  { key: "tracking", label: "Tracking", icon: "walk", iconOutline: "walk-outline" },
   { key: "more", label: "More", icon: "menu", iconOutline: "menu-outline" },
 ];
 
@@ -38,6 +40,7 @@ const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
   programs: React.memo(ProgramsScreen),
   messages: React.memo(MessagesScreen),
   schedule: React.memo(ScheduleScreen),
+  tracking: React.memo(TrackingLayout),
   more: React.memo(MoreScreen),
 };
 
@@ -268,10 +271,15 @@ export default function TabLayout() {
   }, [messagesUnread]);
 
   const baseTabs = useMemo(() => {
-    if (appRole === "youth_athlete_team_guardian") {
-      return TEAM_MODE_TAB_ROUTES;
+    const roleTabs =
+      appRole === "youth_athlete_team_guardian"
+        ? TEAM_MODE_TAB_ROUTES
+        : DEFAULT_TAB_ROUTES;
+    const isYouthRole = typeof appRole === "string" && appRole.startsWith("youth_");
+    if (isYouthRole) {
+      return roleTabs.filter((tab) => tab.key !== "tracking");
     }
-    return DEFAULT_TAB_ROUTES;
+    return roleTabs;
   }, [appRole]);
 
   const visibleTabs = useMemo(() => {

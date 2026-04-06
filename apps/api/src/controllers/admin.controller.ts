@@ -284,6 +284,7 @@ const provisionGuardianSchema = z.object({
   termsVersion: z.string().min(1),
   privacyVersion: z.string().min(1),
   appVersion: z.string().min(1),
+  initialPassword: z.string().min(8).max(128).optional(),
   extraResponses: z.record(z.string(), z.any()).optional(),
 });
 
@@ -304,6 +305,7 @@ const provisionAdultAthleteSchema = z.object({
   termsVersion: z.string().min(1),
   privacyVersion: z.string().min(1),
   appVersion: z.string().min(1),
+  initialPassword: z.string().min(8).max(128).optional(),
   extraResponses: z.record(z.string(), z.any()).optional(),
 });
 

@@ -12,7 +12,7 @@ import {
   userTable,
 } from "../db/schema";
 import { getUserById } from "./user.service";
-import { calculateAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
+import { calculateAge, clampYouthAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
 import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
 import { sendPushNotification } from "./push.service";
 import { getActiveSubscriptionPlanByTier, isSubscriptionPlanFree } from "./billing.service";
@@ -239,10 +239,10 @@ export async function submitOnboarding(input: {
 }) {
   const now = new Date();
   const parsedBirthDate = input.birthDate ? parseISODate(input.birthDate) : null;
-  const derivedAge = parsedBirthDate ? calculateAge(parsedBirthDate, now) : null;
-  const resolvedAge = derivedAge ?? input.age ?? null;
-  if (!resolvedAge || resolvedAge < 5) {
-    throw new Error("Birth date must result in an age of 5 or older.");
+  const derivedAge = parsedBirthDate ? clampYouthAge(calculateAge(parsedBirthDate, now), "youth") : null;
+  const resolvedAge = clampYouthAge(derivedAge ?? input.age ?? null, "youth");
+  if (!resolvedAge) {
+    throw new Error("Birth date is required.");
   }
   const birthDateValue = input.birthDate ?? null;
   const desiredTier =
@@ -453,7 +453,7 @@ function decorateAthlete(athlete: typeof athleteTable.$inferSelect | null) {
   const now = new Date();
   return {
     ...athlete,
-    age: calculateAge(birthDate, now),
+    age: clampYouthAge(calculateAge(birthDate, now), athlete.athleteType) ?? athlete.age,
     isBirthday: isBirthday(birthDate, now),
   };
 }

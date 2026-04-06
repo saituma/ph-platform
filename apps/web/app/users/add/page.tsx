@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Camera, Loader2, User } from "lucide-react";
+import { ArrowLeft, Camera, Loader2, RefreshCw, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdminShell } from "../../../components/admin/shell";
@@ -41,6 +41,15 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function generateAdminProvisionPassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+  let out = "";
+  for (let i = 0; i < 20; i += 1) {
+    out += chars[Math.floor(Math.random() * chars.length)] ?? "A";
+  }
+  return out;
+}
+
 export default function AddUserPage() {
   const searchParams = useSearchParams();
   const { data: configData, isLoading: configLoading } = useGetOnboardingConfigQuery();
@@ -69,6 +78,14 @@ export default function AddUserPage() {
   const [planPaymentType, setPlanPaymentType] = useState<"monthly" | "upfront">("monthly");
   const [planCommitmentMonths, setPlanCommitmentMonths] = useState<6 | 12>(6);
   const [isUploadingAthletePhoto, setIsUploadingAthletePhoto] = useState(false);
+  const [passwordMode, setPasswordMode] = useState<"generated" | "manual">("generated");
+  const [generatedPassword, setGeneratedPassword] = useState<string>(() => generateAdminProvisionPassword());
+  const [manualPassword, setManualPassword] = useState("");
+  const [lastProvisionSummary, setLastProvisionSummary] = useState<{
+    accountType: "youth" | "adult";
+    email: string;
+    emailSent: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const prefTeam = searchParams.get("team");
@@ -113,6 +130,9 @@ export default function AddUserPage() {
     setDesiredProgramType("PHP");
     setPlanPaymentType("monthly");
     setPlanCommitmentMonths(6);
+    setPasswordMode("generated");
+    setGeneratedPassword(generateAdminProvisionPassword());
+    setManualPassword("");
   };
 
   const handleAthletePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,6 +169,12 @@ export default function AddUserPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const selectedPassword =
+      passwordMode === "manual" ? manualPassword.trim() : generatedPassword.trim();
+    if (selectedPassword.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
     const n = Number.parseInt(trainingPerWeek, 10);
     if (!Number.isFinite(n) || n < 0) {
       toast.error("Training days per week must be a valid number.");
@@ -195,6 +221,7 @@ export default function AddUserPage() {
             termsVersion,
             privacyVersion,
             appVersion: "admin-web",
+            initialPassword: selectedPassword,
           }).unwrap()
         : await provisionAdult({
             email: email.trim(),
@@ -212,12 +239,18 @@ export default function AddUserPage() {
             termsVersion,
             privacyVersion,
             appVersion: "admin-web",
+            initialPassword: selectedPassword,
           }).unwrap();
+      setLastProvisionSummary({
+        accountType: formType,
+        email: email.trim(),
+        emailSent: result.emailSent,
+      });
       resetForm();
       if (result.emailSent) {
-        toast.success("User created successfully. Temporary password sent by email.");
+        toast.success("Admin created user successfully. Password email sent.");
       } else {
-        toast.success("User created successfully, but welcome email could not be sent.");
+        toast.success("Admin created user, but password email could not be sent.");
       }
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, formType === "youth" ? "Could not create youth user." : "Could not create adult athlete."));
@@ -243,6 +276,25 @@ export default function AddUserPage() {
         ) : null}
 
         <form onSubmit={onSubmit} className="grid gap-6">
+          {lastProvisionSummary ? (
+            <Card className="border-emerald-500/30 bg-emerald-500/5">
+              <CardHeader>
+                <CardTitle className="text-emerald-700 dark:text-emerald-300">Admin created account</CardTitle>
+                <CardDescription>
+                  {lastProvisionSummary.accountType === "youth" ? "Youth athlete + guardian login created." : "Adult athlete login created."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-1 text-sm">
+                <p>
+                  <span className="font-medium">Email:</span> {lastProvisionSummary.email}
+                </p>
+                <p>
+                  <span className="font-medium">Email sent:</span> {lastProvisionSummary.emailSent ? "Yes" : "No"}
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle>Athlete type</CardTitle>
@@ -599,6 +651,58 @@ export default function AddUserPage() {
               </CardContent>
             </Card>
           ) : null}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Login password</CardTitle>
+              <CardDescription>
+                Choose how to set the first password. This password is sent in the welcome email.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <Tabs value={passwordMode} onValueChange={(value) => setPasswordMode(value as "generated" | "manual")}>
+                <TabsList>
+                  <TabsTrigger value="generated">Generate random password</TabsTrigger>
+                  <TabsTrigger value="manual">Admin sets password</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              {passwordMode === "generated" ? (
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor="generatedPassword">Generated password</Label>
+                    <Input
+                      id="generatedPassword"
+                      value={generatedPassword}
+                      readOnly
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="inline-flex items-center gap-2"
+                    onClick={() => setGeneratedPassword(generateAdminProvisionPassword())}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Regenerate
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="manualPassword">Admin password</Label>
+                  <Input
+                    id="manualPassword"
+                    type="text"
+                    value={manualPassword}
+                    onChange={(ev) => setManualPassword(ev.target.value)}
+                    placeholder="Minimum 8 characters"
+                    minLength={8}
+                    required={passwordMode === "manual"}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Button type="button" variant="ghost" asChild>

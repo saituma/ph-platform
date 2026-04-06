@@ -12,7 +12,7 @@ import {
 import { getTrainingProgressPayload, syncAchievementsForAthlete } from "../services/achievement.service";
 import { completeTrainingSession } from "../services/training-session-log.service";
 import { getAthleteForUser } from "../services/user.service";
-import { calculateAge, normalizeDate } from "../lib/age";
+import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 import {
   createProgramSectionCompletion,
   getCompletedProgramSectionContentIdsForAthlete,
@@ -23,9 +23,9 @@ function resolveAgeFromAthlete(row: any) {
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate);
   if (birthDate) {
-    return calculateAge(birthDate);
+    return clampYouthAge(calculateAge(birthDate), row.athleteType);
   }
-  return row.age ?? null;
+  return clampYouthAge(row.age ?? null, row.athleteType);
 }
 
 const listSchema = z.object({

@@ -10,16 +10,16 @@ import {
   sessionExerciseTable,
   sessionTable,
 } from "../db/schema";
-import { calculateAge, normalizeDate } from "../lib/age";
+import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 import { getAthleteForUser } from "./user.service";
 
 function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
   if (birthDate) {
-    return calculateAge(birthDate);
+    return clampYouthAge(calculateAge(birthDate), row.athleteType);
   }
-  return row.age ?? null;
+  return clampYouthAge(row.age ?? null, row.athleteType);
 }
 
 function matchesAgeRange(item: { minAge?: number | null; maxAge?: number | null }, age: number | null) {

@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { ageExperienceTable, athleteTable, guardianTable } from "../db/schema";
-import { calculateAge, normalizeDate } from "../lib/age";
+import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 
 type AgeExperienceRule = typeof ageExperienceTable.$inferSelect;
 
@@ -10,9 +10,9 @@ function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | un
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
   if (birthDate) {
-    return calculateAge(birthDate);
+    return clampYouthAge(calculateAge(birthDate), row.athleteType);
   }
-  return row.age ?? null;
+  return clampYouthAge(row.age ?? null, row.athleteType);
 }
 
 async function resolveAthleteAge(userId: number) {
