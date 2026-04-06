@@ -2,6 +2,18 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## UI Motion Stack
+
+The mobile app uses this interaction and animation stack:
+
+- [react-native-keyboard-controller](https://github.com/kirillzyusko/react-native-keyboard-controller)
+- [@gorhom/bottom-sheet](https://gorhom.dev/react-native-bottom-sheet/)
+- [react-native-gesture-handler docs](https://docs.swmansion.com/react-native-gesture-handler/)
+- [react-native-reanimated docs](https://docs.swmansion.com/react-native-reanimated/)
+- [Software Mansion products](https://swmansion.com/products)
+- [react-native-reanimated GitHub](https://github.com/software-mansion/react-native-reanimated)
+- [Expo BlurView docs](https://docs.expo.dev/versions/latest/sdk/blur-view/)
+
 ## Get started
 
 1. Install dependencies

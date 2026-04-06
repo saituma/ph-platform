@@ -127,6 +127,11 @@ export const Radius = {
 
 export const Fonts = Platform.select({
   ios: {
+    display: "Chillax-Bold",
+    headline: "Poppins-Black",
+    cta: "Poppins-Black",
+    section: "Outfit-ExtraBold",
+    body: "Outfit-Medium",
     /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
     /** iOS `UIFontDescriptorSystemDesignSerif` */
@@ -137,12 +142,22 @@ export const Fonts = Platform.select({
     mono: 'ui-monospace',
   },
   default: {
+    display: "Chillax-Bold",
+    headline: "Poppins-Black",
+    cta: "Poppins-Black",
+    section: "Outfit-ExtraBold",
+    body: "Outfit-Medium",
     sans: 'normal',
     serif: 'serif',
     rounded: 'normal',
     mono: 'monospace',
   },
   web: {
+    display: "Chillax-Bold, Chillax, sans-serif",
+    headline: "Poppins-Black, Poppins, sans-serif",
+    cta: "Poppins-Black, Poppins, sans-serif",
+    section: "Outfit-ExtraBold, Outfit, sans-serif",
+    body: "Outfit-Medium, Outfit, sans-serif",
     sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
     rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",

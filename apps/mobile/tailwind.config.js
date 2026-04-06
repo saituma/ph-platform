@@ -38,6 +38,13 @@ module.exports = {
         "4xl": ["2.25rem", "2.75rem"],
       },
       fontFamily: {
+        // App typography semantics
+        'display': ['Chillax-Bold'], // big hero / oversized emphasis
+        'headline': ['Poppins-Black'], // primary headlines and high-priority CTAs
+        'cta': ['Poppins-Black'], // button/action emphasis
+        'section': ['Outfit-ExtraBold'], // section headers and cards
+        'body': ['Outfit-Medium'], // default readable body copy
+
         // Britney
         'britney-light': ['Britney-Light'],
         'britney': ['Britney'],
