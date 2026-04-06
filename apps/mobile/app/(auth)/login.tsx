@@ -26,9 +26,11 @@ import {
   setOnboardingCompleted,
   setAthleteUserId,
   setProgramTier,
+  setAppRole,
   setLatestSubscriptionRequest,
 } from "../../store/slices/userSlice";
 import { reduxStateFromOnboardingAthlete, shouldOpenTabsAfterAuth } from "@/lib/onboardingFromApi";
+import { resolveAppRole } from "@/lib/appRole";
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -77,7 +79,13 @@ export default function LoginScreen() {
       }
 
       const me = await apiRequest<{
-        user: { id: number; name: string; email: string; profilePicture?: string | null };
+        user: {
+          id: number;
+          name: string;
+          email: string;
+          role?: string | null;
+          profilePicture?: string | null;
+        };
       }>("/auth/me", {
         token,
       });
@@ -94,13 +102,21 @@ export default function LoginScreen() {
           },
         })
       );
-      const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
+      const onboarding = await apiRequest<{
+        athlete: {
+          onboardingCompleted?: boolean;
+          userId?: number;
+          athleteType?: "youth" | "adult" | null;
+          team?: string | null;
+        } | null;
+      }>(
         "/onboarding",
         { token, suppressStatusCodes: [401], skipCache: true, forceRefresh: true }
       );
       const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
       dispatch(setOnboardingCompleted(next.onboardingCompleted));
       dispatch(setAthleteUserId(next.athleteUserId));
+      dispatch(setAppRole(resolveAppRole({ userRole: me.user.role, athlete: onboarding.athlete })));
       try {
         const status = await apiRequest<{
           currentProgramTier?: string | null;

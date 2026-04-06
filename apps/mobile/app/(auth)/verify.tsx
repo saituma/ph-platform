@@ -8,8 +8,9 @@ import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
 import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { useAppDispatch } from "../../store/hooks";
-import { setCredentials, setOnboardingCompleted, setAthleteUserId } from "../../store/slices/userSlice";
+import { setCredentials, setOnboardingCompleted, setAthleteUserId, setAppRole } from "../../store/slices/userSlice";
 import { reduxStateFromOnboardingAthlete, shouldOpenTabsAfterAuth } from "@/lib/onboardingFromApi";
+import { resolveAppRole } from "@/lib/appRole";
 import { Text, TextInput } from "@/components/ScaledText";
 
 export default function VerifyScreen() {
@@ -103,7 +104,13 @@ export default function VerifyScreen() {
                 }
 
                 const me = await apiRequest<{
-                  user: { id: number; name: string; email: string; profilePicture?: string | null };
+                  user: {
+                    id: number;
+                    name: string;
+                    email: string;
+                    role?: string | null;
+                    profilePicture?: string | null;
+                  };
                 }>("/auth/me", {
                   token,
                 });
@@ -120,13 +127,21 @@ export default function VerifyScreen() {
                     },
                   })
                 );
-                const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
+                const onboarding = await apiRequest<{
+                  athlete: {
+                    onboardingCompleted?: boolean;
+                    userId?: number;
+                    athleteType?: "youth" | "adult" | null;
+                    team?: string | null;
+                  } | null;
+                }>(
                   "/onboarding",
                   { token, suppressStatusCodes: [401], skipCache: true, forceRefresh: true }
                 );
                 const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
                 dispatch(setOnboardingCompleted(next.onboardingCompleted));
                 dispatch(setAthleteUserId(next.athleteUserId));
+                dispatch(setAppRole(resolveAppRole({ userRole: me.user.role, athlete: onboarding.athlete })));
                 router.replace(shouldOpenTabsAfterAuth(onboarding.athlete) ? "/(tabs)" : "/(tabs)/onboarding");
                 return;
               }
