@@ -20,7 +20,8 @@
     "seed:demo": "PH_API_SCRIPT=1 ts-node src/scripts/seed-demo-content.ts",
     "admin:set-password": "ts-node src/scripts/set-admin-password.ts",
     "subscription:expiry-sweep": "PH_API_SCRIPT=1 ts-node src/scripts/check-subscription-expiry.ts",
-    "load:palette": "tsx src/scripts/load-command-palette.ts"
+    "load:palette": "tsx src/scripts/load-command-palette.ts",
+    "athletes:clamp-youth-ages": "PH_API_SCRIPT=1 tsx src/scripts/clamp-youth-ages.ts"
   },
   "keywords": [],
   "author": "",

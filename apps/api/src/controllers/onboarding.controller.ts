@@ -11,12 +11,12 @@ import {
   setActiveGuardianAthlete,
 } from "../services/onboarding.service";
 import { ProgramType } from "../db/schema";
-import { calculateAge, parseISODate } from "../lib/age";
+import { calculateAge, clampYouthAge, parseISODate } from "../lib/age";
 
 const onboardingSchema = z.object({
   athleteName: z.string().min(1),
   birthDate: z.string().optional(),
-  age: z.number().int().min(5).optional(),
+  age: z.number().int().min(0).optional(),
   team: z.string().min(1),
   trainingPerWeek: z.number().int().min(0),
   injuries: z.unknown().optional(),
@@ -54,9 +54,9 @@ export async function submitOnboarding(req: Request, res: Response) {
     return res.status(400).json({ error: "Birth date must be in YYYY-MM-DD format." });
   }
   if (parsedBirthDate) {
-    const age = calculateAge(parsedBirthDate);
-    if (age < 5) {
-      return res.status(400).json({ error: "Birth date must result in an age of 5 or older." });
+    const age = clampYouthAge(calculateAge(parsedBirthDate), "youth");
+    if (!age) {
+      return res.status(400).json({ error: "Birth date is invalid." });
     }
   }
   const result = await submitOnboardingService({

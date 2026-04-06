@@ -2097,6 +2097,12 @@ function generateProvisionPassword() {
   return out;
 }
 
+function resolveProvisionPassword(input?: string | null) {
+  const candidate = input?.trim() ?? "";
+  if (!candidate) return generateProvisionPassword();
+  return candidate;
+}
+
 function hashLocalProvisionPassword(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(password, salt, 64).toString("hex");
@@ -2146,6 +2152,7 @@ export type CreateGuardianWithOnboardingAdminInput = {
   termsVersion: string;
   privacyVersion: string;
   appVersion: string;
+  initialPassword?: string;
   extraResponses?: Record<string, unknown>;
 };
 
@@ -2166,6 +2173,7 @@ export type CreateAdultAthleteAdminInput = {
   termsVersion: string;
   privacyVersion: string;
   appVersion: string;
+  initialPassword?: string;
   extraResponses?: Record<string, unknown>;
 };
 
@@ -2179,7 +2187,7 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
     throw { status: 409, message: "An account with this email already exists." };
   }
 
-  const tempPassword = generateProvisionPassword();
+  const tempPassword = resolveProvisionPassword(input.initialPassword);
   let userId: number | null = null;
   const createdEmail = email;
   let cognitoProvisioned = false;
@@ -2346,7 +2354,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
   const resolvedTeam = input.team?.trim() || "Adult";
   const planExpiresAt = computePlanExpiryFromCommitment(input.planCommitmentMonths);
 
-  const tempPassword = generateProvisionPassword();
+  const tempPassword = resolveProvisionPassword(input.initialPassword);
   let userId: number | null = null;
   const createdEmail = email;
   let cognitoProvisioned = false;

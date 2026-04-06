@@ -9,7 +9,7 @@ type ColorSchemeName = "light" | "dark" | "system";
 
 type AppTheme = {
   colorScheme: ColorSchemeName;
-  colors: typeof Colors.light;
+  colors: (typeof Colors)[keyof typeof Colors];
   toggleColorScheme: () => void;
   isSwitching: boolean;
   isDark: boolean;

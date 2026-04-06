@@ -31,7 +31,9 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -61,7 +63,17 @@
         }
       ],
       "expo-audio",
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo-google-fonts/nunito/Nunito_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_700Bold.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_800ExtraBold.ttf",
+            "node_modules/@expo-google-fonts/nunito/Nunito_900Black.ttf"
+          ]
+        }
+      ],
       [
         "expo-image",
         {}
@@ -69,7 +81,14 @@
       "expo-secure-store",
       "expo-video",
       "expo-web-browser",
-      "react-native-keyboard-controller"
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow this app to track your location during runs.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

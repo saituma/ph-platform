@@ -30,6 +30,17 @@ export function calculateAge(birthDate: Date, asOf = new Date()): number {
   return age;
 }
 
+export const MIN_YOUTH_AGE = 7;
+
+export function clampYouthAge(age: number | null | undefined, athleteType?: string | null): number | null {
+  if (age === null || age === undefined || !Number.isFinite(age)) return null;
+  const numericAge = Math.trunc(age);
+  if ((athleteType ?? "youth") !== "youth") {
+    return numericAge;
+  }
+  return Math.max(MIN_YOUTH_AGE, numericAge);
+}
+
 export function isBirthday(birthDate: Date, asOf = new Date()): boolean {
   return birthDate.getUTCMonth() === asOf.getUTCMonth() && birthDate.getUTCDate() === asOf.getUTCDate();
 }

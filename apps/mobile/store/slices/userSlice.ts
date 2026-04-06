@@ -19,6 +19,13 @@ export type ManagedAthlete = {
   profilePicture?: string | null;
 };
 
+const MIN_YOUTH_DISPLAY_AGE = 7;
+
+function normalizeManagedAthleteAge(age?: number | null) {
+  if (age == null || !Number.isFinite(age)) return null;
+  return Math.max(MIN_YOUTH_DISPLAY_AGE, Math.trunc(age));
+}
+
 interface UserState {
   isAuthenticated: boolean;
   token: string | null;
@@ -85,7 +92,10 @@ const userSlice = createSlice({
       state.athleteUserId = action.payload;
     },
     setManagedAthletes: (state, action: PayloadAction<ManagedAthlete[]>) => {
-      state.managedAthletes = action.payload;
+      state.managedAthletes = action.payload.map((athlete) => ({
+        ...athlete,
+        age: normalizeManagedAthleteAge(athlete.age),
+      }));
     },
     setProgramTier: (state, action: PayloadAction<string | null>) => {
       state.programTier = action.payload;

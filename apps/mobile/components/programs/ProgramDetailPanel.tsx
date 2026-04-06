@@ -819,19 +819,11 @@ export function ProgramDetailPanel({
           <AgeBasedTrainingPanel
             workspace={trainingContentV2}
             activeTab={activeTab}
-            onFinishSession={(sessionId) => {
-              void (async () => {
-                if (!token) return;
-                try {
-                  await apiRequest(`/training-content-v2/mobile/sessions/${sessionId}/finish`, {
-                    method: "POST",
-                    token,
-                  });
-                  await loadTrainingContentV2({ force: true });
-                } catch {
-                  Alert.alert("Session", "Could not mark session finished.");
-                }
-              })();
+            onOpenModule={(moduleId) => {
+              if (!onNavigate) return;
+              onNavigate(
+                `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(programId)}`,
+              );
             }}
           />
           {activeTab === "Modules" && isTeamPlanBoundaryReached ? renderTeamPlanLockedCard() : null}

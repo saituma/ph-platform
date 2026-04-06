@@ -10,7 +10,7 @@ import {
   ProgramType,
   storyTable,
 } from "../db/schema";
-import { calculateAge, normalizeDate } from "../lib/age";
+import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 
 const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
   PHP: 1,
@@ -155,9 +155,9 @@ function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | un
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
   if (birthDate) {
-    return calculateAge(birthDate);
+    return clampYouthAge(calculateAge(birthDate), row.athleteType);
   }
-  return row.age ?? null;
+  return clampYouthAge(row.age ?? null, row.athleteType);
 }
 
 async function resolveAthleteAge(userId: number) {

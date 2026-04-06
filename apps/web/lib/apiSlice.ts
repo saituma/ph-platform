@@ -450,6 +450,7 @@ export const apiSlice = createApi({
         termsVersion: string;
         privacyVersion: string;
         appVersion: string;
+        initialPassword?: string;
         extraResponses?: Record<string, unknown>;
       }
     >({
@@ -485,6 +486,7 @@ export const apiSlice = createApi({
         termsVersion: string;
         privacyVersion: string;
         appVersion: string;
+        initialPassword?: string;
         extraResponses?: Record<string, unknown>;
       }
     >({
