@@ -31,13 +31,19 @@ describe("video controller", () => {
 
   it("creates presigned upload url", async () => {
     (getPresignedUploadUrl as jest.Mock).mockResolvedValue("https://s3.test/upload");
-    const req = { body: { key: "videos/1.mp4", contentType: "video/mp4", sizeBytes: 1024 } } as any;
+    const req = {
+      user: { id: 1 },
+      body: { folder: "training-videos", fileName: "1.mp4", contentType: "video/mp4", sizeBytes: 1024 },
+    } as any;
     const res = createRes();
 
     await createUploadUrl(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ url: "https://s3.test/upload" });
+    expect(res.json).toHaveBeenCalledWith({
+      url: "https://s3.test/upload",
+      key: expect.stringContaining("training-videos/1/"),
+    });
   });
 
   it("returns 400 when athlete missing", async () => {
