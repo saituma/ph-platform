@@ -19,6 +19,8 @@ import { StripeProvider } from "@stripe/stripe-react-native";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { Compose } from "@/lib/compose";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
 const GestureRoot = ({ children }: PropsWithChildren) => (
   <GestureHandlerRootView style={{ flex: 1 }}>{children}</GestureHandlerRootView>
@@ -29,11 +31,16 @@ const StripeWrapper = ({ children }: PropsWithChildren) => {
   return <StripeProvider publishableKey={publishableKey}>{children}</StripeProvider>;
 };
 
+const QueryWrapper = ({ children }: PropsWithChildren) => (
+  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+);
+
 export default function RootLayout() {
   return (
     <Compose
       providers={[
         GestureRoot,
+        QueryWrapper,
         KeyboardProvider,
         BottomSheetModalProvider,
         ReduxProvider,
