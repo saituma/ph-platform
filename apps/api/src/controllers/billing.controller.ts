@@ -256,7 +256,10 @@ export async function createPlanAdmin(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
   }
   const stripePriceId = parsed.data.stripePriceId?.trim() || "manual";
-  const plan = await createSubscriptionPlan({ ...parsed.data, stripePriceId });
+  const plan = await createSubscriptionPlan({
+    ...parsed.data,
+    stripePriceId,
+  });
   return res.status(201).json({ plan });
 }
 
