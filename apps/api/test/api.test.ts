@@ -151,34 +151,72 @@ jest.mock("../src/services/billing.service", () => ({
   updateRequestFromStripeSession: jest.fn(async () => ({})),
 }));
 
-jest.mock("../src/services/admin.service", () => ({
+jest.mock("../src/services/admin/user.service", () => ({
   listUsers: jest.fn(async () => []),
   getUserOnboarding: jest.fn(async () => ({ guardian: { id: 1 }, athlete: { id: 1 } })),
   updateAthleteProgramTier: jest.fn(async () => ({ id: 1 })),
+  setUserBlocked: jest.fn(async () => ({ id: 1 })),
+  softDeleteUser: jest.fn(async () => ({ id: 1 })),
+  createGuardianWithOnboardingAdmin: jest.fn(async () => ({ userId: 1, athleteId: 1, emailSent: true })),
+  createAdultAthleteAdmin: jest.fn(async () => ({ userId: 1, athleteId: 1, emailSent: true })),
+}));
+
+jest.mock("../src/services/admin/program.service", () => ({
   assignEnrollment: jest.fn(async () => ({ id: 1 })),
   createProgramTemplate: jest.fn(async () => ({ id: 1 })),
   createExercise: jest.fn(async () => ({ id: 1 })),
   createSession: jest.fn(async () => ({ id: 1 })),
   addExerciseToSession: jest.fn(async () => ({ id: 1 })),
   deleteSessionExercise: jest.fn(async () => ({ id: 1 })),
+  listExercises: jest.fn(async () => []),
+  updateExercise: jest.fn(async () => ({ id: 1 })),
+  deleteExercise: jest.fn(async () => ({ id: 1 })),
+  listProgramTemplates: jest.fn(async () => []),
+  updateProgramTemplate: jest.fn(async () => ({ id: 1 })),
+}));
+
+jest.mock("../src/services/admin/booking.service", () => ({
   listBookingsAdmin: jest.fn(async () => []),
+  getBookingByIdAdmin: jest.fn(async () => ({ id: 1 })),
+  updateBookingStatusAdmin: jest.fn(async () => ({ id: 1 })),
+  listAvailabilityAdmin: jest.fn(async () => []),
+}));
+
+jest.mock("../src/services/admin/message.service", () => ({
   listMessageThreadsAdmin: jest.fn(async () => []),
   listThreadMessagesAdmin: jest.fn(async () => []),
   markThreadReadAdmin: jest.fn(async () => 0),
   sendMessageAdmin: jest.fn(async () => ({ id: 1 })),
+  deleteThreadMessagesAdmin: jest.fn(async () => 0),
+}));
+
+jest.mock("../src/services/admin/settings.service", () => ({
   getAdminProfile: jest.fn(async () => ({ user: { id: 1 }, settings: {} })),
   updateAdminProfile: jest.fn(async () => ({ user: { id: 1 }, settings: {} })),
   updateAdminPreferences: jest.fn(async () => ({ user: { id: 1 }, settings: {} })),
   getDashboardMetrics: jest.fn(async () => ({})),
+  updateAdminMessagingAccess: jest.fn(async () => []),
+}));
+
+jest.mock("../src/services/admin/onboarding-config.service", () => ({
   getOnboardingConfig: jest.fn(async () => ({ id: 1 })),
   updateOnboardingConfig: jest.fn(async () => ({ id: 1 })),
+  getPhpPlusProgramTabsAdmin: jest.fn(async () => []),
+  setPhpPlusProgramTabsAdmin: jest.fn(async () => ({})),
+  clearPhpPlusProgramTabsAdmin: jest.fn(async () => ({})),
+}));
+
+jest.mock("../src/services/admin/video.service", () => ({
   listVideoUploadsAdmin: jest.fn(async () => []),
-  setUserBlocked: jest.fn(async () => ({ id: 1 })),
-  softDeleteUser: jest.fn(async () => ({ id: 1 })),
-  listAvailabilityAdmin: jest.fn(async () => []),
-  listExercises: jest.fn(async () => []),
-  updateExercise: jest.fn(async () => ({ id: 1 })),
-  deleteExercise: jest.fn(async () => ({ id: 1 })),
+}));
+
+jest.mock("../src/services/admin/team.service", () => ({
+  listTeamsAdmin: jest.fn(async () => []),
+  getTeamDetailsAdmin: jest.fn(async () => ({})),
+  getTeamMemberAdmin: jest.fn(async () => ({})),
+  updateTeamDefaultsAdmin: jest.fn(async () => ({})),
+  updateTeamMemberAdmin: jest.fn(async () => ({})),
+  attachAthleteToTeamAdmin: jest.fn(async () => ({})),
 }));
 
 describe("API routes", () => {

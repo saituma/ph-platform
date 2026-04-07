@@ -12,9 +12,12 @@ const returning = jest.fn(async () => [{ id: 1, status: "pending_approval" }]);
 const where = jest.fn(() => ({ returning }));
 const set = jest.fn(() => ({ where }));
 const update = jest.fn(() => ({ set }));
+const limit = jest.fn(async () => []);
+const from = jest.fn(() => ({ where: jest.fn(() => ({ limit })) }));
+const select = jest.fn(() => ({ from }));
 
 jest.mock("../../src/db", () => ({
-  db: { update },
+  db: { update, select },
 }));
 
 describe("billing service", () => {

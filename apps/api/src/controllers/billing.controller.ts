@@ -23,7 +23,7 @@ import {
   updateSubscriptionPlan,
   updateRequestFromStripeSession,
 } from "../services/billing.service";
-import { updateAthleteProgramTier } from "../services/admin.service";
+import { updateAthleteProgramTier } from "../services/admin/user.service";
 
 const checkoutSchema = z.object({
   planId: z.number().int().min(1),

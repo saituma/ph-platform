@@ -55,12 +55,12 @@ describe("video controller", () => {
   it("lists videos for athlete", async () => {
     (getAthleteForUser as jest.Mock).mockResolvedValue({ id: 8 });
     (listVideoUploadsByAthlete as jest.Mock).mockResolvedValue([{ id: 1 }]);
-    const req = { user: { id: 1 } } as any;
+    const req = { user: { id: 1 }, query: {} } as any;
     const res = createRes();
 
     await listVideos(req, res);
 
-    expect(listVideoUploadsByAthlete).toHaveBeenCalledWith(8);
+    expect(listVideoUploadsByAthlete).toHaveBeenCalledWith(8, { programSectionContentId: null });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ items: [{ id: 1 }] });
   });

@@ -85,40 +85,6 @@ const normalizePhpPlusTabs = (input: unknown) => {
   return normalized;
 };
 
-async function ensureOnboardingConfigTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS "onboarding_configs" (
-      "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-      "version" integer DEFAULT 1 NOT NULL,
-      "fields" jsonb NOT NULL,
-      "requiredDocuments" jsonb NOT NULL,
-      "welcomeMessage" varchar(500),
-      "coachMessage" varchar(500),
-      "defaultProgramTier" program_type NOT NULL DEFAULT 'PHP',
-      "approvalWorkflow" varchar(50) NOT NULL DEFAULT 'manual',
-      "notes" varchar(1000),
-      "phpPlusProgramTabs" jsonb,
-      "createdBy" integer REFERENCES "users"("id"),
-      "updatedBy" integer REFERENCES "users"("id"),
-      "createdAt" timestamp DEFAULT now() NOT NULL,
-      "updatedAt" timestamp DEFAULT now() NOT NULL,
-      "termsVersion" varchar(50) DEFAULT '1.0' NOT NULL,
-      "privacyVersion" varchar(50) DEFAULT '1.0' NOT NULL
-    )
-  `);
-  await db.execute(sql`
-    ALTER TABLE "onboarding_configs" ADD COLUMN IF NOT EXISTS "phpPlusProgramTabs" jsonb,
-    ADD COLUMN IF NOT EXISTS "termsVersion" varchar(50) DEFAULT '1.0' NOT NULL,
-    ADD COLUMN IF NOT EXISTS "privacyVersion" varchar(50) DEFAULT '1.0' NOT NULL
-  `);
-  await db.execute(sql`
-    ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "extraResponses" jsonb
-  `);
-  await db.execute(sql`
-    ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "birthDate" date
-  `);
-}
-
 export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;
@@ -168,19 +134,6 @@ export async function getOnboardingByUser(userId: number) {
 }
 
 export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$inferSelect) {
-  await db.execute(sql`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM pg_type t
-        JOIN pg_enum e ON t.oid = e.enumtypid
-        WHERE t.typname = 'role' AND e.enumlabel = 'athlete'
-      ) THEN
-        ALTER TYPE "role" ADD VALUE 'athlete';
-      END IF;
-    END $$;
-  `);
   const existing = await db.select().from(userTable).where(eq(userTable.id, athlete.userId)).limit(1);
   if (existing[0]?.role === "athlete") return athlete;
 
@@ -540,19 +493,15 @@ function normalizeConfigFields(fields: any[] | null | undefined) {
 }
 
 export async function getPublicOnboardingConfig() {
-  try {
-    const configs = await db.select().from(onboardingConfigTable).limit(1);
-    if (configs[0]) {
-      const config = configs[0];
-      const normalizedTabs = normalizePhpPlusTabs(config.phpPlusProgramTabs);
-      return {
-        ...config,
-        fields: normalizeConfigFields(config.fields as any),
-        phpPlusProgramTabs: normalizedTabs ?? defaultPublicConfig.phpPlusProgramTabs,
-      };
-    }
-  } catch {
-    await ensureOnboardingConfigTable();
+  const configs = await db.select().from(onboardingConfigTable).limit(1);
+  if (configs[0]) {
+    const config = configs[0];
+    const normalizedTabs = normalizePhpPlusTabs(config.phpPlusProgramTabs);
+    return {
+      ...config,
+      fields: normalizeConfigFields(config.fields as any),
+      phpPlusProgramTabs: normalizedTabs ?? defaultPublicConfig.phpPlusProgramTabs,
+    };
   }
 
   const created = await db

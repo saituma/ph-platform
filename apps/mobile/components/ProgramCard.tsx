@@ -34,6 +34,89 @@ interface ProgramCardProps {
   index?: number;
 }
 
+const TierBadge = ({ text, opacity = "15" }: { text: string; opacity?: string }) => (
+  <View className={`px-3 py-1 rounded-full bg-[#F2F6F2]/${opacity}`}>
+    <Text
+      className="text-[10px] font-bold uppercase tracking-[1.6px]"
+      style={{ color: "#F2F6F2" }}
+    >
+      {text}
+    </Text>
+  </View>
+);
+
+const PriceSection = ({ tier }: { tier: ProgramTier }) => {
+  if (tier.priceEntries && tier.priceEntries.length > 0) {
+    return (
+      <View className="mb-4">
+        {tier.priceEntries.map((entry) => (
+          <View key={`${entry.label}-${entry.original}`} className="mb-2">
+            <Text className="text-[10px] font-outfit text-[#1D2A22] dark:text-[#D8E6D8] uppercase tracking-[1px]">
+              {entry.label}
+            </Text>
+            {entry.discounted ? (
+              <View className="mt-1">
+                {entry.discountLabel && (
+                  <Text className="text-[10px] font-outfit text-red-500 mb-1">
+                    {entry.discountLabel}
+                  </Text>
+                )}
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-xs font-outfit text-red-500 line-through">
+                    {entry.original}
+                  </Text>
+                  <Text className="text-sm font-outfit font-semibold text-[#2F8F57]">
+                    {entry.discounted}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Text className="text-sm font-outfit text-[#0E1510] dark:text-[#F2F6F2]">
+                {entry.original}
+              </Text>
+            )}
+          </View>
+        ))}
+        {tier.discountNote && (
+          <Text className="text-xs font-outfit text-[#1D2A22] dark:text-[#D8E6D8] mt-1">
+            {tier.discountNote}
+          </Text>
+        )}
+      </View>
+    );
+  }
+
+  if (tier.priceLines && tier.priceLines.length > 0) {
+    return (
+      <View className="mb-4">
+        {tier.priceLines.map((line, i) => (
+          <Text key={i} className="text-sm font-outfit text-[#0E1510] dark:text-[#F2F6F2]">
+            {line}
+          </Text>
+        ))}
+        {tier.discountNote && (
+          <Text className="text-xs font-outfit text-[#1D2A22] dark:text-[#D8E6D8] mt-1">
+            {tier.discountNote}
+          </Text>
+        )}
+      </View>
+    );
+  }
+
+  return null;
+};
+
+const FeatureItem = ({ feature }: { feature: string }) => (
+  <View className="flex-row items-center">
+    <View className="h-5 w-5 bg-[#2F8F57]/15 rounded-full items-center justify-center mr-3">
+      <Feather name="check" size={12} color="#2F8F57" />
+    </View>
+    <Text className="flex-1 text-[#0E1510] dark:text-[#F2F6F2] font-outfit text-base">
+      {feature}
+    </Text>
+  </View>
+);
+
 export function ProgramCard({
   tier,
   onPress,
@@ -42,7 +125,6 @@ export function ProgramCard({
   onPrimaryPress,
   onSecondaryPress,
   helperNote,
-  index = 0,
 }: ProgramCardProps) {
   const primaryText = primaryLabel ?? (tier.id === "premium" ? "Apply Now" : "Select Plan");
   const secondaryText = secondaryLabel ?? "View Details";
@@ -58,42 +140,13 @@ export function ProgramCard({
         activeOpacity={0.9}
         className="rounded-[28px] overflow-hidden bg-[#F4F8F4] dark:bg-[#0F1A12]"
       >
-        <View
-          className={`${tier.color} p-5 rounded-b-[24px]`}
-        >
+        <View className={`${tier.color} p-5 rounded-b-[24px]`}>
           <View className="flex-row items-center justify-between">
             <View className="flex-1 mr-4 min-w-0">
               <View className="flex-row flex-wrap items-center gap-2 mb-2 max-w-full">
-                {tier.highlight && (
-                  <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/20">
-                    <Text
-                      className="text-[10px] font-bold uppercase tracking-[1.6px]"
-                      style={{ color: "#F2F6F2" }}
-                    >
-                      {tier.highlight}
-                    </Text>
-                  </View>
-                )}
-                {tier.price && (
-                  <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/15">
-                    <Text
-                      className="text-[10px] font-bold uppercase tracking-[1.6px]"
-                      style={{ color: "#F2F6F2" }}
-                    >
-                      {tier.price}
-                    </Text>
-                  </View>
-                )}
-                {tier.priceBadge && (
-                  <View className="px-3 py-1 rounded-full bg-[#F2F6F2]/15">
-                    <Text
-                      className="text-[10px] font-bold uppercase tracking-[1.6px]"
-                      style={{ color: "#F2F6F2" }}
-                    >
-                      {tier.priceBadge}
-                    </Text>
-                  </View>
-                )}
+                {tier.highlight && <TierBadge text={tier.highlight} opacity="20" />}
+                {tier.price && <TierBadge text={tier.price} />}
+                {tier.priceBadge && <TierBadge text={tier.priceBadge} />}
               </View>
               <Text
                 className="text-2xl leading-snug font-telma-bold font-bold mb-1"
@@ -119,74 +172,19 @@ export function ProgramCard({
         </View>
 
         <View className="p-6">
-          {tier.priceEntries && tier.priceEntries.length > 0 ? (
-            <View className="mb-4">
-              {tier.priceEntries.map((entry) => (
-                <View key={`${entry.label}-${entry.original}`} className="mb-2">
-                  <Text className="text-[10px] font-outfit text-[#1D2A22] dark:text-[#D8E6D8] uppercase tracking-[1px]">
-                    {entry.label}
-                  </Text>
-                  {entry.discounted ? (
-                    <View className="mt-1">
-                      {entry.discountLabel ? (
-                        <Text className="text-[10px] font-outfit text-red-500 mb-1">
-                          {entry.discountLabel}
-                        </Text>
-                      ) : null}
-                      <View className="flex-row items-center gap-2">
-                        <Text className="text-xs font-outfit text-red-500 line-through">
-                          {entry.original}
-                        </Text>
-                        <Text className="text-sm font-outfit font-semibold text-[#2F8F57]">
-                          {entry.discounted}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : (
-                    <Text className="text-sm font-outfit text-[#0E1510] dark:text-[#F2F6F2]">
-                      {entry.original}
-                    </Text>
-                  )}
-                </View>
-              ))}
-              {tier.discountNote ? (
-                <Text className="text-xs font-outfit text-[#1D2A22] dark:text-[#D8E6D8] mt-1">
-                  {tier.discountNote}
-                </Text>
-              ) : null}
-            </View>
-          ) : tier.priceLines && tier.priceLines.length > 0 ? (
-            <View className="mb-4">
-              {tier.priceLines.map((line, i) => (
-                <Text key={i} className="text-sm font-outfit text-[#0E1510] dark:text-[#F2F6F2]">
-                  {line}
-                </Text>
-              ))}
-              {tier.discountNote ? (
-                <Text className="text-xs font-outfit text-[#1D2A22] dark:text-[#D8E6D8] mt-1">
-                  {tier.discountNote}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
+          <PriceSection tier={tier} />
+          
           <View className="gap-3 mb-6">
             {tier.features.map((feature, i) => (
-              <View key={i} className="flex-row items-center">
-                <View className="h-5 w-5 bg-[#2F8F57]/15 rounded-full items-center justify-center mr-3">
-                  <Feather name="check" size={12} color="#2F8F57" />
-                </View>
-                <Text className="flex-1 text-[#0E1510] dark:text-[#F2F6F2] font-outfit text-base">
-                  {feature}
-                </Text>
-              </View>
+              <FeatureItem key={i} feature={feature} />
             ))}
           </View>
 
-          {helperNote ? (
+          {helperNote && (
             <Text className="text-xs font-outfit text-[#1D2A22] dark:text-[#D8E6D8] mb-4">
               {helperNote}
             </Text>
-          ) : null}
+          )}
 
           <View className="flex-row gap-3">
             <TouchableOpacity
