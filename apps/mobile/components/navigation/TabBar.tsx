@@ -1,9 +1,10 @@
-import { BlurView } from "expo-blur";
+import { LiquidGlass } from "@/components/ui/LiquidGlass";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { AnimatedText } from "@/components/ScaledText";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Extrapolate,
   interpolate,
@@ -12,6 +13,7 @@ import Animated, {
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Shadows } from "@/constants/theme";
 
 export interface TabConfig {
   key: string;
@@ -290,52 +292,58 @@ export function TabBar({
     .map((tab, index) => ({ tab, index }))
     .filter(({ tab }) => !tab.hidden);
 
+  const glassTintColor = isDark ? "rgba(12, 12, 14, 0.55)" : "rgba(255, 255, 255, 0.55)";
+  const borderTopColor = isDark ? "rgba(255, 255, 255, 0.22)" : "rgba(0, 0, 0, 0.10)";
+  const highlightGradientColors: readonly [string, string, string] = isDark
+    ? ["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)", "rgba(255,255,255,0.00)"]
+    : ["rgba(255,255,255,0.26)", "rgba(255,255,255,0.12)", "rgba(255,255,255,0.00)"];
+
   return (
     <View
       pointerEvents="box-none"
       style={{
-        backgroundColor: "transparent",
         width: "100%",
-        paddingBottom: 16 + insets.bottom, // Visual spacing from the bottom edge
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "flex-end",
       }}
     >
       <View
         style={{
-          width: "90%",
-          height: barHeight,
-          borderRadius: 32,
-          overflow: "hidden",
-          // UI polish: premium shadow
-          shadowColor: "#000",
-          shadowOpacity: isDark ? 0.4 : 0.15,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: 8 },
-          elevation: isDark ? 10 : 6,
+          width: "100%",
+          height: barHeight + insets.bottom,
+          ...Shadows.lg,
         }}
       >
-        <BlurView
-          intensity={Platform.OS === "ios" ? 70 : 90}
-          tint={isDark ? "dark" : "light"}
+        <LiquidGlass
+          isInteractive
+          glassStyle="regular"
+          tintColor={glassTintColor}
+          colorScheme={isDark ? "dark" : "light"}
+          blurTint={isDark ? "dark" : "light"}
+          blurIntensity={70}
           style={[
             StyleSheet.absoluteFill,
             {
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
               flexDirection: "row",
-              // UI polish: extremely subtle backgrounds to let blur lead the aesthetic.
-              backgroundColor: isDark
-                ? "rgba(10, 10, 10, 0.4)"
-                : "rgba(255, 255, 255, 0.4)",
-              borderWidth: isDark ? 1 : 0.5,
-              borderColor: isDark
-                ? "rgba(255, 255, 255, 0.1)"
-                : "rgba(0, 0, 0, 0.05)",
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor,
               alignItems: "center",
-              justifyContent: "space-around", // Equal spacing as requested
+              justifyContent: "space-around",
               paddingHorizontal: 12,
+              paddingBottom: insets.bottom,
+              overflow: "hidden",
             }
           ]}
         >
+          <LinearGradient
+            pointerEvents="none"
+            colors={highlightGradientColors}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           {visibleTabs.map(({ tab, index }) => (
             <TabItem
               key={tab.key}
@@ -348,7 +356,7 @@ export function TabBar({
               isDark={isDark}
             />
           ))}
-        </BlurView>
+        </LiquidGlass>
       </View>
     </View>
   );
