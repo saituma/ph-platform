@@ -1,202 +1,49 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { Feather } from "@/components/ui/theme-icons";
-import { Shadows } from "@/constants/theme";
-
-import { apiRequest } from "@/lib/api";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, InteractionManager, Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text, TextInput } from "@/components/ScaledText";
+import { Pressable, SafeAreaView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
-import { Transition } from "@/components/navigation/TransitionStack";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 
-type ScheduleEvent = {
-  id: string;
-  dayId: string;
-  dateKey: string;
-  startsAt: string;
-  title: string;
-  timeStart: string;
-  timeEnd: string;
-  location: string;
-  meetingLink?: string | null;
-  type: "training" | "call" | "recovery";
-  tag: string;
-  athlete: string;
-  coach: string;
-  notes: string;
-  status?: string;
-};
-
-type ServiceType = {
-  id: number;
-  name: string;
-  type: string;
-  durationMinutes: number;
-  capacity?: number | null;
-  attendeeVisibility?: boolean | null;
-  defaultLocation?: string | null;
-  defaultMeetingLink?: string | null;
-  programTier?: string | null;
-  isActive?: boolean | null;
-};
-
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-const EVENT_TITLE_BY_TYPE: Record<string, string> = {
-  call: "Call",
-  group_call: "Group Call",
-  individual_call: "Individual Call",
-  one_on_one: "Individual Call",
-  lift_lab_1on1: "Lift Lab 1:1",
-  role_model: "Role Model Call",
-};
-
-const formatDateKey = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
-
-const startOfLocalDay = (date: Date) => {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-};
-
-const endOfLocalDay = (date: Date) => {
-  const next = new Date(date);
-  next.setHours(23, 59, 59, 999);
-  return next;
-};
-
-function normalizeBookingCalendarDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
-}
+import { ScheduleHeader } from "@/components/tracking/schedule/ScheduleHeader";
+import { CalendarGrid } from "@/components/tracking/schedule/CalendarGrid";
+import { EventList } from "@/components/tracking/schedule/EventList";
+import { BookingModal } from "@/components/tracking/schedule/BookingModal";
+import { useScheduleData } from "@/components/tracking/schedule/hooks";
+import { ScheduleEvent } from "@/components/tracking/schedule/types";
+import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
 
 export default function ScheduleScreen() {
   const router = useRouter();
-
   const { colors, isDark } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
   const canCreateBookings = hasPaidProgramTier(programTier);
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
+
   const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
-  const hasUserSelectedDate = useRef(false);
-  const hasUserAdjustedBookingDate = useRef(false);
-  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(
-    null,
-  );
-  const [showDetails, setShowDetails] = useState(false);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(() => formatDateKey(new Date()));
+  const [calendarMonth, setCalendarMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [bookingOpen, setBookingOpen] = useState(false);
-  const [services, setServices] = useState<ServiceType[]>([]);
-  const [servicesError, setServicesError] = useState<string | null>(null);
-  const [servicesLoading, setServicesLoading] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
-  const [bookingDate, setBookingDate] = useState<Date>(() => normalizeBookingCalendarDay(new Date()));
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [bookingTime, setBookingTime] = useState<Date>(() => {
-    const next = new Date();
-    next.setHours(9, 0, 0, 0);
-    return next;
-  });
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [confirmedStartsAt, setConfirmedStartsAt] = useState<Date | null>(null);
-  const [bookingLocation, setBookingLocation] = useState("");
-  const [bookingMeetingLink, setBookingMeetingLink] = useState("");
-  const [bookingConfirmed, setBookingConfirmed] = useState(false);
-  const [bookingError, setBookingError] = useState<string | null>(null);
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(false);
-  const [eventsError, setEventsError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const hasUserSelectedService = useRef(false);
-  const [calendarMonth, setCalendarMonth] = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  );
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(
-    () => formatDateKey(new Date()),
-  );
+  const hasUserSelectedDate = useRef(false);
 
-  const notifyBookingConfirmed = useCallback(async (startsAt?: Date | null) => {
-    try {
-      const { getNotifications } = await import("@/lib/notifications");
-      const Notifications = await getNotifications();
-      if (!Notifications) return;
-
-      const dateLabel = startsAt
-        ? startsAt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })
-        : "your selected date";
-      const timeLabel = startsAt
-        ? startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        : "";
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Booking request sent",
-          body: timeLabel
-            ? `Your session on ${dateLabel} at ${timeLabel} is awaiting coach approval.`
-            : `Your session request for ${dateLabel} is awaiting coach approval.`,
-          data: { type: "booking", screen: "schedule" },
-          sound: "default",
-        },
-        trigger: null,
-      });
-    } catch {
-      // notification is best-effort
-    }
-  }, []);
-
-  const resetBookingDraft = useCallback(() => {
-    setBookingConfirmed(false);
-    setBookingError(null);
-    setConfirmedStartsAt(null);
-    const next = new Date();
-    next.setHours(9, 0, 0, 0);
-    setBookingTime(next);
-  }, []);
-
-  const mapBookingsToEvents = useCallback((items: any[]) => {
-    return (items ?? [])
-      .map((item) => {
-        const startsAt = new Date(item.startsAt);
-        const endTime = item.endTime ? new Date(item.endTime) : new Date(startsAt.getTime() + 30 * 60000);
-        const dayIndex = startsAt.getDay();
-        const dayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dayIndex] ?? "mon";
-        const dateKey = formatDateKey(startsAt);
-        return {
-          id: String(item.id),
-          dayId,
-          dateKey,
-          startsAt: startsAt.toISOString(),
-          title: EVENT_TITLE_BY_TYPE[item.type] ?? "Session",
-          timeStart: startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
-          timeEnd: endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
-          location: item.location || "TBD",
-          meetingLink: item.meetingLink ?? null,
-          type: item.type?.includes("call") ? "call" : "training",
-          status: item.status ?? undefined,
-          tag: "Parent",
-          athlete: item.athleteName ?? "Athlete",
-          coach: "Coach",
-          notes: item.notes ?? "",
-        } as ScheduleEvent;
-      })
-      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  }, []);
-
-  const parseDateKey = useCallback((value: string) => {
-    const [year, month, day] = value.split("-").map((part) => Number(part));
-    if (!year || !month || !day) return new Date();
-    return new Date(year, month - 1, day);
-  }, []);
+  const {
+    events,
+    eventsLoading,
+    eventsError,
+    services,
+    servicesLoading,
+    servicesError,
+    refreshEvents,
+    refreshServices,
+  } = useScheduleData(token, isFocused);
 
   const dayEvents = useMemo(() => {
     return events.filter((event) => event.dateKey === selectedCalendarDate);
@@ -211,59 +58,40 @@ export default function ScheduleScreen() {
     return map;
   }, [events]);
 
-  const calendarGrid = useMemo(() => {
-    const year = calendarMonth.getFullYear();
-    const month = calendarMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startOffset = (firstDay.getDay() + 6) % 7; // Monday = 0
-    const cells: { date: Date; key: string; isOutside: boolean }[] = [];
-
-    const prevMonth = new Date(year, month, 0);
-    const prevMonthDays = prevMonth.getDate();
-    for (let i = startOffset - 1; i >= 0; i -= 1) {
-      const day = prevMonthDays - i;
-      const date = new Date(year, month - 1, day);
-      cells.push({ date, key: formatDateKey(date), isOutside: true });
-    }
-
-    for (let day = 1; day <= lastDay.getDate(); day += 1) {
-      const date = new Date(year, month, day);
-      const key = formatDateKey(date);
-      cells.push({ date, key, isOutside: false });
-    }
-
-    const totalCells = Math.ceil(cells.length / 7) * 7;
-    const trailing = totalCells - cells.length;
-    for (let i = 1; i <= trailing; i += 1) {
-      const date = new Date(year, month + 1, i);
-      cells.push({ date, key: formatDateKey(date), isOutside: true });
-    }
-
-    return cells;
-  }, [calendarMonth]);
-
-  const selectedDate = useMemo(() => parseDateKey(selectedCalendarDate), [parseDateKey, selectedCalendarDate]);
-  const activeServices = useMemo(
-    () => services.filter((service) => service.isActive !== false),
-    [services],
-  );
-  const selectedService = useMemo(
-    () => activeServices.find((service) => service.id === selectedServiceId) ?? null,
-    [activeServices, selectedServiceId],
-  );
+  const selectedDate = useMemo(() => parseDateKey(selectedCalendarDate), [selectedCalendarDate]);
   const selectedDateLabel = useMemo(
     () => selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }),
-    [selectedDate],
+    [selectedDate]
   );
-  const monthLabel = `${MONTH_LABELS[calendarMonth.getMonth()]} ${calendarMonth.getFullYear()}`;
+
   const nextEvent = dayEvents[0] ?? null;
-  const overlayColor = isDark ? "rgba(34,197,94,0.16)" : "rgba(15,23,42,0.18)";
-  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.82)";
-  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const errorColor = isDark ? "#FCA5A5" : colors.danger;
+
+  const handleSelectDate = useCallback((dateKey: string) => {
+    hasUserSelectedDate.current = true;
+    setSelectedCalendarDate(dateKey);
+    const nextDate = parseDateKey(dateKey);
+    setCalendarMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+  }, []);
+
+  const handleChangeMonth = useCallback(
+    (offset: number) => {
+      setCalendarMonth((current) => {
+        const nextMonth = new Date(current.getFullYear(), current.getMonth() + offset, 1);
+        const preferredDay = selectedDate.getDate();
+        const maxDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+        const nextSelectedDate = new Date(
+          nextMonth.getFullYear(),
+          nextMonth.getMonth(),
+          Math.min(preferredDay, maxDay)
+        );
+        const nextKey = formatDateKey(nextSelectedDate);
+        hasUserSelectedDate.current = true;
+        setSelectedCalendarDate(nextKey);
+        return nextMonth;
+      });
+    },
+    [selectedDate]
+  );
 
   const getEventTone = useCallback(
     (type: ScheduleEvent["type"]) => {
@@ -290,36 +118,8 @@ export default function ScheduleScreen() {
         iconBg: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.05)",
       };
     },
-    [isDark],
+    [isDark]
   );
-
-
-  const changeCalendarMonth = useCallback(
-    (offset: number) => {
-      setCalendarMonth((current) => {
-        const nextMonth = new Date(current.getFullYear(), current.getMonth() + offset, 1);
-        const preferredDay = selectedDate.getDate();
-        const maxDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
-        const nextSelectedDate = new Date(
-          nextMonth.getFullYear(),
-          nextMonth.getMonth(),
-          Math.min(preferredDay, maxDay),
-        );
-        const nextKey = formatDateKey(nextSelectedDate);
-        hasUserSelectedDate.current = true;
-        setSelectedCalendarDate(nextKey);
-        return nextMonth;
-      });
-    },
-    [selectedDate],
-  );
-
-  const handleSelectCalendarDate = useCallback((dateKey: string) => {
-    hasUserSelectedDate.current = true;
-    setSelectedCalendarDate(dateKey);
-    const nextDate = parseDateKey(dateKey);
-    setCalendarMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
-  }, [parseDateKey]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -333,87 +133,15 @@ export default function ScheduleScreen() {
   }, [isFocused]);
 
   useEffect(() => {
-    if (!bookingOpen || !token) return;
-    let active = true;
-    setServicesLoading(true);
-    setServicesError(null);
-    apiRequest<{ items: ServiceType[] }>("/bookings/services", {
-      token,
-      forceRefresh: true,
-      timeoutMs: 6000,
-    })
-      .then((data) => {
-        if (!active) return;
-        setServices(data.items ?? []);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setServicesError(err.message ?? "Failed to load services");
-      })
-      .finally(() => {
-        if (!active) return;
-        setServicesLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [bookingOpen, token]);
-
-  useEffect(() => {
-    if (!bookingOpen) {
-      hasUserSelectedService.current = false;
-      hasUserAdjustedBookingDate.current = false;
-      return;
+    if (bookingOpen && services.length === 0) {
+      refreshServices();
     }
-    hasUserAdjustedBookingDate.current = false;
-    setBookingDate(normalizeBookingCalendarDay(selectedDate));
-    if (!activeServices.length) {
-      setSelectedServiceId(null);
-      return;
-    }
-    if (hasUserSelectedService.current && selectedServiceId) return;
-    if (!selectedServiceId || !activeServices.some((service) => service.id === selectedServiceId)) {
-      const next = activeServices[0];
-      setSelectedServiceId(next.id);
-      setBookingLocation(next.defaultLocation ?? "");
-      setBookingMeetingLink(next.defaultMeetingLink ?? "");
-    }
-  }, [bookingOpen, activeServices, selectedServiceId, selectedDate]);
+  }, [bookingOpen, services.length, refreshServices]);
 
-  useEffect(() => {
-    if (!token || !isFocused) return;
-    let active = true;
-    const loadEvents = async () => {
-      setEventsLoading(true);
-      setEventsError(null);
-      try {
-        const data = await apiRequest<{ items: any[] }>("/bookings", { token, forceRefresh: true });
-        if (!active) return;
-        setEvents(mapBookingsToEvents(data.items ?? []));
-      } catch (err: any) {
-        if (!active) return;
-        setEventsError(err.message ?? "Failed to load schedule");
-      } finally {
-        if (!active) return;
-        setEventsLoading(false);
-      }
-    };
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (!active) return;
-      loadEvents();
-    });
-    return () => {
-      active = false;
-      task?.cancel?.();
-    };
-  }, [token, mapBookingsToEvents, isFocused]);
-
-  const insets = useSafeAreaInsets();
-
-  // Age gate check — placed after all hooks to avoid rules-of-hooks violation
   if (isSectionHidden("schedule")) {
     return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
   }
+
   if (!hasPaidProgramTier(programTier)) {
     return (
       <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.background }}>
@@ -422,10 +150,7 @@ export default function ScheduleScreen() {
           <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
             Choose a training plan in the Programs tab to book sessions and manage your schedule.
           </Text>
-          <Pressable
-            onPress={() => router.push("/(tabs)/programs")}
-            className="mt-8 rounded-full px-8 py-3 bg-accent"
-          >
+          <Pressable onPress={() => router.push("/(tabs)/programs")} className="mt-8 rounded-full px-8 py-3 bg-accent">
             <Text className="text-sm font-outfit font-semibold text-white">Open Programs</Text>
           </Pressable>
         </View>
@@ -437,888 +162,54 @@ export default function ScheduleScreen() {
     <View className="flex-1" style={{ paddingTop: insets.top }}>
       <ThemedScrollView
         onRefresh={async () => {
-          if (!token) return;
-          setEventsLoading(true);
-          setEventsError(null);
-          try {
-            const bookingsData = await apiRequest<{ items: any[] }>("/bookings", { token, forceRefresh: true });
-            setEvents(mapBookingsToEvents(bookingsData.items ?? []));
-            if (bookingOpen) {
-              const servicesData = await apiRequest<{ items: ServiceType[] }>("/bookings/services", {
-                token,
-                forceRefresh: true,
-              });
-              setServices(servicesData.items ?? []);
-            }
-          } catch (err: any) {
-            setEventsError(err.message ?? "Failed to load schedule");
-          } finally {
-            setEventsLoading(false);
-          }
+          await refreshEvents();
+          if (bookingOpen) await refreshServices();
         }}
         contentContainerStyle={{ paddingBottom: 28 }}
       >
-        <View className="px-6 pt-6 pb-4">
-          <View
-            className="overflow-hidden rounded-[30px] border px-5 py-5"
-            style={{
-              backgroundColor: surfaceColor,
-              borderColor: borderSoft,
-              ...(isDark ? Shadows.none : Shadows.md),
-            }}
-          >
-            <View
-              className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
-              style={{ backgroundColor: accentSurface }}
-            />
-            <View
-              className="absolute -bottom-10 left-10 h-24 w-24 rounded-full"
-              style={{ backgroundColor: mutedSurface }}
-            />
+        <ScheduleHeader
+          selectedDateLabel={selectedDateLabel}
+          dayEventsCount={dayEvents.length}
+          nextEventTime={nextEvent?.timeStart ?? null}
+          onRequestSession={() => setBookingOpen(true)}
+        />
 
-            <View className="flex-row items-start justify-between gap-4">
-              <View className="flex-1">
-                <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
-                    {"Family planner"}
-                  </Text>
-                </View>
-                <Text className="mt-3 text-3xl font-telma-bold text-app">
-                  {"Family Schedule"}
-                </Text>
-                <Text className="text-secondary font-outfit text-sm mt-2">
-                  {selectedDateLabel}
-                </Text>
-              </View>
+        <CalendarGrid
+          calendarMonth={calendarMonth}
+          todayKey={todayKey}
+          selectedCalendarDate={selectedCalendarDate}
+          eventsByDate={eventsByDate}
+          eventsTotalCount={events.length}
+          onSelectDate={handleSelectDate}
+          onChangeMonth={handleChangeMonth}
+          getEventTone={getEventTone}
+        />
 
-              <Pressable
-                className="rounded-[20px] bg-accent px-4 py-3 justify-center"
-                onPress={() => {
-                  resetBookingDraft();
-                  setBookingOpen(true);
-                }}
-                style={isDark ? Shadows.none : Shadows.sm}
-              >
-                <View className="flex-row items-center gap-2">
-                  <Feather name="plus" size={16} color="#FFFFFF" />
-                  <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
-                    Request session
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
-
-            <View className="mt-4 flex-row gap-3">
-              <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: mutedSurface }}>
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
-                  Today
-                </Text>
-                <Text className="mt-2 text-lg font-clash text-app">
-                  {dayEvents.length} planned
-                </Text>
-              </View>
-              <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: mutedSurface }}>
-                <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
-                  Next up
-                </Text>
-                <Text className="mt-2 text-lg font-clash text-app" numberOfLines={1}>
-                  {nextEvent ? nextEvent.timeStart : "Open day"}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View className="px-6 pb-4">
-          <View className="mb-3 flex-row items-center justify-between gap-3">
-            <View className="flex-row items-center gap-3">
-              <View className="h-5 w-1.5 rounded-full bg-accent" />
-              <Text className="text-xl font-clash text-app">Calendar</Text>
-            </View>
-            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
-                {events.length} bookings
-              </Text>
-            </View>
-          </View>
-
-          <View
-            className="rounded-[28px] border px-4 py-4"
-            style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}
-          >
-            <View className="flex-row items-center justify-between">
-              <TouchableOpacity
-                onPress={() => changeCalendarMonth(-1)}
-                activeOpacity={0.8}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                className="h-10 w-10 items-center justify-center rounded-[14px]"
-                style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
-              >
-                <Feather name="chevron-left" size={18} color={colors.accent} />
-              </TouchableOpacity>
-              <View className="items-center gap-1">
-                <Text className="text-lg font-clash text-app">{monthLabel}</Text>
-                <Pressable
-                  onPress={() => handleSelectCalendarDate(todayKey)}
-                  className="rounded-full px-3 py-1"
-                  style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
-                >
-                  <Text className="text-[10px] font-outfit uppercase tracking-[1.2px] text-secondary">
-                    Today
-                  </Text>
-                </Pressable>
-              </View>
-              <TouchableOpacity
-                onPress={() => changeCalendarMonth(1)}
-                activeOpacity={0.8}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                className="h-10 w-10 items-center justify-center rounded-[14px]"
-                style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
-              >
-                <Feather name="chevron-right" size={18} color={colors.accent} />
-              </TouchableOpacity>
-            </View>
-
-            <View className="mt-4 flex-row justify-between px-1">
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
-                <Text
-                  key={label}
-                  className="text-[0.625rem] font-outfit text-secondary uppercase tracking-[1.4px] w-9 text-center"
-                >
-                  {label}
-                </Text>
-              ))}
-            </View>
-
-            <View
-              className="mt-3 overflow-hidden rounded-2xl border"
-              style={{ borderColor: borderSoft }}
-            >
-              <View className="flex-row flex-wrap">
-                {calendarGrid.map((cell, index) => {
-                  const isToday = cell.key === todayKey;
-                  const isSelected = selectedCalendarDate === cell.key;
-                  const hasEvents = eventsByDate.has(cell.key);
-                  const eventsForDay = eventsByDate.get(cell.key) ?? [];
-                  return (
-                    <Pressable
-                      key={`${cell.key}-${index}`}
-                      onPress={() => handleSelectCalendarDate(cell.key)}
-                      className="h-20"
-                      style={{
-                        width: `${100 / 7}%`,
-                        borderRightWidth: 1,
-                        borderBottomWidth: 1,
-                        borderColor: borderSoft,
-                        backgroundColor: isSelected
-                          ? accentSurface
-                          : cell.isOutside
-                            ? mutedSurface
-                            : "transparent",
-                      }}
-                    >
-                      <View className="flex-1 px-2 pt-2">
-                        <View className="flex-row items-center justify-between">
-                          <View
-                            className="h-6 w-6 items-center justify-center rounded-full"
-                            style={{
-                              backgroundColor: isSelected
-                                ? colors.accent
-                                : isToday
-                                  ? accentSurface
-                                  : "transparent",
-                            }}
-                          >
-                            <Text
-                              className={`text-[11px] font-outfit ${
-                                isSelected ? "text-white font-bold" : "text-app"
-                              }`}
-                              style={
-                                !isSelected && isToday
-                                  ? { color: colors.accent, fontWeight: "700" }
-                                  : cell.isOutside
-                                    ? { color: colors.textSecondary, opacity: 0.5 }
-                                    : undefined
-                              }
-                            >
-                              {cell.date.getDate()}
-                            </Text>
-                          </View>
-                          {hasEvents ? (
-                            <View
-                              className="h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: colors.accent }}
-                            />
-                          ) : null}
-                        </View>
-
-                        {eventsForDay.slice(0, 2).map((event) => {
-                          const tone = getEventTone(event.type);
-                          return (
-                            <View
-                              key={`${cell.key}-${event.id}`}
-                              className="mt-1 rounded-full px-2 py-0.5"
-                              style={{
-                                backgroundColor: isSelected ? "rgba(255,255,255,0.22)" : tone.pillBg,
-                              }}
-                            >
-                              <Text
-                                className="text-[10px] font-outfit"
-                                style={{
-                                  color: isSelected ? "#FFFFFF" : colors.text,
-                                }}
-                                numberOfLines={1}
-                              >
-                                {event.timeStart} {event.title}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                        {eventsForDay.length > 2 ? (
-                          <Text
-                            className="mt-1 text-[10px] font-outfit"
-                            style={{ color: colors.textSecondary }}
-                          >
-                            +{eventsForDay.length - 2} more
-                          </Text>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <Text className="mt-3 text-[11px] font-outfit text-secondary">
-              Tap a day to view details below.
-            </Text>
-          </View>
-        </View>
-
-        <View className="px-6 pb-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <View>
-              <Text className="text-lg font-clash text-app">Schedule</Text>
-              <Text className="text-xs font-outfit text-secondary mt-1">
-                {selectedDateLabel}
-              </Text>
-            </View>
-            <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}>
-              <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.4px]">
-                {dayEvents.length} events
-              </Text>
-            </View>
-          </View>
-
-          {eventsLoading ? (
-            <View className="rounded-[28px] p-6" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
-              <View className="h-12 w-12 rounded-[18px] items-center justify-center" style={{ backgroundColor: accentSurface }}>
-                <ActivityIndicator size="small" color={colors.accent} />
-              </View>
-              <Text className="text-base font-clash text-app mt-3">
-                Loading schedule
-              </Text>
-            </View>
-          ) : dayEvents.length === 0 ? (
-            <View className="rounded-[28px] p-6 items-center" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
-              <View className="h-16 w-16 rounded-[22px] items-center justify-center" style={{ backgroundColor: accentSurface }}>
-                <Feather name="calendar" size={24} color={colors.accent} />
-              </View>
-              <Text className="text-base font-clash text-app mt-3">
-                No events scheduled
-              </Text>
-              <Text className="text-sm font-outfit text-secondary mt-2 text-center">
-                Request a call or session — the coach confirms before it&apos;s final.
-              </Text>
-              <Pressable
-                className="mt-4 rounded-full bg-accent px-5 py-2"
-                onPress={() => {
-                  resetBookingDraft();
-                  setBookingOpen(true);
-                }}
-              >
-                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
-                  Request for this day
-                </Text>
-              </Pressable>
-              {eventsError ? (
-                <Text className="text-xs font-outfit text-red-400 mt-2">
-                  {eventsError}
-                </Text>
-              ) : null}
-            </View>
-          ) : (
-            <View className="gap-3">
-              {dayEvents.map((event) => {
-                const tone = getEventTone(event.type);
-                const sharedBoundTag = `schedule-event-${event.id}`;
-                return (
-                  <Transition.Pressable
-                    key={event.id}
-                    sharedBoundTag={sharedBoundTag}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/schedule/event",
-                        params: {
-                          event: JSON.stringify(event),
-                          sharedBoundTag,
-                        },
-                      } as any);
-                    }}
-                    className="rounded-[24px] p-4"
-                    style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}
-                  >
-                    <View className="flex-row items-start gap-3">
-                      <View className="h-12 w-12 rounded-[18px] items-center justify-center" style={{ backgroundColor: tone.iconBg }}>
-                        <Feather name={tone.icon as any} size={18} color={colors.accent} />
-                      </View>
-
-                      <View className="flex-1">
-                        <View className="flex-row items-center justify-between gap-3">
-                          <Text className="text-base font-clash text-app flex-1">
-                            {event.title}
-                          </Text>
-                          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: tone.pillBg }}>
-                            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                              {tone.label}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <Text className="text-sm font-outfit text-secondary mt-1">
-                          {event.timeStart} - {event.timeEnd}
-                        </Text>
-
-                        <View className="mt-3 flex-row flex-wrap gap-2">
-                          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-                            <Text className="text-[11px] font-outfit" style={{ color: colors.text }}>
-                              {event.location}
-                            </Text>
-                          </View>
-                          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-                            <Text className="text-[11px] font-outfit" style={{ color: colors.text }}>
-                              {event.athlete}
-                            </Text>
-                          </View>
-                          {event.status === "pending" ? (
-                            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-                              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
-                                Pending approval
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      </View>
-                    </View>
-                  </Transition.Pressable>
-                );
-              })}
-            </View>
-          )}
-        </View>
+        <EventList
+          dayEvents={dayEvents}
+          eventsLoading={eventsLoading}
+          eventsError={eventsError}
+          selectedDateLabel={selectedDateLabel}
+          onReschedule={(event) => {
+            handleSelectDate(event.dateKey);
+            setBookingOpen(true);
+          }}
+          getEventTone={getEventTone}
+          onRequestForDay={() => setBookingOpen(true)}
+        />
       </ThemedScrollView>
 
-      <Modal
-        visible={!!selectedEvent}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setSelectedEvent(null);
-          setShowDetails(false);
-        }}
-      >
-        <Pressable
-          className="flex-1 justify-end"
-          style={{ backgroundColor: overlayColor }}
-          onPress={() => {
-            setSelectedEvent(null);
-            setShowDetails(false);
-          }}
-        >
-          <Pressable
-            onPress={(event) => event.stopPropagation()}
-            className="rounded-t-[30px] p-6"
-            style={{ backgroundColor: surfaceColor }}
-          >
-            {!showDetails ? (
-              <>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-lg font-clash text-app">
-                    {selectedEvent?.title}
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      setSelectedEvent(null);
-                      setShowDetails(false);
-                    }}
-                  >
-                    <Feather name="x" size={20} className="text-secondary" />
-                  </Pressable>
-                </View>
-                <Text className="text-sm font-outfit text-secondary mt-2">
-                  {selectedEvent?.timeStart} - {selectedEvent?.timeEnd} · {selectedEvent?.location}
-                </Text>
-                {selectedEvent?.meetingLink ? (
-                  <Text className="text-xs font-outfit text-secondary mt-1">
-                    Meeting link available
-                  </Text>
-                ) : null}
-                {selectedEvent?.status === "pending" ? (
-                  <Text className="text-xs font-outfit text-secondary mt-1">
-                    Pending approval
-                  </Text>
-                ) : null}
-
-                <View className="mt-4 rounded-[22px] p-4" style={{ backgroundColor: mutedSurface, ...(isDark ? Shadows.none : Shadows.sm) }}>
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Notes
-                  </Text>
-                  <Text className="text-sm font-outfit text-app mt-2">
-                    {selectedEvent?.notes || "No notes yet."}
-                  </Text>
-                </View>
-
-                <View className="mt-4 flex-row items-center gap-3">
-                  <Pressable
-                    className="flex-1 px-4 py-3 rounded-full bg-accent"
-                    onPress={() => setShowDetails(true)}
-                  >
-                    <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                      View Plan
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    className="flex-1 px-4 py-3 rounded-full"
-                    style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
-                    onPress={() => {
-                      if (selectedEvent) {
-                        const eventDate = new Date(selectedEvent.startsAt);
-                        handleSelectCalendarDate(formatDateKey(eventDate));
-                      }
-                      setSelectedEvent(null);
-                      setShowDetails(false);
-                      resetBookingDraft();
-                      setBookingOpen(true);
-                    }}
-                  >
-                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
-                      Reschedule
-                    </Text>
-                  </Pressable>
-                </View>
-              </>
-            ) : (
-              <>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-lg font-clash text-app">
-                    Booking details
-                  </Text>
-                  <Pressable onPress={() => setShowDetails(false)}>
-                    <Feather name="x" size={20} className="text-secondary" />
-                  </Pressable>
-                </View>
-                <View className="mt-4 rounded-[22px] p-4 gap-2" style={{ backgroundColor: mutedSurface, ...(isDark ? Shadows.none : Shadows.sm) }}>
-                  <Text className="text-sm font-outfit text-app">{selectedEvent?.title}</Text>
-                  <Text className="text-xs font-outfit text-secondary">
-                    {selectedEvent?.timeStart} - {selectedEvent?.timeEnd}
-                  </Text>
-                  <Text className="text-xs font-outfit text-secondary">
-                    Status: {selectedEvent?.status ?? "confirmed"}
-                  </Text>
-                  <Text className="text-xs font-outfit text-secondary">
-                    Location: {selectedEvent?.location ?? "TBD"}
-                  </Text>
-                  {selectedEvent?.meetingLink ? (
-                    <Text className="text-xs font-outfit text-secondary">
-                      Meeting: {selectedEvent.meetingLink}
-                    </Text>
-                  ) : null}
-                  <Text className="text-xs font-outfit text-secondary">
-                    Athlete: {selectedEvent?.athlete ?? "Athlete"}
-                  </Text>
-                </View>
-                <View className="mt-4 flex-row items-center gap-3">
-                  <Pressable
-                    className="flex-1 px-4 py-3 rounded-full"
-                    style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
-                    onPress={() => setShowDetails(false)}
-                  >
-                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
-                      Back
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    className="flex-1 px-4 py-3 rounded-full bg-accent"
-                    onPress={() => {
-                      setSelectedEvent(null);
-                      setShowDetails(false);
-                    }}
-                  >
-                    <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                      Done
-                    </Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
+      <BookingModal
         visible={bookingOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setBookingOpen(false)}
-      >
-        <Pressable
-          className="flex-1 justify-end"
-          style={{ backgroundColor: overlayColor }}
-          onPress={() => setBookingOpen(false)}
-        >
-          <Pressable
-            onPress={(event) => event.stopPropagation()}
-            className="rounded-t-[30px] p-6"
-            style={{ backgroundColor: surfaceColor, maxHeight: "85%" }}
-          >
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 24 }}
-            >
-              <View className="flex-row items-center justify-between">
-                <Text className="text-lg font-clash text-app">
-                  {bookingConfirmed ? "Request sent" : "Request a session"}
-                </Text>
-                <Pressable onPress={() => setBookingOpen(false)}>
-                  <Feather name="x" size={20} className="text-secondary" />
-                </Pressable>
-              </View>
-
-              {!bookingConfirmed && !canCreateBookings ? (
-                <View
-                  className="mt-3 rounded-[22px] border px-4 py-3 gap-2"
-                  style={{ borderColor: borderSoft, backgroundColor: accentSurface }}
-                >
-                  <Text className="text-xs font-outfit text-app leading-5">
-                    Pick a service, date, and time below. Sending a request needs an approved paid plan (PHP, Plus, or Premium).
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      setBookingOpen(false);
-                      router.push("/(tabs)/programs");
-                    }}
-                    className="self-start"
-                  >
-                    <Text className="text-xs font-outfit font-semibold" style={{ color: colors.accent }}>
-                      View programs & plans →
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
-              {bookingConfirmed ? (
-                <>
-                  <Text className="text-sm font-outfit text-secondary mt-2">
-                    {confirmedStartsAt
-                      ? `We sent your request for ${confirmedStartsAt.toLocaleDateString([], {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })} at ${confirmedStartsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
-                      : "Your session request was sent."}
-                  </Text>
-                  <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                      Awaiting coach approval
-                    </Text>
-                    <Text className="text-sm font-outfit text-app mt-2">
-                      You&apos;ll see it on the calendar when it&apos;s confirmed. Check your email for a copy.
-                    </Text>
-                    {bookingLocation ? (
-                      <Text className="text-xs font-outfit text-secondary mt-3">
-                        Location: {bookingLocation}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Pressable
-                    onPress={() => setBookingOpen(false)}
-                    className="mt-4 px-4 py-3 rounded-full bg-accent"
-                  >
-                    <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                      Done
-                    </Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Text className="text-sm font-outfit text-secondary mt-2">
-                    Choose the session type, then pick any day and time that works for you. Nothing is final until the coach approves.
-                  </Text>
-
-                  {servicesLoading ? (
-                    <Text className="text-xs font-outfit text-secondary mt-3">
-                      Loading services...
-                    </Text>
-                  ) : null}
-                  {servicesError ? (
-                    <Text className="text-xs font-outfit mt-3" style={{ color: errorColor }}>
-                      {servicesError}
-                    </Text>
-                  ) : null}
-
-                  {activeServices.length === 0 ? (
-                    <View className="mt-4 rounded-[22px] border border-dashed p-4" style={{ borderColor: borderSoft, backgroundColor: mutedSurface }}>
-                      <Text className="text-sm font-outfit text-secondary">
-                        No booking types are available right now.
-                      </Text>
-                    </View>
-                  ) : (
-                    <View className="mt-4 flex-row flex-wrap gap-2">
-                      {activeServices.map((item) => {
-                        const active = selectedServiceId === item.id;
-                        return (
-                          <Pressable
-                            key={item.id}
-                            onPress={() => {
-                              hasUserSelectedService.current = true;
-                              hasUserAdjustedBookingDate.current = false;
-                              if (item.id) {
-                                setSelectedServiceId(item.id);
-                                setBookingLocation(item.defaultLocation ?? "");
-                                setBookingMeetingLink(item.defaultMeetingLink ?? "");
-                              }
-                            }}
-                            className="px-4 py-2 rounded-full border"
-                            style={{
-                              backgroundColor: active ? colors.accent : mutedSurface,
-                              borderColor: active ? colors.accent : borderSoft,
-                            }}
-                          >
-                            <Text
-                              className={`text-xs font-outfit uppercase tracking-[1.4px] ${
-                                active ? "text-white" : "text-secondary"
-                              }`}
-                            >
-                              {item.name}
-                              {item.capacity ? ` (${item.capacity} max)` : ""}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  )}
-
-                  <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                      Date
-                    </Text>
-                    <Pressable
-                      onPress={() => setShowDatePicker(true)}
-                      className="mt-3 rounded-2xl border px-3 py-3"
-                      style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
-                    >
-                      <Text className="text-sm font-outfit text-app">
-                        {bookingDate.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
-                      </Text>
-                    </Pressable>
-                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mt-4">
-                      Time
-                    </Text>
-                    <Pressable
-                      onPress={() => setShowTimePicker(true)}
-                      className="mt-3 rounded-2xl border px-3 py-3"
-                      style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
-                    >
-                      <Text className="text-sm font-outfit text-app">
-                        {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </Text>
-                    </Pressable>
-                    {selectedService ? (
-                      <Text className="text-xs font-outfit text-secondary mt-3">
-                        Capacity: {selectedService.capacity ?? 0} total booking{selectedService.capacity === 1 ? "" : "s"} available for this service.
-                      </Text>
-                    ) : null}
-                    {selectedService ? (
-                      <View
-                        className="mt-4 rounded-2xl border px-3 py-3"
-                        style={{ borderColor: colors.accent, backgroundColor: accentSurface }}
-                      >
-                        <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                          Your selection
-                        </Text>
-                        <Text className="text-sm font-outfit text-app font-semibold mt-1">
-                          {selectedService.name}
-                        </Text>
-                        <Text className="text-xs font-outfit text-secondary mt-1">
-                          {bookingDate.toLocaleDateString([], {
-                            weekday: "long",
-                            month: "short",
-                            day: "numeric",
-                          })}{" "}
-                          · {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  <View className="mt-4 rounded-[22px] border p-4" style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}>
-                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                      Location & link (optional)
-                    </Text>
-                    <View className="mt-3 gap-2">
-                      <View className="rounded-2xl border px-3 py-2" style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}>
-                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                          Location
-                        </Text>
-                        <TextInput
-                          value={bookingLocation}
-                          onChangeText={setBookingLocation}
-                          placeholder="Add location"
-                          placeholderTextColor={colors.textSecondary}
-                          className="text-sm font-outfit text-app mt-1"
-                        />
-                      </View>
-                      <View className="rounded-2xl border px-3 py-2" style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}>
-                        <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                          Meeting link
-                        </Text>
-                        <TextInput
-                          value={bookingMeetingLink}
-                          onChangeText={setBookingMeetingLink}
-                          placeholder="Add link (Zoom, Meet, etc.)"
-                          placeholderTextColor={colors.textSecondary}
-                          className="text-sm font-outfit text-app mt-1"
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                        />
-                      </View>
-                    </View>
-                  </View>
-
-                  <Pressable
-                    onPress={async () => {
-                      if (isSubmitting) return;
-                      if (!selectedService) {
-                        setBookingError("Pick a session type first.");
-                        return;
-                      }
-                      setBookingError(null);
-                      setIsSubmitting(true);
-                      try {
-                        const startsAt = new Date(bookingDate);
-                        startsAt.setHours(bookingTime.getHours(), bookingTime.getMinutes(), 0, 0);
-                        const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
-                        await apiRequest("/bookings", {
-                          method: "POST",
-                          token,
-                          body: {
-                            serviceTypeId: selectedService.id,
-                            startsAt: startsAt.toISOString(),
-                            endsAt: endsAt.toISOString(),
-                            timezoneOffsetMinutes: startsAt.getTimezoneOffset(),
-                            location: bookingLocation || undefined,
-                            meetingLink: bookingMeetingLink || undefined,
-                          },
-                          suppressStatusCodes: [400, 403],
-                        });
-                        const refreshed = await apiRequest<{ items: any[] }>("/bookings", {
-                          token,
-                          forceRefresh: true,
-                        });
-                        setEvents(mapBookingsToEvents(refreshed.items ?? []));
-                        setConfirmedStartsAt(startsAt);
-                        setBookingConfirmed(true);
-                        await notifyBookingConfirmed(startsAt);
-                      } catch (err: any) {
-                        const rawMessage = err?.message ?? "Failed to submit booking";
-                        const cleanedMessage = String(rawMessage).replace(/^\d+\s+/, "");
-                        setBookingError(cleanedMessage);
-                      } finally {
-                        setIsSubmitting(false);
-                      }
-                    }}
-                    disabled={!selectedService || isSubmitting || !canCreateBookings}
-                    className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
-                      selectedService && canCreateBookings ? "bg-accent" : "bg-secondary/20"
-                    }`}
-                  >
-                    {isSubmitting ? <ActivityIndicator size="small" color="#ffffff" /> : null}
-                    <Text
-                      className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                        selectedService && canCreateBookings ? "text-white" : "text-secondary"
-                      }`}
-                    >
-                      {isSubmitting
-                        ? "Sending..."
-                        : !canCreateBookings
-                          ? "Plan required to book"
-                          : "Send request"}
-                    </Text>
-                  </Pressable>
-                  {bookingError ? (
-                    <Text className="text-xs font-outfit mt-3" style={{ color: errorColor }}>
-                      {bookingError}
-                    </Text>
-                  ) : null}
-
-                  {showDatePicker ? (
-                    <View className="mt-3">
-                      <DateTimePicker
-                        value={bookingDate}
-                        mode="date"
-                        display={Platform.OS === "ios" ? "spinner" : "default"}
-                        onChange={(event, date) => {
-                          if (Platform.OS !== "ios") {
-                            setShowDatePicker(false);
-                          }
-                          if (event.type === "dismissed") return;
-                          if (!date) return;
-                          hasUserAdjustedBookingDate.current = true;
-                          setBookingDate(normalizeBookingCalendarDay(date));
-                        }}
-                      />
-                      {Platform.OS === "ios" ? (
-                        <Pressable
-                          onPress={() => setShowDatePicker(false)}
-                          className="mt-2 self-end rounded-full border border-app px-4 py-2"
-                        >
-                          <Text className="text-app font-outfit text-xs">Done</Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  ) : null}
-                  {showTimePicker ? (
-                    <View className="mt-3">
-                      <DateTimePicker
-                        value={bookingTime}
-                        mode="time"
-                        display={Platform.OS === "ios" ? "spinner" : "default"}
-                        onChange={(event, date) => {
-                          if (Platform.OS !== "ios") {
-                            setShowTimePicker(false);
-                          }
-                          if (event.type === "dismissed") return;
-                          if (!date) return;
-                          setBookingTime(date);
-                        }}
-                      />
-                      {Platform.OS === "ios" ? (
-                        <Pressable
-                          onPress={() => setShowTimePicker(false)}
-                          className="mt-2 self-end rounded-full border border-app px-4 py-2"
-                        >
-                          <Text className="text-app font-outfit text-xs">Done</Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  ) : null}
-
-                </>
-              )}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onClose={() => setBookingOpen(false)}
+        token={token}
+        services={services}
+        servicesLoading={servicesLoading}
+        servicesError={servicesError}
+        selectedDate={selectedDate}
+        canCreateBookings={canCreateBookings}
+        onSuccess={() => refreshEvents()}
+      />
     </View>
   );
 }
