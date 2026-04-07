@@ -12,6 +12,7 @@ import {
   setGlobalActiveTab,
   subscribeToGlobalTabRequests,
 } from "@/context/ActiveTabContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
@@ -27,7 +28,10 @@ export function SwipeableTabLayout({
   onIndexChange,
 }: SwipeableTabLayoutProps) {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const pagerRef = useRef<PagerView>(null);
+  const barHeight = Platform.OS === "ios" ? 64 : 68;
+  const paddingBottom = barHeight + insets.bottom;
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
 
@@ -157,7 +161,7 @@ export function SwipeableTabLayout({
       <PagerView
         key={tabs.length}
         ref={pagerRef}
-        style={[styles.pager, { backgroundColor: colors.background }]}
+        style={styles.pager}
         initialPage={staticInitialPage.current}
         onPageSelected={handlePageSelected}
         onPageScroll={handlePageScroll}
@@ -169,12 +173,15 @@ export function SwipeableTabLayout({
       >
         {pagerChildren}
       </PagerView>
-      <TabBar
-        tabs={tabs}
-        activeIndex={activeIndex}
-        onTabPress={handleTabPress}
-        scrollOffset={scrollOffset}
-      />
+      
+      <View style={styles.tabBarWrapper}>
+        <TabBar
+          tabs={tabs}
+          activeIndex={activeIndex}
+          onTabPress={handleTabPress}
+          scrollOffset={scrollOffset}
+        />
+      </View>
     </View>
   );
 }
@@ -188,5 +195,11 @@ const styles = StyleSheet.create({
   },
   page: {
     flex: 1,
+  },
+  tabBarWrapper: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });

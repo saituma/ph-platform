@@ -93,7 +93,7 @@ export function ThemedScrollView({
           props.contentContainerStyle ??
           {
             paddingHorizontal: config.density === "compact" ? 12 : config.density === "spacious" ? 24 : 16,
-            paddingBottom: config.density === "compact" ? 12 : config.density === "spacious" ? 24 : 16,
+            paddingBottom: 100, // Large enough for the pinned glass bar + padding
           }
         }
         refreshControl={

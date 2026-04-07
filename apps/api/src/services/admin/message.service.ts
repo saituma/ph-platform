@@ -23,6 +23,9 @@ export async function listMessageThreadsAdmin(
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
   const adminSet = new Set(adminIds);
+  const isAdminSender = inArray(messageTable.senderId, adminIds);
+  const isAdminReceiver = inArray(messageTable.receiverId, adminIds);
+  const threadOtherUserId = sql<number>`CASE WHEN ${isAdminSender} THEN ${messageTable.receiverId} ELSE ${messageTable.senderId} END`;
 
   const athleteRows = await db
     .select({
@@ -41,12 +44,12 @@ export async function listMessageThreadsAdmin(
 
   const rawThreadStats = await db
     .select({
-      rawOtherId: sql<number>`CASE WHEN ${inArray(messageTable.senderId, adminIds)} THEN ${messageTable.receiverId} ELSE ${messageTable.senderId} END`,
+      rawOtherId: threadOtherUserId,
       latestAt: sql<Date>`max(${messageTable.createdAt})`,
       unread: sql<number>`
         sum(
           CASE
-            WHEN ${inArray(messageTable.senderId, adminIds)} THEN 0
+            WHEN ${isAdminSender} THEN 0
             WHEN ${messageTable.read} = false THEN 1
             ELSE 0
           END
@@ -56,13 +59,11 @@ export async function listMessageThreadsAdmin(
     .from(messageTable)
     .where(
       and(
-        or(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, adminIds)),
-        sql`NOT (${inArray(messageTable.senderId, adminIds)} AND ${inArray(messageTable.receiverId, adminIds)})`,
+        or(isAdminSender, isAdminReceiver),
+        sql`NOT (${isAdminSender} AND ${isAdminReceiver})`,
       ),
     )
-    .groupBy(
-      sql`CASE WHEN ${inArray(messageTable.senderId, adminIds)} THEN ${messageTable.receiverId} ELSE ${messageTable.senderId} END`,
-    )
+    .groupBy(threadOtherUserId)
     .orderBy(desc(sql`max(${messageTable.createdAt})`))
     .limit(limit * 8);
 
