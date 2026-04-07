@@ -6,9 +6,11 @@ import { env } from "../config/env";
 import { createVideoUpload, listVideoUploadsByAthlete, reviewVideoUpload } from "../services/video.service";
 import { getAthleteForUser } from "../services/user.service";
 import { getProgramSectionContentById } from "../services/program-section.service";
+import { MediaKey, MediaFolder } from "../lib/media-key";
 
 const presignSchema = z.object({
-  key: z.string().min(1),
+  folder: z.enum(["profile-photos", "training-videos", "chat-media"] as [MediaFolder, ...MediaFolder[]]),
+  fileName: z.string().min(1),
   contentType: z.string().min(1),
   sizeBytes: z.number().int().positive(),
 });
@@ -27,11 +29,20 @@ const reviewSchema = z.object({
 export async function createUploadUrl(req: Request, res: Response) {
   const input = presignSchema.parse(req.body);
   const maxBytes = Math.max(1, env.videoMaxMb) * 1024 * 1024;
+  
   if (input.sizeBytes > maxBytes) {
     return res.status(413).json({ error: `File exceeds ${env.videoMaxMb}MB limit.` });
   }
-  const url = await getPresignedUploadUrl({ key: input.key, contentType: input.contentType });
-  return res.status(200).json({ url });
+
+  // Generate a structured key server-side for better security and organization
+  const key = MediaKey.generate({
+    folder: input.folder,
+    userId: req.user!.id,
+    fileName: input.fileName,
+  });
+
+  const url = await getPresignedUploadUrl({ key, contentType: input.contentType });
+  return res.status(200).json({ url, key });
 }
 
 export async function createVideo(req: Request, res: Response) {
