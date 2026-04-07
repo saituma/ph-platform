@@ -2,130 +2,99 @@ import { Router } from "express";
 
 import { requireAuth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/roles";
-import {
-  addExercise,
-  assignProgram,
-  createExerciseItem,
-  createProgram,
-  listPrograms,
-  updateProgram,
-  createSessionItem,
-  deleteSessionExerciseItem,
-  blockUser,
-  deleteUser,
-  deleteExerciseItem,
-  getAdminProfileDetails,
-  getOnboardingConfigDetails,
-  getOnboarding,
-  listExerciseLibrary,
-  listBookings,
-  updateBookingStatus,
-  listAvailability,
-  listVideosAdmin,
-  getDashboard,
-  listMessageThreads,
-  listThreadMessages,
-  deleteThreadMessages,
-  markThreadRead,
-  sendAdminMessage,
-  listAllUsers,
-  getTeamAdminDetails,
-  getTeamMemberAdminDetails,
-  listTeamsAdminDetails,
-  updateExerciseItem,
-  updateAdminPreferencesDetails,
-  updateAdminProfileDetails,
-  putMessagingAccessDetails,
-  updateProgramTier,
-  updateOnboardingConfigDetails,
-  getPhpPlusTabsAdmin,
-  putPhpPlusTabsAdmin,
-  postPhpPlusTabsAdmin,
-  deletePhpPlusTabsAdmin,
-  createBookingAdmin,
-  getBooking,
-  listProgramSectionCompletionsAdmin,
-  getPremiumPlanAdmin,
-  clonePremiumPlanAdmin,
-  createPremiumPlanSessionAdmin,
-  updatePremiumPlanSessionAdmin,
-  deletePremiumPlanSessionAdmin,
-  addPremiumPlanExerciseAdmin,
-  updatePremiumPlanExerciseAdmin,
-  deletePremiumPlanExerciseAdmin,
-  listTrainingSnapshotAdmin,
-  listPremiumSessionCheckinsAdmin,
-  provisionGuardianWithOnboarding,
-  provisionAdultAthlete,
-  provisionTeamWithPlan,
-  saveTeamDefaultsAdmin,
-  updateTeamMemberAdminDetails,
-  attachAthleteToTeamAdminDetails,
-} from "../controllers/admin.controller";
+import * as AdminUserController from "../controllers/admin/user.controller";
+import * as AdminTeamController from "../controllers/admin/team.controller";
+import * as AdminProgramController from "../controllers/admin/program.controller";
+import * as AdminBookingController from "../controllers/admin/booking.controller";
+import * as AdminMessageController from "../controllers/admin/message.controller";
+import * as AdminAthletePlanController from "../controllers/admin/athlete-plan.controller";
+import * as AdminOnboardingConfigController from "../controllers/admin/onboarding-config.controller";
+import * as AdminSettingsController from "../controllers/admin/settings.controller";
+import * as AdminVideoController from "../controllers/admin/video.controller";
+
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
 const router = Router();
 
 router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]));
 
-router.get("/admin/users", listAllUsers);
-router.get("/admin/teams", listTeamsAdminDetails);
-router.get("/admin/teams/:teamName", getTeamAdminDetails);
-router.get("/admin/teams/:teamName/members/:athleteId", getTeamMemberAdminDetails);
-router.patch("/admin/teams/:teamName/members/:athleteId", updateTeamMemberAdminDetails);
-router.post("/admin/teams/:teamName/athletes/:athleteId/attach", attachAthleteToTeamAdminDetails);
-router.post("/admin/users/provision", provisionGuardianWithOnboarding);
-router.post("/admin/users/provision-adult", provisionAdultAthlete);
-router.post("/admin/teams/provision", provisionTeamWithPlan);
-router.post("/admin/teams/defaults", saveTeamDefaultsAdmin);
-router.get("/admin/training-snapshot", listTrainingSnapshotAdmin);
-router.post("/admin/users/:userId/block", blockUser);
-router.delete("/admin/users/:userId", deleteUser);
-router.get("/admin/dashboard", getDashboard);
-router.get("/admin/profile", getAdminProfileDetails);
-router.put("/admin/profile", updateAdminProfileDetails);
-router.put("/admin/preferences", updateAdminPreferencesDetails);
-router.put("/admin/messaging-access", putMessagingAccessDetails);
-router.get("/admin/onboarding-config", getOnboardingConfigDetails);
-router.put("/admin/onboarding-config", updateOnboardingConfigDetails);
-router.get("/admin/php-plus-tabs", getPhpPlusTabsAdmin);
-router.put("/admin/php-plus-tabs", putPhpPlusTabsAdmin);
-router.post("/admin/php-plus-tabs", postPhpPlusTabsAdmin);
-router.delete("/admin/php-plus-tabs", deletePhpPlusTabsAdmin);
-router.get("/admin/bookings", listBookings);
-router.post("/admin/bookings", createBookingAdmin);
-router.get("/admin/bookings/:bookingId", getBooking);
-router.patch("/admin/bookings/:bookingId", updateBookingStatus);
-router.get("/admin/availability", listAvailability);
-router.get("/admin/videos", listVideosAdmin);
-router.get("/admin/messages/threads", listMessageThreads);
-router.get("/admin/messages/:userId", listThreadMessages);
-router.post("/admin/messages/:userId", sendAdminMessage);
-router.delete("/admin/messages/:userId", deleteThreadMessages);
-router.post("/admin/messages/:userId/read", markThreadRead);
-router.get("/admin/users/:userId/onboarding", getOnboarding);
-router.get("/admin/users/:userId/program-section-completions", listProgramSectionCompletionsAdmin);
-router.get("/admin/users/:userId/premium-plan", getPremiumPlanAdmin);
-router.get("/admin/users/:userId/premium-session-checkins", listPremiumSessionCheckinsAdmin);
-router.post("/admin/users/:userId/premium-plan/clone", clonePremiumPlanAdmin);
-router.post("/admin/users/:userId/premium-plan/sessions", createPremiumPlanSessionAdmin);
-router.patch("/admin/users/:userId/premium-plan/sessions/:sessionId", updatePremiumPlanSessionAdmin);
-router.delete("/admin/users/:userId/premium-plan/sessions/:sessionId", deletePremiumPlanSessionAdmin);
-router.post("/admin/users/:userId/premium-plan/sessions/:sessionId/exercises", addPremiumPlanExerciseAdmin);
-router.patch("/admin/users/:userId/premium-plan/exercises/:planExerciseId", updatePremiumPlanExerciseAdmin);
-router.delete("/admin/users/:userId/premium-plan/exercises/:planExerciseId", deletePremiumPlanExerciseAdmin);
-router.post("/admin/users/program-tier", updateProgramTier);
-router.post("/admin/enrollments", assignProgram);
-router.post("/admin/programs", createProgram);
-router.get("/admin/programs", listPrograms);
-router.patch("/admin/programs/:programId", updateProgram);
-router.get("/admin/exercises", listExerciseLibrary);
-router.post("/admin/exercises", createExerciseItem);
-router.patch("/admin/exercises/:exerciseId", updateExerciseItem);
-router.delete("/admin/exercises/:exerciseId", deleteExerciseItem);
-router.post("/admin/sessions", createSessionItem);
-router.post("/admin/session-exercises", addExercise);
-router.delete("/admin/session-exercises/:sessionExerciseId", deleteSessionExerciseItem);
+// User & Provisioning
+router.get("/admin/users", AdminUserController.listAllUsers);
+router.post("/admin/users/provision", AdminUserController.provisionGuardianWithOnboarding);
+router.post("/admin/users/provision-adult", AdminUserController.provisionAdultAthlete);
+router.post("/admin/users/:userId/block", AdminUserController.blockUser);
+router.delete("/admin/users/:userId", AdminUserController.deleteUser);
+router.get("/admin/users/:userId/onboarding", AdminUserController.getOnboarding);
+router.post("/admin/users/program-tier", AdminUserController.updateProgramTier);
+
+// Teams
+router.get("/admin/teams", AdminTeamController.listTeamsAdminDetails);
+router.get("/admin/teams/:teamName", AdminTeamController.getTeamAdminDetails);
+router.get("/admin/teams/:teamName/members/:athleteId", AdminTeamController.getTeamMemberAdminDetails);
+router.patch("/admin/teams/:teamName/members/:athleteId", AdminTeamController.updateTeamMemberAdminDetails);
+router.post("/admin/teams/:teamName/athletes/:athleteId/attach", AdminTeamController.attachAthleteToTeamAdminDetails);
+router.post("/admin/teams/provision", AdminUserController.provisionTeamWithPlan); // Provisioning uses createGuardianWithOnboardingAdmin
+router.post("/admin/teams/defaults", AdminTeamController.saveTeamDefaultsAdmin);
+
+// Dashboard & Settings
+router.get("/admin/dashboard", AdminSettingsController.getDashboard);
+router.get("/admin/profile", AdminSettingsController.getAdminProfileDetails);
+router.put("/admin/profile", AdminSettingsController.updateAdminProfileDetails);
+router.put("/admin/preferences", AdminSettingsController.updateAdminPreferencesDetails);
+router.put("/admin/messaging-access", AdminSettingsController.putMessagingAccessDetails);
+
+// Onboarding Config
+router.get("/admin/onboarding-config", AdminOnboardingConfigController.getOnboardingConfigDetails);
+router.put("/admin/onboarding-config", AdminOnboardingConfigController.updateOnboardingConfigDetails);
+router.get("/admin/php-plus-tabs", AdminOnboardingConfigController.getPhpPlusTabsAdmin);
+router.put("/admin/php-plus-tabs", AdminOnboardingConfigController.putPhpPlusTabsAdmin);
+router.post("/admin/php-plus-tabs", AdminOnboardingConfigController.postPhpPlusTabsAdmin);
+router.delete("/admin/php-plus-tabs", AdminOnboardingConfigController.deletePhpPlusTabsAdmin);
+
+// Bookings & Availability
+router.get("/admin/bookings", AdminBookingController.listBookings);
+router.post("/admin/bookings", AdminBookingController.createBookingAdmin);
+router.get("/admin/bookings/:bookingId", AdminBookingController.getBooking);
+router.patch("/admin/bookings/:bookingId", AdminBookingController.updateBookingStatus);
+router.get("/admin/availability", AdminBookingController.listAvailability);
+
+// Videos
+router.get("/admin/videos", AdminVideoController.listVideosAdmin);
+
+// Messaging
+router.get("/admin/messages/threads", AdminMessageController.listMessageThreads);
+router.get("/admin/messages/:userId", AdminMessageController.listThreadMessages);
+router.post("/admin/messages/:userId", AdminMessageController.sendAdminMessage);
+router.delete("/admin/messages/:userId", AdminMessageController.deleteThreadMessages);
+router.post("/admin/messages/:userId/read", AdminMessageController.markThreadRead);
+
+// Athlete Plans (Premium) & Progress
+router.get("/admin/training-snapshot", AdminAthletePlanController.listTrainingSnapshotAdmin);
+router.get("/admin/users/:userId/program-section-completions", AdminAthletePlanController.listProgramSectionCompletionsAdmin);
+router.get("/admin/users/:userId/premium-plan", AdminAthletePlanController.getPremiumPlanAdmin);
+router.get("/admin/users/:userId/premium-session-checkins", AdminAthletePlanController.listPremiumSessionCheckinsAdmin);
+router.post("/admin/users/:userId/premium-plan/clone", AdminAthletePlanController.clonePremiumPlanAdmin);
+router.post("/admin/users/:userId/premium-plan/sessions", AdminAthletePlanController.createPremiumPlanSessionAdmin);
+router.patch("/admin/users/:userId/premium-plan/sessions/:sessionId", AdminAthletePlanController.updatePremiumPlanSessionAdmin);
+router.delete("/admin/users/:userId/premium-plan/sessions/:sessionId", AdminAthletePlanController.deletePremiumPlanSessionAdmin);
+router.post("/admin/users/:userId/premium-plan/sessions/:sessionId/exercises", AdminAthletePlanController.addPremiumPlanExerciseAdmin);
+router.patch("/admin/users/:userId/premium-plan/exercises/:planExerciseId", AdminAthletePlanController.updatePremiumPlanExerciseAdmin);
+router.delete("/admin/users/:userId/premium-plan/exercises/:planExerciseId", AdminAthletePlanController.deletePremiumPlanExerciseAdmin);
+
+// Programs & Exercises
+router.post("/admin/enrollments", AdminProgramController.assignProgram);
+router.post("/admin/programs", AdminProgramController.createProgram);
+router.get("/admin/programs", AdminProgramController.listPrograms);
+router.patch("/admin/programs/:programId", AdminProgramController.updateProgram);
+router.get("/admin/exercises", AdminProgramController.listExerciseLibrary);
+router.post("/admin/exercises", AdminProgramController.createExerciseItem);
+router.patch("/admin/exercises/:exerciseId", AdminProgramController.updateExerciseItem);
+router.delete("/admin/exercises/:exerciseId", AdminProgramController.deleteExerciseItem);
+router.post("/admin/sessions", AdminProgramController.createSessionItem);
+router.post("/admin/session-exercises", AdminProgramController.addExercise);
+router.delete("/admin/session-exercises/:sessionExerciseId", AdminProgramController.deleteSessionExerciseItem);
+
+// Food Diary
 router.get("/admin/food-diary", listFoodDiaryAdmin);
 router.post("/admin/food-diary/:entryId/review", reviewFoodDiaryAdmin);
 

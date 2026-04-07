@@ -9,6 +9,7 @@ jest.mock("../../src/services/booking.service", () => ({
 
 jest.mock("../../src/services/user.service", () => ({
   getGuardianAndAthlete: jest.fn(),
+  getAthleteForUser: jest.fn(),
 }));
 
 jest.mock("../../src/services/booking-eligibility.service", () => ({
@@ -17,7 +18,7 @@ jest.mock("../../src/services/booking-eligibility.service", () => ({
 
 import { listServices, createBookingForUser, listBookings } from "../../src/controllers/booking.controller";
 import { listServiceTypes, createBooking, listBookingsForUser } from "../../src/services/booking.service";
-import { getGuardianAndAthlete } from "../../src/services/user.service";
+import { getGuardianAndAthlete, getAthleteForUser } from "../../src/services/user.service";
 
 function createRes() {
   const res: any = {};

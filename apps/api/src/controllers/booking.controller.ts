@@ -19,7 +19,7 @@ import { assertUserCanCreateBooking } from "../services/booking-eligibility.serv
 import { getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
 import { ProgramType } from "../db/schema";
 import { verifyBookingActionToken } from "../lib/booking-actions";
-import { updateBookingStatusAdmin } from "../services/admin.service";
+import { updateBookingStatusAdmin } from "../services/admin/booking.service";
 
 const planEnum = z.enum(ProgramType.enumValues);
 const weeklyEntrySchema = z.object({

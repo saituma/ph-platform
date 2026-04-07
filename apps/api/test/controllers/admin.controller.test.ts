@@ -1,33 +1,25 @@
-jest.mock("../../src/services/admin.service", () => ({
-  addExerciseToSession: jest.fn(),
-  assignEnrollment: jest.fn(),
-  createExercise: jest.fn(),
-  createProgramTemplate: jest.fn(),
-  createSession: jest.fn(),
-  getAdminProfile: jest.fn(),
-  getDashboardMetrics: jest.fn(),
-  getUserOnboarding: jest.fn(),
-  listBookingsAdmin: jest.fn(),
-  listMessageThreadsAdmin: jest.fn(),
-  listThreadMessagesAdmin: jest.fn(),
-  sendMessageAdmin: jest.fn(),
-  listUsers: jest.fn(),
+jest.mock("../../src/services/admin/user.service", () => ({
   setUserBlocked: jest.fn(),
-  softDeleteUser: jest.fn(),
-  updateAdminPreferences: jest.fn(),
+}));
+jest.mock("../../src/services/admin/settings.service", () => ({
   updateAdminProfile: jest.fn(),
-  updateAthleteProgramTier: jest.fn(),
-  getOnboardingConfig: jest.fn(),
+}));
+jest.mock("../../src/services/admin/onboarding-config.service", () => ({
   updateOnboardingConfig: jest.fn(),
 }));
+jest.mock("../../src/services/admin/program.service", () => ({
+  createProgramTemplate: jest.fn(),
+}));
 
-import {
-  blockUser,
-  updateAdminProfileDetails,
-  updateOnboardingConfigDetails,
-  createProgram,
-} from "../../src/controllers/admin.controller";
-import { setUserBlocked, updateAdminProfile, updateOnboardingConfig, createProgramTemplate } from "../../src/services/admin.service";
+import { blockUser } from "../../src/controllers/admin/user.controller";
+import { updateAdminProfileDetails } from "../../src/controllers/admin/settings.controller";
+import { updateOnboardingConfigDetails } from "../../src/controllers/admin/onboarding-config.controller";
+import { createProgram } from "../../src/controllers/admin/program.controller";
+
+import { setUserBlocked } from "../../src/services/admin/user.service";
+import { updateAdminProfile } from "../../src/services/admin/settings.service";
+import { updateOnboardingConfig } from "../../src/services/admin/onboarding-config.service";
+import { createProgramTemplate } from "../../src/services/admin/program.service";
 
 function createRes() {
   const res: any = {};
