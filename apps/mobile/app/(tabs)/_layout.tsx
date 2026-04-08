@@ -15,6 +15,7 @@ import MessagesScreen from "./messages";
 import MoreScreen from "./more";
 import ProgramsScreen from "./programs";
 import ScheduleScreen from "./schedule";
+import TrackingHomeScreen from "./tracking/index";
 import TrackingLayout from "./tracking/_layout";
 
 let lastTabKey = "index";
@@ -40,7 +41,18 @@ const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
   programs: React.memo(ProgramsScreen),
   messages: React.memo(MessagesScreen),
   schedule: React.memo(ScheduleScreen),
-  tracking: React.memo(TrackingLayout),
+  tracking: React.memo(function TrackingTabScreen() {
+    const pathname = usePathname();
+    const isTrackingRoute =
+      pathname.startsWith("/(tabs)/tracking") || pathname.startsWith("/tracking");
+
+    // When users swipe/press to the Tracking tab, we intentionally do not
+    // change the Expo Router route (perf). In that case, rendering the
+    // tracking Stack layout would incorrectly mirror the current route
+    // (often Home). Instead, show the Tracking home screen unless we are
+    // actually on a tracking route (e.g. active-run/summary).
+    return isTrackingRoute ? <TrackingLayout /> : <TrackingHomeScreen />;
+  }),
   more: React.memo(MoreScreen),
 };
 
