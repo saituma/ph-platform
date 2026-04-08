@@ -36,15 +36,25 @@ function initials(name: string) {
 
 function cleanPreview(raw: string) {
   const input = String(raw ?? "");
-  const stripped = input.replace(/^\[reply:\d+:[^\]]*\]\s*/i, "");
+  const replyMatch = input.match(/^\[reply:(\d+):([^\]]*)\]\s*/i);
+  const stripped = replyMatch ? input.slice(replyMatch[0].length) : input.replace(/^\[reply:\d+:[^\]]*\]\s*/i, "");
   const clean = stripped.trim();
-  if (!clean) return "File";
 
   const fromAttachedLabel = clean.match(/^file attached:\s*(.+)$/i);
-  if (fromAttachedLabel?.[1]) return fromAttachedLabel[1].trim();
+  const attachmentName = fromAttachedLabel?.[1]?.trim() ?? "";
 
-  if (/^attachment$/i.test(clean)) return "File";
-  return clean;
+  const resolvedBody = attachmentName || (/^attachment$/i.test(clean) ? "File" : clean) || "File";
+
+  if (!replyMatch) return resolvedBody;
+
+  let replyPreview = "";
+  try {
+    replyPreview = decodeURIComponent(replyMatch[2] ?? "");
+  } catch {
+    replyPreview = replyMatch[2] ?? "";
+  }
+  const snippet = replyPreview.trim() || "Replied message";
+  return `↩ ${snippet} — ${resolvedBody}`;
 }
 
 export function InboxThreadPanel({
