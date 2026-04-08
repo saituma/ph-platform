@@ -20,10 +20,97 @@ import {
 } from "./availability.service";
 import { notifyBookingRequested } from "./notification.service";
 
+let cachedSupportsServiceEligiblePlans: boolean | null = null;
+
+function errorMentionsMissingColumn(error: unknown, columnName: string) {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return message.toLowerCase().includes(`column`) && message.includes(columnName);
+}
+
 export async function listServiceTypes(options?: { includeInactive?: boolean; viewerProgramTier?: ProgramTier | null }) {
-  const rows = options?.includeInactive
-    ? await db.select().from(serviceTypeTable)
-    : await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.isActive, true));
+  const shouldTryEligiblePlans = cachedSupportsServiceEligiblePlans !== false;
+
+  const selectAll = async () =>
+    options?.includeInactive
+      ? db.select().from(serviceTypeTable)
+      : db.select().from(serviceTypeTable).where(eq(serviceTypeTable.isActive, true));
+
+  const selectWithoutEligiblePlans = async () => {
+    const rows = options?.includeInactive
+      ? await db
+          .select({
+            id: serviceTypeTable.id,
+            name: serviceTypeTable.name,
+            type: serviceTypeTable.type,
+            durationMinutes: serviceTypeTable.durationMinutes,
+            capacity: serviceTypeTable.capacity,
+            fixedStartTime: serviceTypeTable.fixedStartTime,
+            attendeeVisibility: serviceTypeTable.attendeeVisibility,
+            defaultLocation: serviceTypeTable.defaultLocation,
+            defaultMeetingLink: serviceTypeTable.defaultMeetingLink,
+            programTier: serviceTypeTable.programTier,
+            schedulePattern: serviceTypeTable.schedulePattern,
+            recurrenceEndMode: serviceTypeTable.recurrenceEndMode,
+            recurrenceCount: serviceTypeTable.recurrenceCount,
+            weeklyEntries: serviceTypeTable.weeklyEntries,
+            oneTimeDate: serviceTypeTable.oneTimeDate,
+            oneTimeTime: serviceTypeTable.oneTimeTime,
+            slotMode: serviceTypeTable.slotMode,
+            slotIntervalMinutes: serviceTypeTable.slotIntervalMinutes,
+            slotDefinitions: serviceTypeTable.slotDefinitions,
+            isActive: serviceTypeTable.isActive,
+            createdBy: serviceTypeTable.createdBy,
+            createdAt: serviceTypeTable.createdAt,
+            updatedAt: serviceTypeTable.updatedAt,
+          })
+          .from(serviceTypeTable)
+      : await db
+          .select({
+            id: serviceTypeTable.id,
+            name: serviceTypeTable.name,
+            type: serviceTypeTable.type,
+            durationMinutes: serviceTypeTable.durationMinutes,
+            capacity: serviceTypeTable.capacity,
+            fixedStartTime: serviceTypeTable.fixedStartTime,
+            attendeeVisibility: serviceTypeTable.attendeeVisibility,
+            defaultLocation: serviceTypeTable.defaultLocation,
+            defaultMeetingLink: serviceTypeTable.defaultMeetingLink,
+            programTier: serviceTypeTable.programTier,
+            schedulePattern: serviceTypeTable.schedulePattern,
+            recurrenceEndMode: serviceTypeTable.recurrenceEndMode,
+            recurrenceCount: serviceTypeTable.recurrenceCount,
+            weeklyEntries: serviceTypeTable.weeklyEntries,
+            oneTimeDate: serviceTypeTable.oneTimeDate,
+            oneTimeTime: serviceTypeTable.oneTimeTime,
+            slotMode: serviceTypeTable.slotMode,
+            slotIntervalMinutes: serviceTypeTable.slotIntervalMinutes,
+            slotDefinitions: serviceTypeTable.slotDefinitions,
+            isActive: serviceTypeTable.isActive,
+            createdBy: serviceTypeTable.createdBy,
+            createdAt: serviceTypeTable.createdAt,
+            updatedAt: serviceTypeTable.updatedAt,
+          })
+          .from(serviceTypeTable)
+          .where(eq(serviceTypeTable.isActive, true));
+
+    return rows.map((row) => ({ ...row, eligiblePlans: null })) as ServiceTypeRecord[];
+  };
+
+  let rows: ServiceTypeRecord[];
+  try {
+    rows = shouldTryEligiblePlans
+      ? ((await selectAll()) as ServiceTypeRecord[])
+      : await selectWithoutEligiblePlans();
+    if (shouldTryEligiblePlans) cachedSupportsServiceEligiblePlans = true;
+  } catch (error) {
+    if (shouldTryEligiblePlans && errorMentionsMissingColumn(error, "eligiblePlans")) {
+      cachedSupportsServiceEligiblePlans = false;
+      rows = await selectWithoutEligiblePlans();
+    } else {
+      throw error;
+    }
+  }
 
   if (options?.includeInactive) return rows;
   return rows.filter((service) => serviceAllowsTier(service, options?.viewerProgramTier));

@@ -13,6 +13,14 @@ import {
 import { getSocketServer } from "../socket-hub";
 import { attachGroupMessageReactions } from "./reaction.service";
 
+let cachedSupportsGroupLastReadAt: boolean | null = null;
+
+function errorMentionsMissingColumn(error: unknown, columnName: string) {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return message.toLowerCase().includes(`column`) && message.includes(columnName);
+}
+
 export async function createDirectMessage(input: {
   senderId: number;
   receiverId: number;
@@ -86,26 +94,81 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
       ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
       : 50;
 
-  const groups = await db
-    .select({
-      id: chatGroupTable.id,
-      name: chatGroupTable.name,
-      category: chatGroupTable.category,
-      createdBy: chatGroupTable.createdBy,
-      createdAt: chatGroupTable.createdAt,
-      memberCreatedAt: chatGroupMemberTable.createdAt,
-      memberLastReadAt: chatGroupMemberTable.lastReadAt,
-    })
-    .from(chatGroupMemberTable)
-    .innerJoin(chatGroupTable, eq(chatGroupMemberTable.groupId, chatGroupTable.id))
-    .where(
-      and(
-        eq(chatGroupMemberTable.userId, userId),
-        q ? ilike(chatGroupTable.name, `%${q}%`) : undefined,
-      ),
-    )
-    .orderBy(desc(chatGroupTable.createdAt))
-    .limit(limit);
+  const supportsLastReadAt = cachedSupportsGroupLastReadAt !== false;
+
+  const readGroups = async () => {
+    if (!supportsLastReadAt) {
+      return db
+        .select({
+          id: chatGroupTable.id,
+          name: chatGroupTable.name,
+          category: chatGroupTable.category,
+          createdBy: chatGroupTable.createdBy,
+          createdAt: chatGroupTable.createdAt,
+          memberCreatedAt: chatGroupMemberTable.createdAt,
+          memberLastReadAt: sql<Date | null>`null`,
+        })
+        .from(chatGroupMemberTable)
+        .innerJoin(
+          chatGroupTable,
+          eq(chatGroupMemberTable.groupId, chatGroupTable.id),
+        )
+        .where(
+          and(
+            eq(chatGroupMemberTable.userId, userId),
+            q ? ilike(chatGroupTable.name, `%${q}%`) : undefined,
+          ),
+        )
+        .orderBy(desc(chatGroupTable.createdAt))
+        .limit(limit);
+    }
+
+    return db
+      .select({
+        id: chatGroupTable.id,
+        name: chatGroupTable.name,
+        category: chatGroupTable.category,
+        createdBy: chatGroupTable.createdBy,
+        createdAt: chatGroupTable.createdAt,
+        memberCreatedAt: chatGroupMemberTable.createdAt,
+        memberLastReadAt: chatGroupMemberTable.lastReadAt,
+      })
+      .from(chatGroupMemberTable)
+      .innerJoin(
+        chatGroupTable,
+        eq(chatGroupMemberTable.groupId, chatGroupTable.id),
+      )
+      .where(
+        and(
+          eq(chatGroupMemberTable.userId, userId),
+          q ? ilike(chatGroupTable.name, `%${q}%`) : undefined,
+        ),
+      )
+      .orderBy(desc(chatGroupTable.createdAt))
+      .limit(limit);
+  };
+
+  let groups: Array<{
+    id: number;
+    name: string | null;
+    category: string | null;
+    createdBy: number;
+    createdAt: Date;
+    memberCreatedAt: Date;
+    memberLastReadAt: Date | null;
+  }>;
+
+  try {
+    groups = await readGroups();
+    cachedSupportsGroupLastReadAt = supportsLastReadAt ? true : cachedSupportsGroupLastReadAt;
+  } catch (error) {
+    if (supportsLastReadAt && errorMentionsMissingColumn(error, "lastReadAt")) {
+      cachedSupportsGroupLastReadAt = false;
+      groups = await readGroups();
+    } else {
+      throw error;
+    }
+  }
 
   const groupIds = groups.map((group) => Number(group.id)).filter((id) => Number.isFinite(id));
   if (!groupIds.length) {
@@ -159,7 +222,9 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
       and(
         inArray(chatGroupMessageTable.groupId, groupIds),
         ne(chatGroupMessageTable.senderId, userId),
-        sql`${chatGroupMessageTable.createdAt} > coalesce(${chatGroupMemberTable.lastReadAt}, ${chatGroupMemberTable.createdAt})`,
+        cachedSupportsGroupLastReadAt === false
+          ? sql`${chatGroupMessageTable.createdAt} > ${chatGroupMemberTable.createdAt}`
+          : sql`${chatGroupMessageTable.createdAt} > coalesce(${chatGroupMemberTable.lastReadAt}, ${chatGroupMemberTable.createdAt})`,
       ),
     )
     .groupBy(chatGroupMessageTable.groupId);
@@ -200,12 +265,27 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
 
 export async function markGroupRead(input: { groupId: number; userId: number; readAt?: Date }) {
   const readAt = input.readAt ?? new Date();
-  const result = await db
-    .update(chatGroupMemberTable)
-    .set({ lastReadAt: readAt })
-    .where(and(eq(chatGroupMemberTable.groupId, input.groupId), eq(chatGroupMemberTable.userId, input.userId)))
-    .returning();
-  return result[0] ?? null;
+  if (cachedSupportsGroupLastReadAt === false) return null;
+  try {
+    const result = await db
+      .update(chatGroupMemberTable)
+      .set({ lastReadAt: readAt })
+      .where(
+        and(
+          eq(chatGroupMemberTable.groupId, input.groupId),
+          eq(chatGroupMemberTable.userId, input.userId),
+        ),
+      )
+      .returning();
+    cachedSupportsGroupLastReadAt = true;
+    return result[0] ?? null;
+  } catch (error) {
+    if (errorMentionsMissingColumn(error, "lastReadAt")) {
+      cachedSupportsGroupLastReadAt = false;
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function listGroupMembers(groupId: number) {
