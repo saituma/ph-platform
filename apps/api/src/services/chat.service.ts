@@ -94,10 +94,8 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
       ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
       : 50;
 
-  const supportsLastReadAt = cachedSupportsGroupLastReadAt !== false;
-
-  const readGroups = async () => {
-    if (!supportsLastReadAt) {
+  const readGroups = async (useLastReadAtColumn: boolean) => {
+    if (!useLastReadAtColumn) {
       return db
         .select({
           id: chatGroupTable.id,
@@ -158,13 +156,15 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
     memberLastReadAt: Date | null;
   }>;
 
+  const shouldUseLastReadAtColumn = () => cachedSupportsGroupLastReadAt !== false;
+
   try {
-    groups = await readGroups();
-    cachedSupportsGroupLastReadAt = supportsLastReadAt ? true : cachedSupportsGroupLastReadAt;
+    groups = await readGroups(shouldUseLastReadAtColumn());
+    cachedSupportsGroupLastReadAt = shouldUseLastReadAtColumn() ? true : cachedSupportsGroupLastReadAt;
   } catch (error) {
-    if (supportsLastReadAt && errorMentionsMissingColumn(error, "lastReadAt")) {
+    if (shouldUseLastReadAtColumn() && errorMentionsMissingColumn(error, "lastReadAt")) {
       cachedSupportsGroupLastReadAt = false;
-      groups = await readGroups();
+      groups = await readGroups(false);
     } else {
       throw error;
     }
