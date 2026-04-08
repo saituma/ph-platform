@@ -328,6 +328,7 @@ export async function createGroupMessage(input: {
   mediaUrl?: string | null;
   replyToMessageId?: number | null;
   replyPreview?: string | null;
+  clientId?: string | null;
 }) {
   const safeBaseContent = input.content.trim() || "Attachment";
   const safeReplyPreview = encodeURIComponent((input.replyPreview ?? "").trim().slice(0, 160));
@@ -389,7 +390,10 @@ export async function createGroupMessage(input: {
 
   const io = getSocketServer();
   if (io) {
-    io.to(`group:${input.groupId}`).emit("group:message", { ...message, reactions: [] });
+    const enriched = input.clientId
+      ? { ...message, clientId: input.clientId, reactions: [] }
+      : { ...message, reactions: [] };
+    io.to(`group:${input.groupId}`).emit("group:message", enriched);
   }
   return message;
 }

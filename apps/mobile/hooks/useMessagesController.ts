@@ -375,10 +375,26 @@ export function useMessagesController() {
         });
 
         setMessages((prev) => {
-          const remaining = prev.filter(
-            (msg) => msg.threadId !== `group:${groupId}`,
+          const threadKey = `group:${groupId}`;
+          const remaining = prev.filter((msg) => msg.threadId !== threadKey);
+
+          // Preserve optimistic client messages (e.g. offline / before socket echo)
+          // so they don't "disappear" on refresh.
+          const optimistic = prev.filter(
+            (msg) =>
+              msg.threadId === threadKey &&
+              typeof msg.id === "string" &&
+              msg.id.startsWith("client-"),
           );
-          return [...remaining, ...mappedMessages];
+
+          const seen = new Set<string>();
+          const next: ChatMessage[] = [];
+          for (const msg of [...remaining, ...optimistic, ...mappedMessages]) {
+            if (seen.has(msg.id)) continue;
+            seen.add(msg.id);
+            next.push(msg);
+          }
+          return next;
         });
 
         if (mappedMessages.length > 0) {
@@ -718,7 +734,9 @@ export function useMessagesController() {
             actingUserId: undefined,
           });
         } else {
-          await apiRequest(`/chat/groups/${groupId}/messages`, {
+          const created = await apiRequest<{ message?: any }>(
+            `/chat/groups/${groupId}/messages`,
+            {
             method: "POST",
             token,
             body: {
@@ -728,7 +746,40 @@ export function useMessagesController() {
               replyToMessageId: replyTarget?.messageId,
               replyPreview: replyTarget?.preview,
             },
-          });
+            },
+          );
+          const serverMsg = created?.message;
+          if (serverMsg?.id) {
+            const parsed = parseReplyPrefix(serverMsg.content);
+            const mapped: ChatMessage = {
+              id: `group-${serverMsg.id}`,
+              threadId: `group:${groupId}`,
+              from: "user",
+              text: parsed.text,
+              replyToMessageId: parsed.replyToMessageId ?? undefined,
+              replyPreview: parsed.replyPreview || undefined,
+              contentType: serverMsg.contentType ?? payload.contentType ?? "text",
+              mediaUrl: serverMsg.mediaUrl ?? payload.mediaUrl,
+              time: serverMsg.createdAt
+                ? new Date(serverMsg.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+              status: "sent",
+              authorName: profile.name ?? undefined,
+              authorAvatar: null,
+              clientId,
+              reactions: serverMsg.reactions ?? [],
+            };
+            setMessages((prev) => {
+              const withoutTemp = prev.filter((m) => m.clientId !== clientId);
+              return [...withoutTemp, mapped];
+            });
+          }
         }
         return;
       }
@@ -1146,12 +1197,13 @@ export function useMessagesController() {
   }, [loadMessages]);
 
   useEffect(() => {
-    if (!currentThread || !currentThread.id.startsWith("group:")) return;
-    const groupId = Number(currentThread.id.replace("group:", ""));
+    const threadIdValue = currentThread?.id ?? "";
+    if (!threadIdValue.startsWith("group:")) return;
+    const groupId = Number(threadIdValue.replace("group:", ""));
     if (Number.isFinite(groupId)) {
       void loadGroupMessages(groupId);
     }
-  }, [currentThread, loadGroupMessages]);
+  }, [currentThread?.id, loadGroupMessages]);
 
   useEffect(() => {
     if (!currentThread) return;
@@ -1168,6 +1220,19 @@ export function useMessagesController() {
     }, 12000);
     return () => clearInterval(interval);
   }, [currentThread, loadGroupMessages, loadMessages]);
+
+  // Ensure this client is in the active group room so "group:message" arrives live.
+  useEffect(() => {
+    if (!socket?.connected) return;
+    const threadIdValue = currentThread?.id ?? "";
+    if (!threadIdValue.startsWith("group:")) return;
+    const groupId = Number(threadIdValue.replace("group:", ""));
+    if (!Number.isFinite(groupId)) return;
+    socket.emit("group:join", { groupId });
+    return () => {
+      socket.emit("group:leave", { groupId });
+    };
+  }, [currentThread?.id, socket?.connected]);
 
   useEffect(() => {
     setPendingAttachment(null);

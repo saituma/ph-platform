@@ -31,6 +31,7 @@ const sendGroupMessageSchema = z
     mediaUrl: z.string().url().optional(),
     replyToMessageId: z.number().int().min(1).optional(),
     replyPreview: z.string().trim().max(160).optional(),
+    clientId: z.string().trim().min(1).optional(),
   })
   .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
     message: "Message content or mediaUrl is required",
@@ -100,6 +101,7 @@ export async function sendGroupChatMessage(req: Request, res: Response) {
     mediaUrl: input.mediaUrl,
     replyToMessageId: input.replyToMessageId,
     replyPreview: input.replyPreview,
+    clientId: input.clientId ?? null,
   });
   return res.status(201).json({ message });
 }

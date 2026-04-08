@@ -6,9 +6,12 @@ import {
   Pressable,
   TextInput,
   View,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as ExpoImage } from "expo-image";
+import * as Clipboard from "expo-clipboard";
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
@@ -37,6 +40,9 @@ export function GifPickerModal({
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<GifResult[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [selected, setSelected] = React.useState<GifResult | null>(null);
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const optionsRef = React.useRef<BottomSheetModal>(null);
 
   const normalizedQuery = query.trim();
   const isTrending = !normalizedQuery;
@@ -79,6 +85,13 @@ export function GifPickerModal({
     }, 250);
     return () => clearTimeout(id);
   }, [open, query, search]);
+
+  React.useEffect(() => {
+    const modal = optionsRef.current;
+    if (!modal) return;
+    if (selected) modal.present();
+    else modal.dismiss();
+  }, [selected]);
 
   return (
     <Modal visible={open} animationType="slide" onRequestClose={onClose}>
@@ -182,6 +195,8 @@ export function GifPickerModal({
           renderItem={({ item }) => (
             <Pressable
               onPress={() => onSelectGif(item.url)}
+              onLongPress={() => setSelected(item)}
+              delayLongPress={220}
               className="mb-3 overflow-hidden rounded-[18px] border"
               style={{
                 width: "48%",
@@ -220,6 +235,130 @@ export function GifPickerModal({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         />
+
+        <BottomSheetModal
+          ref={optionsRef}
+          index={0}
+          snapPoints={["42%"]}
+          onDismiss={() => setSelected(null)}
+          enablePanDownToClose
+          backdropComponent={(props) => (
+            <BottomSheetBackdrop
+              {...props}
+              appearsOnIndex={0}
+              disappearsOnIndex={-1}
+              opacity={0.4}
+              pressBehavior="close"
+            />
+          )}
+          backgroundStyle={{ backgroundColor: colors.card }}
+          handleIndicatorStyle={{
+            backgroundColor: isDark
+              ? "rgba(255,255,255,0.28)"
+              : "rgba(15,23,42,0.22)",
+          }}
+        >
+          <BottomSheetView className="px-6 pb-8">
+            {selected ? (
+              <>
+                <View className="rounded-[22px] overflow-hidden border"
+                  style={{ borderColor: colors.borderSubtle, backgroundColor: colors.backgroundSecondary }}
+                >
+                  <ExpoImage
+                    source={{ uri: selected.previewUrl }}
+                    style={{ width: "100%", height: 140 }}
+                    contentFit="cover"
+                    transition={180}
+                  />
+                </View>
+
+                <View className="mt-5 flex-row gap-3">
+                  <Pressable
+                    onPress={() => {
+                      const gif = selected;
+                      setSelected(null);
+                      onSelectGif(gif.url);
+                    }}
+                    className="flex-1 h-12 rounded-2xl items-center justify-center"
+                    style={{ backgroundColor: colors.accent }}
+                  >
+                    <Text className="font-outfit font-bold text-white">Send</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setPreviewOpen(true)}
+                    className="h-12 w-12 rounded-2xl items-center justify-center border"
+                    style={{ borderColor: colors.borderSubtle, backgroundColor: colors.backgroundSecondary }}
+                  >
+                    <Feather name="maximize-2" size={18} color={colors.text} />
+                  </Pressable>
+                </View>
+
+                <View className="mt-3 flex-row gap-3">
+                  <Pressable
+                    onPress={async () => {
+                      try {
+                        await Clipboard.setStringAsync(selected.url);
+                      } finally {
+                        setSelected(null);
+                      }
+                    }}
+                    className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+                    style={{ borderColor: colors.borderSubtle, backgroundColor: colors.backgroundSecondary }}
+                  >
+                    <Feather name="copy" size={18} color={colors.textSecondary} />
+                    <Text className="font-outfit font-bold" style={{ color: colors.text }}>
+                      Copy link
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={async () => {
+                      try {
+                        await Linking.openURL(selected.url);
+                      } finally {
+                        setSelected(null);
+                      }
+                    }}
+                    className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+                    style={{ borderColor: colors.borderSubtle, backgroundColor: colors.backgroundSecondary }}
+                  >
+                    <Feather name="external-link" size={18} color={colors.textSecondary} />
+                    <Text className="font-outfit font-bold" style={{ color: colors.text }}>
+                      Open
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : null}
+          </BottomSheetView>
+        </BottomSheetModal>
+
+        <Modal
+          visible={previewOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewOpen(false)}
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)" }}
+            onPress={() => setPreviewOpen(false)}
+          >
+            <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 20 }}>
+              {selected ? (
+                <ExpoImage
+                  source={{ uri: selected.url }}
+                  style={{ width: "100%", height: 320, borderRadius: 20 }}
+                  contentFit="contain"
+                />
+              ) : null}
+              <View className="mt-4 items-center">
+                <Text className="text-[12px] font-outfit" style={{ color: "rgba(255,255,255,0.75)" }}>
+                  Tap anywhere to close
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+        </Modal>
       </View>
     </Modal>
   );

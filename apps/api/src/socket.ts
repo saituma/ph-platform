@@ -122,6 +122,24 @@ export function initSocket(server: HttpServer) {
       console.warn("Socket group join failed", error);
     }
 
+    socket.on("group:join", async (payload: { groupId?: number }) => {
+      const groupId = payload?.groupId ? Number(payload.groupId) : null;
+      if (!groupId || !Number.isFinite(groupId)) return;
+      try {
+        const allowed = await isGroupMember(groupId, userId);
+        if (!allowed) return;
+        socket.join(`group:${groupId}`);
+      } catch (error) {
+        console.warn("[Socket] group:join failed", error);
+      }
+    });
+
+    socket.on("group:leave", (payload: { groupId?: number }) => {
+      const groupId = payload?.groupId ? Number(payload.groupId) : null;
+      if (!groupId || !Number.isFinite(groupId)) return;
+      socket.leave(`group:${groupId}`);
+    });
+
     socket.on("acting:join", async (payload: { actingUserId?: number }) => {
       const actingUserId = payload?.actingUserId ? Number(payload.actingUserId) : null;
       if (!actingUserId || actingUserId === userId) {
@@ -216,9 +234,10 @@ export function initSocket(server: HttpServer) {
         mediaUrl: payload.mediaUrl,
         replyToMessageId: payload.replyToMessageId ?? null,
         replyPreview: payload.replyPreview ?? null,
+        clientId: payload.clientId ?? null,
       });
-      const enriched = { ...message, clientId: payload.clientId };
-      io.to(`group:${payload.groupId}`).emit("group:message", enriched);
+      // createGroupMessage emits "group:message" (including clientId when provided)
+      void message;
     });
 
     socket.on("typing:start", async (payload: { toUserId?: number; groupId?: number }) => {
