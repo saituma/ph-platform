@@ -375,6 +375,13 @@ export default function MoreScreen() {
                     accentColor={colors.accent}
                   />
                   <MenuItem
+                    icon="radio"
+                    label="Announcements"
+                    isLast={false}
+                    onPress={() => router.push("/announcements" as any)}
+                    accentColor={colors.accent}
+                  />
+                  <MenuItem
                     icon="help-circle"
                     label="Help Center"
                     isLast={false}

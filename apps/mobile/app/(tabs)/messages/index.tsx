@@ -68,6 +68,62 @@ export default function MessagesScreen() {
     ? `Stay connected with your coach and keep ${focusName}'s plan on track.`
     : "Cleaner chat, faster replies, and a calmer mobile flow.";
 
+  const [announcementsMeta, setAnnouncementsMeta] = React.useState<{
+    count: number;
+    title: string;
+    snippet: string;
+    when: string;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (!token) return;
+    if (!pathname.startsWith("/(tabs)/messages")) return;
+    let active = true;
+    (async () => {
+      try {
+        const res = await apiRequest<{ items?: any[] }>("/content/announcements", {
+          token,
+          skipCache: true,
+          suppressStatusCodes: [401, 403, 404],
+        });
+        const items = Array.isArray(res.items) ? res.items : [];
+        const latest = items[0];
+        if (!active) return;
+        if (!latest) {
+          setAnnouncementsMeta(null);
+          return;
+        }
+        const title = String(latest.title ?? "").trim() || "Announcement";
+        const rawBody =
+          typeof latest.body === "string"
+            ? latest.body
+            : latest.body
+              ? String(latest.body)
+              : String(latest.content ?? "");
+        const snippet = rawBody
+          .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+          .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 120);
+        const timestamp = latest.updatedAt ?? latest.createdAt ?? null;
+        const when = timestamp ? new Date(timestamp).toLocaleString() : "";
+        setAnnouncementsMeta({
+          count: items.length,
+          title,
+          snippet,
+          when,
+        });
+      } catch {
+        if (!active) return;
+        setAnnouncementsMeta(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [pathname, token]);
+
   React.useEffect(() => {
     if (!token) return;
     const syncBillingStatus = async () => {
@@ -214,6 +270,50 @@ export default function MessagesScreen() {
           ) : null}
         </View>
       </View>
+
+      {announcementsMeta?.count ? (
+        <View className="px-6 pb-4">
+          <Pressable
+            onPress={() => router.push("/announcements" as any)}
+            className="rounded-[24px] border px-5 py-4"
+            style={{
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: colors.borderSubtle,
+            }}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="megaphone-outline" size={18} color={colors.accent} />
+                <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+                  Announcements
+                </Text>
+              </View>
+              <View className="rounded-full px-3 py-1" style={{ backgroundColor: "rgba(34,197,94,0.12)" }}>
+                <Text className="text-[11px] font-outfit font-bold" style={{ color: colors.accent }}>
+                  {announcementsMeta.count}
+                </Text>
+              </View>
+            </View>
+            <Text className="mt-2 text-base font-outfit font-semibold text-app" numberOfLines={1}>
+              {announcementsMeta.title}
+            </Text>
+            {announcementsMeta.when ? (
+              <Text className="mt-1 text-[12px] font-outfit" style={{ color: colors.textSecondary }}>
+                {announcementsMeta.when}
+              </Text>
+            ) : null}
+            {announcementsMeta.snippet ? (
+              <Text
+                className="mt-2 text-[13px] font-outfit leading-5"
+                style={{ color: colors.textSecondary }}
+                numberOfLines={2}
+              >
+                {announcementsMeta.snippet}
+              </Text>
+            ) : null}
+          </Pressable>
+        </View>
+      ) : null}
 
       <InboxScreen
         threads={sortedThreads}
