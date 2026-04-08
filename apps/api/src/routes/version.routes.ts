@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { sql } from "drizzle-orm";
+import fs from "node:fs";
+import path from "node:path";
 
 import { db } from "../db";
 import { env } from "../config/env";
@@ -24,6 +26,18 @@ router.get("/version", async (_req, res) => {
     columnExists("chat_group_members", "lastReadAt"),
     columnExists("service_types", "eligiblePlans"),
   ]);
+
+  let codeMigrations: { has0059: boolean; has0060: boolean } | null = null;
+  try {
+    const folder = path.resolve(process.cwd(), "drizzle");
+    const files = fs.readdirSync(folder);
+    codeMigrations = {
+      has0059: files.includes("0059_chat_group_member_last_read_at.sql"),
+      has0060: files.includes("0060_service_types_eligible_plans.sql"),
+    };
+  } catch {
+    codeMigrations = null;
+  }
 
   let drizzleMigrations: { count: number; latestCreatedAt: number | null } = {
     count: 0,
@@ -52,6 +66,7 @@ router.get("/version", async (_req, res) => {
       process.env.VERCEL_GIT_COMMIT_SHA ||
       null,
     now: new Date().toISOString(),
+    codeMigrations,
     schema: {
       chat_group_members_lastReadAt: hasGroupLastReadAt,
       service_types_eligiblePlans: hasEligiblePlans,
@@ -61,4 +76,3 @@ router.get("/version", async (_req, res) => {
 });
 
 export default router;
-
