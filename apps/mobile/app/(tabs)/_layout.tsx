@@ -239,7 +239,10 @@ export default function TabLayout() {
   useEffect(() => {
     if (!socket || !token || !effectiveAuth || !bootstrapReady || !hasMessaging) return;
 
-    const effectiveUserId = String(profile.id ?? "");
+    const actingId = athleteUserId ? Number(athleteUserId) : NaN;
+    const effectiveUserId = String(
+      Number.isFinite(actingId) && actingId > 0 ? actingId : profile.id ?? "",
+    );
     const currentThreadFromPath = pathname.startsWith("/messages/")
       ? decodeURIComponent(pathname.replace("/messages/", "").split("/")[0] || "")
       : null;

@@ -20,6 +20,19 @@ type PendingAttachment = {
   isImage: boolean;
 };
 
+type MessagesControllerCache = {
+  threads: MessageThread[];
+  messages: ChatMessage[];
+  groupMembers: Record<number, Record<number, { name: string; avatar?: string | null }>>;
+  typingStatus: TypingStatus;
+  selectedThread: MessageThread | null;
+  draft: string;
+  updatedAtMs: number;
+};
+
+const MESSAGES_CACHE_TTL_MS = 1000 * 60 * 15;
+const messagesControllerCacheByProfileId = new Map<number, MessagesControllerCache>();
+
 export function useMessagesController() {
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
 
@@ -37,23 +50,55 @@ export function useMessagesController() {
   const { token, profile, programTier, athleteUserId } = useAppSelector(
     (state) => state.user,
   );
+  const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const effectiveProfileId = useMemo(() => {
-    return Number(profile.id ?? 0);
-  }, [profile.id]);
+    const actingId = athleteUserId ? Number(athleteUserId) : NaN;
+    if (Number.isFinite(actingId) && actingId > 0) return actingId;
+    const id = profile.id ? Number(profile.id) : 0;
+    return Number.isFinite(id) ? id : 0;
+  }, [athleteUserId, profile.id]);
+  const effectiveProfileName = useMemo(() => {
+    const actingId = athleteUserId ? Number(athleteUserId) : NaN;
+    if (Number.isFinite(actingId) && actingId > 0 && Array.isArray(managedAthletes)) {
+      const found =
+        managedAthletes.find(
+          (athlete: any) => athlete?.userId === actingId || athlete?.id === actingId,
+        ) ?? null;
+      const name = found?.name ? String(found.name).trim() : "";
+      if (name) return name;
+    }
+    const fallback = profile?.name ? String(profile.name).trim() : "";
+    return fallback || "You";
+  }, [athleteUserId, managedAthletes, profile?.name]);
 
-  const [threads, setThreads] = useState<MessageThread[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { socket, setActiveThreadId } = useSocket();
+
+  const initialCache = useMemo(() => {
+    const cached = messagesControllerCacheByProfileId.get(effectiveProfileId);
+    if (!cached) return null;
+    if (Date.now() - cached.updatedAtMs > MESSAGES_CACHE_TTL_MS) return null;
+    return cached;
+  }, [effectiveProfileId]);
+
+  const [threads, setThreads] = useState<MessageThread[]>(
+    () => initialCache?.threads ?? [],
+  );
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    () => initialCache?.messages ?? [],
+  );
+  const [isLoading, setIsLoading] = useState(initialCache ? false : true);
   const [isThreadLoading, setIsThreadLoading] = useState(false);
   const [groupMembers, setGroupMembers] = useState<
     Record<number, Record<number, { name: string; avatar?: string | null }>>
-  >({});
-  const [typingStatus, setTypingStatus] = useState<TypingStatus>({});
-  const [selectedThread, setSelectedThread] = useState<MessageThread | null>(
-    null,
+  >(() => initialCache?.groupMembers ?? {});
+  const [typingStatus, setTypingStatus] = useState<TypingStatus>(
+    () => initialCache?.typingStatus ?? {},
   );
-  const [draft, setDraft] = useState("");
-  const draftRef = useRef("");
+  const [selectedThread, setSelectedThread] = useState<MessageThread | null>(
+    initialCache?.selectedThread ?? null,
+  );
+  const [draft, setDraft] = useState(() => initialCache?.draft ?? "");
+  const draftRef = useRef(initialCache?.draft ?? "");
   const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(
     null,
   );
@@ -69,6 +114,39 @@ export function useMessagesController() {
     useState<PendingAttachment | null>(null);
   const draftConsumedRef = useRef<string | null>(null);
   const loadMessagesInFlightRef = useRef(false);
+  const cacheKeyRef = useRef<number>(effectiveProfileId);
+
+  useEffect(() => {
+    const cached = messagesControllerCacheByProfileId.get(effectiveProfileId);
+    const next =
+      cached && Date.now() - cached.updatedAtMs <= MESSAGES_CACHE_TTL_MS
+        ? cached
+        : null;
+
+    if (cacheKeyRef.current === effectiveProfileId) return;
+    cacheKeyRef.current = effectiveProfileId;
+    setThreads(next?.threads ?? []);
+    setMessages(next?.messages ?? []);
+    setGroupMembers(next?.groupMembers ?? {});
+    setTypingStatus(next?.typingStatus ?? {});
+    setSelectedThread(next?.selectedThread ?? null);
+    setDraft(next?.draft ?? "");
+    draftRef.current = next?.draft ?? "";
+  }, [effectiveProfileId]);
+
+  useEffect(() => {
+    const key = cacheKeyRef.current;
+    if (!Number.isFinite(key) || key <= 0) return;
+    messagesControllerCacheByProfileId.set(key, {
+      threads,
+      messages,
+      groupMembers,
+      typingStatus,
+      selectedThread,
+      draft: draftRef.current,
+      updatedAtMs: Date.now(),
+    });
+  }, [draft, groupMembers, messages, selectedThread, threads, typingStatus]);
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
@@ -309,7 +387,20 @@ export function useMessagesController() {
           (a, b) => b.updatedAtMs - a.updatedAtMs,
         );
         setThreads(sortedThreads);
-        setMessages(mappedMessages);
+        setMessages((prev) => {
+          const groupMessages = prev.filter((m) =>
+            String(m.threadId ?? "").startsWith("group:"),
+          );
+          const seen = new Set<string>();
+          const next: ChatMessage[] = [];
+          for (const msg of [...groupMessages, ...mappedMessages]) {
+            if (!msg?.id) continue;
+            if (seen.has(msg.id)) continue;
+            seen.add(msg.id);
+            next.push(msg);
+          }
+          return next;
+        });
       } catch (error) {
         console.warn("Failed to load messages", error);
       } finally {
@@ -701,7 +792,7 @@ export function useMessagesController() {
               minute: "2-digit",
             }),
             status: "sent",
-            authorName: profile.name ?? undefined,
+            authorName: effectiveProfileName,
             clientId,
           },
         ]);
@@ -770,7 +861,7 @@ export function useMessagesController() {
                     minute: "2-digit",
                   }),
               status: "sent",
-              authorName: profile.name ?? undefined,
+              authorName: effectiveProfileName,
               authorAvatar: null,
               clientId,
               reactions: serverMsg.reactions ?? [],
@@ -850,9 +941,10 @@ export function useMessagesController() {
     },
     [
       currentThread,
-      profile.name,
+      effectiveProfileName,
       replyTarget?.messageId,
       replyTarget?.preview,
+      socket,
       token,
     ],
   );
@@ -1144,8 +1236,6 @@ export function useMessagesController() {
       token,
     ],
   );
-
-  const { socket, setActiveThreadId } = useSocket();
 
   // Inbox list: poll when Socket.IO is not connected so threads still update without opening a thread.
   useEffect(() => {

@@ -25,6 +25,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const socketRef = useRef<Socket | null>(null);
   const activeThreadIdRef = useRef<string | null>(null);
   const effectiveProfileIdRef = useRef<string>("");
+  const athleteUserIdRef = useRef<number | null>(null);
   const connectErrorCountRef = useRef(0);
 
   useEffect(() => {
@@ -35,6 +36,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const effectiveProfileId = String(profile.id ?? "");
     effectiveProfileIdRef.current = effectiveProfileId;
   }, [profile.id]);
+
+  useEffect(() => {
+    const acting = athleteUserId ? Number(athleteUserId) : null;
+    athleteUserIdRef.current = Number.isFinite(acting as number) && (acting as number) > 0 ? (acting as number) : null;
+  }, [athleteUserId]);
 
   useEffect(() => {
     if (!token) {
@@ -72,10 +78,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       timeout: 20000,
     });
 
+    const emitActingJoin = () => {
+      const actingUserId = athleteUserIdRef.current;
+      newSocket.emit("acting:join", actingUserId ? { actingUserId } : {});
+    };
+
     newSocket.on("connect", () => {
       if (__DEV__) console.log("[Socket] Global connected");
       connectErrorCountRef.current = 0;
       setIsConnected(true);
+      emitActingJoin();
     });
 
     newSocket.on("disconnect", (reason) => {
@@ -108,6 +120,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   }, [token]);
 
   // No role-based socket room switching for guardians; messages are guardian-only.
+
+  useEffect(() => {
+    if (!socketRef.current?.connected) return;
+    const acting = athleteUserId ? Number(athleteUserId) : null;
+    const actingUserId = Number.isFinite(acting as number) && (acting as number) > 0 ? (acting as number) : null;
+    socketRef.current.emit("acting:join", actingUserId ? { actingUserId } : {});
+  }, [athleteUserId, isConnected]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected, setActiveThreadId }}>
