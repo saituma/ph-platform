@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import { ScrollArea } from "../../ui/scroll-area";
 import type { ChatMessage, ChatReaction } from "./types";
+import { OpenGraphPreview } from "./open-graph-preview";
 
 type EmojiPick = {
   native?: string;
@@ -40,7 +41,9 @@ export function ThreadMessageList({
   emptyLabel,
 }: ThreadMessageListProps) {
   const [pickerMessageId, setPickerMessageId] = useState<string | null>(null);
-  const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -68,27 +71,40 @@ export function ThreadMessageList({
     const myReaction =
       currentUserId == null
         ? null
-        : (Array.isArray(message.reactions) ? message.reactions : []).find((reaction) =>
-            Array.isArray(reaction.userIds) ? reaction.userIds.includes(currentUserId) : false,
-          ) ?? null;
+        : ((Array.isArray(message.reactions) ? message.reactions : []).find(
+            (reaction) =>
+              Array.isArray(reaction.userIds)
+                ? reaction.userIds.includes(currentUserId)
+                : false,
+          ) ?? null);
 
     if (myReaction?.emoji && myReaction.emoji !== emoji.native) {
-      console.log("[Messaging][Picker] remove-old", { messageId, oldEmoji: myReaction.emoji });
+      console.log("[Messaging][Picker] remove-old", {
+        messageId,
+        oldEmoji: myReaction.emoji,
+      });
       await Promise.resolve(onReact(messageId, myReaction.emoji));
     }
-    console.log("[Messaging][Picker] apply-new", { messageId, newEmoji: emoji.native });
+    console.log("[Messaging][Picker] apply-new", {
+      messageId,
+      newEmoji: emoji.native,
+    });
     await Promise.resolve(onReact(messageId, emoji.native));
     setPickerMessageId(null);
   };
 
   const jumpToMessage = (messageId: number | null) => {
     if (!messageId || !Number.isFinite(messageId)) return;
-    const target = document.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    const target = document.querySelector<HTMLElement>(
+      `[data-message-id="${messageId}"]`,
+    );
     if (!target) return;
     target.scrollIntoView({ behavior: "smooth", block: "center" });
     setHighlightedMessageId(messageId);
     window.setTimeout(() => {
-      setHighlightedMessageId((current) => (current === messageId ? null : current));
+      setHighlightedMessageId((current) =>
+        current === messageId ? null : current,
+      );
     }, 1400);
   };
 
@@ -96,7 +112,11 @@ export function ThreadMessageList({
     const input = String(raw ?? "");
     const replyMatch = input.match(/^\s*\[reply:(\d+):([^\]]*)\]\s*/i);
     if (!replyMatch) {
-      return { replyToId: null as number | null, replyPreview: "", text: input };
+      return {
+        replyToId: null as number | null,
+        replyPreview: "",
+        text: input,
+      };
     }
     const replyToId = Number(replyMatch[1]);
     const encodedPreview = replyMatch[2] ?? "";
@@ -107,7 +127,20 @@ export function ThreadMessageList({
       replyPreview = encodedPreview;
     }
     const text = input.slice(replyMatch[0].length);
-    return { replyToId: Number.isFinite(replyToId) ? replyToId : null, replyPreview, text };
+    return {
+      replyToId: Number.isFinite(replyToId) ? replyToId : null,
+      replyPreview,
+      text,
+    };
+  };
+
+  const extractFirstUrl = (value: string) => {
+    const input = String(value ?? "");
+    const matches = input.match(/https?:\/\/[^\s]+/gi) ?? [];
+    const cleaned = matches
+      .map((url) => url.replace(/[)\].,!?;:]+$/g, ""))
+      .filter((url) => /^https?:\/\//i.test(url));
+    return cleaned[0] ?? null;
   };
 
   const fileNameFromUrl = (url: string) => {
@@ -135,17 +168,33 @@ export function ThreadMessageList({
         {messages.map((message) => {
           const senderId = Number(message?.senderId ?? NaN);
           const receiverId = Number(message?.receiverId ?? NaN);
-          const normalizedRole = String(message?.senderRole ?? "").trim().toLowerCase();
-          const normalizedSenderName = String(message?.senderName ?? "").trim().toLowerCase();
-          const normalizedPeerName = String(directPeerName ?? "").trim().toLowerCase();
-          const mineById = Number.isFinite(senderId) && currentUserId != null ? senderId === currentUserId : false;
-          const mineByRole = normalizedRole === "admin" || normalizedRole === "coach" || normalizedRole === "superadmin";
+          const normalizedRole = String(message?.senderRole ?? "")
+            .trim()
+            .toLowerCase();
+          const normalizedSenderName = String(message?.senderName ?? "")
+            .trim()
+            .toLowerCase();
+          const normalizedPeerName = String(directPeerName ?? "")
+            .trim()
+            .toLowerCase();
+          const mineById =
+            Number.isFinite(senderId) && currentUserId != null
+              ? senderId === currentUserId
+              : false;
+          const mineByRole =
+            normalizedRole === "admin" ||
+            normalizedRole === "coach" ||
+            normalizedRole === "superadmin";
           const mineByDirectPeerSender =
-            mode === "direct" && directPeerUserId != null && Number.isFinite(senderId)
+            mode === "direct" &&
+            directPeerUserId != null &&
+            Number.isFinite(senderId)
               ? senderId !== directPeerUserId
               : null;
           const mineByDirectPeerReceiver =
-            mode === "direct" && directPeerUserId != null && Number.isFinite(receiverId)
+            mode === "direct" &&
+            directPeerUserId != null &&
+            Number.isFinite(receiverId)
               ? receiverId === directPeerUserId
               : null;
           const mineByDirectPeerName =
@@ -164,14 +213,25 @@ export function ThreadMessageList({
           } else if (mineByDirectPeerName != null) {
             mine = mineByDirectPeerName;
           }
-          const reactions: ChatReaction[] = Array.isArray(message?.reactions) ? message.reactions : [];
-          const hasImage = Boolean(message.mediaUrl && message.contentType === "image");
-          const hasVideo = Boolean(message.mediaUrl && message.contentType === "video");
+          const reactions: ChatReaction[] = Array.isArray(message?.reactions)
+            ? message.reactions
+            : [];
+          const hasImage = Boolean(
+            message.mediaUrl && message.contentType === "image",
+          );
+          const hasVideo = Boolean(
+            message.mediaUrl && message.contentType === "video",
+          );
           const hasMedia = hasImage || hasVideo;
           const parsed = parseMessage(String(message.content ?? ""));
-          const normalizedText = String(parsed.text ?? "").trim().toLowerCase();
+          const normalizedText = String(parsed.text ?? "")
+            .trim()
+            .toLowerCase();
           const hidePlaceholderText = normalizedText === "attachment";
           const showText = Boolean(parsed.text && !hidePlaceholderText);
+          const firstUrl = showText
+            ? extractFirstUrl(String(parsed.text ?? ""))
+            : null;
           const mediaOnly = hasMedia && !showText;
           const attachmentName =
             hasMedia && message.mediaUrl
@@ -181,14 +241,21 @@ export function ThreadMessageList({
                 : "";
           const senderLabel =
             message.senderName?.trim() ||
-            (Number.isFinite(senderId) && resolveUserName ? resolveUserName(senderId) : "") ||
+            (Number.isFinite(senderId) && resolveUserName
+              ? resolveUserName(senderId)
+              : "") ||
             "Unknown user";
-          const repliedMessage = parsed.replyToId ? messageById.get(parsed.replyToId) : undefined;
-          const repliedParsed = repliedMessage ? parseMessage(String(repliedMessage.content ?? "")) : null;
+          const repliedMessage = parsed.replyToId
+            ? messageById.get(parsed.replyToId)
+            : undefined;
+          const repliedParsed = repliedMessage
+            ? parseMessage(String(repliedMessage.content ?? ""))
+            : null;
           const repliedSenderLabel = repliedMessage
             ? String(
                 repliedMessage.senderName?.trim() ||
-                  (Number.isFinite(Number(repliedMessage.senderId)) && resolveUserName
+                  (Number.isFinite(Number(repliedMessage.senderId)) &&
+                  resolveUserName
                     ? resolveUserName(Number(repliedMessage.senderId))
                     : "") ||
                   "",
@@ -198,13 +265,16 @@ export function ThreadMessageList({
             parsed.replyPreview ||
             repliedParsed?.text?.trim() ||
             (parsed.replyToId ? `Message #${parsed.replyToId}` : "");
-          const canJumpToReply = parsed.replyToId != null && Number.isFinite(parsed.replyToId);
+          const canJumpToReply =
+            parsed.replyToId != null && Number.isFinite(parsed.replyToId);
           return (
             <div
               key={message.id}
               data-message-id={Number(message.id)}
               className={`flex w-full ${mine ? "justify-end" : "justify-start"} ${
-                highlightedMessageId === Number(message.id) ? "rounded-xl ring-2 ring-primary/60 ring-offset-2 ring-offset-background" : ""
+                highlightedMessageId === Number(message.id)
+                  ? "rounded-xl ring-2 ring-primary/60 ring-offset-2 ring-offset-background"
+                  : ""
               }`}
             >
               <div
@@ -216,14 +286,18 @@ export function ThreadMessageList({
                       : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                 }`}
               >
-                {showSenderName ? <p className="text-xs opacity-80">{senderLabel}</p> : null}
+                {showSenderName ? (
+                  <p className="text-xs opacity-80">{senderLabel}</p>
+                ) : null}
                 {replySnippet ? (
                   canJumpToReply ? (
                     <button
                       type="button"
                       onClick={() => jumpToMessage(parsed.replyToId)}
                       className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                        mine ? "border-white/30 bg-white/15 text-white/90" : "border-border bg-secondary/50 text-muted-foreground"
+                        mine
+                          ? "border-white/30 bg-white/15 text-white/90"
+                          : "border-border bg-secondary/50 text-muted-foreground"
                       }`}
                       aria-label="Jump to replied message"
                       title="Jump to replied message"
@@ -242,7 +316,9 @@ export function ThreadMessageList({
                   ) : (
                     <div
                       className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                        mine ? "border-white/30 bg-white/15 text-white/90" : "border-border bg-secondary/50 text-muted-foreground"
+                        mine
+                          ? "border-white/30 bg-white/15 text-white/90"
+                          : "border-border bg-secondary/50 text-muted-foreground"
                       }`}
                     >
                       {repliedSenderLabel ? (
@@ -272,22 +348,39 @@ export function ThreadMessageList({
                     className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full" : "max-h-64 w-full"}`}
                   />
                 ) : null}
-                {showText ? <p className="text-sm whitespace-pre-wrap">{parsed.text}</p> : null}
-                {attachmentName && !showText ? (
-                  <p className={`text-xs ${mine && !mediaOnly ? "text-white/85" : "text-muted-foreground"}`}>{attachmentName}</p>
+                {showText ? (
+                  <p className="text-sm whitespace-pre-wrap">{parsed.text}</p>
                 ) : null}
-                <p className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}>
+                {firstUrl ? <OpenGraphPreview url={firstUrl} /> : null}
+                {attachmentName && !showText ? (
+                  <p
+                    className={`text-xs ${mine && !mediaOnly ? "text-white/85" : "text-muted-foreground"}`}
+                  >
+                    {attachmentName}
+                  </p>
+                ) : null}
+                <p
+                  className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}
+                >
                   {formatTime(message.createdAt)}
                 </p>
               </div>
-              <div data-reaction-picker-root="true" className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}>
+              <div
+                data-reaction-picker-root="true"
+                className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}
+              >
                 {onReply ? (
                   <button
                     type="button"
                     className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
                     onClick={() => {
-                      const defaultPreview = parsed.text?.trim() || (hasMedia ? "Media message" : "Message");
-                      onReply({ messageId: Number(message.id), preview: defaultPreview.slice(0, 160) });
+                      const defaultPreview =
+                        parsed.text?.trim() ||
+                        (hasMedia ? "Media message" : "Message");
+                      onReply({
+                        messageId: Number(message.id),
+                        preview: defaultPreview.slice(0, 160),
+                      });
                     }}
                     aria-label="Reply to message"
                   >
@@ -298,42 +391,67 @@ export function ThreadMessageList({
                   type="button"
                   className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
                   onClick={() => {
-                    console.log("[Messaging][Picker] toggle", { messageId: Number(message.id) });
-                    setPickerMessageId((current) => (current === String(message.id) ? null : String(message.id)))
+                    console.log("[Messaging][Picker] toggle", {
+                      messageId: Number(message.id),
+                    });
+                    setPickerMessageId((current) =>
+                      current === String(message.id)
+                        ? null
+                        : String(message.id),
+                    );
                   }}
                   aria-label="Add custom reaction"
                 >
                   {reactions.length ? (
                     <span className="flex items-center gap-1">
                       <span>{reactions[0].emoji}</span>
-                      <span>{reactions.reduce((sum, reaction) => sum + Number(reaction.count ?? 0), 0)}</span>
+                      <span>
+                        {reactions.reduce(
+                          (sum, reaction) => sum + Number(reaction.count ?? 0),
+                          0,
+                        )}
+                      </span>
                     </span>
                   ) : (
                     <Plus className="h-3.5 w-3.5" />
                   )}
                 </button>
                 {pickerMessageId === String(message.id) ? (
-                  <div className={`absolute top-full mt-2 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}>
+                  <div
+                    className={`absolute top-full mt-2 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}
+                  >
                     {reactions.length ? (
                       <div className="max-w-72 border-b border-border px-3 py-2 text-xs">
-                        <p className="mb-1 font-semibold text-foreground">Reactions</p>
+                        <p className="mb-1 font-semibold text-foreground">
+                          Reactions
+                        </p>
                         <div className="space-y-1.5">
                           {reactions.map((reaction) => {
                             const users =
-                              Array.isArray(reaction.userIds) && reaction.userIds.length
+                              Array.isArray(reaction.userIds) &&
+                              reaction.userIds.length
                                 ? reaction.userIds.map((userId) =>
-                                    resolveUserName ? resolveUserName(userId) : `User ${userId}`,
+                                    resolveUserName
+                                      ? resolveUserName(userId)
+                                      : `User ${userId}`,
                                   )
                                 : [];
                             return (
-                              <div key={`detail-${message.id}-${reaction.emoji}`} className="rounded-md bg-secondary/50 px-2 py-1">
+                              <div
+                                key={`detail-${message.id}-${reaction.emoji}`}
+                                className="rounded-md bg-secondary/50 px-2 py-1"
+                              >
                                 <p className="font-medium">
                                   {reaction.emoji} {reaction.count}
                                 </p>
                                 {users.length ? (
-                                  <p className="truncate text-muted-foreground">{users.join(", ")}</p>
+                                  <p className="truncate text-muted-foreground">
+                                    {users.join(", ")}
+                                  </p>
                                 ) : (
-                                  <p className="text-muted-foreground">No user details</p>
+                                  <p className="text-muted-foreground">
+                                    No user details
+                                  </p>
                                 )}
                               </div>
                             );
@@ -343,7 +461,9 @@ export function ThreadMessageList({
                     ) : null}
                     <Picker
                       data={emojiData}
-                      onEmojiSelect={(emoji: EmojiPick) => void handlePickReaction(message, emoji)}
+                      onEmojiSelect={(emoji: EmojiPick) =>
+                        void handlePickReaction(message, emoji)
+                      }
                       previewPosition="none"
                       skinTonePosition="none"
                       maxFrequentRows={1}
@@ -354,7 +474,9 @@ export function ThreadMessageList({
             </div>
           );
         })}
-        {!messages.length ? <p className="text-sm text-muted-foreground">{emptyLabel}</p> : null}
+        {!messages.length ? (
+          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+        ) : null}
       </div>
     </ScrollArea>
   );

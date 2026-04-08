@@ -40,9 +40,6 @@ function formatUnreadBadge(unread: number) {
 }
 
 function groupThreadsByChannel(threads: MessageThread[]) {
-  const announcements = threads.filter(
-    (thread) => thread.channelType === "announcement",
-  );
   const coachGroups = threads.filter(
     (thread) => thread.channelType === "coach_group",
   );
@@ -53,7 +50,6 @@ function groupThreadsByChannel(threads: MessageThread[]) {
   const team = threads.filter((thread) => thread.channelType === "team");
 
   return [
-    { key: "announcement", title: "Coach announcements", items: announcements },
     { key: "coach_group", title: "Coach groups", items: coachGroups },
     { key: "direct", title: "Direct inbox", items: direct },
     { key: "team", title: "Team inbox", items: team },

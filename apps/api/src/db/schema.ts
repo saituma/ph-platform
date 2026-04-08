@@ -656,6 +656,7 @@ export const chatGroupMemberTable = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     groupId: integer().notNull().references(() => chatGroupTable.id),
     userId: integer().notNull().references(() => userTable.id),
+    lastReadAt: timestamp(),
     createdAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({

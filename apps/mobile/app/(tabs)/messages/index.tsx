@@ -337,30 +337,30 @@ export default function MessagesScreen() {
         </View>
       </View>
 
-      {announcementsMeta?.count ? (
-        <View className="px-6 pb-4">
-          <Pressable
-            onPress={() => router.push("/announcements" as any)}
-            className="rounded-[24px] border px-5 py-4"
-            style={{
-              backgroundColor: colors.backgroundSecondary,
-              borderColor: colors.borderSubtle,
-            }}
-          >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <Ionicons
-                  name="megaphone-outline"
-                  size={18}
-                  color={colors.accent}
-                />
-                <Text
-                  className="text-[12px] font-outfit font-bold uppercase tracking-[1.4px]"
-                  style={{ color: colors.accent }}
-                >
-                  Announcements
-                </Text>
-              </View>
+      <View className="px-6 pb-4">
+        <Pressable
+          onPress={() => router.push("/announcements" as any)}
+          className="rounded-[24px] border px-5 py-4"
+          style={{
+            backgroundColor: colors.backgroundSecondary,
+            borderColor: colors.borderSubtle,
+          }}
+        >
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <Ionicons
+                name="megaphone-outline"
+                size={18}
+                color={colors.accent}
+              />
+              <Text
+                className="text-[12px] font-outfit font-bold uppercase tracking-[1.4px]"
+                style={{ color: colors.accent }}
+              >
+                Announcements
+              </Text>
+            </View>
+            {announcementsMeta?.count ? (
               <View
                 className="rounded-full px-3 py-1"
                 style={{ backgroundColor: "rgba(34,197,94,0.12)" }}
@@ -372,34 +372,33 @@ export default function MessagesScreen() {
                   {announcementsMeta.count}
                 </Text>
               </View>
-            </View>
+            ) : null}
+          </View>
+          <Text
+            className="mt-2 text-base font-outfit font-semibold"
+            style={{ color: colors.text }}
+            numberOfLines={1}
+          >
+            {announcementsMeta?.title || "No announcements yet"}
+          </Text>
+          {announcementsMeta?.when ? (
             <Text
-              className="mt-2 text-base font-outfit font-semibold"
-              style={{ color: colors.text }}
-              numberOfLines={1}
+              className="mt-1 text-[12px] font-outfit"
+              style={{ color: colors.textSecondary }}
             >
-              {announcementsMeta.title}
+              {announcementsMeta.when}
             </Text>
-            {announcementsMeta.when ? (
-              <Text
-                className="mt-1 text-[12px] font-outfit"
-                style={{ color: colors.textSecondary }}
-              >
-                {announcementsMeta.when}
-              </Text>
-            ) : null}
-            {announcementsMeta.snippet ? (
-              <Text
-                className="mt-2 text-[13px] font-outfit leading-5"
-                style={{ color: colors.textSecondary }}
-                numberOfLines={2}
-              >
-                {announcementsMeta.snippet}
-              </Text>
-            ) : null}
-          </Pressable>
-        </View>
-      ) : null}
+          ) : null}
+          <Text
+            className="mt-2 text-[13px] font-outfit leading-5"
+            style={{ color: colors.textSecondary }}
+            numberOfLines={2}
+          >
+            {announcementsMeta?.snippet ||
+              "Broadcast updates from your coach will appear here."}
+          </Text>
+        </Pressable>
+      </View>
 
       <InboxScreen
         threads={sortedThreads}

@@ -59,6 +59,7 @@ import {
   useGetMessagesQuery,
   useGetThreadsQuery,
   useGetUsersQuery,
+  useMarkChatGroupReadMutation,
   useMarkThreadReadMutation,
   useSendChatGroupMessageMutation,
   useSendMessageMutation,
@@ -109,6 +110,32 @@ function formatSchedule(startsAt?: string | null, endsAt?: string | null) {
     return `Active ${formatTime(startsAt)} → ${formatTime(endsAt)}`;
   if (startsAt) return `Starts ${formatTime(startsAt)}`;
   return `Ends ${formatTime(endsAt)}`;
+}
+
+function getGroupActivityTimestamp(group: ChatGroupItem) {
+  return group.lastMessage?.createdAt ?? group.createdAt ?? null;
+}
+
+function formatGroupLastMessagePreview(group: ChatGroupItem) {
+  const message = group.lastMessage;
+  if (!message) return "No messages yet";
+
+  const sender = (message.senderName ?? "").trim();
+  const content = (message.content ?? "").trim();
+  const type = (message.contentType ?? "text").toString();
+  const label =
+    type === "image"
+      ? "Photo"
+      : type === "video"
+        ? "Video"
+        : content || "Message";
+  if (!sender) return label;
+  return `${sender}: ${label}`;
+}
+
+function formatUnreadCount(unread: number) {
+  if (!Number.isFinite(unread) || unread <= 0) return null;
+  return unread > 99 ? "99+" : String(unread);
 }
 
 function isValidDateTimeValue(value?: string) {
@@ -280,6 +307,7 @@ export default function MessagingPage() {
   const [deleteAnnouncement] = useDeleteContentMutation();
   const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
   const [markThreadRead] = useMarkThreadReadMutation();
+  const [markChatGroupRead] = useMarkChatGroupReadMutation();
   const [sendDirect, { isLoading: isSendingDirect }] = useSendMessageMutation();
   const [sendGroup, { isLoading: isSendingGroup }] =
     useSendChatGroupMessageMutation();
@@ -311,6 +339,23 @@ export default function MessagingPage() {
       setGroupReactionOverrides({});
     }
   }, [groupId]);
+
+  useEffect(() => {
+    if (groupId == null) return;
+    let active = true;
+    (async () => {
+      try {
+        await markChatGroupRead({ groupId }).unwrap();
+        if (!active) return;
+        refetchGroups();
+      } catch {
+        // keep opening modal even if mark-read fails
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [groupId, markChatGroupRead, refetchGroups]);
 
   const userNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -370,26 +415,21 @@ export default function MessagingPage() {
   );
   const groupedInboxSections = useMemo(
     () => ({
-      announcements: groups
-        .filter((group) => resolveGroupCategory(group) === "announcement")
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt ?? 0).getTime() -
-            new Date(a.createdAt ?? 0).getTime(),
-        ),
       coachGroups: groups
+        .filter((group) => resolveGroupCategory(group) !== "announcement")
         .filter((group) => resolveGroupCategory(group) === "coach_group")
         .sort(
           (a, b) =>
-            new Date(b.createdAt ?? 0).getTime() -
-            new Date(a.createdAt ?? 0).getTime(),
+            new Date(getGroupActivityTimestamp(b) ?? 0).getTime() -
+            new Date(getGroupActivityTimestamp(a) ?? 0).getTime(),
         ),
       teamInbox: groups
+        .filter((group) => resolveGroupCategory(group) !== "announcement")
         .filter((group) => resolveGroupCategory(group) === "team")
         .sort(
           (a, b) =>
-            new Date(b.createdAt ?? 0).getTime() -
-            new Date(a.createdAt ?? 0).getTime(),
+            new Date(getGroupActivityTimestamp(b) ?? 0).getTime() -
+            new Date(getGroupActivityTimestamp(a) ?? 0).getTime(),
         ),
     }),
     [groups],
@@ -1442,18 +1482,12 @@ export default function MessagingPage() {
               <CardHeader>
                 <SectionHeader
                   title="Group Chats"
-                  description="Organized as coach announcements, coach groups, and team inbox."
+                  description="Organized as coach groups and team inbox."
                 />
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    {
-                      key: "announcements",
-                      title: "Coach announcements",
-                      items: groupedInboxSections.announcements,
-                      tone: "bg-amber-500/10 text-amber-200 border-amber-500/30",
-                    },
                     {
                       key: "coach-groups",
                       title: "Coach groups",
@@ -1502,13 +1536,21 @@ export default function MessagingPage() {
                                 {categoryLabel(resolveGroupCategory(group))}
                               </span>
                             </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Created {formatTime(group.createdAt)}
+                            <p className="mt-1 truncate text-xs text-muted-foreground">
+                              {formatGroupLastMessagePreview(group)}
                             </p>
                           </div>
-                          <span className="text-xs text-muted-foreground transition group-hover:text-foreground">
-                            Open
-                          </span>
+                          <div className="flex flex-col items-end gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              {formatTime(getGroupActivityTimestamp(group))}
+                            </span>
+                            {Number(group.unreadCount ?? 0) > 0 ? (
+                              <Badge className="h-5 rounded-full px-2 text-[10px]">
+                                {formatUnreadCount(Number(group.unreadCount)) ??
+                                  ""}
+                              </Badge>
+                            ) : null}
+                          </div>
                         </button>
                       ))}
                       {!section.items.length ? (
@@ -1799,15 +1841,11 @@ export default function MessagingPage() {
                 value={newGroupCategory}
                 onChange={(event) =>
                   setNewGroupCategory(
-                    event.target.value as
-                      | "announcement"
-                      | "coach_group"
-                      | "team",
+                    event.target.value as "coach_group" | "team",
                   )
                 }
               >
                 <option value="coach_group">Coach group</option>
-                <option value="announcement">Coach announcement</option>
                 <option value="team">Team inbox</option>
               </Select>
             </div>

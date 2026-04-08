@@ -33,6 +33,17 @@ export type ChatGroupItem = {
   name?: string | null;
   category?: "announcement" | "coach_group" | "team" | null;
   createdAt?: string | null;
+  unreadCount?: number | null;
+  lastMessage?: {
+    id: number | string;
+    senderId?: number | string | null;
+    senderName?: string | null;
+    senderProfilePicture?: string | null;
+    content?: string | null;
+    contentType?: "text" | "image" | "video" | string | null;
+    mediaUrl?: string | null;
+    createdAt?: string | null;
+  } | null;
 };
 
 export type ChatReaction = {
@@ -47,6 +58,7 @@ export type ChatMessage = {
   receiverId?: number | string | null;
   senderRole?: string | null;
   senderName?: string | null;
+  senderProfilePicture?: string | null;
   content?: string | null;
   contentType?: "text" | "image" | "video" | string | null;
   mediaUrl?: string | null;
