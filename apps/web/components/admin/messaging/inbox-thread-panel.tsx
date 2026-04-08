@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "../../ui/card";
 import { Input } from "../../ui/input";
 import { ScrollArea } from "../../ui/scroll-area";
 import { SectionHeader } from "../section-header";
+import { useGetOpenGraphQuery } from "../../../lib/apiSlice";
 
 type ThreadListItem = {
   userId: number;
@@ -47,6 +48,120 @@ function cleanPreview(raw: string) {
 
   // Inbox list should show only the latest message body (not the reply prefix context).
   return resolvedBody;
+}
+
+function normalizeMediaUrl(value: string) {
+  const trimmed = value.trim().replace(/^['"]|['"]$/g, "");
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  if (trimmed.startsWith("http://")) return `https://${trimmed.slice(7)}`;
+  if (trimmed.startsWith("www.")) return `https://${trimmed}`;
+  return trimmed;
+}
+
+function extractFirstUrl(text: string) {
+  const raw = String(text ?? "");
+  const match = raw.match(/(https?:\/\/[^\s)]+|\bwww\.[^\s)]+)/i);
+  if (!match?.[1]) return null;
+  const normalized = normalizeMediaUrl(match[1]);
+  if (!/^https?:\/\//i.test(normalized)) return null;
+  return normalized;
+}
+
+function hostForUrl(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.replace(/^https?:\/\//, "").replace(/^www\./, "");
+  }
+}
+
+function InboxThreadRow({
+  thread,
+  highlighted,
+  onOpen,
+  formatTime,
+  buttonRef,
+}: {
+  thread: ThreadListItem;
+  highlighted: boolean;
+  onOpen: () => void;
+  formatTime: (value?: string | null) => string;
+  buttonRef?: (node: HTMLButtonElement | null) => void;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const preview = cleanPreview(thread.preview);
+  const url = useMemo(() => extractFirstUrl(preview), [preview]);
+  const shouldFetchOpenGraph = Boolean(url) && (highlighted || isHovered);
+
+  const { data: openGraphData } = useGetOpenGraphQuery(
+    { url: url ?? "" },
+    { skip: !shouldFetchOpenGraph },
+  );
+
+  const ogTitle = String(openGraphData?.data?.title ?? "").trim();
+  const ogSiteName = String(openGraphData?.data?.siteName ?? "").trim();
+  const ogHost = url ? hostForUrl(url) : "";
+
+  const subtitle =
+    ogTitle || ogSiteName
+      ? `${ogSiteName || ogHost}${ogTitle ? ` · ${ogTitle}` : ""}`
+      : url
+        ? ogHost
+        : null;
+
+  return (
+    <button
+      key={thread.userId}
+      ref={buttonRef}
+      type="button"
+      onClick={onOpen}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`group flex w-full items-center gap-3 rounded-2xl border bg-card/60 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
+        highlighted
+          ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+          : "border-border/70"
+      }`}
+    >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+        {initials(thread.name)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {thread.name}
+            </p>
+            {thread.isPremium ? (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                Premium
+              </span>
+            ) : null}
+          </div>
+          <p className="shrink-0 text-xs text-muted-foreground">
+            {formatTime(thread.updatedAt)}
+          </p>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm text-muted-foreground">{preview}</p>
+            {subtitle ? (
+              <p className="mt-1 truncate text-xs text-muted-foreground/80">
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
+          {thread.unread > 0 ? (
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground">
+              {thread.unread}
+            </span>
+          ) : (
+            <MessageCircleMore className="h-4 w-4 text-muted-foreground/50 opacity-0 transition group-hover:opacity-100" />
+          )}
+        </div>
+      </div>
+    </button>
+  );
 }
 
 export function InboxThreadPanel({
@@ -114,46 +229,16 @@ export function InboxThreadPanel({
           <ScrollArea className="h-[68vh] pr-2">
             <div className="space-y-2">
               {filteredThreads.map((thread) => (
-                <button
+                <InboxThreadRow
                   key={thread.userId}
-                  ref={(node) => {
+                  thread={thread}
+                  highlighted={highlightedUserId === thread.userId}
+                  onOpen={() => onOpenThread(thread.userId)}
+                  formatTime={formatTime}
+                  buttonRef={(node) => {
                     threadRowRefs.current[thread.userId] = node;
                   }}
-                  type="button"
-                  onClick={() => onOpenThread(thread.userId)}
-                  className={`group flex w-full items-center gap-3 rounded-2xl border bg-card/60 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
-                    highlightedUserId === thread.userId
-                      ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
-                      : "border-border/70"
-                  }`}
-                >
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-                    {initials(thread.name)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">{thread.name}</p>
-                        {thread.isPremium ? (
-                          <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
-                            Premium
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="shrink-0 text-xs text-muted-foreground">{formatTime(thread.updatedAt)}</p>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between gap-2">
-                      <p className="truncate text-sm text-muted-foreground">{cleanPreview(thread.preview)}</p>
-                      {thread.unread > 0 ? (
-                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground">
-                          {thread.unread}
-                        </span>
-                      ) : (
-                        <MessageCircleMore className="h-4 w-4 text-muted-foreground/50 opacity-0 transition group-hover:opacity-100" />
-                      )}
-                    </div>
-                  </div>
-                </button>
+                />
               ))}
               {!filteredThreads.length ? (
                 <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">

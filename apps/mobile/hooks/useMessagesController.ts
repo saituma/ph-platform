@@ -1064,6 +1064,36 @@ export function useMessagesController() {
     }
   }, [currentThread, isUploadingAttachment, token]);
 
+  const handleSendGif = useCallback(
+    async (gifUrl: string) => {
+      if (!gifUrl || !token || !currentThread || isUploadingAttachment) return;
+      const caption = draftRef.current.trim();
+
+      // Clear immediately so the UI feels instant.
+      setDraftValue("");
+      setPendingAttachment(null);
+
+      try {
+        await sendMessagePayload({
+          text: caption || "GIF",
+          contentType: "image",
+          mediaUrl: gifUrl,
+        });
+        setReplyTarget(null);
+      } catch (error) {
+        setDraftValue(caption);
+        console.warn("Failed to send GIF", error);
+      }
+    },
+    [
+      currentThread,
+      isUploadingAttachment,
+      sendMessagePayload,
+      setDraftValue,
+      token,
+    ],
+  );
+
   const { socket, setActiveThreadId } = useSocket();
 
   // Inbox list: poll when Socket.IO is not connected so threads still update without opening a thread.
@@ -1185,6 +1215,7 @@ export function useMessagesController() {
     handleAttachFile,
     handleAttachImage,
     handleAttachVideo,
+    handleSendGif,
     handleTakePhoto,
     handleRecordVideo,
     handleToggleReaction,
