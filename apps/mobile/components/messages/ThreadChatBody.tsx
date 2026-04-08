@@ -42,6 +42,7 @@ import { Shadows } from "@/constants/theme";
 type ThreadChatBodyProps = {
   thread: MessageThread;
   messages: ChatMessage[];
+  token?: string | null;
   draft: string;
   isLoading: boolean;
   isThreadLoading: boolean;
@@ -338,6 +339,7 @@ const MemoizedComposer = React.memo(
 function ThreadChatBodyBase({
   thread,
   messages,
+  token = null,
   draft,
   isLoading,
   isThreadLoading,
@@ -599,6 +601,7 @@ function ThreadChatBodyBase({
       >
         <MessageBubble
           message={item}
+          token={token}
           onLongPress={onLongPressMessage}
           onReactionPress={onReactionPress}
           onReply={onReplyMessage}

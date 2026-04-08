@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, StyleProp, TextStyle, ViewStyle } from "react-native";
+import { Linking, View, StyleProp, TextStyle, ViewStyle } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
@@ -12,12 +12,32 @@ type MarkdownTextProps = {
   containerStyle?: StyleProp<ViewStyle>;
 };
 
-type InlineToken = { text: string; bold?: boolean; italic?: boolean };
+type InlineToken = {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  href?: string;
+};
 
 const parseInline = (line: string): InlineToken[] => {
   const tokens: InlineToken[] = [];
   let i = 0;
   while (i < line.length) {
+    if (line.startsWith("[", i)) {
+      const closeLabel = line.indexOf("]", i + 1);
+      if (closeLabel !== -1 && line[closeLabel + 1] === "(") {
+        const closeUrl = line.indexOf(")", closeLabel + 2);
+        if (closeUrl !== -1) {
+          const label = line.slice(i + 1, closeLabel);
+          const href = line.slice(closeLabel + 2, closeUrl);
+          if (label && href) {
+            tokens.push({ text: label, href });
+            i = closeUrl + 1;
+            continue;
+          }
+        }
+      }
+    }
     if (line.startsWith("**", i)) {
       const end = line.indexOf("**", i + 2);
       if (end !== -1) {
@@ -36,12 +56,11 @@ const parseInline = (line: string): InlineToken[] => {
     }
     const nextBold = line.indexOf("**", i);
     const nextItalic = line.indexOf("_", i);
-    const next =
-      nextBold === -1
-        ? nextItalic
-        : nextItalic === -1
-          ? nextBold
-          : Math.min(nextBold, nextItalic);
+    const nextLink = line.indexOf("[", i);
+    const nextCandidates = [nextBold, nextItalic, nextLink].filter(
+      (val) => val !== -1,
+    );
+    const next = nextCandidates.length ? Math.min(...nextCandidates) : -1;
     if (next === -1) {
       tokens.push({ text: line.slice(i) });
       break;
@@ -52,16 +71,28 @@ const parseInline = (line: string): InlineToken[] => {
   return tokens;
 };
 
-const renderInline = (line: string, baseStyle?: StyleProp<TextStyle>) => {
+const renderInline = (
+  line: string,
+  baseStyle: StyleProp<TextStyle> | undefined,
+  linkStyle: StyleProp<TextStyle>,
+) => {
   const tokens = parseInline(line);
   return tokens.map((token, index) => (
     <Text
       key={`md-inline-${index}`}
       style={[
         baseStyle,
+        token.href ? linkStyle : null,
         token.bold ? { fontWeight: "700" } : null,
         token.italic ? { fontStyle: "italic" } : null,
       ]}
+      onPress={
+        token.href
+          ? () => {
+              Linking.openURL(token.href!);
+            }
+          : undefined
+      }
     >
       {token.text}
     </Text>
@@ -82,6 +113,10 @@ export function MarkdownText({
     { color: colors.text },
     baseStyle,
   ];
+  const resolvedLinkStyle: StyleProp<TextStyle> = {
+    color: colors.accent,
+    textDecorationLine: "underline",
+  };
   return (
     <View style={containerStyle}>
       {lines.map((raw, index) => {
@@ -95,7 +130,11 @@ export function MarkdownText({
               key={`md-line-${index}`}
               style={[resolvedBaseStyle, subheadingStyle]}
             >
-              {renderInline(line.slice(4), resolvedBaseStyle)}
+              {renderInline(
+                line.slice(4),
+                resolvedBaseStyle,
+                resolvedLinkStyle,
+              )}
             </Text>
           );
         }
@@ -105,7 +144,11 @@ export function MarkdownText({
               key={`md-line-${index}`}
               style={[resolvedBaseStyle, headingStyle]}
             >
-              {renderInline(line.slice(3), resolvedBaseStyle)}
+              {renderInline(
+                line.slice(3),
+                resolvedBaseStyle,
+                resolvedLinkStyle,
+              )}
             </Text>
           );
         }
@@ -115,7 +158,11 @@ export function MarkdownText({
               key={`md-line-${index}`}
               style={[resolvedBaseStyle, headingStyle]}
             >
-              {renderInline(line.slice(2), resolvedBaseStyle)}
+              {renderInline(
+                line.slice(2),
+                resolvedBaseStyle,
+                resolvedLinkStyle,
+              )}
             </Text>
           );
         }
@@ -125,13 +172,17 @@ export function MarkdownText({
               key={`md-line-${index}`}
               style={[resolvedBaseStyle, listItemStyle]}
             >
-              {renderInline(`• ${line.slice(2)}`, resolvedBaseStyle)}
+              {renderInline(
+                `• ${line.slice(2)}`,
+                resolvedBaseStyle,
+                resolvedLinkStyle,
+              )}
             </Text>
           );
         }
         return (
           <Text key={`md-line-${index}`} style={resolvedBaseStyle}>
-            {renderInline(line, resolvedBaseStyle)}
+            {renderInline(line, resolvedBaseStyle, resolvedLinkStyle)}
           </Text>
         );
       })}

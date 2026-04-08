@@ -10,7 +10,10 @@ import { Alert, ActivityIndicator, View } from "react-native";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { apiRequest } from "@/lib/api";
-import { setMessagingAccessTiers, setProgramTier } from "@/store/slices/userSlice";
+import {
+  setMessagingAccessTiers,
+  setProgramTier,
+} from "@/store/slices/userSlice";
 import { useLocalSearchParams } from "expo-router";
 import { useRouter } from "expo-router";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
@@ -23,7 +26,9 @@ export default function ThreadScreen() {
   const router = useRouter();
   const token = useAppSelector((state) => state.user.token);
   const programTier = useAppSelector((state) => state.user.programTier);
-  const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
+  const messagingAccessTiers = useAppSelector(
+    (state) => state.user.messagingAccessTiers,
+  );
   const appRole = useAppSelector((state) => state.user.appRole);
   const profile = useAppSelector((state) => state.user.profile);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
@@ -50,7 +55,11 @@ export default function ThreadScreen() {
         const status = await apiRequest<{
           currentProgramTier?: string | null;
           messagingAccessTiers?: string[] | null;
-        }>("/billing/status", { token, suppressStatusCodes: [401, 403, 404], skipCache: true });
+        }>("/billing/status", {
+          token,
+          suppressStatusCodes: [401, 403, 404],
+          skipCache: true,
+        });
         dispatch(setProgramTier(status?.currentProgramTier ?? null));
         dispatch(
           setMessagingAccessTiers(
@@ -100,39 +109,46 @@ export default function ThreadScreen() {
   } = useMessagesController();
 
   const handleLockedPress = React.useCallback(() => {
-    Alert.alert("Messaging locked", "Messaging isn’t enabled for your current plan.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Open Programs",
-        onPress: () => {
-          requestGlobalTabChange(0);
-          router.replace("/(tabs)/programs");
-        },
-      },
-    ]);
-  }, [router]);
-
-  const handleLongPressMessage = React.useCallback((message: ChatMessage) => {
-    const isOwn = message.from === "user";
-    if (isOwn) {
-      Alert.alert("Message options", "Choose an action", [
+    Alert.alert(
+      "Messaging locked",
+      "Messaging isn’t enabled for your current plan.",
+      [
+        { text: "Cancel", style: "cancel" },
         {
-          text: "React",
+          text: "Open Programs",
           onPress: () => {
-            setReactionTarget(message);
+            requestGlobalTabChange(0);
+            router.replace("/(tabs)/programs");
           },
         },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => handleDeleteMessage(message),
-        },
-        { text: "Cancel", style: "cancel" },
-      ]);
-      return;
-    }
-    setReactionTarget(message);
-  }, [handleDeleteMessage, setReactionTarget]);
+      ],
+    );
+  }, [router]);
+
+  const handleLongPressMessage = React.useCallback(
+    (message: ChatMessage) => {
+      const isOwn = message.from === "user";
+      if (isOwn) {
+        Alert.alert("Message options", "Choose an action", [
+          {
+            text: "React",
+            onPress: () => {
+              setReactionTarget(message);
+            },
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => handleDeleteMessage(message),
+          },
+          { text: "Cancel", style: "cancel" },
+        ]);
+        return;
+      }
+      setReactionTarget(message);
+    },
+    [handleDeleteMessage, setReactionTarget],
+  );
 
   const handleRemovePendingAttachment = React.useCallback(() => {
     setPendingAttachment(null);
@@ -147,7 +163,10 @@ export default function ThreadScreen() {
   }
 
   return (
-    <View className="flex-1 bg-app" style={{ backgroundColor: colors.background }}>
+    <View
+      className="flex-1 bg-app"
+      style={{ backgroundColor: colors.background }}
+    >
       <ThreadHeader
         thread={currentThread}
         onBack={clearThread}
@@ -163,11 +182,18 @@ export default function ThreadScreen() {
               borderColor: "rgba(34,197,94,0.16)",
             }}
           >
-            <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+            <Text
+              className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
+              style={{ color: colors.accent }}
+            >
               Coaching thread
             </Text>
-            <Text className="mt-1 text-sm font-outfit" style={{ color: colors.textSecondary }}>
-              Keep {focusName}&apos;s progress updates in one thread for faster coach feedback.
+            <Text
+              className="mt-1 text-sm font-outfit"
+              style={{ color: colors.textSecondary }}
+            >
+              Keep {focusName}&apos;s progress updates in one thread for faster
+              coach feedback.
             </Text>
           </View>
         </View>
@@ -175,6 +201,7 @@ export default function ThreadScreen() {
       <ThreadChatBody
         thread={currentThread}
         messages={localMessages}
+        token={token}
         draft={draft}
         replyTarget={replyTarget}
         onClearReplyTarget={clearReplyTarget}
@@ -192,7 +219,9 @@ export default function ThreadScreen() {
         pendingAttachment={pendingAttachment}
         onRemovePendingAttachment={handleRemovePendingAttachment}
         isUploadingAttachment={isUploadingAttachment}
-        disabledMessage={!canMessage ? "Messaging isn’t enabled for your plan." : undefined}
+        disabledMessage={
+          !canMessage ? "Messaging isn’t enabled for your plan." : undefined
+        }
         onDisabledPress={handleLockedPress}
         coachingContextLabel={isYouthAthleteRole ? focusName : undefined}
       />
