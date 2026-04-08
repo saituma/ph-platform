@@ -124,6 +124,20 @@ function MessageBubbleBase({
 }: MessageBubbleProps) {
   const { colors, isDark } = useAppTheme();
   const isUser = message.from === "user";
+
+  const messageText = React.useMemo(
+    () => String(message.text ?? "").trim(),
+    [message.text],
+  );
+  const isPlaceholderText =
+    !messageText || messageText === "Attachment" || messageText === "GIF";
+
+  const isMediaOnly =
+    message.contentType === "image" &&
+    Boolean(message.mediaUrl) &&
+    isPlaceholderText &&
+    !message.replyToMessageId;
+
   const bubbleUser = isDark ? "#2F8F57" : "#E8F5EE";
   const bubbleOther = isDark ? colors.cardElevated : "#FFFFFF";
   const bubbleBorder = isUser
@@ -142,7 +156,9 @@ function MessageBubbleBase({
       ? "#F8FAFC"
       : "#0F172A";
 
-  const timeColor = isUser
+  const timeColor = isMediaOnly
+    ? colors.textSecondary
+    : isUser
     ? isDark
       ? "rgba(255,255,255,0.6)"
       : "rgba(6,78,59,0.5)"
@@ -229,11 +245,10 @@ function MessageBubbleBase({
   }, [message.mediaUrl]);
 
   const openGraphUrls = React.useMemo(() => {
-    const text = String(message.text ?? "").trim();
-    if (!text) return [] as string[];
-    const urls = extractUrls(text);
+    if (!messageText || isPlaceholderText) return [] as string[];
+    const urls = extractUrls(messageText);
     return urls.slice(0, 1);
-  }, [message.text]);
+  }, [isPlaceholderText, messageText]);
 
   const numericMessageId = React.useMemo(() => {
     const raw = String(message.id ?? "");
@@ -346,21 +361,29 @@ function MessageBubbleBase({
                 className="overflow-hidden"
                 style={[
                   {
-                    paddingHorizontal: 16,
-                    paddingTop: 12,
-                    paddingBottom: 10,
+                    paddingHorizontal: isMediaOnly ? 0 : 16,
+                    paddingTop: isMediaOnly ? 0 : 12,
+                    paddingBottom: isMediaOnly ? 0 : 10,
                     borderRadius: 22,
-                    backgroundColor: isUser ? bubbleUser : bubbleOther,
-                    borderWidth: isHighlighted ? 2 : 1,
-                    borderColor: isHighlighted ? colors.accent : bubbleBorder,
-                    ...(isDark ? Shadows.none : Shadows.sm),
+                    backgroundColor: isMediaOnly
+                      ? "transparent"
+                      : isUser
+                        ? bubbleUser
+                        : bubbleOther,
+                    borderWidth: isMediaOnly ? 0 : isHighlighted ? 2 : 1,
+                    borderColor: isMediaOnly
+                      ? "transparent"
+                      : isHighlighted
+                        ? colors.accent
+                        : bubbleBorder,
+                    ...(isMediaOnly ? Shadows.none : isDark ? Shadows.none : Shadows.sm),
                   },
                   !isUser && { borderBottomLeftRadius: 4 },
                   isUser && { borderBottomRightRadius: 4 },
                 ]}
               >
                 {/* Subtle background glow for user messages */}
-                {isUser && (
+                {isUser && !isMediaOnly && (
                   <View
                     className="absolute -right-8 -top-8 h-24 w-24 rounded-full"
                     style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
@@ -420,7 +443,7 @@ function MessageBubbleBase({
                 {message.mediaUrl && message.contentType === "image" ? (
                   <Pressable
                     onPress={() => setMediaOpen(true)}
-                    className="mb-3 -mx-1"
+                    className={isMediaOnly ? "mb-2" : "mb-3 -mx-1"}
                   >
                     <ExpoImage
                       source={message.mediaUrl}
@@ -534,13 +557,13 @@ function MessageBubbleBase({
 
                 <View className="gap-2">
                   {message.text &&
-                  message.text !== "Attachment" &&
-                  !/\.(jpg|jpeg|png|webp|mp4|mov|m4a)$/i.test(message.text) ? (
+                  !isPlaceholderText &&
+                  !/\.(jpg|jpeg|png|webp|mp4|mov|m4a)$/i.test(messageText) ? (
                     <Text
                       className="text-[16px] font-outfit leading-[24px]"
                       style={{ color: textColor }}
                     >
-                      {message.text}
+                      {messageText}
                     </Text>
                   ) : null}
 

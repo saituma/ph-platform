@@ -24,7 +24,7 @@ import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/
 import { Feather } from "@/components/ui/theme-icons";
 
 export default function ThreadScreen() {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const token = useAppSelector((state) => state.user.token);
@@ -287,7 +287,9 @@ export default function ThreadScreen() {
         )}
         backgroundStyle={{ backgroundColor: colors.card }}
         handleIndicatorStyle={{
-          backgroundColor: "rgba(255,255,255,0.28)",
+          backgroundColor: isDark
+            ? "rgba(255,255,255,0.28)"
+            : "rgba(15,23,42,0.22)",
         }}
       >
         <BottomSheetView className="px-6 pb-8">
@@ -335,7 +337,9 @@ export default function ThreadScreen() {
         )}
         backgroundStyle={{ backgroundColor: colors.card }}
         handleIndicatorStyle={{
-          backgroundColor: "rgba(255,255,255,0.28)",
+          backgroundColor: isDark
+            ? "rgba(255,255,255,0.28)"
+            : "rgba(15,23,42,0.22)",
         }}
       >
         <BottomSheetView className="px-6 pb-8">
