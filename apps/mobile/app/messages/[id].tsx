@@ -1,6 +1,8 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ChatMessage } from "@/constants/messages";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
+import { GifPickerModal } from "@/components/messages/GifPickerModal";
+import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
 import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
@@ -104,9 +106,13 @@ export default function ThreadScreen() {
     handleAttachVideo,
     handleTakePhoto,
     handleRecordVideo,
+    handleSendGif,
     handleToggleReaction,
     handleDeleteMessage,
   } = useMessagesController();
+
+  const [gifPickerOpen, setGifPickerOpen] = React.useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = React.useState(false);
 
   const handleLockedPress = React.useCallback(() => {
     Alert.alert(
@@ -239,6 +245,25 @@ export default function ThreadScreen() {
         onAttachVideo={handleAttachVideo}
         onTakePhoto={handleTakePhoto}
         onRecordVideo={handleRecordVideo}
+        onOpenGifs={() => setGifPickerOpen(true)}
+        onOpenEmojis={() => setEmojiPickerOpen(true)}
+      />
+      <GifPickerModal
+        open={gifPickerOpen}
+        onClose={() => setGifPickerOpen(false)}
+        token={token}
+        onSelectGif={(url) => {
+          setGifPickerOpen(false);
+          void handleSendGif(url);
+        }}
+      />
+      <EmojiPickerModal
+        open={emojiPickerOpen}
+        onClose={() => setEmojiPickerOpen(false)}
+        onSelectEmoji={(emoji) => {
+          setEmojiPickerOpen(false);
+          setDraft(`${draft}${emoji}`);
+        }}
       />
     </View>
   );

@@ -15,6 +15,8 @@ type ComposerActionsModalProps = {
   onAttachVideo: () => void;
   onTakePhoto: () => void;
   onRecordVideo: () => void;
+  onOpenGifs: () => void;
+  onOpenEmojis: () => void;
 };
 
 type ActionItemProps = {
@@ -57,10 +59,12 @@ export function ComposerActionsModal({
   onAttachVideo,
   onTakePhoto,
   onRecordVideo,
+  onOpenGifs,
+  onOpenEmojis,
 }: ComposerActionsModalProps) {
   const { colors, isDark } = useAppTheme();
   const modalRef = React.useRef<BottomSheetModal>(null);
-  const snapPoints = React.useMemo(() => ["58%"], []);
+  const snapPoints = React.useMemo(() => ["68%"], []);
 
   React.useEffect(() => {
     const modal = modalRef.current;
@@ -134,6 +138,16 @@ export function ComposerActionsModal({
               isDark={isDark}
             />
             <ActionItem
+              icon="gift"
+              label="GIFs"
+              onPress={() => {
+                onOpenGifs();
+                onClose();
+              }}
+              color="#A855F7"
+              isDark={isDark}
+            />
+            <ActionItem
               icon="camera"
               label="Camera"
               onPress={() => {
@@ -141,6 +155,16 @@ export function ComposerActionsModal({
                 onClose();
               }}
               color="#10B981"
+              isDark={isDark}
+            />
+            <ActionItem
+              icon="smile"
+              label="Emoji"
+              onPress={() => {
+                onOpenEmojis();
+                onClose();
+              }}
+              color="#F59E0B"
               isDark={isDark}
             />
             <ActionItem
