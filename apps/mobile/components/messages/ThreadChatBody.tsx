@@ -985,18 +985,33 @@ function ThreadChatBodyBase({
                 isNearBottomRef.current = true;
                 setNewIncomingCount(0);
               }}
-              className="rounded-full px-5 py-3 flex-row items-center gap-2.5 shadow-xl"
+              className="rounded-full px-4 py-3 flex-row items-center gap-3 shadow-xl"
               style={{
                 backgroundColor: colors.accent,
                 ...(isDark ? Shadows.none : Shadows.lg),
               }}
             >
-              <Feather name="arrow-down" size={16} color="#fff" />
-              <Text className="text-sm font-outfit font-bold text-white uppercase tracking-wider">
-                {newIncomingCount > 1
-                  ? `${newIncomingCount} new messages`
-                  : "New message"}
-              </Text>
+              <View
+                className="h-9 w-9 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.16)",
+                }}
+              >
+                <Feather name="arrow-down" size={18} color="#fff" />
+              </View>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-sm font-outfit font-bold text-white uppercase tracking-wider">
+                  New
+                </Text>
+                <View
+                  className="rounded-full px-2 py-1"
+                  style={{ backgroundColor: "rgba(0,0,0,0.18)" }}
+                >
+                  <Text className="text-[12px] font-outfit font-bold text-white">
+                    {newIncomingCount > 99 ? "99+" : String(newIncomingCount)}
+                  </Text>
+                </View>
+              </View>
             </Pressable>
           </Animated.View>
         ) : null}
