@@ -134,10 +134,11 @@ async function assertTrainingContentV2Schema(db: ReturnType<typeof drizzle>) {
 }
 
 export async function runMigrations(options?: {
+  databaseUrl?: string;
   migrationsFolder?: string;
   skipTrainingV2Assertion?: boolean;
 }) {
-  const rawUrl = process.env.DATABASE_MIGRATION_URL || env.databaseUrl;
+  const rawUrl = options?.databaseUrl ?? env.databaseUrl;
   const connectionString = normalizeConnectionString(rawUrl);
   const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(rawUrl);
 
@@ -237,4 +238,3 @@ export async function runMigrations(options?: {
     await pool.end();
   }
 }
-

@@ -8,6 +8,16 @@ import { env } from "../config/env";
 
 const router = Router();
 
+function normalizeDbIdentity(value: string) {
+  try {
+    const url = new URL(value);
+    const db = url.pathname.replace(/^\//, "");
+    return `${url.hostname}:${url.port || "5432"}/${db}`;
+  } catch {
+    return value;
+  }
+}
+
 async function columnExists(tableName: string, columnName: string) {
   const result = await db.execute(sql`
     select exists (
@@ -26,6 +36,21 @@ router.get("/version", async (_req, res) => {
     columnExists("chat_group_members", "lastReadAt"),
     columnExists("service_types", "eligiblePlans"),
   ]);
+
+  let databaseTargets:
+    | { hasDatabaseMigrationUrl: boolean; sameAsDatabaseUrl: boolean | null }
+    | null = null;
+  try {
+    const urlA = process.env.DATABASE_URL ?? "";
+    const urlB = process.env.DATABASE_MIGRATION_URL ?? "";
+    const hasDatabaseMigrationUrl = Boolean(urlB.trim());
+    const sameAsDatabaseUrl = hasDatabaseMigrationUrl
+      ? normalizeDbIdentity(urlA) === normalizeDbIdentity(urlB)
+      : null;
+    databaseTargets = { hasDatabaseMigrationUrl, sameAsDatabaseUrl };
+  } catch {
+    databaseTargets = null;
+  }
 
   let codeMigrations: { has0059: boolean; has0060: boolean } | null = null;
   try {
@@ -66,6 +91,7 @@ router.get("/version", async (_req, res) => {
       process.env.VERCEL_GIT_COMMIT_SHA ||
       null,
     now: new Date().toISOString(),
+    databaseTargets,
     codeMigrations,
     schema: {
       chat_group_members_lastReadAt: hasGroupLastReadAt,
