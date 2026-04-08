@@ -144,6 +144,8 @@ export function initSocket(server: HttpServer) {
         content?: string;
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
+        replyToMessageId?: number;
+        replyPreview?: string;
         clientId?: string;
         actingUserId?: number;
       }) => {
@@ -166,6 +168,8 @@ export function initSocket(server: HttpServer) {
           content: content || "Attachment",
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
+          replyToMessageId: payload.replyToMessageId ?? null,
+          replyPreview: payload.replyPreview ?? null,
           clientId: payload.clientId,
         });
       } catch (err) {
@@ -185,6 +189,8 @@ export function initSocket(server: HttpServer) {
         content?: string;
         contentType?: "text" | "image" | "video";
         mediaUrl?: string;
+        replyToMessageId?: number;
+        replyPreview?: string;
         clientId?: string;
         actingUserId?: number;
       }) => {
@@ -208,6 +214,8 @@ export function initSocket(server: HttpServer) {
         content: content || "Attachment",
         contentType: payload.contentType ?? "text",
         mediaUrl: payload.mediaUrl,
+        replyToMessageId: payload.replyToMessageId ?? null,
+        replyPreview: payload.replyPreview ?? null,
       });
       const enriched = { ...message, clientId: payload.clientId };
       io.to(`group:${payload.groupId}`).emit("group:message", enriched);
