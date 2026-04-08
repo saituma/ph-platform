@@ -1,5 +1,6 @@
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread, TypingStatus } from "@/types/messages";
+import { parseReplyPrefix } from "@/lib/messages/reply";
 import { useEffect, useRef } from "react";
 import { Socket } from "socket.io-client";
 import { useSocket } from "@/context/SocketContext";
@@ -63,11 +64,14 @@ export function useMessagesRealtime({
       const selfId = String(currentProfileId ?? "");
       const threadIdFromMessage = String(String(senderId) === selfId ? receiverId : senderId);
       const currentThreadId = currentThreadIdRef.current;
+      const parsed = parseReplyPrefix(payload.content);
       const message: ChatMessage = {
         id: String(payload.id),
         threadId: threadIdFromMessage,
         from: String(senderId) === selfId ? "user" : "coach",
-        text: payload.content,
+        text: parsed.text,
+        replyToMessageId: parsed.replyToMessageId ?? undefined,
+        replyPreview: parsed.replyPreview || undefined,
         contentType: payload.contentType ?? "text",
         mediaUrl: payload.mediaUrl ?? undefined,
         videoUploadId: payload.videoUploadId ?? undefined,
@@ -133,11 +137,14 @@ export function useMessagesRealtime({
       const currentGroupMembers = groupMembersRef.current;
       const currentThreadId = currentThreadIdRef.current;
       const selfId = String(currentProfileId ?? "");
+      const parsed = parseReplyPrefix(payload.content);
       const message: ChatMessage = {
         id: `group-${payload.id}`,
         threadId: `group:${groupId}`,
         from: String(payload.senderId) === selfId ? "user" : "coach",
-        text: payload.content,
+        text: parsed.text,
+        replyToMessageId: parsed.replyToMessageId ?? undefined,
+        replyPreview: parsed.replyPreview || undefined,
         contentType: payload.contentType ?? "text",
         mediaUrl: payload.mediaUrl ?? undefined,
         time: payload.createdAt
