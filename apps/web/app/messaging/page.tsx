@@ -100,6 +100,16 @@ function isValidDateTimeValue(value?: string) {
   return !Number.isNaN(date.getTime());
 }
 
+function toLocalInputValue(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (num: number) => String(num).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
+}
+
 function getTierFromUser(user: MessagingUser) {
   return user.programTier ?? user.currentProgramTier ?? user.desiredProgramType ?? null;
 }
@@ -143,6 +153,12 @@ export default function MessagingPage() {
   const [editingAnnouncementId, setEditingAnnouncementId] = useState<number | null>(null);
   const [editAnnouncementTitle, setEditAnnouncementTitle] = useState("");
   const [editAnnouncementBody, setEditAnnouncementBody] = useState("");
+  const [editAnnouncementTimingType, setEditAnnouncementTimingType] = useState<"permanent" | "scheduled">(
+    "permanent",
+  );
+  const [editAnnouncementStartsAt, setEditAnnouncementStartsAt] = useState("");
+  const [editAnnouncementEndsAt, setEditAnnouncementEndsAt] = useState("");
+  const [editAnnouncementIsActive, setEditAnnouncementIsActive] = useState(true);
 
   const [threadUserId, setThreadUserId] = useState<number | null>(null);
   const [highlightedInboxThreadUserId, setHighlightedInboxThreadUserId] = useState<number | null>(null);
@@ -482,12 +498,26 @@ export default function MessagingPage() {
     setEditingAnnouncementId(id);
     setEditAnnouncementTitle(String(item.title ?? "").trim());
     setEditAnnouncementBody(String(item.body ?? "").trim());
+    setEditAnnouncementIsActive(item.isActive ?? true);
+    if (item.startsAt && item.endsAt) {
+      setEditAnnouncementTimingType("scheduled");
+      setEditAnnouncementStartsAt(toLocalInputValue(item.startsAt));
+      setEditAnnouncementEndsAt(toLocalInputValue(item.endsAt));
+    } else {
+      setEditAnnouncementTimingType("permanent");
+      setEditAnnouncementStartsAt("");
+      setEditAnnouncementEndsAt("");
+    }
   };
 
   const cancelEditAnnouncement = () => {
     setEditingAnnouncementId(null);
     setEditAnnouncementTitle("");
     setEditAnnouncementBody("");
+    setEditAnnouncementTimingType("permanent");
+    setEditAnnouncementStartsAt("");
+    setEditAnnouncementEndsAt("");
+    setEditAnnouncementIsActive(true);
   };
 
   const handleUpdateAnnouncement = async () => {
@@ -496,7 +526,27 @@ export default function MessagingPage() {
       toast.error("Missing fields", "Title and message are required.");
       return;
     }
+    if (editAnnouncementTimingType === "scheduled") {
+      if (!isValidDateTimeValue(editAnnouncementStartsAt) || !isValidDateTimeValue(editAnnouncementEndsAt)) {
+        toast.error("Missing schedule", "Choose both a start and end time.");
+        return;
+      }
+      const start = new Date(editAnnouncementStartsAt);
+      const end = new Date(editAnnouncementEndsAt);
+      if (end.getTime() <= start.getTime()) {
+        toast.error("Invalid schedule", "End time must be after the start time.");
+        return;
+      }
+    }
     try {
+      const startsAt =
+        editAnnouncementTimingType === "scheduled" && isValidDateTimeValue(editAnnouncementStartsAt)
+          ? new Date(editAnnouncementStartsAt).toISOString()
+          : null;
+      const endsAt =
+        editAnnouncementTimingType === "scheduled" && isValidDateTimeValue(editAnnouncementEndsAt)
+          ? new Date(editAnnouncementEndsAt).toISOString()
+          : null;
       await updateAnnouncement({
         id: editingAnnouncementId,
         data: {
@@ -504,6 +554,9 @@ export default function MessagingPage() {
           content: editAnnouncementTitle.trim(),
           body: editAnnouncementBody.trim(),
           type: "article",
+          announcementStartsAt: startsAt,
+          announcementEndsAt: endsAt,
+          announcementIsActive: editAnnouncementIsActive,
         },
       }).unwrap();
       cancelEditAnnouncement();
@@ -967,6 +1020,9 @@ export default function MessagingPage() {
                                 : "By Coach"}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
+                              Status: {item.isActive === false ? "Off" : "On"}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {formatSchedule(item.startsAt, item.endsAt)}
                             </p>
                           </div>
@@ -974,6 +1030,46 @@ export default function MessagingPage() {
                         </div>
                         {editingAnnouncementId === Number(item.id) ? (
                           <div className="mt-3 space-y-2">
+                            <div className="grid gap-2 md:grid-cols-2">
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Status</p>
+                                <Select
+                                  value={editAnnouncementIsActive ? "on" : "off"}
+                                  onChange={(event) => setEditAnnouncementIsActive(event.target.value === "on")}
+                                >
+                                  <option value="on">On</option>
+                                  <option value="off">Off</option>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Timing</p>
+                                <Select
+                                  value={editAnnouncementTimingType}
+                                  onChange={(event) =>
+                                    setEditAnnouncementTimingType(
+                                      event.target.value as "permanent" | "scheduled",
+                                    )
+                                  }
+                                >
+                                  <option value="permanent">Permanent</option>
+                                  <option value="scheduled">Scheduled</option>
+                                </Select>
+                              </div>
+                            </div>
+                            {editAnnouncementTimingType === "scheduled" ? (
+                              <div className="grid gap-2 md:grid-cols-2">
+                                <Input
+                                  type="datetime-local"
+                                  value={editAnnouncementStartsAt}
+                                  onChange={(event) => setEditAnnouncementStartsAt(event.target.value)}
+                                />
+                                <Input
+                                  type="datetime-local"
+                                  value={editAnnouncementEndsAt}
+                                  onChange={(event) => setEditAnnouncementEndsAt(event.target.value)}
+                                />
+                              </div>
+                            ) : null}
                             <Input
                               value={editAnnouncementTitle}
                               onChange={(event) => setEditAnnouncementTitle(event.target.value)}

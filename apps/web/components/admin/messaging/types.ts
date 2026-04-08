@@ -25,6 +25,7 @@ export type AnnouncementItem = {
   createdBy?: number | string | null;
   startsAt?: string | null;
   endsAt?: string | null;
+  isActive?: boolean | null;
 };
 
 export type ChatGroupItem = {

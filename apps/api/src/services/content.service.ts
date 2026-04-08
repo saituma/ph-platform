@@ -68,7 +68,11 @@ function parseAnnouncementAudience(item: typeof contentTable.$inferSelect) {
   return { type: "all" as const };
 }
 
-function isAnnouncementActive(item: { startsAt?: Date | null; endsAt?: Date | null }, now: Date) {
+function isAnnouncementActive(
+  item: { startsAt?: Date | null; endsAt?: Date | null; isActive?: boolean | null },
+  now: Date,
+) {
+  if (item.isActive === false) return false;
   if (item.startsAt && now < item.startsAt) return false;
   if (item.endsAt && now > item.endsAt) return false;
   return true;
@@ -263,6 +267,7 @@ export async function createContent(input: {
   maxAge?: number | null;
   startsAt?: Date | null;
   endsAt?: Date | null;
+  isActive?: boolean | null;
   createdBy: number;
 }) {
   const ageList = Array.isArray(input.ageList)
@@ -283,6 +288,7 @@ export async function createContent(input: {
       maxAge: ageList && ageList.length ? null : input.maxAge ?? null,
       startsAt: input.startsAt ?? null,
       endsAt: input.endsAt ?? null,
+      isActive: input.isActive ?? true,
       createdBy: input.createdBy,
     })
     .returning();
@@ -301,24 +307,31 @@ export async function updateContent(input: {
   ageList?: number[] | null;
   minAge?: number | null;
   maxAge?: number | null;
+  startsAt?: Date | null;
+  endsAt?: Date | null;
+  isActive?: boolean | null;
 }) {
   const ageList = Array.isArray(input.ageList)
     ? input.ageList.filter((val) => Number.isFinite(val))
     : null;
+  const updatePayload: Record<string, unknown> = {
+    title: input.title,
+    content: input.content,
+    type: input.type as any,
+    body: input.body ?? null,
+    programTier: input.programTier ?? null,
+    category: input.category ?? null,
+    ageList: ageList && ageList.length ? ageList : null,
+    minAge: ageList && ageList.length ? null : input.minAge ?? null,
+    maxAge: ageList && ageList.length ? null : input.maxAge ?? null,
+    updatedAt: new Date(),
+  };
+  if ("startsAt" in input) updatePayload.startsAt = input.startsAt ?? null;
+  if ("endsAt" in input) updatePayload.endsAt = input.endsAt ?? null;
+  if ("isActive" in input) updatePayload.isActive = input.isActive ?? true;
   const result = await db
     .update(contentTable)
-    .set({
-      title: input.title,
-      content: input.content,
-      type: input.type as any,
-      body: input.body ?? null,
-      programTier: input.programTier ?? null,
-      category: input.category ?? null,
-      ageList: ageList && ageList.length ? ageList : null,
-      minAge: ageList && ageList.length ? null : input.minAge ?? null,
-      maxAge: ageList && ageList.length ? null : input.maxAge ?? null,
-      updatedAt: new Date(),
-    })
+    .set(updatePayload)
     .where(eq(contentTable.id, input.id))
     .returning();
 

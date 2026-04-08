@@ -766,6 +766,7 @@ export const contentTable = pgTable("contents", {
   maxAge: integer(),
   startsAt: timestamp(),
   endsAt: timestamp(),
+  isActive: boolean().notNull().default(true),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),

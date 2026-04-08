@@ -43,8 +43,9 @@ const contentCreateSchema = z.object({
   announcementAudienceGroupId: z.number().int().min(1).optional(),
   announcementAudienceAthleteType: z.enum(["youth", "adult"]).optional(),
   announcementAudienceTier: z.enum(ProgramType.enumValues).optional(),
-  announcementStartsAt: z.coerce.date().optional(),
-  announcementEndsAt: z.coerce.date().optional(),
+  announcementStartsAt: z.union([z.coerce.date(), z.null()]).optional(),
+  announcementEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
+  announcementIsActive: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   if (data.surface !== "announcements") {
     if (!data.title) {
@@ -147,16 +148,39 @@ const contentUpdateSchema = z.object({
   ageList: z.array(z.number().int().min(0)).optional(),
   minAge: z.number().int().min(0).optional(),
   maxAge: z.number().int().min(0).optional(),
-}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+  announcementStartsAt: z.union([z.coerce.date(), z.null()]).optional(),
+  announcementEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
+  announcementIsActive: z.boolean().optional(),
+})
+  .superRefine((data, ctx) => {
+    const start = data.announcementStartsAt ?? null;
+    const end = data.announcementEndsAt ?? null;
+    if ((start && !end) || (!start && end)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Start and end time are required together.",
+        path: ["announcementStartsAt"],
+      });
+    }
+    if (start && end && end.getTime() < start.getTime()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End time must be after start time.",
+        path: ["announcementEndsAt"],
+      });
+    }
+  })
+  .refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
   message: "Minimum age must be less than or equal to maximum age.",
   path: ["minAge"],
-}).refine((data) => {
-  if (!data.ageList || data.ageList.length === 0) return true;
-  return data.ageList.every((age) => Number.isFinite(age));
-}, {
-  message: "Age list must be a list of valid ages.",
-  path: ["ageList"],
-});
+})
+  .refine((data) => {
+    if (!data.ageList || data.ageList.length === 0) return true;
+    return data.ageList.every((age) => Number.isFinite(age));
+  }, {
+    message: "Age list must be a list of valid ages.",
+    path: ["ageList"],
+  });
 
 const parentCourseModuleSchema = z.object({
   id: z.string().min(1),
@@ -302,6 +326,7 @@ export async function createContentItem(req: Request, res: Response) {
     !isAnnouncement || audienceType !== "tier" ? input.programTier : input.announcementAudienceTier;
   const announcementStartsAt = isAnnouncement ? input.announcementStartsAt : undefined;
   const announcementEndsAt = isAnnouncement ? input.announcementEndsAt : undefined;
+  const announcementIsActive = isAnnouncement ? input.announcementIsActive ?? true : undefined;
 
   const item = await createContent({
     title,
@@ -316,6 +341,7 @@ export async function createContentItem(req: Request, res: Response) {
     maxAge: announcementMaxAge,
     startsAt: announcementStartsAt,
     endsAt: announcementEndsAt,
+    isActive: announcementIsActive,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });
@@ -324,7 +350,7 @@ export async function createContentItem(req: Request, res: Response) {
 export async function updateContentItem(req: Request, res: Response) {
   const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
   const input = contentUpdateSchema.parse(req.body);
-  const item = await updateContent({
+  const updatePayload: Parameters<typeof updateContent>[0] = {
     id: contentId,
     title: input.title,
     content: input.content,
@@ -335,7 +361,17 @@ export async function updateContentItem(req: Request, res: Response) {
     ageList: input.ageList,
     minAge: input.minAge,
     maxAge: input.maxAge,
-  });
+  };
+  if (input.announcementStartsAt !== undefined) {
+    updatePayload.startsAt = input.announcementStartsAt;
+  }
+  if (input.announcementEndsAt !== undefined) {
+    updatePayload.endsAt = input.announcementEndsAt;
+  }
+  if (input.announcementIsActive !== undefined) {
+    updatePayload.isActive = input.announcementIsActive;
+  }
+  const item = await updateContent(updatePayload);
   if (!item) {
     return res.status(404).json({ error: "Content not found" });
   }
