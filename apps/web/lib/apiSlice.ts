@@ -1,5 +1,9 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from "@reduxjs/toolkit/query";
+import type {
+  BaseQueryFn,
+  FetchArgs,
+  FetchBaseQueryError,
+} from "@reduxjs/toolkit/query";
 
 type ApiPayload = Record<string, unknown>;
 
@@ -167,7 +171,13 @@ type UserOnboardingResponse = {
   athlete?: UserOnboardingAthlete;
 };
 
-type BookingStatus = "pending" | "confirmed" | "requested" | "declined" | "cancelled" | string;
+type BookingStatus =
+  | "pending"
+  | "confirmed"
+  | "requested"
+  | "declined"
+  | "cancelled"
+  | string;
 
 type BookingRecord = {
   id: number;
@@ -277,11 +287,11 @@ const runRefreshRequest = (csrfToken: string) => {
  * then retries the original request. Redirects to /login if
  * the refresh itself fails.
  */
-const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
-  args,
-  api,
-  extraOptions
-) => {
+const baseQueryWithReauth: BaseQueryFn<
+  string | FetchArgs,
+  unknown,
+  FetchBaseQueryError
+> = async (args, api, extraOptions) => {
   let result = await rawBaseQuery(args, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
@@ -311,6 +321,7 @@ export const apiSlice = createApi({
     "Users",
     "Bookings",
     "Threads",
+    "ChatGroups",
     "Content",
     "Services",
     "Dashboard",
@@ -342,21 +353,30 @@ export const apiSlice = createApi({
         body,
       }),
     }),
-    updateMessagingAccess: builder.mutation<{ messagingAccessTiers: string[] }, { tiers: string[] }>({
+    updateMessagingAccess: builder.mutation<
+      { messagingAccessTiers: string[] },
+      { tiers: string[] }
+    >({
       query: (body) => ({
         url: "/admin/messaging-access",
         method: "PUT",
         body,
       }),
     }),
-    changePassword: builder.mutation<any, { oldPassword: string; newPassword: string }>({
+    changePassword: builder.mutation<
+      any,
+      { oldPassword: string; newPassword: string }
+    >({
       query: (body) => ({
         url: "/auth/change-password",
         method: "POST",
         body,
       }),
     }),
-    submitAppFeedback: builder.mutation<{ ok: boolean }, { category: string; message: string }>({
+    submitAppFeedback: builder.mutation<
+      { ok: boolean },
+      { category: string; message: string }
+    >({
       query: (body) => ({
         url: "/support/app-feedback",
         method: "POST",
@@ -372,7 +392,10 @@ export const apiSlice = createApi({
       query: () => "/admin/training-snapshot",
       providesTags: ["Users"],
     }),
-    getUserLocations: builder.query<{ latest: any[]; history: any[]; rangeDays?: number | null }, { days?: number } | void>({
+    getUserLocations: builder.query<
+      { latest: any[]; history: any[]; rangeDays?: number | null },
+      { days?: number } | void
+    >({
       query: (params) => {
         if (!params?.days) return "/admin/user-locations";
         const query = new URLSearchParams();
@@ -381,7 +404,10 @@ export const apiSlice = createApi({
       },
       providesTags: ["UserLocations"],
     }),
-    getUsers: builder.query<{ users: UserListRow[] }, { q?: string; limit?: number } | void>({
+    getUsers: builder.query<
+      { users: UserListRow[] },
+      { q?: string; limit?: number } | void
+    >({
       query: (params) => {
         if (!params) return "/admin/users";
         const query = new URLSearchParams();
@@ -443,7 +469,11 @@ export const apiSlice = createApi({
         equipmentAccess?: string | null;
         parentPhone?: string | null;
         relationToAthlete?: string | null;
-        desiredProgramType?: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
+        desiredProgramType?:
+          | "PHP"
+          | "PHP_Premium"
+          | "PHP_Premium_Plus"
+          | "PHP_Pro";
         athleteProfilePicture?: string | null;
         planPaymentType: "monthly" | "upfront";
         planCommitmentMonths: 6 | 12;
@@ -479,7 +509,12 @@ export const apiSlice = createApi({
         growthNotes?: string | null;
         performanceGoals?: string | null;
         equipmentAccess?: string | null;
-        desiredProgramType?: "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro" | null;
+        desiredProgramType?:
+          | "PHP"
+          | "PHP_Premium"
+          | "PHP_Premium_Plus"
+          | "PHP_Pro"
+          | null;
         athleteProfilePicture?: string | null;
         planPaymentType: "monthly" | "upfront";
         planCommitmentMonths: 6 | 12;
@@ -497,14 +532,19 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    getBookings: builder.query<{ bookings: BookingRecord[] }, { q?: string; limit?: number } | void>({
+    getBookings: builder.query<
+      { bookings: BookingRecord[] },
+      { q?: string; limit?: number } | void
+    >({
       query: (params) => {
         if (!params) return "/admin/bookings";
         const query = new URLSearchParams();
         if (params.q) query.set("q", params.q);
         if (params.limit) query.set("limit", String(params.limit));
         const queryString = query.toString();
-        return queryString ? `/admin/bookings?${queryString}` : "/admin/bookings";
+        return queryString
+          ? `/admin/bookings?${queryString}`
+          : "/admin/bookings";
       },
       providesTags: ["Bookings"],
     }),
@@ -516,7 +556,10 @@ export const apiSlice = createApi({
       query: () => "/bookings",
       providesTags: ["Bookings"],
     }),
-    updateBookingStatus: builder.mutation<{ booking?: BookingRecord; status?: BookingStatus }, { bookingId: number; status: string }>({
+    updateBookingStatus: builder.mutation<
+      { booking?: BookingRecord; status?: BookingStatus },
+      { bookingId: number; status: string }
+    >({
       query: ({ bookingId, status }) => ({
         url: `/admin/bookings/${bookingId}`,
         method: "PATCH",
@@ -547,7 +590,10 @@ export const apiSlice = createApi({
       query: () => "/admin/availability",
       providesTags: ["Availability"],
     }),
-    getVideoUploads: builder.query<{ items: any[] }, { q?: string; limit?: number } | void>({
+    getVideoUploads: builder.query<
+      { items: any[] },
+      { q?: string; limit?: number } | void
+    >({
       query: (params) => {
         if (!params) return "/admin/videos";
         const query = new URLSearchParams();
@@ -558,8 +604,12 @@ export const apiSlice = createApi({
       },
       providesTags: ["Content"],
     }),
-    getProgramSectionContent: builder.query<{ items: any[] }, { sectionType: string }>({
-      query: ({ sectionType }) => `/program-section-content?sectionType=${encodeURIComponent(sectionType)}`,
+    getProgramSectionContent: builder.query<
+      { items: any[] },
+      { sectionType: string }
+    >({
+      query: ({ sectionType }) =>
+        `/program-section-content?sectionType=${encodeURIComponent(sectionType)}`,
       providesTags: ["Content"],
     }),
     getServices: builder.query<{ items: BookingServiceRecord[] }, void>({
@@ -571,7 +621,11 @@ export const apiSlice = createApi({
       providesTags: ["Services"],
     }),
     getBookingAvailability: builder.query<
-      { items: BookingAvailabilityItem[]; bookings?: BookingRecord[]; slots?: string[] },
+      {
+        items: BookingAvailabilityItem[];
+        bookings?: BookingRecord[];
+        slots?: string[];
+      },
       { serviceTypeId: number; from: string; to: string }
     >({
       query: ({ serviceTypeId, from, to }) => {
@@ -591,7 +645,8 @@ export const apiSlice = createApi({
         const query = new URLSearchParams();
         query.set("from", from);
         query.set("to", to);
-        if (serviceTypeId != null) query.set("serviceTypeId", String(serviceTypeId));
+        if (serviceTypeId != null)
+          query.set("serviceTypeId", String(serviceTypeId));
         return `/bookings/generated-availability?${query.toString()}`;
       },
       providesTags: ["Availability"],
@@ -616,20 +671,27 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Bookings"],
     }),
-    getThreads: builder.query<{ threads: any[] }, { q?: string; limit?: number } | void>({
+    getThreads: builder.query<
+      { threads: any[] },
+      { q?: string; limit?: number } | void
+    >({
       query: (params) => {
         if (!params) return "/admin/messages/threads";
         const query = new URLSearchParams();
         if (params.q) query.set("q", params.q);
         if (params.limit) query.set("limit", String(params.limit));
         const queryString = query.toString();
-        return queryString ? `/admin/messages/threads?${queryString}` : "/admin/messages/threads";
+        return queryString
+          ? `/admin/messages/threads?${queryString}`
+          : "/admin/messages/threads";
       },
       providesTags: ["Threads"],
     }),
     getMessages: builder.query<{ messages: any[] }, number>({
       query: (userId) => `/admin/messages/${userId}`,
-      providesTags: (_result, _error, userId) => [{ type: "Threads", id: userId }],
+      providesTags: (_result, _error, userId) => [
+        { type: "Threads", id: userId },
+      ],
     }),
     getParentContent: builder.query<{ items: any[] }, void>({
       query: () => "/content/parent-platform",
@@ -647,18 +709,27 @@ export const apiSlice = createApi({
       query: () => "/content/announcements",
       providesTags: ["Content"],
     }),
+    getOpenGraph: builder.query<{ data: any }, { url: string }>({
+      query: ({ url }) => `/open-graph?url=${encodeURIComponent(url)}`,
+    }),
     getTestimonialSubmissions: builder.query<{ items: any[] }, void>({
       query: () => "/content/testimonials/submissions",
       providesTags: ["TestimonialSubmissions"],
     }),
-    approveTestimonialSubmission: builder.mutation<{ approved: boolean }, { submissionId: number }>({
+    approveTestimonialSubmission: builder.mutation<
+      { approved: boolean },
+      { submissionId: number }
+    >({
       query: ({ submissionId }) => ({
         url: `/content/testimonials/${submissionId}/approve`,
         method: "POST",
       }),
       invalidatesTags: ["TestimonialSubmissions", "Content"],
     }),
-    rejectTestimonialSubmission: builder.mutation<{ rejected: boolean }, { submissionId: number }>({
+    rejectTestimonialSubmission: builder.mutation<
+      { rejected: boolean },
+      { submissionId: number }
+    >({
       query: ({ submissionId }) => ({
         url: `/content/testimonials/${submissionId}/reject`,
         method: "POST",
@@ -669,19 +740,31 @@ export const apiSlice = createApi({
       query: () => "/content/parent-courses",
       providesTags: ["ParentCourses"],
     }),
-    getFoodDiary: builder.query<{ items: any[] }, { athleteId?: number; guardianId?: number; q?: string; limit?: number } | void>({
+    getFoodDiary: builder.query<
+      { items: any[] },
+      {
+        athleteId?: number;
+        guardianId?: number;
+        q?: string;
+        limit?: number;
+      } | void
+    >({
       query: (params) => {
         if (!params) return "/admin/food-diary";
         const query = new URLSearchParams();
         if (params.athleteId) query.set("athleteId", String(params.athleteId));
-        if (params.guardianId) query.set("guardianId", String(params.guardianId));
+        if (params.guardianId)
+          query.set("guardianId", String(params.guardianId));
         if (params.q) query.set("q", params.q);
         if (params.limit) query.set("limit", String(params.limit));
         return `/admin/food-diary?${query.toString()}`;
       },
       providesTags: ["FoodDiary"],
     }),
-    reviewFoodDiary: builder.mutation<{ item: any }, { entryId: number; feedback?: string | null }>({
+    reviewFoodDiary: builder.mutation<
+      { item: any },
+      { entryId: number; feedback?: string | null }
+    >({
       query: ({ entryId, feedback }) => ({
         url: `/admin/food-diary/${entryId}/review`,
         method: "POST",
@@ -689,14 +772,19 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["FoodDiary"],
     }),
-    getPhysioReferrals: builder.query<{ items: any[] }, { q?: string; limit?: number } | void>({
+    getPhysioReferrals: builder.query<
+      { items: any[] },
+      { q?: string; limit?: number } | void
+    >({
       query: (params) => {
         if (!params) return "/admin/physio-referrals";
         const query = new URLSearchParams();
         if (params.q) query.set("q", params.q);
         if (params.limit) query.set("limit", String(params.limit));
         const queryString = query.toString();
-        return queryString ? `/admin/physio-referrals?${queryString}` : "/admin/physio-referrals";
+        return queryString
+          ? `/admin/physio-referrals?${queryString}`
+          : "/admin/physio-referrals";
       },
       providesTags: ["PhysioReferrals"],
     }),
@@ -716,7 +804,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["AgeExperience"],
     }),
-    updateAgeExperienceRule: builder.mutation<{ item: any }, { id: number; data: ApiPayload }>({
+    updateAgeExperienceRule: builder.mutation<
+      { item: any },
+      { id: number; data: ApiPayload }
+    >({
       query: ({ id, data }) => ({
         url: `/admin/age-experience/${id}`,
         method: "PATCH",
@@ -739,7 +830,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["PhysioReferrals"],
     }),
-    createBulkPhysioReferral: builder.mutation<{ created: any[]; summary: any; skipped: any[] }, ApiPayload>({
+    createBulkPhysioReferral: builder.mutation<
+      { created: any[]; summary: any; skipped: any[] },
+      ApiPayload
+    >({
       query: (body) => ({
         url: "/admin/physio-referrals/bulk",
         method: "POST",
@@ -755,7 +849,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["PhysioReferrals"],
     }),
-    updatePhysioReferral: builder.mutation<{ item: any }, { id: number; data: ApiPayload }>({
+    updatePhysioReferral: builder.mutation<
+      { item: any },
+      { id: number; data: ApiPayload }
+    >({
       query: ({ id, data }) => ({
         url: `/admin/physio-referrals/${id}`,
         method: "PATCH",
@@ -772,7 +869,12 @@ export const apiSlice = createApi({
     }),
     createMediaUploadUrl: builder.mutation<
       { uploadUrl: string; publicUrl: string; key: string },
-      { folder: string; fileName: string; contentType: string; sizeBytes: number }
+      {
+        folder: string;
+        fileName: string;
+        contentType: string;
+        sizeBytes: number;
+      }
     >({
       query: (body) => ({
         url: "/media/presign",
@@ -782,7 +884,9 @@ export const apiSlice = createApi({
     }),
     getParentCourse: builder.query<{ item: any }, number>({
       query: (courseId) => `/content/parent-courses/${courseId}`,
-      providesTags: (_result, _error, courseId) => [{ type: "ParentCourses", id: courseId }],
+      providesTags: (_result, _error, courseId) => [
+        { type: "ParentCourses", id: courseId },
+      ],
     }),
     createParentCourse: builder.mutation<{ item: any }, ApiPayload>({
       query: (body) => ({
@@ -792,7 +896,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["ParentCourses"],
     }),
-    updateParentCourse: builder.mutation<{ item: any }, { id: number; data: ApiPayload }>({
+    updateParentCourse: builder.mutation<
+      { item: any },
+      { id: number; data: ApiPayload }
+    >({
       query: ({ id, data }) => ({
         url: `/content/parent-courses/${id}`,
         method: "PUT",
@@ -800,7 +907,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["ParentCourses"],
     }),
-    updateContent: builder.mutation<{ item: any }, { id: number; data: ApiPayload }>({
+    updateContent: builder.mutation<
+      { item: any },
+      { id: number; data: ApiPayload }
+    >({
       query: ({ id, data }) => ({
         url: `/content/${id}`,
         method: "PUT",
@@ -834,15 +944,33 @@ export const apiSlice = createApi({
         replyPreview?: string;
       }
     >({
-      query: ({ userId, content, contentType, mediaUrl, videoUploadId, replyToMessageId, replyPreview }) => ({
+      query: ({
+        userId,
+        content,
+        contentType,
+        mediaUrl,
+        videoUploadId,
+        replyToMessageId,
+        replyPreview,
+      }) => ({
         url: `/admin/messages/${userId}`,
         method: "POST",
-        body: { content, contentType, mediaUrl, videoUploadId, replyToMessageId, replyPreview },
+        body: {
+          content,
+          contentType,
+          mediaUrl,
+          videoUploadId,
+          replyToMessageId,
+          replyPreview,
+        },
       }),
       invalidatesTags: ["Threads"],
     }),
     toggleMessageReaction: builder.mutation<
-      { messageId: number; reactions: { emoji: string; count: number; userIds: number[] }[] },
+      {
+        messageId: number;
+        reactions: { emoji: string; count: number; userIds: number[] }[];
+      },
       { messageId: number; emoji: string }
     >({
       query: ({ messageId, emoji }) => ({
@@ -851,13 +979,19 @@ export const apiSlice = createApi({
         body: { emoji },
       }),
     }),
-    deleteMessage: builder.mutation<{ deleted: boolean }, { messageId: number }>({
+    deleteMessage: builder.mutation<
+      { deleted: boolean },
+      { messageId: number }
+    >({
       query: ({ messageId }) => ({
         url: `/messages/${messageId}`,
         method: "DELETE",
       }),
     }),
-    deleteGroupMessage: builder.mutation<{ deleted: boolean }, { groupId: number; messageId: number }>({
+    deleteGroupMessage: builder.mutation<
+      { deleted: boolean },
+      { groupId: number; messageId: number }
+    >({
       query: ({ groupId, messageId }) => ({
         url: `/chat/groups/${groupId}/messages/${messageId}`,
         method: "DELETE",
@@ -909,7 +1043,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Content"],
     }),
-    reviewVideoUpload: builder.mutation<{ item: any }, { uploadId: number; feedback: string }>({
+    reviewVideoUpload: builder.mutation<
+      { item: any },
+      { uploadId: number; feedback: string }
+    >({
       query: (body) => ({
         url: "/videos/review",
         method: "POST",
@@ -938,7 +1075,9 @@ export const apiSlice = createApi({
     getExercises: builder.query<{ exercises: any[] }, void>({
       query: () => "/admin/exercises",
       providesTags: ["Content"],
-      transformResponse: (response: { exercises?: any[] } | undefined) => ({ exercises: response?.exercises ?? [] }),
+      transformResponse: (response: { exercises?: any[] } | undefined) => ({
+        exercises: response?.exercises ?? [],
+      }),
     }),
     createExercise: builder.mutation<
       { exercise: any },
@@ -962,7 +1101,12 @@ export const apiSlice = createApi({
     }),
     presignMediaUpload: builder.mutation<
       { uploadUrl: string; publicUrl: string; key: string },
-      { folder: string; fileName: string; contentType: string; sizeBytes: number }
+      {
+        folder: string;
+        fileName: string;
+        contentType: string;
+        sizeBytes: number;
+      }
     >({
       query: (body) => ({
         url: "/media/presign",
@@ -970,21 +1114,30 @@ export const apiSlice = createApi({
         body,
       }),
     }),
-    getUserPremiumPlan: builder.query<{ items: any[] }, { userId: number; weekNumber?: number }>({
+    getUserPremiumPlan: builder.query<
+      { items: any[] },
+      { userId: number; weekNumber?: number }
+    >({
       query: ({ userId, weekNumber }) => ({
         url: `/admin/users/${userId}/premium-plan`,
         params: weekNumber ? { weekNumber } : undefined,
       }),
       providesTags: ["Users"],
     }),
-    getUserPremiumSessionCheckins: builder.query<{ items: any[] }, { userId: number; limit?: number }>({
+    getUserPremiumSessionCheckins: builder.query<
+      { items: any[] },
+      { userId: number; limit?: number }
+    >({
       query: ({ userId, limit }) => ({
         url: `/admin/users/${userId}/premium-session-checkins`,
         params: limit ? { limit } : undefined,
       }),
       providesTags: ["Users"],
     }),
-    cloneUserPremiumPlan: builder.mutation<{ result: any }, { userId: number; replaceExisting?: boolean }>({
+    cloneUserPremiumPlan: builder.mutation<
+      { result: any },
+      { userId: number; replaceExisting?: boolean }
+    >({
       query: ({ userId, replaceExisting }) => ({
         url: `/admin/users/${userId}/premium-plan/clone`,
         method: "POST",
@@ -992,7 +1145,16 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    createUserPremiumPlanSession: builder.mutation<{ item: any }, { userId: number; weekNumber: number; sessionNumber: number; title?: string | null; notes?: string | null }>({
+    createUserPremiumPlanSession: builder.mutation<
+      { item: any },
+      {
+        userId: number;
+        weekNumber: number;
+        sessionNumber: number;
+        title?: string | null;
+        notes?: string | null;
+      }
+    >({
       query: ({ userId, ...body }) => ({
         url: `/admin/users/${userId}/premium-plan/sessions`,
         method: "POST",
@@ -1000,7 +1162,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    updateUserPremiumPlanSession: builder.mutation<{ item: any }, { userId: number; sessionId: number; patch: ApiPayload }>({
+    updateUserPremiumPlanSession: builder.mutation<
+      { item: any },
+      { userId: number; sessionId: number; patch: ApiPayload }
+    >({
       query: ({ userId, sessionId, patch }) => ({
         url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}`,
         method: "PATCH",
@@ -1008,14 +1173,20 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    deleteUserPremiumPlanSession: builder.mutation<{ item: any }, { userId: number; sessionId: number }>({
+    deleteUserPremiumPlanSession: builder.mutation<
+      { item: any },
+      { userId: number; sessionId: number }
+    >({
       query: ({ userId, sessionId }) => ({
         url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}`,
         method: "DELETE",
       }),
       invalidatesTags: ["Users"],
     }),
-    addUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; sessionId: number; body: ApiPayload }>({
+    addUserPremiumPlanExercise: builder.mutation<
+      { item: any },
+      { userId: number; sessionId: number; body: ApiPayload }
+    >({
       query: ({ userId, sessionId, body }) => ({
         url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}/exercises`,
         method: "POST",
@@ -1023,7 +1194,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    updateUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; planExerciseId: number; patch: ApiPayload }>({
+    updateUserPremiumPlanExercise: builder.mutation<
+      { item: any },
+      { userId: number; planExerciseId: number; patch: ApiPayload }
+    >({
       query: ({ userId, planExerciseId, patch }) => ({
         url: `/admin/users/${userId}/premium-plan/exercises/${planExerciseId}`,
         method: "PATCH",
@@ -1031,14 +1205,20 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    deleteUserPremiumPlanExercise: builder.mutation<{ item: any }, { userId: number; planExerciseId: number }>({
+    deleteUserPremiumPlanExercise: builder.mutation<
+      { item: any },
+      { userId: number; planExerciseId: number }
+    >({
       query: ({ userId, planExerciseId }) => ({
         url: `/admin/users/${userId}/premium-plan/exercises/${planExerciseId}`,
         method: "DELETE",
       }),
       invalidatesTags: ["Users"],
     }),
-    updateProgramTier: builder.mutation<any, { athleteId: number; programTier: string }>({
+    updateProgramTier: builder.mutation<
+      any,
+      { athleteId: number; programTier: string }
+    >({
       query: (body) => ({
         url: "/admin/users/program-tier",
         method: "POST",
@@ -1046,7 +1226,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    assignProgram: builder.mutation<any, { athleteId: number; programType: string; programTemplateId?: number }>({
+    assignProgram: builder.mutation<
+      any,
+      { athleteId: number; programType: string; programTemplateId?: number }
+    >({
       query: (body) => ({
         url: "/admin/enrollments",
         method: "POST",
@@ -1054,20 +1237,31 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Users"],
     }),
-    getPrograms: builder.query<{ programs: any[] }, { q?: string; limit?: number } | void>({
+    getPrograms: builder.query<
+      { programs: any[] },
+      { q?: string; limit?: number } | void
+    >({
       query: (params) => {
         if (!params) return "/admin/programs";
         const query = new URLSearchParams();
         if (params.q) query.set("q", params.q);
         if (params.limit) query.set("limit", String(params.limit));
         const queryString = query.toString();
-        return queryString ? `/admin/programs?${queryString}` : "/admin/programs";
+        return queryString
+          ? `/admin/programs?${queryString}`
+          : "/admin/programs";
       },
       providesTags: ["Programs"],
     }),
     createProgram: builder.mutation<
       { program: any },
-      { name: string; type: string; description?: string; minAge?: number | null; maxAge?: number | null }
+      {
+        name: string;
+        type: string;
+        description?: string;
+        minAge?: number | null;
+        maxAge?: number | null;
+      }
     >({
       query: (body) => ({
         url: "/admin/programs",
@@ -1080,7 +1274,13 @@ export const apiSlice = createApi({
       { program: any },
       {
         programId: number;
-        data: { name?: string; type?: string; description?: string | null; minAge?: number | null; maxAge?: number | null };
+        data: {
+          name?: string;
+          type?: string;
+          description?: string | null;
+          minAge?: number | null;
+          maxAge?: number | null;
+        };
       }
     >({
       query: ({ programId, data }) => ({
@@ -1112,7 +1312,10 @@ export const apiSlice = createApi({
         body,
       }),
     }),
-    getChatGroups: builder.query<{ groups: any[] }, { q?: string; limit?: number } | void>({
+    getChatGroups: builder.query<
+      { groups: any[] },
+      { q?: string; limit?: number } | void
+    >({
       query: (params) => {
         if (!params) return "/chat/groups";
         const query = new URLSearchParams();
@@ -1121,29 +1324,46 @@ export const apiSlice = createApi({
         const queryString = query.toString();
         return queryString ? `/chat/groups?${queryString}` : "/chat/groups";
       },
+      providesTags: ["ChatGroups"],
     }),
     createChatGroup: builder.mutation<
       { group: any },
-      { name: string; category?: "announcement" | "coach_group" | "team"; memberIds: number[] }
+      {
+        name: string;
+        category?: "announcement" | "coach_group" | "team";
+        memberIds: number[];
+      }
     >({
       query: (body) => ({
         url: "/chat/groups",
         method: "POST",
         body,
       }),
+      invalidatesTags: ["ChatGroups"],
     }),
-    addChatGroupMembers: builder.mutation<{ ok: boolean }, { groupId: number; memberIds: number[] }>({
+    addChatGroupMembers: builder.mutation<
+      { ok: boolean },
+      { groupId: number; memberIds: number[] }
+    >({
       query: ({ groupId, memberIds }) => ({
         url: `/chat/groups/${groupId}/members`,
         method: "POST",
         body: { memberIds },
       }),
+      invalidatesTags: ["ChatGroups"],
     }),
     getChatGroupMembers: builder.query<{ members: any[] }, number>({
       query: (groupId) => `/chat/groups/${groupId}/members`,
     }),
     getChatGroupMessages: builder.query<{ messages: any[] }, number>({
       query: (groupId) => `/chat/groups/${groupId}/messages`,
+    }),
+    markChatGroupRead: builder.mutation<{ ok: boolean }, { groupId: number }>({
+      query: ({ groupId }) => ({
+        url: `/chat/groups/${groupId}/read`,
+        method: "POST",
+      }),
+      invalidatesTags: ["ChatGroups"],
     }),
     sendChatGroupMessage: builder.mutation<
       { message: any },
@@ -1156,14 +1376,31 @@ export const apiSlice = createApi({
         replyPreview?: string;
       }
     >({
-      query: ({ groupId, content, contentType, mediaUrl, replyToMessageId, replyPreview }) => ({
+      query: ({
+        groupId,
+        content,
+        contentType,
+        mediaUrl,
+        replyToMessageId,
+        replyPreview,
+      }) => ({
         url: `/chat/groups/${groupId}/messages`,
         method: "POST",
-        body: { content, contentType, mediaUrl, replyToMessageId, replyPreview },
+        body: {
+          content,
+          contentType,
+          mediaUrl,
+          replyToMessageId,
+          replyPreview,
+        },
       }),
+      invalidatesTags: ["ChatGroups"],
     }),
     toggleChatGroupMessageReaction: builder.mutation<
-      { messageId: number; reactions: { emoji: string; count: number; userIds: number[] }[] },
+      {
+        messageId: number;
+        reactions: { emoji: string; count: number; userIds: number[] }[];
+      },
       { groupId: number; messageId: number; emoji: string }
     >({
       query: ({ groupId, messageId, emoji }) => ({
@@ -1210,8 +1447,10 @@ export const {
   useGetHomeContentQuery,
   useGetLegalContentQuery,
   useGetAnnouncementsQuery,
+  useGetOpenGraphQuery,
   useGetTestimonialSubmissionsQuery,
   useApproveTestimonialSubmissionMutation,
+  useMarkChatGroupReadMutation,
   useRejectTestimonialSubmissionMutation,
   useGetParentCoursesQuery,
   useGetFoodDiaryQuery,

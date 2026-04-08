@@ -24,13 +24,19 @@ export function useMessagesController() {
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
 
   const router = useRouter();
-  const { thread, id, draft: draftQuery } = useLocalSearchParams<{
+  const {
+    thread,
+    id,
+    draft: draftQuery,
+  } = useLocalSearchParams<{
     thread?: string;
     id?: string;
     draft?: string;
   }>();
   const threadId = thread || id;
-  const { token, profile, programTier, athleteUserId } = useAppSelector((state) => state.user);
+  const { token, profile, programTier, athleteUserId } = useAppSelector(
+    (state) => state.user,
+  );
   const effectiveProfileId = useMemo(() => {
     return Number(profile.id ?? 0);
   }, [profile.id]);
@@ -43,10 +49,14 @@ export function useMessagesController() {
     Record<number, Record<number, { name: string; avatar?: string | null }>>
   >({});
   const [typingStatus, setTypingStatus] = useState<TypingStatus>({});
-  const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
+  const [selectedThread, setSelectedThread] = useState<MessageThread | null>(
+    null,
+  );
   const [draft, setDraft] = useState("");
   const draftRef = useRef("");
-  const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(null);
+  const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(
+    null,
+  );
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
   const [replyTarget, setReplyTarget] = useState<{
@@ -55,7 +65,8 @@ export function useMessagesController() {
     authorName?: string;
   } | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
-  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [pendingAttachment, setPendingAttachment] =
+    useState<PendingAttachment | null>(null);
   const draftConsumedRef = useRef<string | null>(null);
   const loadMessagesInFlightRef = useRef(false);
 
@@ -64,11 +75,11 @@ export function useMessagesController() {
       // 1. Pinned items first
       if (!!a.pinned && !b.pinned) return -1;
       if (!a.pinned && !!b.pinned) return 1;
-      
+
       // 3. Premium threads
       if (!!a.premium && !b.premium) return -1;
       if (!a.premium && !!b.premium) return 1;
-      
+
       // 4. Most recent message
       const tA = a.updatedAtMs ?? 0;
       const tB = b.updatedAtMs ?? 0;
@@ -108,126 +119,208 @@ export function useMessagesController() {
     return messages.filter((msg) => msg.threadId === currentThread.id);
   }, [currentThread, messages]);
 
-  const loadMessages = useCallback(async (options?: { silent?: boolean }) => {
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-    if (loadMessagesInFlightRef.current) return;
-    loadMessagesInFlightRef.current = true;
-    const silent = options?.silent ?? false;
-
-    if (!silent) {
-      setIsLoading(true);
-    }
-    try {
-      const [data, groupsData] = await Promise.all([
-        apiRequest<{
-          messages: any[];
-          coach?: { id: number; name: string; role?: string; profilePicture?: string | null };
-          coaches?: { id: number; name: string; role: string; profilePicture?: string | null; isAi?: boolean }[];
-        }>("/messages", {
-          token,
-          skipCache: true,
-        }),
-        apiRequest<{ groups: any[] }>("/chat/groups", { 
-          token, 
-          skipCache: true 
-        }),
-      ]);
-
-      const classifyGroupThread = (groupName: string | null | undefined) => {
-        const normalized = String(groupName ?? "").trim().toLowerCase();
-        if (/(announce|announcement|broadcast)/i.test(normalized)) {
-          return "announcement" as const;
-        }
-        if (/(team|squad|club)/i.test(normalized)) {
-          return "team" as const;
-        }
-        return "coach_group" as const;
-      };
-
-      const groupThreads = (groupsData.groups ?? []).map((group) => ({
-        id: `group:${group.id}`,
-        name: group.name,
-        role: classifyGroupThread(group.name) === "team" ? "Team" : "Group",
-        channelType: classifyGroupThread(group.name),
-        preview: "Group chat",
-        time: "",
-        pinned: false,
-        premium: false,
-        unread: 0,
-        lastSeen: "Active",
-        responseTime: "Group updates",
-        updatedAtMs: 0,
-      }));
-
-      const selfId = String(effectiveProfileId ?? "");
-      const isPremium = programTier === "PHP_Premium";
-
-      const coachThreads = (data.coaches ?? (data.coach ? [data.coach] : []))
-        .filter((c: any) => !c.isAi)
-        .map((c: any) => {
-        const lastMsg = (data.messages ?? [])
-          .filter((m: any) => String(m.senderId) === String(c.id) || String(m.receiverId) === String(c.id))
-          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-
-        return {
-          id: String(c.id),
-          name: c.name,
-          role: c.role ?? "Coach",
-          channelType: "direct" as const,
-          preview: lastMsg ? lastMsg.content : "Start the conversation",
-          time: lastMsg?.createdAt
-            ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : "",
-          updatedAtMs: lastMsg?.createdAt ? new Date(lastMsg.createdAt).getTime() : 0,
-          pinned: false,
-          premium: isPremium,
-          unread: (data.messages ?? []).filter((msg: any) => !msg.read && String(msg.senderId) === String(c.id)).length ?? 0,
-          lastSeen: "Active",
-          responseTime: isPremium ? "Priority response window" : "Standard response window",
-          avatarUrl: c.profilePicture ?? null,
-          isAi: false,
-        };
-      });
-
-      const mappedMessages = (data.messages ?? []).map((msg: any) => {
-        const otherId = String(msg.senderId) === selfId ? String(msg.receiverId) : String(msg.senderId);
-        const otherCoach = (data.coaches ?? (data.coach ? [data.coach] : [])).find((c: any) => String(c.id) === otherId);
-        const parsed = parseReplyPrefix(msg.content);
-        const isOutgoing = String(msg.senderId) === selfId;
-
-        return {
-          id: String(msg.id),
-          threadId: otherId,
-          from: isOutgoing ? "user" : "coach",
-          text: parsed.text,
-          replyToMessageId: parsed.replyToMessageId ?? undefined,
-          replyPreview: parsed.replyPreview || undefined,
-          contentType: msg.contentType ?? "text",
-          mediaUrl: msg.mediaUrl ?? undefined,
-          videoUploadId: msg.videoUploadId ?? undefined,
-          time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-          status: msg.read ? "read" : "sent",
-          reactions: msg.reactions ?? [],
-          authorName: isOutgoing ? (profile.name ?? undefined) : (otherCoach?.name ?? undefined),
-          authorAvatar: isOutgoing ? null : (otherCoach?.profilePicture ?? null),
-        };
-      }) as ChatMessage[];
-
-      const sortedThreads = [...coachThreads, ...groupThreads].sort((a, b) => b.updatedAtMs - a.updatedAtMs);
-      setThreads(sortedThreads);
-      setMessages(mappedMessages);
-    } catch (error) {
-      console.warn("Failed to load messages", error);
-    } finally {
-      loadMessagesInFlightRef.current = false;
-      if (!silent) {
+  const loadMessages = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!token) {
         setIsLoading(false);
+        return;
       }
-    }
-  }, [effectiveProfileId, programTier, token]);
+      if (loadMessagesInFlightRef.current) return;
+      loadMessagesInFlightRef.current = true;
+      const silent = options?.silent ?? false;
+
+      if (!silent) {
+        setIsLoading(true);
+      }
+      try {
+        const [data, groupsData] = await Promise.all([
+          apiRequest<{
+            messages: any[];
+            coach?: {
+              id: number;
+              name: string;
+              role?: string;
+              profilePicture?: string | null;
+            };
+            coaches?: {
+              id: number;
+              name: string;
+              role: string;
+              profilePicture?: string | null;
+              isAi?: boolean;
+            }[];
+          }>("/messages", {
+            token,
+            skipCache: true,
+          }),
+          apiRequest<{ groups: any[] }>("/chat/groups", {
+            token,
+            skipCache: true,
+          }),
+        ]);
+
+        const classifyGroupThread = (group: any) => {
+          const category = String(group?.category ?? "")
+            .trim()
+            .toLowerCase();
+          if (category === "announcement") return "announcement" as const;
+          if (category === "team") return "team" as const;
+          return "coach_group" as const;
+        };
+
+        const groupThreads = (groupsData.groups ?? [])
+          .filter((group) => classifyGroupThread(group) !== "announcement")
+          .map((group) => {
+            const channelType = classifyGroupThread(group);
+            const last = group?.lastMessage ?? null;
+            const updatedAt = last?.createdAt
+              ? new Date(last.createdAt)
+              : group?.createdAt
+                ? new Date(group.createdAt)
+                : null;
+            const updatedAtMs = updatedAt ? updatedAt.getTime() : 0;
+            const time = updatedAt
+              ? updatedAt.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "";
+            const lastContentType = String(last?.contentType ?? "")
+              .trim()
+              .toLowerCase();
+            const parsedLast =
+              last && typeof last.content === "string"
+                ? parseReplyPrefix(last.content)
+                : null;
+            const previewText =
+              parsedLast?.text?.trim() || String(last?.content ?? "").trim();
+            const preview =
+              lastContentType === "image"
+                ? "Photo"
+                : lastContentType === "video"
+                  ? "Video"
+                  : previewText ||
+                    (channelType === "team" ? "Team chat" : "Group chat");
+
+            return {
+              id: `group:${group.id}`,
+              name: group.name,
+              role: channelType === "team" ? "Team" : "Group",
+              channelType,
+              preview,
+              time,
+              pinned: false,
+              premium: false,
+              unread: Number(group?.unreadCount ?? 0) || 0,
+              lastSeen: "Active",
+              responseTime: "Group updates",
+              updatedAtMs,
+            };
+          });
+
+        const selfId = String(effectiveProfileId ?? "");
+        const isPremium = programTier === "PHP_Premium";
+
+        const coachThreads = (data.coaches ?? (data.coach ? [data.coach] : []))
+          .filter((c: any) => !c.isAi)
+          .map((c: any) => {
+            const lastMsg = (data.messages ?? [])
+              .filter(
+                (m: any) =>
+                  String(m.senderId) === String(c.id) ||
+                  String(m.receiverId) === String(c.id),
+              )
+              .sort(
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() -
+                  new Date(a.createdAt).getTime(),
+              )[0];
+
+            return {
+              id: String(c.id),
+              name: c.name,
+              role: c.role ?? "Coach",
+              channelType: "direct" as const,
+              preview: lastMsg ? lastMsg.content : "Start the conversation",
+              time: lastMsg?.createdAt
+                ? new Date(lastMsg.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "",
+              updatedAtMs: lastMsg?.createdAt
+                ? new Date(lastMsg.createdAt).getTime()
+                : 0,
+              pinned: false,
+              premium: isPremium,
+              unread:
+                (data.messages ?? []).filter(
+                  (msg: any) =>
+                    !msg.read && String(msg.senderId) === String(c.id),
+                ).length ?? 0,
+              lastSeen: "Active",
+              responseTime: isPremium
+                ? "Priority response window"
+                : "Standard response window",
+              avatarUrl: c.profilePicture ?? null,
+              isAi: false,
+            };
+          });
+
+        const mappedMessages = (data.messages ?? []).map((msg: any) => {
+          const otherId =
+            String(msg.senderId) === selfId
+              ? String(msg.receiverId)
+              : String(msg.senderId);
+          const otherCoach = (
+            data.coaches ?? (data.coach ? [data.coach] : [])
+          ).find((c: any) => String(c.id) === otherId);
+          const parsed = parseReplyPrefix(msg.content);
+          const isOutgoing = String(msg.senderId) === selfId;
+
+          return {
+            id: String(msg.id),
+            threadId: otherId,
+            from: isOutgoing ? "user" : "coach",
+            text: parsed.text,
+            replyToMessageId: parsed.replyToMessageId ?? undefined,
+            replyPreview: parsed.replyPreview || undefined,
+            contentType: msg.contentType ?? "text",
+            mediaUrl: msg.mediaUrl ?? undefined,
+            videoUploadId: msg.videoUploadId ?? undefined,
+            time: msg.createdAt
+              ? new Date(msg.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "",
+            status: msg.read ? "read" : "sent",
+            reactions: msg.reactions ?? [],
+            authorName: isOutgoing
+              ? (profile.name ?? undefined)
+              : (otherCoach?.name ?? undefined),
+            authorAvatar: isOutgoing
+              ? null
+              : (otherCoach?.profilePicture ?? null),
+          };
+        }) as ChatMessage[];
+
+        const sortedThreads = [...coachThreads, ...groupThreads].sort(
+          (a, b) => b.updatedAtMs - a.updatedAtMs,
+        );
+        setThreads(sortedThreads);
+        setMessages(mappedMessages);
+      } catch (error) {
+        console.warn("Failed to load messages", error);
+      } finally {
+        loadMessagesInFlightRef.current = false;
+        if (!silent) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [effectiveProfileId, programTier, token],
+  );
 
   const loadGroupMessages = useCallback(
     async (groupId: number, options?: { silent?: boolean }) => {
@@ -238,23 +331,22 @@ export function useMessagesController() {
       }
       try {
         const [data, membersData] = await Promise.all([
-          apiRequest<{ messages: any[] }>(`/chat/groups/${groupId}/messages`, { 
+          apiRequest<{ messages: any[] }>(`/chat/groups/${groupId}/messages`, {
             token,
           }),
-          apiRequest<{ members: any[] }>(`/chat/groups/${groupId}/members`, { 
+          apiRequest<{ members: any[] }>(`/chat/groups/${groupId}/members`, {
             token,
           }),
         ]);
-        const memberMap = membersData.members.reduce<Record<number, { name: string; avatar?: string | null }>>(
-          (acc, member) => {
-            acc[member.userId] = {
-              name: member.name || member.email,
-              avatar: member.profilePicture ?? null,
-            };
+        const memberMap = membersData.members.reduce<
+          Record<number, { name: string; avatar?: string | null }>
+        >((acc, member) => {
+          acc[member.userId] = {
+            name: member.name || member.email,
+            avatar: member.profilePicture ?? null,
+          };
           return acc;
-          },
-          {}
-        );
+        }, {});
         setGroupMembers((prev) => ({ ...prev, [groupId]: memberMap }));
 
         const selfId = String(effectiveProfileId ?? "");
@@ -269,7 +361,12 @@ export function useMessagesController() {
             replyPreview: parsed.replyPreview || undefined,
             contentType: msg.contentType ?? "text",
             mediaUrl: msg.mediaUrl ?? undefined,
-            time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+            time: msg.createdAt
+              ? new Date(msg.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "",
             status: "sent",
             authorName: memberMap[msg.senderId]?.name,
             authorAvatar: memberMap[msg.senderId]?.avatar ?? null,
@@ -278,23 +375,25 @@ export function useMessagesController() {
         });
 
         setMessages((prev) => {
-          const remaining = prev.filter((msg) => msg.threadId !== `group:${groupId}`);
+          const remaining = prev.filter(
+            (msg) => msg.threadId !== `group:${groupId}`,
+          );
           return [...remaining, ...mappedMessages];
         });
-        
+
         if (mappedMessages.length > 0) {
           const lastMsg = mappedMessages[mappedMessages.length - 1];
-          setThreads((prev) => 
-            prev.map(t => 
-              t.id === `group:${groupId}` 
-                ? { 
-                    ...t, 
-                    preview: lastMsg.text, 
-                    time: lastMsg.time, 
-                    updatedAtMs: Date.now() 
-                  } 
-                : t
-            )
+          setThreads((prev) =>
+            prev.map((t) =>
+              t.id === `group:${groupId}`
+                ? {
+                    ...t,
+                    preview: lastMsg.text,
+                    time: lastMsg.time,
+                    updatedAtMs: Date.now(),
+                  }
+                : t,
+            ),
           );
         }
       } catch (error) {
@@ -305,7 +404,7 @@ export function useMessagesController() {
         }
       }
     },
-    [effectiveProfileId, token]
+    [effectiveProfileId, token],
   );
 
   const sendReplyToThread = useCallback(
@@ -324,15 +423,15 @@ export function useMessagesController() {
         await apiRequest("/messages", {
           method: "POST",
           token,
-          body: { 
+          body: {
             content: text.trim(),
-            receiverId: isNaN(Number(threadId)) ? undefined : Number(threadId)
+            receiverId: isNaN(Number(threadId)) ? undefined : Number(threadId),
           },
         });
         await loadMessages({ silent: true });
       }
     },
-    [loadGroupMessages, loadMessages, token]
+    [loadGroupMessages, loadMessages, token],
   );
 
   const clearThread = useCallback(() => {
@@ -347,7 +446,11 @@ export function useMessagesController() {
   }, [router]);
 
   const openThread = useCallback(
-    (thread: MessageThread, sharedBoundTag?: string, sharedAvatarTag?: string) => {
+    (
+      thread: MessageThread,
+      sharedBoundTag?: string,
+      sharedAvatarTag?: string,
+    ) => {
       // Allow re-opening from inbox even if the opening flag stuck previously.
       if (openingThreadId === thread.id && threadId === thread.id) return;
       setOpeningThreadId(thread.id);
@@ -361,7 +464,7 @@ export function useMessagesController() {
         },
       } as any);
     },
-    [openingThreadId, router, threadId]
+    [openingThreadId, router, threadId],
   );
 
   const resetOpeningThread = useCallback(() => {
@@ -377,12 +480,16 @@ export function useMessagesController() {
         token,
       });
       setThreads((prev) =>
-        prev.map((thread) => (thread.id === currentThread.id ? { ...thread, unread: 0 } : thread))
+        prev.map((thread) =>
+          thread.id === currentThread.id ? { ...thread, unread: 0 } : thread,
+        ),
       );
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.threadId === currentThread.id && msg.from === "coach" ? { ...msg, status: "read" } : msg
-        )
+          msg.threadId === currentThread.id && msg.from === "coach"
+            ? { ...msg, status: "read" }
+            : msg,
+        ),
       );
     } catch (error) {
       console.warn("Failed to mark messages read", error);
@@ -399,60 +506,104 @@ export function useMessagesController() {
           token,
         });
         setThreads((prev) =>
-          prev.map((thread) => (thread.id === threadId ? { ...thread, unread: 0 } : thread))
+          prev.map((thread) =>
+            thread.id === threadId ? { ...thread, unread: 0 } : thread,
+          ),
         );
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.threadId === threadId && msg.from === "coach" ? { ...msg, status: "read" } : msg
-          )
+            msg.threadId === threadId && msg.from === "coach"
+              ? { ...msg, status: "read" }
+              : msg,
+          ),
         );
       } catch (error) {
         console.warn("Failed to mark messages read", error);
       }
     },
-    [token]
+    [token],
   );
+
+  const markGroupThreadRead = useCallback(async () => {
+    if (!token || !currentThread) return;
+    if (!currentThread.id.startsWith("group:")) return;
+    const raw = currentThread.id.replace(/^group:/, "");
+    const groupId = Number(raw);
+    if (!Number.isFinite(groupId)) return;
+    try {
+      await apiRequest(`/chat/groups/${groupId}/read`, {
+        method: "POST",
+        token,
+      });
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === currentThread.id ? { ...thread, unread: 0 } : thread,
+        ),
+      );
+    } catch (error) {
+      console.warn("Failed to mark group read", error);
+    }
+  }, [currentThread, token]);
 
   useEffect(() => {
     if (!currentThread) return;
     if ((currentThread.unread ?? 0) === 0) return;
+    if (currentThread.id.startsWith("group:")) {
+      markGroupThreadRead();
+      return;
+    }
     markDirectThreadRead();
-  }, [currentThread, markDirectThreadRead]);
+  }, [currentThread, markDirectThreadRead, markGroupThreadRead]);
 
   useEffect(() => {
     let subscription: { remove: () => void } | null = null;
     getNotifications().then((Notifications) => {
-      if (!Notifications || typeof Notifications.addNotificationResponseReceivedListener !== "function") return;
-      subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        const actionId = response.actionIdentifier;
-        const data = response.notification.request.content.data as { threadId?: string } | undefined;
-        const threadId = data?.threadId;
-        if (!threadId) return;
-        if (actionId === "mark-read") {
-          markDirectThreadReadById(threadId);
-          return;
-        }
-        if (actionId === "reply") {
-          const replyText = response.userText ?? "";
-          if (replyText.trim()) {
-            sendReplyToThread(threadId, replyText);
+      if (
+        !Notifications ||
+        typeof Notifications.addNotificationResponseReceivedListener !==
+          "function"
+      )
+        return;
+      subscription = Notifications.addNotificationResponseReceivedListener(
+        (response) => {
+          const actionId = response.actionIdentifier;
+          const data = response.notification.request.content.data as
+            | { threadId?: string }
+            | undefined;
+          const threadId = data?.threadId;
+          if (!threadId) return;
+          if (actionId === "mark-read") {
             markDirectThreadReadById(threadId);
             return;
           }
-        }
-        const thread = threads.find((item) => item.id === threadId);
-        if (thread) {
-          openThread(thread);
-          return;
-        }
-        router.push(`/messages/${threadId}`);
-      });
+          if (actionId === "reply") {
+            const replyText = response.userText ?? "";
+            if (replyText.trim()) {
+              sendReplyToThread(threadId, replyText);
+              markDirectThreadReadById(threadId);
+              return;
+            }
+          }
+          const thread = threads.find((item) => item.id === threadId);
+          if (thread) {
+            openThread(thread);
+            return;
+          }
+          router.push(`/messages/${threadId}`);
+        },
+      );
     });
 
     return () => {
       subscription?.remove();
     };
-  }, [markDirectThreadReadById, openThread, router, sendReplyToThread, threads]);
+  }, [
+    markDirectThreadReadById,
+    openThread,
+    router,
+    sendReplyToThread,
+    threads,
+  ]);
 
   const uploadAttachment = useCallback(
     async (input: {
@@ -466,7 +617,11 @@ export function useMessagesController() {
         throw new Error("Authentication required");
       }
       const folder = input.isImage ? "messages/images" : "messages/files";
-      const presign = await apiRequest<{ uploadUrl: string; publicUrl: string; key: string }>("/media/presign", {
+      const presign = await apiRequest<{
+        uploadUrl: string;
+        publicUrl: string;
+        key: string;
+      }>("/media/presign", {
         method: "POST",
         token,
         body: {
@@ -490,18 +645,24 @@ export function useMessagesController() {
         throw new Error("Failed to upload attachment");
       }
 
-      const contentType: "text" | "image" | "video" = input.mimeType.startsWith("image/")
+      const contentType: "text" | "image" | "video" = input.mimeType.startsWith(
+        "image/",
+      )
         ? "image"
         : input.mimeType.startsWith("video/")
-        ? "video"
-        : "text";
+          ? "video"
+          : "text";
       return { mediaUrl: presign.publicUrl, contentType };
     },
-    [token]
+    [token],
   );
 
   const sendMessagePayload = useCallback(
-    async (payload: { text?: string; mediaUrl?: string; contentType?: "text" | "image" | "video" }) => {
+    async (payload: {
+      text?: string;
+      mediaUrl?: string;
+      contentType?: "text" | "image" | "video";
+    }) => {
       const trimmed = payload.text?.trim() ?? "";
       if ((!trimmed && !payload.mediaUrl) || !currentThread || !token) return;
 
@@ -519,7 +680,10 @@ export function useMessagesController() {
             replyPreview: replyTarget?.preview,
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            time: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
             status: "sent",
             authorName: profile.name ?? undefined,
             clientId,
@@ -532,11 +696,14 @@ export function useMessagesController() {
               ? {
                   ...t,
                   preview: trimmed || "Attachment",
-                  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  time: new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
                   updatedAtMs: Date.now(),
                 }
-              : t
-          )
+              : t,
+          ),
         );
 
         if (socket?.connected) {
@@ -579,7 +746,10 @@ export function useMessagesController() {
           replyPreview: replyTarget?.preview,
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
           status: "sent",
           clientId,
         },
@@ -591,11 +761,14 @@ export function useMessagesController() {
             ? {
                 ...t,
                 preview: trimmed || "Attachment",
-                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                time: new Date().toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
                 updatedAtMs: Date.now(),
               }
-            : t
-        )
+            : t,
+        ),
       );
 
       if (socket?.connected) {
@@ -624,7 +797,13 @@ export function useMessagesController() {
         });
       }
     },
-    [currentThread, profile.name, replyTarget?.messageId, replyTarget?.preview, token]
+    [
+      currentThread,
+      profile.name,
+      replyTarget?.messageId,
+      replyTarget?.preview,
+      token,
+    ],
   );
 
   const handleToggleReaction = useCallback(
@@ -635,11 +814,14 @@ export function useMessagesController() {
           const groupId = Number(message.threadId.replace("group:", ""));
           const messageId = Number(message.id.replace("group-", ""));
           if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return;
-          await apiRequest(`/chat/groups/${groupId}/messages/${messageId}/reactions`, {
-            method: "PUT",
-            token,
-            body: { emoji },
-          });
+          await apiRequest(
+            `/chat/groups/${groupId}/messages/${messageId}/reactions`,
+            {
+              method: "PUT",
+              token,
+              body: { emoji },
+            },
+          );
         } else {
           const messageId = Number(message.id);
           if (!Number.isFinite(messageId)) return;
@@ -655,7 +837,7 @@ export function useMessagesController() {
         setReactionTarget(null);
       }
     },
-    [token]
+    [token],
   );
 
   const handleDeleteMessage = useCallback(
@@ -683,7 +865,7 @@ export function useMessagesController() {
         console.warn("Failed to delete message", error);
       }
     },
-    [token]
+    [token],
   );
 
   const setDraftValue = useCallback((value: string) => {
@@ -701,7 +883,10 @@ export function useMessagesController() {
     setPendingAttachment(null);
 
     try {
-      let upload: { mediaUrl: string; contentType: "text" | "image" | "video" } | null = null;
+      let upload: {
+        mediaUrl: string;
+        contentType: "text" | "image" | "video";
+      } | null = null;
       if (attachmentToSend) {
         setIsUploadingAttachment(true);
         upload = await uploadAttachment(attachmentToSend);
@@ -726,7 +911,9 @@ export function useMessagesController() {
       ? Number(String(message.id).replace(/^group-/, ""))
       : Number(message.id);
     if (!Number.isFinite(numericId)) return;
-    const preview = (message.text || (message.mediaUrl ? "Media message" : "Message")).slice(0, 160);
+    const preview = (
+      message.text || (message.mediaUrl ? "Media message" : "Message")
+    ).slice(0, 160);
     setReplyTarget({
       messageId: numericId,
       preview,
@@ -741,7 +928,8 @@ export function useMessagesController() {
   const handleAttachImage = useCallback(async () => {
     if (!currentThread || !token || isUploadingAttachment) return;
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -769,7 +957,8 @@ export function useMessagesController() {
   const handleAttachVideo = useCallback(async () => {
     if (!currentThread || !token || isUploadingAttachment) return;
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["videos"],

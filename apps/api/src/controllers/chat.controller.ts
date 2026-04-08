@@ -10,6 +10,7 @@ import {
   listGroupMembers,
   listGroupMessages,
   listGroupsForUser,
+  markGroupRead,
 } from "../services/chat.service";
 import { toggleGroupMessageReaction } from "../services/reaction.service";
 
@@ -148,4 +149,17 @@ export async function deleteGroupChatMessage(req: Request, res: Response) {
     }
     throw error;
   }
+}
+
+export async function markGroupChatRead(req: Request, res: Response) {
+  const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
+  const allowed = await isGroupMember(groupId, req.user!.id);
+  if (!allowed) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  const updated = await markGroupRead({ groupId, userId: req.user!.id });
+  if (!updated) {
+    return res.status(404).json({ error: "Membership not found" });
+  }
+  return res.status(200).json({ ok: true });
 }

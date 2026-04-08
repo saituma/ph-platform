@@ -414,6 +414,13 @@
       "when": 1775639189000,
       "tag": "0058_announcement_active",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1775692800000,
+      "tag": "0059_chat_group_member_last_read_at",
+      "breakpoints": true
     }
   ]
 }

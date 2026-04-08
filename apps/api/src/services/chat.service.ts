@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne, sql } from "drizzle-orm";
 import { sendPushNotification } from "./push.service";
 
 import { db } from "../db";
@@ -86,13 +86,15 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
       ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
       : 50;
 
-  const query = db
+  const groups = await db
     .select({
       id: chatGroupTable.id,
       name: chatGroupTable.name,
       category: chatGroupTable.category,
       createdBy: chatGroupTable.createdBy,
       createdAt: chatGroupTable.createdAt,
+      memberCreatedAt: chatGroupMemberTable.createdAt,
+      memberLastReadAt: chatGroupMemberTable.lastReadAt,
     })
     .from(chatGroupMemberTable)
     .innerJoin(chatGroupTable, eq(chatGroupMemberTable.groupId, chatGroupTable.id))
@@ -104,7 +106,106 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
     )
     .orderBy(desc(chatGroupTable.createdAt))
     .limit(limit);
-  return query;
+
+  const groupIds = groups.map((group) => Number(group.id)).filter((id) => Number.isFinite(id));
+  if (!groupIds.length) {
+    return groups.map((group) => ({
+      ...group,
+      unreadCount: 0,
+      lastMessage: null as any,
+    }));
+  }
+
+  const lastMessageRows = await db
+    .select({
+      groupId: chatGroupMessageTable.groupId,
+      id: chatGroupMessageTable.id,
+      senderId: chatGroupMessageTable.senderId,
+      content: chatGroupMessageTable.content,
+      contentType: chatGroupMessageTable.contentType,
+      mediaUrl: chatGroupMessageTable.mediaUrl,
+      createdAt: chatGroupMessageTable.createdAt,
+      senderName: userTable.name,
+      senderProfilePicture: userTable.profilePicture,
+    })
+    .from(chatGroupMessageTable)
+    .innerJoin(userTable, eq(chatGroupMessageTable.senderId, userTable.id))
+    .where(inArray(chatGroupMessageTable.groupId, groupIds))
+    .orderBy(asc(chatGroupMessageTable.groupId), desc(chatGroupMessageTable.createdAt));
+
+  const lastMessageByGroup = new Map<number, (typeof lastMessageRows)[number]>();
+  for (const row of lastMessageRows) {
+    const id = Number(row.groupId);
+    if (!Number.isFinite(id)) continue;
+    if (!lastMessageByGroup.has(id)) {
+      lastMessageByGroup.set(id, row);
+    }
+  }
+
+  const unreadRows = await db
+    .select({
+      groupId: chatGroupMessageTable.groupId,
+      unreadCount: sql<number>`count(*)::int`,
+    })
+    .from(chatGroupMessageTable)
+    .innerJoin(
+      chatGroupMemberTable,
+      and(
+        eq(chatGroupMemberTable.groupId, chatGroupMessageTable.groupId),
+        eq(chatGroupMemberTable.userId, userId),
+      ),
+    )
+    .where(
+      and(
+        inArray(chatGroupMessageTable.groupId, groupIds),
+        ne(chatGroupMessageTable.senderId, userId),
+        sql`${chatGroupMessageTable.createdAt} > coalesce(${chatGroupMemberTable.lastReadAt}, ${chatGroupMemberTable.createdAt})`,
+      ),
+    )
+    .groupBy(chatGroupMessageTable.groupId);
+
+  const unreadByGroup = new Map<number, number>();
+  for (const row of unreadRows) {
+    const id = Number(row.groupId);
+    if (!Number.isFinite(id)) continue;
+    unreadByGroup.set(id, Number(row.unreadCount) || 0);
+  }
+
+  return groups.map((group) => {
+    const id = Number(group.id);
+    const last = Number.isFinite(id) ? lastMessageByGroup.get(id) ?? null : null;
+    const unreadCount = Number.isFinite(id) ? unreadByGroup.get(id) ?? 0 : 0;
+    return {
+      id: group.id,
+      name: group.name,
+      category: group.category,
+      createdBy: group.createdBy,
+      createdAt: group.createdAt,
+      unreadCount,
+      lastMessage: last
+        ? {
+            id: last.id,
+            senderId: last.senderId,
+            senderName: last.senderName,
+            senderProfilePicture: last.senderProfilePicture,
+            content: last.content,
+            contentType: last.contentType,
+            mediaUrl: last.mediaUrl,
+            createdAt: last.createdAt,
+          }
+        : null,
+    };
+  });
+}
+
+export async function markGroupRead(input: { groupId: number; userId: number; readAt?: Date }) {
+  const readAt = input.readAt ?? new Date();
+  const result = await db
+    .update(chatGroupMemberTable)
+    .set({ lastReadAt: readAt })
+    .where(and(eq(chatGroupMemberTable.groupId, input.groupId), eq(chatGroupMemberTable.userId, input.userId)))
+    .returning();
+  return result[0] ?? null;
 }
 
 export async function listGroupMembers(groupId: number) {
