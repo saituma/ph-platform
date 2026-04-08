@@ -3,6 +3,7 @@ import roleReducer, { checkPin, setGuardianPin, setRole } from "@/store/slices/r
 import userReducer, {
   logout,
   setAthleteUserId,
+  setApiUserRole,
   setCredentials,
   setOnboardingCompleted,
   updateProfile,
@@ -26,11 +27,13 @@ describe("mobile slices", () => {
     );
 
     state = userReducer(state, updateProfile({ name: "Coach Updated" }));
+    state = userReducer(state, setApiUserRole("admin"));
     state = userReducer(state, setOnboardingCompleted(true));
     state = userReducer(state, setAthleteUserId(7));
 
     expect(state.isAuthenticated).toBe(true);
     expect(state.profile.name).toBe("Coach Updated");
+    expect(state.apiUserRole).toBe("admin");
     expect(state.onboardingCompleted).toBe(true);
     expect(state.athleteUserId).toBe(7);
 
@@ -38,6 +41,7 @@ describe("mobile slices", () => {
     expect(state.isAuthenticated).toBe(false);
     expect(state.token).toBeNull();
     expect(state.profile.name).toBeNull();
+    expect(state.apiUserRole).toBeNull();
     expect(state.athleteUserId).toBeNull();
   });
 

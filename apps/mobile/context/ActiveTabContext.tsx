@@ -13,12 +13,28 @@ type Listener = (index: number) => void;
 type RequestListener = (index: number) => void;
 
 let _activeIndex = 0;
+let _tabRouteKeys: string[] = [
+  "programs",
+  "messages",
+  "index",
+  "schedule",
+  "tracking",
+  "more",
+];
 const _listeners = new Set<Listener>();
 const _requestListeners = new Set<RequestListener>();
 
+export function setGlobalTabRoutes(keys: string[]) {
+  if (!Array.isArray(keys) || keys.length === 0) return;
+  _tabRouteKeys = keys;
+}
+
 export function setGlobalActiveTab(index: number) {
   if (_activeIndex !== index) {
-    if (__DEV__) console.log(`[ActiveTabContext] setGlobalActiveTab called with index: ${index}. Notifying ${_listeners.size} listeners.`);
+    if (__DEV__)
+      console.log(
+        `[ActiveTabContext] setGlobalActiveTab called with index: ${index}. Notifying ${_listeners.size} listeners.`,
+      );
   }
   _activeIndex = index;
   _listeners.forEach((fn) => fn(index));
@@ -35,7 +51,7 @@ export function subscribeToGlobalTabRequests(listener: RequestListener) {
   };
 }
 
-import { usePathname } from 'expo-router';
+import { usePathname } from "expo-router";
 
 /** Returns the currently active tab index. Re-renders when it changes. */
 export function useActiveTabIndex(): number {
@@ -57,14 +73,17 @@ export function useActiveTabIndex(): number {
   // Forcefully derive index from pathname as a permanent fallback for Expo Router
   useEffect(() => {
     if (!pathname) return;
-    const normalizedPath = pathname.replace(/^\//, "").replace(/^\(tabs\)\/?/, "");
+    const normalizedPath = pathname
+      .replace(/^\//, "")
+      .replace(/^\(tabs\)\/?/, "");
     const routeName = normalizedPath.split("/")[0] || "index";
-    
-    // Hardcoded known routes
-    const routes = ["programs", "messages", "index", "schedule", "tracking", "more"];
-    const foundIndex = routes.indexOf(routeName);
+
+    const foundIndex = _tabRouteKeys.indexOf(routeName);
     if (foundIndex >= 0 && _activeIndex !== foundIndex) {
-      if (__DEV__) console.log(`[ActiveTabContext] PATHNAME CHANGED: ${pathname} -> Setting activeIndex to ${foundIndex}`);
+      if (__DEV__)
+        console.log(
+          `[ActiveTabContext] PATHNAME CHANGED: ${pathname} -> Setting activeIndex to ${foundIndex}`,
+        );
       setGlobalActiveTab(foundIndex);
     }
   }, [pathname]);
@@ -83,7 +102,10 @@ type ActiveTabContextType = {
   currentTabIndex: number;
 };
 
-const ActiveTabContext = createContext<ActiveTabContextType>({ activeTabIndex: -100, currentTabIndex: -200 });
+const ActiveTabContext = createContext<ActiveTabContextType>({
+  activeTabIndex: -100,
+  currentTabIndex: -200,
+});
 
 export const useActiveTab = () => useContext(ActiveTabContext);
 

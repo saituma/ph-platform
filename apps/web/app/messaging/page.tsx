@@ -304,6 +304,9 @@ export default function MessagingPage() {
   const socketRef = useRef<Socket | null>(null);
   const refetchGroupsRef = useRef(refetchGroups);
   const refetchGroupMessagesRef = useRef(refetchGroupMessages);
+  const currentUserIdRef = useRef<number | null>(null);
+  const isWindowFocusedRef = useRef(true);
+  const lastNotifiedRef = useRef<{ kind: "direct" | "group"; id: string } | null>(null);
 
   useEffect(() => {
     refetchGroupsRef.current = refetchGroups;
@@ -312,6 +315,21 @@ export default function MessagingPage() {
   useEffect(() => {
     refetchGroupMessagesRef.current = refetchGroupMessages;
   }, [refetchGroupMessages]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      isWindowFocusedRef.current = true;
+    };
+    const onBlur = () => {
+      isWindowFocusedRef.current = false;
+    };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
 
   useEffect(() => {
     const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
@@ -344,15 +362,111 @@ export default function MessagingPage() {
 
     socket.on("connect", () => console.log("[Messaging Socket] Connected"));
 
-    socket.on("group:message", () => {
+    const canShowBrowserNotification = () => {
+      if (typeof window === "undefined") return false;
+      if (typeof Notification === "undefined") return false;
+      if (Notification.permission !== "granted") return false;
+      const hidden = document.visibilityState !== "visible";
+      const focused = isWindowFocusedRef.current;
+      return hidden || !focused;
+    };
+
+    const safeTextPreview = (raw: unknown) => {
+      const input = String(raw ?? "").trim();
+      const stripped = input.replace(/^\s*\[reply:\d+:[^\]]*\]\s*/i, "").trim();
+      return stripped || "New message";
+    };
+
+    const notifyBrowser = (params: {
+      title: string;
+      body: string;
+      icon?: string | null;
+      tag: string;
+      url: string;
+    }) => {
+      if (!canShowBrowserNotification()) return;
+      const prev = lastNotifiedRef.current;
+      if (prev && prev.id === params.tag) return;
+      lastNotifiedRef.current = { kind: params.tag.startsWith("group:") ? "group" : "direct", id: params.tag };
+      try {
+        const notif = new Notification(params.title, {
+          body: params.body,
+          icon: params.icon ?? undefined,
+          tag: params.tag,
+        });
+        notif.onclick = () => {
+          try {
+            window.focus();
+          } catch {
+            // ignored
+          }
+          window.location.assign(params.url);
+          notif.close();
+        };
+      } catch {
+        // ignored
+      }
+    };
+
+    socket.on("message:new", (payload: any) => {
+      refetchThreads();
+      const senderId = Number(payload?.senderId ?? NaN);
+      const receiverId = Number(payload?.receiverId ?? NaN);
+      const me = currentUserIdRef.current;
+      if (me != null && Number.isFinite(senderId) && senderId === me) return;
+      const threadUserId = Number.isFinite(senderId) ? senderId : Number.isFinite(receiverId) ? receiverId : null;
+      if (!threadUserId) return;
+      const title = payload?.senderName
+        ? `New message from ${String(payload.senderName)}`
+        : `New message from ${resolveUserName ? resolveUserName(threadUserId) : `User ${threadUserId}`}`;
+      const body =
+        String(payload?.contentType ?? "").toLowerCase() === "image"
+          ? "Sent a photo"
+          : String(payload?.contentType ?? "").toLowerCase() === "video"
+            ? "Sent a video"
+            : safeTextPreview(payload?.content);
+      notifyBrowser({
+        title,
+        body,
+        icon: payload?.senderProfilePicture ?? null,
+        tag: `direct:${String(payload?.id ?? `${Date.now()}`)}`,
+        url: `/messaging?tab=inbox&userId=${threadUserId}`,
+      });
+    });
+
+    socket.on("group:message", (payload: any) => {
       refetchGroupsRef.current();
       refetchGroupMessagesRef.current();
+      const groupId = Number(payload?.groupId ?? NaN);
+      if (!Number.isFinite(groupId) || groupId <= 0) return;
+      const senderId = Number(payload?.senderId ?? NaN);
+      const me = currentUserIdRef.current;
+      if (me != null && Number.isFinite(senderId) && senderId === me) return;
+      const senderLabel =
+        String(payload?.senderName ?? "").trim() ||
+        (Number.isFinite(senderId) ? resolveUserName(senderId) : "New message");
+      const groupLabel = String(payload?.groupName ?? "").trim() || "Group";
+      const title = `${senderLabel} in ${groupLabel}`;
+      const body =
+        String(payload?.contentType ?? "").toLowerCase() === "image"
+          ? "Sent a photo"
+          : String(payload?.contentType ?? "").toLowerCase() === "video"
+            ? "Sent a video"
+            : safeTextPreview(payload?.content);
+      notifyBrowser({
+        title,
+        body,
+        icon: payload?.senderProfilePicture ?? null,
+        tag: `group:${String(payload?.id ?? `${Date.now()}`)}`,
+        url: `/messaging?tab=inbox&groupId=${groupId}`,
+      });
     });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -596,12 +710,16 @@ export default function MessagingPage() {
 
   const currentUserId = useMemo<number | null>(() => {
     const profilePayload = adminProfileData as
-      | { id?: number | string; profile?: { id?: number | string } }
+      | { user?: { id?: number | string } }
       | undefined;
-    const idValue = profilePayload?.id ?? profilePayload?.profile?.id;
-    const normalized = Number(idValue);
+    const idValue = profilePayload?.user?.id;
+    const normalized = Number(idValue ?? NaN);
     return Number.isFinite(normalized) ? normalized : null;
   }, [adminProfileData]);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
 
   const resolveUserName = (userId: number) => {
     if (currentUserId != null && userId === currentUserId) return "You";
