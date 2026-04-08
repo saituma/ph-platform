@@ -126,7 +126,22 @@ export function initSocket(server: HttpServer) {
       const groupId = payload?.groupId ? Number(payload.groupId) : null;
       if (!groupId || !Number.isFinite(groupId)) return;
       try {
-        const allowed = await isGroupMember(groupId, userId);
+        const actingUserId = (socket.data.actingUserId as number | null) ?? null;
+        const ids = [userId, actingUserId].filter(
+          (value): value is number => Boolean(value) && Number.isFinite(value),
+        );
+        let allowed = false;
+        for (const candidateId of ids) {
+          // If we're joining on behalf of an acting user, ensure the guardian relation still holds.
+          if (candidateId !== userId) {
+            const { athlete } = await getGuardianAndAthlete(userId);
+            if (!athlete || athlete.userId !== candidateId) continue;
+          }
+          if (await isGroupMember(groupId, candidateId)) {
+            allowed = true;
+            break;
+          }
+        }
         if (!allowed) return;
         socket.join(`group:${groupId}`);
       } catch (error) {
@@ -153,6 +168,14 @@ export function initSocket(server: HttpServer) {
       const actingUser = await getUserById(actingUserId);
       socket.data.actingName = actingUser?.name ?? null;
       socket.join(`user:${actingUserId}`);
+
+      // Also join all group rooms for this acting user so group messages are live.
+      try {
+        const actingGroups = await listGroupsForUser(actingUserId);
+        actingGroups.forEach((group) => socket.join(`group:${group.id}`));
+      } catch (error) {
+        console.warn("Socket acting group join failed", error);
+      }
     });
 
     socket.on(
