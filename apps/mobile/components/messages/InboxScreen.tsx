@@ -14,7 +14,11 @@ type InboxScreenProps = {
   isLoading: boolean;
   openingThreadId: string | null;
   onRefresh: () => Promise<void>;
-  onOpenThread: (thread: MessageThread, sharedBoundTag?: string, avatarTag?: string) => void;
+  onOpenThread: (
+    thread: MessageThread,
+    sharedBoundTag?: string,
+    avatarTag?: string,
+  ) => void;
 };
 
 function getInitials(name?: string | null) {
@@ -39,9 +43,12 @@ function groupThreadsByChannel(threads: MessageThread[]) {
   const announcements = threads.filter(
     (thread) => thread.channelType === "announcement",
   );
-  const coachGroups = threads.filter((thread) => thread.channelType === "coach_group");
+  const coachGroups = threads.filter(
+    (thread) => thread.channelType === "coach_group",
+  );
   const direct = threads.filter(
-    (thread) => thread.channelType === "direct" || !thread.id.startsWith("group:"),
+    (thread) =>
+      thread.channelType === "direct" || !thread.id.startsWith("group:"),
   );
   const team = threads.filter((thread) => thread.channelType === "team");
 
@@ -68,11 +75,23 @@ function ThreadSkeletonCard({
       style={{ backgroundColor, borderColor }}
     >
       <View className="flex-row items-center">
-        <View className="h-14 w-14 rounded-2xl" style={{ backgroundColor: shimmerColor }} />
+        <View
+          className="h-14 w-14 rounded-2xl"
+          style={{ backgroundColor: shimmerColor }}
+        />
         <View className="flex-1 ml-4 space-y-2.5">
-          <View className="h-4 rounded-full w-4/5" style={{ backgroundColor: shimmerColor }} />
-          <View className="h-3 rounded-full w-1/2" style={{ backgroundColor: shimmerColor }} />
-          <View className="h-3 rounded-full w-full" style={{ backgroundColor: shimmerColor }} />
+          <View
+            className="h-4 rounded-full w-4/5"
+            style={{ backgroundColor: shimmerColor }}
+          />
+          <View
+            className="h-3 rounded-full w-1/2"
+            style={{ backgroundColor: shimmerColor }}
+          />
+          <View
+            className="h-3 rounded-full w-full"
+            style={{ backgroundColor: shimmerColor }}
+          />
         </View>
       </View>
     </View>
@@ -83,11 +102,13 @@ function InboxEmptyState({
   accentColor,
   backgroundSecondary,
   borderColor,
+  textPrimary,
   textSecondary,
 }: {
   accentColor: string;
   backgroundSecondary: string;
   borderColor: string;
+  textPrimary: string;
   textSecondary: string;
 }) {
   return (
@@ -98,7 +119,9 @@ function InboxEmptyState({
       >
         <Feather name="message-circle" size={42} color={accentColor} />
       </View>
-      <Text className="text-2xl font-clash text-app mb-2">No messages yet</Text>
+      <Text className="text-2xl font-clash mb-2" style={{ color: textPrimary }}>
+        No messages yet
+      </Text>
       <Text
         className="text-center font-outfit max-w-[260px]"
         style={{ color: textSecondary }}
@@ -135,7 +158,10 @@ function PriorityHelpCard({
           <Feather name="help-circle" size={24} color={accent} />
         </View>
         <View className="flex-1">
-          <Text className="font-clash text-lg font-bold" style={{ color: text }}>
+          <Text
+            className="font-clash text-lg font-bold"
+            style={{ color: text }}
+          >
             Need priority help?
           </Text>
           <Text
@@ -161,7 +187,9 @@ function InboxScreenBase({
   const { colors, isDark } = useAppTheme();
 
   const cardBorder = colors.borderSubtle;
-  const mutedPill = isDark ? "rgba(255,255,255,0.08)" : colors.backgroundSecondary;
+  const mutedPill = isDark
+    ? "rgba(255,255,255,0.08)"
+    : colors.backgroundSecondary;
 
   const groupedSections = React.useMemo(() => {
     return groupThreadsByChannel(threads);
@@ -253,8 +281,9 @@ function InboxScreenBase({
                           <View className="flex-row justify-between items-start">
                             <View className="flex-1 pr-2">
                               <Text
-                                className="font-clash text-lg text-app"
+                                className="font-clash text-lg"
                                 numberOfLines={1}
+                                style={{ color: colors.text }}
                               >
                                 {thread.name}
                               </Text>
@@ -391,6 +420,7 @@ function InboxScreenBase({
               accentColor={colors.accent}
               backgroundSecondary={colors.backgroundSecondary}
               borderColor={cardBorder}
+              textPrimary={colors.text}
               textSecondary={colors.textSecondary}
             />
           )}

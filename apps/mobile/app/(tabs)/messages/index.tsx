@@ -18,7 +18,10 @@ import { AgeGate } from "@/components/AgeGate";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import { hasPaidProgramTier } from "@/lib/planAccess";
-import { requestGlobalTabChange } from "@/context/ActiveTabContext";
+import {
+  requestGlobalTabChange,
+  useActiveTabIndex,
+} from "@/context/ActiveTabContext";
 
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
@@ -45,13 +48,18 @@ export default function MessagesScreen() {
   } = useMessagesController();
   const pathname = usePathname();
   const router = useRouter();
+  const activeTabIndex = useActiveTabIndex();
   const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
   const paidPlan = hasPaidProgramTier(programTier);
   const isYouthAthleteRole =
     appRole === "youth_athlete_guardian_only" ||
     appRole === "youth_athlete_team_guardian";
   const unreadCount = React.useMemo(
-    () => sortedThreads.reduce((sum, thread) => sum + (Number(thread.unread) || 0), 0),
+    () =>
+      sortedThreads.reduce(
+        (sum, thread) => sum + (Number(thread.unread) || 0),
+        0,
+      ),
     [sortedThreads],
   );
   const activeAthlete = React.useMemo(() => {
@@ -75,17 +83,29 @@ export default function MessagesScreen() {
     when: string;
   } | null>(null);
 
+  const isMessagesRoute =
+    activeTabIndex === 1 ||
+    pathname.startsWith("/messages") ||
+    pathname.startsWith("/(tabs)/messages");
+
   React.useEffect(() => {
     if (!token) return;
-    if (!pathname.startsWith("/(tabs)/messages")) return;
+    if (!isMessagesRoute) return;
     let active = true;
     (async () => {
       try {
-        const res = await apiRequest<{ items?: any[] }>("/content/announcements", {
-          token,
-          skipCache: true,
-          suppressStatusCodes: [401, 403, 404],
-        });
+        const headers = athleteUserId
+          ? { "X-Acting-User-Id": String(athleteUserId) }
+          : undefined;
+        const res = await apiRequest<{ items?: any[] }>(
+          "/content/announcements",
+          {
+            token,
+            headers,
+            skipCache: true,
+            suppressStatusCodes: [401, 403, 404],
+          },
+        );
         const items = Array.isArray(res.items) ? res.items : [];
         const latest = items[0];
         if (!active) return;
@@ -122,7 +142,7 @@ export default function MessagesScreen() {
     return () => {
       active = false;
     };
-  }, [pathname, token]);
+  }, [isMessagesRoute, token]);
 
   React.useEffect(() => {
     if (!token) return;
@@ -161,9 +181,9 @@ export default function MessagesScreen() {
   }, [dispatch, token]);
 
   React.useEffect(() => {
-    if (!pathname.startsWith("/(tabs)/messages")) return;
+    if (!isMessagesRoute) return;
     resetOpeningThread();
-  }, [pathname, resetOpeningThread]);
+  }, [isMessagesRoute, resetOpeningThread]);
 
   if (isSectionHidden("messages")) {
     return (
@@ -177,7 +197,11 @@ export default function MessagesScreen() {
   // ====================== LOCKED / UPGRADE STATE ======================
   if (!canMessage) {
     return (
-      <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.background }}>
+      <SafeAreaView
+        className="flex-1"
+        edges={["top"]}
+        style={{ backgroundColor: colors.background }}
+      >
         <View className="flex-1 items-center justify-center px-8">
           <View
             className="w-20 h-20 rounded-2xl items-center justify-center mb-6"
@@ -189,10 +213,16 @@ export default function MessagesScreen() {
           >
             <Ionicons name="chatbubbles" size={40} color={colors.accent} />
           </View>
-          <Text className="text-2xl font-clash font-bold text-app text-center mb-3">
+          <Text
+            className="text-2xl font-clash font-bold text-center mb-3"
+            style={{ color: colors.text }}
+          >
             Messages
           </Text>
-          <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
+          <Text
+            className="text-base font-outfit text-center max-w-[280px]"
+            style={{ color: colors.textSecondary }}
+          >
             {paidPlan
               ? "Messaging is not enabled for your current plan. Ask your coach if you need access."
               : isYouthAthleteRole
@@ -207,7 +237,9 @@ export default function MessagesScreen() {
               }}
               className="mt-8 rounded-full px-8 py-3 bg-accent"
             >
-              <Text className="text-sm font-outfit font-semibold text-white">Open Programs</Text>
+              <Text className="text-sm font-outfit font-semibold text-white">
+                Open Programs
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -215,7 +247,6 @@ export default function MessagesScreen() {
     );
   }
 
-  // ====================== INBOX VIEW ======================
   return (
     <SafeAreaView
       className="flex-1"
@@ -225,34 +256,69 @@ export default function MessagesScreen() {
       <View className="px-6 pt-8 pb-5">
         <View
           className="rounded-[28px] border px-5 py-5"
-          style={{ backgroundColor: colors.card, borderColor: colors.borderSubtle }}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.borderSubtle,
+          }}
         >
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="text-4xl font-telma-bold font-bold tracking-tight text-app">
+              <Text
+                className="text-4xl font-telma-bold font-bold tracking-tight"
+                style={{ color: colors.text }}
+              >
                 Messages
               </Text>
-              <Text className="mt-2 text-base font-outfit" style={{ color: colors.textSecondary }}>
+              <Text
+                className="mt-2 text-base font-outfit"
+                style={{ color: colors.textSecondary }}
+              >
                 {heroSubtitle}
               </Text>
             </View>
-            <View className="h-12 w-12 rounded-2xl items-center justify-center" style={{ backgroundColor: colors.backgroundSecondary }}>
-              <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.accent} />
+            <View
+              className="h-12 w-12 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: colors.backgroundSecondary }}
+            >
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={24}
+                color={colors.accent}
+              />
             </View>
           </View>
           <View className="mt-4 flex-row flex-wrap gap-2">
-            <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.backgroundSecondary }}>
-              <Text className="text-[11px] font-outfit font-semibold text-app">
-                {sortedThreads.length} thread{sortedThreads.length === 1 ? "" : "s"}
+            <View
+              className="rounded-full px-3 py-2"
+              style={{ backgroundColor: colors.backgroundSecondary }}
+            >
+              <Text
+                className="text-[11px] font-outfit font-semibold"
+                style={{ color: colors.text }}
+              >
+                {sortedThreads.length} thread
+                {sortedThreads.length === 1 ? "" : "s"}
               </Text>
             </View>
-            <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.backgroundSecondary }}>
-              <Text className="text-[11px] font-outfit font-semibold text-app">
+            <View
+              className="rounded-full px-3 py-2"
+              style={{ backgroundColor: colors.backgroundSecondary }}
+            >
+              <Text
+                className="text-[11px] font-outfit font-semibold"
+                style={{ color: colors.text }}
+              >
                 {unreadCount} unread
               </Text>
             </View>
-            <View className="rounded-full px-3 py-2" style={{ backgroundColor: colors.backgroundSecondary }}>
-              <Text className="text-[11px] font-outfit font-semibold text-app">
+            <View
+              className="rounded-full px-3 py-2"
+              style={{ backgroundColor: colors.backgroundSecondary }}
+            >
+              <Text
+                className="text-[11px] font-outfit font-semibold"
+                style={{ color: colors.text }}
+              >
                 {isYouthAthleteRole ? "Coach support" : "Media sharing"}
               </Text>
             </View>
@@ -283,22 +349,42 @@ export default function MessagesScreen() {
           >
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
-                <Ionicons name="megaphone-outline" size={18} color={colors.accent} />
-                <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+                <Ionicons
+                  name="megaphone-outline"
+                  size={18}
+                  color={colors.accent}
+                />
+                <Text
+                  className="text-[12px] font-outfit font-bold uppercase tracking-[1.4px]"
+                  style={{ color: colors.accent }}
+                >
                   Announcements
                 </Text>
               </View>
-              <View className="rounded-full px-3 py-1" style={{ backgroundColor: "rgba(34,197,94,0.12)" }}>
-                <Text className="text-[11px] font-outfit font-bold" style={{ color: colors.accent }}>
+              <View
+                className="rounded-full px-3 py-1"
+                style={{ backgroundColor: "rgba(34,197,94,0.12)" }}
+              >
+                <Text
+                  className="text-[11px] font-outfit font-bold"
+                  style={{ color: colors.accent }}
+                >
                   {announcementsMeta.count}
                 </Text>
               </View>
             </View>
-            <Text className="mt-2 text-base font-outfit font-semibold text-app" numberOfLines={1}>
+            <Text
+              className="mt-2 text-base font-outfit font-semibold"
+              style={{ color: colors.text }}
+              numberOfLines={1}
+            >
               {announcementsMeta.title}
             </Text>
             {announcementsMeta.when ? (
-              <Text className="mt-1 text-[12px] font-outfit" style={{ color: colors.textSecondary }}>
+              <Text
+                className="mt-1 text-[12px] font-outfit"
+                style={{ color: colors.textSecondary }}
+              >
                 {announcementsMeta.when}
               </Text>
             ) : null}

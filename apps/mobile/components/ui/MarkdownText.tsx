@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { View, StyleProp, TextStyle, ViewStyle } from "react-native";
 import { Text } from "@/components/ScaledText";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 type MarkdownTextProps = {
   text: string;
@@ -75,7 +76,12 @@ export function MarkdownText({
   listItemStyle,
   containerStyle,
 }: MarkdownTextProps) {
+  const { colors } = useAppTheme();
   const lines = useMemo(() => text.split(/\r?\n/), [text]);
+  const resolvedBaseStyle: StyleProp<TextStyle> = [
+    { color: colors.text },
+    baseStyle,
+  ];
   return (
     <View style={containerStyle}>
       {lines.map((raw, index) => {
@@ -85,35 +91,47 @@ export function MarkdownText({
         }
         if (line.startsWith("### ")) {
           return (
-            <Text key={`md-line-${index}`} style={[baseStyle, subheadingStyle]}>
-              {renderInline(line.slice(4), baseStyle)}
+            <Text
+              key={`md-line-${index}`}
+              style={[resolvedBaseStyle, subheadingStyle]}
+            >
+              {renderInline(line.slice(4), resolvedBaseStyle)}
             </Text>
           );
         }
         if (line.startsWith("## ")) {
           return (
-            <Text key={`md-line-${index}`} style={[baseStyle, headingStyle]}>
-              {renderInline(line.slice(3), baseStyle)}
+            <Text
+              key={`md-line-${index}`}
+              style={[resolvedBaseStyle, headingStyle]}
+            >
+              {renderInline(line.slice(3), resolvedBaseStyle)}
             </Text>
           );
         }
         if (line.startsWith("# ")) {
           return (
-            <Text key={`md-line-${index}`} style={[baseStyle, headingStyle]}>
-              {renderInline(line.slice(2), baseStyle)}
+            <Text
+              key={`md-line-${index}`}
+              style={[resolvedBaseStyle, headingStyle]}
+            >
+              {renderInline(line.slice(2), resolvedBaseStyle)}
             </Text>
           );
         }
         if (line.startsWith("- ")) {
           return (
-            <Text key={`md-line-${index}`} style={[baseStyle, listItemStyle]}>
-              {renderInline(`• ${line.slice(2)}`, baseStyle)}
+            <Text
+              key={`md-line-${index}`}
+              style={[resolvedBaseStyle, listItemStyle]}
+            >
+              {renderInline(`• ${line.slice(2)}`, resolvedBaseStyle)}
             </Text>
           );
         }
         return (
-          <Text key={`md-line-${index}`} style={baseStyle}>
-            {renderInline(line, baseStyle)}
+          <Text key={`md-line-${index}`} style={resolvedBaseStyle}>
+            {renderInline(line, resolvedBaseStyle)}
           </Text>
         );
       })}

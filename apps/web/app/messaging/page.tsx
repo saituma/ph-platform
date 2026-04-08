@@ -21,7 +21,12 @@ import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -32,13 +37,19 @@ import {
 import { Input } from "../../components/ui/input";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { Select } from "../../components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../../components/ui/tabs";
 import { Textarea } from "../../components/ui/textarea";
 import {
   useAddChatGroupMembersMutation,
   useCreateChatGroupMutation,
   useCreateContentMutation,
   useCreateMediaUploadUrlMutation,
+  useDeleteContentMutation,
   useGetAdminTeamsQuery,
   useGetAdminProfileQuery,
   useGetAnnouncementsQuery,
@@ -84,12 +95,18 @@ function formatTime(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatSchedule(startsAt?: string | null, endsAt?: string | null) {
   if (!startsAt && !endsAt) return "Permanent";
-  if (startsAt && endsAt) return `Active ${formatTime(startsAt)} → ${formatTime(endsAt)}`;
+  if (startsAt && endsAt)
+    return `Active ${formatTime(startsAt)} → ${formatTime(endsAt)}`;
   if (startsAt) return `Starts ${formatTime(startsAt)}`;
   return `Ends ${formatTime(endsAt)}`;
 }
@@ -111,7 +128,12 @@ function toLocalInputValue(value?: string | null) {
 }
 
 function getTierFromUser(user: MessagingUser) {
-  return user.programTier ?? user.currentProgramTier ?? user.desiredProgramType ?? null;
+  return (
+    user.programTier ??
+    user.currentProgramTier ??
+    user.desiredProgramType ??
+    null
+  );
 }
 
 function isPremiumTier(tier: string | null) {
@@ -119,12 +141,21 @@ function isPremiumTier(tier: string | null) {
   return tier.toLowerCase().includes("premium");
 }
 
-function resolveGroupCategory(group: Pick<ChatGroupItem, "category" | "name">): "announcement" | "coach_group" | "team" {
-  if (group.category === "announcement" || group.category === "coach_group" || group.category === "team") {
+function resolveGroupCategory(
+  group: Pick<ChatGroupItem, "category" | "name">,
+): "announcement" | "coach_group" | "team" {
+  if (
+    group.category === "announcement" ||
+    group.category === "coach_group" ||
+    group.category === "team"
+  ) {
     return group.category;
   }
-  const normalized = String(group.name ?? "").trim().toLowerCase();
-  if (/(announce|announcement|broadcast)/i.test(normalized)) return "announcement";
+  const normalized = String(group.name ?? "")
+    .trim()
+    .toLowerCase();
+  if (/(announce|announcement|broadcast)/i.test(normalized))
+    return "announcement";
   if (/(team|squad|club)/i.test(normalized)) return "team";
   return "coach_group";
 }
@@ -145,79 +176,131 @@ export default function MessagingPage() {
     "all" | "youth" | "adult" | "team" | "group" | "tier"
   >("all");
   const [announcementAudienceTeam, setAnnouncementAudienceTeam] = useState("");
-  const [announcementAudienceGroupId, setAnnouncementAudienceGroupId] = useState("");
+  const [announcementAudienceGroupId, setAnnouncementAudienceGroupId] =
+    useState("");
   const [announcementAudienceTier, setAnnouncementAudienceTier] = useState("");
-  const [announcementTimingType, setAnnouncementTimingType] = useState<"permanent" | "scheduled">("permanent");
+  const [announcementTimingType, setAnnouncementTimingType] = useState<
+    "permanent" | "scheduled"
+  >("permanent");
   const [announcementStartsAt, setAnnouncementStartsAt] = useState("");
   const [announcementEndsAt, setAnnouncementEndsAt] = useState("");
-  const [editingAnnouncementId, setEditingAnnouncementId] = useState<number | null>(null);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<
+    number | null
+  >(null);
   const [editAnnouncementTitle, setEditAnnouncementTitle] = useState("");
   const [editAnnouncementBody, setEditAnnouncementBody] = useState("");
-  const [editAnnouncementTimingType, setEditAnnouncementTimingType] = useState<"permanent" | "scheduled">(
-    "permanent",
-  );
+  const [editAnnouncementTimingType, setEditAnnouncementTimingType] = useState<
+    "permanent" | "scheduled"
+  >("permanent");
   const [editAnnouncementStartsAt, setEditAnnouncementStartsAt] = useState("");
   const [editAnnouncementEndsAt, setEditAnnouncementEndsAt] = useState("");
-  const [editAnnouncementIsActive, setEditAnnouncementIsActive] = useState(true);
+  const [editAnnouncementIsActive, setEditAnnouncementIsActive] =
+    useState(true);
 
   const [threadUserId, setThreadUserId] = useState<number | null>(null);
-  const [highlightedInboxThreadUserId, setHighlightedInboxThreadUserId] = useState<number | null>(null);
+  const [highlightedInboxThreadUserId, setHighlightedInboxThreadUserId] =
+    useState<number | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
 
   const [directMessage, setDirectMessage] = useState("");
   const [groupMessage, setGroupMessage] = useState("");
-  const [directReplyTo, setDirectReplyTo] = useState<{ messageId: number; preview: string } | null>(null);
-  const [groupReplyTo, setGroupReplyTo] = useState<{ messageId: number; preview: string } | null>(null);
-  const [activeUploadTarget, setActiveUploadTarget] = useState<"direct" | "group" | null>(null);
+  const [directReplyTo, setDirectReplyTo] = useState<{
+    messageId: number;
+    preview: string;
+  } | null>(null);
+  const [groupReplyTo, setGroupReplyTo] = useState<{
+    messageId: number;
+    preview: string;
+  } | null>(null);
+  const [activeUploadTarget, setActiveUploadTarget] = useState<
+    "direct" | "group" | null
+  >(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
   const [gifTarget, setGifTarget] = useState<"direct" | "group" | null>(null);
   const [gifQuery, setGifQuery] = useState("");
-  const [gifResults, setGifResults] = useState<Array<{ id: string; url: string; previewUrl: string }>>([]);
+  const [gifResults, setGifResults] = useState<
+    Array<{ id: string; url: string; previewUrl: string }>
+  >([]);
   const [gifLoading, setGifLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<
+    number | null
+  >(null);
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupCategory, setNewGroupCategory] = useState<"announcement" | "coach_group" | "team">("coach_group");
+  const [newGroupCategory, setNewGroupCategory] = useState<
+    "announcement" | "coach_group" | "team"
+  >("coach_group");
   const [groupMemberQuery, setGroupMemberQuery] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [manageGroupMembersOpen, setManageGroupMembersOpen] = useState(false);
   const [manageGroupId, setManageGroupId] = useState<number | null>(null);
   const [manageMemberQuery, setManageMemberQuery] = useState("");
-  const [manageSelectedMemberIds, setManageSelectedMemberIds] = useState<number[]>([]);
-  const [directReactionOverrides, setDirectReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
-  const [groupReactionOverrides, setGroupReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
-  const [highlightedTeamName, setHighlightedTeamName] = useState<string | null>(null);
-  const [highlightedInboxGroupId, setHighlightedInboxGroupId] = useState<number | null>(null);
+  const [manageSelectedMemberIds, setManageSelectedMemberIds] = useState<
+    number[]
+  >([]);
+  const [directReactionOverrides, setDirectReactionOverrides] = useState<
+    Record<number, ChatReaction[]>
+  >({});
+  const [groupReactionOverrides, setGroupReactionOverrides] = useState<
+    Record<number, ChatReaction[]>
+  >({});
+  const [highlightedTeamName, setHighlightedTeamName] = useState<string | null>(
+    null,
+  );
+  const [highlightedInboxGroupId, setHighlightedInboxGroupId] = useState<
+    number | null
+  >(null);
   const groupRowRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
-  const { data: announcementsData, refetch: refetchAnnouncements } = useGetAnnouncementsQuery();
+  const { data: announcementsData, refetch: refetchAnnouncements } =
+    useGetAnnouncementsQuery();
   const { data: adminProfileData } = useGetAdminProfileQuery();
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
   const { data: adminTeamsData } = useGetAdminTeamsQuery();
   const { data: groupsData, refetch: refetchGroups } = useGetChatGroupsQuery();
 
-  const { data: directMessagesData, refetch: refetchDirectMessages } = useGetMessagesQuery(threadUserId ?? skipToken);
-  const { data: groupMessagesData, refetch: refetchGroupMessages } = useGetChatGroupMessagesQuery(groupId ?? skipToken);
-  const { data: groupMembersData } = useGetChatGroupMembersQuery(manageGroupId ?? skipToken);
+  const { data: directMessagesData, refetch: refetchDirectMessages } =
+    useGetMessagesQuery(threadUserId ?? skipToken);
+  const { data: groupMessagesData, refetch: refetchGroupMessages } =
+    useGetChatGroupMessagesQuery(groupId ?? skipToken);
+  const { data: groupMembersData } = useGetChatGroupMembersQuery(
+    manageGroupId ?? skipToken,
+  );
 
-  const [createAnnouncement, { isLoading: isCreatingAnnouncement }] = useCreateContentMutation();
-  const [updateAnnouncement, { isLoading: isUpdatingAnnouncement }] = useUpdateContentMutation();
+  const [createAnnouncement, { isLoading: isCreatingAnnouncement }] =
+    useCreateContentMutation();
+  const [updateAnnouncement, { isLoading: isUpdatingAnnouncement }] =
+    useUpdateContentMutation();
+  const [deleteAnnouncement] = useDeleteContentMutation();
   const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
   const [markThreadRead] = useMarkThreadReadMutation();
   const [sendDirect, { isLoading: isSendingDirect }] = useSendMessageMutation();
-  const [sendGroup, { isLoading: isSendingGroup }] = useSendChatGroupMessageMutation();
-  const [addChatGroupMembers, { isLoading: isAddingGroupMembers }] = useAddChatGroupMembersMutation();
+  const [sendGroup, { isLoading: isSendingGroup }] =
+    useSendChatGroupMessageMutation();
+  const [addChatGroupMembers, { isLoading: isAddingGroupMembers }] =
+    useAddChatGroupMembersMutation();
   const [toggleDirectReaction] = useToggleMessageReactionMutation();
   const [toggleGroupReaction] = useToggleChatGroupMessageReactionMutation();
-  const [createGroup, { isLoading: isCreatingGroup }] = useCreateChatGroupMutation();
+  const [createGroup, { isLoading: isCreatingGroup }] =
+    useCreateChatGroupMutation();
 
-  const users = useMemo<MessagingUser[]>(() => (usersData?.users as MessagingUser[] | undefined) ?? [], [usersData]);
+  const users = useMemo<MessagingUser[]>(
+    () => (usersData?.users as MessagingUser[] | undefined) ?? [],
+    [usersData],
+  );
 
   const chatEligibleUsers = useMemo(
-    () => users.filter((user) => user?.role !== "admin" && user?.role !== "superAdmin" && user?.role !== "coach"),
+    () =>
+      users.filter(
+        (user) =>
+          user?.role !== "admin" &&
+          user?.role !== "superAdmin" &&
+          user?.role !== "coach",
+      ),
     [users],
   );
 
@@ -256,7 +339,11 @@ export default function MessagingPage() {
         const tier = getTierFromUser(user);
         return {
           userId: user.id,
-          name: userNameById.get(user.id) ?? user.name ?? user.email ?? `User ${user.id}`,
+          name:
+            userNameById.get(user.id) ??
+            user.name ??
+            user.email ??
+            `User ${user.id}`,
           preview: thread?.preview ?? "Start a conversation",
           unread: Number(thread?.unread ?? 0),
           updatedAt: thread?.time ?? "",
@@ -265,28 +352,50 @@ export default function MessagingPage() {
         };
       })
       .sort((a, b) => {
-        if (Number(b.isPremium) !== Number(a.isPremium)) return Number(b.isPremium) - Number(a.isPremium);
+        if (Number(b.isPremium) !== Number(a.isPremium))
+          return Number(b.isPremium) - Number(a.isPremium);
         if (b.unread !== a.unread) return b.unread - a.unread;
-        return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+        return (
+          new Date(b.updatedAt || 0).getTime() -
+          new Date(a.updatedAt || 0).getTime()
+        );
       });
   }, [chatEligibleUsers, threadsData, userNameById]);
 
-  const groups = useMemo<ChatGroupItem[]>(() => (groupsData?.groups as ChatGroupItem[] | undefined) ?? [], [groupsData]);
+  const groups = useMemo<ChatGroupItem[]>(
+    () => (groupsData?.groups as ChatGroupItem[] | undefined) ?? [],
+    [groupsData],
+  );
   const groupedInboxSections = useMemo(
     () => ({
       announcements: groups
         .filter((group) => resolveGroupCategory(group) === "announcement")
-        .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()),
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime(),
+        ),
       coachGroups: groups
         .filter((group) => resolveGroupCategory(group) === "coach_group")
-        .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()),
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime(),
+        ),
       teamInbox: groups
         .filter((group) => resolveGroupCategory(group) === "team")
-        .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()),
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime(),
+        ),
     }),
     [groups],
   );
-  const teams = useMemo<AdminTeamItem[]>(() => adminTeamsData?.teams ?? [], [adminTeamsData]);
+  const teams = useMemo<AdminTeamItem[]>(
+    () => adminTeamsData?.teams ?? [],
+    [adminTeamsData],
+  );
   const announcements = useMemo<AnnouncementItem[]>(
     () => (announcementsData?.items as AnnouncementItem[] | undefined) ?? [],
     [announcementsData],
@@ -294,7 +403,10 @@ export default function MessagingPage() {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam && ["announcement", "inbox", "teams", "stats"].includes(tabParam)) {
+    if (
+      tabParam &&
+      ["announcement", "inbox", "teams", "stats"].includes(tabParam)
+    ) {
       setTab(tabParam);
     }
 
@@ -343,7 +455,8 @@ export default function MessagingPage() {
   }, [threadUserId, userNameById]);
 
   const directMessages = useMemo<ChatMessage[]>(() => {
-    const base = (directMessagesData?.messages as ChatMessage[] | undefined) ?? [];
+    const base =
+      (directMessagesData?.messages as ChatMessage[] | undefined) ?? [];
     return base.map((message) => {
       const id = Number(message.id);
       if (!Number.isFinite(id)) return message;
@@ -353,7 +466,8 @@ export default function MessagingPage() {
   }, [directMessagesData, directReactionOverrides]);
 
   const groupMessages = useMemo<ChatMessage[]>(() => {
-    const base = (groupMessagesData?.messages as ChatMessage[] | undefined) ?? [];
+    const base =
+      (groupMessagesData?.messages as ChatMessage[] | undefined) ?? [];
     return base.map((message) => {
       const id = Number(message.id);
       if (!Number.isFinite(id)) return message;
@@ -399,7 +513,13 @@ export default function MessagingPage() {
 
   const existingManageMemberIds = useMemo<number[]>(
     () =>
-      ((groupMembersData as { members?: Array<{ userId?: number | string }> } | undefined)?.members ?? [])
+      (
+        (
+          groupMembersData as
+            | { members?: Array<{ userId?: number | string }> }
+            | undefined
+        )?.members ?? []
+      )
         .map((member) => Number(member.userId))
         .filter((id) => Number.isFinite(id)),
     [groupMembersData],
@@ -419,47 +539,72 @@ export default function MessagingPage() {
   const handleCreateAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) return;
     const parsedAudienceGroupId = Number(announcementAudienceGroupId);
-    if (announcementAudienceType === "team" && !announcementAudienceTeam.trim()) {
-      toast.error("Missing team", "Choose a team for this announcement audience.");
+    if (
+      announcementAudienceType === "team" &&
+      !announcementAudienceTeam.trim()
+    ) {
+      toast.error(
+        "Missing team",
+        "Choose a team for this announcement audience.",
+      );
       return;
     }
-    if (announcementAudienceType === "group" && !Number.isFinite(parsedAudienceGroupId)) {
-      toast.error("Missing group", "Choose a group for this announcement audience.");
+    if (
+      announcementAudienceType === "group" &&
+      !Number.isFinite(parsedAudienceGroupId)
+    ) {
+      toast.error(
+        "Missing group",
+        "Choose a group for this announcement audience.",
+      );
       return;
     }
     if (announcementAudienceType === "tier" && !announcementAudienceTier) {
-      toast.error("Missing tier", "Choose a tier for this announcement audience.");
+      toast.error(
+        "Missing tier",
+        "Choose a tier for this announcement audience.",
+      );
       return;
     }
     if (announcementTimingType === "scheduled") {
-      if (!isValidDateTimeValue(announcementStartsAt) || !isValidDateTimeValue(announcementEndsAt)) {
+      if (
+        !isValidDateTimeValue(announcementStartsAt) ||
+        !isValidDateTimeValue(announcementEndsAt)
+      ) {
         toast.error("Missing schedule", "Choose both a start and end time.");
         return;
       }
       const start = new Date(announcementStartsAt);
       const end = new Date(announcementEndsAt);
       if (end.getTime() <= start.getTime()) {
-        toast.error("Invalid schedule", "End time must be after the start time.");
+        toast.error(
+          "Invalid schedule",
+          "End time must be after the start time.",
+        );
         return;
       }
     }
 
     const apiAudienceType =
-      announcementAudienceType === "youth" || announcementAudienceType === "adult"
+      announcementAudienceType === "youth" ||
+      announcementAudienceType === "adult"
         ? "athlete_type"
         : announcementAudienceType;
     const apiAthleteType =
-      announcementAudienceType === "youth" || announcementAudienceType === "adult"
+      announcementAudienceType === "youth" ||
+      announcementAudienceType === "adult"
         ? announcementAudienceType
         : undefined;
 
     try {
       const startsAt =
-        announcementTimingType === "scheduled" && isValidDateTimeValue(announcementStartsAt)
+        announcementTimingType === "scheduled" &&
+        isValidDateTimeValue(announcementStartsAt)
           ? new Date(announcementStartsAt).toISOString()
           : undefined;
       const endsAt =
-        announcementTimingType === "scheduled" && isValidDateTimeValue(announcementEndsAt)
+        announcementTimingType === "scheduled" &&
+        isValidDateTimeValue(announcementEndsAt)
           ? new Date(announcementEndsAt).toISOString()
           : undefined;
       await createAnnouncement({
@@ -470,9 +615,18 @@ export default function MessagingPage() {
         surface: "announcements",
         announcementAudienceType: apiAudienceType,
         announcementAudienceAthleteType: apiAthleteType,
-        announcementAudienceTier: announcementAudienceType === "tier" ? announcementAudienceTier : undefined,
-        announcementAudienceTeam: announcementAudienceType === "team" ? announcementAudienceTeam.trim() : undefined,
-        announcementAudienceGroupId: announcementAudienceType === "group" ? parsedAudienceGroupId : undefined,
+        announcementAudienceTier:
+          announcementAudienceType === "tier"
+            ? announcementAudienceTier
+            : undefined,
+        announcementAudienceTeam:
+          announcementAudienceType === "team"
+            ? announcementAudienceTeam.trim()
+            : undefined,
+        announcementAudienceGroupId:
+          announcementAudienceType === "group"
+            ? parsedAudienceGroupId
+            : undefined,
         announcementStartsAt: startsAt,
         announcementEndsAt: endsAt,
       }).unwrap();
@@ -486,7 +640,10 @@ export default function MessagingPage() {
       setAnnouncementStartsAt("");
       setAnnouncementEndsAt("");
       refetchAnnouncements();
-      toast.success("Announcement sent", "Your announcement is now visible to users.");
+      toast.success(
+        "Announcement sent",
+        "Your announcement is now visible to users.",
+      );
     } catch {
       toast.error("Failed", "Could not publish announcement.");
     }
@@ -520,6 +677,30 @@ export default function MessagingPage() {
     setEditAnnouncementIsActive(true);
   };
 
+  const handleDeleteAnnouncement = async (item: AnnouncementItem) => {
+    const id = Number(item.id);
+    if (!Number.isFinite(id)) {
+      toast.error("Failed", "Invalid announcement id.");
+      return;
+    }
+    if (!window.confirm("Delete this announcement? This cannot be undone.")) {
+      return;
+    }
+    try {
+      setDeletingAnnouncementId(id);
+      if (editingAnnouncementId === id) {
+        cancelEditAnnouncement();
+      }
+      await deleteAnnouncement({ id }).unwrap();
+      toast.success("Deleted", "Announcement removed.");
+      refetchAnnouncements();
+    } catch {
+      toast.error("Failed", "Could not delete announcement.");
+    } finally {
+      setDeletingAnnouncementId((current) => (current === id ? null : current));
+    }
+  };
+
   const handleUpdateAnnouncement = async () => {
     if (editingAnnouncementId == null) return;
     if (!editAnnouncementTitle.trim() || !editAnnouncementBody.trim()) {
@@ -527,24 +708,32 @@ export default function MessagingPage() {
       return;
     }
     if (editAnnouncementTimingType === "scheduled") {
-      if (!isValidDateTimeValue(editAnnouncementStartsAt) || !isValidDateTimeValue(editAnnouncementEndsAt)) {
+      if (
+        !isValidDateTimeValue(editAnnouncementStartsAt) ||
+        !isValidDateTimeValue(editAnnouncementEndsAt)
+      ) {
         toast.error("Missing schedule", "Choose both a start and end time.");
         return;
       }
       const start = new Date(editAnnouncementStartsAt);
       const end = new Date(editAnnouncementEndsAt);
       if (end.getTime() <= start.getTime()) {
-        toast.error("Invalid schedule", "End time must be after the start time.");
+        toast.error(
+          "Invalid schedule",
+          "End time must be after the start time.",
+        );
         return;
       }
     }
     try {
       const startsAt =
-        editAnnouncementTimingType === "scheduled" && isValidDateTimeValue(editAnnouncementStartsAt)
+        editAnnouncementTimingType === "scheduled" &&
+        isValidDateTimeValue(editAnnouncementStartsAt)
           ? new Date(editAnnouncementStartsAt).toISOString()
           : null;
       const endsAt =
-        editAnnouncementTimingType === "scheduled" && isValidDateTimeValue(editAnnouncementEndsAt)
+        editAnnouncementTimingType === "scheduled" &&
+        isValidDateTimeValue(editAnnouncementEndsAt)
           ? new Date(editAnnouncementEndsAt).toISOString()
           : null;
       await updateAnnouncement({
@@ -641,7 +830,10 @@ export default function MessagingPage() {
         };
         xhr.onerror = () => reject(new Error("Upload failed."));
         xhr.open("PUT", presign.uploadUrl);
-        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.setRequestHeader(
+          "Content-Type",
+          file.type || "application/octet-stream",
+        );
         xhr.send(file);
       });
 
@@ -701,13 +893,21 @@ export default function MessagingPage() {
     const cleanQuery = query.trim();
     setGifLoading(true);
     try {
-      const response = await fetch(`/api/giphy/search?q=${encodeURIComponent(cleanQuery)}`, {
-        cache: "no-store",
-      });
-      const payload = (await response.json().catch(() => null)) as GifApiResponse | null;
+      const response = await fetch(
+        `/api/giphy/search?q=${encodeURIComponent(cleanQuery)}`,
+        {
+          cache: "no-store",
+        },
+      );
+      const payload = (await response
+        .json()
+        .catch(() => null)) as GifApiResponse | null;
       if (!response.ok) {
         setGifResults([]);
-        toast.error("GIF search unavailable", payload?.error ?? "Could not load GIFs right now.");
+        toast.error(
+          "GIF search unavailable",
+          payload?.error ?? "Could not load GIFs right now.",
+        );
         return;
       }
       const items = Array.isArray(payload?.results) ? payload.results : [];
@@ -771,7 +971,11 @@ export default function MessagingPage() {
       }
       refetchDirectMessages();
     } catch (error) {
-      console.error("[Messaging][DirectReaction] error", { messageId, emoji, error });
+      console.error("[Messaging][DirectReaction] error", {
+        messageId,
+        emoji,
+        error,
+      });
       toast.error("Failed", "Could not update reaction.");
     }
   };
@@ -779,8 +983,16 @@ export default function MessagingPage() {
   const handleGroupReaction = async (messageId: number, emoji: string) => {
     if (!groupId) return;
     try {
-      console.log("[Messaging][GroupReaction] request", { groupId, messageId, emoji });
-      const result = await toggleGroupReaction({ groupId, messageId, emoji }).unwrap();
+      console.log("[Messaging][GroupReaction] request", {
+        groupId,
+        messageId,
+        emoji,
+      });
+      const result = await toggleGroupReaction({
+        groupId,
+        messageId,
+        emoji,
+      }).unwrap();
       console.log("[Messaging][GroupReaction] response", result);
       if (Array.isArray(result?.reactions)) {
         setGroupReactionOverrides((current) => ({
@@ -790,7 +1002,12 @@ export default function MessagingPage() {
       }
       refetchGroupMessages();
     } catch (error) {
-      console.error("[Messaging][GroupReaction] error", { groupId, messageId, emoji, error });
+      console.error("[Messaging][GroupReaction] error", {
+        groupId,
+        messageId,
+        emoji,
+        error,
+      });
       toast.error("Failed", "Could not update reaction.");
     }
   };
@@ -832,7 +1049,10 @@ export default function MessagingPage() {
         groupId: manageGroupId,
         memberIds: [...new Set(manageSelectedMemberIds)],
       }).unwrap();
-      toast.success("Members added", "Selected members were added to the group.");
+      toast.success(
+        "Members added",
+        "Selected members were added to the group.",
+      );
       setManageGroupMembersOpen(false);
       setManageSelectedMemberIds([]);
       setManageMemberQuery("");
@@ -879,12 +1099,20 @@ export default function MessagingPage() {
                 />
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Audience type</p>
+                    <p className="text-xs text-muted-foreground">
+                      Audience type
+                    </p>
                     <Select
                       value={announcementAudienceType}
                       onChange={(event) =>
                         setAnnouncementAudienceType(
-                          event.target.value as "all" | "youth" | "adult" | "team" | "group" | "tier"
+                          event.target.value as
+                            | "all"
+                            | "youth"
+                            | "adult"
+                            | "team"
+                            | "group"
+                            | "tier",
                         )
                       }
                     >
@@ -901,7 +1129,9 @@ export default function MessagingPage() {
                       <p className="text-xs text-muted-foreground">Team</p>
                       <Select
                         value={announcementAudienceTeam}
-                        onChange={(event) => setAnnouncementAudienceTeam(event.target.value)}
+                        onChange={(event) =>
+                          setAnnouncementAudienceTeam(event.target.value)
+                        }
                       >
                         <option value="">Choose a team</option>
                         {teams.map((team) => (
@@ -917,7 +1147,9 @@ export default function MessagingPage() {
                       <p className="text-xs text-muted-foreground">Group</p>
                       <Select
                         value={announcementAudienceGroupId}
-                        onChange={(event) => setAnnouncementAudienceGroupId(event.target.value)}
+                        onChange={(event) =>
+                          setAnnouncementAudienceGroupId(event.target.value)
+                        }
                       >
                         <option value="">Choose a group</option>
                         {groups.map((group) => (
@@ -933,12 +1165,16 @@ export default function MessagingPage() {
                       <p className="text-xs text-muted-foreground">Tier</p>
                       <Select
                         value={announcementAudienceTier}
-                        onChange={(event) => setAnnouncementAudienceTier(event.target.value)}
+                        onChange={(event) =>
+                          setAnnouncementAudienceTier(event.target.value)
+                        }
                       >
                         <option value="">Choose a tier</option>
                         <option value="PHP">PHP</option>
                         <option value="PHP_Premium">PHP Premium</option>
-                        <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                        <option value="PHP_Premium_Plus">
+                          PHP Premium Plus
+                        </option>
                         <option value="PHP_Pro">PHP Pro</option>
                       </Select>
                     </div>
@@ -948,7 +1184,9 @@ export default function MessagingPage() {
                     <Select
                       value={announcementTimingType}
                       onChange={(event) =>
-                        setAnnouncementTimingType(event.target.value as "permanent" | "scheduled")
+                        setAnnouncementTimingType(
+                          event.target.value as "permanent" | "scheduled",
+                        )
                       }
                     >
                       <option value="permanent">Permanent</option>
@@ -963,7 +1201,9 @@ export default function MessagingPage() {
                       <Input
                         type="datetime-local"
                         value={announcementStartsAt}
-                        onChange={(event) => setAnnouncementStartsAt(event.target.value)}
+                        onChange={(event) =>
+                          setAnnouncementStartsAt(event.target.value)
+                        }
                       />
                     </div>
                     <div className="space-y-1">
@@ -971,7 +1211,9 @@ export default function MessagingPage() {
                       <Input
                         type="datetime-local"
                         value={announcementEndsAt}
-                        onChange={(event) => setAnnouncementEndsAt(event.target.value)}
+                        onChange={(event) =>
+                          setAnnouncementEndsAt(event.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -988,13 +1230,17 @@ export default function MessagingPage() {
                     isCreatingAnnouncement ||
                     !announcementTitle.trim() ||
                     !announcementBody.trim() ||
-                    (announcementAudienceType === "team" && !announcementAudienceTeam) ||
-                    (announcementAudienceType === "group" && !announcementAudienceGroupId) ||
-                    (announcementAudienceType === "tier" && !announcementAudienceTier) ||
+                    (announcementAudienceType === "team" &&
+                      !announcementAudienceTeam) ||
+                    (announcementAudienceType === "group" &&
+                      !announcementAudienceGroupId) ||
+                    (announcementAudienceType === "tier" &&
+                      !announcementAudienceTier) ||
                     (announcementTimingType === "scheduled" &&
                       (!isValidDateTimeValue(announcementStartsAt) ||
                         !isValidDateTimeValue(announcementEndsAt) ||
-                        new Date(announcementEndsAt).getTime() <= new Date(announcementStartsAt).getTime()))
+                        new Date(announcementEndsAt).getTime() <=
+                          new Date(announcementStartsAt).getTime()))
                   }
                 >
                   {isCreatingAnnouncement ? "Sending..." : "Send announcement"}
@@ -1004,16 +1250,23 @@ export default function MessagingPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Recent announcements</CardTitle>
+                <CardTitle className="text-base">
+                  Recent announcements
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[430px] pr-3">
                   <div className="space-y-3">
                     {announcements.map((item) => (
-                      <div key={item.id} className="rounded-xl border border-border p-4">
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-border p-4"
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                            <p className="text-sm font-semibold text-foreground">
+                              {item.title}
+                            </p>
                             <p className="mt-1 text-xs text-muted-foreground">
                               {item.createdBy
                                 ? `By ${resolveUserName(Number(item.createdBy))}`
@@ -1026,28 +1279,42 @@ export default function MessagingPage() {
                               {formatSchedule(item.startsAt, item.endsAt)}
                             </p>
                           </div>
-                          <span className="text-xs text-muted-foreground">{formatTime(item.createdAt)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatTime(item.createdAt)}
+                          </span>
                         </div>
                         {editingAnnouncementId === Number(item.id) ? (
                           <div className="mt-3 space-y-2">
                             <div className="grid gap-2 md:grid-cols-2">
                               <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">Status</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Status
+                                </p>
                                 <Select
-                                  value={editAnnouncementIsActive ? "on" : "off"}
-                                  onChange={(event) => setEditAnnouncementIsActive(event.target.value === "on")}
+                                  value={
+                                    editAnnouncementIsActive ? "on" : "off"
+                                  }
+                                  onChange={(event) =>
+                                    setEditAnnouncementIsActive(
+                                      event.target.value === "on",
+                                    )
+                                  }
                                 >
                                   <option value="on">On</option>
                                   <option value="off">Off</option>
                                 </Select>
                               </div>
                               <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">Timing</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Timing
+                                </p>
                                 <Select
                                   value={editAnnouncementTimingType}
                                   onChange={(event) =>
                                     setEditAnnouncementTimingType(
-                                      event.target.value as "permanent" | "scheduled",
+                                      event.target.value as
+                                        | "permanent"
+                                        | "scheduled",
                                     )
                                   }
                                 >
@@ -1061,22 +1328,34 @@ export default function MessagingPage() {
                                 <Input
                                   type="datetime-local"
                                   value={editAnnouncementStartsAt}
-                                  onChange={(event) => setEditAnnouncementStartsAt(event.target.value)}
+                                  onChange={(event) =>
+                                    setEditAnnouncementStartsAt(
+                                      event.target.value,
+                                    )
+                                  }
                                 />
                                 <Input
                                   type="datetime-local"
                                   value={editAnnouncementEndsAt}
-                                  onChange={(event) => setEditAnnouncementEndsAt(event.target.value)}
+                                  onChange={(event) =>
+                                    setEditAnnouncementEndsAt(
+                                      event.target.value,
+                                    )
+                                  }
                                 />
                               </div>
                             ) : null}
                             <Input
                               value={editAnnouncementTitle}
-                              onChange={(event) => setEditAnnouncementTitle(event.target.value)}
+                              onChange={(event) =>
+                                setEditAnnouncementTitle(event.target.value)
+                              }
                             />
                             <Textarea
                               value={editAnnouncementBody}
-                              onChange={(event) => setEditAnnouncementBody(event.target.value)}
+                              onChange={(event) =>
+                                setEditAnnouncementBody(event.target.value)
+                              }
                               className="min-h-28"
                             />
                             <div className="flex items-center gap-2">
@@ -1086,17 +1365,39 @@ export default function MessagingPage() {
                               >
                                 {isUpdatingAnnouncement ? "Saving..." : "Save"}
                               </Button>
-                              <Button variant="ghost" onClick={cancelEditAnnouncement}>
+                              <Button
+                                variant="ghost"
+                                onClick={cancelEditAnnouncement}
+                              >
                                 Cancel
                               </Button>
                             </div>
                           </div>
                         ) : (
                           <>
-                            <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{item.body}</p>
-                            <div className="mt-3">
-                              <Button variant="ghost" onClick={() => startEditAnnouncement(item)}>
+                            <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                              {item.body}
+                            </p>
+                            <div className="mt-3 flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                onClick={() => startEditAnnouncement(item)}
+                              >
                                 Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                disabled={
+                                  deletingAnnouncementId === Number(item.id)
+                                }
+                                onClick={() =>
+                                  void handleDeleteAnnouncement(item)
+                                }
+                              >
+                                {deletingAnnouncementId === Number(item.id)
+                                  ? "Deleting..."
+                                  : "Delete"}
                               </Button>
                             </div>
                           </>
@@ -1104,7 +1405,9 @@ export default function MessagingPage() {
                       </div>
                     ))}
                     {!announcements.length ? (
-                      <p className="text-sm text-muted-foreground">No announcements yet.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No announcements yet.
+                      </p>
                     ) : null}
                   </div>
                 </ScrollArea>
@@ -1135,13 +1438,30 @@ export default function MessagingPage() {
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { key: "announcements", title: "Coach announcements", items: groupedInboxSections.announcements, tone: "bg-amber-500/10 text-amber-200 border-amber-500/30" },
-                    { key: "coach-groups", title: "Coach groups", items: groupedInboxSections.coachGroups, tone: "bg-sky-500/10 text-sky-200 border-sky-500/30" },
-                    { key: "team-inbox", title: "Team inbox", items: groupedInboxSections.teamInbox, tone: "bg-emerald-500/10 text-emerald-200 border-emerald-500/30" },
+                    {
+                      key: "announcements",
+                      title: "Coach announcements",
+                      items: groupedInboxSections.announcements,
+                      tone: "bg-amber-500/10 text-amber-200 border-amber-500/30",
+                    },
+                    {
+                      key: "coach-groups",
+                      title: "Coach groups",
+                      items: groupedInboxSections.coachGroups,
+                      tone: "bg-sky-500/10 text-sky-200 border-sky-500/30",
+                    },
+                    {
+                      key: "team-inbox",
+                      title: "Team inbox",
+                      items: groupedInboxSections.teamInbox,
+                      tone: "bg-emerald-500/10 text-emerald-200 border-emerald-500/30",
+                    },
                   ].map((section) => (
                     <div key={section.key} className="space-y-2">
                       <div className="sticky top-0 z-10 flex items-center justify-between rounded-lg bg-background/95 py-1 backdrop-blur">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {section.title}
+                        </p>
                         <Badge variant="outline">{section.items.length}</Badge>
                       </div>
                       {section.items.map((group) => (
@@ -1163,14 +1483,22 @@ export default function MessagingPage() {
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
-                              <span className={`rounded-full border px-2 py-0.5 text-[10px] ${section.tone}`}>
+                              <p className="truncate text-sm font-semibold text-foreground">
+                                {group.name}
+                              </p>
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] ${section.tone}`}
+                              >
                                 {categoryLabel(resolveGroupCategory(group))}
                               </span>
                             </div>
-                            <p className="mt-1 text-xs text-muted-foreground">Created {formatTime(group.createdAt)}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Created {formatTime(group.createdAt)}
+                            </p>
                           </div>
-                          <span className="text-xs text-muted-foreground transition group-hover:text-foreground">Open</span>
+                          <span className="text-xs text-muted-foreground transition group-hover:text-foreground">
+                            Open
+                          </span>
                         </button>
                       ))}
                       {!section.items.length ? (
@@ -1200,16 +1528,20 @@ export default function MessagingPage() {
                   <div
                     key={team.team}
                     className={`rounded-xl border bg-background p-4 ${
-                      highlightedTeamName && team.team.toLowerCase() === highlightedTeamName
+                      highlightedTeamName &&
+                      team.team.toLowerCase() === highlightedTeamName
                         ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
                         : "border-border"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">{team.team}</p>
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {team.team}
+                        </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {team.memberCount} athletes · {team.guardianCount} guardians
+                          {team.memberCount} athletes · {team.guardianCount}{" "}
+                          guardians
                         </p>
                       </div>
                       <div className="text-right text-xs text-muted-foreground">
@@ -1219,7 +1551,11 @@ export default function MessagingPage() {
                     </div>
                   </div>
                 ))}
-                {!teams.length ? <p className="text-sm text-muted-foreground">No teams found.</p> : null}
+                {!teams.length ? (
+                  <p className="text-sm text-muted-foreground">
+                    No teams found.
+                  </p>
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -1229,49 +1565,72 @@ export default function MessagingPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-muted-foreground">Announcements</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Announcements
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold text-foreground">{stats.totalAnnouncements}</p>
+                <p className="text-3xl font-semibold text-foreground">
+                  {stats.totalAnnouncements}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-muted-foreground">Inbox threads</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Inbox threads
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold text-foreground">{stats.totalThreads}</p>
+                <p className="text-3xl font-semibold text-foreground">
+                  {stats.totalThreads}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-muted-foreground">Unread messages</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Unread messages
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold text-foreground">{stats.unreadThreads}</p>
+                <p className="text-3xl font-semibold text-foreground">
+                  {stats.unreadThreads}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-muted-foreground">Teams</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Teams
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold text-foreground">{stats.totalTeams}</p>
+                <p className="text-3xl font-semibold text-foreground">
+                  {stats.totalTeams}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-muted-foreground">Inbox groups</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Inbox groups
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold text-foreground">{stats.totalGroups}</p>
+                <p className="text-3xl font-semibold text-foreground">
+                  {stats.totalGroups}
+                </p>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
       </Tabs>
 
-      <Dialog open={threadUserId != null} onOpenChange={(open) => (open ? null : setThreadUserId(null))}>
+      <Dialog
+        open={threadUserId != null}
+        onOpenChange={(open) => (open ? null : setThreadUserId(null))}
+      >
         <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{directThreadName || "Conversation"}</DialogTitle>
@@ -1298,7 +1657,9 @@ export default function MessagingPage() {
               canSend={Boolean(threadUserId && directMessage.trim())}
               isSending={isSendingDirect}
               isUploading={isUploadingMedia}
-              replyingTo={directReplyTo ? { preview: directReplyTo.preview } : null}
+              replyingTo={
+                directReplyTo ? { preview: directReplyTo.preview } : null
+              }
               onCancelReply={() => setDirectReplyTo(null)}
               onPickPhoto={() => openFilePicker("direct", "image/*")}
               onPickVideo={() => openFilePicker("direct", "video/*")}
@@ -1308,13 +1669,23 @@ export default function MessagingPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={groupId != null} onOpenChange={(open) => (open ? null : setGroupId(null))}>
+      <Dialog
+        open={groupId != null}
+        onOpenChange={(open) => (open ? null : setGroupId(null))}
+      >
         <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-4xl">
           <DialogHeader>
             <div className="flex items-center justify-between gap-3">
-              <DialogTitle>{groups.find((group) => group.id === groupId)?.name ?? "Group chat"}</DialogTitle>
+              <DialogTitle>
+                {groups.find((group) => group.id === groupId)?.name ??
+                  "Group chat"}
+              </DialogTitle>
               {groupId ? (
-                <Button size="sm" variant="outline" onClick={() => openManageGroupMembers(groupId)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openManageGroupMembers(groupId)}
+                >
                   Add member
                 </Button>
               ) : null}
@@ -1341,7 +1712,9 @@ export default function MessagingPage() {
               canSend={Boolean(groupId && groupMessage.trim())}
               isSending={isSendingGroup}
               isUploading={isUploadingMedia}
-              replyingTo={groupReplyTo ? { preview: groupReplyTo.preview } : null}
+              replyingTo={
+                groupReplyTo ? { preview: groupReplyTo.preview } : null
+              }
               onCancelReply={() => setGroupReplyTo(null)}
               onPickPhoto={() => openFilePicker("group", "image/*")}
               onPickVideo={() => openFilePicker("group", "video/*")}
@@ -1355,7 +1728,9 @@ export default function MessagingPage() {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Create group</DialogTitle>
-            <DialogDescription>Set a group name and choose members.</DialogDescription>
+            <DialogDescription>
+              Set a group name and choose members.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input
@@ -1368,7 +1743,12 @@ export default function MessagingPage() {
               <Select
                 value={newGroupCategory}
                 onChange={(event) =>
-                  setNewGroupCategory(event.target.value as "announcement" | "coach_group" | "team")
+                  setNewGroupCategory(
+                    event.target.value as
+                      | "announcement"
+                      | "coach_group"
+                      | "team",
+                  )
                 }
               >
                 <option value="coach_group">Coach group</option>
@@ -1397,7 +1777,9 @@ export default function MessagingPage() {
                         checked={selected}
                         onChange={() =>
                           setSelectedMemberIds((current) =>
-                            selected ? current.filter((id) => id !== user.id) : [...current, user.id],
+                            selected
+                              ? current.filter((id) => id !== user.id)
+                              : [...current, user.id],
                           )
                         }
                       />
@@ -1405,18 +1787,29 @@ export default function MessagingPage() {
                   );
                 })}
                 {!filteredGroupMembers.length ? (
-                  <p className="px-2 py-2 text-xs text-muted-foreground">No members found.</p>
+                  <p className="px-2 py-2 text-xs text-muted-foreground">
+                    No members found.
+                  </p>
                 ) : null}
               </div>
             </ScrollArea>
-            <p className="text-xs text-muted-foreground">{selectedMemberIds.length} members selected</p>
+            <p className="text-xs text-muted-foreground">
+              {selectedMemberIds.length} members selected
+            </p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setGroupModalOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setGroupModalOpen(false)}
+              >
                 Cancel
               </Button>
               <Button
                 onClick={() => void handleCreateGroup()}
-                disabled={isCreatingGroup || !newGroupName.trim() || !selectedMemberIds.length}
+                disabled={
+                  isCreatingGroup ||
+                  !newGroupName.trim() ||
+                  !selectedMemberIds.length
+                }
               >
                 {isCreatingGroup ? "Creating..." : "Create group"}
               </Button>
@@ -1425,12 +1818,16 @@ export default function MessagingPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={manageGroupMembersOpen} onOpenChange={setManageGroupMembersOpen}>
+      <Dialog
+        open={manageGroupMembersOpen}
+        onOpenChange={setManageGroupMembersOpen}
+      >
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Add members</DialogTitle>
             <DialogDescription>
-              {groups.find((group) => group.id === manageGroupId)?.name ?? "Group"}
+              {groups.find((group) => group.id === manageGroupId)?.name ??
+                "Group"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1455,7 +1852,9 @@ export default function MessagingPage() {
                         checked={selected}
                         onChange={() =>
                           setManageSelectedMemberIds((current) =>
-                            selected ? current.filter((id) => id !== user.id) : [...current, user.id],
+                            selected
+                              ? current.filter((id) => id !== user.id)
+                              : [...current, user.id],
                           )
                         }
                       />
@@ -1463,18 +1862,29 @@ export default function MessagingPage() {
                   );
                 })}
                 {!filteredManageMembers.length ? (
-                  <p className="px-2 py-2 text-xs text-muted-foreground">No members available.</p>
+                  <p className="px-2 py-2 text-xs text-muted-foreground">
+                    No members available.
+                  </p>
                 ) : null}
               </div>
             </ScrollArea>
-            <p className="text-xs text-muted-foreground">{manageSelectedMemberIds.length} members selected</p>
+            <p className="text-xs text-muted-foreground">
+              {manageSelectedMemberIds.length} members selected
+            </p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setManageGroupMembersOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setManageGroupMembersOpen(false)}
+              >
                 Cancel
               </Button>
               <Button
                 onClick={() => void handleAddMembersToGroup()}
-                disabled={isAddingGroupMembers || !manageSelectedMemberIds.length || !manageGroupId}
+                disabled={
+                  isAddingGroupMembers ||
+                  !manageSelectedMemberIds.length ||
+                  !manageGroupId
+                }
               >
                 {isAddingGroupMembers ? "Adding..." : "Add members"}
               </Button>
