@@ -6,6 +6,7 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { Text } from "@/components/ScaledText";
 import { isYoutubeUrl, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import { Ionicons } from "@expo/vector-icons";
+import { Swipeable } from "react-native-gesture-handler";
 import { Shadows } from "@/constants/theme";
 import Animated, { 
   FadeIn, 
@@ -20,6 +21,9 @@ type MessageBubbleProps = {
   message: ChatMessage;
   onLongPress: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
+  onReply: (message: ChatMessage) => void;
+  onJumpToMessage?: (messageId: number) => void;
+  isHighlighted?: boolean;
 };
 
 function getInitials(name?: string | null) {
@@ -92,6 +96,9 @@ function MessageBubbleBase({
   message,
   onLongPress,
   onReactionPress,
+  onReply,
+  onJumpToMessage,
+  isHighlighted = false,
 }: MessageBubbleProps) {
   const { colors, isDark } = useAppTheme();
   const isUser = message.from === "user";
@@ -117,6 +124,7 @@ function MessageBubbleBase({
   const [imageSize, setImageSize] = React.useState<{ width: number; height: number } | null>(null);
   const [videoMeta, setVideoMeta] = React.useState<{ durationMs: number } | null>(null);
   const [mediaOpen, setMediaOpen] = React.useState(false);
+  const swipeRef = React.useRef<Swipeable | null>(null);
 
   // Dynamic media sizing
   const maxMediaWidth = screenWidth * (isUser ? 0.85 : 0.8);
@@ -160,6 +168,20 @@ function MessageBubbleBase({
     return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
   }, [message.mediaUrl]);
 
+  const numericMessageId = React.useMemo(() => {
+    const raw = String(message.id ?? "");
+    const numeric = message.threadId.startsWith("group:")
+      ? Number(raw.replace(/^group-/, ""))
+      : Number(raw);
+    return Number.isFinite(numeric) ? numeric : null;
+  }, [message.id, message.threadId]);
+
+  const handleReply = React.useCallback(() => {
+    if (!numericMessageId) return;
+    onReply(message);
+    swipeRef.current?.close?.();
+  }, [message, numericMessageId, onReply]);
+
   return (
     <View className={`mb-1 ${isUser ? "items-end" : "items-start"}`}>
       <View
@@ -190,28 +212,65 @@ function MessageBubbleBase({
             </Text>
           ) : null}
           
-          <Animated.View style={animatedBubbleStyle}>
-            <Pressable
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              onLongPress={() => onLongPress(message)}
-              delayLongPress={260}
-              className="overflow-hidden"
-              style={[
-                {
-                  paddingHorizontal: 16,
-                  paddingTop: 12,
-                  paddingBottom: 10,
-                  borderRadius: 22,
-                  backgroundColor: isUser ? bubbleUser : bubbleOther,
-                  borderWidth: 1,
-                  borderColor: bubbleBorder,
-                  ...(isDark ? Shadows.none : Shadows.sm),
-                },
-                !isUser && { borderBottomLeftRadius: 4 },
-                isUser && { borderBottomRightRadius: 4 },
-              ]}
-            >
+          <Swipeable
+            enabled={Boolean(numericMessageId)}
+            ref={(node) => {
+              swipeRef.current = node;
+            }}
+            friction={2}
+            leftThreshold={44}
+            overshootLeft={false}
+            overshootRight={false}
+            renderLeftActions={() => (
+              <View
+                style={{
+                  width: 64,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 16,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+                    borderWidth: 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <Ionicons name="arrow-undo-outline" size={20} color={colors.accent} />
+                </View>
+              </View>
+            )}
+            onSwipeableOpen={(direction) => {
+              if (direction === "left") handleReply();
+            }}
+          >
+            <Animated.View style={animatedBubbleStyle}>
+              <Pressable
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                onLongPress={() => onLongPress(message)}
+                delayLongPress={260}
+                className="overflow-hidden"
+                style={[
+                  {
+                    paddingHorizontal: 16,
+                    paddingTop: 12,
+                    paddingBottom: 10,
+                    borderRadius: 22,
+                    backgroundColor: isUser ? bubbleUser : bubbleOther,
+                    borderWidth: isHighlighted ? 2 : 1,
+                    borderColor: isHighlighted ? colors.accent : bubbleBorder,
+                    ...(isDark ? Shadows.none : Shadows.sm),
+                  },
+                  !isUser && { borderBottomLeftRadius: 4 },
+                  isUser && { borderBottomRightRadius: 4 },
+                ]}
+              >
               {/* Subtle background glow for user messages */}
               {isUser && (
                 <View
@@ -219,6 +278,52 @@ function MessageBubbleBase({
                   style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
                 />
               )}
+
+              {message.replyToMessageId ? (
+                <Pressable
+                  onPress={() => {
+                    if (!onJumpToMessage) return;
+                    onJumpToMessage(message.replyToMessageId!);
+                  }}
+                  className="mb-3"
+                  style={{
+                    borderLeftWidth: 3,
+                    borderLeftColor: isUser
+                      ? isDark
+                        ? "rgba(255,255,255,0.6)"
+                        : "rgba(6,78,59,0.45)"
+                      : isDark
+                        ? "rgba(255,255,255,0.35)"
+                        : "rgba(15,23,42,0.2)",
+                    paddingLeft: 10,
+                    paddingVertical: 4,
+                    borderRadius: 10,
+                    backgroundColor: isUser
+                      ? isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(6,78,59,0.08)"
+                      : isDark
+                        ? "rgba(255,255,255,0.04)"
+                        : "rgba(15,23,42,0.04)",
+                  }}
+                >
+                  <Text
+                    numberOfLines={2}
+                    className="text-[12px] font-outfit font-semibold"
+                    style={{
+                      color: isUser
+                        ? isDark
+                          ? "rgba(255,255,255,0.9)"
+                          : "rgba(6,78,59,0.9)"
+                        : isDark
+                          ? "rgba(248,250,252,0.9)"
+                          : "rgba(15,23,42,0.85)",
+                    }}
+                  >
+                    {message.replyPreview || "Replied message"}
+                  </Text>
+                </Pressable>
+              ) : null}
 
               {message.mediaUrl && message.contentType === "image" ? (
                 <Pressable onPress={() => setMediaOpen(true)} className="mb-3 -mx-1">
@@ -344,6 +449,7 @@ function MessageBubbleBase({
               ) : null}
             </Pressable>
           </Animated.View>
+          </Swipeable>
         </View>
       </View>
 
@@ -399,6 +505,9 @@ const areMessageBubblesEqual = (prev: MessageBubbleProps, next: MessageBubblePro
   if (prev.message.status !== next.message.status) return false;
   if (prev.message.mediaUrl !== next.message.mediaUrl) return false;
   if (prev.message.contentType !== next.message.contentType) return false;
+  if (prev.message.replyToMessageId !== next.message.replyToMessageId) return false;
+  if (prev.message.replyPreview !== next.message.replyPreview) return false;
+  if (prev.isHighlighted !== next.isHighlighted) return false;
   
   const prevReactions = prev.message.reactions || [];
   const nextReactions = next.message.reactions || [];

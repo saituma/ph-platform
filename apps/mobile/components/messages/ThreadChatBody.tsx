@@ -34,6 +34,9 @@ type ThreadChatBodyProps = {
   isThreadLoading: boolean;
   typingStatus: TypingStatus;
   textSecondaryColor: string;
+  replyTarget: { messageId: number; preview: string; authorName?: string } | null;
+  onClearReplyTarget: () => void;
+  onReplyMessage: (message: ChatMessage) => void;
   onDraftChange: (value: string) => void;
   onSend: () => void | Promise<void>;
   onOpenComposerMenu: () => void;
@@ -255,6 +258,9 @@ function ThreadChatBodyBase({
   isThreadLoading,
   typingStatus,
   textSecondaryColor,
+  replyTarget,
+  onClearReplyTarget,
+  onReplyMessage,
   onDraftChange,
   onSend,
   onOpenComposerMenu,
@@ -284,6 +290,7 @@ function ThreadChatBodyBase({
   const latestMessageIdRef = React.useRef<string | null>(null);
   const [newIncomingCount, setNewIncomingCount] = React.useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = React.useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = React.useState<number | null>(null);
   
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
   const latestMessage = React.useMemo(() => messages[messages.length - 1] ?? null, [messages]);
@@ -419,6 +426,34 @@ function ThreadChatBodyBase({
   }, [latestMessage]);
 
   const keyExtractor = React.useCallback((message: ChatMessage) => String(message.id), []);
+
+  const numericMessageIdFor = React.useCallback((message: ChatMessage) => {
+    const raw = String(message.id ?? "");
+    const numeric = message.threadId.startsWith("group:")
+      ? Number(raw.replace(/^group-/, ""))
+      : Number(raw);
+    return Number.isFinite(numeric) ? numeric : null;
+  }, []);
+
+  const jumpToMessage = React.useCallback(
+    (messageId: number) => {
+      if (!Number.isFinite(messageId)) return;
+      const index = reversedMessages.findIndex((msg) => numericMessageIdFor(msg) === messageId);
+      if (index < 0) return;
+
+      try {
+        listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+      } catch {
+        // ignored
+      }
+
+      setHighlightedMessageId(messageId);
+      setTimeout(() => {
+        setHighlightedMessageId((current) => (current === messageId ? null : current));
+      }, 1400);
+    },
+    [numericMessageIdFor, reversedMessages],
+  );
   const renderItem = React.useCallback(
     ({ item, index }: { item: ChatMessage, index: number }) => (
       <Animated.View 
@@ -429,10 +464,15 @@ function ThreadChatBodyBase({
           message={item}
           onLongPress={onLongPressMessage}
           onReactionPress={onReactionPress}
+          onReply={onReplyMessage}
+          onJumpToMessage={jumpToMessage}
+          isHighlighted={
+            highlightedMessageId != null && numericMessageIdFor(item) === highlightedMessageId
+          }
         />
       </Animated.View>
     ),
-    [onLongPressMessage, onReactionPress]
+    [highlightedMessageId, jumpToMessage, numericMessageIdFor, onLongPressMessage, onReactionPress, onReplyMessage]
   );
   const contentContainerStyle = React.useMemo(
     () => ({
@@ -661,6 +701,15 @@ function ThreadChatBodyBase({
           ListFooterComponent={listFooterComponent}
           ListEmptyComponent={listEmptyComponent}
           renderItem={renderItem}
+          onScrollToIndexFailed={(info) => {
+            listRef.current?.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+              animated: true,
+            });
+            setTimeout(() => {
+              listRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
+            }, 60);
+          }}
         />
 
         {newIncomingCount > 0 ? (
@@ -721,6 +770,41 @@ function ThreadChatBodyBase({
       ) : null}
 
       <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+        {replyTarget ? (
+          <View className="px-4 pb-2">
+            <View
+              className="rounded-[20px] border px-4 py-3 flex-row items-center"
+              style={{
+                backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.9)",
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.07)",
+              }}
+            >
+              <View className="mr-3 h-10 w-10 rounded-2xl items-center justify-center" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)" }}>
+                <Feather name="corner-up-left" size={18} color={colors.accent} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[11px] font-bold font-outfit uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                  Replying{replyTarget.authorName ? ` to ${replyTarget.authorName}` : ""}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  className="mt-1 text-[13px] font-outfit font-semibold"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {replyTarget.preview}
+                </Text>
+              </View>
+              <Pressable
+                onPress={onClearReplyTarget}
+                className="h-10 w-10 rounded-2xl items-center justify-center"
+                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}
+              >
+                <Feather name="x" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
         {composerDisabled && disabledMessage ? (
           <View className="px-4 pb-3">
             <View

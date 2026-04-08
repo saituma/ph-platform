@@ -77,6 +77,7 @@ export default function ThreadScreen() {
     isLoading,
     isThreadLoading,
     draft,
+    replyTarget,
     reactionTarget,
     composerMenuOpen,
     isUploadingAttachment,
@@ -87,6 +88,8 @@ export default function ThreadScreen() {
     setPendingAttachment,
     clearThread,
     handleSend,
+    setReplyTargetFromMessage,
+    clearReplyTarget,
     handleAttachFile,
     handleAttachImage,
     handleAttachVideo,
@@ -173,6 +176,9 @@ export default function ThreadScreen() {
         thread={currentThread}
         messages={localMessages}
         draft={draft}
+        replyTarget={replyTarget}
+        onClearReplyTarget={clearReplyTarget}
+        onReplyMessage={setReplyTargetFromMessage}
         isLoading={isLoading}
         isThreadLoading={isThreadLoading}
         typingStatus={typingStatus}
