@@ -15,6 +15,7 @@ import {
   updateProfile,
   setManagedAthletes,
   setAppRole,
+  setApiUserRole,
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
@@ -35,7 +36,11 @@ const STORAGE_KEYS = {
 
 const isUnauthorizedError = (error: unknown) => {
   const message =
-    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
   return message.startsWith("401 ") || message.startsWith("403 ");
 };
 
@@ -45,13 +50,18 @@ export function AuthPersist() {
   const token = useAppSelector((state) => state.user.token);
   const refreshToken = useAppSelector((state) => state.user.refreshToken);
   const profile = useAppSelector((state) => state.user.profile);
-  const onboardingCompleted = useAppSelector((state) => state.user.onboardingCompleted);
+  const onboardingCompleted = useAppSelector(
+    (state) => state.user.onboardingCompleted,
+  );
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const isAuthRoute = false;
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
   const lastSavedRefreshToken = useRef<string | null>(null);
-  const lastBillingSnapshot = useRef<{ tier: string | null; requestStatus: string | null } | null>(null);
+  const lastBillingSnapshot = useRef<{
+    tier: string | null;
+    requestStatus: string | null;
+  } | null>(null);
   const lastPushToken = useRef<string | null>(null);
 
   useEffect(() => {
@@ -74,12 +84,18 @@ export function AuthPersist() {
           dispatch(logout());
           return;
         }
-        const storedTokenRaw = await SecureStore.getItemAsync(STORAGE_KEYS.token);
-        const storedRefreshToken = await SecureStore.getItemAsync(STORAGE_KEYS.refreshToken);
+        const storedTokenRaw = await SecureStore.getItemAsync(
+          STORAGE_KEYS.token,
+        );
+        const storedRefreshToken = await SecureStore.getItemAsync(
+          STORAGE_KEYS.refreshToken,
+        );
         const storedId = await SecureStore.getItemAsync(STORAGE_KEYS.id);
         const storedName = await SecureStore.getItemAsync(STORAGE_KEYS.name);
         const storedEmail = await SecureStore.getItemAsync(STORAGE_KEYS.email);
-        const storedAvatar = await SecureStore.getItemAsync(STORAGE_KEYS.avatar);
+        const storedAvatar = await SecureStore.getItemAsync(
+          STORAGE_KEYS.avatar,
+        );
         let storedToken = storedTokenRaw?.trim() ?? null;
         const hasRefreshToken =
           Boolean(storedRefreshToken) &&
@@ -94,14 +110,19 @@ export function AuthPersist() {
         if (!hasValidToken && hasRefreshToken) {
           try {
             const baseUrl = getApiBaseUrl();
-            const normalizedBaseUrl = baseUrl?.replace(/\/+$/, "").endsWith("/api")
+            const normalizedBaseUrl = baseUrl
+              ?.replace(/\/+$/, "")
+              .endsWith("/api")
               ? baseUrl.replace(/\/+$/, "")
               : `${baseUrl?.replace(/\/+$/, "")}/api`;
-            const refreshResponse = await fetch(`${normalizedBaseUrl}/auth/refresh`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ refreshToken: storedRefreshToken }),
-            });
+            const refreshResponse = await fetch(
+              `${normalizedBaseUrl}/auth/refresh`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ refreshToken: storedRefreshToken }),
+              },
+            );
             if (refreshResponse.ok) {
               const payload = await refreshResponse.json().catch(() => null);
               const refreshedToken =
@@ -111,12 +132,19 @@ export function AuthPersist() {
                     ? payload.accessToken
                     : null;
               const refreshedRefreshToken =
-                typeof payload?.refreshToken === "string" && payload.refreshToken.trim().length
+                typeof payload?.refreshToken === "string" &&
+                payload.refreshToken.trim().length
                   ? payload.refreshToken.trim()
                   : storedRefreshToken;
               if (refreshedToken) {
-                await SecureStore.setItemAsync(STORAGE_KEYS.token, refreshedToken);
-                await SecureStore.setItemAsync(STORAGE_KEYS.refreshToken, refreshedRefreshToken ?? "");
+                await SecureStore.setItemAsync(
+                  STORAGE_KEYS.token,
+                  refreshedToken,
+                );
+                await SecureStore.setItemAsync(
+                  STORAGE_KEYS.refreshToken,
+                  refreshedRefreshToken ?? "",
+                );
                 storedToken = refreshedToken;
                 hasValidToken = true;
               }
@@ -160,12 +188,20 @@ export function AuthPersist() {
           return;
         }
 
-        const currentTokenRaw = await SecureStore.getItemAsync(STORAGE_KEYS.token);
-        const currentRefreshToken = await SecureStore.getItemAsync(STORAGE_KEYS.refreshToken);
+        const currentTokenRaw = await SecureStore.getItemAsync(
+          STORAGE_KEYS.token,
+        );
+        const currentRefreshToken = await SecureStore.getItemAsync(
+          STORAGE_KEYS.refreshToken,
+        );
         const activeToken = currentTokenRaw?.trim() || storedToken;
 
-        const storedOnboarding = await SecureStore.getItemAsync(STORAGE_KEYS.onboardingCompleted);
-        const storedAthleteUserId = await SecureStore.getItemAsync(STORAGE_KEYS.athleteUserId);
+        const storedOnboarding = await SecureStore.getItemAsync(
+          STORAGE_KEYS.onboardingCompleted,
+        );
+        const storedAthleteUserId = await SecureStore.getItemAsync(
+          STORAGE_KEYS.athleteUserId,
+        );
 
         dispatch(
           setCredentials({
@@ -177,7 +213,7 @@ export function AuthPersist() {
               email: storedEmail ?? null,
               avatar: storedAvatar ?? null,
             },
-          })
+          }),
         );
         const parsedAid = (() => {
           const raw = storedAthleteUserId?.trim();
@@ -193,7 +229,8 @@ export function AuthPersist() {
           dispatch(setAthleteUserId(parsedAid));
         }
         lastSavedToken.current = activeToken;
-        lastSavedRefreshToken.current = currentRefreshToken ?? storedRefreshToken ?? null;
+        lastSavedRefreshToken.current =
+          currentRefreshToken ?? storedRefreshToken ?? null;
       } finally {
         if (!mounted) return;
         setHydratedState(true);
@@ -238,18 +275,16 @@ export function AuthPersist() {
             role?: string | null;
             profilePicture?: string | null;
           };
-        }>(
-          "/auth/me",
-          { token, suppressStatusCodes: [401, 403] }
-        );
+        }>("/auth/me", { token, suppressStatusCodes: [401, 403] });
         if (!active || !me.user) return;
         latestUserRole = me.user.role ?? null;
+        dispatch(setApiUserRole(latestUserRole));
         dispatch(
           updateProfile({
             name: me.user.name ?? null,
             email: me.user.email ?? null,
             avatar: me.user.profilePicture ?? null,
-          })
+          }),
         );
         syncResolvedAppRole();
       } catch {
@@ -266,16 +301,20 @@ export function AuthPersist() {
             athleteType?: "youth" | "adult" | null;
             team?: string | null;
           } | null;
-        }>(
-          "/onboarding",
-          { token, suppressStatusCodes: [401, 403, 500], skipCache: true, forceRefresh: true }
-        );
+        }>("/onboarding", {
+          token,
+          suppressStatusCodes: [401, 403, 500],
+          skipCache: true,
+          forceRefresh: true,
+        });
         if (!active) return;
         latestOnboardingAthlete = onboarding.athlete ?? null;
         syncResolvedAppRole();
         if (onboarding.athlete == null) {
           if (__DEV__) {
-            console.log("[AuthPersist] GET /onboarding returned no athlete; keeping existing onboarding state");
+            console.log(
+              "[AuthPersist] GET /onboarding returned no athlete; keeping existing onboarding state",
+            );
           }
           return;
         }
@@ -342,7 +381,9 @@ export function AuthPersist() {
         const nextRequestStatus = status?.latestRequest?.status ?? null;
         const nextTier =
           status?.currentProgramTier ??
-          (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
+          (nextRequestStatus === "approved"
+            ? (status?.latestRequest?.planTier ?? null)
+            : null);
         const previous = lastBillingSnapshot.current;
         const becameApproved =
           previous &&
@@ -359,7 +400,10 @@ export function AuthPersist() {
           ),
         );
         dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
-        lastBillingSnapshot.current = { tier: nextTier, requestStatus: nextRequestStatus };
+        lastBillingSnapshot.current = {
+          tier: nextTier,
+          requestStatus: nextRequestStatus,
+        };
 
         if (allowNotify && (becameApproved || tierChanged)) {
           // Push notifications are handled server-side.
@@ -419,26 +463,39 @@ export function AuthPersist() {
     (async () => {
       if (isAuthenticated && token) {
         const tokenUnchanged =
-          lastSavedToken.current === token && lastSavedRefreshToken.current === (refreshToken ?? null);
+          lastSavedToken.current === token &&
+          lastSavedRefreshToken.current === (refreshToken ?? null);
         if (!tokenUnchanged) {
           await SecureStore.setItemAsync(STORAGE_KEYS.token, token);
           if (refreshToken) {
-            await SecureStore.setItemAsync(STORAGE_KEYS.refreshToken, refreshToken);
+            await SecureStore.setItemAsync(
+              STORAGE_KEYS.refreshToken,
+              refreshToken,
+            );
           } else {
             await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
           }
           await SecureStore.setItemAsync(STORAGE_KEYS.id, profile.id ?? "");
           await SecureStore.setItemAsync(STORAGE_KEYS.name, profile.name ?? "");
-          await SecureStore.setItemAsync(STORAGE_KEYS.email, profile.email ?? "");
-          await SecureStore.setItemAsync(STORAGE_KEYS.avatar, profile.avatar ?? "");
+          await SecureStore.setItemAsync(
+            STORAGE_KEYS.email,
+            profile.email ?? "",
+          );
+          await SecureStore.setItemAsync(
+            STORAGE_KEYS.avatar,
+            profile.avatar ?? "",
+          );
           lastSavedToken.current = token;
           lastSavedRefreshToken.current = refreshToken ?? null;
         }
         if (onboardingCompleted !== null) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.onboardingCompleted, onboardingCompleted ? "1" : "0");
+          await SecureStore.setItemAsync(
+            STORAGE_KEYS.onboardingCompleted,
+            onboardingCompleted ? "1" : "0",
+          );
           await SecureStore.setItemAsync(
             STORAGE_KEYS.athleteUserId,
-            athleteUserId != null ? String(athleteUserId) : ""
+            athleteUserId != null ? String(athleteUserId) : "",
           );
         }
       } else {
@@ -457,7 +514,16 @@ export function AuthPersist() {
         // navigation disabled outside router context
       }
     })();
-  }, [hydrated, isAuthenticated, token, refreshToken, profile, onboardingCompleted, athleteUserId, isAuthRoute]);
+  }, [
+    hydrated,
+    isAuthenticated,
+    token,
+    refreshToken,
+    profile,
+    onboardingCompleted,
+    athleteUserId,
+    isAuthRoute,
+  ]);
 
   return null;
 }

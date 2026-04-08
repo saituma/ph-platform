@@ -222,14 +222,20 @@ export async function sendMessage(input: {
 
   // Send push notification to receiver (skip for AI coach)
   if (aiCoachId === null) {
+    let senderMeta:
+      | { name: string | null; profilePicture: string | null }
+      | null = null;
     try {
       const sender = await db
-        .select({ name: userTable.name })
+        .select({ name: userTable.name, profilePicture: userTable.profilePicture })
         .from(userTable)
         .where(eq(userTable.id, input.senderId))
         .limit(1);
+      senderMeta = sender[0]
+        ? { name: sender[0].name ?? null, profilePicture: sender[0].profilePicture ?? null }
+        : null;
         
-      const title = `New message from ${sender[0]?.name ?? "Coach"}`;
+      const title = `New message from ${senderMeta?.name ?? "Coach"}`;
       const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
 
       await sendPushNotification(resolvedReceiverId, title, body, {
@@ -240,21 +246,33 @@ export async function sendMessage(input: {
     } catch (error) {
       console.error("[Push] Failed to send message push notification:", error);
     }
+
+    const io = getSocketServer();
+    if (io) {
+      const enriched = {
+        ...(input.clientId ? { ...message, clientId: input.clientId } : message),
+        senderName: senderMeta?.name ?? null,
+        senderProfilePicture: senderMeta?.profilePicture ?? null,
+      };
+      console.log(
+        `[Socket] Emitting message:new for ID ${message.id} to rooms: user:${input.senderId}, user:${resolvedReceiverId}, admin:all`,
+      );
+      io.to(`user:${input.senderId}`).emit("message:new", enriched);
+      io.to(`user:${resolvedReceiverId}`).emit("message:new", enriched);
+      io.to("admin:all").emit("message:new", enriched);
+      return message;
+    }
   }
 
   const io = getSocketServer();
-  if (io && aiCoachId === null) {
-    const enriched = input.clientId ? { ...message, clientId: input.clientId } : message;
-    console.log(`[Socket] Emitting message:new for ID ${message.id} to rooms: user:${input.senderId}, user:${resolvedReceiverId}, admin:all`);
-    io.to(`user:${input.senderId}`).emit("message:new", enriched);
-    io.to(`user:${resolvedReceiverId}`).emit("message:new", enriched);
-    io.to("admin:all").emit("message:new", enriched);
-  } else if (!io) {
+  if (!io) {
     console.warn("[Socket] Failed to emit message:new - IO server NOT initialized");
-  } else if (aiCoachId !== null) {
+    return message;
+  }
+  if (aiCoachId !== null) {
     // Only emit user's message back to user for AI coach thread
     const enriched = input.clientId ? { ...message, clientId: input.clientId } : message;
-    io!.to(`user:${input.senderId}`).emit("message:new", enriched);
+    io.to(`user:${input.senderId}`).emit("message:new", enriched);
   }
   return message;
 }

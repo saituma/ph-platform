@@ -13,6 +13,15 @@ type EmojiPick = {
   native?: string;
 };
 
+function getInitials(name: string) {
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return "?";
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
+}
+
 type ThreadMessageListProps = {
   messages: ChatMessage[];
   onReact: (messageId: number, emoji: string) => void;
@@ -182,9 +191,10 @@ export function ThreadMessageList({
               ? senderId === currentUserId
               : false;
           const mineByRole =
-            normalizedRole === "admin" ||
-            normalizedRole === "coach" ||
-            normalizedRole === "superadmin";
+            currentUserId == null &&
+            (normalizedRole === "admin" ||
+              normalizedRole === "coach" ||
+              normalizedRole === "superadmin");
           const mineByDirectPeerSender =
             mode === "direct" &&
             directPeerUserId != null &&
@@ -245,6 +255,8 @@ export function ThreadMessageList({
               ? resolveUserName(senderId)
               : "") ||
             "Unknown user";
+          const avatarUrl = String(message.senderProfilePicture ?? "").trim();
+          const avatarFallback = getInitials(senderLabel);
           const repliedMessage = parsed.replyToId
             ? messageById.get(parsed.replyToId)
             : undefined;
@@ -277,93 +289,109 @@ export function ThreadMessageList({
                   : ""
               }`}
             >
-              <div
-                className={`max-w-[80%] space-y-2 rounded-xl px-3 py-2 ${
-                  mediaOnly
-                    ? "bg-transparent px-0 py-0 shadow-none"
-                    : mine
-                      ? "bg-emerald-600 text-white"
-                      : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
-                }`}
-              >
-                {showSenderName ? (
-                  <p className="text-xs opacity-80">{senderLabel}</p>
-                ) : null}
-                {replySnippet ? (
-                  canJumpToReply ? (
-                    <button
-                      type="button"
-                      onClick={() => jumpToMessage(parsed.replyToId)}
-                      className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                        mine
-                          ? "border-white/30 bg-white/15 text-white/90"
-                          : "border-border bg-secondary/50 text-muted-foreground"
-                      }`}
-                      aria-label="Jump to replied message"
-                      title="Jump to replied message"
-                    >
-                      {repliedSenderLabel ? (
-                        <p
-                          className={`text-[10px] font-semibold uppercase tracking-wide ${
-                            mine ? "text-white/80" : "text-muted-foreground"
-                          }`}
-                        >
-                          {repliedSenderLabel}
-                        </p>
-                      ) : null}
-                      <p>{replySnippet}</p>
-                    </button>
+              <div className={`flex max-w-[88%] items-end gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}>
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary text-[10px] font-semibold text-foreground">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarUrl}
+                      alt={senderLabel}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
-                    <div
-                      className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                        mine
-                          ? "border-white/30 bg-white/15 text-white/90"
-                          : "border-border bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      {repliedSenderLabel ? (
-                        <p
-                          className={`text-[10px] font-semibold uppercase tracking-wide ${
-                            mine ? "text-white/80" : "text-muted-foreground"
-                          }`}
-                        >
-                          {repliedSenderLabel}
-                        </p>
-                      ) : null}
-                      <p>{replySnippet}</p>
-                    </div>
-                  )
-                ) : null}
-                {hasImage ? (
-                  <img
-                    src={message.mediaUrl ?? ""}
-                    alt="Message media"
-                    className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
-                  />
-                ) : null}
-                {hasVideo ? (
-                  <video
-                    src={message.mediaUrl ?? ""}
-                    controls
-                    className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full" : "max-h-64 w-full"}`}
-                  />
-                ) : null}
-                {showText ? (
-                  <p className="text-sm whitespace-pre-wrap">{parsed.text}</p>
-                ) : null}
-                {firstUrl ? <OpenGraphPreview url={firstUrl} /> : null}
-                {attachmentName && !showText ? (
-                  <p
-                    className={`text-xs ${mine && !mediaOnly ? "text-white/85" : "text-muted-foreground"}`}
-                  >
-                    {attachmentName}
-                  </p>
-                ) : null}
-                <p
-                  className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}
+                    <span className="select-none">{avatarFallback}</span>
+                  )}
+                </div>
+
+                <div
+                  className={`space-y-2 rounded-xl px-3 py-2 ${
+                    mediaOnly
+                      ? "bg-transparent px-0 py-0 shadow-none"
+                      : mine
+                        ? "bg-emerald-600 text-white"
+                        : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                  }`}
                 >
-                  {formatTime(message.createdAt)}
-                </p>
+                  {showSenderName ? (
+                    <p className="text-xs opacity-80">{senderLabel}</p>
+                  ) : null}
+                  {replySnippet ? (
+                    canJumpToReply ? (
+                      <button
+                        type="button"
+                        onClick={() => jumpToMessage(parsed.replyToId)}
+                        className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
+                          mine
+                            ? "border-white/30 bg-white/15 text-white/90"
+                            : "border-border bg-secondary/50 text-muted-foreground"
+                        }`}
+                        aria-label="Jump to replied message"
+                        title="Jump to replied message"
+                      >
+                        {repliedSenderLabel ? (
+                          <p
+                            className={`text-[10px] font-semibold uppercase tracking-wide ${
+                              mine ? "text-white/80" : "text-muted-foreground"
+                            }`}
+                          >
+                            {repliedSenderLabel}
+                          </p>
+                        ) : null}
+                        <p>{replySnippet}</p>
+                      </button>
+                    ) : (
+                      <div
+                        className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
+                          mine
+                            ? "border-white/30 bg-white/15 text-white/90"
+                            : "border-border bg-secondary/50 text-muted-foreground"
+                        }`}
+                      >
+                        {repliedSenderLabel ? (
+                          <p
+                            className={`text-[10px] font-semibold uppercase tracking-wide ${
+                              mine ? "text-white/80" : "text-muted-foreground"
+                            }`}
+                          >
+                            {repliedSenderLabel}
+                          </p>
+                        ) : null}
+                        <p>{replySnippet}</p>
+                      </div>
+                    )
+                  ) : null}
+                  {hasImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={message.mediaUrl ?? ""}
+                      alt="Message media"
+                      className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
+                    />
+                  ) : null}
+                  {hasVideo ? (
+                    <video
+                      src={message.mediaUrl ?? ""}
+                      controls
+                      className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full" : "max-h-64 w-full"}`}
+                    />
+                  ) : null}
+                  {showText ? (
+                    <p className="whitespace-pre-wrap text-sm">{parsed.text}</p>
+                  ) : null}
+                  {firstUrl ? <OpenGraphPreview url={firstUrl} /> : null}
+                  {attachmentName && !showText ? (
+                    <p
+                      className={`text-xs ${mine && !mediaOnly ? "text-white/85" : "text-muted-foreground"}`}
+                    >
+                      {attachmentName}
+                    </p>
+                  ) : null}
+                  <p
+                    className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}
+                  >
+                    {formatTime(message.createdAt)}
+                  </p>
+                </div>
               </div>
               <div
                 data-reaction-picker-root="true"

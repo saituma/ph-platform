@@ -349,6 +349,10 @@ export async function createGroupMessage(input: {
     .returning();
   const message = result[0];
 
+  let senderName: string | null = null;
+  let senderProfilePicture: string | null = null;
+  let groupName: string | null = null;
+
   // Push notifications
   try {
     const members = await db
@@ -361,7 +365,7 @@ export async function createGroupMessage(input: {
       .where(and(eq(chatGroupMemberTable.groupId, input.groupId), ne(userTable.id, input.senderId)));
 
     const sender = await db
-      .select({ name: userTable.name })
+      .select({ name: userTable.name, profilePicture: userTable.profilePicture })
       .from(userTable)
       .where(eq(userTable.id, input.senderId))
       .limit(1);
@@ -372,7 +376,10 @@ export async function createGroupMessage(input: {
       .where(eq(chatGroupTable.id, input.groupId))
       .limit(1);
 
-    const title = `${sender[0]?.name ?? "User"} in ${group[0]?.name ?? "Group"}`;
+    senderName = sender[0]?.name ?? "User";
+    senderProfilePicture = sender[0]?.profilePicture ?? null;
+    groupName = group[0]?.name ?? "Group";
+    const title = `${senderName} in ${groupName}`;
     const body = safeContent;
 
     for (const member of members) {
@@ -390,10 +397,17 @@ export async function createGroupMessage(input: {
 
   const io = getSocketServer();
   if (io) {
-    const enriched = input.clientId
-      ? { ...message, clientId: input.clientId, reactions: [] }
-      : { ...message, reactions: [] };
+    const enriched = {
+      ...(input.clientId ? { ...message, clientId: input.clientId } : message),
+      reactions: [],
+      senderName,
+      senderProfilePicture,
+      groupName,
+    };
     io.to(`group:${input.groupId}`).emit("group:message", enriched);
+    // Admin/coach dashboards may not be joined to every group room (e.g. newly created groups),
+    // but they still need to update inbox previews/unread counts in real-time.
+    io.to("admin:all").emit("group:message", enriched);
   }
   return message;
 }
@@ -420,6 +434,7 @@ export async function deleteGroupMessage(input: { groupId: number; messageId: nu
   const io = getSocketServer();
   if (io) {
     io.to(`group:${input.groupId}`).emit("group:message:deleted", { messageId: input.messageId });
+    io.to("admin:all").emit("group:message:deleted", { messageId: input.messageId });
   }
   return { deleted: true };
 }

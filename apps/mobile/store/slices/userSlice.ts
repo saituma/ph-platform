@@ -31,6 +31,8 @@ interface UserState {
   token: string | null;
   refreshToken: string | null;
   profile: UserProfile;
+  /** Raw API user role from /auth/me (e.g. admin/superAdmin). */
+  apiUserRole: string | null;
   isLoading: boolean;
   hydrated: boolean;
   onboardingCompleted: boolean | null;
@@ -58,6 +60,7 @@ const initialState: UserState = {
     email: null,
     avatar: null,
   },
+  apiUserRole: null,
   isLoading: false,
   hydrated: false,
   onboardingCompleted: null,
@@ -84,6 +87,9 @@ const userSlice = createSlice({
     },
     updateProfile: (state, action: PayloadAction<Partial<UserProfile>>) => {
       state.profile = { ...state.profile, ...action.payload };
+    },
+    setApiUserRole: (state, action: PayloadAction<string | null>) => {
+      state.apiUserRole = action.payload;
     },
     setOnboardingCompleted: (state, action: PayloadAction<boolean | null>) => {
       state.onboardingCompleted = action.payload;
@@ -123,6 +129,7 @@ const userSlice = createSlice({
       state.token = null;
       state.refreshToken = null;
       state.profile = initialState.profile;
+      state.apiUserRole = null;
       state.onboardingCompleted = null;
       state.athleteUserId = null;
       state.managedAthletes = [];
@@ -137,6 +144,7 @@ const userSlice = createSlice({
 export const {
   setCredentials,
   updateProfile,
+  setApiUserRole,
   setOnboardingCompleted,
   setAthleteUserId,
   setManagedAthletes,

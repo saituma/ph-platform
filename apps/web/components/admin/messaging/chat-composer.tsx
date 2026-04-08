@@ -157,6 +157,16 @@ export function ChatComposer({
         <Textarea
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            if (event.shiftKey) return;
+            if ((event.nativeEvent as any)?.isComposing) return;
+            event.preventDefault();
+            if (!canSend || isSending || isUploading) return;
+            setShowEmojiPicker(false);
+            setShowAttachmentMenu(false);
+            onSend();
+          }}
           placeholder={placeholder}
           className="min-h-11 flex-1"
         />
