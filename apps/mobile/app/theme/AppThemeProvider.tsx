@@ -2,8 +2,19 @@ import { Colors } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import * as SecureStore from "expo-secure-store";
 import { useColorScheme } from "nativewind";
-import React, { createContext, useContext, useEffect, useMemo, useState, startTransition } from "react";
-import { InteractionManager, View } from "react-native";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  startTransition,
+} from "react";
+import {
+  InteractionManager,
+  View,
+  useColorScheme as useSystemColorScheme,
+} from "react-native";
 
 type ColorSchemeName = "light" | "dark" | "system";
 
@@ -75,7 +86,12 @@ export default function AppThemeProvider({
   // NativeWind usually resolves it in CSS.
   // For 'isDark', let's just check strict equality or system?
   // Actually, standard NativeWind usage:
-  const isDark = colorScheme === "dark";
+  const systemScheme = useSystemColorScheme();
+  const resolvedScheme =
+    colorScheme === "system"
+      ? (systemScheme ?? "light")
+      : (colorScheme ?? "light");
+  const isDark = resolvedScheme === "dark";
   const colors = isDark ? Colors.dark : Colors.light;
 
   const value = useMemo(
@@ -96,7 +112,15 @@ export default function AppThemeProvider({
       isSwitching,
       isDark,
     }),
-    [colorScheme, colors, guestKey, isDark, isSwitching, setColorScheme, themeKey],
+    [
+      colorScheme,
+      colors,
+      guestKey,
+      isDark,
+      isSwitching,
+      setColorScheme,
+      themeKey,
+    ],
   );
 
   return (

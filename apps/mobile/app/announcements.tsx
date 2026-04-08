@@ -3,7 +3,11 @@ import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { Feather } from "@/components/ui/theme-icons";
 import { apiRequest } from "@/lib/api";
-import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
+import {
+  isYoutubeUrl,
+  VideoPlayer,
+  YouTubeEmbed,
+} from "@/components/media/VideoPlayer";
 import React from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,7 +38,13 @@ const normalizeMediaUrl = (value: string) => {
 };
 
 const extractAnnouncement = (item: AnnouncementItem): ParsedAnnouncement => {
-  const raw = (typeof item.body === "string" ? item.body : item.body ? String(item.body) : item.content ?? "").toString();
+  const raw = (
+    typeof item.body === "string"
+      ? item.body
+      : item.body
+        ? String(item.body)
+        : (item.content ?? "")
+  ).toString();
   const images: string[] = [];
   const videos: string[] = [];
 
@@ -75,6 +85,7 @@ export default function AnnouncementsScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const token = useAppSelector((state) => state.user.token);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
 
   const [items, setItems] = React.useState<AnnouncementItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -85,11 +96,18 @@ export default function AnnouncementsScreen() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await apiRequest<{ items?: AnnouncementItem[] }>("/content/announcements", {
-        token,
-        skipCache: true,
-        suppressStatusCodes: [401, 403, 404],
-      });
+      const headers = athleteUserId
+        ? { "X-Acting-User-Id": String(athleteUserId) }
+        : undefined;
+      const res = await apiRequest<{ items?: AnnouncementItem[] }>(
+        "/content/announcements",
+        {
+          token,
+          headers,
+          skipCache: true,
+          suppressStatusCodes: [401, 403, 404],
+        },
+      );
       setItems(Array.isArray(res.items) ? res.items : []);
     } catch (e: any) {
       setError(e?.message ?? "Failed to load announcements");
@@ -97,32 +115,52 @@ export default function AnnouncementsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [athleteUserId, token]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={["top"]}
+    >
       <View className="px-6 py-4 flex-row items-center justify-between">
         <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/messages"))}
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/(tabs)/messages")
+          }
           className="h-11 w-11 rounded-2xl items-center justify-center border"
           style={{
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+            borderColor: isDark
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(15,23,42,0.06)",
+            backgroundColor: isDark
+              ? "rgba(255,255,255,0.04)"
+              : "rgba(15,23,42,0.03)",
           }}
         >
           <Feather name="chevron-left" size={20} color={colors.text} />
         </Pressable>
-        <Text className="text-xl font-clash font-bold text-app">Announcements</Text>
+        <Text
+          className="text-xl font-clash font-bold"
+          style={{ color: colors.text }}
+        >
+          Announcements
+        </Text>
         <Pressable
           onPress={() => void load()}
           className="h-11 w-11 rounded-2xl items-center justify-center border"
           style={{
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+            borderColor: isDark
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(15,23,42,0.06)",
+            backgroundColor: isDark
+              ? "rgba(255,255,255,0.04)"
+              : "rgba(15,23,42,0.03)",
           }}
         >
           <Feather name="refresh-cw" size={18} color={colors.textSecondary} />
@@ -135,7 +173,10 @@ export default function AnnouncementsScreen() {
         </View>
       ) : error ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-base font-outfit text-center" style={{ color: colors.textSecondary }}>
+          <Text
+            className="text-base font-outfit text-center"
+            style={{ color: colors.textSecondary }}
+          >
             {error}
           </Text>
           <Pressable
@@ -143,12 +184,17 @@ export default function AnnouncementsScreen() {
             className="mt-6 rounded-full px-6 py-3"
             style={{ backgroundColor: colors.accent }}
           >
-            <Text className="text-sm font-outfit font-bold text-white">Try again</Text>
+            <Text className="text-sm font-outfit font-bold text-white">
+              Try again
+            </Text>
           </Pressable>
         </View>
       ) : items.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-base font-outfit text-center" style={{ color: colors.textSecondary }}>
+          <Text
+            className="text-base font-outfit text-center"
+            style={{ color: colors.textSecondary }}
+          >
             No announcements yet.
           </Text>
         </View>
@@ -163,7 +209,9 @@ export default function AnnouncementsScreen() {
               const parsed = extractAnnouncement(item);
               const title = (item.title ?? "").trim() || "Announcement";
               const timestamp = item.updatedAt ?? item.createdAt ?? null;
-              const when = timestamp ? new Date(timestamp).toLocaleString() : "";
+              const when = timestamp
+                ? new Date(timestamp).toLocaleString()
+                : "";
 
               return (
                 <View
@@ -176,16 +224,28 @@ export default function AnnouncementsScreen() {
                 >
                   <View className="flex-row items-start justify-between gap-4">
                     <View className="flex-1">
-                      <Text className="text-lg font-clash font-bold text-app">{title}</Text>
+                      <Text
+                        className="text-lg font-clash font-bold"
+                        style={{ color: colors.text }}
+                      >
+                        {title}
+                      </Text>
                       {when ? (
-                        <Text className="mt-1 text-[12px] font-outfit" style={{ color: colors.textSecondary }}>
+                        <Text
+                          className="mt-1 text-[12px] font-outfit"
+                          style={{ color: colors.textSecondary }}
+                        >
                           {when}
                         </Text>
                       ) : null}
                     </View>
                     <View
                       className="h-10 w-10 rounded-2xl items-center justify-center"
-                      style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)" }}
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(34,197,94,0.16)"
+                          : "rgba(34,197,94,0.10)",
+                      }}
                     >
                       <Feather name="radio" size={18} color={colors.accent} />
                     </View>
@@ -203,7 +263,11 @@ export default function AnnouncementsScreen() {
                         <ExpoImage
                           key={url}
                           source={{ uri: url }}
-                          style={{ width: "100%", height: 220, borderRadius: 18 }}
+                          style={{
+                            width: "100%",
+                            height: 220,
+                            borderRadius: 18,
+                          }}
                           contentFit="cover"
                         />
                       ))}
@@ -214,12 +278,32 @@ export default function AnnouncementsScreen() {
                     <View className="mt-4 gap-3">
                       {parsed.videos.map((url) =>
                         isYoutubeUrl(url) ? (
-                          <View key={url} style={{ height: 220, borderRadius: 18, overflow: "hidden" }}>
-                            <YouTubeEmbed url={url} shouldPlay={false} initialMuted />
+                          <View
+                            key={url}
+                            style={{
+                              height: 220,
+                              borderRadius: 18,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <YouTubeEmbed
+                              url={url}
+                              shouldPlay={false}
+                              initialMuted
+                            />
                           </View>
                         ) : (
-                          <View key={url} style={{ borderRadius: 18, overflow: "hidden" }}>
-                            <VideoPlayer uri={url} height={220} autoPlay={false} initialMuted previewOnly />
+                          <View
+                            key={url}
+                            style={{ borderRadius: 18, overflow: "hidden" }}
+                          >
+                            <VideoPlayer
+                              uri={url}
+                              height={220}
+                              autoPlay={false}
+                              initialMuted
+                              previewOnly
+                            />
                           </View>
                         ),
                       )}
@@ -234,4 +318,3 @@ export default function AnnouncementsScreen() {
     </SafeAreaView>
   );
 }
-

@@ -30,18 +30,27 @@ const getTypeAdjustments = (style: any): TextStyle => {
   const next: TextStyle = {};
   if (flat?.lineHeight == null) {
     const ratio =
-      fontSize >= 32 ? 1.06 :
-      fontSize >= 26 ? 1.12 :
-      fontSize >= 20 ? 1.2 :
-      fontSize >= 16 ? 1.32 : 1.42;
+      fontSize >= 32
+        ? 1.06
+        : fontSize >= 26
+          ? 1.12
+          : fontSize >= 20
+            ? 1.2
+            : fontSize >= 16
+              ? 1.32
+              : 1.42;
     next.lineHeight = Math.round(fontSize * ratio);
   }
 
   if (flat?.letterSpacing == null) {
     const spacing =
-      fontSize >= 32 ? -0.5 :
-      fontSize >= 26 ? -0.35 :
-      fontSize >= 20 ? -0.2 : 0;
+      fontSize >= 32
+        ? -0.5
+        : fontSize >= 26
+          ? -0.35
+          : fontSize >= 20
+            ? -0.2
+            : 0;
     if (spacing !== 0) {
       next.letterSpacing = spacing;
     }
@@ -75,11 +84,15 @@ const scaleStyle = (style: any, scale: number): any => {
 
 export function Text(props: TextProps & { className?: string }) {
   const { fontScale } = useFontScale();
+  const { colors } = useAppTheme();
   const { style, ...rest } = props;
   const scaledStyle = useMemo(() => {
     const adjustments = getTypeAdjustments(style);
-    return scaleStyle([baseTextStyle, adjustments, style], fontScale);
-  }, [fontScale, style]);
+    return scaleStyle(
+      [baseTextStyle, { color: colors.text }, adjustments, style],
+      fontScale,
+    );
+  }, [colors.text, fontScale, style]);
 
   return <InteropText {...rest} style={scaledStyle} />;
 }
@@ -101,7 +114,8 @@ export function TextInput(props: TextInputProps & { className?: string }) {
     const adjustments = getTypeAdjustments(style);
     return scaleStyle([baseTextStyle, adjustments, style], fontScale);
   }, [fontScale, style]);
-  const shouldStabilizeControlledIosInput = Platform.OS === "ios" && props.value !== undefined;
+  const shouldStabilizeControlledIosInput =
+    Platform.OS === "ios" && props.value !== undefined;
 
   // iOS controlled inputs can drop characters or move the cursor when predictive text
   // rewrites the buffer mid-update. We default to safer typing behavior app-wide while
@@ -111,7 +125,9 @@ export function TextInput(props: TextInputProps & { className?: string }) {
       {...rest}
       autoCorrect={autoCorrect ?? !shouldStabilizeControlledIosInput}
       spellCheck={spellCheck ?? !shouldStabilizeControlledIosInput}
-      smartInsertDelete={smartInsertDelete ?? !shouldStabilizeControlledIosInput}
+      smartInsertDelete={
+        smartInsertDelete ?? !shouldStabilizeControlledIosInput
+      }
       selectionColor={selectionColor ?? colors.accent}
       cursorColor={cursorColor ?? colors.accent}
       placeholderTextColor={placeholderTextColor ?? colors.placeholder}
@@ -122,11 +138,15 @@ export function TextInput(props: TextInputProps & { className?: string }) {
 
 export function AnimatedText(props: TextProps & { className?: string }) {
   const { fontScale } = useFontScale();
+  const { colors } = useAppTheme();
   const { style, ...rest } = props;
   const scaledStyle = useMemo(() => {
     const adjustments = getTypeAdjustments(style);
-    return scaleStyle([baseTextStyle, adjustments, style], fontScale);
-  }, [fontScale, style]);
+    return scaleStyle(
+      [baseTextStyle, { color: colors.text }, adjustments, style],
+      fontScale,
+    );
+  }, [colors.text, fontScale, style]);
 
   return <AnimatedInteropText {...rest} style={scaledStyle} />;
 }
