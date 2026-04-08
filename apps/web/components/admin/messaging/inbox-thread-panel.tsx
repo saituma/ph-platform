@@ -45,16 +45,8 @@ function cleanPreview(raw: string) {
 
   const resolvedBody = attachmentName || (/^attachment$/i.test(clean) ? "File" : clean) || "File";
 
-  if (!replyMatch) return resolvedBody;
-
-  let replyPreview = "";
-  try {
-    replyPreview = decodeURIComponent(replyMatch[2] ?? "");
-  } catch {
-    replyPreview = replyMatch[2] ?? "";
-  }
-  const snippet = replyPreview.trim() || "Replied message";
-  return `↩ ${snippet} — ${resolvedBody}`;
+  // Inbox list should show only the latest message body (not the reply prefix context).
+  return resolvedBody;
 }
 
 export function InboxThreadPanel({
