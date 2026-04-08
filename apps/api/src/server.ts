@@ -8,7 +8,7 @@ export async function startServer() {
   if (env.runMigrationsOnStartup) {
     try {
       console.log("[Startup] Running database migrations...");
-      await runMigrations();
+      await runMigrations({ databaseUrl: env.databaseUrl });
       console.log("[Startup] Database migrations complete.");
     } catch (error) {
       console.error("[Startup] Database migrations failed.", error);
