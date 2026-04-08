@@ -21,14 +21,10 @@ type GiphySearchResponse = {
   data?: GiphyResult[];
 };
 
-const DEFAULT_GIPHY_BETA_KEY = "dc6zaTOxFJmzC";
-
 function getGiphyApiKey(): string {
   return (
-    process.env.GIPHY_API_KEY ??
-    process.env.NEXT_PUBLIC_GIPHY_API_KEY ??
-    DEFAULT_GIPHY_BETA_KEY
-  );
+    process.env.GIPHY_API_KEY ?? process.env.NEXT_PUBLIC_GIPHY_API_KEY ?? ""
+  ).trim();
 }
 
 const querySchema = z.object({
@@ -46,6 +42,13 @@ export async function searchGiphy(req: Request, res: Response) {
   const limit = parsed.data.limit ?? 24;
 
   const apiKey = getGiphyApiKey();
+  if (!apiKey) {
+    return res.status(503).json({
+      error: "GIPHY is not configured",
+      hint: "Set GIPHY_API_KEY in the API service environment variables",
+      results: [],
+    });
+  }
   const url = new URL(
     query
       ? "https://api.giphy.com/v1/gifs/search"
@@ -60,7 +63,10 @@ export async function searchGiphy(req: Request, res: Response) {
   url.searchParams.set("bundle", "messaging_non_clips");
 
   try {
-    const response = await fetch(url.toString(), { cache: "no-store" });
+    const response = await fetch(url.toString(), {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
     const payload = (await response
       .json()
       .catch(() => null)) as GiphySearchResponse | null;
@@ -68,7 +74,7 @@ export async function searchGiphy(req: Request, res: Response) {
     if (!response.ok) {
       return res.status(502).json({
         error: "GIPHY search failed",
-        status: response.status,
+        upstreamStatus: response.status,
         results: [],
       });
     }
@@ -91,4 +97,3 @@ export async function searchGiphy(req: Request, res: Response) {
     return res.status(502).json({ error: "Could not reach GIPHY", results: [] });
   }
 }
-

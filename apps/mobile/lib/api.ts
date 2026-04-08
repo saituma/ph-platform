@@ -309,6 +309,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       store.dispatch(logout());
     }
     let message = extractErrorMessage(text, payload);
+    if (payload?.upstreamStatus && Number.isFinite(payload.upstreamStatus)) {
+      message = `${message} (upstream ${payload.upstreamStatus})`;
+    }
+    if (payload?.hint && typeof payload.hint === "string" && payload.hint.trim().length) {
+      message = `${message} — ${payload.hint.trim()}`;
+    }
     const details =
       payload?.details?.fieldErrors || payload?.details?.formErrors || payload?.details;
     if (details) {
