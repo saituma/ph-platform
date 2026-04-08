@@ -1,5 +1,6 @@
 import { ChatMessage } from "@/constants/messages";
 import { apiRequest } from "@/lib/api";
+import { parseReplyPrefix } from "@/lib/messages/reply";
 
 import { useAppSelector } from "@/store/hooks";
 import { MessageThread, TypingStatus } from "@/types/messages";
@@ -48,6 +49,11 @@ export function useMessagesController() {
   const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(null);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
+  const [replyTarget, setReplyTarget] = useState<{
+    messageId: number;
+    preview: string;
+    authorName?: string;
+  } | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const draftConsumedRef = useRef<string | null>(null);
@@ -75,6 +81,10 @@ export function useMessagesController() {
   }, [threadId, threads]);
 
   const currentThread = activeThread ?? selectedThread;
+
+  useEffect(() => {
+    setReplyTarget(null);
+  }, [currentThread?.id]);
 
   useEffect(() => {
     if (!draftQuery || !threadId) return;
@@ -185,19 +195,24 @@ export function useMessagesController() {
       const mappedMessages = (data.messages ?? []).map((msg: any) => {
         const otherId = String(msg.senderId) === selfId ? String(msg.receiverId) : String(msg.senderId);
         const otherCoach = (data.coaches ?? (data.coach ? [data.coach] : [])).find((c: any) => String(c.id) === otherId);
+        const parsed = parseReplyPrefix(msg.content);
+        const isOutgoing = String(msg.senderId) === selfId;
 
         return {
           id: String(msg.id),
           threadId: otherId,
-          from: String(msg.senderId) === selfId ? "user" : "coach",
-          text: msg.content,
+          from: isOutgoing ? "user" : "coach",
+          text: parsed.text,
+          replyToMessageId: parsed.replyToMessageId ?? undefined,
+          replyPreview: parsed.replyPreview || undefined,
           contentType: msg.contentType ?? "text",
           mediaUrl: msg.mediaUrl ?? undefined,
           videoUploadId: msg.videoUploadId ?? undefined,
           time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
           status: msg.read ? "read" : "sent",
           reactions: msg.reactions ?? [],
-          authorAvatar: String(msg.senderId) === selfId ? null : (otherCoach?.profilePicture ?? null),
+          authorName: isOutgoing ? (profile.name ?? undefined) : (otherCoach?.name ?? undefined),
+          authorAvatar: isOutgoing ? null : (otherCoach?.profilePicture ?? null),
         };
       }) as ChatMessage[];
 
@@ -243,22 +258,24 @@ export function useMessagesController() {
         setGroupMembers((prev) => ({ ...prev, [groupId]: memberMap }));
 
         const selfId = String(effectiveProfileId ?? "");
-        const mappedMessages = (data.messages ?? []).map((msg: any) => ({
-          id: `group-${msg.id}`,
-          threadId: `group:${groupId}`,
-          from:
-            String(msg.senderId) === selfId
-              ? "user"
-              : "coach",
-          text: msg.content,
-          contentType: msg.contentType ?? "text",
-          mediaUrl: msg.mediaUrl ?? undefined,
-          time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-          status: "sent",
-          authorName: memberMap[msg.senderId]?.name,
-          authorAvatar: memberMap[msg.senderId]?.avatar ?? null,
-          reactions: msg.reactions ?? [],
-        })) as ChatMessage[];
+        const mappedMessages = (data.messages ?? []).map((msg: any) => {
+          const parsed = parseReplyPrefix(msg.content);
+          return {
+            id: `group-${msg.id}`,
+            threadId: `group:${groupId}`,
+            from: String(msg.senderId) === selfId ? "user" : "coach",
+            text: parsed.text,
+            replyToMessageId: parsed.replyToMessageId ?? undefined,
+            replyPreview: parsed.replyPreview || undefined,
+            contentType: msg.contentType ?? "text",
+            mediaUrl: msg.mediaUrl ?? undefined,
+            time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+            status: "sent",
+            authorName: memberMap[msg.senderId]?.name,
+            authorAvatar: memberMap[msg.senderId]?.avatar ?? null,
+            reactions: msg.reactions ?? [],
+          } as ChatMessage;
+        });
 
         setMessages((prev) => {
           const remaining = prev.filter((msg) => msg.threadId !== `group:${groupId}`);
@@ -498,6 +515,8 @@ export function useMessagesController() {
             threadId: `group:${groupId}`,
             from: "user",
             text: trimmed || "Attachment",
+            replyToMessageId: replyTarget?.messageId,
+            replyPreview: replyTarget?.preview,
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
             time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -526,6 +545,8 @@ export function useMessagesController() {
             content: trimmed || "Attachment",
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
+            replyToMessageId: replyTarget?.messageId,
+            replyPreview: replyTarget?.preview,
             clientId,
             actingUserId: undefined,
           });
@@ -537,6 +558,8 @@ export function useMessagesController() {
               content: trimmed || "Attachment",
               contentType: payload.contentType ?? "text",
               mediaUrl: payload.mediaUrl,
+              replyToMessageId: replyTarget?.messageId,
+              replyPreview: replyTarget?.preview,
             },
           });
         }
@@ -552,6 +575,8 @@ export function useMessagesController() {
           threadId: String(toUserId),
           from: "user",
           text: trimmed || "Attachment",
+          replyToMessageId: replyTarget?.messageId,
+          replyPreview: replyTarget?.preview,
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -579,6 +604,8 @@ export function useMessagesController() {
           content: trimmed || "Attachment",
           contentType: payload.contentType ?? "text",
           mediaUrl: payload.mediaUrl,
+          replyToMessageId: replyTarget?.messageId,
+          replyPreview: replyTarget?.preview,
           clientId,
           actingUserId: undefined,
         });
@@ -590,12 +617,14 @@ export function useMessagesController() {
             content: trimmed || "Attachment",
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
+            replyToMessageId: replyTarget?.messageId,
+            replyPreview: replyTarget?.preview,
             clientId,
           },
         });
       }
     },
-    [currentThread, profile.name, token]
+    [currentThread, profile.name, replyTarget?.messageId, replyTarget?.preview, token]
   );
 
   const handleToggleReaction = useCallback(
@@ -682,6 +711,7 @@ export function useMessagesController() {
         contentType: upload?.contentType ?? "text",
         mediaUrl: upload?.mediaUrl,
       });
+      setReplyTarget(null);
     } catch (error) {
       setDraftValue(trimmed);
       setPendingAttachment(attachmentToSend);
@@ -690,6 +720,23 @@ export function useMessagesController() {
       setIsUploadingAttachment(false);
     }
   }, [pendingAttachment, sendMessagePayload, uploadAttachment, setDraftValue]);
+
+  const setReplyTargetFromMessage = useCallback((message: ChatMessage) => {
+    const numericId = message.threadId.startsWith("group:")
+      ? Number(String(message.id).replace(/^group-/, ""))
+      : Number(message.id);
+    if (!Number.isFinite(numericId)) return;
+    const preview = (message.text || (message.mediaUrl ? "Media message" : "Message")).slice(0, 160);
+    setReplyTarget({
+      messageId: numericId,
+      preview,
+      authorName: message.authorName ?? undefined,
+    });
+  }, []);
+
+  const clearReplyTarget = useCallback(() => {
+    setReplyTarget(null);
+  }, []);
 
   const handleAttachImage = useCallback(async () => {
     if (!currentThread || !token || isUploadingAttachment) return;
@@ -932,6 +979,7 @@ export function useMessagesController() {
     draft,
     reactionTarget,
     composerMenuOpen,
+    replyTarget,
     isUploadingAttachment,
     pendingAttachment,
     openingThreadId,
@@ -943,6 +991,8 @@ export function useMessagesController() {
     resetOpeningThread,
     clearThread,
     handleSend,
+    setReplyTargetFromMessage,
+    clearReplyTarget,
     handleAttachFile,
     handleAttachImage,
     handleAttachVideo,
