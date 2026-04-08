@@ -32,10 +32,18 @@ async function columnExists(tableName: string, columnName: string) {
 }
 
 router.get("/version", async (_req, res) => {
-  const [hasGroupLastReadAt, hasGroupLastReadAtSnake, hasEligiblePlans] = await Promise.all([
+  const [
+    hasGroupLastReadAt,
+    hasGroupLastReadAtSnake,
+    hasEligiblePlans,
+    hasSchedulePattern,
+    hasSlotMode,
+  ] = await Promise.all([
     columnExists("chat_group_members", "lastReadAt"),
     columnExists("chat_group_members", "last_read_at"),
     columnExists("service_types", "eligiblePlans"),
+    columnExists("service_types", "schedulePattern"),
+    columnExists("service_types", "slotMode"),
   ]);
 
   let databaseTargets:
@@ -98,6 +106,8 @@ router.get("/version", async (_req, res) => {
       chat_group_members_lastReadAt: hasGroupLastReadAt,
       chat_group_members_last_read_at: hasGroupLastReadAtSnake,
       service_types_eligiblePlans: hasEligiblePlans,
+      service_types_schedulePattern: hasSchedulePattern,
+      service_types_slotMode: hasSlotMode,
     },
     drizzleMigrations,
   });

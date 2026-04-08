@@ -435,6 +435,13 @@
       "when": 1775695000000,
       "tag": "0061_chat_group_member_lastReadAt_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1775696500000,
+      "tag": "0062_service_types_scheduling_columns",
+      "breakpoints": true
     }
   ]
 }
