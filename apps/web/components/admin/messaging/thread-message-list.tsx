@@ -2,8 +2,8 @@
 
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
-import { CornerUpLeft, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowDown, CornerUpLeft, Plus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ScrollArea } from "../../ui/scroll-area";
 import type { ChatMessage, ChatReaction } from "./types";
@@ -53,6 +53,10 @@ export function ThreadMessageList({
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     number | null
   >(null);
+  const [newIncomingCount, setNewIncomingCount] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const isNearBottomRef = useRef(true);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -67,6 +71,70 @@ export function ThreadMessageList({
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, []);
+
+  const getViewport = () => {
+    const root = scrollContainerRef.current;
+    if (!root) return null;
+    return root.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    ) as HTMLDivElement | null;
+  };
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    const viewport = getViewport();
+    if (!viewport) return;
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+  };
+
+  useEffect(() => {
+    const viewport = getViewport();
+    if (!viewport) return;
+    const onScroll = () => {
+      const threshold = 90;
+      const distanceToBottom =
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      isNearBottomRef.current = distanceToBottom < threshold;
+      if (isNearBottomRef.current) {
+        setNewIncomingCount(0);
+      }
+    };
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => viewport.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!messages.length) {
+      lastMessageIdRef.current = null;
+      setNewIncomingCount(0);
+      return;
+    }
+    const latest = messages[messages.length - 1];
+    const latestId = String(latest.id ?? "");
+    if (!latestId) return;
+    const prevId = lastMessageIdRef.current;
+    if (!prevId) {
+      lastMessageIdRef.current = latestId;
+      // initial mount should pin to bottom
+      requestAnimationFrame(() => scrollToBottom("auto"));
+      return;
+    }
+    if (prevId === latestId) return;
+    lastMessageIdRef.current = latestId;
+
+    const senderId = Number(latest?.senderId ?? NaN);
+    const mine = currentUserId != null && Number.isFinite(senderId) ? senderId === currentUserId : false;
+    const incoming = !mine;
+
+    if (mine || isNearBottomRef.current) {
+      requestAnimationFrame(() => scrollToBottom("smooth"));
+      setNewIncomingCount(0);
+      return;
+    }
+    if (incoming) {
+      setNewIncomingCount((count) => Math.min(count + 1, 99));
+    }
+  }, [currentUserId, messages]);
 
   const handlePickReaction = async (message: ChatMessage, emoji: EmojiPick) => {
     if (!emoji.native) return;
@@ -171,10 +239,16 @@ export function ThreadMessageList({
     if (Number.isFinite(id)) messageById.set(id, item);
   });
 
+  const downArrowLabel = useMemo(() => {
+    if (newIncomingCount <= 0) return "";
+    return newIncomingCount > 99 ? "99+" : String(newIncomingCount);
+  }, [newIncomingCount]);
+
   return (
-    <ScrollArea className="h-[420px] rounded-xl border border-border p-3">
-      <div className="space-y-3">
-        {messages.map((message) => {
+    <div ref={scrollContainerRef} className="relative">
+      <ScrollArea className="h-[420px] rounded-xl border border-border p-3">
+        <div className="space-y-3">
+          {messages.map((message) => {
           const senderId = Number(message?.senderId ?? NaN);
           const receiverId = Number(message?.receiverId ?? NaN);
           const normalizedRole = String(message?.senderRole ?? "")
@@ -505,7 +579,25 @@ export function ThreadMessageList({
         {!messages.length ? (
           <p className="text-sm text-muted-foreground">{emptyLabel}</p>
         ) : null}
-      </div>
-    </ScrollArea>
+        </div>
+      </ScrollArea>
+
+      {newIncomingCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => {
+            scrollToBottom("smooth");
+            isNearBottomRef.current = true;
+            setNewIncomingCount(0);
+          }}
+          className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-lg hover:bg-emerald-700"
+          aria-label="Scroll to newest message"
+        >
+          <ArrowDown className="h-4 w-4" />
+          <span>New</span>
+          <span className="rounded-full bg-black/20 px-2 py-0.5">{downArrowLabel}</span>
+        </button>
+      ) : null}
+    </div>
   );
 }

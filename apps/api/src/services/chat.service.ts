@@ -404,9 +404,28 @@ export async function createGroupMessage(input: {
       senderProfilePicture,
       groupName,
     };
-    io.to(`group:${input.groupId}`).emit("group:message", enriched);
-    // Admin/coach dashboards may not be joined to every group room (e.g. newly created groups),
-    // but they still need to update inbox previews/unread counts in real-time.
+    // Broadcast to each member's user room so clients still receive live updates
+    // even if they haven't joined the group room (or if group room membership is stale).
+    try {
+      const memberRows = await db
+        .select({ userId: chatGroupMemberTable.userId })
+        .from(chatGroupMemberTable)
+        .where(eq(chatGroupMemberTable.groupId, input.groupId));
+      const memberIds = Array.from(
+        new Set(
+          memberRows
+            .map((row) => Number(row.userId))
+            .filter((id) => Number.isFinite(id) && id > 0),
+        ),
+      );
+      for (const memberId of memberIds) {
+        io.to(`user:${memberId}`).emit("group:message", enriched);
+      }
+    } catch (error) {
+      console.warn("[Socket] Failed to emit group:message to user rooms", error);
+    }
+
+    // Admin/coach dashboards listen on admin:all.
     io.to("admin:all").emit("group:message", enriched);
   }
   return message;
@@ -433,8 +452,26 @@ export async function deleteGroupMessage(input: { groupId: number; messageId: nu
     .where(and(eq(chatGroupMessageTable.id, input.messageId), eq(chatGroupMessageTable.groupId, input.groupId)));
   const io = getSocketServer();
   if (io) {
-    io.to(`group:${input.groupId}`).emit("group:message:deleted", { messageId: input.messageId });
-    io.to("admin:all").emit("group:message:deleted", { messageId: input.messageId });
+    const payload = { messageId: input.messageId, groupId: input.groupId };
+    try {
+      const memberRows = await db
+        .select({ userId: chatGroupMemberTable.userId })
+        .from(chatGroupMemberTable)
+        .where(eq(chatGroupMemberTable.groupId, input.groupId));
+      const memberIds = Array.from(
+        new Set(
+          memberRows
+            .map((row) => Number(row.userId))
+            .filter((id) => Number.isFinite(id) && id > 0),
+        ),
+      );
+      for (const memberId of memberIds) {
+        io.to(`user:${memberId}`).emit("group:message:deleted", payload);
+      }
+    } catch (error) {
+      console.warn("[Socket] Failed to emit group:message:deleted to user rooms", error);
+    }
+    io.to("admin:all").emit("group:message:deleted", payload);
   }
   return { deleted: true };
 }
