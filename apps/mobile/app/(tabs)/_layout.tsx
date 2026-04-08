@@ -65,7 +65,7 @@ export default function TabLayout() {
   const segments = useSegments();
   const colorScheme = useColorScheme();
   const { socket } = useSocket();
-  const pendingNavToken = useRef(0);
+
   const lastHandledNotificationRef = useRef<string | null>(null);
   const [messagesUnread, setMessagesUnread] = useState(0);
   const lastPrefetchAt = useRef(0);
@@ -311,29 +311,18 @@ export default function TabLayout() {
     return resolvedIndex;
   }, [pathname, visibleTabs]);
 
+  // PERF: Do NOT call router.replace() here. PagerView already manages the
+  // visible page natively. Calling router.replace on every tab switch was
+  // the primary source of lag — it tears down and rebuilds the entire
+  // screen tree through Expo Router's navigation cycle.
+  // We only track the last active tab key for deep-link restoration.
   const handleIndexChange = useCallback(
-    (index: number, source: "swipe" | "press" | "sync") => {
+    (index: number, _source: "swipe" | "press" | "sync") => {
       const tab = visibleTabs[index];
       if (!tab) return;
-
       lastTabKey = tab.key;
-
-      // Extract current tab key to avoid redundant navigation
-      const relativePart = pathname.replace(/^\/\(tabs\)\/?/, "");
-      const currentTabKey = relativePart.split("/")[0] || "index";
-
-      if (tab.key !== currentTabKey) {
-        const path = tab.key === "index" ? "/(tabs)" : `/(tabs)/${tab.key}`;
-        
-        // Defer navigation so the gesture stays responsive.
-        const token = ++pendingNavToken.current;
-        InteractionManager.runAfterInteractions(() => {
-          if (token !== pendingNavToken.current) return;
-          router.replace(path as any);
-        });
-      }
     },
-    [visibleTabs, router, pathname],
+    [visibleTabs],
   );
 
   const screens = useMemo(() => {

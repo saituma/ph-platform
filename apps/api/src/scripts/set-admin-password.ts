@@ -1,9 +1,14 @@
 import { AdminGetUserCommand, AdminSetUserPasswordCommand, CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import crypto from "crypto";
+import dns from "node:dns";
 import dotenv from "dotenv";
 import fs from "fs";
+import net from "node:net";
 import path from "path";
 import { Pool } from "pg";
+
+dns.setDefaultResultOrder("ipv4first");
+if (typeof net.setDefaultAutoSelectFamily === "function") net.setDefaultAutoSelectFamily(false);
 
 function loadEnv() {
   const envPathCandidates = [

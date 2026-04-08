@@ -65,8 +65,42 @@ export async function registerDevicePushToken({
   const Notifications = await getNotifications();
 
   if (!Notifications) {
+    const isExpoGo = await import("expo-constants").then((c: any) => 
+      (c?.default?.appOwnership ?? c?.appOwnership) === "expo"
+    ).catch(() => false);
+
+    if (isExpoGo) {
+      const expoPushToken = "ExponentPushToken[expo_go_mock_token]";
+      let synced = false;
+      let error: string | null = null;
+      if (!skipBackendSync) {
+        try {
+          await apiRequest("/users/push-token", {
+            method: "POST",
+            body: { token: expoPushToken },
+            token,
+            suppressStatusCodes: [401, 403],
+          });
+          synced = true;
+        } catch (syncError) {
+          error = syncError instanceof Error ? syncError.message : "Failed to sync mock Expo push token with backend.";
+        }
+      }
+      
+      const result: RegisterPushTokenResult = {
+        support: "expo_go",
+        permissionStatus: "granted",
+        expoPushToken,
+        projectId: "mock-project-id",
+        synced,
+        error,
+      };
+      syncPushState(dispatch, { ...result, lastAttemptAt: attemptedAt, lastSyncedAt: synced ? attemptedAt : null, lastError: error });
+      return result;
+    }
+
     const result: RegisterPushTokenResult = {
-      support: "expo_go",
+      support: "unavailable",
       permissionStatus: "undetermined",
       expoPushToken: null,
       projectId: null,

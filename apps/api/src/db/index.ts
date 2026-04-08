@@ -1,7 +1,14 @@
+import dns from "node:dns";
+import net from "node:net";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import { env } from "../config/env";
+
+dns.setDefaultResultOrder("ipv4first");
+if (typeof net.setDefaultAutoSelectFamily === "function") {
+  net.setDefaultAutoSelectFamily(false);
+}
 
 function normalizeConnectionString(raw: string) {
   try {

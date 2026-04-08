@@ -22,6 +22,9 @@ export type AnnouncementItem = {
   title?: string | null;
   body?: string | null;
   createdAt?: string | null;
+  createdBy?: number | string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
 };
 
 export type ChatGroupItem = {

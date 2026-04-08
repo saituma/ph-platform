@@ -7,6 +7,15 @@ import React, {
   useState,
 } from "react";
 import { Platform, StyleSheet, View } from "react-native";
+
+// Cache haptics module at the top level to avoid dynamic import on every press
+let _hapticsPromise: Promise<any> | null = null;
+const getHaptics = () => {
+  if (!_hapticsPromise) {
+    _hapticsPromise = import("expo-haptics").catch(() => null);
+  }
+  return _hapticsPromise;
+};
 import type {
   PagerViewOnPageScrollEvent,
   PagerViewOnPageSelectedEvent,
@@ -42,7 +51,9 @@ export function SwipeableTabLayout({
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [PagerView, setPagerView] = useState<any>(null);
-  const [visitedIndices, setVisitedIndices] = useState<number[]>([initialIndex]);
+  // Use a ref instead of state to track visited indices — avoids re-renders
+  // when a tab is visited for the first time.
+  const visitedRef = useRef<Set<number>>(new Set([initialIndex]));
 
   const scrollOffset = useSharedValue(initialIndex);
 
@@ -89,7 +100,7 @@ export function SwipeableTabLayout({
     if (isUserSwipingRef.current || isSyncingRef.current) return;
 
     setActiveIndex(initialIndex);
-    setVisitedIndices((prev) => (prev.includes(initialIndex) ? prev : [...prev, initialIndex]));
+    visitedRef.current.add(initialIndex);
     lastSelectedIndex.current = initialIndex;
     lastNotifiedIndex.current = initialIndex;
 
@@ -137,7 +148,7 @@ export function SwipeableTabLayout({
       const index = e.nativeEvent.position;
       lastSelectedIndex.current = index;
       setActiveIndex(index);
-      setVisitedIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
+      visitedRef.current.add(index);
 
       if (lastNotifiedIndex.current !== index) {
         lastNotifiedIndex.current = index;
@@ -164,11 +175,10 @@ export function SwipeableTabLayout({
   const handleTabPress = (index: number) => {
     if (index === lastSelectedIndex.current) return;
 
-    import("expo-haptics")
-      .then((Haptics) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      })
-      .catch(() => {});
+    // Use cached haptics module
+    getHaptics()?.then((Haptics: any) => {
+      Haptics?.impactAsync?.(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    });
 
     isSyncingRef.current = true;
     lastChangeSourceRef.current = "press";
@@ -180,7 +190,7 @@ export function SwipeableTabLayout({
     }
     pagerRef.current?.setPage(index);
     setActiveIndex(index);
-    setVisitedIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
+    visitedRef.current.add(index);
     lastSelectedIndex.current = index;
 
     // Guarantee global context update regardless of platform or routing
@@ -213,20 +223,22 @@ export function SwipeableTabLayout({
   }
   const childrenArray = childrenRef.current;
 
+  // PERF: pagerChildren does NOT depend on activeIndex.
+  // Active state flows through the global emitter (setGlobalActiveTab)
+  // and each page reads it via useActiveTabIndex(). This prevents all 6
+  // pages from re-rendering every time the user changes tabs.
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {
       const key = tabs[index]?.key ?? `page-${index}`;
-      const isActive = index === activeIndex;
-      const shouldRenderChild = isActive || visitedIndices.includes(index);
+      // On first render, only mount the initial page. Subsequent pages get
+      // mounted when the user visits them (tracked via visitedRef).
+      const shouldRenderChild = visitedRef.current.has(index);
       
       return (
         <View key={key} style={[styles.page, { backgroundColor: "transparent" }]}>
           {shouldRenderChild ? (
-            <ActiveTabProvider activeTabIndex={activeIndex} currentTabIndex={index}>
-              {React.isValidElement(child) 
-                // @ts-ignore - Injecting isTabActive prop forcibly to bypass memoization
-                ? React.cloneElement(child, { isTabActive: isActive }) 
-                : child}
+            <ActiveTabProvider activeTabIndex={index} currentTabIndex={index}>
+              {child}
             </ActiveTabProvider>
           ) : (
              <View style={{ flex: 1 }} />
@@ -234,7 +246,7 @@ export function SwipeableTabLayout({
         </View>
       );
     });
-  }, [activeIndex, childrenArray, tabs, visitedIndices]);
+  }, [childrenArray, tabs]);
 
   if (Platform.OS === "web" || !PagerView) {
     return (

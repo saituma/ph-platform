@@ -1,6 +1,7 @@
 import "dotenv/config";
 import dns from "node:dns";
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -10,6 +11,12 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
 import { Pool } from "pg";
 
 dns.setDefaultResultOrder("ipv4first");
+// Node's Happy Eyeballs (autoSelectFamily) can pick IPv6 on dual-stack hosts.
+// In environments without IPv6 routing this leads to long ETIMEDOUTs.
+// Prefer the first DNS result (we set ipv4first above).
+if (typeof net.setDefaultAutoSelectFamily === "function") {
+  net.setDefaultAutoSelectFamily(false);
+}
 
 const envUrl = process.env.DATABASE_MIGRATION_URL || process.env.DATABASE_URL;
 if (!envUrl) {

@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { View, Pressable, SafeAreaView, Platform } from "react-native";
 import MapView, { Polyline, Marker } from "react-native-maps";
-import Constants from "expo-constants";
+
 import { useRunStore } from "../../../store/useRunStore";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -52,9 +52,8 @@ export default function RunSummaryScreen() {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   } : undefined;
-  const isExpoGo = Constants.appOwnership === "expo";
-  const useOsmMap = Platform.OS === "android" && !isExpoGo;
-  const showExpoGoMapNotice = Platform.OS === "android" && isExpoGo;
+
+  const useOsmMap = Platform.OS === "android";
 
   const animatedScreenStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -199,30 +198,6 @@ export default function RunSummaryScreen() {
              ) : (
                <View style={{ flex: 1, backgroundColor: colors.surfaceHigh }} />
              )}
-             {showExpoGoMapNotice ? (
-               <View
-                 pointerEvents="none"
-                 style={{
-                   position: "absolute",
-                   left: 12,
-                   right: 12,
-                   bottom: 12,
-                   paddingHorizontal: 12,
-                   paddingVertical: 10,
-                   borderRadius: 16,
-                   backgroundColor: colors.surfaceHigh,
-                   borderWidth: 1,
-                   borderColor: colors.borderSubtle,
-                 }}
-               >
-                 <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
-                   Expo Go can’t render Android maps without a native key.
-                 </Text>
-                 <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textSecondary, marginTop: 2 }}>
-                   Use a dev build for the real map.
-                 </Text>
-               </View>
-             ) : null}
           </View>
         </View>
 

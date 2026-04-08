@@ -400,6 +400,13 @@
       "when": 1773026000000,
       "tag": "0056_chat_group_category",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1775637338000,
+      "tag": "0057_announcement_schedule",
+      "breakpoints": true
     }
   ]
 }
