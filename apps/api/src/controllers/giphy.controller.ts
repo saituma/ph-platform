@@ -19,6 +19,11 @@ type GiphyResult = {
 
 type GiphySearchResponse = {
   data?: GiphyResult[];
+  meta?: {
+    status?: number;
+    msg?: string;
+    response_id?: string;
+  };
 };
 
 function getGiphyApiKey(): string {
@@ -75,6 +80,8 @@ export async function searchGiphy(req: Request, res: Response) {
       return res.status(502).json({
         error: "GIPHY search failed",
         upstreamStatus: response.status,
+        upstreamMessage:
+          (payload?.meta?.msg && String(payload.meta.msg).trim()) || undefined,
         results: [],
       });
     }

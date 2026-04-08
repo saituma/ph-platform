@@ -1,6 +1,7 @@
 import React from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
   Pressable,
   TextInput,
@@ -36,6 +37,9 @@ export function GifPickerModal({
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<GifResult[]>([]);
   const [loading, setLoading] = React.useState(false);
+
+  const normalizedQuery = query.trim();
+  const isTrending = !normalizedQuery;
 
   const search = React.useCallback(
     async (value: string) => {
@@ -138,53 +142,85 @@ export function GifPickerModal({
               autoCapitalize="none"
               returnKeyType="search"
             />
+            {query.length ? (
+              <Pressable
+                onPress={() => setQuery("")}
+                className="h-8 w-8 items-center justify-center"
+              >
+                <Feather
+                  name="x-circle"
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            ) : null}
             {loading ? (
               <ActivityIndicator size="small" color={colors.accent} />
             ) : null}
           </View>
         </View>
 
-        <View className="flex-1 px-5">
-          {results.length ? (
-            <View className="flex-row flex-wrap justify-between">
-              {results.map((gif) => (
-                <Pressable
-                  key={gif.id}
-                  onPress={() => onSelectGif(gif.url)}
-                  className="mb-3 overflow-hidden rounded-[18px] border"
-                  style={{
-                    width: "48%",
-                    borderColor: colors.borderSubtle,
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.04)"
-                      : "rgba(15,23,42,0.03)",
-                  }}
-                >
-                  <ExpoImage
-                    source={{ uri: gif.previewUrl }}
-                    style={{ width: "100%", height: 140 }}
-                    contentFit="cover"
-                  />
-                </Pressable>
-              ))}
-            </View>
-          ) : loading ? (
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color={colors.accent} />
-            </View>
-          ) : (
-            <View className="flex-1 items-center justify-center px-8">
+        <FlatList
+          data={results}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={{ justifyContent: "space-between" }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: Math.max(insets.bottom + 24, 28),
+          }}
+          ListHeaderComponent={
+            <View className="mb-4">
               <Text
-                className="text-sm font-outfit text-center"
+                className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
                 style={{ color: colors.textSecondary }}
               >
-                Search to find a GIF to send.
+                {isTrending ? "Trending" : "Results"}
               </Text>
             </View>
+          }
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => onSelectGif(item.url)}
+              className="mb-3 overflow-hidden rounded-[18px] border"
+              style={{
+                width: "48%",
+                borderColor: colors.borderSubtle,
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.04)"
+                  : "rgba(15,23,42,0.03)",
+              }}
+            >
+              <ExpoImage
+                source={{ uri: item.previewUrl }}
+                style={{ width: "100%", height: 140 }}
+                contentFit="cover"
+                transition={180}
+              />
+            </Pressable>
           )}
-        </View>
+          ListEmptyComponent={
+            loading ? (
+              <View className="flex-1 items-center justify-center pt-16">
+                <ActivityIndicator size="large" color={colors.accent} />
+              </View>
+            ) : (
+              <View className="flex-1 items-center justify-center px-8 pt-16">
+                <Text
+                  className="text-sm font-outfit text-center"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {isTrending
+                    ? "No GIFs available right now."
+                    : "No matches. Try a different search."}
+                </Text>
+              </View>
+            )
+          }
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        />
       </View>
     </Modal>
   );
 }
-
