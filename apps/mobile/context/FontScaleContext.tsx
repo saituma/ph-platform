@@ -18,7 +18,16 @@ type FontScaleContextValue = {
   isLoaded: boolean;
 };
 
-const FontScaleContext = createContext<FontScaleContextValue | null>(null);
+const defaultFontScaleContext: FontScaleContextValue = {
+  fontSizeOption: "default",
+  fontScale: 1,
+  setFontSizeOption: () => {},
+  isLoaded: false,
+};
+
+const FontScaleContext = createContext<FontScaleContextValue>(
+  defaultFontScaleContext,
+);
 
 export function FontScaleProvider({ children }: { children: React.ReactNode }) {
   const [fontSizeOption, setFontSizeOptionState] = useState<FontSizeOption>("default");
@@ -53,9 +62,5 @@ export function FontScaleProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useFontScale() {
-  const context = useContext(FontScaleContext);
-  if (!context) {
-    throw new Error("useFontScale must be used within FontScaleProvider");
-  }
-  return context;
+  return useContext(FontScaleContext);
 }
