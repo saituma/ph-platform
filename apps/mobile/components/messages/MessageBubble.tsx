@@ -1,20 +1,28 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ChatMessage } from "@/constants/messages";
 import React from "react";
-import { Image, Linking, Modal, Pressable, View, useWindowDimensions } from "react-native";
+import {
+  Image,
+  Linking,
+  Modal,
+  Pressable,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Text } from "@/components/ScaledText";
 import { isYoutubeUrl, YouTubeEmbed } from "@/components/media/VideoPlayer";
+import { OpenGraphPreview } from "@/components/media/OpenGraphPreview";
 import { Ionicons } from "@expo/vector-icons";
 import { Swipeable } from "react-native-gesture-handler";
 import { Shadows } from "@/constants/theme";
-import Animated, { 
-  FadeIn, 
-  FadeInRight, 
+import Animated, {
+  FadeIn,
+  FadeInRight,
   FadeInLeft,
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring 
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from "react-native-reanimated";
 
 type MessageBubbleProps = {
@@ -25,7 +33,15 @@ type MessageBubbleProps = {
   onJumpToMessage?: (messageId: number) => void;
   isHighlighted?: boolean;
   resolvedReplyPreview?: string | null;
+  token?: string | null;
 };
+
+function extractUrls(value: string): string[] {
+  const matches = value.match(/https?:\/\/[^\s]+/gi) ?? [];
+  return matches
+    .map((url) => url.replace(/[)\].,!?;:]+$/g, ""))
+    .filter((url) => /^https?:\/\//i.test(url));
+}
 
 function getInitials(name?: string | null) {
   if (!name) return "?";
@@ -101,6 +117,7 @@ function MessageBubbleBase({
   onJumpToMessage,
   isHighlighted = false,
   resolvedReplyPreview = null,
+  token = null,
 }: MessageBubbleProps) {
   const { colors, isDark } = useAppTheme();
   const isUser = message.from === "user";
@@ -113,18 +130,31 @@ function MessageBubbleBase({
     : isDark
       ? "rgba(255,255,255,0.1)"
       : "rgba(15,23,42,0.06)";
-  
-  const textColor = isUser 
-    ? (isDark ? "#FFFFFF" : "#064E3B") 
-    : (isDark ? "#F8FAFC" : "#0F172A");
-    
+
+  const textColor = isUser
+    ? isDark
+      ? "#FFFFFF"
+      : "#064E3B"
+    : isDark
+      ? "#F8FAFC"
+      : "#0F172A";
+
   const timeColor = isUser
-    ? (isDark ? "rgba(255,255,255,0.6)" : "rgba(6,78,59,0.5)")
-    : (isDark ? "#94A3B8" : "#64748B");
+    ? isDark
+      ? "rgba(255,255,255,0.6)"
+      : "rgba(6,78,59,0.5)"
+    : isDark
+      ? "#94A3B8"
+      : "#64748B";
 
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const [imageSize, setImageSize] = React.useState<{ width: number; height: number } | null>(null);
-  const [videoMeta, setVideoMeta] = React.useState<{ durationMs: number } | null>(null);
+  const [imageSize, setImageSize] = React.useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+  const [videoMeta, setVideoMeta] = React.useState<{
+    durationMs: number;
+  } | null>(null);
   const [mediaOpen, setMediaOpen] = React.useState(false);
   const swipeRef = React.useRef<Swipeable | null>(null);
 
@@ -139,7 +169,10 @@ function MessageBubbleBase({
     // Cap height at 400 to prevent extremely long vertical images
     const finalHeight = Math.min(calculatedHeight, 400);
     // Recalculate width if height was capped to maintain aspect ratio
-    const finalWidth = finalHeight === calculatedHeight ? maxMediaWidth : finalHeight * aspectRatio;
+    const finalWidth =
+      finalHeight === calculatedHeight
+        ? maxMediaWidth
+        : finalHeight * aspectRatio;
 
     return { width: finalWidth, height: finalHeight };
   }, [imageSize, maxMediaWidth]);
@@ -148,14 +181,18 @@ function MessageBubbleBase({
     () => Math.max(180, Math.round((maxMediaWidth * 9) / 16)),
     [maxMediaWidth],
   );
-  
+
   const bubbleScale = useSharedValue(1);
   const animatedBubbleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: bubbleScale.value }]
+    transform: [{ scale: bubbleScale.value }],
   }));
 
-  const handlePressIn = () => { bubbleScale.value = withSpring(0.98); };
-  const handlePressOut = () => { bubbleScale.value = withSpring(1); };
+  const handlePressIn = () => {
+    bubbleScale.value = withSpring(0.98);
+  };
+  const handlePressOut = () => {
+    bubbleScale.value = withSpring(1);
+  };
 
   const formatDuration = React.useCallback((ms: number) => {
     const totalSeconds = Math.max(0, Math.round(ms / 1000));
@@ -167,8 +204,17 @@ function MessageBubbleBase({
   const isAudioMessage = React.useMemo(() => {
     if (!message.mediaUrl) return false;
     const lower = message.mediaUrl.toLowerCase();
-    return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
+    return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some(
+      (ext) => lower.includes(ext),
+    );
   }, [message.mediaUrl]);
+
+  const openGraphUrls = React.useMemo(() => {
+    const text = String(message.text ?? "").trim();
+    if (!text) return [] as string[];
+    const urls = extractUrls(text);
+    return urls.slice(0, 1);
+  }, [message.text]);
 
   const numericMessageId = React.useMemo(() => {
     const raw = String(message.id ?? "");
@@ -193,13 +239,23 @@ function MessageBubbleBase({
         {!isUser ? (
           <Animated.View entering={FadeIn.delay(200)} className="mb-1">
             {message.authorAvatar ? (
-              <Image source={{ uri: message.authorAvatar }} className="h-8 w-8 rounded-[12px]" />
+              <Image
+                source={{ uri: message.authorAvatar }}
+                className="h-8 w-8 rounded-[12px]"
+              />
             ) : (
               <View
                 className="h-8 w-8 rounded-[12px] items-center justify-center"
-                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.12)" }}
+                style={{
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(34,197,94,0.12)",
+                }}
               >
-                <Text className="text-[10px] font-clash font-bold" style={{ color: colors.accent }}>
+                <Text
+                  className="text-[10px] font-clash font-bold"
+                  style={{ color: colors.accent }}
+                >
                   {getInitials(message.authorName)}
                 </Text>
               </View>
@@ -209,11 +265,14 @@ function MessageBubbleBase({
 
         <View style={{ flexShrink: 1 }}>
           {!isUser && message.authorName ? (
-            <Text className="mb-1 ml-1 text-[11px] font-outfit font-bold uppercase tracking-wider" style={{ color: colors.textSecondary }}>
+            <Text
+              className="mb-1 ml-1 text-[11px] font-outfit font-bold uppercase tracking-wider"
+              style={{ color: colors.textSecondary }}
+            >
               {message.authorName}
             </Text>
           ) : null}
-          
+
           <Swipeable
             enabled={Boolean(numericMessageId)}
             ref={(node) => {
@@ -238,12 +297,20 @@ function MessageBubbleBase({
                     borderRadius: 16,
                     justifyContent: "center",
                     alignItems: "center",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.06)"
+                      : "rgba(15,23,42,0.05)",
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(15,23,42,0.06)",
                   }}
                 >
-                  <Ionicons name="arrow-undo-outline" size={20} color={colors.accent} />
+                  <Ionicons
+                    name="arrow-undo-outline"
+                    size={20}
+                    color={colors.accent}
+                  />
                 </View>
               </View>
             )}
@@ -273,189 +340,275 @@ function MessageBubbleBase({
                   isUser && { borderBottomRightRadius: 4 },
                 ]}
               >
-              {/* Subtle background glow for user messages */}
-              {isUser && (
-                <View
-                  className="absolute -right-8 -top-8 h-24 w-24 rounded-full"
-                  style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-                />
-              )}
-
-              {message.replyToMessageId ? (
-                <Pressable
-                  onPress={() => {
-                    if (!onJumpToMessage) return;
-                    onJumpToMessage(message.replyToMessageId!);
-                  }}
-                  className="mb-3"
-                  style={{
-                    borderLeftWidth: 3,
-                    borderLeftColor: isUser
-                      ? isDark
-                        ? "rgba(255,255,255,0.6)"
-                        : "rgba(6,78,59,0.45)"
-                      : isDark
-                        ? "rgba(255,255,255,0.35)"
-                        : "rgba(15,23,42,0.2)",
-                    paddingLeft: 10,
-                    paddingVertical: 4,
-                    borderRadius: 10,
-                    backgroundColor: isUser
-                      ? isDark
-                        ? "rgba(255,255,255,0.08)"
-                        : "rgba(6,78,59,0.08)"
-                      : isDark
-                        ? "rgba(255,255,255,0.04)"
-                        : "rgba(15,23,42,0.04)",
-                  }}
-                >
-                  <Text
-                    numberOfLines={2}
-                    className="text-[12px] font-outfit font-semibold"
-                    style={{
-                      color: isUser
-                        ? isDark
-                          ? "rgba(255,255,255,0.9)"
-                          : "rgba(6,78,59,0.9)"
-                        : isDark
-                          ? "rgba(248,250,252,0.9)"
-                          : "rgba(15,23,42,0.85)",
-                    }}
-                  >
-                    {String(message.replyPreview || resolvedReplyPreview || "Replied message").trim() || "Replied message"}
-                  </Text>
-                </Pressable>
-              ) : null}
-
-              {message.mediaUrl && message.contentType === "image" ? (
-                <Pressable onPress={() => setMediaOpen(true)} className="mb-3 -mx-1">
-                  <Image
-                    source={{ uri: message.mediaUrl }}
-                    style={{ 
-                      width: mediaDimensions.width, 
-                      height: mediaDimensions.height, 
-                      borderRadius: 14 
-                    }}
-                    resizeMode="cover"
-                    onLoad={(event) => {
-                      const { width, height } = event.nativeEvent.source;
-                      if (width && height) {
-                        setImageSize({ width, height });
-                      }
-                    }}
-                  />
-                </Pressable>
-              ) : null}
-
-              {message.mediaUrl && message.contentType === "video" ? (
-                <Pressable onPress={() => setMediaOpen(true)} className="mb-3 -mx-1">
+                {/* Subtle background glow for user messages */}
+                {isUser && (
                   <View
+                    className="absolute -right-8 -top-8 h-24 w-24 rounded-full"
+                    style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                  />
+                )}
+
+                {message.replyToMessageId ? (
+                  <Pressable
+                    onPress={() => {
+                      if (!onJumpToMessage) return;
+                      onJumpToMessage(message.replyToMessageId!);
+                    }}
+                    className="mb-3"
                     style={{
-                      width: isYoutubeUrl(message.mediaUrl) ? maxMediaWidth : mediaDimensions.width,
-                      height: isYoutubeUrl(message.mediaUrl) ? youtubeBubbleHeight : mediaDimensions.height,
-                      borderRadius: 18,
-                      overflow: "hidden",
+                      borderLeftWidth: 3,
+                      borderLeftColor: isUser
+                        ? isDark
+                          ? "rgba(255,255,255,0.6)"
+                          : "rgba(6,78,59,0.45)"
+                        : isDark
+                          ? "rgba(255,255,255,0.35)"
+                          : "rgba(15,23,42,0.2)",
+                      paddingLeft: 10,
+                      paddingVertical: 4,
+                      borderRadius: 10,
+                      backgroundColor: isUser
+                        ? isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(6,78,59,0.08)"
+                        : isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.04)",
                     }}
                   >
-                    {isYoutubeUrl(message.mediaUrl) ? (
-                      <YouTubeEmbed url={message.mediaUrl} shouldPlay={false} initialMuted />
-                    ) : (
-                      <>
-                        <MessageVideoSurface
-                          uri={message.mediaUrl}
-                          height={mediaDimensions.height}
-                          onDurationMs={(durationMs) =>
-                            setVideoMeta((prev) => (prev?.durationMs === durationMs ? prev : { durationMs }))
-                          }
-                        />
-                        <View className="absolute inset-0 items-center justify-center">
-                          <View className="h-12 w-12 rounded-full bg-black/40 items-center justify-center border border-white/20">
-                            <Ionicons name="play" size={24} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                          </View>
-                        </View>
-                        {videoMeta?.durationMs ? (
-                          <View className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60">
-                            <Text className="text-[10px] font-bold font-outfit text-white">
-                              {formatDuration(videoMeta.durationMs)}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </>
-                    )}
-                  </View>
-                </Pressable>
-              ) : null}
-
-              {message.mediaUrl && message.contentType !== "image" && message.contentType !== "video" && !isAudioMessage ? (
-                <Pressable
-                  onPress={() => Linking.openURL(message.mediaUrl!)}
-                  className="mb-3 rounded-xl px-4 py-3 flex-row items-center gap-3"
-                  style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)" }}
-                >
-                  <View className="h-8 w-8 rounded-lg bg-accent/20 items-center justify-center">
-                    <Ionicons name="document-text" size={18} color={colors.accent} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-sm font-outfit font-bold" style={{ color: textColor }} numberOfLines={1}>
-                      View Document
+                    <Text
+                      numberOfLines={2}
+                      className="text-[12px] font-outfit font-semibold"
+                      style={{
+                        color: isUser
+                          ? isDark
+                            ? "rgba(255,255,255,0.9)"
+                            : "rgba(6,78,59,0.9)"
+                          : isDark
+                            ? "rgba(248,250,252,0.9)"
+                            : "rgba(15,23,42,0.85)",
+                      }}
+                    >
+                      {String(
+                        message.replyPreview ||
+                          resolvedReplyPreview ||
+                          "Replied message",
+                      ).trim() || "Replied message"}
                     </Text>
-                    <Text className="text-[11px] font-outfit" style={{ color: timeColor }}>
-                      Tap to open
-                    </Text>
-                  </View>
-                </Pressable>
-              ) : null}
-
-              <View className="gap-2">
-                {message.text && 
-                 message.text !== "Attachment" && 
-                 !/\.(jpg|jpeg|png|webp|mp4|mov|m4a)$/i.test(message.text) ? (
-                  <Text className="text-[16px] font-outfit leading-[24px]" style={{ color: textColor }}>
-                    {message.text}
-                  </Text>
+                  </Pressable>
                 ) : null}
 
-                <View className={`flex-row items-center gap-1.5 ${isUser ? "justify-end" : "justify-start"}`}>
-                  <Text className="text-[10px] font-outfit font-medium" style={{ color: timeColor }}>
-                    {message.time}
-                  </Text>
-                  {isUser ? (
-                    message.status === "read" ? (
-                      <Ionicons name="checkmark-done" size={15} color="#34B7F1" />
-                    ) : (
-                      <Ionicons name="checkmark" size={15} color={timeColor} />
-                    )
-                  ) : null}
-                </View>
-              </View>
-
-              {message.reactions?.length ? (
-                <View className="flex-row flex-wrap gap-2 mt-3 pt-3 border-t border-black/5">
-                  {message.reactions.map((reaction) => (
-                    <Pressable
-                      key={`${message.id}-${reaction.emoji}`}
-                      className="rounded-full border px-3 py-1.5 flex-row items-center gap-1.5"
+                {message.mediaUrl && message.contentType === "image" ? (
+                  <Pressable
+                    onPress={() => setMediaOpen(true)}
+                    className="mb-3 -mx-1"
+                  >
+                    <Image
+                      source={{ uri: message.mediaUrl }}
                       style={{
-                        borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(15,23,42,0.08)",
-                        backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.8)",
+                        width: mediaDimensions.width,
+                        height: mediaDimensions.height,
+                        borderRadius: 14,
                       }}
-                      onPress={() => onReactionPress(message, reaction.emoji)}
+                      resizeMode="cover"
+                      onLoad={(event) => {
+                        const { width, height } = event.nativeEvent.source;
+                        if (width && height) {
+                          setImageSize({ width, height });
+                        }
+                      }}
+                    />
+                  </Pressable>
+                ) : null}
+
+                {message.mediaUrl && message.contentType === "video" ? (
+                  <Pressable
+                    onPress={() => setMediaOpen(true)}
+                    className="mb-3 -mx-1"
+                  >
+                    <View
+                      style={{
+                        width: isYoutubeUrl(message.mediaUrl)
+                          ? maxMediaWidth
+                          : mediaDimensions.width,
+                        height: isYoutubeUrl(message.mediaUrl)
+                          ? youtubeBubbleHeight
+                          : mediaDimensions.height,
+                        borderRadius: 18,
+                        overflow: "hidden",
+                      }}
                     >
-                      <Text className="text-[12px]">{reaction.emoji}</Text>
-                      <Text className="text-[11px] font-bold font-outfit" style={{ color: textColor }}>
-                        {reaction.count}
+                      {isYoutubeUrl(message.mediaUrl) ? (
+                        <YouTubeEmbed
+                          url={message.mediaUrl}
+                          shouldPlay={false}
+                          initialMuted
+                        />
+                      ) : (
+                        <>
+                          <MessageVideoSurface
+                            uri={message.mediaUrl}
+                            height={mediaDimensions.height}
+                            onDurationMs={(durationMs) =>
+                              setVideoMeta((prev) =>
+                                prev?.durationMs === durationMs
+                                  ? prev
+                                  : { durationMs },
+                              )
+                            }
+                          />
+                          <View className="absolute inset-0 items-center justify-center">
+                            <View className="h-12 w-12 rounded-full bg-black/40 items-center justify-center border border-white/20">
+                              <Ionicons
+                                name="play"
+                                size={24}
+                                color="#FFFFFF"
+                                style={{ marginLeft: 4 }}
+                              />
+                            </View>
+                          </View>
+                          {videoMeta?.durationMs ? (
+                            <View className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60">
+                              <Text className="text-[10px] font-bold font-outfit text-white">
+                                {formatDuration(videoMeta.durationMs)}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </>
+                      )}
+                    </View>
+                  </Pressable>
+                ) : null}
+
+                {message.mediaUrl &&
+                message.contentType !== "image" &&
+                message.contentType !== "video" &&
+                !isAudioMessage ? (
+                  <Pressable
+                    onPress={() => Linking.openURL(message.mediaUrl!)}
+                    className="mb-3 rounded-xl px-4 py-3 flex-row items-center gap-3"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(15,23,42,0.05)",
+                    }}
+                  >
+                    <View className="h-8 w-8 rounded-lg bg-accent/20 items-center justify-center">
+                      <Ionicons
+                        name="document-text"
+                        size={18}
+                        color={colors.accent}
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text
+                        className="text-sm font-outfit font-bold"
+                        style={{ color: textColor }}
+                        numberOfLines={1}
+                      >
+                        View Document
                       </Text>
-                    </Pressable>
-                  ))}
+                      <Text
+                        className="text-[11px] font-outfit"
+                        style={{ color: timeColor }}
+                      >
+                        Tap to open
+                      </Text>
+                    </View>
+                  </Pressable>
+                ) : null}
+
+                <View className="gap-2">
+                  {message.text &&
+                  message.text !== "Attachment" &&
+                  !/\.(jpg|jpeg|png|webp|mp4|mov|m4a)$/i.test(message.text) ? (
+                    <Text
+                      className="text-[16px] font-outfit leading-[24px]"
+                      style={{ color: textColor }}
+                    >
+                      {message.text}
+                    </Text>
+                  ) : null}
+
+                  {token && openGraphUrls.length ? (
+                    <View className="pt-1">
+                      {openGraphUrls.map((url) => (
+                        <OpenGraphPreview
+                          key={url}
+                          url={url}
+                          token={token}
+                          compact
+                        />
+                      ))}
+                    </View>
+                  ) : null}
+
+                  <View
+                    className={`flex-row items-center gap-1.5 ${isUser ? "justify-end" : "justify-start"}`}
+                  >
+                    <Text
+                      className="text-[10px] font-outfit font-medium"
+                      style={{ color: timeColor }}
+                    >
+                      {message.time}
+                    </Text>
+                    {isUser ? (
+                      message.status === "read" ? (
+                        <Ionicons
+                          name="checkmark-done"
+                          size={15}
+                          color="#34B7F1"
+                        />
+                      ) : (
+                        <Ionicons
+                          name="checkmark"
+                          size={15}
+                          color={timeColor}
+                        />
+                      )
+                    ) : null}
+                  </View>
                 </View>
-              ) : null}
-            </Pressable>
-          </Animated.View>
+
+                {message.reactions?.length ? (
+                  <View className="flex-row flex-wrap gap-2 mt-3 pt-3 border-t border-black/5">
+                    {message.reactions.map((reaction) => (
+                      <Pressable
+                        key={`${message.id}-${reaction.emoji}`}
+                        className="rounded-full border px-3 py-1.5 flex-row items-center gap-1.5"
+                        style={{
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.15)"
+                            : "rgba(15,23,42,0.08)",
+                          backgroundColor: isDark
+                            ? "rgba(255,255,255,0.1)"
+                            : "rgba(255,255,255,0.8)",
+                        }}
+                        onPress={() => onReactionPress(message, reaction.emoji)}
+                      >
+                        <Text className="text-[12px]">{reaction.emoji}</Text>
+                        <Text
+                          className="text-[11px] font-bold font-outfit"
+                          style={{ color: textColor }}
+                        >
+                          {reaction.count}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+              </Pressable>
+            </Animated.View>
           </Swipeable>
         </View>
       </View>
 
-      <Modal visible={mediaOpen} transparent animationType="fade" onRequestClose={() => setMediaOpen(false)}>
+      <Modal
+        visible={mediaOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMediaOpen(false)}
+      >
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.98)" }}>
           <SafeAreaView style={{ flex: 1 }}>
             <View className="px-6 py-4 flex-row justify-end">
@@ -467,7 +620,13 @@ function MessageBubbleBase({
               </Pressable>
             </View>
 
-            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               {message.contentType === "image" ? (
                 <Image
                   source={{ uri: message.mediaUrl }}
@@ -478,11 +637,23 @@ function MessageBubbleBase({
                   }}
                 />
               ) : message.mediaUrl && isYoutubeUrl(message.mediaUrl) ? (
-                <View style={{ flex: 1, width: screenWidth, minHeight: screenHeight - 160 }}>
-                  <YouTubeEmbed url={message.mediaUrl} shouldPlay initialMuted={false} />
+                <View
+                  style={{
+                    flex: 1,
+                    width: screenWidth,
+                    minHeight: screenHeight - 160,
+                  }}
+                >
+                  <YouTubeEmbed
+                    url={message.mediaUrl}
+                    shouldPlay
+                    initialMuted={false}
+                  />
                 </View>
               ) : (
-                <View style={{ width: screenWidth, height: screenHeight - 150 }}>
+                <View
+                  style={{ width: screenWidth, height: screenHeight - 150 }}
+                >
                   <MessageVideoSurface
                     uri={message.mediaUrl!}
                     height={screenHeight - 150}
@@ -500,22 +671,29 @@ function MessageBubbleBase({
   );
 }
 
-const areMessageBubblesEqual = (prev: MessageBubbleProps, next: MessageBubbleProps) => {
+const areMessageBubblesEqual = (
+  prev: MessageBubbleProps,
+  next: MessageBubbleProps,
+) => {
   if (prev.message.id !== next.message.id) return false;
   if (prev.message.text !== next.message.text) return false;
   if (prev.message.time !== next.message.time) return false;
   if (prev.message.status !== next.message.status) return false;
   if (prev.message.mediaUrl !== next.message.mediaUrl) return false;
   if (prev.message.contentType !== next.message.contentType) return false;
-  if (prev.message.replyToMessageId !== next.message.replyToMessageId) return false;
+  if (prev.message.replyToMessageId !== next.message.replyToMessageId)
+    return false;
   if (prev.message.replyPreview !== next.message.replyPreview) return false;
-  if ((prev.resolvedReplyPreview ?? null) !== (next.resolvedReplyPreview ?? null)) return false;
+  if (
+    (prev.resolvedReplyPreview ?? null) !== (next.resolvedReplyPreview ?? null)
+  )
+    return false;
   if (prev.isHighlighted !== next.isHighlighted) return false;
-  
+
   const prevReactions = prev.message.reactions || [];
   const nextReactions = next.message.reactions || [];
   if (prevReactions.length !== nextReactions.length) return false;
-  
+
   for (let i = 0; i < prevReactions.length; i++) {
     if (prevReactions[i].emoji !== nextReactions[i].emoji) return false;
     if (prevReactions[i].count !== nextReactions[i].count) return false;
@@ -525,4 +703,7 @@ const areMessageBubblesEqual = (prev: MessageBubbleProps, next: MessageBubblePro
 };
 
 import { SafeAreaView } from "react-native-safe-area-context";
-export const MessageBubble = React.memo(MessageBubbleBase, areMessageBubblesEqual);
+export const MessageBubble = React.memo(
+  MessageBubbleBase,
+  areMessageBubblesEqual,
+);

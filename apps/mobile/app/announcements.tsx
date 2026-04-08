@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { Image as ExpoImage } from "expo-image";
+import { OpenGraphPreview } from "@/components/media/OpenGraphPreview";
 
 type AnnouncementItem = {
   id: number | string;
@@ -26,14 +27,16 @@ type AnnouncementItem = {
 
 type ParsedAnnouncement = {
   text: string;
-  images: string[];
-  videos: string[];
+  images: Array<{ url: string; caption: string | null }>;
+  videos: Array<{ url: string; caption: string | null }>;
+  links: string[];
 };
 
 const normalizeMediaUrl = (value: string) => {
   const trimmed = value.trim().replace(/^['"]|['"]$/g, "");
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
   if (trimmed.startsWith("http://")) return `https://${trimmed.slice(7)}`;
+  if (trimmed.startsWith("www.")) return `https://${trimmed}`;
   return encodeURI(trimmed);
 };
 
@@ -45,31 +48,50 @@ const extractAnnouncement = (item: AnnouncementItem): ParsedAnnouncement => {
         ? String(item.body)
         : (item.content ?? "")
   ).toString();
-  const images: string[] = [];
-  const videos: string[] = [];
+  const images: Array<{ url: string; caption: string | null }> = [];
+  const videos: Array<{ url: string; caption: string | null }> = [];
+  const links: string[] = [];
 
-  const imageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
-  const videoRegex = /\[Video\]\(([^)]+)\)/gi;
+  const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  const videoRegex = /\[Video([^\]]*)\]\(([^)]+)\)/gi;
+  const markdownLinkRegex = /\[[^\]]+\]\(([^)]+)\)/g;
 
   let match: RegExpExecArray | null;
   while ((match = imageRegex.exec(raw)) !== null) {
-    if (match[1]) images.push(normalizeMediaUrl(match[1]));
+    const caption = String(match[1] ?? "").trim();
+    const url = match[2] ? normalizeMediaUrl(match[2]) : "";
+    if (url) images.push({ url, caption: caption || null });
   }
   while ((match = videoRegex.exec(raw)) !== null) {
-    if (match[1]) videos.push(normalizeMediaUrl(match[1]));
+    const labelRemainder = String(match[1] ?? "").trim();
+    const caption = labelRemainder.replace(/^[:\-–—]\s*/, "").trim();
+    const url = match[2] ? normalizeMediaUrl(match[2]) : "";
+    if (url) videos.push({ url, caption: caption || null });
   }
 
-  if (images.length === 0 || videos.length === 0) {
-    const urlRegex = /(https?:\/\/[^\s)]+|\bwww\.[^\s)]+)/gi;
-    let urlMatch: RegExpExecArray | null;
-    while ((urlMatch = urlRegex.exec(raw)) !== null) {
-      const url = normalizeMediaUrl(urlMatch[1]);
-      if (/\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(url)) {
-        if (!images.includes(url)) images.push(url);
-      } else if (/\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url)) {
-        if (!videos.includes(url)) videos.push(url);
+  const urlRegex = /(https?:\/\/[^\s)]+|\bwww\.[^\s)]+)/gi;
+  let urlMatch: RegExpExecArray | null;
+  while ((urlMatch = urlRegex.exec(raw)) !== null) {
+    const url = normalizeMediaUrl(urlMatch[1]);
+    if (/\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(url)) {
+      if (!images.some((entry) => entry.url === url)) {
+        images.push({ url, caption: null });
       }
+    } else if (/\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url)) {
+      if (!videos.some((entry) => entry.url === url)) {
+        videos.push({ url, caption: null });
+      }
+    } else if (/^https?:\/\//i.test(url)) {
+      if (!links.includes(url)) links.push(url);
     }
+  }
+
+  while ((match = markdownLinkRegex.exec(raw)) !== null) {
+    const url = match[1] ? normalizeMediaUrl(match[1]) : "";
+    if (!url || !/^https?:\/\//i.test(url)) continue;
+    const isImage = images.some((entry) => entry.url === url);
+    const isVideo = videos.some((entry) => entry.url === url);
+    if (!isImage && !isVideo && !links.includes(url)) links.push(url);
   }
 
   let text = raw;
@@ -78,7 +100,7 @@ const extractAnnouncement = (item: AnnouncementItem): ParsedAnnouncement => {
   text = text.replace(/\[(.*?)\]\((.*?)\)/g, "$1");
   text = text.replace(/\n{3,}/g, "\n\n").trim();
 
-  return { text, images, videos };
+  return { text, images, videos, links };
 };
 
 export default function AnnouncementsScreen() {
@@ -259,54 +281,89 @@ export default function AnnouncementsScreen() {
 
                   {parsed.images.length ? (
                     <View className="mt-4 gap-3">
-                      {parsed.images.map((url) => (
-                        <ExpoImage
-                          key={url}
-                          source={{ uri: url }}
-                          style={{
-                            width: "100%",
-                            height: 220,
-                            borderRadius: 18,
-                          }}
-                          contentFit="cover"
-                        />
+                      {parsed.images.map((entry) => (
+                        <View key={entry.url} className="gap-2">
+                          <ExpoImage
+                            source={{ uri: entry.url }}
+                            style={{
+                              width: "100%",
+                              height: 220,
+                              borderRadius: 18,
+                            }}
+                            contentFit="cover"
+                          />
+                          {entry.caption ? (
+                            <Text
+                              className="text-[12px] font-outfit"
+                              style={{ color: colors.textSecondary }}
+                            >
+                              {entry.caption}
+                            </Text>
+                          ) : null}
+                        </View>
                       ))}
                     </View>
                   ) : null}
 
                   {parsed.videos.length ? (
                     <View className="mt-4 gap-3">
-                      {parsed.videos.map((url) =>
-                        isYoutubeUrl(url) ? (
-                          <View
-                            key={url}
-                            style={{
-                              height: 220,
-                              borderRadius: 18,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <YouTubeEmbed
-                              url={url}
-                              shouldPlay={false}
-                              initialMuted
-                            />
+                      {parsed.videos.map((entry) =>
+                        isYoutubeUrl(entry.url) ? (
+                          <View key={entry.url} className="gap-2">
+                            <View
+                              style={{
+                                height: 220,
+                                borderRadius: 18,
+                                overflow: "hidden",
+                              }}
+                            >
+                              <YouTubeEmbed
+                                url={entry.url}
+                                shouldPlay={false}
+                                initialMuted
+                              />
+                            </View>
+                            {entry.caption ? (
+                              <Text
+                                className="text-[12px] font-outfit"
+                                style={{ color: colors.textSecondary }}
+                              >
+                                {entry.caption}
+                              </Text>
+                            ) : null}
                           </View>
                         ) : (
-                          <View
-                            key={url}
-                            style={{ borderRadius: 18, overflow: "hidden" }}
-                          >
-                            <VideoPlayer
-                              uri={url}
-                              height={220}
-                              autoPlay={false}
-                              initialMuted
-                              previewOnly
-                            />
+                          <View key={entry.url} className="gap-2">
+                            <View
+                              style={{ borderRadius: 18, overflow: "hidden" }}
+                            >
+                              <VideoPlayer
+                                uri={entry.url}
+                                height={220}
+                                autoPlay={false}
+                                initialMuted
+                                previewOnly
+                              />
+                            </View>
+                            {entry.caption ? (
+                              <Text
+                                className="text-[12px] font-outfit"
+                                style={{ color: colors.textSecondary }}
+                              >
+                                {entry.caption}
+                              </Text>
+                            ) : null}
                           </View>
                         ),
                       )}
+                    </View>
+                  ) : null}
+
+                  {token && parsed.links.length ? (
+                    <View className="mt-4 gap-3">
+                      {parsed.links.slice(0, 2).map((url) => (
+                        <OpenGraphPreview key={url} url={url} token={token} />
+                      ))}
                     </View>
                   ) : null}
                 </View>

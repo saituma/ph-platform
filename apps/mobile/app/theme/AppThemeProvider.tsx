@@ -87,10 +87,9 @@ export default function AppThemeProvider({
   // For 'isDark', let's just check strict equality or system?
   // Actually, standard NativeWind usage:
   const systemScheme = useSystemColorScheme();
+  const currentScheme = (colorScheme as ColorSchemeName | undefined) ?? "light";
   const resolvedScheme =
-    colorScheme === "system"
-      ? (systemScheme ?? "light")
-      : (colorScheme ?? "light");
+    currentScheme === "system" ? (systemScheme ?? "light") : currentScheme;
   const isDark = resolvedScheme === "dark";
   const colors = isDark ? Colors.dark : Colors.light;
 
