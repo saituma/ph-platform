@@ -1,7 +1,9 @@
+import { isLiquidGlassAvailable, isGlassEffectAPIAvailable } from "expo-glass-effect";
+import { LiquidGlass } from "@/components/ui/LiquidGlass";
 import { Feather } from "@/components/ui/theme-icons";
 import { ChatMessage } from "@/constants/messages";
 import React from "react";
-import { ActivityIndicator, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, View, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -103,15 +105,22 @@ const MemoizedComposer = React.memo(({
   const handleSendPressIn = () => { sendButtonScale.value = withSpring(0.85); };
   const handleSendPressOut = () => { sendButtonScale.value = withSpring(1); };
 
+  const canUseLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+  const glassTintColor = canUseLiquidGlass
+    ? (isDark ? "rgba(12, 12, 14, 0.45)" : "rgba(255, 255, 255, 0.45)")
+    : (isDark ? colors.cardElevated : colors.background);
+
   return (
-    <View
+    <LiquidGlass
+      glassStyle="regular"
+      tintColor={glassTintColor}
+      blurIntensity={70}
       style={{
-        backgroundColor: colors.background,
         paddingBottom: isKeyboardVisible ? 12 : Math.max(12, insets.bottom),
         paddingTop: 10,
         paddingHorizontal: 12,
-        borderTopWidth: 1,
-        borderTopColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
       }}
     >
       {pendingAttachment ? (
@@ -120,7 +129,7 @@ const MemoizedComposer = React.memo(({
           exiting={FadeOutDown}
           className="mb-3 mx-1 rounded-[24px] border p-3"
           style={{
-            backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.8)",
             borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
             ...(isDark ? Shadows.none : Shadows.md),
           }}
@@ -183,7 +192,7 @@ const MemoizedComposer = React.memo(({
               alignItems: 'flex-end',
               paddingHorizontal: 4,
               paddingVertical: 4,
-              backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.7)",
               borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)",
               ...(isDark ? Shadows.none : Shadows.sm),
             }
@@ -234,7 +243,7 @@ const MemoizedComposer = React.memo(({
           )}
         </AnimatedPressable>
       </View>
-    </View>
+    </LiquidGlass>
   );
 });
 
@@ -428,11 +437,11 @@ function ThreadChatBodyBase({
   const contentContainerStyle = React.useMemo(
     () => ({
       paddingHorizontal: 12,
-      paddingTop: 14,
-      paddingBottom: 18,
+      paddingTop: 100, // Account for composer
+      paddingBottom: insets.top + 90, // Account for header
       rowGap: 12,
     }),
-    []
+    [insets.top]
   );
   const handleListScroll = React.useCallback(
     (event: { nativeEvent: { contentOffset: { y: number } } }) => {
@@ -689,7 +698,8 @@ function ThreadChatBodyBase({
         <Animated.View 
           entering={FadeInDown} 
           exiting={FadeOutDown}
-          className="px-5 pb-3"
+          className="px-5 pb-3 absolute bottom-[100px]"
+          style={{ zIndex: 10 }}
         >
           <View
             className="self-start rounded-[20px] border px-4 py-2.5 flex-row items-center gap-3"
@@ -710,7 +720,7 @@ function ThreadChatBodyBase({
         </Animated.View>
       ) : null}
 
-      <View style={{ backgroundColor: colors.background }}>
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
         {composerDisabled && disabledMessage ? (
           <View className="px-4 pb-3">
             <View

@@ -9,23 +9,29 @@ import {
 import { getAdminCoachIds, sendMessage } from "../message.service";
 import { attachDirectMessageReactions } from "../reaction.service";
 
+function asSafeLimit(value: unknown, fallback: number) {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(100, Math.floor(n)));
+}
+
+function joinNumbers(values: number[]) {
+  return sql.join(
+    values.map((value) => sql`${value}`),
+    sql`, `,
+  );
+}
+
 export async function listMessageThreadsAdmin(
   coachId: number,
   options?: { q?: string; limit?: number },
 ) {
   const q = options?.q?.trim().toLowerCase() ?? "";
-  const requestedLimit = options?.limit;
-  const limit =
-    typeof requestedLimit === "number" && Number.isFinite(requestedLimit)
-      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
-      : 50;
+  const limit = asSafeLimit(options?.limit, 50);
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
   const adminSet = new Set(adminIds);
-  const isAdminSender = inArray(messageTable.senderId, adminIds);
-  const isAdminReceiver = inArray(messageTable.receiverId, adminIds);
-  const threadOtherUserId = sql<number>`CASE WHEN ${isAdminSender} THEN ${messageTable.receiverId} ELSE ${messageTable.senderId} END`;
 
   const athleteRows = await db
     .select({
@@ -42,30 +48,40 @@ export async function listMessageThreadsAdmin(
     }
   }
 
-  const rawThreadStats = await db
-    .select({
-      rawOtherId: threadOtherUserId,
-      latestAt: sql<Date>`max(${messageTable.createdAt})`,
-      unread: sql<number>`
-        sum(
-          CASE
-            WHEN ${isAdminSender} THEN 0
-            WHEN ${messageTable.read} = false THEN 1
-            ELSE 0
-          END
-        )
-      `,
-    })
-    .from(messageTable)
-    .where(
-      and(
-        or(isAdminSender, isAdminReceiver),
-        sql`NOT (${isAdminSender} AND ${isAdminReceiver})`,
-      ),
-    )
-    .groupBy(threadOtherUserId)
-    .orderBy(desc(sql`max(${messageTable.createdAt})`))
-    .limit(limit * 8);
+  const adminIdList = joinNumbers(adminIds);
+  const rawThreadStatsResult = await db.execute(sql`
+    select
+      t.other_id as "rawOtherId",
+      max(t.created_at) as "latestAt",
+      sum(t.unread) as "unread"
+    from (
+      select
+        ${messageTable.receiverId} as other_id,
+        ${messageTable.createdAt} as created_at,
+        0::int as unread
+      from ${messageTable}
+      where
+        ${messageTable.senderId} in (${adminIdList})
+        and ${messageTable.receiverId} not in (${adminIdList})
+      union all
+      select
+        ${messageTable.senderId} as other_id,
+        ${messageTable.createdAt} as created_at,
+        case when ${messageTable.read} = false then 1 else 0 end as unread
+      from ${messageTable}
+      where
+        ${messageTable.receiverId} in (${adminIdList})
+        and ${messageTable.senderId} not in (${adminIdList})
+    ) t
+    group by t.other_id
+    order by max(t.created_at) desc
+    limit ${limit * 8}
+  `);
+  const rawThreadStats = rawThreadStatsResult.rows as Array<{
+    rawOtherId: number | string;
+    latestAt: Date | string;
+    unread: number | string | null;
+  }>;
 
   const rawOtherUserIds = rawThreadStats.map((row) => Number(row.rawOtherId)).filter((id) => Number.isFinite(id));
   if (!rawOtherUserIds.length) return [];

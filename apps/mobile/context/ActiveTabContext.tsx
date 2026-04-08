@@ -61,7 +61,7 @@ export function useActiveTabIndex(): number {
     const routeName = normalizedPath.split("/")[0] || "index";
     
     // Hardcoded known routes
-    const routes = ["programs", "messages", "index", "schedule", "more"];
+    const routes = ["programs", "messages", "index", "schedule", "tracking", "more"];
     const foundIndex = routes.indexOf(routeName);
     if (foundIndex >= 0 && _activeIndex !== foundIndex) {
       if (__DEV__) console.log(`[ActiveTabContext] PATHNAME CHANGED: ${pathname} -> Setting activeIndex to ${foundIndex}`);

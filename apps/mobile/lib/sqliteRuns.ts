@@ -15,6 +15,7 @@ export interface RunRecord {
 }
 
 const db = SQLite.openDatabaseSync("tracking_premium.db"); // new db name to prevent schema mismatch
+let isInitialized = false;
 
 export function initSQLiteRuns() {
   db.execSync(`
@@ -32,9 +33,23 @@ export function initSQLiteRuns() {
       notes TEXT
     );
   `);
+  isInitialized = true;
+}
+
+type PersonalBests = {
+  best5kSeconds: number | null;
+  longestRunMeters: number | null;
+  bestPaceMinPerKm: number | null;
+};
+
+function ensureInitialized() {
+  if (!isInitialized) {
+    initSQLiteRuns();
+  }
 }
 
 export function saveRunRecord(run: RunRecord) {
+  ensureInitialized();
   return db.runSync(
     `INSERT INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -55,6 +70,7 @@ export function saveRunRecord(run: RunRecord) {
 }
 
 export function getRecentRuns(limit: number = 3): RunRecord[] {
+  ensureInitialized();
   return db.getAllSync<RunRecord>(
     "SELECT * FROM runs ORDER BY date DESC LIMIT ?",
     [limit],
@@ -62,6 +78,7 @@ export function getRecentRuns(limit: number = 3): RunRecord[] {
 }
 
 export function getWeeklySummaries() {
+  ensureInitialized();
   const runs = db.getAllSync<RunRecord>("SELECT * FROM runs");
   
   const now = Date.now();
@@ -81,4 +98,30 @@ export function getWeeklySummaries() {
   });
 
   return { totalDistance, totalTime, numRuns };
+}
+
+export function getPersonalBests(): PersonalBests {
+  ensureInitialized();
+  const runs = db.getAllSync<RunRecord>("SELECT * FROM runs");
+
+  let best5kSeconds: number | null = null;
+  let longestRunMeters: number | null = null;
+  let bestPaceMinPerKm: number | null = null;
+
+  runs.forEach((r) => {
+    if (Number.isFinite(r.distance_meters)) {
+      longestRunMeters = longestRunMeters === null ? r.distance_meters : Math.max(longestRunMeters, r.distance_meters);
+    }
+
+    if (Number.isFinite(r.avg_pace) && r.avg_pace > 0) {
+      bestPaceMinPerKm = bestPaceMinPerKm === null ? r.avg_pace : Math.min(bestPaceMinPerKm, r.avg_pace);
+    }
+
+    // Consider "5K" anything in the 4.8–5.2km range.
+    if (r.distance_meters >= 4800 && r.distance_meters <= 5200 && Number.isFinite(r.duration_seconds) && r.duration_seconds > 0) {
+      best5kSeconds = best5kSeconds === null ? r.duration_seconds : Math.min(best5kSeconds, r.duration_seconds);
+    }
+  });
+
+  return { best5kSeconds, longestRunMeters, bestPaceMinPerKm };
 }

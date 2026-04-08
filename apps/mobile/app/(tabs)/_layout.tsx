@@ -5,7 +5,7 @@ import { getNotifications } from "@/lib/notifications";
 import { Colors } from "@/constants/theme";
 import { Redirect, Slot, usePathname, useRouter, useSegments } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { InteractionManager, Platform, View, useColorScheme } from "react-native";
+import { InteractionManager, View, useColorScheme } from "react-native";
 import { useAppSelector } from "@/store/hooks";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { FirstLoginWalkthrough } from "@/components/onboarding/FirstLoginWalkthrough";
@@ -318,10 +318,6 @@ export default function TabLayout() {
 
       lastTabKey = tab.key;
 
-      if (source === "swipe") {
-        return;
-      }
-
       // Extract current tab key to avoid redundant navigation
       const relativePart = pathname.replace(/^\/\(tabs\)\/?/, "");
       const currentTabKey = relativePart.split("/")[0] || "index";
@@ -329,11 +325,6 @@ export default function TabLayout() {
       if (tab.key !== currentTabKey) {
         const path = tab.key === "index" ? "/(tabs)" : `/(tabs)/${tab.key}`;
         
-        // Avoid native flicker and deep re-renders by not replacing the route on device.
-        if (Platform.OS !== "web") {
-          return;
-        }
-
         // Defer navigation so the gesture stays responsive.
         const token = ++pendingNavToken.current;
         InteractionManager.runAfterInteractions(() => {

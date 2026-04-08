@@ -37,10 +37,12 @@ const contentCreateSchema = z.object({
   ageList: z.array(z.number().int().min(0)).optional(),
   minAge: z.number().int().min(0).optional(),
   maxAge: z.number().int().min(0).optional(),
-  announcementAudienceType: z.enum(["all", "age", "team", "group"]).optional(),
+  announcementAudienceType: z.enum(["all", "age", "team", "group", "athlete_type", "tier"]).optional(),
   announcementAudienceAge: z.number().int().min(0).optional(),
   announcementAudienceTeam: z.string().optional(),
   announcementAudienceGroupId: z.number().int().min(1).optional(),
+  announcementAudienceAthleteType: z.enum(["youth", "adult"]).optional(),
+  announcementAudienceTier: z.enum(ProgramType.enumValues).optional(),
 }).superRefine((data, ctx) => {
   if (data.surface !== "announcements") {
     if (!data.title) {
@@ -87,6 +89,20 @@ const contentCreateSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: "Group is required for group audience.",
         path: ["announcementAudienceGroupId"],
+      });
+    }
+    if (audienceType === "athlete_type" && !data.announcementAudienceAthleteType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Athlete type is required for athlete-type audience.",
+        path: ["announcementAudienceAthleteType"],
+      });
+    }
+    if (audienceType === "tier" && !data.announcementAudienceTier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Tier is required for tier audience.",
+        path: ["announcementAudienceTier"],
       });
     }
   }
@@ -253,20 +269,24 @@ export async function createContentItem(req: Request, res: Response) {
         ? `target:team:${input.announcementAudienceTeam?.trim() ?? ""}`
         : audienceType === "group"
           ? `target:group:${input.announcementAudienceGroupId ?? ""}`
-          : null;
+          : audienceType === "athlete_type"
+            ? `target:athlete_type:${input.announcementAudienceAthleteType ?? ""}`
+            : null;
   const announcementAgeList =
     !isAnnouncement || audienceType !== "age" || input.announcementAudienceAge === undefined
       ? input.ageList
       : [input.announcementAudienceAge];
   const announcementMinAge = !isAnnouncement || audienceType !== "age" ? input.minAge : undefined;
   const announcementMaxAge = !isAnnouncement || audienceType !== "age" ? input.maxAge : undefined;
+  const announcementProgramTier =
+    !isAnnouncement || audienceType !== "tier" ? input.programTier : input.announcementAudienceTier;
 
   const item = await createContent({
     title,
     content,
     type: input.type,
     body: input.body,
-    programTier: input.programTier,
+    programTier: announcementProgramTier,
     surface: input.surface,
     category: announcementCategory,
     ageList: announcementAgeList,

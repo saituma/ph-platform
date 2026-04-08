@@ -6,8 +6,9 @@ import Animated, {
   withSequence,
   withSpring 
 } from 'react-native-reanimated';
-import { colors, fonts, radius, icons as themeIcons } from '@/constants/theme';
+import { fonts, radius, icons as themeIcons } from '@/constants/theme';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 export interface FeelTag {
   id: string;
@@ -34,6 +35,7 @@ interface FeelTagSelectorProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const TagPill = ({ tag, isSelected, onPress }: { tag: FeelTag, isSelected: boolean, onPress: () => void }) => {
+  const { colors, isDark } = useAppTheme();
   const scale = useSharedValue(1);
 
   useEffect(() => {
@@ -60,16 +62,15 @@ const TagPill = ({ tag, isSelected, onPress }: { tag: FeelTag, isSelected: boole
         {
           flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: isSelected ? colors.lime : colors.surfaceHigh,
-          borderWidth: isSelected ? 0 : 1,
-          borderColor: colors.borderMid,
+          backgroundColor: isSelected ? colors.accent : colors.cardElevated,
+          borderWidth: 1,
+          borderColor: isSelected ? colors.accent : colors.border,
           borderRadius: radius.pill,
           paddingHorizontal: 14,
           paddingVertical: 9,
-          shadowColor: isSelected ? colors.lime : 'transparent',
-          shadowOpacity: isSelected ? 0.4 : 0,
-          shadowRadius: isSelected ? 12 : 0,
-          elevation: isSelected ? 6 : 0,
+          ...(isDark || !isSelected
+            ? {}
+            : { shadowColor: colors.accent, shadowOpacity: 0.14, shadowRadius: 12, elevation: 3 }),
         }
       ]}
     >

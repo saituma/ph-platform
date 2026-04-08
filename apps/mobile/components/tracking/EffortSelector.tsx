@@ -6,8 +6,9 @@ import Animated, {
   useSharedValue,
   withSequence
 } from 'react-native-reanimated';
-import { colors, fonts, radius, icons as themeIcons } from '@/constants/theme';
+import { fonts, radius, icons as themeIcons } from '@/constants/theme';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 interface EffortSelectorProps {
   value: number;
@@ -25,6 +26,7 @@ const EFFORT_CONFIG = [
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const EffortButton = ({ config, isSelected, onPress }: { config: any, isSelected: boolean, onPress: () => void }) => {
+  const { colors, isDark } = useAppTheme();
   const scale = useSharedValue(1);
 
   useEffect(() => {
@@ -52,28 +54,27 @@ const EffortButton = ({ config, isSelected, onPress }: { config: any, isSelected
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: isSelected ? colors.limeGlow : colors.surfaceHigh,
-          borderColor: isSelected ? colors.borderLime : colors.borderMid,
-          borderWidth: isSelected ? 1.5 : 1,
+          backgroundColor: isSelected ? colors.accentLight : colors.cardElevated,
+          borderColor: isSelected ? colors.accent : colors.border,
+          borderWidth: 1,
           borderRadius: radius.lg,
           padding: 12,
-          shadowColor: isSelected ? colors.lime : 'transparent',
-          shadowOpacity: isSelected ? 0.3 : 0,
-          shadowRadius: isSelected ? 12 : 0,
-          elevation: isSelected ? 8 : 0,
+          ...(isDark || !isSelected
+            ? {}
+            : { shadowColor: colors.accent, shadowOpacity: 0.14, shadowRadius: 12, elevation: 4 }),
         }
       ]}
     >
       <IconComponent 
         name={config.icon.name as any} 
         size={24} 
-        color={isSelected ? colors.lime : colors.textSecondary} 
+        color={isSelected ? colors.accent : colors.textSecondary} 
       />
       <Text 
         style={{
           fontFamily: fonts.heroDisplay, // Britney-Bold
           fontSize: 22,
-          color: isSelected ? colors.lime : colors.textSecondary,
+          color: isSelected ? colors.text : colors.textSecondary,
           textAlign: 'center',
           marginTop: 4,
         }}
@@ -84,7 +85,7 @@ const EffortButton = ({ config, isSelected, onPress }: { config: any, isSelected
         style={{
           fontFamily: fonts.bodyMedium, // Satoshi-Medium
           fontSize: 9,
-          color: colors.textDim,
+          color: colors.textSecondary,
           textAlign: 'center',
           marginTop: 2,
         }}

@@ -14,6 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Shadows } from "@/constants/theme";
+import { isLiquidGlassAvailable, isGlassEffectAPIAvailable } from "expo-glass-effect";
 
 export interface TabConfig {
   key: string;
@@ -292,7 +293,13 @@ export function TabBar({
     .map((tab, index) => ({ tab, index }))
     .filter(({ tab }) => !tab.hidden);
 
-  const glassTintColor = isDark ? "rgba(12, 12, 14, 0.55)" : "rgba(255, 255, 255, 0.55)";
+  const canUseLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+  
+  // Use semi-transparent tint for glass, but solid opaque theme color for fallback
+  const glassTintColor = canUseLiquidGlass
+    ? (isDark ? "rgba(12, 12, 14, 0.55)" : "rgba(255, 255, 255, 0.55)")
+    : (isDark ? colors.cardElevated : colors.card);
+
   const borderTopColor = isDark ? "rgba(255, 255, 255, 0.22)" : "rgba(0, 0, 0, 0.10)";
   const highlightGradientColors: readonly [string, string, string] = isDark
     ? ["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)", "rgba(255,255,255,0.00)"]

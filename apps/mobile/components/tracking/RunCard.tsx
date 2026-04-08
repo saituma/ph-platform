@@ -1,13 +1,15 @@
-import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import React from "react";
+import { View, Pressable } from "react-native";
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
   withSpring 
-} from 'react-native-reanimated';
-import { colors, fonts, radius } from '@/constants/theme';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+} from "react-native-reanimated";
+import { fonts, radius } from "@/constants/theme";
+import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text } from "@/components/ScaledText";
 
 // Feel tag pill type for passing in data
 export type FeelTagDetails = {
@@ -36,6 +38,7 @@ export const RunCard = ({
   feelTags,
   onPress 
 }: RunCardProps) => {
+  const { colors } = useAppTheme();
   const scale = useSharedValue(1);
 
   const handlePressIn = () => {
@@ -53,18 +56,18 @@ export const RunCard = ({
   // Resolve accent color based on effort mapping: 
   // 1-2 (Lime), 3 (Purple), 4-5 (Coral)
   const getEffortColor = () => {
-    if (effortLevel === undefined) return colors.lime;
-    if (effortLevel <= 2) return colors.lime;
+    if (effortLevel === undefined) return colors.accent;
+    if (effortLevel <= 2) return colors.accent;
     if (effortLevel === 3) return colors.purple;
-    return colors.coral; // 4 or 5
+    return colors.danger; // 4 or 5
   };
 
   const effortColor = getEffortColor();
   const getEffortBorderColor = () => {
-    if (effortLevel === undefined) return colors.borderLime;
-    if (effortLevel <= 2) return colors.borderLime;
-    if (effortLevel === 3) return colors.borderPurple;
-    return colors.borderCoral; // 4 or 5
+    if (effortLevel === undefined) return colors.border;
+    if (effortLevel <= 2) return colors.border;
+    if (effortLevel === 3) return colors.border;
+    return colors.border;
   };
 
   return (
@@ -75,8 +78,8 @@ export const RunCard = ({
       style={[
         animatedStyle,
         {
-          backgroundColor: colors.surface,
-          borderColor: colors.borderSubtle,
+          backgroundColor: colors.card,
+          borderColor: colors.border,
           borderWidth: 1,
           borderRadius: radius.xl,
           padding: 16,
@@ -90,7 +93,7 @@ export const RunCard = ({
             width: 48,
             height: 48,
             borderRadius: radius.md,
-            backgroundColor: colors.surfaceHigh,
+            backgroundColor: colors.cardElevated,
             borderColor: getEffortBorderColor(),
             borderWidth: 1,
             alignItems: 'center',
@@ -102,7 +105,7 @@ export const RunCard = ({
         </View>
 
         <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.heading2, fontSize: 18, color: colors.textPrimary }}>
+          <Text style={{ fontFamily: fonts.heading2, fontSize: 18, color: colors.text }}>
             {distance}
           </Text>
           <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
@@ -111,7 +114,7 @@ export const RunCard = ({
         </View>
 
         <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginRight: 16 }}>
-          <Text style={{ fontFamily: fonts.statNumber, fontSize: 16, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
+          <Text style={{ fontFamily: fonts.statNumber, fontSize: 16, color: colors.text, fontVariant: ['tabular-nums'] }}>
             {time}
           </Text>
           <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
@@ -119,7 +122,7 @@ export const RunCard = ({
           </Text>
         </View>
 
-        <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
+        <Ionicons name="chevron-forward" size={16} color={colors.tabIconDefault} />
       </View>
 
       {/* Bottom Row tags */}
@@ -131,8 +134,8 @@ export const RunCard = ({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: colors.surfaceHigh,
-                borderColor: colors.borderMid,
+                backgroundColor: colors.cardElevated,
+                borderColor: colors.border,
                 borderWidth: 1,
                 borderRadius: radius.pill,
                 paddingHorizontal: 10,
@@ -151,7 +154,7 @@ export const RunCard = ({
 
       {/* Gradient overlay at bottom for subtle effect */}
       <LinearGradient
-        colors={[colors.surface + '00', colors.surface]}
+        colors={[`${colors.card}00`, colors.card]}
         style={{
           position: 'absolute',
           bottom: 0,

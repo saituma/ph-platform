@@ -14,25 +14,37 @@ import { Colors, fonts, radius, spacing, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@/components/ui/theme-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MeshGradient, MeshGradientPoint } from 'expo-mesh-gradient';
+import { MeshGradientView } from "expo-mesh-gradient";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// iOS 26 native mesh points for a premium athletic feel
-const MESH_POINTS: MeshGradientPoint[] = [
-  { x: 0, y: 0, color: '#07070F' },
-  { x: 0.5, y: 0, color: '#7B61FF' }, // Purple
-  { x: 1, y: 0, color: '#07070F' },
-  { x: 0, y: 0.5, color: '#00E5FF' }, // Cyan
-  { x: 0.5, y: 0.5, color: '#07070F' },
-  { x: 1, y: 0.5, color: '#C8F135' }, // Lime
-  { x: 0, y: 1, color: '#07070F' },
-  { x: 0.5, y: 1, color: '#7B61FF' },
-  { x: 1, y: 1, color: '#07070F' },
+const MESH_POINTS: number[][] = [
+  [0, 0],
+  [0.5, 0],
+  [1, 0],
+  [0, 0.5],
+  [0.5, 0.5],
+  [1, 0.5],
+  [0, 1],
+  [0.5, 1],
+  [1, 1],
+];
+
+const MESH_COLORS: string[] = [
+  "#07070F",
+  "#7B61FF",
+  "#07070F",
+  "#00E5FF",
+  "#07070F",
+  "#C8F135",
+  "#07070F",
+  "#7B61FF",
+  "#07070F",
 ];
 
 export default function LiquidGlassDemo() {
-  const colorScheme = useColorScheme() ?? 'dark';
+  const scheme = useColorScheme();
+  const colorScheme = scheme === "dark" ? "dark" : "light";
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const [glassStyle, setGlassStyle] = useState<'regular' | 'clear' | 'none'>('regular');
@@ -76,10 +88,11 @@ export default function LiquidGlassDemo() {
       >
         {/* Full Height Hero Section with iOS 26 Mesh Gradient */}
         <View style={[styles.heroSection, { height: SCREEN_HEIGHT }]}>
-          <MeshGradient
+          <MeshGradientView
             columns={3}
             rows={3}
             points={MESH_POINTS}
+            colors={MESH_COLORS}
             style={StyleSheet.absoluteFill}
           />
           

@@ -12,6 +12,12 @@ export function createApp() {
   const app = express();
 
   app.set("trust proxy", 1);
+
+  // Render and other platforms may send health checks to `/` by default.
+  // Returning 200 here avoids noisy 404s and prevents false-negative health checks.
+  app.get("/", (_req, res) => res.status(200).json({ ok: true }));
+  app.head("/", (_req, res) => res.sendStatus(200));
+
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },

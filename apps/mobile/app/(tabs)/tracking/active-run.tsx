@@ -1,82 +1,145 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, SafeAreaView } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Platform, SafeAreaView, Text, View, Pressable } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
+import Constants from "expo-constants";
+import * as Notifications from "expo-notifications";
 import { startLocationTracking, stopLocationTracking } from "../../../lib/backgroundTask";
 import { useRunStore } from "../../../store/useRunStore";
 import * as Haptics from "expo-haptics";
-import Animated, { useAnimatedStyle, withSpring, useSharedValue, withTiming, withSequence } from "react-native-reanimated";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { colors, fonts, radius, icons as themeIcons } from "@/constants/theme";
-import MapView, { Polyline, Marker } from "react-native-maps";
+import Animated, { useAnimatedStyle, withSpring, useSharedValue, withTiming } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
+import { fonts, radius, icons as themeIcons } from "@/constants/theme";
+import MapView, { Marker, Polyline, Region } from "react-native-maps";
 import { PulsingDot } from "../../../components/tracking/PulsingDot";
-import MapNightStyle from "../../../constants/mapNightStyle.json"; // Need to make sure this or similar exists, else won't crash just pass []
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+import MapNightStyle from "../../../constants/mapNightStyle.json";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { formatDistanceKm, formatDurationClock } from "../../../lib/tracking/runUtils";
+import { OsmMapView } from "../../../components/tracking/OsmMapView";
+import { haversineDistance } from "../../../lib/haversine";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
+  const { colors, isDark } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { 
     status, startRun, pauseRun, resumeRun, stopRun, 
-    tick, addCoordinate, elapsedSeconds, distanceMeters, coordinates
+    tick, addCoordinate, elapsedSeconds, distanceMeters, coordinates,
+    goalKm, destination, goalReached, destinationReached,
+    markGoalReached, markDestinationReached
   } = useRunStore();
 
   const [hasGps, setHasGps] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [followUser, setFollowUser] = useState(true);
+  const [initialRegion, setInitialRegion] = useState<Region | null>(null);
   const [showStopSheet, setShowStopSheet] = useState(false);
-  
-  const distanceAnim = useSharedValue(1);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   
   const sheetTranslateY = useSharedValue(800); 
-  const btnScaleResume = useSharedValue(1);
-  const btnScaleStop = useSharedValue(1);
-  const btnScalePause = useSharedValue(1);
+  const toastTranslateY = useSharedValue(-120);
+  const mapRef = useRef<MapView | null>(null);
+  const watchRef = useRef<Location.LocationSubscription | null>(null);
+  const isExpoGo = Constants.appOwnership === "expo";
+  const showExpoGoMapNotice = Platform.OS === "android" && isExpoGo;
+  const useOsmMap = Platform.OS === "android" && !isExpoGo;
+  const bottomBarHeight = 88;
+  const overlayGap = 16;
+  const glassBg = isDark ? "rgba(20,20,20,0.55)" : "rgba(255,255,255,0.72)";
+  const glassBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
+  const glassShadow = isDark
+    ? { shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 }
+    : { shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8 };
+
+  const stopForegroundWatch = useCallback(() => {
+    watchRef.current?.remove();
+    watchRef.current = null;
+  }, []);
+
+  const startForegroundWatch = useCallback(async () => {
+    stopForegroundWatch();
+    watchRef.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        distanceInterval: 5,
+        timeInterval: 1000,
+      },
+      (loc) => {
+        addCoordinate({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          timestamp: loc.timestamp,
+        });
+      },
+    );
+  }, [addCoordinate, stopForegroundWatch]);
 
   useEffect(() => {
     // Screen entry animation
     opacity.value = withTiming(1, { duration: 350 });
     translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
 
-    startRun();
-    setupLocation();
+    if (useRunStore.getState().status === "idle") {
+      startRun();
+    }
+    setupLocationAndPermissions();
     
     // Timer interval
     const timer = setInterval(() => {
       tick();
-      // Dev mode explicit coordination emulation
-      useRunStore.setState((s) => {
-        if (__DEV__ && s.status === "running" && s.elapsedSeconds > 0 && s.elapsedSeconds % 5 === 0) {
-           const lastLat = s.coordinates.length > 0 ? s.coordinates[s.coordinates.length - 1].latitude : 37.7749;
-           const lastLng = s.coordinates.length > 0 ? s.coordinates[s.coordinates.length - 1].longitude : -122.4194;
-           s.addCoordinate({
-             latitude: lastLat + (Math.random() * 0.001), 
-             longitude: lastLng + (Math.random() * 0.001),
-             timestamp: Date.now()
-           });
-        }
-        return s;
-      });
     }, 1000);
 
     return () => {
       clearInterval(timer);
+      stopForegroundWatch();
       stopLocationTracking();
     };
   }, []);
 
-  // Trigger distance jump
-  useEffect(() => {
-    distanceAnim.value = withSequence(
-      withSpring(1.04, { damping: 10, stiffness: 400 }),
-      withSpring(1.0, { damping: 12, stiffness: 300 })
-    );
-  }, [distanceMeters]);
+  const setupLocationAndPermissions = async () => {
+    setGpsError(null);
+    try {
+      const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+      if (fgStatus !== "granted") {
+        setGpsError("Location permission is required to track your run.");
+        setHasGps(false);
+        return;
+      }
 
-  const setupLocation = async () => {
-    await startLocationTracking();
-    setHasGps(true);
+      const current = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setInitialRegion({
+        latitude: current.coords.latitude,
+        longitude: current.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+
+      setHasGps(true);
+      await startLocationTracking();
+    } catch {
+      setGpsError("Couldn't access GPS. Please try again.");
+      setHasGps(false);
+    }
   };
+
+  useEffect(() => {
+    if (!hasGps) return;
+
+    if (status === "running") {
+      startForegroundWatch().catch(() => null);
+      startLocationTracking().catch(() => null);
+      return;
+    }
+
+    stopForegroundWatch();
+    stopLocationTracking().catch(() => null);
+  }, [hasGps, startForegroundWatch, status, stopForegroundWatch]);
 
   const openStopDialog = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -101,25 +164,24 @@ export default function ActiveRunScreen() {
     router.replace("/(tabs)/tracking/summary" as any);
   };
 
-  const formatDistance = (meters: number) => (meters / 1000).toFixed(2);
-  const formatTime = (secs: number) => {
-    const s = secs % 60;
-    const m = Math.floor(secs / 60) % 60;
-    const h = Math.floor(secs / 3600);
-    return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+  const lastCoordinate = coordinates.length > 0 ? coordinates[coordinates.length - 1] : null;
+  const activeRegion: Region | null = useMemo(() => {
+    if (lastCoordinate) {
+      return {
+        latitude: lastCoordinate.latitude,
+        longitude: lastCoordinate.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+    }
+    return initialRegion;
+  }, [initialRegion, lastCoordinate]);
 
-  const currentPace = (distanceMeters > 0 && elapsedSeconds > 0) 
-    ? ((elapsedSeconds / 60) / (distanceMeters / 1000)).toFixed(2) 
-    : "0.00";
-
-  const currentSpeed = (distanceMeters > 0 && elapsedSeconds > 0)
-    ? ((distanceMeters / 1000) / (elapsedSeconds / 3600)).toFixed(1)
-    : "0.0";
-
-  const distStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: distanceAnim.value }]
-  }));
+  useEffect(() => {
+    if (!followUser) return;
+    if (!activeRegion) return;
+    mapRef.current?.animateToRegion(activeRegion, 450);
+  }, [activeRegion, followUser]);
 
   const screenStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -132,188 +194,485 @@ export default function ActiveRunScreen() {
     transform: [{ translateY: sheetTranslateY.value }]
   }));
 
+  const toastStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: toastTranslateY.value }]
+  }));
+
+  const triggerGoalFeedback = async (title: string, body: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setToastMessage(body);
+    toastTranslateY.value = withSpring(insets.top + 12, { damping: 15, stiffness: 220 });
+    setTimeout(() => {
+      toastTranslateY.value = withSpring(-120, { damping: 15, stiffness: 220 });
+      setTimeout(() => setToastMessage(null), 300);
+    }, 2500);
+
+    try {
+      let { status } = await Notifications.getPermissionsAsync();
+      if (status !== "granted") {
+        const req = await Notifications.requestPermissionsAsync();
+        status = req.status;
+      }
+      if (status === "granted") {
+        await Notifications.scheduleNotificationAsync({
+          content: { title, body },
+          trigger: null,
+        });
+      }
+    } catch {
+      // ignore notification errors
+    }
+  };
+
+  useEffect(() => {
+    const destinationThresholdMeters = 40;
+    if (goalKm && !goalReached && distanceMeters >= goalKm * 1000) {
+      markGoalReached();
+      triggerGoalFeedback("Goal reached", "Goal reached!");
+    }
+    if (destination && !destinationReached && lastCoordinate) {
+      const dist = haversineDistance(
+        lastCoordinate.latitude,
+        lastCoordinate.longitude,
+        destination.latitude,
+        destination.longitude
+      );
+      if (dist <= destinationThresholdMeters) {
+        markDestinationReached();
+        triggerGoalFeedback("Destination reached", "Destination reached!");
+      }
+    }
+  }, [goalKm, goalReached, distanceMeters, destination, destinationReached, lastCoordinate, markGoalReached, markDestinationReached]);
+
   if (!hasGps) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name={themeIcons.gpsSearching.name as any} size={48} color={colors.warning} style={{ marginBottom: 16 }} />
         <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textSecondary }}>
-          Acquiring GPS...
+          {gpsError ?? "Acquiring GPS..."}
         </Text>
+        {gpsError ? (
+          <Pressable
+            onPress={() => setupLocationAndPermissions()}
+            style={{ marginTop: 16, paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: colors.surfaceHigh, borderWidth: 1, borderColor: colors.borderSubtle }}
+          >
+            <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>Try again</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
 
-  const activeRegion = coordinates.length > 0 ? {
-    latitude: coordinates[coordinates.length - 1].latitude,
-    longitude: coordinates[coordinates.length - 1].longitude,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  } : undefined;
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <Animated.View style={screenStyle}>
-        
-        {/* Subtle radial glow behind distance - simulated with large soft circle */}
-        <View style={{ position: 'absolute', top: '15%', left: '50%', transform: [{ translateX: -150 }], width: 300, height: 300, borderRadius: radius.pill, backgroundColor: colors.lime, opacity: 0.04, zIndex: 0 }} />
+        {/* Full screen map */}
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+          <View style={{ flex: 1 }}>
+            {activeRegion ? (
+              useOsmMap ? (
+                <OsmMapView
+                  coordinates={coordinates}
+                  routeColor={colors.mapRoute}
+                  startColor={colors.lime}
+                  endColor={colors.cyan}
+                  backgroundColor={colors.surfaceHigh}
+                  isDark={isDark}
+                  destination={destination}
+                />
+              ) : (
+                <MapView
+                  ref={(ref) => {
+                    mapRef.current = ref;
+                  }}
+                  style={{ flex: 1 }}
+                  initialRegion={activeRegion}
+                  customMapStyle={isDark ? (MapNightStyle as any) : ([] as any)}
+                  provider={Platform.OS === "android" ? "google" : undefined}
+                  mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
+                  userInterfaceStyle={isDark ? "dark" : "light"}
+                  showsUserLocation={true}
+                  showsMyLocationButton={false}
+                  pitchEnabled={false}
+                  rotateEnabled={false}
+                  onTouchStart={() => setFollowUser(false)}
+                >
+                  {coordinates.length > 1 ? (
+                    <Polyline
+                      coordinates={coordinates.map((c) => ({ latitude: c.latitude, longitude: c.longitude }))}
+                      strokeColor={colors.mapRoute}
+                      strokeWidth={4}
+                    />
+                  ) : null}
 
-        {/* Top bar */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceHigh, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderSubtle }}>
-            <PulsingDot size={6} color={colors.cyan} />
-            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.cyan, letterSpacing: 2, marginLeft: 6 }}>GPS ACTIVE</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 2 }}>DURATION</Text>
-            <Text style={{ fontFamily: fonts.statLabel, fontSize: 14, color: colors.textSecondary, fontVariant: ['tabular-nums'] }}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                  {coordinates.length > 0 ? (
+                    <>
+                      <Marker coordinate={coordinates[0]} anchor={{ x: 0.5, y: 0.5 }}>
+                        <View
+                          style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: radius.pill,
+                            backgroundColor: colors.lime,
+                            borderWidth: 2,
+                            borderColor: colors.bg,
+                          }}
+                        />
+                      </Marker>
+                      {lastCoordinate ? (
+                        <Marker
+                          coordinate={{ latitude: lastCoordinate.latitude, longitude: lastCoordinate.longitude }}
+                          anchor={{ x: 0.5, y: 0.5 }}
+                        >
+                          <PulsingDot size={8} color={colors.cyan} />
+                        </Marker>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {destination ? (
+                    <Marker coordinate={destination} anchor={{ x: 0.5, y: 1 }}>
+                      <Ionicons name="flag" size={24} color={colors.coral} />
+                    </Marker>
+                  ) : null}
+                </MapView>
+              )
+            ) : (
+              <View style={{ flex: 1, backgroundColor: colors.surfaceHigh }} />
+            )}
+
+            {/* Tone map to match app palette (especially when map can't be styled). */}
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: colors.bg,
+                opacity: isDark ? 0.14 : 0.04,
+              }}
+            />
+
+            {showExpoGoMapNotice ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  top: 12,
+                  right: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 16,
+                  backgroundColor: colors.surfaceHigh,
+                  borderWidth: 1,
+                  borderColor: colors.borderSubtle,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
+                  Expo Go can’t render Android maps without a native key.
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textSecondary, marginTop: 2 }}>
+                  Use a dev build for the real map.
+                </Text>
+              </View>
+            ) : coordinates.length < 2 ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  top: 12,
+                  right: 72,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 16,
+                  backgroundColor: colors.surfaceHigh,
+                  borderWidth: 1,
+                  borderColor: colors.borderSubtle,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
+                  Waiting for GPS lock…
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textSecondary, marginTop: 2 }}>
+                  Start moving to see your route.
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Map overlay controls */}
+            {!useOsmMap ? (
+              <View style={{ position: "absolute", top: 12, right: 12, gap: 8 }}>
+                <Pressable
+                  onPress={() => {
+                    setFollowUser(true);
+                    if (activeRegion) {
+                      mapRef.current?.animateToRegion(activeRegion, 350);
+                    }
+                  }}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: colors.surfaceHigh,
+                    borderWidth: 1,
+                    borderColor: colors.borderSubtle,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: 0.92,
+                  }}
+                >
+                  <Ionicons name="locate" size={18} color={colors.textPrimary} />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </View>
 
-        {/* Hero section */}
-        <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1, zIndex: 1 }}>
-          <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 3, marginBottom: -10 }}>DISTANCE</Text>
-          <Animated.Text 
-            style={[distStyle, { fontFamily: fonts.heroNumber, fontSize: 96, color: colors.lime, letterSpacing: -3, fontVariant: ['tabular-nums'] }]}
+        {/* Top-left status chip */}
+        <View
+          style={{
+            position: "absolute",
+            top: insets.top + 12,
+            left: 16,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: glassBg,
+              borderColor: glassBorder,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: radius.pill,
+              borderWidth: 1,
+              ...glassShadow,
+            }}
           >
-            {distanceMeters === 0 && elapsedSeconds < 2 ? "--" : formatDistance(distanceMeters)}
-          </Animated.Text>
-          <Text style={{ fontFamily: fonts.labelBold, fontSize: 18, color: colors.textSecondary, letterSpacing: 1, marginTop: -20 }}>KM</Text>
+            <PulsingDot size={6} color={status === "paused" ? colors.coral : colors.lime} />
+            <Text
+              style={{
+                fontFamily: fonts.labelCaps,
+                fontSize: 10,
+                color: status === "paused" ? colors.coral : colors.lime,
+                letterSpacing: 2,
+                marginLeft: 6,
+              }}
+            >
+              {status === "paused" ? "PAUSED" : "RUNNING"}
+            </Text>
+            <View
+              style={{
+                width: 1,
+                height: 12,
+                marginHorizontal: 10,
+                backgroundColor: colors.borderMid,
+                opacity: 0.7,
+              }}
+            />
+            <Ionicons name="navigate" size={12} color={colors.cyan} />
+            <Text
+              style={{
+                fontFamily: fonts.labelCaps,
+                fontSize: 10,
+                color: colors.cyan,
+                letterSpacing: 2,
+                marginLeft: 6,
+              }}
+            >
+              GPS
+            </Text>
+          </View>
+          {(goalKm || destination) ? (
+            <View style={{ marginTop: 8, gap: 6 }}>
+              {goalKm ? (
+                <View
+                  style={{
+                    alignSelf: "flex-start",
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: radius.pill,
+                    backgroundColor: glassBg,
+                    borderColor: glassBorder,
+                    borderWidth: 1,
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textPrimary }}>
+                    Goal: {goalKm.toFixed(1)} km
+                  </Text>
+                </View>
+              ) : null}
+              {destination ? (
+                <View
+                  style={{
+                    alignSelf: "flex-start",
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: radius.pill,
+                    backgroundColor: glassBg,
+                    borderColor: glassBorder,
+                    borderWidth: 1,
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textPrimary }}>
+                    Destination set
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
 
-          {/* Timer */}
-          <View style={{ alignItems: 'center', marginTop: 32 }}>
-            <Ionicons name={themeIcons.timer.name as any} size={14} color={colors.textDim} style={{ marginBottom: 4 }} />
-            <Text style={{ fontFamily: fonts.statNumber, fontSize: 52, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
-              {formatTime(elapsedSeconds)}
+        {/* Overlay action buttons */}
+        <View
+          style={{
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: insets.bottom + bottomBarHeight + overlayGap + 8,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={status === "paused" ? "Resume run" : "Pause run"}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              if (status === "paused") {
+                resumeRun();
+                return;
+              }
+              pauseRun();
+            }}
+            style={({ pressed }) => ({
+              height: 56,
+              minWidth: 140,
+              borderRadius: radius.pill,
+              backgroundColor: status === "paused" ? colors.lime : glassBg,
+              borderWidth: 1,
+              borderColor: status === "paused" ? colors.borderLime : glassBorder,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 16,
+              opacity: pressed ? 0.82 : 1,
+              transform: [{ scale: pressed ? 0.985 : 1 }],
+              ...glassShadow,
+            })}
+          >
+            <Ionicons
+              name={(status === "paused" ? themeIcons.resume.name : themeIcons.pause.name) as any}
+              size={20}
+              color={status === "paused" ? colors.textInverse : colors.textPrimary}
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={{
+                fontFamily: fonts.heading2,
+                fontSize: 14,
+                color: status === "paused" ? colors.textInverse : colors.textPrimary,
+                letterSpacing: 0.6,
+              }}
+            >
+              {status === "paused" ? "RESUME" : "PAUSE"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Stop run"
+            onPress={openStopDialog}
+            style={({ pressed }) => ({
+              height: 56,
+              minWidth: 120,
+              borderRadius: radius.pill,
+              backgroundColor: colors.coralGlow,
+              borderWidth: 1,
+              borderColor: colors.borderCoral,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 16,
+              opacity: pressed ? 0.82 : 1,
+              transform: [{ scale: pressed ? 0.985 : 1 }],
+              ...glassShadow,
+            })}
+          >
+            <Ionicons name={themeIcons.stop.name as any} size={20} color={colors.coral} style={{ marginRight: 8 }} />
+            <Text style={{ fontFamily: fonts.heading2, fontSize: 14, color: colors.coral, letterSpacing: 0.6 }}>
+              STOP
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Bottom overlay bar */}
+        <View
+          style={{
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: insets.bottom + 16,
+            height: bottomBarHeight,
+            backgroundColor: glassBg,
+            borderColor: glassBorder,
+            borderWidth: 1,
+            borderRadius: radius.xl,
+            paddingHorizontal: 20,
+            paddingVertical: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            ...glassShadow,
+          }}
+        >
+          <View>
+            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 2 }}>
+              TIME
+            </Text>
+            <Text style={{ fontFamily: fonts.statLabel, fontSize: 20, color: colors.textPrimary }}>
+              {formatDurationClock(elapsedSeconds)}
+            </Text>
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 2 }}>
+              DISTANCE
+            </Text>
+            <Text style={{ fontFamily: fonts.statLabel, fontSize: 20, color: colors.textPrimary }}>
+              {distanceMeters === 0 && elapsedSeconds < 2 ? "--" : formatDistanceKm(distanceMeters, 2)} km
             </Text>
           </View>
         </View>
 
-        {/* Secondary stats row */}
-        <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 12, marginBottom: 20 }}>
-          {/* Pace tile */}
-          <View style={{ flex: 1, backgroundColor: colors.surface, borderColor: colors.borderMid, borderWidth: 1, borderRadius: radius.lg, padding: 16, paddingLeft: 19 }}>
-            <View style={{ position: 'absolute', left: 0, top: 16, bottom: 16, width: 3, backgroundColor: colors.purple, borderTopRightRadius: radius.pill, borderBottomRightRadius: radius.pill }} />
-            <MaterialCommunityIcons name={themeIcons.pace.name as any} size={18} color={colors.purple} style={{ marginBottom: 8 }} />
-            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textDim, letterSpacing: 2 }}>PACE</Text>
-            <Text style={{ fontFamily: fonts.statNumber, fontSize: 26, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>{currentPace}</Text>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>MIN/KM</Text>
-          </View>
-          {/* Speed tile */}
-          <View style={{ flex: 1, backgroundColor: colors.surface, borderColor: colors.borderMid, borderWidth: 1, borderRadius: radius.lg, padding: 16, paddingLeft: 19 }}>
-            <View style={{ position: 'absolute', left: 0, top: 16, bottom: 16, width: 3, backgroundColor: colors.cyan, borderTopRightRadius: radius.pill, borderBottomRightRadius: radius.pill }} />
-            <Ionicons name={themeIcons.speed.name as any} size={18} color={colors.cyan} style={{ marginBottom: 8 }} />
-            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textDim, letterSpacing: 2 }}>SPEED</Text>
-            <Text style={{ fontFamily: fonts.statNumber, fontSize: 26, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>{currentSpeed}</Text>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>KM/H</Text>
-          </View>
-        </View>
-
-        {/* Mini route map */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
-          <View style={{ height: 150, borderRadius: radius.xl, borderColor: colors.borderSubtle, borderWidth: 1, overflow: 'hidden' }}>
-            {coordinates.length > 0 ? (
-              <MapView 
-                style={{ flex: 1 }} 
-                initialRegion={activeRegion}
-                region={activeRegion}
-                scrollEnabled={false}
-                zoomEnabled={false}
-                provider="google"
-                customMapStyle={[]} // Empty array if style not found, avoids crash. In production supply NightStyle JSON array here.
-              >
-                <Polyline 
-                  coordinates={coordinates.map(c => ({ latitude: c.latitude, longitude: c.longitude }))} 
-                  strokeColor={colors.mapRoute} 
-                  strokeWidth={3} 
-                />
-                <Marker coordinate={coordinates[coordinates.length - 1]}>
-                  <PulsingDot size={8} color={colors.cyan} />
-                </Marker>
-              </MapView>
-            ) : (
-              <View style={{ flex: 1, backgroundColor: colors.surfaceHigh }} />
-            )}
-          </View>
-        </View>
-
-        {/* Controls — bottom section */}
-        <View style={{ paddingHorizontal: 20, paddingBottom: 20, flexDirection: 'row', justifyContent: 'center' }}>
-          {status === "paused" ? (
-            <View style={{ flexDirection: 'row', width: '100%', gap: 16 }}>
-              {/* RESUME */}
-              <AnimatedPressable 
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  resumeRun();
-                }}
-                onPressIn={() => btnScaleResume.value = withSpring(0.96, { damping: 15, stiffness: 300 })}
-                onPressOut={() => btnScaleResume.value = withSpring(1, { damping: 15, stiffness: 300 })}
-                style={[useAnimatedStyle(() => ({ transform: [{ scale: btnScaleResume.value }] })), {
-                  flex: 1.5,
-                  height: 72,
-                  borderRadius: radius.xxl,
-                  backgroundColor: colors.lime,
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  shadowColor: colors.lime,
-                  shadowOpacity: 0.4,
-                  shadowRadius: 24,
-                  shadowOffset: { width: 0, height: 10 },
-                  elevation: 10,
-                }]}
-              >
-                <Ionicons name={themeIcons.resume.name as any} size={28} color={colors.textInverse} style={{ marginRight: 8 }} />
-                <Text style={{ fontFamily: fonts.heading1, fontSize: 18, color: colors.textInverse }}>RESUME</Text>
-              </AnimatedPressable>
-
-              {/* STOP */}
-              <AnimatedPressable 
-                onPress={openStopDialog}
-                onPressIn={() => btnScaleStop.value = withSpring(0.96, { damping: 15, stiffness: 300 })}
-                onPressOut={() => btnScaleStop.value = withSpring(1, { damping: 15, stiffness: 300 })}
-                style={[useAnimatedStyle(() => ({ transform: [{ scale: btnScaleStop.value }] })), {
-                  flex: 1,
-                  height: 72,
-                  backgroundColor: colors.coralGlow,
-                  borderColor: colors.borderCoral,
-                  borderWidth: 1,
-                  borderRadius: radius.xxl,
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }]}
-              >
-                <Ionicons name={themeIcons.stop.name as any} size={24} color={colors.coral} style={{ marginRight: 8 }} />
-                <Text style={{ fontFamily: fonts.heading2, fontSize: 16, color: colors.coral }}>STOP</Text>
-              </AnimatedPressable>
-            </View>
-          ) : (
-            /* PAUSE */
-            <AnimatedPressable 
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                pauseRun();
-              }}
-              onPressIn={() => btnScalePause.value = withSpring(0.96, { damping: 15, stiffness: 300 })}
-              onPressOut={() => btnScalePause.value = withSpring(1, { damping: 15, stiffness: 300 })}
-              style={[useAnimatedStyle(() => ({ transform: [{ scale: btnScalePause.value }] })), {
-                width: '100%',
-                height: 72,
+        {toastMessage ? (
+          <Animated.View
+            style={[
+              toastStyle,
+              {
+                position: "absolute",
+                top: 0,
+                left: 16,
+                right: 16,
+                padding: 12,
+                borderRadius: radius.xl,
                 backgroundColor: colors.surfaceHigh,
-                borderColor: colors.borderMid,
+                borderColor: colors.borderSubtle,
                 borderWidth: 1,
-                borderRadius: radius.xxl,
-                flexDirection: 'row', 
-                justifyContent: 'center', 
-                alignItems: 'center'
-              }]}
-            >
-               <Ionicons name={themeIcons.pause.name as any} size={28} color={colors.textPrimary} style={{ marginRight: 8 }} />
-               <Text style={{ fontFamily: fonts.heading2, fontSize: 18, color: colors.textPrimary }}>PAUSE</Text>
-            </AnimatedPressable>
-          )}
-        </View>
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 200,
+              },
+            ]}
+          >
+            <Text style={{ fontFamily: fonts.heading3, fontSize: 14, color: colors.textPrimary }}>
+              {toastMessage}
+            </Text>
+          </Animated.View>
+        ) : null}
 
         {/* Stop confirmation bottom sheet */}
         {showStopSheet && (
@@ -328,7 +687,7 @@ export default function ActiveRunScreen() {
                 backgroundColor: colors.surfaceHigh, 
                 borderTopColor: colors.borderMid, borderTopWidth: 1, 
                 borderTopLeftRadius: 32, borderTopRightRadius: 32, 
-                paddingTop: 16, paddingHorizontal: 24, paddingBottom: 40,
+                paddingTop: 16, paddingHorizontal: 24, paddingBottom: 32 + insets.bottom,
                 zIndex: 100 
               }]}
             >
@@ -341,12 +700,12 @@ export default function ActiveRunScreen() {
               </View>
 
               <View style={{ flexDirection: 'row', gap: 12, marginBottom: 32 }}>
-                <View style={{ flex: 1, backgroundColor: colors.surface, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: radius.xl, padding: 16, alignItems: 'center' }}>
-                   <Text style={{ fontFamily: fonts.statNumber, fontSize: 28, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>{formatDistance(distanceMeters)}</Text>
+              <View style={{ flex: 1, backgroundColor: colors.surface, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: radius.xl, padding: 16, alignItems: 'center' }}>
+                   <Text style={{ fontFamily: fonts.statNumber, fontSize: 28, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>{formatDistanceKm(distanceMeters, 2)}</Text>
                    <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, letterSpacing: 2, color: colors.textSecondary }}>KM</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: colors.surface, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: radius.xl, padding: 16, alignItems: 'center' }}>
-                   <Text style={{ fontFamily: fonts.statNumber, fontSize: 28, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>{formatTime(elapsedSeconds)}</Text>
+                   <Text style={{ fontFamily: fonts.statNumber, fontSize: 28, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>{formatDurationClock(elapsedSeconds)}</Text>
                    <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, letterSpacing: 2, color: colors.textSecondary }}>TIME</Text>
                 </View>
               </View>

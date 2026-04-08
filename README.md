@@ -14,6 +14,9 @@ A cross-platform mobile-first fitness coaching app for youth football athletes, 
 - Video uploads and feedback for Premium users  
 - Admin portal to manage users, content, bookings, and programs  
 
+## Design System (for AI agents)
+This repo includes a Stitch-style `DESIGN.md` in the project root. Use it as the source of truth for UI look/feel when generating or refactoring screens.
+
 ## Folder Structure
 ```
 
@@ -42,5 +45,4 @@ Run each app:
 pnpm --filter mobile dev    # Mobile app
 pnpm --filter web dev       # Admin dashboard
 pnpm --filter api dev       # Backend API
-
 

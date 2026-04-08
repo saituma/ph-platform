@@ -40,6 +40,7 @@ type Module = {
   id: number;
   title: string;
   order: number;
+  locked: boolean;
   sessions: ModuleSession[];
 };
 
