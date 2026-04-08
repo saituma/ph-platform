@@ -37,6 +37,15 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Maps (react-native-maps)
+
+This app uses `react-native-maps`. On **Android**, Google Maps requires an API key.
+
+- Set `GOOGLE_MAPS_API_KEY` (or `ANDROID_GOOGLE_MAPS_API_KEY`) in your environment/EAS build env (it’s read by Gradle).
+- Rebuild the native app after setting it (dev client / `expo run:android`).
+
+If Android build fails with `Unsupported class file major version 70`, you’re likely running Java 26. Switch to a supported JDK (JDK 17 is the safest default for Android builds) and retry.
+
 ## Get a fresh project
 
 When you're ready, run:

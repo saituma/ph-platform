@@ -1,6 +1,5 @@
 import React from "react";
 import { Platform, StyleSheet, View, type ViewProps } from "react-native";
-import { BlurView } from "expo-blur";
 import {
   GlassContainer as ExpoGlassContainer,
   GlassView,
@@ -10,16 +9,13 @@ import {
   isLiquidGlassAvailable,
 } from "expo-glass-effect";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { Colors } from "@/constants/theme";
 
 function normalizeTintColor(tintColor?: string) {
   if (!tintColor) return undefined;
   const trimmed = tintColor.trim().toLowerCase();
   if (!trimmed || trimmed === "transparent") return undefined;
   return tintColor;
-}
-
-function getDefaultOverlayColor(colorScheme: "light" | "dark") {
-  return colorScheme === "dark" ? "rgba(10, 10, 10, 0.18)" : "rgba(255, 255, 255, 0.14)";
 }
 
 /**
@@ -52,11 +48,13 @@ export interface LiquidGlassProps extends ViewProps {
   /**
    * Intensity of the fallback blur on Android/unsupported platforms.
    * @default 80
+   * @deprecated Fallback is now a solid color.
    */
   blurIntensity?: number;
 
   /**
    * Tint color for the fallback blur.
+   * @deprecated Fallback is now a solid color.
    */
   blurTint?: 'light' | 'dark' | 'default';
 }
@@ -64,11 +62,6 @@ export interface LiquidGlassProps extends ViewProps {
 /**
  * A reusable Liquid Glass component that provides native iOS liquid glass effects
  * with an elegant fallback for Android and older iOS versions.
- * 
- * @example
- * <LiquidGlass style={{ width: 200, height: 100, borderRadius: 12 }}>
- *   <Text>Glass Content</Text>
- * </LiquidGlass>
  */
 export const LiquidGlass: React.FC<LiquidGlassProps> = ({
   children,
@@ -83,7 +76,6 @@ export const LiquidGlass: React.FC<LiquidGlassProps> = ({
 }) => {
   const systemColorScheme = useColorScheme();
   const resolvedColorScheme = systemColorScheme === "light" ? "light" : "dark";
-  const resolvedBlurTint = blurTint || (resolvedColorScheme === "dark" ? "dark" : "light");
   const normalizedTintColor = normalizeTintColor(tintColor);
 
   // Check if liquid glass is available on this device
@@ -104,31 +96,18 @@ export const LiquidGlass: React.FC<LiquidGlassProps> = ({
     );
   }
 
-  // Fallback for Android and unsupported iOS versions
-  const overlayColor = normalizedTintColor ?? getDefaultOverlayColor(resolvedColorScheme);
+  // Fallback for Android and unsupported iOS versions: Opaque solid color from theme
+  const fallbackColor = normalizedTintColor ?? (resolvedColorScheme === 'dark' ? Colors.dark.cardElevated : Colors.light.card);
+
   return (
     <View 
       style={[
         styles.fallbackContainer, 
+        { backgroundColor: fallbackColor },
         style,
       ]} 
       {...props}
     >
-      <BlurView
-        intensity={blurIntensity}
-        tint={resolvedBlurTint}
-        style={[
-          StyleSheet.absoluteFill,
-        ]}
-        pointerEvents="none"
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: overlayColor },
-        ]}
-      />
       {children}
     </View>
   );

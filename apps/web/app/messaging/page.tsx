@@ -117,10 +117,12 @@ export default function MessagingPage() {
 
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementBody, setAnnouncementBody] = useState("");
-  const [announcementAudienceType, setAnnouncementAudienceType] = useState<"all" | "age" | "team" | "group">("all");
-  const [announcementAudienceAge, setAnnouncementAudienceAge] = useState("");
+  const [announcementAudienceType, setAnnouncementAudienceType] = useState<
+    "all" | "youth" | "adult" | "team" | "group" | "tier"
+  >("all");
   const [announcementAudienceTeam, setAnnouncementAudienceTeam] = useState("");
   const [announcementAudienceGroupId, setAnnouncementAudienceGroupId] = useState("");
+  const [announcementAudienceTier, setAnnouncementAudienceTier] = useState("");
 
   const [threadUserId, setThreadUserId] = useState<number | null>(null);
   const [highlightedInboxThreadUserId, setHighlightedInboxThreadUserId] = useState<number | null>(null);
@@ -379,12 +381,7 @@ export default function MessagingPage() {
 
   const handleCreateAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) return;
-    const parsedAudienceAge = Number(announcementAudienceAge);
     const parsedAudienceGroupId = Number(announcementAudienceGroupId);
-    if (announcementAudienceType === "age" && !Number.isFinite(parsedAudienceAge)) {
-      toast.error("Missing age", "Choose an age for this announcement audience.");
-      return;
-    }
     if (announcementAudienceType === "team" && !announcementAudienceTeam.trim()) {
       toast.error("Missing team", "Choose a team for this announcement audience.");
       return;
@@ -393,6 +390,19 @@ export default function MessagingPage() {
       toast.error("Missing group", "Choose a group for this announcement audience.");
       return;
     }
+    if (announcementAudienceType === "tier" && !announcementAudienceTier) {
+      toast.error("Missing tier", "Choose a tier for this announcement audience.");
+      return;
+    }
+
+    const apiAudienceType =
+      announcementAudienceType === "youth" || announcementAudienceType === "adult"
+        ? "athlete_type"
+        : announcementAudienceType;
+    const apiAthleteType =
+      announcementAudienceType === "youth" || announcementAudienceType === "adult"
+        ? announcementAudienceType
+        : undefined;
 
     try {
       await createAnnouncement({
@@ -401,17 +411,18 @@ export default function MessagingPage() {
         body: announcementBody.trim(),
         type: "article",
         surface: "announcements",
-        announcementAudienceType,
-        announcementAudienceAge: announcementAudienceType === "age" ? parsedAudienceAge : undefined,
+        announcementAudienceType: apiAudienceType,
+        announcementAudienceAthleteType: apiAthleteType,
+        announcementAudienceTier: announcementAudienceType === "tier" ? announcementAudienceTier : undefined,
         announcementAudienceTeam: announcementAudienceType === "team" ? announcementAudienceTeam.trim() : undefined,
         announcementAudienceGroupId: announcementAudienceType === "group" ? parsedAudienceGroupId : undefined,
       }).unwrap();
       setAnnouncementTitle("");
       setAnnouncementBody("");
       setAnnouncementAudienceType("all");
-      setAnnouncementAudienceAge("");
       setAnnouncementAudienceTeam("");
       setAnnouncementAudienceGroupId("");
+      setAnnouncementAudienceTier("");
       refetchAnnouncements();
       toast.success("Announcement sent", "Your announcement is now visible to users.");
     } catch {
@@ -735,28 +746,19 @@ export default function MessagingPage() {
                     <Select
                       value={announcementAudienceType}
                       onChange={(event) =>
-                        setAnnouncementAudienceType(event.target.value as "all" | "age" | "team" | "group")
+                        setAnnouncementAudienceType(
+                          event.target.value as "all" | "youth" | "adult" | "team" | "group" | "tier"
+                        )
                       }
                     >
                       <option value="all">All users</option>
-                      <option value="age">Specific age</option>
+                      <option value="youth">Youth athletes</option>
+                      <option value="adult">Adult athletes</option>
                       <option value="team">Specific team</option>
                       <option value="group">Specific group</option>
+                      <option value="tier">Program tier</option>
                     </Select>
                   </div>
-                  {announcementAudienceType === "age" ? (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Age</p>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        placeholder="e.g. 7"
-                        value={announcementAudienceAge}
-                        onChange={(event) => setAnnouncementAudienceAge(event.target.value)}
-                      />
-                    </div>
-                  ) : null}
                   {announcementAudienceType === "team" ? (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">Team</p>
@@ -789,6 +791,21 @@ export default function MessagingPage() {
                       </Select>
                     </div>
                   ) : null}
+                  {announcementAudienceType === "tier" ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Tier</p>
+                      <Select
+                        value={announcementAudienceTier}
+                        onChange={(event) => setAnnouncementAudienceTier(event.target.value)}
+                      >
+                        <option value="">Choose a tier</option>
+                        <option value="PHP">PHP</option>
+                        <option value="PHP_Premium">PHP Premium</option>
+                        <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                        <option value="PHP_Pro">PHP Pro</option>
+                      </Select>
+                    </div>
+                  ) : null}
                 </div>
                 <Textarea
                   placeholder="Write announcement message"
@@ -802,9 +819,9 @@ export default function MessagingPage() {
                     isCreatingAnnouncement ||
                     !announcementTitle.trim() ||
                     !announcementBody.trim() ||
-                    (announcementAudienceType === "age" && !announcementAudienceAge) ||
                     (announcementAudienceType === "team" && !announcementAudienceTeam) ||
-                    (announcementAudienceType === "group" && !announcementAudienceGroupId)
+                    (announcementAudienceType === "group" && !announcementAudienceGroupId) ||
+                    (announcementAudienceType === "tier" && !announcementAudienceTier)
                   }
                 >
                   {isCreatingAnnouncement ? "Sending..." : "Send announcement"}

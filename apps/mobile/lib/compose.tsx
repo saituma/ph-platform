@@ -1,8 +1,8 @@
-import React, { ReactNode } from "react";
+import React, { ReactElement } from "react";
 
 interface ComposeProps {
   providers: Array<React.JSXElementConstructor<React.PropsWithChildren<any>>>;
-  children: ReactNode;
+  children: ReactElement;
 }
 
 /**
@@ -12,7 +12,7 @@ interface ComposeProps {
 export function Compose({ providers, children }: ComposeProps) {
   return (
     <>
-      {providers.reduceRight((acc, Provider) => {
+      {providers.reduceRight<ReactElement>((acc, Provider) => {
         return <Provider>{acc}</Provider>;
       }, children)}
     </>

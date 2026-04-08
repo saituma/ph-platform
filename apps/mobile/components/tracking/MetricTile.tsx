@@ -1,7 +1,9 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { colors, fonts, radius } from '@/constants/theme';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import React from "react";
+import { View } from "react-native";
+import { fonts, radius } from "@/constants/theme";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text } from "@/components/ScaledText";
 
 interface MetricTileProps {
   iconLibrary: 'Ionicons' | 'MaterialCommunityIcons';
@@ -22,12 +24,13 @@ export const MetricTile = ({
   unit,
   accentColor 
 }: MetricTileProps) => {
+  const { colors } = useAppTheme();
   return (
     <View 
       style={{
         flex: 1,
-        backgroundColor: colors.surface,
-        borderColor: colors.borderSubtle,
+        backgroundColor: colors.card,
+        borderColor: colors.border,
         borderWidth: 1,
         borderRadius: radius.lg,
         padding: 16,
@@ -53,7 +56,7 @@ export const MetricTile = ({
         width: 32,
         height: 32,
         borderRadius: radius.md,
-        backgroundColor: colors.surfaceHigh,
+        backgroundColor: colors.cardElevated,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 12,
@@ -82,7 +85,7 @@ export const MetricTile = ({
         <Text style={{ 
           fontFamily: fonts.statNumber, 
           fontSize: 28, 
-          color: colors.textPrimary,
+          color: colors.text,
           fontVariant: ['tabular-nums'],
         }}>
           {value}

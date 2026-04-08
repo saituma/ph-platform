@@ -10,6 +10,11 @@ interface Coordinate {
   timestamp: number;
 }
 
+interface Destination {
+  latitude: number;
+  longitude: number;
+}
+
 interface RunStore {
   status: 'idle' | 'running' | 'paused' | 'stopped';
   startTime: number | null;
@@ -18,6 +23,10 @@ interface RunStore {
   distanceMeters: number;
   coordinates: Coordinate[];
   elapsedSeconds: number;
+  goalKm: number | null;
+  destination: Destination | null;
+  goalReached: boolean;
+  destinationReached: boolean;
 
   startRun: () => void;
   pauseRun: () => void;
@@ -26,6 +35,10 @@ interface RunStore {
   resetRun: () => void;
   addCoordinate: (coord: Coordinate) => void;
   tick: () => void;
+  setGoalKm: (km: number | null) => void;
+  setDestination: (dest: Destination | null) => void;
+  markGoalReached: () => void;
+  markDestinationReached: () => void;
 }
 
 export const useRunStore = create<RunStore>((set) => ({
@@ -36,6 +49,10 @@ export const useRunStore = create<RunStore>((set) => ({
   distanceMeters: 0,
   coordinates: [],
   elapsedSeconds: 0,
+  goalKm: null,
+  destination: null,
+  goalReached: false,
+  destinationReached: false,
 
   startRun: () => {
     set({
@@ -81,6 +98,10 @@ export const useRunStore = create<RunStore>((set) => ({
       distanceMeters: 0,
       coordinates: [],
       elapsedSeconds: 0,
+      goalKm: null,
+      destination: null,
+      goalReached: false,
+      destinationReached: false,
     });
   },
 
@@ -125,4 +146,9 @@ export const useRunStore = create<RunStore>((set) => ({
       };
     });
   },
+
+  setGoalKm: (km) => set({ goalKm: km, goalReached: false }),
+  setDestination: (dest) => set({ destination: dest, destinationReached: false }),
+  markGoalReached: () => set({ goalReached: true }),
+  markDestinationReached: () => set({ destinationReached: true }),
 }));

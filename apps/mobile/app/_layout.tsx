@@ -9,7 +9,7 @@ import { HeroAppProvider } from "@/components/ui/hero";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
 import { StatusBar } from "expo-status-bar";
-import React, { PropsWithChildren } from "react";
+import React, { PropsWithChildren, ReactElement } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -22,16 +22,16 @@ import { Compose } from "@/lib/compose";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 
-const GestureRoot = ({ children }: PropsWithChildren) => (
+const GestureRoot = ({ children }: { children: ReactElement }) => (
   <GestureHandlerRootView style={{ flex: 1 }}>{children}</GestureHandlerRootView>
 );
 
-const StripeWrapper = ({ children }: PropsWithChildren) => {
+const StripeWrapper = ({ children }: { children: ReactElement }) => {
   const publishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
   return <StripeProvider publishableKey={publishableKey}>{children}</StripeProvider>;
 };
 
-const QueryWrapper = ({ children }: PropsWithChildren) => (
+const QueryWrapper = ({ children }: { children: ReactElement }) => (
   <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 );
 

@@ -40,6 +40,7 @@ export async function getTestimonialSubmissions() {
 
 const TEAM_TARGET_PREFIX = "target:team:";
 const GROUP_TARGET_PREFIX = "target:group:";
+const ATHLETE_TYPE_TARGET_PREFIX = "target:athlete_type:";
 
 function parseAnnouncementAudience(item: typeof contentTable.$inferSelect) {
   const category = String(item.category ?? "").trim();
@@ -51,6 +52,15 @@ function parseAnnouncementAudience(item: typeof contentTable.$inferSelect) {
     if (Number.isFinite(groupId)) {
       return { type: "group" as const, groupId };
     }
+  }
+  if (category.toLowerCase().startsWith(ATHLETE_TYPE_TARGET_PREFIX)) {
+    const athleteType = category.slice(ATHLETE_TYPE_TARGET_PREFIX.length).trim().toLowerCase();
+    if (athleteType === "youth" || athleteType === "adult") {
+      return { type: "athlete_type" as const, athleteType };
+    }
+  }
+  if (item.programTier) {
+    return { type: "tier" as const, tier: item.programTier };
   }
   if (Array.isArray(item.ageList) || item.minAge != null || item.maxAge != null) {
     return { type: "age" as const };
@@ -77,6 +87,14 @@ async function resolveAnnouncementAudienceContext(userId: number) {
   const ages = relatedAthletes
     .map((athlete) => resolveAgeFromAthlete(athlete))
     .filter((age): age is number => Number.isFinite(age));
+  const athleteTypes = new Set(
+    relatedAthletes.map((athlete) => String(athlete.athleteType ?? "").trim().toLowerCase()).filter((val) => val.length > 0),
+  );
+  const tiers = new Set(
+    relatedAthletes
+      .map((athlete) => athlete.currentProgramTier)
+      .filter((tier): tier is (typeof ProgramType.enumValues)[number] => Boolean(tier)),
+  );
 
   const groupRows = await db
     .select({ groupId: chatGroupMemberTable.groupId })
@@ -84,7 +102,7 @@ async function resolveAnnouncementAudienceContext(userId: number) {
     .where(eq(chatGroupMemberTable.userId, userId));
   const groupIds = new Set(groupRows.map((row) => Number(row.groupId)).filter((value) => Number.isFinite(value)));
 
-  return { teams, ages, groupIds };
+  return { teams, ages, groupIds, athleteTypes, tiers };
 }
 
 export async function getAnnouncements(userId?: number, role?: string) {
@@ -104,6 +122,8 @@ export async function getAnnouncements(userId?: number, role?: string) {
     if (audience.type === "all") return true;
     if (audience.type === "team") return context.teams.has(audience.team);
     if (audience.type === "group") return context.groupIds.has(audience.groupId);
+    if (audience.type === "athlete_type") return context.athleteTypes.has(audience.athleteType);
+    if (audience.type === "tier") return context.tiers.has(audience.tier);
     return context.ages.some((age) => matchesAgeRange(item, age));
   });
 }
@@ -151,7 +171,7 @@ export async function replaceStories(stories: StoryInput[], userId: number) {
   });
 }
 
-function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
+export function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
   if (birthDate) {
@@ -165,7 +185,7 @@ async function resolveAthleteAge(userId: number) {
   return resolveAgeFromAthlete(athlete[0]);
 }
 
-function matchesAgeRange(
+export function matchesAgeRange(
   item: { minAge?: number | null; maxAge?: number | null; ageList?: unknown | null },
   age: number | null
 ) {

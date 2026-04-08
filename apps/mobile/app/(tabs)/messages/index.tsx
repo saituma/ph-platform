@@ -3,7 +3,7 @@ import { InboxScreen } from "@/components/messages/InboxScreen";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
 import { Pressable, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { Text } from "@/components/ScaledText";
@@ -19,18 +19,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
+
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.user.token);
   const programTier = useAppSelector((state) => state.user.programTier);
-  const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
+  const messagingAccessTiers = useAppSelector(
+    (state) => state.user.messagingAccessTiers,
+  );
   const appRole = useAppSelector((state) => state.user.appRole);
   const profile = useAppSelector((state) => state.user.profile);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const { isSectionHidden } = useAgeExperience();
-  const insets = useSafeAreaInsets();
 
   const {
     sortedThreads,
@@ -68,7 +70,7 @@ export default function MessagesScreen() {
 
   React.useEffect(() => {
     if (!token) return;
-    (async () => {
+    const syncBillingStatus = async () => {
       try {
         const status = await apiRequest<{
           currentProgramTier?: string | null;
@@ -84,11 +86,12 @@ export default function MessagesScreen() {
           suppressStatusCodes: [401, 403, 404],
           skipCache: true,
         });
+
         dispatch(setProgramTier(status?.currentProgramTier ?? null));
         dispatch(
           setMessagingAccessTiers(
             Array.isArray(status?.messagingAccessTiers)
-              ? status!.messagingAccessTiers!
+              ? status.messagingAccessTiers
               : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
           ),
         );
@@ -96,7 +99,9 @@ export default function MessagesScreen() {
       } catch {
         // no-op
       }
-    })();
+    };
+
+    syncBillingStatus();
   }, [dispatch, token]);
 
   React.useEffect(() => {
@@ -156,9 +161,16 @@ export default function MessagesScreen() {
 
   // ====================== INBOX VIEW ======================
   return (
-    <View className="flex-1" style={{ paddingTop: insets.top }}>
+    <SafeAreaView
+      className="flex-1"
+      edges={["top"]}
+      style={{ backgroundColor: colors.background }}
+    >
       <View className="px-6 pt-8 pb-5">
-        <View className="rounded-[28px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+        <View
+          className="rounded-[28px] border px-5 py-5"
+          style={{ backgroundColor: colors.card, borderColor: colors.borderSubtle }}
+        >
           <View className="flex-row items-center justify-between">
             <View>
               <Text className="text-4xl font-telma-bold font-bold tracking-tight text-app">
@@ -191,7 +203,7 @@ export default function MessagesScreen() {
           </View>
           {isYouthAthleteRole && sortedThreads[0] ? (
             <Pressable
-              onPress={() => openThread(sortedThreads[0]!) }
+              onPress={() => openThread(sortedThreads[0]!)}
               className="mt-4 rounded-full py-3 items-center"
               style={{ backgroundColor: colors.accent }}
             >
@@ -210,11 +222,7 @@ export default function MessagesScreen() {
         openingThreadId={openingThreadId}
         onRefresh={loadMessages}
         onOpenThread={openThread}
-        backgroundSecondary={colors.backgroundSecondary}
-        borderColor={colors.border}
-        accentLight={colors.accentLight}
-        textSecondaryColor={colors.textSecondary}
       />
-    </View>
+    </SafeAreaView>
   );
 }
