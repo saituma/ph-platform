@@ -97,9 +97,17 @@ async function resolveAnnouncementAudienceContext(userId: number) {
   const ages = relatedAthletes
     .map((athlete) => resolveAgeFromAthlete(athlete))
     .filter((age): age is number => Number.isFinite(age));
-  const athleteTypes = new Set(
-    relatedAthletes.map((athlete) => String(athlete.athleteType ?? "").trim().toLowerCase()).filter((val) => val.length > 0),
-  );
+  const athleteTypes = new Set<string>();
+  for (const athlete of relatedAthletes) {
+    const explicit = String(athlete.athleteType ?? "").trim().toLowerCase();
+    if (explicit) {
+      athleteTypes.add(explicit);
+      continue;
+    }
+    const age = resolveAgeFromAthlete(athlete);
+    if (age == null) continue;
+    athleteTypes.add(age >= 18 ? "adult" : "youth");
+  }
   const tiers = new Set(
     relatedAthletes
       .map((athlete) => athlete.currentProgramTier)
