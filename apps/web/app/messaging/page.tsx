@@ -4,6 +4,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { BarChart3, MessageCircle, Megaphone, Users2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { io, type Socket } from "socket.io-client";
 
 import { ChatComposer } from "../../components/admin/messaging/chat-composer";
 import { InboxThreadPanel } from "../../components/admin/messaging/inbox-thread-panel";
@@ -299,6 +300,70 @@ export default function MessagingPage() {
   const { data: groupMembersData } = useGetChatGroupMembersQuery(
     manageGroupId ?? skipToken,
   );
+
+  const socketRef = useRef<Socket | null>(null);
+  const refetchGroupsRef = useRef(refetchGroups);
+  const refetchGroupMessagesRef = useRef(refetchGroupMessages);
+
+  useEffect(() => {
+    refetchGroupsRef.current = refetchGroups;
+  }, [refetchGroups]);
+
+  useEffect(() => {
+    refetchGroupMessagesRef.current = refetchGroupMessages;
+  }, [refetchGroupMessages]);
+
+  useEffect(() => {
+    const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
+    const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+    const localDevHost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    const fallbackLocalUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
+    const socketUrl = socketEnvUrl
+      ? socketEnvUrl.replace(/\/api\/?$/, "")
+      : localDevHost
+        ? fallbackLocalUrl
+        : apiEnvUrl
+          ? apiEnvUrl.replace(/\/api\/?$/, "")
+          : fallbackLocalUrl;
+
+    const accessToken =
+      document.cookie
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("accessTokenClient="))
+        ?.split("=")[1] ?? "";
+
+    const socket: Socket = io(socketUrl, {
+      auth: accessToken ? { token: accessToken } : undefined,
+      transports: ["websocket", "polling"],
+      reconnection: true,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => console.log("[Messaging Socket] Connected"));
+
+    socket.on("group:message", () => {
+      refetchGroupsRef.current();
+      refetchGroupMessagesRef.current();
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+    if (!groupId) return;
+    socket.emit("group:join", { groupId });
+    return () => {
+      socket.emit("group:leave", { groupId });
+    };
+  }, [groupId]);
 
   const [createAnnouncement, { isLoading: isCreatingAnnouncement }] =
     useCreateContentMutation();
