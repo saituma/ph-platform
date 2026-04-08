@@ -60,6 +60,7 @@ type ThreadChatBodyProps = {
   onOpenComposerMenu: () => void;
   onLongPressMessage: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
+  onOpenReactionPicker: (message: ChatMessage) => void;
   composerDisabled?: boolean;
   disabledMessage?: string;
   onDisabledPress?: () => void;
@@ -353,6 +354,7 @@ function ThreadChatBodyBase({
   onOpenComposerMenu,
   onLongPressMessage,
   onReactionPress,
+  onOpenReactionPicker,
   composerDisabled = false,
   disabledMessage,
   onDisabledPress,
@@ -604,6 +606,7 @@ function ThreadChatBodyBase({
           token={token}
           onLongPress={onLongPressMessage}
           onReactionPress={onReactionPress}
+          onOpenReactionPicker={onOpenReactionPicker}
           onReply={onReplyMessage}
           onJumpToMessage={jumpToMessage}
           resolvedReplyPreview={
@@ -632,7 +635,9 @@ function ThreadChatBodyBase({
       numericMessageIdFor,
       onLongPressMessage,
       onReactionPress,
+      onOpenReactionPicker,
       onReplyMessage,
+      token,
     ],
   );
   const contentContainerStyle = React.useMemo(
