@@ -53,6 +53,7 @@ import {
   useSendMessageMutation,
   useToggleChatGroupMessageReactionMutation,
   useToggleMessageReactionMutation,
+  useUpdateContentMutation,
 } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
@@ -84,6 +85,19 @@ function formatTime(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function formatSchedule(startsAt?: string | null, endsAt?: string | null) {
+  if (!startsAt && !endsAt) return "Permanent";
+  if (startsAt && endsAt) return `Active ${formatTime(startsAt)} → ${formatTime(endsAt)}`;
+  if (startsAt) return `Starts ${formatTime(startsAt)}`;
+  return `Ends ${formatTime(endsAt)}`;
+}
+
+function isValidDateTimeValue(value?: string) {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
 }
 
 function getTierFromUser(user: MessagingUser) {
@@ -123,6 +137,12 @@ export default function MessagingPage() {
   const [announcementAudienceTeam, setAnnouncementAudienceTeam] = useState("");
   const [announcementAudienceGroupId, setAnnouncementAudienceGroupId] = useState("");
   const [announcementAudienceTier, setAnnouncementAudienceTier] = useState("");
+  const [announcementTimingType, setAnnouncementTimingType] = useState<"permanent" | "scheduled">("permanent");
+  const [announcementStartsAt, setAnnouncementStartsAt] = useState("");
+  const [announcementEndsAt, setAnnouncementEndsAt] = useState("");
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<number | null>(null);
+  const [editAnnouncementTitle, setEditAnnouncementTitle] = useState("");
+  const [editAnnouncementBody, setEditAnnouncementBody] = useState("");
 
   const [threadUserId, setThreadUserId] = useState<number | null>(null);
   const [highlightedInboxThreadUserId, setHighlightedInboxThreadUserId] = useState<number | null>(null);
@@ -168,6 +188,7 @@ export default function MessagingPage() {
   const { data: groupMembersData } = useGetChatGroupMembersQuery(manageGroupId ?? skipToken);
 
   const [createAnnouncement, { isLoading: isCreatingAnnouncement }] = useCreateContentMutation();
+  const [updateAnnouncement, { isLoading: isUpdatingAnnouncement }] = useUpdateContentMutation();
   const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
   const [markThreadRead] = useMarkThreadReadMutation();
   const [sendDirect, { isLoading: isSendingDirect }] = useSendMessageMutation();
@@ -394,6 +415,18 @@ export default function MessagingPage() {
       toast.error("Missing tier", "Choose a tier for this announcement audience.");
       return;
     }
+    if (announcementTimingType === "scheduled") {
+      if (!isValidDateTimeValue(announcementStartsAt) || !isValidDateTimeValue(announcementEndsAt)) {
+        toast.error("Missing schedule", "Choose both a start and end time.");
+        return;
+      }
+      const start = new Date(announcementStartsAt);
+      const end = new Date(announcementEndsAt);
+      if (end.getTime() <= start.getTime()) {
+        toast.error("Invalid schedule", "End time must be after the start time.");
+        return;
+      }
+    }
 
     const apiAudienceType =
       announcementAudienceType === "youth" || announcementAudienceType === "adult"
@@ -405,6 +438,14 @@ export default function MessagingPage() {
         : undefined;
 
     try {
+      const startsAt =
+        announcementTimingType === "scheduled" && isValidDateTimeValue(announcementStartsAt)
+          ? new Date(announcementStartsAt).toISOString()
+          : undefined;
+      const endsAt =
+        announcementTimingType === "scheduled" && isValidDateTimeValue(announcementEndsAt)
+          ? new Date(announcementEndsAt).toISOString()
+          : undefined;
       await createAnnouncement({
         title: announcementTitle.trim(),
         content: announcementTitle.trim(),
@@ -416,6 +457,8 @@ export default function MessagingPage() {
         announcementAudienceTier: announcementAudienceType === "tier" ? announcementAudienceTier : undefined,
         announcementAudienceTeam: announcementAudienceType === "team" ? announcementAudienceTeam.trim() : undefined,
         announcementAudienceGroupId: announcementAudienceType === "group" ? parsedAudienceGroupId : undefined,
+        announcementStartsAt: startsAt,
+        announcementEndsAt: endsAt,
       }).unwrap();
       setAnnouncementTitle("");
       setAnnouncementBody("");
@@ -423,10 +466,51 @@ export default function MessagingPage() {
       setAnnouncementAudienceTeam("");
       setAnnouncementAudienceGroupId("");
       setAnnouncementAudienceTier("");
+      setAnnouncementTimingType("permanent");
+      setAnnouncementStartsAt("");
+      setAnnouncementEndsAt("");
       refetchAnnouncements();
       toast.success("Announcement sent", "Your announcement is now visible to users.");
     } catch {
       toast.error("Failed", "Could not publish announcement.");
+    }
+  };
+
+  const startEditAnnouncement = (item: AnnouncementItem) => {
+    const id = Number(item.id);
+    if (!Number.isFinite(id)) return;
+    setEditingAnnouncementId(id);
+    setEditAnnouncementTitle(String(item.title ?? "").trim());
+    setEditAnnouncementBody(String(item.body ?? "").trim());
+  };
+
+  const cancelEditAnnouncement = () => {
+    setEditingAnnouncementId(null);
+    setEditAnnouncementTitle("");
+    setEditAnnouncementBody("");
+  };
+
+  const handleUpdateAnnouncement = async () => {
+    if (editingAnnouncementId == null) return;
+    if (!editAnnouncementTitle.trim() || !editAnnouncementBody.trim()) {
+      toast.error("Missing fields", "Title and message are required.");
+      return;
+    }
+    try {
+      await updateAnnouncement({
+        id: editingAnnouncementId,
+        data: {
+          title: editAnnouncementTitle.trim(),
+          content: editAnnouncementTitle.trim(),
+          body: editAnnouncementBody.trim(),
+          type: "article",
+        },
+      }).unwrap();
+      cancelEditAnnouncement();
+      refetchAnnouncements();
+      toast.success("Updated", "Announcement updated.");
+    } catch {
+      toast.error("Failed", "Could not update announcement.");
     }
   };
 
@@ -806,7 +890,39 @@ export default function MessagingPage() {
                       </Select>
                     </div>
                   ) : null}
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Timing</p>
+                    <Select
+                      value={announcementTimingType}
+                      onChange={(event) =>
+                        setAnnouncementTimingType(event.target.value as "permanent" | "scheduled")
+                      }
+                    >
+                      <option value="permanent">Permanent</option>
+                      <option value="scheduled">Scheduled</option>
+                    </Select>
+                  </div>
                 </div>
+                {announcementTimingType === "scheduled" ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Starts</p>
+                      <Input
+                        type="datetime-local"
+                        value={announcementStartsAt}
+                        onChange={(event) => setAnnouncementStartsAt(event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Ends</p>
+                      <Input
+                        type="datetime-local"
+                        value={announcementEndsAt}
+                        onChange={(event) => setAnnouncementEndsAt(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 <Textarea
                   placeholder="Write announcement message"
                   value={announcementBody}
@@ -821,7 +937,11 @@ export default function MessagingPage() {
                     !announcementBody.trim() ||
                     (announcementAudienceType === "team" && !announcementAudienceTeam) ||
                     (announcementAudienceType === "group" && !announcementAudienceGroupId) ||
-                    (announcementAudienceType === "tier" && !announcementAudienceTier)
+                    (announcementAudienceType === "tier" && !announcementAudienceTier) ||
+                    (announcementTimingType === "scheduled" &&
+                      (!isValidDateTimeValue(announcementStartsAt) ||
+                        !isValidDateTimeValue(announcementEndsAt) ||
+                        new Date(announcementEndsAt).getTime() <= new Date(announcementStartsAt).getTime()))
                   }
                 >
                   {isCreatingAnnouncement ? "Sending..." : "Send announcement"}
@@ -838,11 +958,53 @@ export default function MessagingPage() {
                   <div className="space-y-3">
                     {announcements.map((item) => (
                       <div key={item.id} className="rounded-xl border border-border p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {item.createdBy
+                                ? `By ${resolveUserName(Number(item.createdBy))}`
+                                : "By Coach"}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {formatSchedule(item.startsAt, item.endsAt)}
+                            </p>
+                          </div>
                           <span className="text-xs text-muted-foreground">{formatTime(item.createdAt)}</span>
                         </div>
-                        <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{item.body}</p>
+                        {editingAnnouncementId === Number(item.id) ? (
+                          <div className="mt-3 space-y-2">
+                            <Input
+                              value={editAnnouncementTitle}
+                              onChange={(event) => setEditAnnouncementTitle(event.target.value)}
+                            />
+                            <Textarea
+                              value={editAnnouncementBody}
+                              onChange={(event) => setEditAnnouncementBody(event.target.value)}
+                              className="min-h-28"
+                            />
+                            <div className="flex items-center gap-2">
+                              <Button
+                                onClick={() => void handleUpdateAnnouncement()}
+                                disabled={isUpdatingAnnouncement}
+                              >
+                                {isUpdatingAnnouncement ? "Saving..." : "Save"}
+                              </Button>
+                              <Button variant="ghost" onClick={cancelEditAnnouncement}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{item.body}</p>
+                            <div className="mt-3">
+                              <Button variant="ghost" onClick={() => startEditAnnouncement(item)}>
+                                Edit
+                              </Button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))}
                     {!announcements.length ? (

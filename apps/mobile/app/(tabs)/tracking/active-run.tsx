@@ -44,9 +44,7 @@ export default function ActiveRunScreen() {
   const toastTranslateY = useSharedValue(-120);
   const mapRef = useRef<MapView | null>(null);
   const watchRef = useRef<Location.LocationSubscription | null>(null);
-  const isExpoGo = Constants.appOwnership === "expo";
-  const showExpoGoMapNotice = Platform.OS === "android" && isExpoGo;
-  const useOsmMap = Platform.OS === "android" && !isExpoGo;
+  const useOsmMap = Platform.OS === "android";
   const bottomBarHeight = 88;
   const overlayGap = 16;
   const glassBg = isDark ? "rgba(20,20,20,0.55)" : "rgba(255,255,255,0.72)";
@@ -354,30 +352,7 @@ export default function ActiveRunScreen() {
               }}
             />
 
-            {showExpoGoMapNotice ? (
-              <View
-                pointerEvents="none"
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  top: 12,
-                  right: 12,
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  borderRadius: 16,
-                  backgroundColor: colors.surfaceHigh,
-                  borderWidth: 1,
-                  borderColor: colors.borderSubtle,
-                }}
-              >
-                <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
-                  Expo Go can’t render Android maps without a native key.
-                </Text>
-                <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textSecondary, marginTop: 2 }}>
-                  Use a dev build for the real map.
-                </Text>
-              </View>
-            ) : coordinates.length < 2 ? (
+            {coordinates.length < 2 ? (
               <View
                 pointerEvents="none"
                 style={{

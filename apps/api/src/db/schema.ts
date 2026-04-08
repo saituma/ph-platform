@@ -764,6 +764,8 @@ export const contentTable = pgTable("contents", {
   ageList: jsonb(),
   minAge: integer(),
   maxAge: integer(),
+  startsAt: timestamp(),
+  endsAt: timestamp(),
   createdBy: integer().notNull().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),

@@ -1,5 +1,14 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+// Cache haptics module at the top level to avoid dynamic import on every press
+let _hapticsPromise: Promise<any> | null = null;
+const getHaptics = () => {
+  if (!_hapticsPromise) {
+    _hapticsPromise = import("expo-haptics").catch(() => null);
+  }
+  return _hapticsPromise;
+};
 import { Platform, StyleSheet, View } from "react-native";
 import PagerView, {
   PagerViewOnPageScrollEvent,
@@ -122,11 +131,10 @@ export function SwipeableTabLayout({
   const handleTabPress = (index: number) => {
     if (index === lastSelectedIndex.current) return;
 
-    import("expo-haptics")
-      .then((Haptics) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      })
-      .catch(() => {});
+    // Use cached haptics module
+    getHaptics()?.then((Haptics: any) => {
+      Haptics?.impactAsync?.(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    });
 
     isSyncingRef.current = true;
     lastChangeSourceRef.current = "press";
@@ -143,7 +151,22 @@ export function SwipeableTabLayout({
     lastChangeSourceRef.current = "sync";
   };
 
-  const childrenArray = React.Children.toArray(children);
+  // Stabilize children references to prevent PagerView from re-creating pages.
+  // React.Children.toArray creates new references each render.
+  const childrenRef = useRef<React.ReactNode[]>([]);
+  const rawChildren = React.Children.toArray(children);
+  if (rawChildren.length !== childrenRef.current.length) {
+    childrenRef.current = rawChildren;
+  } else {
+    const keysChanged = rawChildren.some((child, i) => {
+      const prev = childrenRef.current[i];
+      return (child as any)?.key !== (prev as any)?.key;
+    });
+    if (keysChanged) {
+      childrenRef.current = rawChildren;
+    }
+  }
+  const childrenArray = childrenRef.current;
 
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {

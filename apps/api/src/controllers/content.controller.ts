@@ -43,6 +43,8 @@ const contentCreateSchema = z.object({
   announcementAudienceGroupId: z.number().int().min(1).optional(),
   announcementAudienceAthleteType: z.enum(["youth", "adult"]).optional(),
   announcementAudienceTier: z.enum(ProgramType.enumValues).optional(),
+  announcementStartsAt: z.coerce.date().optional(),
+  announcementEndsAt: z.coerce.date().optional(),
 }).superRefine((data, ctx) => {
   if (data.surface !== "announcements") {
     if (!data.title) {
@@ -103,6 +105,24 @@ const contentCreateSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: "Tier is required for tier audience.",
         path: ["announcementAudienceTier"],
+      });
+    }
+    if ((data.announcementStartsAt && !data.announcementEndsAt) || (!data.announcementStartsAt && data.announcementEndsAt)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Start and end time are required together.",
+        path: ["announcementStartsAt"],
+      });
+    }
+    if (
+      data.announcementStartsAt &&
+      data.announcementEndsAt &&
+      data.announcementEndsAt.getTime() < data.announcementStartsAt.getTime()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End time must be after start time.",
+        path: ["announcementEndsAt"],
       });
     }
   }
@@ -280,6 +300,8 @@ export async function createContentItem(req: Request, res: Response) {
   const announcementMaxAge = !isAnnouncement || audienceType !== "age" ? input.maxAge : undefined;
   const announcementProgramTier =
     !isAnnouncement || audienceType !== "tier" ? input.programTier : input.announcementAudienceTier;
+  const announcementStartsAt = isAnnouncement ? input.announcementStartsAt : undefined;
+  const announcementEndsAt = isAnnouncement ? input.announcementEndsAt : undefined;
 
   const item = await createContent({
     title,
@@ -292,6 +314,8 @@ export async function createContentItem(req: Request, res: Response) {
     ageList: announcementAgeList,
     minAge: announcementMinAge,
     maxAge: announcementMaxAge,
+    startsAt: announcementStartsAt,
+    endsAt: announcementEndsAt,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });

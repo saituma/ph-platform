@@ -68,6 +68,12 @@ function parseAnnouncementAudience(item: typeof contentTable.$inferSelect) {
   return { type: "all" as const };
 }
 
+function isAnnouncementActive(item: { startsAt?: Date | null; endsAt?: Date | null }, now: Date) {
+  if (item.startsAt && now < item.startsAt) return false;
+  if (item.endsAt && now > item.endsAt) return false;
+  return true;
+}
+
 async function resolveAnnouncementAudienceContext(userId: number) {
   const directAthletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId));
   let relatedAthletes = directAthletes;
@@ -118,6 +124,7 @@ export async function getAnnouncements(userId?: number, role?: string) {
 
   const context = await resolveAnnouncementAudienceContext(userId);
   return items.filter((item) => {
+    if (!isAnnouncementActive(item, new Date())) return false;
     const audience = parseAnnouncementAudience(item);
     if (audience.type === "all") return true;
     if (audience.type === "team") return context.teams.has(audience.team);
@@ -254,6 +261,8 @@ export async function createContent(input: {
   ageList?: number[] | null;
   minAge?: number | null;
   maxAge?: number | null;
+  startsAt?: Date | null;
+  endsAt?: Date | null;
   createdBy: number;
 }) {
   const ageList = Array.isArray(input.ageList)
@@ -272,6 +281,8 @@ export async function createContent(input: {
       ageList: ageList && ageList.length ? ageList : null,
       minAge: ageList && ageList.length ? null : input.minAge ?? null,
       maxAge: ageList && ageList.length ? null : input.maxAge ?? null,
+      startsAt: input.startsAt ?? null,
+      endsAt: input.endsAt ?? null,
       createdBy: input.createdBy,
     })
     .returning();
