@@ -24,6 +24,7 @@ type MessageBubbleProps = {
   onReply: (message: ChatMessage) => void;
   onJumpToMessage?: (messageId: number) => void;
   isHighlighted?: boolean;
+  resolvedReplyPreview?: string | null;
 };
 
 function getInitials(name?: string | null) {
@@ -99,6 +100,7 @@ function MessageBubbleBase({
   onReply,
   onJumpToMessage,
   isHighlighted = false,
+  resolvedReplyPreview = null,
 }: MessageBubbleProps) {
   const { colors, isDark } = useAppTheme();
   const isUser = message.from === "user";
@@ -320,7 +322,7 @@ function MessageBubbleBase({
                           : "rgba(15,23,42,0.85)",
                     }}
                   >
-                    {message.replyPreview || "Replied message"}
+                    {String(message.replyPreview || resolvedReplyPreview || "Replied message").trim() || "Replied message"}
                   </Text>
                 </Pressable>
               ) : null}
@@ -507,6 +509,7 @@ const areMessageBubblesEqual = (prev: MessageBubbleProps, next: MessageBubblePro
   if (prev.message.contentType !== next.message.contentType) return false;
   if (prev.message.replyToMessageId !== next.message.replyToMessageId) return false;
   if (prev.message.replyPreview !== next.message.replyPreview) return false;
+  if ((prev.resolvedReplyPreview ?? null) !== (next.resolvedReplyPreview ?? null)) return false;
   if (prev.isHighlighted !== next.isHighlighted) return false;
   
   const prevReactions = prev.message.reactions || [];

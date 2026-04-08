@@ -435,6 +435,15 @@ function ThreadChatBodyBase({
     return Number.isFinite(numeric) ? numeric : null;
   }, []);
 
+  const messageByNumericId = React.useMemo(() => {
+    const map = new Map<number, ChatMessage>();
+    for (const msg of messages) {
+      const numericId = numericMessageIdFor(msg);
+      if (numericId != null) map.set(numericId, msg);
+    }
+    return map;
+  }, [messages, numericMessageIdFor]);
+
   const jumpToMessage = React.useCallback(
     (messageId: number) => {
       if (!Number.isFinite(messageId)) return;
@@ -466,13 +475,25 @@ function ThreadChatBodyBase({
           onReactionPress={onReactionPress}
           onReply={onReplyMessage}
           onJumpToMessage={jumpToMessage}
+          resolvedReplyPreview={
+            item.replyToMessageId
+              ? (() => {
+                  const replied = messageByNumericId.get(item.replyToMessageId);
+                  if (!replied) return null;
+                  const text = String(replied.text ?? "").trim();
+                  if (text) return text.slice(0, 160);
+                  if (replied.mediaUrl) return "Media message";
+                  return null;
+                })()
+              : null
+          }
           isHighlighted={
             highlightedMessageId != null && numericMessageIdFor(item) === highlightedMessageId
           }
         />
       </Animated.View>
     ),
-    [highlightedMessageId, jumpToMessage, numericMessageIdFor, onLongPressMessage, onReactionPress, onReplyMessage]
+    [highlightedMessageId, jumpToMessage, messageByNumericId, numericMessageIdFor, onLongPressMessage, onReactionPress, onReplyMessage]
   );
   const contentContainerStyle = React.useMemo(
     () => ({

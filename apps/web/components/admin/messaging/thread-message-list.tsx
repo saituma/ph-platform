@@ -93,9 +93,10 @@ export function ThreadMessageList({
   };
 
   const parseMessage = (raw: string) => {
-    const replyMatch = raw.match(/^\[reply:(\d+):([^\]]*)\]\s*/);
+    const input = String(raw ?? "");
+    const replyMatch = input.match(/^\s*\[reply:(\d+):([^\]]*)\]\s*/i);
     if (!replyMatch) {
-      return { replyToId: null as number | null, replyPreview: "", text: raw };
+      return { replyToId: null as number | null, replyPreview: "", text: input };
     }
     const replyToId = Number(replyMatch[1]);
     const encodedPreview = replyMatch[2] ?? "";
@@ -105,7 +106,7 @@ export function ThreadMessageList({
     } catch {
       replyPreview = encodedPreview;
     }
-    const text = raw.slice(replyMatch[0].length);
+    const text = input.slice(replyMatch[0].length);
     return { replyToId: Number.isFinite(replyToId) ? replyToId : null, replyPreview, text };
   };
 
@@ -184,10 +185,20 @@ export function ThreadMessageList({
             "Unknown user";
           const repliedMessage = parsed.replyToId ? messageById.get(parsed.replyToId) : undefined;
           const repliedParsed = repliedMessage ? parseMessage(String(repliedMessage.content ?? "")) : null;
+          const repliedSenderLabel = repliedMessage
+            ? String(
+                repliedMessage.senderName?.trim() ||
+                  (Number.isFinite(Number(repliedMessage.senderId)) && resolveUserName
+                    ? resolveUserName(Number(repliedMessage.senderId))
+                    : "") ||
+                  "",
+              ).trim()
+            : "";
           const replySnippet =
             parsed.replyPreview ||
             repliedParsed?.text?.trim() ||
             (parsed.replyToId ? `Message #${parsed.replyToId}` : "");
+          const canJumpToReply = parsed.replyToId != null && Number.isFinite(parsed.replyToId);
           return (
             <div
               key={message.id}
@@ -207,15 +218,45 @@ export function ThreadMessageList({
               >
                 {showSenderName ? <p className="text-xs opacity-80">{senderLabel}</p> : null}
                 {replySnippet ? (
-                  <button
-                    type="button"
-                    onClick={() => jumpToMessage(parsed.replyToId)}
-                    className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                      mine ? "border-white/30 bg-white/15 text-white/90" : "border-border bg-secondary/50 text-muted-foreground"
-                    }`}
-                  >
-                    {replySnippet}
-                  </button>
+                  canJumpToReply ? (
+                    <button
+                      type="button"
+                      onClick={() => jumpToMessage(parsed.replyToId)}
+                      className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
+                        mine ? "border-white/30 bg-white/15 text-white/90" : "border-border bg-secondary/50 text-muted-foreground"
+                      }`}
+                      aria-label="Jump to replied message"
+                      title="Jump to replied message"
+                    >
+                      {repliedSenderLabel ? (
+                        <p
+                          className={`text-[10px] font-semibold uppercase tracking-wide ${
+                            mine ? "text-white/80" : "text-muted-foreground"
+                          }`}
+                        >
+                          {repliedSenderLabel}
+                        </p>
+                      ) : null}
+                      <p>{replySnippet}</p>
+                    </button>
+                  ) : (
+                    <div
+                      className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
+                        mine ? "border-white/30 bg-white/15 text-white/90" : "border-border bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      {repliedSenderLabel ? (
+                        <p
+                          className={`text-[10px] font-semibold uppercase tracking-wide ${
+                            mine ? "text-white/80" : "text-muted-foreground"
+                          }`}
+                        >
+                          {repliedSenderLabel}
+                        </p>
+                      ) : null}
+                      <p>{replySnippet}</p>
+                    </div>
+                  )
                 ) : null}
                 {hasImage ? (
                   <img
