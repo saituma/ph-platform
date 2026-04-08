@@ -227,6 +227,8 @@ export default function MessagingPage() {
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<
     number | null
   >(null);
+  const [deleteAnnouncementTarget, setDeleteAnnouncementTarget] =
+    useState<AnnouncementItem | null>(null);
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
@@ -677,13 +679,20 @@ export default function MessagingPage() {
     setEditAnnouncementIsActive(true);
   };
 
-  const handleDeleteAnnouncement = async (item: AnnouncementItem) => {
+  const handleDeleteAnnouncement = (item: AnnouncementItem) => {
     const id = Number(item.id);
     if (!Number.isFinite(id)) {
       toast.error("Failed", "Invalid announcement id.");
       return;
     }
-    if (!window.confirm("Delete this announcement? This cannot be undone.")) {
+    setDeleteAnnouncementTarget(item);
+  };
+
+  const confirmDeleteAnnouncement = async () => {
+    if (!deleteAnnouncementTarget) return;
+    const id = Number(deleteAnnouncementTarget.id);
+    if (!Number.isFinite(id)) {
+      toast.error("Failed", "Invalid announcement id.");
       return;
     }
     try {
@@ -693,6 +702,7 @@ export default function MessagingPage() {
       }
       await deleteAnnouncement({ id }).unwrap();
       toast.success("Deleted", "Announcement removed.");
+      setDeleteAnnouncementTarget(null);
       refetchAnnouncements();
     } catch {
       toast.error("Failed", "Could not delete announcement.");
@@ -1720,6 +1730,51 @@ export default function MessagingPage() {
               onPickVideo={() => openFilePicker("group", "video/*")}
               onPickGif={() => openGifPicker("group")}
             />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteAnnouncementTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteAnnouncementTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete announcement?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete{" "}
+              <span className="font-medium text-foreground">
+                {deleteAnnouncementTarget?.title || "this announcement"}
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteAnnouncementTarget(null)}
+              disabled={
+                deletingAnnouncementId ===
+                Number(deleteAnnouncementTarget?.id ?? NaN)
+              }
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmDeleteAnnouncement()}
+              disabled={
+                deletingAnnouncementId ===
+                Number(deleteAnnouncementTarget?.id ?? NaN)
+              }
+            >
+              {deletingAnnouncementId ===
+              Number(deleteAnnouncementTarget?.id ?? NaN)
+                ? "Deleting..."
+                : "Delete"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
