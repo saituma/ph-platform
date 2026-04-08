@@ -407,6 +407,13 @@
       "when": 1775637338000,
       "tag": "0057_announcement_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1775639189000,
+      "tag": "0058_announcement_active",
+      "breakpoints": true
     }
   ]
 }
