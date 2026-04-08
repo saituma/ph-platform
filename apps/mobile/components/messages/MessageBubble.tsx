@@ -9,6 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Text } from "@/components/ScaledText";
 import { isYoutubeUrl, YouTubeEmbed } from "@/components/media/VideoPlayer";
@@ -29,6 +30,7 @@ type MessageBubbleProps = {
   message: ChatMessage;
   onLongPress: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
+  onOpenReactionPicker?: (message: ChatMessage) => void;
   onReply: (message: ChatMessage) => void;
   onJumpToMessage?: (messageId: number) => void;
   isHighlighted?: boolean;
@@ -113,6 +115,7 @@ function MessageBubbleBase({
   message,
   onLongPress,
   onReactionPress,
+  onOpenReactionPicker,
   onReply,
   onJumpToMessage,
   isHighlighted = false,
@@ -157,6 +160,22 @@ function MessageBubbleBase({
   } | null>(null);
   const [mediaOpen, setMediaOpen] = React.useState(false);
   const swipeRef = React.useRef<Swipeable | null>(null);
+
+  React.useEffect(() => {
+    if (!message.mediaUrl || message.contentType !== "image") return;
+    let canceled = false;
+    Image.getSize(
+      message.mediaUrl,
+      (width, height) => {
+        if (canceled) return;
+        if (width && height) setImageSize({ width, height });
+      },
+      () => {},
+    );
+    return () => {
+      canceled = true;
+    };
+  }, [message.contentType, message.mediaUrl]);
 
   // Dynamic media sizing
   const maxMediaWidth = screenWidth * (isUser ? 0.85 : 0.8);
@@ -403,20 +422,15 @@ function MessageBubbleBase({
                     onPress={() => setMediaOpen(true)}
                     className="mb-3 -mx-1"
                   >
-                    <Image
-                      source={{ uri: message.mediaUrl }}
+                    <ExpoImage
+                      source={message.mediaUrl}
                       style={{
                         width: mediaDimensions.width,
                         height: mediaDimensions.height,
                         borderRadius: 14,
                       }}
-                      resizeMode="cover"
-                      onLoad={(event) => {
-                        const { width, height } = event.nativeEvent.source;
-                        if (width && height) {
-                          setImageSize({ width, height });
-                        }
-                      }}
+                      contentFit="cover"
+                      transition={180}
                     />
                   </Pressable>
                 ) : null}
@@ -567,6 +581,23 @@ function MessageBubbleBase({
                         />
                       )
                     ) : null}
+                    {onOpenReactionPicker ? (
+                      <Pressable
+                        onPress={() => onOpenReactionPicker(message)}
+                        className="ml-1 h-7 w-7 items-center justify-center rounded-full"
+                        style={{
+                          backgroundColor: isDark
+                            ? "rgba(255,255,255,0.06)"
+                            : "rgba(15,23,42,0.04)",
+                        }}
+                      >
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={16}
+                          color={timeColor}
+                        />
+                      </Pressable>
+                    ) : null}
                   </View>
                 </View>
 
@@ -628,13 +659,10 @@ function MessageBubbleBase({
               }}
             >
               {message.contentType === "image" ? (
-                <Image
-                  source={{ uri: message.mediaUrl }}
-                  resizeMode="contain"
-                  style={{
-                    width: screenWidth,
-                    height: screenHeight - 150,
-                  }}
+                <ExpoImage
+                  source={message.mediaUrl}
+                  contentFit="contain"
+                  style={{ width: screenWidth, height: screenHeight - 150 }}
                 />
               ) : message.mediaUrl && isYoutubeUrl(message.mediaUrl) ? (
                 <View
@@ -676,6 +704,7 @@ const areMessageBubblesEqual = (
   next: MessageBubbleProps,
 ) => {
   if (prev.message.id !== next.message.id) return false;
+  if ((prev.token ?? null) !== (next.token ?? null)) return false;
   if (prev.message.text !== next.message.text) return false;
   if (prev.message.time !== next.message.time) return false;
   if (prev.message.status !== next.message.status) return false;

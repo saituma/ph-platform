@@ -8,7 +8,7 @@ import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { Alert, ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { apiRequest } from "@/lib/api";
@@ -20,7 +20,8 @@ import { useLocalSearchParams } from "expo-router";
 import { useRouter } from "expo-router";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { Text } from "@/components/ScaledText";
-import { Pressable } from "react-native";
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import { Feather } from "@/components/ui/theme-icons";
 
 export default function ThreadScreen() {
   const { colors } = useAppTheme();
@@ -113,47 +114,36 @@ export default function ThreadScreen() {
 
   const [gifPickerOpen, setGifPickerOpen] = React.useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = React.useState(false);
+  const [reactionEmojiTarget, setReactionEmojiTarget] = React.useState<ChatMessage | null>(null);
+  const [lockedSheetOpen, setLockedSheetOpen] = React.useState(false);
+  const [messageActionsTarget, setMessageActionsTarget] = React.useState<ChatMessage | null>(null);
+
+  const lockedSheetRef = React.useRef<BottomSheetModal>(null);
+  const messageActionsSheetRef = React.useRef<BottomSheetModal>(null);
+
+  React.useEffect(() => {
+    const ref = lockedSheetRef.current;
+    if (!ref) return;
+    if (lockedSheetOpen) ref.present();
+    else ref.dismiss();
+  }, [lockedSheetOpen]);
+
+  React.useEffect(() => {
+    const ref = messageActionsSheetRef.current;
+    if (!ref) return;
+    if (messageActionsTarget) ref.present();
+    else ref.dismiss();
+  }, [messageActionsTarget]);
 
   const handleLockedPress = React.useCallback(() => {
-    Alert.alert(
-      "Messaging locked",
-      "Messaging isn’t enabled for your current plan.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Open Programs",
-          onPress: () => {
-            requestGlobalTabChange(0);
-            router.replace("/(tabs)/programs");
-          },
-        },
-      ],
-    );
+    setLockedSheetOpen(true);
   }, [router]);
 
   const handleLongPressMessage = React.useCallback(
     (message: ChatMessage) => {
-      const isOwn = message.from === "user";
-      if (isOwn) {
-        Alert.alert("Message options", "Choose an action", [
-          {
-            text: "React",
-            onPress: () => {
-              setReactionTarget(message);
-            },
-          },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: () => handleDeleteMessage(message),
-          },
-          { text: "Cancel", style: "cancel" },
-        ]);
-        return;
-      }
-      setReactionTarget(message);
+      setMessageActionsTarget(message);
     },
-    [handleDeleteMessage, setReactionTarget],
+    [],
   );
 
   const handleRemovePendingAttachment = React.useCallback(() => {
@@ -221,6 +211,7 @@ export default function ThreadScreen() {
         onOpenComposerMenu={() => setComposerMenuOpen(true)}
         onLongPressMessage={handleLongPressMessage}
         onReactionPress={handleToggleReaction}
+        onOpenReactionPicker={(message) => setReactionTarget(message)}
         composerDisabled={!canMessage}
         pendingAttachment={pendingAttachment}
         onRemovePendingAttachment={handleRemovePendingAttachment}
@@ -236,6 +227,10 @@ export default function ThreadScreen() {
         options={reactionOptions}
         onClose={() => setReactionTarget(null)}
         onSelect={handleToggleReaction}
+        onOpenEmojiPicker={(message) => {
+          setReactionTarget(null);
+          setReactionEmojiTarget(message);
+        }}
       />
       <ComposerActionsModal
         open={composerMenuOpen}
@@ -258,13 +253,133 @@ export default function ThreadScreen() {
         }}
       />
       <EmojiPickerModal
-        open={emojiPickerOpen}
-        onClose={() => setEmojiPickerOpen(false)}
+        open={emojiPickerOpen || Boolean(reactionEmojiTarget)}
+        onClose={() => {
+          setEmojiPickerOpen(false);
+          setReactionEmojiTarget(null);
+        }}
         onSelectEmoji={(emoji) => {
+          if (reactionEmojiTarget) {
+            const target = reactionEmojiTarget;
+            setReactionEmojiTarget(null);
+            void handleToggleReaction(target, emoji);
+            return;
+          }
           setEmojiPickerOpen(false);
           setDraft(`${draft}${emoji}`);
         }}
       />
+
+      <BottomSheetModal
+        ref={lockedSheetRef}
+        index={0}
+        snapPoints={["38%"]}
+        onDismiss={() => setLockedSheetOpen(false)}
+        enablePanDownToClose
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop
+            {...props}
+            appearsOnIndex={0}
+            disappearsOnIndex={-1}
+            opacity={0.4}
+            pressBehavior="close"
+          />
+        )}
+        backgroundStyle={{ backgroundColor: colors.card }}
+        handleIndicatorStyle={{
+          backgroundColor: "rgba(255,255,255,0.28)",
+        }}
+      >
+        <BottomSheetView className="px-6 pb-8">
+          <Text className="font-clash text-[18px] font-bold" style={{ color: colors.text }}>
+            Messaging locked
+          </Text>
+          <Text className="mt-2 font-outfit text-[13px]" style={{ color: colors.textSecondary }}>
+            Messaging isn’t enabled for your current plan.
+          </Text>
+          <Pressable
+            onPress={() => {
+              setLockedSheetOpen(false);
+              requestGlobalTabChange(0);
+              router.replace("/(tabs)/programs");
+            }}
+            className="mt-6 h-12 rounded-2xl items-center justify-center"
+            style={{ backgroundColor: colors.accent }}
+          >
+            <Text className="font-outfit font-bold text-white">Open programs</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setLockedSheetOpen(false)}
+            className="mt-3 h-12 rounded-2xl items-center justify-center border"
+            style={{ borderColor: colors.borderSubtle, backgroundColor: colors.backgroundSecondary }}
+          >
+            <Text className="font-outfit font-bold" style={{ color: colors.text }}>Not now</Text>
+          </Pressable>
+        </BottomSheetView>
+      </BottomSheetModal>
+
+      <BottomSheetModal
+        ref={messageActionsSheetRef}
+        index={0}
+        snapPoints={["32%"]}
+        onDismiss={() => setMessageActionsTarget(null)}
+        enablePanDownToClose
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop
+            {...props}
+            appearsOnIndex={0}
+            disappearsOnIndex={-1}
+            opacity={0.4}
+            pressBehavior="close"
+          />
+        )}
+        backgroundStyle={{ backgroundColor: colors.card }}
+        handleIndicatorStyle={{
+          backgroundColor: "rgba(255,255,255,0.28)",
+        }}
+      >
+        <BottomSheetView className="px-6 pb-8">
+          <Text className="font-clash text-[18px] font-bold" style={{ color: colors.text }}>
+            Message actions
+          </Text>
+          <View className="mt-5 flex-row gap-3">
+            <Pressable
+              onPress={() => {
+                const target = messageActionsTarget;
+                setMessageActionsTarget(null);
+                if (target) setReactionTarget(target);
+              }}
+              className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+              style={{ borderColor: colors.borderSubtle, backgroundColor: colors.backgroundSecondary }}
+            >
+              <Feather name="smile" size={18} color={colors.accent} />
+              <Text className="font-outfit font-bold" style={{ color: colors.text }}>React</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                const target = messageActionsTarget;
+                setMessageActionsTarget(null);
+                if (target && target.from === "user") void handleDeleteMessage(target);
+              }}
+              className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+              style={{
+                borderColor: "rgba(239,68,68,0.25)",
+                backgroundColor: "rgba(239,68,68,0.10)",
+              }}
+            >
+              <Feather name="trash-2" size={18} color="#EF4444" />
+              <Text className="font-outfit font-bold" style={{ color: "#EF4444" }}>Delete</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() => setMessageActionsTarget(null)}
+            className="mt-4 h-12 rounded-2xl items-center justify-center border"
+            style={{ borderColor: colors.borderSubtle, backgroundColor: colors.backgroundSecondary }}
+          >
+            <Text className="font-outfit font-bold" style={{ color: colors.text }}>Close</Text>
+          </Pressable>
+        </BottomSheetView>
+      </BottomSheetModal>
     </View>
   );
 }

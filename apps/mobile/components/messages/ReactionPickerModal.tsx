@@ -9,6 +9,7 @@ type ReactionPickerModalProps = {
   options: string[];
   onClose: () => void;
   onSelect: (message: ChatMessage, emoji: string) => void;
+  onOpenEmojiPicker?: (message: ChatMessage) => void;
 };
 
 export function ReactionPickerModal({
@@ -16,6 +17,7 @@ export function ReactionPickerModal({
   options,
   onClose,
   onSelect,
+  onOpenEmojiPicker,
 }: ReactionPickerModalProps) {
   const { colors, isDark } = useAppTheme();
   return (
@@ -62,6 +64,18 @@ export function ReactionPickerModal({
                   <Text className="text-xl">{emoji}</Text>
                 </Pressable>
               ))}
+              {reactionTarget && onOpenEmojiPicker ? (
+                <Pressable
+                  onPress={() => onOpenEmojiPicker(reactionTarget)}
+                  className="h-11 w-11 items-center justify-center rounded-2xl border"
+                  style={{
+                    borderColor: colors.borderSubtle,
+                    backgroundColor: colors.backgroundSecondary,
+                  }}
+                >
+                  <Text className="text-xl">➕</Text>
+                </Pressable>
+              ) : null}
             </View>
           </View>
         </View>
