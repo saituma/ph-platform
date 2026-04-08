@@ -306,13 +306,19 @@ function InboxScreenBase({
                                   >
                                     {thread.time}
                                   </Text>
-                                  {thread.unread > 0 ? (
+                                  {unreadBadge ? (
                                     <View
-                                      className="rounded-full px-2 py-1"
+                                      className="rounded-full px-2.5 py-1 flex-row items-center gap-1.5"
                                       style={{
                                         backgroundColor: colors.successSoft,
                                       }}
                                     >
+                                      <Text
+                                        className="text-[9px] font-bold font-outfit uppercase tracking-[1px]"
+                                        style={{ color: colors.success }}
+                                      >
+                                        {unreadBadge}
+                                      </Text>
                                       <Text
                                         className="text-[9px] font-bold font-outfit uppercase tracking-[1px]"
                                         style={{ color: colors.success }}
