@@ -77,6 +77,8 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
   const message = parsed.error.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join("; ");
+  const dotenvHint = resolvedEnvPath ? ` (dotenv: ${path.basename(resolvedEnvPath)})` : " (dotenv: none)";
+  console.error(`[Env] Invalid environment configuration${dotenvHint}: ${message}`);
   throw new Error(`Invalid environment configuration: ${message}`);
 }
 
