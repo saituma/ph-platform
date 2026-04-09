@@ -322,36 +322,207 @@ CREATE TABLE IF NOT EXISTS "training_session_tier_locks" (
 	"updatedAt" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "athletes" ALTER COLUMN "currentProgramTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "contents" ALTER COLUMN "programTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "enrollments" ALTER COLUMN "programType" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "guardians" ALTER COLUMN "currentProgramTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "onboarding_configs" ALTER COLUMN "defaultProgramTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "onboarding_configs" ALTER COLUMN "defaultProgramTier" SET DEFAULT 'PHP'::text;--> statement-breakpoint
-ALTER TABLE "parent_courses" ALTER COLUMN "programTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "physio_refferals" ALTER COLUMN "programTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "program_section_contents" ALTER COLUMN "programTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "programs" ALTER COLUMN "type" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "service_types" ALTER COLUMN "programTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "subscription_plans" ALTER COLUMN "tier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "training_module_tier_locks" ALTER COLUMN "programTier" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "training_session_tier_locks" ALTER COLUMN "programTier" SET DATA TYPE text;--> statement-breakpoint
-DROP TYPE "public"."program_type";--> statement-breakpoint
-CREATE TYPE "public"."program_type" AS ENUM('PHP', 'PHP_Premium', 'PHP_Premium_Plus', 'PHP_Pro');--> statement-breakpoint
-ALTER TABLE "athletes" ALTER COLUMN "currentProgramTier" SET DATA TYPE "public"."program_type" USING "currentProgramTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "contents" ALTER COLUMN "programTier" SET DATA TYPE "public"."program_type" USING "programTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "enrollments" ALTER COLUMN "programType" SET DATA TYPE "public"."program_type" USING "programType"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "guardians" ALTER COLUMN "currentProgramTier" SET DATA TYPE "public"."program_type" USING "currentProgramTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "onboarding_configs" ALTER COLUMN "defaultProgramTier" SET DEFAULT 'PHP'::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "onboarding_configs" ALTER COLUMN "defaultProgramTier" SET DATA TYPE "public"."program_type" USING "defaultProgramTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "parent_courses" ALTER COLUMN "programTier" SET DATA TYPE "public"."program_type" USING "programTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "physio_refferals" ALTER COLUMN "programTier" SET DATA TYPE "public"."program_type" USING "programTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "program_section_contents" ALTER COLUMN "programTier" SET DATA TYPE "public"."program_type" USING "programTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "programs" ALTER COLUMN "type" SET DATA TYPE "public"."program_type" USING "type"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "service_types" ALTER COLUMN "programTier" SET DATA TYPE "public"."program_type" USING "programTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "subscription_plans" ALTER COLUMN "tier" SET DATA TYPE "public"."program_type" USING "tier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "training_module_tier_locks" ALTER COLUMN "programTier" SET DATA TYPE "public"."program_type" USING "programTier"::"public"."program_type";--> statement-breakpoint
-ALTER TABLE "training_session_tier_locks" ALTER COLUMN "programTier" SET DATA TYPE "public"."program_type" USING "programTier"::"public"."program_type";--> statement-breakpoint
+DO $$ BEGIN
+  CREATE TYPE "public"."program_type" AS ENUM('PHP', 'PHP_Premium', 'PHP_Premium_Plus', 'PHP_Pro');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+ALTER TYPE "public"."program_type" ADD VALUE IF NOT EXISTS 'PHP';--> statement-breakpoint
+ALTER TYPE "public"."program_type" ADD VALUE IF NOT EXISTS 'PHP_Premium';--> statement-breakpoint
+ALTER TYPE "public"."program_type" ADD VALUE IF NOT EXISTS 'PHP_Premium_Plus';--> statement-breakpoint
+ALTER TYPE "public"."program_type" ADD VALUE IF NOT EXISTS 'PHP_Pro';--> statement-breakpoint
+
+DO $$
+DECLARE
+  -- Re-runnable: cast known tier columns to program_type if they exist and aren't already program_type.
+  -- Handles both camelCase and snake_case column names in older DBs.
+  table_name text;
+  column_name text;
+  udt text;
+BEGIN
+    -- athletes.currentProgramTier
+    table_name := 'athletes';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('currentProgramTier','current_program_tier')
+     ORDER BY CASE WHEN c.column_name = 'currentProgramTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- contents.programTier
+    table_name := 'contents';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('programTier','program_tier')
+     ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- enrollments.programType
+    table_name := 'enrollments';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('programType','program_type')
+     ORDER BY CASE WHEN c.column_name = 'programType' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- guardians.currentProgramTier
+    table_name := 'guardians';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('currentProgramTier','current_program_tier')
+     ORDER BY CASE WHEN c.column_name = 'currentProgramTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- onboarding_configs.defaultProgramTier
+    table_name := 'onboarding_configs';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('defaultProgramTier','default_program_tier')
+     ORDER BY CASE WHEN c.column_name = 'defaultProgramTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL THEN
+      IF udt <> 'program_type' THEN
+        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+      END IF;
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT ''PHP''::"public"."program_type"', table_name, column_name);
+    END IF;
+
+    -- parent_courses.programTier
+    table_name := 'parent_courses';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('programTier','program_tier')
+     ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- physio_refferals.programTier
+    table_name := 'physio_refferals';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('programTier','program_tier')
+     ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- program_section_contents.programTier
+    table_name := 'program_section_contents';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('programTier','program_tier')
+     ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- programs.type
+    table_name := 'programs';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('type')
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- service_types.programTier
+    table_name := 'service_types';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('programTier','program_tier')
+     ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- subscription_plans.tier
+    table_name := 'subscription_plans';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('tier')
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- training_module_tier_locks.programTier
+    table_name := 'training_module_tier_locks';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('programTier','program_tier')
+     ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+
+    -- training_session_tier_locks.programTier
+    table_name := 'training_session_tier_locks';
+    SELECT c.column_name, c.udt_name
+      INTO column_name, udt
+      FROM information_schema.columns c
+     WHERE c.table_schema = 'public'
+       AND c.table_name = table_name
+       AND c.column_name IN ('programTier','program_tier')
+     ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
+     LIMIT 1;
+    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    END IF;
+END $$;--> statement-breakpoint
 ALTER TABLE "athletes" ALTER COLUMN "guardianId" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "admin_settings" ADD COLUMN IF NOT EXISTS "messagingEnabledTiers" jsonb;--> statement-breakpoint
 ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "athleteType" "athlete_type" DEFAULT 'youth' NOT NULL;--> statement-breakpoint
