@@ -9,7 +9,6 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../../components/ui/card";
 import { SectionHeader } from "../../../components/admin/section-header";
 import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +53,7 @@ type AvailableAthlete = {
   athleteId: number;
   displayName: string;
   email: string;
+  currentTeam: string | null;
 };
 
 function formatDate(value: string | Date | null) {
@@ -81,33 +81,46 @@ export default function TeamDetailPage() {
     () => decodeURIComponent(encodedName),
     [encodedName],
   );
+  const cleanTeamName = useMemo(() => teamName.trim(), [teamName]);
   const [details, setDetails] = useState<TeamDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageNotice, setPageNotice] = useState<string | null>(null);
-  const [attachModalOpen, setAttachModalOpen] = useState(false);
-  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [includeOtherTeams, setIncludeOtherTeams] = useState(false);
   const [athleteSearch, setAthleteSearch] = useState("");
   const [availableAthletes, setAvailableAthletes] = useState<
     AvailableAthlete[]
   >([]);
   const [isLoadingAvailableAthletes, setIsLoadingAvailableAthletes] =
     useState(false);
-  const [isAttachingAthlete, setIsAttachingAthlete] = useState(false);
   const [selectedAthleteId, setSelectedAthleteId] = useState<number | null>(
     null,
   );
-  const [isRegisteringAthlete, setIsRegisteringAthlete] = useState(false);
-  const [registerForm, setRegisterForm] = useState({
-    email: "",
-    guardianDisplayName: "",
-    athleteName: "",
-    birthDate: "",
-    trainingPerWeek: "3",
-    parentPhone: "",
-    relationToAthlete: "Guardian",
-    desiredProgramType: "PHP",
-  });
+  const [isAssigningAthlete, setIsAssigningAthlete] = useState(false);
+  const [moveConfirmText, setMoveConfirmText] = useState("");
+
+  const selectedAthlete = useMemo(() => {
+    if (!selectedAthleteId) return null;
+    return (
+      availableAthletes.find(
+        (athlete) => athlete.athleteId === selectedAthleteId,
+      ) ?? null
+    );
+  }, [availableAthletes, selectedAthleteId]);
+
+  const isMoveFromOtherTeam = useMemo(() => {
+    return Boolean(
+      includeOtherTeams &&
+      selectedAthlete?.currentTeam &&
+      selectedAthlete.currentTeam !== cleanTeamName,
+    );
+  }, [cleanTeamName, includeOtherTeams, selectedAthlete?.currentTeam]);
+
+  const isMoveConfirmed = useMemo(() => {
+    return moveConfirmText.trim().toUpperCase() === "MOVE";
+  }, [moveConfirmText]);
 
   const loadDetails = async () => {
     setIsLoading(true);
@@ -134,11 +147,6 @@ export default function TeamDetailPage() {
     }
   };
 
-  useEffect(() => {
-    if (!teamName) return;
-    void loadDetails();
-  }, [teamName]);
-
   const loadAvailableAthletes = async () => {
     if (!details) return;
     setIsLoadingAvailableAthletes(true);
@@ -150,9 +158,11 @@ export default function TeamDetailPage() {
       if (!response.ok) {
         throw new Error(payload?.error ?? "Failed to load athletes.");
       }
+
       const teamMemberIds = new Set(
         details.members.map((member) => member.athleteId),
       );
+
       const nextAthletes = (Array.isArray(payload?.users) ? payload.users : [])
         .filter(
           (user: AdminUser) =>
@@ -160,6 +170,9 @@ export default function TeamDetailPage() {
         )
         .filter((user: AdminUser) => {
           const existingTeam = (user.athleteTeam ?? "").trim();
+          if (includeOtherTeams) {
+            return existingTeam !== cleanTeamName;
+          }
           return existingTeam.length === 0;
         })
         .map(
@@ -168,6 +181,7 @@ export default function TeamDetailPage() {
             displayName:
               user.athleteName ?? user.name ?? `Athlete ${user.athleteId}`,
             email: user.email ?? "—",
+            currentTeam: (user.athleteTeam ?? "").trim() || null,
           }),
         )
         .filter(
@@ -189,15 +203,27 @@ export default function TeamDetailPage() {
   };
 
   useEffect(() => {
-    if (!attachModalOpen) return;
+    if (!assignModalOpen) return;
+    setPageNotice(null);
     void loadAvailableAthletes();
-  }, [attachModalOpen]);
+  }, [assignModalOpen, includeOtherTeams]);
 
-  const attachExistingAthlete = async () => {
+  useEffect(() => {
+    if (!assignModalOpen) return;
+    setMoveConfirmText("");
+  }, [assignModalOpen, includeOtherTeams, selectedAthleteId]);
+
+  const assignExistingAthlete = async () => {
     if (!selectedAthleteId) return;
     setPageNotice(null);
-    setIsAttachingAthlete(true);
+    setIsAssigningAthlete(true);
     try {
+      const allowMoveFromOtherTeam = isMoveFromOtherTeam;
+      if (allowMoveFromOtherTeam && !isMoveConfirmed) {
+        setPageNotice('Type "MOVE" to confirm moving this athlete.');
+        return;
+      }
+
       const csrfToken = getCsrfToken();
       const response = await fetch(
         `/api/backend/admin/teams/${encodeURIComponent(teamName)}/athletes/${selectedAthleteId}/attach`,
@@ -208,105 +234,33 @@ export default function TeamDetailPage() {
             ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
           },
           credentials: "include",
+          body: JSON.stringify({ allowMoveFromOtherTeam }),
         },
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(
-          payload?.error ?? "Failed to add athlete to this team.",
+          payload?.error ?? "Failed to assign athlete to this team.",
         );
       }
-      setAttachModalOpen(false);
+
+      setAssignModalOpen(false);
       setAthleteSearch("");
-      setPageNotice("Athlete added to team.");
+      setMoveConfirmText("");
+      setPageNotice(
+        allowMoveFromOtherTeam && selectedAthlete?.currentTeam
+          ? `Member moved from "${selectedAthlete.currentTeam}" to this team.`
+          : "Member assigned to team.",
+      );
       await loadDetails();
     } catch (err) {
       setPageNotice(
         err instanceof Error
           ? err.message
-          : "Failed to add athlete to this team.",
+          : "Failed to assign athlete to this team.",
       );
     } finally {
-      setIsAttachingAthlete(false);
-    }
-  };
-
-  const registerNewAthlete = async () => {
-    if (
-      !registerForm.email.trim() ||
-      !registerForm.guardianDisplayName.trim() ||
-      !registerForm.athleteName.trim() ||
-      !registerForm.birthDate.trim()
-    ) {
-      setPageNotice("Please fill all required fields.");
-      return;
-    }
-
-    const trainingPerWeek = Number.parseInt(registerForm.trainingPerWeek, 10);
-    if (!Number.isFinite(trainingPerWeek) || trainingPerWeek < 0) {
-      setPageNotice("Training/week must be a valid number.");
-      return;
-    }
-
-    setPageNotice(null);
-    setIsRegisteringAthlete(true);
-    try {
-      const csrfToken = getCsrfToken();
-      const response = await fetch("/api/backend/admin/users/provision", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email: registerForm.email.trim(),
-          guardianDisplayName: registerForm.guardianDisplayName.trim(),
-          athleteName: registerForm.athleteName.trim(),
-          birthDate: registerForm.birthDate.trim(),
-          team: teamName.trim(),
-          trainingPerWeek,
-          parentPhone: registerForm.parentPhone.trim() || null,
-          relationToAthlete: registerForm.relationToAthlete.trim() || null,
-          desiredProgramType: registerForm.desiredProgramType as
-            | "PHP"
-            | "PHP_Premium"
-            | "PHP_Premium_Plus"
-            | "PHP_Pro",
-          planPaymentType: "monthly",
-          planCommitmentMonths: 6,
-          termsVersion: "1.0",
-          privacyVersion: "1.0",
-          appVersion: "admin-web",
-        }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to register player.");
-      }
-      setRegisterModalOpen(false);
-      setRegisterForm({
-        email: "",
-        guardianDisplayName: "",
-        athleteName: "",
-        birthDate: "",
-        trainingPerWeek: "3",
-        parentPhone: "",
-        relationToAthlete: "Guardian",
-        desiredProgramType: "PHP",
-      });
-      setPageNotice(
-        payload?.emailSent
-          ? "Player registered and invite email sent."
-          : "Player registered. Email sending failed.",
-      );
-      await loadDetails();
-    } catch (err) {
-      setPageNotice(
-        err instanceof Error ? err.message : "Failed to register player.",
-      );
-    } finally {
-      setIsRegisteringAthlete(false);
+      setIsAssigningAthlete(false);
     }
   };
 
@@ -317,6 +271,11 @@ export default function TeamDetailPage() {
       .toLowerCase()
       .includes(normalized);
   });
+
+  useEffect(() => {
+    if (!teamName) return;
+    void loadDetails();
+  }, [teamName]);
 
   return (
     <AdminShell
@@ -340,21 +299,11 @@ export default function TeamDetailPage() {
             <Button
               size="sm"
               onClick={() => {
-                setRegisterModalOpen(true);
-                setRegisterForm((current) => ({
-                  ...current,
-                  relationToAthlete: current.relationToAthlete || "Guardian",
-                }));
+                setIncludeOtherTeams(false);
+                setAssignModalOpen(true);
               }}
             >
-              Register new player
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAttachModalOpen(true)}
-            >
-              Add existing athlete
+              Assign member
             </Button>
             <Button variant="outline" size="sm" asChild>
               <Link href="/teams">Back to teams</Link>
@@ -452,10 +401,10 @@ export default function TeamDetailPage() {
         </Card>
       </div>
 
-      <Dialog open={attachModalOpen} onOpenChange={setAttachModalOpen}>
+      <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add existing athlete</DialogTitle>
+            <DialogTitle>Assign member</DialogTitle>
             <DialogDescription>
               Select an athlete to attach to {teamName}.
             </DialogDescription>
@@ -466,6 +415,38 @@ export default function TeamDetailPage() {
               value={athleteSearch}
               onChange={(event) => setAthleteSearch(event.target.value)}
             />
+
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={includeOtherTeams}
+                onChange={(event) => setIncludeOtherTeams(event.target.checked)}
+                className="h-4 w-4"
+              />
+              Include athletes already assigned to another team
+            </label>
+            {includeOtherTeams ? (
+              <p className="text-xs text-muted-foreground">
+                Showing unassigned athletes and athletes already on other teams.
+                Assigning an athlete from another team will move them to{" "}
+                {cleanTeamName || teamName}.
+              </p>
+            ) : null}
+
+            {isMoveFromOtherTeam ? (
+              <div className="space-y-2 rounded-xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">
+                  This athlete is currently assigned to another team. Type MOVE
+                  to confirm the move.
+                </p>
+                <Input
+                  placeholder="Type MOVE to confirm"
+                  value={moveConfirmText}
+                  onChange={(event) => setMoveConfirmText(event.target.value)}
+                />
+              </div>
+            ) : null}
+
             <div className="max-h-72 space-y-2 overflow-auto rounded-xl border border-border p-2">
               {isLoadingAvailableAthletes ? (
                 <p className="p-2 text-sm text-muted-foreground">
@@ -492,6 +473,10 @@ export default function TeamDetailPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {athlete.email}
+                      {athlete.currentTeam &&
+                      athlete.currentTeam !== cleanTeamName
+                        ? ` · Current team: ${athlete.currentTeam}`
+                        : ""}
                     </p>
                   </button>
                 ))
@@ -500,156 +485,20 @@ export default function TeamDetailPage() {
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => setAttachModalOpen(false)}
+                onClick={() => setAssignModalOpen(false)}
               >
                 Cancel
               </Button>
               <Button
-                onClick={() => void attachExistingAthlete()}
+                onClick={() => void assignExistingAthlete()}
                 disabled={
                   !selectedAthleteId ||
-                  isAttachingAthlete ||
-                  isLoadingAvailableAthletes
+                  isAssigningAthlete ||
+                  isLoadingAvailableAthletes ||
+                  (isMoveFromOtherTeam && !isMoveConfirmed)
                 }
               >
-                {isAttachingAthlete ? "Adding..." : "Add athlete"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={registerModalOpen} onOpenChange={setRegisterModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Register new player</DialogTitle>
-            <DialogDescription>
-              Create a youth player and assign them directly to {teamName}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1 sm:col-span-2">
-              <Label>Guardian email</Label>
-              <Input
-                type="email"
-                value={registerForm.email}
-                onChange={(event) =>
-                  setRegisterForm((current) => ({
-                    ...current,
-                    email: event.target.value,
-                  }))
-                }
-                placeholder="guardian@email.com"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Guardian name</Label>
-              <Input
-                value={registerForm.guardianDisplayName}
-                onChange={(event) =>
-                  setRegisterForm((current) => ({
-                    ...current,
-                    guardianDisplayName: event.target.value,
-                  }))
-                }
-                placeholder="Parent / guardian name"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Athlete name</Label>
-              <Input
-                value={registerForm.athleteName}
-                onChange={(event) =>
-                  setRegisterForm((current) => ({
-                    ...current,
-                    athleteName: event.target.value,
-                  }))
-                }
-                placeholder="Player full name"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Birth date</Label>
-              <Input
-                type="date"
-                value={registerForm.birthDate}
-                onChange={(event) =>
-                  setRegisterForm((current) => ({
-                    ...current,
-                    birthDate: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Training/week</Label>
-              <Input
-                type="number"
-                min={0}
-                value={registerForm.trainingPerWeek}
-                onChange={(event) =>
-                  setRegisterForm((current) => ({
-                    ...current,
-                    trainingPerWeek: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Program tier</Label>
-              <select
-                className="h-10 w-full rounded-full border border-input bg-background px-4 text-sm"
-                value={registerForm.desiredProgramType}
-                onChange={(event) =>
-                  setRegisterForm((current) => ({
-                    ...current,
-                    desiredProgramType: event.target.value,
-                  }))
-                }
-              >
-                <option value="PHP">PHP Program</option>
-                <option value="PHP_Premium">PHP Premium</option>
-                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
-                <option value="PHP_Pro">PHP Pro</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label>Guardian phone (optional)</Label>
-              <Input
-                value={registerForm.parentPhone}
-                onChange={(event) =>
-                  setRegisterForm((current) => ({
-                    ...current,
-                    parentPhone: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <Label>Relation (optional)</Label>
-              <Input
-                value={registerForm.relationToAthlete}
-                onChange={(event) =>
-                  setRegisterForm((current) => ({
-                    ...current,
-                    relationToAthlete: event.target.value,
-                  }))
-                }
-                placeholder="Guardian"
-              />
-            </div>
-            <div className="sm:col-span-2 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setRegisterModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => void registerNewAthlete()}
-                disabled={isRegisteringAthlete}
-              >
-                {isRegisteringAthlete ? "Registering..." : "Register player"}
+                {isAssigningAthlete ? "Assigning..." : "Assign member"}
               </Button>
             </div>
           </div>
