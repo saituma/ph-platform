@@ -122,6 +122,7 @@ export async function getTeamMemberAdmin(input: { teamName: string; athleteId: n
   const rows = await db
     .select({
       athleteId: athleteTable.id,
+      athleteUserId: athleteTable.userId,
       team: athleteTable.team,
       athleteName: athleteTable.name,
       birthDate: athleteTable.birthDate,
@@ -133,6 +134,7 @@ export async function getTeamMemberAdmin(input: { teamName: string; athleteId: n
       equipmentAccess: athleteTable.equipmentAccess,
       createdAt: athleteTable.createdAt,
       updatedAt: athleteTable.updatedAt,
+      guardianUserId: guardianTable.userId,
       guardianEmail: guardianTable.email,
       guardianPhone: guardianTable.phoneNumber,
       relationToAthlete: guardianTable.relationToAthlete,
@@ -149,6 +151,7 @@ export async function getTeamMemberAdmin(input: { teamName: string; athleteId: n
 
   return {
     athleteId: row.athleteId,
+    athleteUserId: row.athleteUserId,
     team: row.team,
     athleteName: row.athleteName,
     birthDate: row.birthDate,
@@ -160,6 +163,7 @@ export async function getTeamMemberAdmin(input: { teamName: string; athleteId: n
     equipmentAccess: row.equipmentAccess,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    guardianUserId: row.guardianUserId,
     guardianEmail: row.guardianEmail,
     guardianPhone: row.guardianPhone,
     relationToAthlete: row.relationToAthlete,

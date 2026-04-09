@@ -8,6 +8,7 @@ import {
   createGuardianWithOnboardingAdmin,
   createAdultAthleteAdmin,
   updateAthleteProgramTier,
+  resetUserPasswordAdmin,
 } from "../../services/admin/user.service";
 import { ProgramType } from "../../db/schema";
 
@@ -86,6 +87,10 @@ const provisionTeamSchema = z.object({
 const updateTierSchema = z.object({
   athleteId: z.number().int().min(1),
   programTier: z.enum(ProgramType.enumValues),
+});
+
+const resetPasswordSchema = z.object({
+  temporaryPassword: z.string().min(8).max(128).optional().nullable(),
 });
 
 export async function listAllUsers(req: Request, res: Response) {
@@ -221,4 +226,27 @@ export async function updateProgramTier(req: Request, res: Response) {
   const input = updateTierSchema.parse(req.body);
   const athlete = await updateAthleteProgramTier(input.athleteId, input.programTier);
   return res.status(200).json({ athlete });
+}
+
+export async function resetPassword(req: Request, res: Response) {
+  const userId = z.coerce.number().int().min(1).parse(req.params.userId);
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+
+  try {
+    const result = await resetUserPasswordAdmin({
+      userId,
+      temporaryPassword: parsed.data.temporaryPassword ?? null,
+    });
+    return res.status(200).json(result);
+  } catch (error: any) {
+    const status = typeof error?.status === "number" ? error.status : 500;
+    const message = typeof error?.message === "string" ? error.message : "Failed to reset password";
+    if (status >= 500) {
+      console.error("[admin] resetPassword", error);
+    }
+    return res.status(status).json({ error: message });
+  }
 }

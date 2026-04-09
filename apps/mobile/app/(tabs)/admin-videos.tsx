@@ -5,6 +5,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -107,6 +108,7 @@ export default function AdminVideosScreen() {
   const insets = useSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
+  const router = useRouter();
 
   const [items, setItems] = useState<AdminVideoItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -175,6 +177,45 @@ export default function AdminVideosScreen() {
       Alert.alert("Unable to open link", url);
     }
   }, [selectedVideo?.videoUrl]);
+
+  const replyInMessages = useCallback(() => {
+    const userId =
+      selectedVideo?.athleteUserId == null
+        ? NaN
+        : Number(selectedVideo.athleteUserId);
+    const uploadId = selectedVideo?.id == null ? NaN : Number(selectedVideo.id);
+    const nameRaw =
+      typeof selectedVideo?.athleteName === "string"
+        ? selectedVideo.athleteName.trim()
+        : "";
+
+    if (!Number.isFinite(userId) || userId <= 0) {
+      Alert.alert(
+        "Unable to reply",
+        "This upload is missing the athlete user ID.",
+      );
+      return;
+    }
+    if (!Number.isFinite(uploadId) || uploadId <= 0) {
+      Alert.alert("Unable to reply", "This upload is missing an ID.");
+      return;
+    }
+
+    setVideoDetailOpenId(null);
+    router.push({
+      pathname: "/(tabs)/admin-messages",
+      params: {
+        userId: String(userId),
+        name: nameRaw,
+        videoUploadId: String(uploadId),
+      },
+    });
+  }, [
+    router,
+    selectedVideo?.athleteName,
+    selectedVideo?.athleteUserId,
+    selectedVideo?.id,
+  ]);
 
   const submitFeedback = useCallback(async () => {
     if (!token || !bootstrapReady) return;
@@ -457,6 +498,15 @@ export default function AdminVideosScreen() {
                     />
                   </View>
                 ) : null}
+
+                <View className={selectedVideo?.videoUrl ? "mt-2" : "mt-3"}>
+                  <SmallAction
+                    label="Reply in messages"
+                    tone="neutral"
+                    onPress={replyInMessages}
+                    disabled={false}
+                  />
+                </View>
               </View>
 
               <View

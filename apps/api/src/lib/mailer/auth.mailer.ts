@@ -54,3 +54,35 @@ ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">For your
 
   await deliverEmail({ to: input.to, subject, html });
 }
+
+/** Password reset email triggered by an admin (temporary password; user changes it in the app). */
+export async function sendAdminPasswordResetEmail(input: {
+  to: string;
+  displayName: string;
+  temporaryPassword: string;
+}) {
+  const subject = "Your PH Performance password was reset";
+  const name = escapeHtml(input.displayName);
+  const pwd = escapeHtml(input.temporaryPassword);
+  const bodyHtml = `
+${textP(`Hi ${name},`)}
+${textP(`Your coach has reset your PH Performance password. Sign in on the mobile app with the email address this message was sent to and the temporary password below. You will be asked to choose a new password after you sign in.`)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td align="center" style="background-color:#f4f4f5;border-radius:12px;border:1px solid ${E.rule};padding:28px 24px;">
+      <p style="margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${E.muted};font-family:${E.font};">Temporary password</p>
+      <p style="margin:0;font-size:18px;font-weight:600;word-break:break-all;color:${E.text};font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.4;">${pwd}</p>
+    </td>
+  </tr>
+</table>
+${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">If you did not expect this change, contact PH Performance support.</span>`, "0")}`;
+
+  const html = emailLayout({
+    preheader: "Your temporary password is inside.",
+    eyebrow: "Security",
+    headline: "Password reset",
+    bodyHtml,
+  });
+
+  await deliverEmail({ to: input.to, subject, html });
+}

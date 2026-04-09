@@ -34,6 +34,9 @@ import { useProgramPanel } from "./shared/useProgramPanel";
 import { ProgramPanelCard } from "./shared/ProgramPanelCard";
 import { ProgramPanelStatusBadge } from "./shared/ProgramPanelStatusBadge";
 
+const VIDEO_MAX_MB = 200;
+const VIDEO_MAX_BYTES = VIDEO_MAX_MB * 1024 * 1024;
+
 interface VideoItem {
   id: string;
   videoUrl: string;
@@ -78,11 +81,13 @@ export function VideoUploadPanel({
   refreshToken = 0,
   sectionContentId,
   sectionTitle,
+  autoPickSource,
   onUploaded,
 }: {
   refreshToken?: number;
   sectionContentId?: number | null;
   sectionTitle?: string | null;
+  autoPickSource?: "camera" | "library" | null;
   onUploaded?: (payload: {
     sectionContentId?: number | null;
     publicUrl: string;
@@ -141,8 +146,6 @@ export function VideoUploadPanel({
   });
 
   const { socket } = useSocket();
-  const VIDEO_MAX_MB = 200;
-  const VIDEO_MAX_BYTES = VIDEO_MAX_MB * 1024 * 1024;
   const canUploadForSection = true;
 
   const pendingKey = useMemo(() => {
@@ -416,66 +419,79 @@ export function VideoUploadPanel({
   const showUploadBanner = uploading;
   const bannerProgress = inFlightOptimistic?.progress ?? 0;
 
+  const autoPickDoneRef = useRef(false);
+
   // Media Selection & Upload
-  const pickVideo = async (source: "library" | "camera") => {
-    if (!token) return;
-    if (!canUploadForSection) {
-      setStatus("Select a training section to upload a video.");
-      return;
-    }
-    setStatus(null);
-    try {
-      setPreparingVideo(true);
-      if (source === "camera") {
-        const permission = await ImagePicker.requestCameraPermissionsAsync();
-        if (!permission.granted)
-          throw new Error("Camera permission is required.");
-      } else {
-        const permission =
-          await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted)
-          throw new Error("Media library permission is required.");
+  const pickVideo = useCallback(
+    async (source: "library" | "camera") => {
+      if (!token) return;
+      if (!canUploadForSection) {
+        setStatus("Select a training section to upload a video.");
+        return;
       }
+      setStatus(null);
+      try {
+        setPreparingVideo(true);
+        if (source === "camera") {
+          const permission = await ImagePicker.requestCameraPermissionsAsync();
+          if (!permission.granted)
+            throw new Error("Camera permission is required.");
+        } else {
+          const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!permission.granted)
+            throw new Error("Media library permission is required.");
+        }
 
-      const result =
-        source === "camera"
-          ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              quality: 0.9,
-              allowsEditing: false,
-            })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              quality: 0.9,
-              allowsEditing: false,
-            });
+        const result =
+          source === "camera"
+            ? await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+                quality: 0.9,
+                allowsEditing: false,
+              })
+            : await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+                quality: 0.9,
+                allowsEditing: false,
+              });
 
-      if (result.canceled || !result.assets?.[0]?.uri) return;
-      const asset = result.assets[0];
-      const uri = asset.uri;
-      const fileName = uri.split("/").pop() ?? `upload-${Date.now()}.mp4`;
-      const fileInfo = await FileSystem.getInfoAsync(uri);
-      const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+        const asset = result.assets[0];
+        const uri = asset.uri;
+        const fileName = uri.split("/").pop() ?? `upload-${Date.now()}.mp4`;
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
 
-      if (sizeBytes > VIDEO_MAX_BYTES)
-        throw new Error(`Video exceeds ${VIDEO_MAX_MB}MB limit.`);
+        if (sizeBytes > VIDEO_MAX_BYTES)
+          throw new Error(`Video exceeds ${VIDEO_MAX_MB}MB limit.`);
 
-      setSelectedVideo({
-        uri,
-        fileName,
-        contentType: asset.mimeType || "video/mp4",
-        sizeBytes,
-        width: asset.width,
-        height: asset.height,
-      });
+        setSelectedVideo({
+          uri,
+          fileName,
+          contentType: asset.mimeType || "video/mp4",
+          sizeBytes,
+          width: asset.width,
+          height: asset.height,
+        });
 
-      setStatus("Preview your video and confirm before sending.");
-    } catch (error: any) {
-      setStatus(error?.message ?? "Video selection failed.");
-    } finally {
-      setPreparingVideo(false);
-    }
-  };
+        setStatus("Preview your video and confirm before sending.");
+      } catch (error: any) {
+        setStatus(error?.message ?? "Video selection failed.");
+      } finally {
+        setPreparingVideo(false);
+      }
+    },
+    [canUploadForSection, token],
+  );
+
+  useEffect(() => {
+    if (!autoPickSource) return;
+    if (autoPickDoneRef.current) return;
+    if (uploading || preparingVideo) return;
+    autoPickDoneRef.current = true;
+    void pickVideo(autoPickSource);
+  }, [autoPickSource, pickVideo, preparingVideo, uploading]);
 
   const handleSubmitVideo = async () => {
     if (!token || !selectedVideo) return;
