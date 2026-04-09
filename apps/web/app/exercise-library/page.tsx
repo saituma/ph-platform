@@ -23,6 +23,7 @@ import {
   isYouthAgeAudienceLabel,
   isAdultStorageAudienceLabel,
   isTeamStorageAudienceLabel,
+  toTeamStorageAudienceLabel,
   fromTeamStorageAudienceLabel,
   normalizeAudienceLabelInput,
   trainingContentRequest,
