@@ -114,27 +114,39 @@ export default function AdminHomeScreen() {
               onPress={() => requestGlobalTabChange(2)}
             />
             <ActionButton
+              icon="shield"
+              label="Teams"
+              color="bg-accent"
+              onPress={() => {
+                requestGlobalTabChange(6);
+                requestAdminOps({ section: "teams" });
+              }}
+            />
+          </View>
+          <View className="flex-row gap-3">
+            <ActionButton
               icon="layers"
               label="Content"
               color="bg-accent"
               onPress={() => requestGlobalTabChange(5)}
             />
             <ActionButton
-              icon="settings"
-              label="Scheduling"
+              icon="calendar"
+              label="Schedule"
               color="bg-accent"
               onPress={() => {
                 requestGlobalTabChange(6);
-                requestAdminOps({ section: "bookings", action: "createBooking" });
+                requestAdminOps({ section: "bookings" });
               }}
             />
-          </View>
-          <View className="flex-row gap-3">
             <ActionButton
               icon="settings"
               label="Ops"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(6)}
+              onPress={() => {
+                requestGlobalTabChange(6);
+                requestAdminOps({ section: "services" });
+              }}
             />
           </View>
         </View>

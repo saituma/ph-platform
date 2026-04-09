@@ -71,7 +71,30 @@ type ServiceType = {
   eligiblePlans?: string[] | null;
 };
 
-type OpsSection = "bookings" | "availability" | "services";
+type AdminTeam = {
+  team: string;
+  memberCount: number;
+  guardianCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+type AdminTeamDetail = {
+  team: string;
+  summary: {
+    memberCount: number;
+    guardianCount: number;
+    createdAt: string | null;
+    updatedAt: string | null;
+  };
+  members: {
+    athleteId: number;
+    athleteName: string | null;
+    currentProgramTier: string | null;
+  }[];
+};
+
+type OpsSection = "bookings" | "availability" | "services" | "teams";
 
 function formatIsoShort(value: string | null | undefined): string {
   if (!value) return "—";
@@ -353,6 +376,16 @@ export default function AdminOpsScreen() {
     string[]
   >([]);
   const [serviceEditIsActive, setServiceEditIsActive] = useState(true);
+
+  const [teams, setTeams] = useState<AdminTeam[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [teamsError, setTeamsError] = useState<string | null>(null);
+  const [teamDetailOpenName, setTeamDetailOpenName] = useState<string | null>(null);
+  const [teamDetail, setTeamDetail] = useState<AdminTeamDetail | null>(null);
+  const [teamDetailLoading, setTeamDetailLoading] = useState(false);
+  const [teamCreateName, setTeamCreateName] = useState("");
+  const [teamCreateBusy, setTeamCreateBusy] = useState(false);
+  const [teamCreateOpen, setTeamCreateOpen] = useState(false);
 
   const canLoad = Boolean(token && bootstrapReady);
 
@@ -817,6 +850,81 @@ export default function AdminOpsScreen() {
     [canLoad, loadServices, serviceDetailOpenId, token],
   );
 
+  const loadTeams = useCallback(
+    async (forceRefresh: boolean) => {
+      if (!canLoad) return;
+      setTeamsLoading(true);
+      setTeamsError(null);
+      try {
+        const res = await apiRequest<{ teams?: AdminTeam[] }>(
+          "/admin/teams",
+          {
+            token,
+            suppressStatusCodes: [403],
+            skipCache: forceRefresh,
+            forceRefresh,
+          },
+        );
+        setTeams(Array.isArray(res?.teams) ? res.teams : []);
+      } catch (e) {
+        setTeamsError(e instanceof Error ? e.message : "Failed to load teams");
+        setTeams([]);
+      } finally {
+        setTeamsLoading(false);
+      }
+    },
+    [canLoad, token],
+  );
+
+  const createTeam = useCallback(async () => {
+    if (!canLoad || !teamCreateName.trim()) return;
+    setTeamCreateBusy(true);
+    setTeamsError(null);
+    try {
+      await apiRequest("/admin/teams", {
+        method: "POST",
+        token,
+        body: { teamName: teamCreateName.trim() },
+        suppressStatusCodes: [403],
+        skipCache: true,
+      });
+      setTeamCreateName("");
+      setTeamCreateOpen(false);
+      await loadTeams(true);
+    } catch (e) {
+      setTeamsError(e instanceof Error ? e.message : "Failed to create team");
+    } finally {
+      setTeamCreateBusy(false);
+    }
+  }, [canLoad, teamCreateName, token, loadTeams]);
+
+  const loadTeamDetail = useCallback(
+    async (teamName: string) => {
+      if (!canLoad) return;
+      setTeamDetailLoading(true);
+      setTeamsError(null);
+      try {
+        const res = await apiRequest<AdminTeamDetail>(
+          `/admin/teams/${encodeURIComponent(teamName)}`,
+          {
+            token,
+            suppressStatusCodes: [403],
+            skipCache: true,
+          },
+        );
+        setTeamDetail(res ?? null);
+      } catch (e) {
+        setTeamsError(
+          e instanceof Error ? e.message : "Failed to load team details",
+        );
+        setTeamDetail(null);
+      } finally {
+        setTeamDetailLoading(false);
+      }
+    },
+    [canLoad, token],
+  );
+
   useEffect(() => {
     if (!canLoad) return;
     if (!bookingDetailOpenId) return;
@@ -872,6 +980,16 @@ export default function AdminOpsScreen() {
 
   useEffect(() => {
     if (!canLoad) return;
+    if (section === "teams") void loadTeams(false);
+  }, [canLoad, loadTeams, section]);
+
+  useEffect(() => {
+    if (!canLoad || !teamDetailOpenName) return;
+    void loadTeamDetail(teamDetailOpenName);
+  }, [canLoad, loadTeamDetail, teamDetailOpenName]);
+
+  useEffect(() => {
+    if (!canLoad) return;
     if (section === "availability") void loadAvailability(false);
     if (section === "availability" && services.length === 0) void loadServices(false);
     if (section === "services") void loadServices(false);
@@ -902,6 +1020,11 @@ export default function AdminOpsScreen() {
       if (availabilityError) return "Availability error";
       return `${availability.length} availability blocks`;
     }
+    if (section === "teams") {
+      if (teamsLoading) return "Loading teams…";
+      if (teamsError) return "Teams error";
+      return `${teams.length} teams`;
+    }
     if (servicesLoading) return "Loading services…";
     if (servicesError) return "Services error";
     return `${services.length} service types`;
@@ -916,6 +1039,9 @@ export default function AdminOpsScreen() {
     services.length,
     servicesError,
     servicesLoading,
+    teams.length,
+    teamsError,
+    teamsLoading,
   ]);
 
   return (
@@ -957,6 +1083,11 @@ export default function AdminOpsScreen() {
             label="Availability"
             selected={section === "availability"}
             onPress={() => setSection("availability")}
+          />
+          <Chip
+            label="Teams"
+            selected={section === "teams"}
+            onPress={() => setSection("teams")}
           />
           <Chip
             label="Services"
@@ -1171,6 +1302,91 @@ export default function AdminOpsScreen() {
                       </Pressable>
                     );
                   })}
+                </View>
+              )}
+            </View>
+          ) : section === "teams" ? (
+            <View className="gap-4">
+              <View className="gap-3">
+                <Text className="text-[13px] font-outfit-semibold text-app">
+                  Manage teams
+                </Text>
+                <View className="flex-row gap-2">
+                  <SmallAction
+                    label="Create team"
+                    tone="success"
+                    onPress={() => setTeamCreateOpen(true)}
+                  />
+                  <SmallAction
+                    label="Refresh"
+                    tone="neutral"
+                    onPress={() => loadTeams(true)}
+                    disabled={teamsLoading}
+                  />
+                </View>
+                <Text className="text-[12px] font-outfit text-secondary">
+                  Create teams and post training content to them.
+                </Text>
+              </View>
+
+              {teamsLoading && teams.length === 0 ? (
+                <View className="gap-2">
+                  <Skeleton width="92%" height={14} />
+                  <Skeleton width="86%" height={14} />
+                  <Skeleton width="90%" height={14} />
+                </View>
+              ) : teamsError ? (
+                <Text selectable className="text-sm font-outfit text-red-400">
+                  {teamsError}
+                </Text>
+              ) : teams.length === 0 ? (
+                <Text className="text-sm font-outfit text-secondary">
+                  No teams found.
+                </Text>
+              ) : (
+                <View className="gap-3">
+                  {teams.map((t) => (
+                    <Pressable
+                      key={t.team}
+                      accessibilityRole="button"
+                      onPress={() => setTeamDetailOpenName(t.team)}
+                      className="rounded-2xl border px-4 py-3"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.03)"
+                          : "rgba(15,23,42,0.03)",
+                        borderColor: isDark
+                          ? "rgba(255,255,255,0.06)"
+                          : "rgba(15,23,42,0.06)",
+                      }}
+                    >
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1 mr-3">
+                          <Text
+                            className="text-[13px] font-clash font-bold text-app"
+                            numberOfLines={1}
+                          >
+                            {t.team}
+                          </Text>
+                          <Text
+                            className="text-[12px] font-outfit text-secondary"
+                            numberOfLines={1}
+                          >
+                            {t.memberCount} members • {t.guardianCount} guardians
+                          </Text>
+                        </View>
+                        <SmallAction
+                          label="Post training"
+                          tone="success"
+                          onPress={() => {
+                            requestGlobalTabChange(5); // Content tab
+                            // Pass team info via some global state or ref later if needed,
+                            // but for now the user can just select the team in Content tab.
+                          }}
+                        />
+                      </View>
+                    </Pressable>
+                  ))}
                 </View>
               )}
             </View>

@@ -306,6 +306,11 @@ export default function TeamDetailPage() {
               Assign member
             </Button>
             <Button variant="outline" size="sm" asChild>
+              <Link href={`/exercise-library/${encodeURIComponent(teamName)}?mode=team`}>
+                Post training
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
               <Link href="/teams">Back to teams</Link>
             </Button>
           </CardContent>
