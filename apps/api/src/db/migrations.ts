@@ -50,6 +50,22 @@ function connectionWantsSsl(raw: string): boolean {
   }
 }
 
+function safeDbTarget(raw: string) {
+  try {
+    const u = new URL(raw);
+    const db = u.pathname?.replace(/^\//, "") ?? "";
+    const host = u.hostname;
+    const port = u.port ? Number(u.port) : undefined;
+    return {
+      host: host || "(unknown)",
+      port,
+      database: db || undefined,
+    };
+  } catch {
+    return { host: "(unparsed)", port: undefined as number | undefined, database: undefined as string | undefined };
+  }
+}
+
 function readJournalEntries(migrationsFolder: string) {
   const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
   const journal = JSON.parse(fs.readFileSync(journalPath, "utf8")) as {
@@ -340,6 +356,18 @@ export async function runMigrations(options?: {
     if (!options?.skipTrainingV2Assertion) {
       await assertTrainingContentV2Schema(db);
     }
+  } catch (error) {
+    const target = safeDbTarget(rawUrl);
+    const message =
+      error instanceof Error
+        ? `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ""}`
+        : String(error);
+    const folder =
+      options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
+    console.error(
+      `[Migrations] Failed (ssl=${useSsl ? "on" : "off"}, folder=${folder}, host=${target.host}${target.port ? `:${target.port}` : ""}${target.database ? `/${target.database}` : ""}).\n${message}`,
+    );
+    throw error;
   } finally {
     await pool.end();
   }
