@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import {
   ActivityIndicator,
@@ -16,6 +22,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
@@ -28,7 +35,10 @@ import {
   ParentEducationPanel,
   VideoUploadPanel,
 } from "@/components/programs/ProgramPanels";
-import { AchievementsStrip, type TrainingAchievement } from "@/components/programs/AchievementsStrip";
+import {
+  AchievementsStrip,
+  type TrainingAchievement,
+} from "@/components/programs/AchievementsStrip";
 import { ProgramSessionPanel } from "@/components/programs/ProgramSessionPanel";
 import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
 import { Shadows } from "@/constants/theme";
@@ -42,7 +52,10 @@ import {
 } from "@/constants/program-details";
 import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setMessagingAccessTiers, setProgramTier } from "@/store/slices/userSlice";
+import {
+  setMessagingAccessTiers,
+  setProgramTier,
+} from "@/store/slices/userSlice";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import {
   canAccessTier,
@@ -158,6 +171,7 @@ export function ProgramDetailPanel({
   sharedBoundTag,
 }: ProgramDetailPanelProps) {
   const dispatch = useAppDispatch();
+  const isFocused = useIsFocused();
   const {
     programTier,
     token,
@@ -174,16 +188,16 @@ export function ProgramDetailPanel({
   const { colors, isDark } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
-  const [trainingContentV2, setTrainingContentV2] = useState<TrainingContentV2Workspace | null>(null);
-  
+  const [trainingContentV2, setTrainingContentV2] =
+    useState<TrainingContentV2Workspace | null>(null);
+
   const activeAthleteAge = useMemo(() => {
     if (!managedAthletes.length) return null;
     const selected =
       managedAthletes.find(
         (athlete) =>
           athlete.id === athleteUserId || athlete.userId === athleteUserId,
-      ) ??
-      managedAthletes[0];
+      ) ?? managedAthletes[0];
     return selected?.age ?? null;
   }, [managedAthletes, athleteUserId]);
 
@@ -205,7 +219,10 @@ export function ProgramDetailPanel({
     }
     if (isSectionHidden("physioReferrals")) {
       base = base.filter(
-        (tab) => tab !== "Physio Referral" && tab !== "Physio Referrals" && tab !== "Referrals",
+        (tab) =>
+          tab !== "Physio Referral" &&
+          tab !== "Physio Referrals" &&
+          tab !== "Referrals",
       );
     }
     return base;
@@ -221,17 +238,26 @@ export function ProgramDetailPanel({
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   const [trainingProgress, setTrainingProgress] = useState<{
-    stats: { exerciseCompletions: number; sessionRuns: number; trainingDays: number };
+    stats: {
+      exerciseCompletions: number;
+      sessionRuns: number;
+      trainingDays: number;
+    };
     achievements: TrainingAchievement[];
   } | null>(null);
-  const [expandedContent, setExpandedContent] = useState<Set<number>>(new Set());
-  
+  const [expandedContent, setExpandedContent] = useState<Set<number>>(
+    new Set(),
+  );
+
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9";
-  
-  const currentTierLabel = normalizeProgramTier(programTier)?.replace("PHP_", "").replace("_", " ") || "Starter";
+
+  const currentTierLabel =
+    normalizeProgramTier(programTier)?.replace("PHP_", "").replace("_", " ") ||
+    "Starter";
   const requiredTier = programIdToTier(programId);
-  const latestRequest = latestSubscriptionRequest ?? latestRequestFromStore ?? null;
+  const latestRequest =
+    latestSubscriptionRequest ?? latestRequestFromStore ?? null;
   const requestStatus = String(latestRequest?.status ?? "");
   const isPendingApproval =
     latestRequest?.planTier === requiredTier &&
@@ -254,7 +280,9 @@ export function ProgramDetailPanel({
         { method: "GET", suppressLog: true },
       );
       if (Array.isArray(response.tabs)) {
-        setPhpPlusTabs(response.tabs.map((tab) => normalizeProgramTabLabel(String(tab))));
+        setPhpPlusTabs(
+          response.tabs.map((tab) => normalizeProgramTabLabel(String(tab))),
+        );
       }
     } catch {
       setPhpPlusTabs(null);
@@ -272,10 +300,17 @@ export function ProgramDetailPanel({
     }
     try {
       const data = await apiRequest<{
-        stats: { exerciseCompletions: number; sessionRuns: number; trainingDays: number };
+        stats: {
+          exerciseCompletions: number;
+          sessionRuns: number;
+          trainingDays: number;
+        };
         achievements: TrainingAchievement[];
       }>("/training-progress", { token, forceRefresh: true });
-      setTrainingProgress({ stats: data.stats, achievements: data.achievements });
+      setTrainingProgress({
+        stats: data.stats,
+        achievements: data.achievements,
+      });
     } catch {
       setTrainingProgress(null);
     }
@@ -293,7 +328,11 @@ export function ProgramDetailPanel({
         const status = await apiRequest<{
           currentProgramTier?: string | null;
           messagingAccessTiers?: string[] | null;
-        }>("/billing/status", { token, suppressStatusCodes: [401, 403, 404], skipCache: true });
+        }>("/billing/status", {
+          token,
+          suppressStatusCodes: [401, 403, 404],
+          skipCache: true,
+        });
         if (cancelled) return;
         dispatch(setProgramTier(status?.currentProgramTier ?? null));
         dispatch(
@@ -398,11 +437,19 @@ export function ProgramDetailPanel({
         return;
       }
       const tier = programIdToTier(programId);
-      const isAdminViewer = ["admin", "superAdmin", "coach"].includes(String(apiUserRole ?? ""));
-      if (!isAdminViewer && !canAccessTier(programTier, tier) && !isPendingApproval) {
+      const isAdminViewer = ["admin", "superAdmin", "coach"].includes(
+        String(apiUserRole ?? ""),
+      );
+      if (
+        !isAdminViewer &&
+        !canAccessTier(programTier, tier) &&
+        !isPendingApproval
+      ) {
         setSectionContent([]);
         setExpandedContent(new Set());
-        setContentError("This plan is locked. Upgrade or wait for approval to access this content.");
+        setContentError(
+          "This plan is locked. Upgrade or wait for approval to access this content.",
+        );
         setIsLoadingContent(false);
         return;
       }
@@ -486,9 +533,13 @@ export function ProgramDetailPanel({
     [activeAthleteAge, token],
   );
 
+  const hasLoadedTrainingV2OnceRef = useRef(false);
   useEffect(() => {
-    void loadTrainingContentV2();
-  }, [loadTrainingContentV2]);
+    if (!isFocused) return;
+    const force = hasLoadedTrainingV2OnceRef.current;
+    hasLoadedTrainingV2OnceRef.current = true;
+    void loadTrainingContentV2({ force });
+  }, [isFocused, loadTrainingContentV2]);
 
   useEffect(() => {
     void loadSectionContent(activeTab);
@@ -513,14 +564,17 @@ export function ProgramDetailPanel({
     [sectionContent],
   );
 
-  const openUploadFlow = useCallback((content: ProgramSectionContent) => {
-    setUploadPickerOpen(false);
-    onNavigate?.(
-      `/video-upload?sectionContentId=${content.id}&sectionTitle=${encodeURIComponent(
-        content.title,
-      )}&refreshToken=${refreshToken}`,
-    );
-  }, [onNavigate, refreshToken]);
+  const openUploadFlow = useCallback(
+    (content: ProgramSectionContent) => {
+      setUploadPickerOpen(false);
+      onNavigate?.(
+        `/video-upload?sectionContentId=${content.id}&sectionTitle=${encodeURIComponent(
+          content.title,
+        )}&refreshToken=${refreshToken}`,
+      );
+    },
+    [onNavigate, refreshToken],
+  );
 
   const openFloatingUpload = useCallback(() => {
     if (uploadEnabledContent.length === 1) {
@@ -539,9 +593,15 @@ export function ProgramDetailPanel({
         lockedFromModuleOrder: null as number | null,
       };
     }
-    const unlockedModules = trainingContentV2.modules.filter((module) => !module.locked);
-    const lockedModules = trainingContentV2.modules.filter((module) => module.locked);
-    const hasUnlockedIncompleteModule = unlockedModules.some((module) => !module.completed);
+    const unlockedModules = trainingContentV2.modules.filter(
+      (module) => !module.locked,
+    );
+    const lockedModules = trainingContentV2.modules.filter(
+      (module) => module.locked,
+    );
+    const hasUnlockedIncompleteModule = unlockedModules.some(
+      (module) => !module.completed,
+    );
     const firstLocked = lockedModules
       .slice()
       .sort((a, b) => Number(a.order) - Number(b.order))[0];
@@ -561,24 +621,37 @@ export function ProgramDetailPanel({
   const renderTeamPlanLockedCard = () => (
     <View
       className="rounded-[28px] border px-5 py-5"
-      style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}
+      style={{
+        backgroundColor: colors.card,
+        borderColor: borderSoft,
+        ...(isDark ? Shadows.none : Shadows.sm),
+      }}
     >
       <View className="flex-row items-center gap-2">
         <Feather name="lock" size={16} color={colors.accent} />
-        <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.accent }}>
+        <Text
+          className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]"
+          style={{ color: colors.accent }}
+        >
           Plan locked
         </Text>
       </View>
-      <Text className="mt-2 text-base font-clash font-bold" style={{ color: colors.text }}>
+      <Text
+        className="mt-2 text-base font-clash font-bold"
+        style={{ color: colors.text }}
+      >
         You&apos;ve reached the current release limit.
       </Text>
-      <Text className="mt-2 text-sm font-outfit leading-6" style={{ color: colors.textSecondary }}>
-        Your coach/admin has opened modules up to
-        {" "}
+      <Text
+        className="mt-2 text-sm font-outfit leading-6"
+        style={{ color: colors.textSecondary }}
+      >
+        Your coach/admin has opened modules up to{" "}
         {teamModeWorkspaceStatus.lockedFromModuleOrder != null
           ? `Module ${Math.max(1, teamModeWorkspaceStatus.lockedFromModuleOrder - 1)}`
           : "the current stage"}
-        . New modules, sessions, and extra tabs will unlock when the plan is advanced.
+        . New modules, sessions, and extra tabs will unlock when the plan is
+        advanced.
       </Text>
     </View>
   );
@@ -613,7 +686,12 @@ export function ProgramDetailPanel({
         ) : null}
         {visibleContent.map((item) => {
           const meta = (item.metadata ?? {}) as ExerciseMetadata;
-          const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
+          const hasExercise = !!(
+            meta.sets ||
+            meta.reps ||
+            meta.duration ||
+            meta.restSeconds
+          );
           const isExpanded = expandedContent.has(item.id);
           return (
             <View
@@ -631,7 +709,10 @@ export function ProgramDetailPanel({
               >
                 <View className="flex-row items-center justify-between gap-3">
                   <View className="flex-1">
-                    <Text className="text-[17px] font-clash font-bold" style={{ color: colors.text }}>
+                    <Text
+                      className="text-[17px] font-clash font-bold"
+                      style={{ color: colors.text }}
+                    >
                       {item.title}
                     </Text>
                     {meta.category && (
@@ -640,75 +721,176 @@ export function ProgramDetailPanel({
                       </Text>
                     )}
                   </View>
-                  <View className="h-8 w-8 rounded-full items-center justify-center" style={{ backgroundColor: mutedSurface }}>
-                    <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textSecondary} />
+                  <View
+                    className="h-8 w-8 rounded-full items-center justify-center"
+                    style={{ backgroundColor: mutedSurface }}
+                  >
+                    <Feather
+                      name={isExpanded ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color={colors.textSecondary}
+                    />
                   </View>
                 </View>
 
                 {hasExercise && (
-                  <View className="flex-row flex-wrap gap-1.5 mt-3 pt-3 border-t" style={{ borderColor: borderSoft }}>
+                  <View
+                    className="flex-row flex-wrap gap-1.5 mt-3 pt-3 border-t"
+                    style={{ borderColor: borderSoft }}
+                  >
                     {[
                       meta.sets != null ? `${meta.sets} sets` : null,
                       meta.reps != null ? `${meta.reps} reps` : null,
                       meta.duration != null ? `${meta.duration}s` : null,
-                      meta.restSeconds != null ? `${meta.restSeconds}s rest` : null,
-                    ].filter(Boolean).map((stat, i) => (
-                      <View key={i} className="rounded-md px-2 py-1" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)" }}>
-                        <Text className="text-[11px] font-outfit font-medium" style={{ color: colors.textSecondary }}>{stat}</Text>
-                      </View>
-                    ))}
+                      meta.restSeconds != null
+                        ? `${meta.restSeconds}s rest`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .map((stat, i) => (
+                        <View
+                          key={i}
+                          className="rounded-md px-2 py-1"
+                          style={{
+                            backgroundColor: isDark
+                              ? "rgba(255,255,255,0.04)"
+                              : "rgba(15,23,42,0.03)",
+                          }}
+                        >
+                          <Text
+                            className="text-[11px] font-outfit font-medium"
+                            style={{ color: colors.textSecondary }}
+                          >
+                            {stat}
+                          </Text>
+                        </View>
+                      ))}
                   </View>
                 )}
               </Pressable>
 
               {isExpanded && (
-                <View className="px-5 pb-5 gap-5 border-t" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(0,0,0,0.1)" : "#F8FAFC" }}>
+                <View
+                  className="px-5 pb-5 gap-5 border-t"
+                  style={{
+                    borderColor: borderSoft,
+                    backgroundColor: isDark ? "rgba(0,0,0,0.1)" : "#F8FAFC",
+                  }}
+                >
                   {item.body ? (
                     <View className="pt-4">
                       <MarkdownText
                         text={item.body}
-                        baseStyle={{ fontSize: 14, lineHeight: 22, color: colors.text }}
-                        headingStyle={{ fontSize: 16, lineHeight: 24, color: colors.text, fontWeight: "600", marginBottom: 8 }}
-                        subheadingStyle={{ fontSize: 15, lineHeight: 22, color: colors.text, fontWeight: "600", marginBottom: 6 }}
+                        baseStyle={{
+                          fontSize: 14,
+                          lineHeight: 22,
+                          color: colors.text,
+                        }}
+                        headingStyle={{
+                          fontSize: 16,
+                          lineHeight: 24,
+                          color: colors.text,
+                          fontWeight: "600",
+                          marginBottom: 8,
+                        }}
+                        subheadingStyle={{
+                          fontSize: 15,
+                          lineHeight: 22,
+                          color: colors.text,
+                          fontWeight: "600",
+                          marginBottom: 6,
+                        }}
                         listItemStyle={{ paddingLeft: 4, marginBottom: 4 }}
                       />
                     </View>
-                  ) : <View className="pt-2" />}
+                  ) : (
+                    <View className="pt-2" />
+                  )}
 
                   {meta.cues ? (
-                     <View className="rounded-2xl p-4 gap-2 border" style={{ backgroundColor: colors.background, borderColor: borderSoft }}>
-                       <View className="flex-row items-center gap-1.5">
-                         <Feather name="info" size={14} color={colors.accent} />
-                         <Text className="text-[11px] font-outfit uppercase tracking-[1px] font-bold" style={{ color: colors.accent }}>
-                           Coaching Cues
-                         </Text>
-                       </View>
-                       <Text className="text-[14px] font-outfit" style={{ color: colors.text }}>{meta.cues}</Text>
-                     </View>
+                    <View
+                      className="rounded-2xl p-4 gap-2 border"
+                      style={{
+                        backgroundColor: colors.background,
+                        borderColor: borderSoft,
+                      }}
+                    >
+                      <View className="flex-row items-center gap-1.5">
+                        <Feather name="info" size={14} color={colors.accent} />
+                        <Text
+                          className="text-[11px] font-outfit uppercase tracking-[1px] font-bold"
+                          style={{ color: colors.accent }}
+                        >
+                          Coaching Cues
+                        </Text>
+                      </View>
+                      <Text
+                        className="text-[14px] font-outfit"
+                        style={{ color: colors.text }}
+                      >
+                        {meta.cues}
+                      </Text>
+                    </View>
                   ) : null}
 
-                  {(meta.progression || meta.regression) ? (
+                  {meta.progression || meta.regression ? (
                     <View className="flex-row gap-3">
                       {meta.progression ? (
-                        <View className="flex-1 rounded-2xl p-3 gap-2 border" style={{ backgroundColor: colors.background, borderColor: borderSoft }}>
+                        <View
+                          className="flex-1 rounded-2xl p-3 gap-2 border"
+                          style={{
+                            backgroundColor: colors.background,
+                            borderColor: borderSoft,
+                          }}
+                        >
                           <View className="flex-row items-center gap-1.5">
-                            <Feather name="trending-up" size={14} color="#10B981" />
-                            <Text className="text-[10px] font-outfit uppercase tracking-[1px] font-bold" style={{ color: "#10B981" }}>
+                            <Feather
+                              name="trending-up"
+                              size={14}
+                              color="#10B981"
+                            />
+                            <Text
+                              className="text-[10px] font-outfit uppercase tracking-[1px] font-bold"
+                              style={{ color: "#10B981" }}
+                            >
                               Make harder
                             </Text>
                           </View>
-                          <Text className="text-[13px] font-outfit" style={{ color: colors.text }}>{meta.progression}</Text>
+                          <Text
+                            className="text-[13px] font-outfit"
+                            style={{ color: colors.text }}
+                          >
+                            {meta.progression}
+                          </Text>
                         </View>
                       ) : null}
                       {meta.regression ? (
-                        <View className="flex-1 rounded-2xl p-3 gap-2 border" style={{ backgroundColor: colors.background, borderColor: borderSoft }}>
+                        <View
+                          className="flex-1 rounded-2xl p-3 gap-2 border"
+                          style={{
+                            backgroundColor: colors.background,
+                            borderColor: borderSoft,
+                          }}
+                        >
                           <View className="flex-row items-center gap-1.5">
-                            <Feather name="trending-down" size={14} color="#F59E0B" />
-                            <Text className="text-[10px] font-outfit uppercase tracking-[1px] font-bold" style={{ color: "#F59E0B" }}>
+                            <Feather
+                              name="trending-down"
+                              size={14}
+                              color="#F59E0B"
+                            />
+                            <Text
+                              className="text-[10px] font-outfit uppercase tracking-[1px] font-bold"
+                              style={{ color: "#F59E0B" }}
+                            >
                               Make easier
                             </Text>
                           </View>
-                          <Text className="text-[13px] font-outfit" style={{ color: colors.text }}>{meta.regression}</Text>
+                          <Text
+                            className="text-[13px] font-outfit"
+                            style={{ color: colors.text }}
+                          >
+                            {meta.regression}
+                          </Text>
                         </View>
                       ) : null}
                     </View>
@@ -722,7 +904,9 @@ export function ProgramDetailPanel({
                         style={{ backgroundColor: colors.accent }}
                       >
                         <Feather name="play-circle" size={16} color="#FFFFFF" />
-                        <Text className="text-sm font-outfit font-bold text-white">Watch</Text>
+                        <Text className="text-sm font-outfit font-bold text-white">
+                          Watch
+                        </Text>
                       </Pressable>
                     ) : null}
                     <Pressable
@@ -732,31 +916,58 @@ export function ProgramDetailPanel({
                         )
                       }
                       className="flex-1 rounded-2xl py-3 flex-row items-center justify-center gap-2 border"
-                      style={{ borderColor: borderSoft, backgroundColor: colors.background }}
+                      style={{
+                        borderColor: borderSoft,
+                        backgroundColor: colors.background,
+                      }}
                     >
-                      <Feather name="message-circle" size={16} color={colors.text} />
-                      <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>Ask coach</Text>
+                      <Feather
+                        name="message-circle"
+                        size={16}
+                        color={colors.text}
+                      />
+                      <Text
+                        className="text-sm font-outfit font-semibold"
+                        style={{ color: colors.text }}
+                      >
+                        Ask coach
+                      </Text>
                     </Pressable>
                     {item.allowVideoUpload ? (
                       <Pressable
                         onPress={() => openUploadFlow(item)}
                         className="flex-1 rounded-2xl py-3 flex-row items-center justify-center gap-2 border"
-                        style={{ borderColor: colors.accent, backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4" }}
+                        style={{
+                          borderColor: colors.accent,
+                          backgroundColor: isDark
+                            ? "rgba(34,197,94,0.08)"
+                            : "#F0FDF4",
+                        }}
                       >
                         <Feather name="video" size={16} color={colors.accent} />
-                        <Text className="text-sm font-outfit font-semibold" style={{ color: colors.accent }}>
+                        <Text
+                          className="text-sm font-outfit font-semibold"
+                          style={{ color: colors.accent }}
+                        >
                           Send video
                         </Text>
                       </Pressable>
                     ) : null}
                   </View>
-                  
+
                   <Transition.Pressable
                     sharedBoundTag={`program-content-${item.id}`}
-                    onPress={() => onNavigate?.(`/programs/content/${item.id}?sharedBoundTag=${encodeURIComponent(`program-content-${item.id}`)}`)}
+                    onPress={() =>
+                      onNavigate?.(
+                        `/programs/content/${item.id}?sharedBoundTag=${encodeURIComponent(`program-content-${item.id}`)}`,
+                      )
+                    }
                     className="py-2 items-center"
                   >
-                    <Text className="text-xs font-outfit font-semibold" style={{ color: colors.accent }}>
+                    <Text
+                      className="text-xs font-outfit font-semibold"
+                      style={{ color: colors.accent }}
+                    >
                       Open full page
                     </Text>
                   </Transition.Pressable>
@@ -788,21 +999,45 @@ export function ProgramDetailPanel({
       return (
         <View
           className="rounded-[32px] bg-card px-6 py-8 gap-5 border"
-          style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.md) }}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: borderSoft,
+            ...(isDark ? Shadows.none : Shadows.md),
+          }}
         >
-          <View className="h-14 w-14 rounded-2xl items-center justify-center" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.15)" : "#F0FDF4" }}>
-            <Feather name={isPendingApproval ? "clock" : "lock"} size={28} color={colors.accent} />
+          <View
+            className="h-14 w-14 rounded-2xl items-center justify-center"
+            style={{
+              backgroundColor: isDark ? "rgba(34,197,94,0.15)" : "#F0FDF4",
+            }}
+          >
+            <Feather
+              name={isPendingApproval ? "clock" : "lock"}
+              size={28}
+              color={colors.accent}
+            />
           </View>
           <View>
-            <Text className="text-2xl font-clash text-app font-bold">{title}</Text>
-            <Text className="text-sm font-outfit text-secondary mt-2 leading-relaxed">{body}</Text>
+            <Text className="text-2xl font-clash text-app font-bold">
+              {title}
+            </Text>
+            <Text className="text-sm font-outfit text-secondary mt-2 leading-relaxed">
+              {body}
+            </Text>
           </View>
           {previewFeatures.length ? (
             <View className="gap-3 pt-2">
               {previewFeatures.map((line) => (
                 <View key={line} className="flex-row items-start gap-2">
-                  <Feather name="check-circle" size={16} color={colors.accent} style={{ marginTop: 2 }} />
-                  <Text className="flex-1 text-sm font-outfit text-app leading-5">{line}</Text>
+                  <Feather
+                    name="check-circle"
+                    size={16}
+                    color={colors.accent}
+                    style={{ marginTop: 2 }}
+                  />
+                  <Text className="flex-1 text-sm font-outfit text-app leading-5">
+                    {line}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -826,19 +1061,30 @@ export function ProgramDetailPanel({
       }
       return (
         <View className="gap-4">
-          {activeTab === "Modules" && teamModeWorkspaceStatus.hasLockedModules ? (
+          {activeTab === "Modules" &&
+          teamModeWorkspaceStatus.hasLockedModules ? (
             <View
               className="rounded-[20px] border px-4 py-4"
               style={{
                 backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
-                borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.18)",
+                borderColor: isDark
+                  ? "rgba(34,197,94,0.18)"
+                  : "rgba(34,197,94,0.18)",
               }}
             >
-              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.accent }}>
+              <Text
+                className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]"
+                style={{ color: colors.accent }}
+              >
                 Progress unlocks content
               </Text>
-              <Text className="mt-1 text-sm font-outfit leading-6" style={{ color: colors.textSecondary }}>
-                Complete each session in order to unlock the next one. Modules unlock one by one. When you reach the admin release limit, the plan will show as locked until more content is opened.
+              <Text
+                className="mt-1 text-sm font-outfit leading-6"
+                style={{ color: colors.textSecondary }}
+              >
+                Complete each session in order to unlock the next one. Modules
+                unlock one by one. When you reach the admin release limit, the
+                plan will show as locked until more content is opened.
               </Text>
             </View>
           ) : null}
@@ -852,7 +1098,9 @@ export function ProgramDetailPanel({
               );
             }}
           />
-          {activeTab === "Modules" && isTeamPlanBoundaryReached ? renderTeamPlanLockedCard() : null}
+          {activeTab === "Modules" && isTeamPlanBoundaryReached
+            ? renderTeamPlanLockedCard()
+            : null}
         </View>
       );
     }
@@ -894,12 +1142,15 @@ export function ProgramDetailPanel({
                     className="rounded-full px-4 py-2 border"
                     style={{
                       backgroundColor: colors.card,
-                      borderColor: step === activeTab ? colors.accent : borderSoft,
+                      borderColor:
+                        step === activeTab ? colors.accent : borderSoft,
                     }}
                   >
                     <Text
                       className="text-xs font-outfit font-semibold"
-                      style={{ color: step === activeTab ? colors.accent : colors.text }}
+                      style={{
+                        color: step === activeTab ? colors.accent : colors.text,
+                      }}
                     >
                       {i + 1}. {step}
                     </Text>
@@ -909,7 +1160,10 @@ export function ProgramDetailPanel({
             </View>
           ) : null}
           {(() => {
-            const structured = sessionsFromSectionContentForTab(sectionContent, activeTab);
+            const structured = sessionsFromSectionContentForTab(
+              sectionContent,
+              activeTab,
+            );
             if (structured?.length) {
               return (
                 <ProgramSessionPanel
@@ -926,7 +1180,10 @@ export function ProgramDetailPanel({
     }
 
     if (TRAINING_TABS.has(activeTab)) {
-      const structured = sessionsFromSectionContentForTab(sectionContent, activeTab);
+      const structured = sessionsFromSectionContentForTab(
+        sectionContent,
+        activeTab,
+      );
       if (structured?.length) {
         return (
           <ProgramSessionPanel
@@ -943,11 +1200,18 @@ export function ProgramDetailPanel({
       return <BookingsPanel onOpen={() => onNavigate?.("/(tabs)/schedule")} />;
     }
 
-    if (activeTab === "Physio Referral" || activeTab === "Physio Referrals" || activeTab === "Referrals") {
+    if (
+      activeTab === "Physio Referral" ||
+      activeTab === "Physio Referrals" ||
+      activeTab === "Referrals"
+    ) {
       return <PhysioReferralPanel />;
     }
 
-    if (activeTab === "Nutrition & Food Diaries" || activeTab === "Submit Diary") {
+    if (
+      activeTab === "Nutrition & Food Diaries" ||
+      activeTab === "Submit Diary"
+    ) {
       return <FoodDiaryPanel />;
     }
 
@@ -956,50 +1220,63 @@ export function ProgramDetailPanel({
     }
 
     if (activeTab === "Education" || activeTab === "Parent Education") {
-      return <ParentEducationPanel onOpen={() => onNavigate?.("/parent-platform")} />;
+      return (
+        <ParentEducationPanel onOpen={() => onNavigate?.("/parent-platform")} />
+      );
     }
 
-      return (
-      <View 
-        className="py-10 items-center justify-center"
-      >
-        <Text className="text-sm font-outfit text-secondary text-center">Coming soon.</Text>
+    return (
+      <View className="py-10 items-center justify-center">
+        <Text className="text-sm font-outfit text-secondary text-center">
+          Coming soon.
+        </Text>
       </View>
     );
   };
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
-      <View 
-        style={{ 
+    <SafeAreaView
+      className="flex-1"
+      style={{ backgroundColor: colors.background }}
+    >
+      <View
+        style={{
           backgroundColor: colors.card,
           zIndex: 10,
-          ...(isDark ? Shadows.none : Shadows.sm)
+          ...(isDark ? Shadows.none : Shadows.sm),
         }}
       >
-        <View 
-          className="px-4 py-3 flex-row items-center justify-between"
-        >
+        <View className="px-4 py-3 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
             {showBack && (
               <TouchableOpacity
                 onPress={() => (onBack ? onBack() : undefined)}
                 className="h-10 w-10 items-center justify-center rounded-full"
-                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.03)" }}
+                style={{
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.05)"
+                    : "rgba(15,23,42,0.03)",
+                }}
               >
                 <Feather name="chevron-left" size={24} color={colors.text} />
               </TouchableOpacity>
             )}
             <View>
-              <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>
+              <Text
+                className="text-lg font-clash font-bold"
+                style={{ color: colors.text }}
+              >
                 {PROGRAM_TITLES[programId]}
               </Text>
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1px]" style={{ color: colors.accent }}>
+              <Text
+                className="text-[10px] font-outfit font-bold uppercase tracking-[1px]"
+                style={{ color: colors.accent }}
+              >
                 {currentTierLabel}
               </Text>
             </View>
           </View>
-          
+
           <View className="flex-row items-center gap-2">
             {trainingProgress && (
               <View className="rounded-full bg-accent/10 px-3 py-1.5">
@@ -1021,7 +1298,10 @@ export function ProgramDetailPanel({
 
       <ThemedScrollView
         onRefresh={handlePageRefresh}
-        contentContainerStyle={{ paddingBottom: uploadEnabledContent.length ? 120 : 40, paddingTop: 20 }}
+        contentContainerStyle={{
+          paddingBottom: uploadEnabledContent.length ? 120 : 40,
+          paddingTop: 20,
+        }}
         nestedScrollEnabled
       >
         {isYouthAthleteRole ? (
@@ -1030,26 +1310,45 @@ export function ProgramDetailPanel({
               className="rounded-[24px] border px-4 py-4"
               style={{
                 backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
-                borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.18)",
+                borderColor: isDark
+                  ? "rgba(34,197,94,0.18)"
+                  : "rgba(34,197,94,0.18)",
               }}
             >
-              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+              <Text
+                className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
+                style={{ color: colors.accent }}
+              >
                 Continue your plan
               </Text>
-              <Text className="mt-1 text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                Use Modules for your core progression, then open your unlocked support tabs.
+              <Text
+                className="mt-1 text-sm font-outfit"
+                style={{ color: colors.textSecondary }}
+              >
+                Use Modules for your core progression, then open your unlocked
+                support tabs.
               </Text>
               {otherTabPreviewText ? (
-                <Text className="mt-2 text-xs font-outfit font-semibold" style={{ color: colors.text }}>
+                <Text
+                  className="mt-2 text-xs font-outfit font-semibold"
+                  style={{ color: colors.text }}
+                >
                   Tabs available: {otherTabPreviewText}
                 </Text>
               ) : null}
               <View className="mt-3 flex-row items-center gap-2">
                 <View
                   className="rounded-full px-3 py-1.5"
-                  style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF" }}
+                  style={{
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "#FFFFFF",
+                  }}
                 >
-                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.text }}>
+                  <Text
+                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                    style={{ color: colors.text }}
+                  >
                     Active tab: {activeTab}
                   </Text>
                 </View>
@@ -1057,15 +1356,23 @@ export function ProgramDetailPanel({
                   className="rounded-full px-3 py-1.5"
                   style={{
                     backgroundColor: isTeamPlanBoundaryReached
-                      ? (isDark ? "rgba(245,158,11,0.18)" : "#FEF3C7")
-                      : (isDark ? "rgba(34,197,94,0.18)" : "#DCFCE7"),
+                      ? isDark
+                        ? "rgba(245,158,11,0.18)"
+                        : "#FEF3C7"
+                      : isDark
+                        ? "rgba(34,197,94,0.18)"
+                        : "#DCFCE7",
                   }}
                 >
                   <Text
                     className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
-                    style={{ color: isTeamPlanBoundaryReached ? "#B45309" : "#15803D" }}
+                    style={{
+                      color: isTeamPlanBoundaryReached ? "#B45309" : "#15803D",
+                    }}
                   >
-                    {isTeamPlanBoundaryReached ? "Plan boundary reached" : "Progress active"}
+                    {isTeamPlanBoundaryReached
+                      ? "Plan boundary reached"
+                      : "Progress active"}
                   </Text>
                 </View>
               </View>
@@ -1076,16 +1383,24 @@ export function ProgramDetailPanel({
                     className="flex-1 rounded-full py-2.5 items-center"
                     style={{ backgroundColor: colors.accent }}
                   >
-                    <Text className="text-xs font-outfit font-bold text-white">Open Modules</Text>
+                    <Text className="text-xs font-outfit font-bold text-white">
+                      Open Modules
+                    </Text>
                   </Pressable>
                 ) : null}
                 {firstOtherTab ? (
                   <Pressable
                     onPress={() => setActiveTab(firstOtherTab)}
                     className="flex-1 rounded-full py-2.5 items-center border"
-                    style={{ borderColor: borderSoft, backgroundColor: colors.card }}
+                    style={{
+                      borderColor: borderSoft,
+                      backgroundColor: colors.card,
+                    }}
                   >
-                    <Text className="text-xs font-outfit font-bold" style={{ color: colors.text }}>
+                    <Text
+                      className="text-xs font-outfit font-bold"
+                      style={{ color: colors.text }}
+                    >
                       Open {firstOtherTab}
                     </Text>
                   </Pressable>
@@ -1095,27 +1410,21 @@ export function ProgramDetailPanel({
           </View>
         ) : null}
 
-        {trainingProgress && activeTab === "Program" && !trainingContentV2?.tabs?.includes(activeTab) ? (
+        {trainingProgress &&
+        activeTab === "Program" &&
+        !trainingContentV2?.tabs?.includes(activeTab) ? (
           <View className="px-5 mb-6">
-            <AchievementsStrip stats={trainingProgress.stats} achievements={trainingProgress.achievements} />
+            <AchievementsStrip
+              stats={trainingProgress.stats}
+              achievements={trainingProgress.achievements}
+            />
           </View>
         ) : null}
 
         <View className="px-5">{renderTab()}</View>
       </ThemedScrollView>
 
-      {uploadEnabledContent.length > 0 ? (
-        <TouchableOpacity
-          onPress={openFloatingUpload}
-          className="absolute bottom-6 right-5 h-16 w-16 items-center justify-center rounded-full"
-          style={{
-            backgroundColor: colors.accent,
-            ...(isDark ? Shadows.none : Shadows.lg),
-          }}
-        >
-          <Feather name="video" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      ) : null}
+      {null}
 
       <Modal
         visible={Boolean(activeVideoUrl)}
@@ -1123,10 +1432,18 @@ export function ProgramDetailPanel({
         animationType="slide"
         onRequestClose={() => setActiveVideoUrl(null)}
       >
-        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-          <View className="rounded-t-[32px] p-5 pb-8" style={{ backgroundColor: colors.card }}>
+        <View
+          className="flex-1 justify-end"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+        >
+          <View
+            className="rounded-t-[32px] p-5 pb-8"
+            style={{ backgroundColor: colors.card }}
+          >
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-xl font-clash text-app font-bold">Exercise Video</Text>
+              <Text className="text-xl font-clash text-app font-bold">
+                Exercise Video
+              </Text>
               <TouchableOpacity
                 onPress={() => setActiveVideoUrl(null)}
                 className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
@@ -1134,7 +1451,9 @@ export function ProgramDetailPanel({
                 <Feather name="x" size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
-            {activeVideoUrl ? <VideoPlayer uri={activeVideoUrl} useVideoResolution /> : null}
+            {activeVideoUrl ? (
+              <VideoPlayer uri={activeVideoUrl} useVideoResolution />
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -1145,10 +1464,18 @@ export function ProgramDetailPanel({
         animationType="slide"
         onRequestClose={() => setUploadPickerOpen(false)}
       >
-        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
-          <View className="rounded-t-[32px] p-5 pb-8" style={{ backgroundColor: colors.card }}>
+        <View
+          className="flex-1 justify-end"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+        >
+          <View
+            className="rounded-t-[32px] p-5 pb-8"
+            style={{ backgroundColor: colors.card }}
+          >
             <View className="flex-row items-center justify-between">
-              <Text className="text-xl font-clash text-app font-bold">Choose upload target</Text>
+              <Text className="text-xl font-clash text-app font-bold">
+                Choose upload target
+              </Text>
               <TouchableOpacity
                 onPress={() => setUploadPickerOpen(false)}
                 className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
@@ -1162,9 +1489,14 @@ export function ProgramDetailPanel({
                   key={`upload-target-${item.id}`}
                   onPress={() => openUploadFlow(item)}
                   className="rounded-3xl border px-4 py-4"
-                  style={{ borderColor: borderSoft, backgroundColor: colors.background }}
+                  style={{
+                    borderColor: borderSoft,
+                    backgroundColor: colors.background,
+                  }}
                 >
-                  <Text className="text-base font-clash text-app">{item.title}</Text>
+                  <Text className="text-base font-clash text-app">
+                    {item.title}
+                  </Text>
                   <Text className="mt-1 text-xs font-outfit text-secondary">
                     Open video upload for this section item.
                   </Text>
@@ -1174,7 +1506,6 @@ export function ProgramDetailPanel({
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 }
@@ -1213,7 +1544,9 @@ function PremiumPlanPanel({
   const [error, setError] = useState<string | null>(null);
   const [activeWeek, setActiveWeek] = useState<number | null>(null);
   const [checkinOpen, setCheckinOpen] = useState(false);
-  const [checkinSession, setCheckinSession] = useState<PlanSession | null>(null);
+  const [checkinSession, setCheckinSession] = useState<PlanSession | null>(
+    null,
+  );
   const [rpe, setRpe] = useState("");
   const [soreness, setSoreness] = useState("");
   const [fatigue, setFatigue] = useState("");
@@ -1233,11 +1566,17 @@ function PremiumPlanPanel({
       });
       const list = (data.items ?? []).filter((s) => s && s.id);
       setItems(list);
-      const weeks = Array.from(new Set(list.map((s) => Number(s.weekNumber)).filter((v) => Number.isFinite(v)))).sort(
-        (a, b) => a - b,
-      );
+      const weeks = Array.from(
+        new Set(
+          list
+            .map((s) => Number(s.weekNumber))
+            .filter((v) => Number.isFinite(v)),
+        ),
+      ).sort((a, b) => a - b);
       if (weeks.length) {
-        setActiveWeek((prev) => (prev != null && weeks.includes(prev) ? prev : weeks[0]));
+        setActiveWeek((prev) =>
+          prev != null && weeks.includes(prev) ? prev : weeks[0],
+        );
       } else {
         setActiveWeek(null);
       }
@@ -1255,7 +1594,11 @@ function PremiumPlanPanel({
 
   const weeks = useMemo(() => {
     const values = Array.from(
-      new Set(items.map((s) => Number(s.weekNumber)).filter((v) => Number.isFinite(v))),
+      new Set(
+        items
+          .map((s) => Number(s.weekNumber))
+          .filter((v) => Number.isFinite(v)),
+      ),
     ).sort((a, b) => a - b);
     return values;
   }, [items]);
@@ -1281,7 +1624,9 @@ function PremiumPlanPanel({
   }, [visibleSessions]);
 
   const nextSession = useMemo(() => {
-    const incomplete = visibleSessions.find((s) => (s.exercises ?? []).some((e) => !e.completed));
+    const incomplete = visibleSessions.find((s) =>
+      (s.exercises ?? []).some((e) => !e.completed),
+    );
     return incomplete ?? visibleSessions[0] ?? null;
   }, [visibleSessions]);
 
@@ -1290,16 +1635,22 @@ function PremiumPlanPanel({
       if (!onNavigate) return;
       const exercises = session.exercises ?? [];
       if (!exercises.length) return;
-      const incompleteIndex = exercises.findIndex((exercise) => !exercise.completed);
+      const incompleteIndex = exercises.findIndex(
+        (exercise) => !exercise.completed,
+      );
       const targetIndex =
-        requestedIndex != null && requestedIndex >= 0 && requestedIndex < exercises.length
+        requestedIndex != null &&
+        requestedIndex >= 0 &&
+        requestedIndex < exercises.length
           ? requestedIndex
           : incompleteIndex >= 0
             ? incompleteIndex
             : 0;
       const target = exercises[targetIndex];
       if (!target) return;
-      const sessionIds = exercises.map((exercise) => String(exercise.id)).join(",");
+      const sessionIds = exercises
+        .map((exercise) => String(exercise.id))
+        .join(",");
       onNavigate(
         `/programs/exercise/${target.id}?sessionIds=${encodeURIComponent(sessionIds)}&index=${targetIndex}`,
       );
@@ -1328,7 +1679,11 @@ function PremiumPlanPanel({
     const parsedRpe = parseBoundedInt(rpe, 1, 10);
     const parsedSoreness = parseBoundedInt(soreness, 0, 10);
     const parsedFatigue = parseBoundedInt(fatigue, 0, 10);
-    if (parsedRpe === "invalid" || parsedSoreness === "invalid" || parsedFatigue === "invalid") {
+    if (
+      parsedRpe === "invalid" ||
+      parsedSoreness === "invalid" ||
+      parsedFatigue === "invalid"
+    ) {
       setCheckinError("Enter valid numbers (RPE 1–10, soreness/fatigue 0–10).");
       return;
     }
@@ -1359,26 +1714,48 @@ function PremiumPlanPanel({
 
   return (
     <View className="gap-5">
-      <View className="rounded-[24px] px-5 py-5 gap-3 border" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#ECFDF5", borderColor: isDark ? "rgba(34,197,94,0.2)" : "#A7F3D0", ...(isDark ? Shadows.none : Shadows.sm) }}>
+      <View
+        className="rounded-[24px] px-5 py-5 gap-3 border"
+        style={{
+          backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#ECFDF5",
+          borderColor: isDark ? "rgba(34,197,94,0.2)" : "#A7F3D0",
+          ...(isDark ? Shadows.none : Shadows.sm),
+        }}
+      >
         <View className="flex-row items-center gap-2">
           <Feather name="star" size={16} color={accent} />
-          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: accent }}>
+          <Text
+            className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
+            style={{ color: accent }}
+          >
             Your Personalized Plan
           </Text>
         </View>
-        <Text className="text-xl font-clash text-app font-bold">This week&apos;s plan</Text>
+        <Text className="text-xl font-clash text-app font-bold">
+          This week&apos;s plan
+        </Text>
         {weekStats.total > 0 && activeWeek != null ? (
-          <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
+          <View
+            className="mt-2 rounded-2xl px-4 py-3 border"
+            style={{
+              borderColor: borderSoft,
+              backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC",
+            }}
+          >
             <Text className="text-sm font-outfit text-app font-semibold">
-              Week {activeWeek}: {weekStats.done}/{weekStats.total} exercises done
+              Week {activeWeek}: {weekStats.done}/{weekStats.total} exercises
+              done
             </Text>
             {nextSession ? (
-              <Text className="text-xs font-outfit text-secondary mt-1">Up next: Session {nextSession.sessionNumber}</Text>
+              <Text className="text-xs font-outfit text-secondary mt-1">
+                Up next: Session {nextSession.sessionNumber}
+              </Text>
             ) : null}
           </View>
         ) : (
           <Text className="text-sm font-outfit text-secondary">
-            Tap an exercise when you&apos;re done. Use Complete to log a session.
+            Tap an exercise when you&apos;re done. Use Complete to log a
+            session.
           </Text>
         )}
       </View>
@@ -1397,7 +1774,12 @@ function PremiumPlanPanel({
                   borderColor: active ? colors.text : borderSoft,
                 }}
               >
-                <Text className={`text-[11px] font-outfit font-bold uppercase tracking-[1.4px] ${active ? "text-app" : "text-secondary"}`} style={{ color: active ? colors.background : colors.textSecondary }}>
+                <Text
+                  className={`text-[11px] font-outfit font-bold uppercase tracking-[1.4px] ${active ? "text-app" : "text-secondary"}`}
+                  style={{
+                    color: active ? colors.background : colors.textSecondary,
+                  }}
+                >
                   Week {week}
                 </Text>
               </Pressable>
@@ -1409,15 +1791,27 @@ function PremiumPlanPanel({
       {isLoading ? (
         <View className="py-10 items-center justify-center">
           <ActivityIndicator color={accent} />
-          <Text className="text-sm font-outfit text-secondary mt-3">Loading your plan…</Text>
+          <Text className="text-sm font-outfit text-secondary mt-3">
+            Loading your plan…
+          </Text>
         </View>
       ) : error ? (
         <View className="py-10 items-center justify-center">
-          <Text className="text-sm font-outfit text-red-500 text-center">{error}</Text>
+          <Text className="text-sm font-outfit text-red-500 text-center">
+            {error}
+          </Text>
         </View>
       ) : visibleSessions.length === 0 ? null : (
         visibleSessions.map((session) => (
-          <View key={session.id} className="rounded-[24px] px-5 py-5 gap-4 border" style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}>
+          <View
+            key={session.id}
+            className="rounded-[24px] px-5 py-5 gap-4 border"
+            style={{
+              backgroundColor: colors.card,
+              borderColor: borderSoft,
+              ...(isDark ? Shadows.none : Shadows.sm),
+            }}
+          >
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1">
                 <Text className="text-lg font-clash text-app font-bold">
@@ -1425,7 +1819,9 @@ function PremiumPlanPanel({
                   {session.title ? ` • ${session.title}` : ""}
                 </Text>
                 {session.notes ? (
-                  <Text className="text-sm font-outfit text-secondary mt-1">{session.notes}</Text>
+                  <Text className="text-sm font-outfit text-secondary mt-1">
+                    {session.notes}
+                  </Text>
                 ) : null}
               </View>
               <View className="flex-row items-center gap-2">
@@ -1441,9 +1837,14 @@ function PremiumPlanPanel({
                 <Pressable
                   onPress={() => openCheckin(session)}
                   className="px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4" }}
+                  style={{
+                    backgroundColor: isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4",
+                  }}
                 >
-                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px]" style={{ color: accent }}>
+                  <Text
+                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px]"
+                    style={{ color: accent }}
+                  >
                     Check-in
                   </Text>
                 </Pressable>
@@ -1458,8 +1859,16 @@ function PremiumPlanPanel({
                     key={ex.id}
                     className="rounded-2xl border px-4 py-3"
                     style={{
-                      backgroundColor: ex.completed ? (isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4") : "transparent",
-                      borderColor: ex.completed ? (isDark ? "rgba(34,197,94,0.3)" : "#86EFAC") : borderSoft,
+                      backgroundColor: ex.completed
+                        ? isDark
+                          ? "rgba(34,197,94,0.1)"
+                          : "#F0FDF4"
+                        : "transparent",
+                      borderColor: ex.completed
+                        ? isDark
+                          ? "rgba(34,197,94,0.3)"
+                          : "#86EFAC"
+                        : borderSoft,
                     }}
                   >
                     <View className="flex-row items-center justify-between gap-3">
@@ -1471,13 +1880,19 @@ function PremiumPlanPanel({
                           className="self-start rounded-full px-3 py-1.5"
                           style={{
                             backgroundColor: ex.completed
-                              ? (isDark ? "rgba(34,197,94,0.16)" : "#ECFDF5")
+                              ? isDark
+                                ? "rgba(34,197,94,0.16)"
+                                : "#ECFDF5"
                               : mutedSurface,
                           }}
                         >
                           <Text
                             className="text-[10px] font-outfit font-semibold uppercase tracking-[1px]"
-                            style={{ color: ex.completed ? accent : colors.textSecondary }}
+                            style={{
+                              color: ex.completed
+                                ? accent
+                                : colors.textSecondary,
+                            }}
                           >
                             {ex.completed ? "Completed" : "Not completed"}
                           </Text>
@@ -1485,8 +1900,13 @@ function PremiumPlanPanel({
                       </View>
                       <Pressable
                         onPress={() => {
-                          const exerciseIndex = (session.exercises ?? []).findIndex((item) => item.id === ex.id);
-                          openSessionExercise(session, exerciseIndex >= 0 ? exerciseIndex : 0);
+                          const exerciseIndex = (
+                            session.exercises ?? []
+                          ).findIndex((item) => item.id === ex.id);
+                          openSessionExercise(
+                            session,
+                            exerciseIndex >= 0 ? exerciseIndex : 0,
+                          );
                         }}
                         className="rounded-full px-4 py-2"
                         style={{ backgroundColor: accent }}
@@ -1504,7 +1924,12 @@ function PremiumPlanPanel({
         ))
       )}
 
-      <Modal visible={checkinOpen} transparent animationType="slide" onRequestClose={() => (isSubmitting ? null : setCheckinOpen(false))}>
+      <Modal
+        visible={checkinOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => (isSubmitting ? null : setCheckinOpen(false))}
+      >
         <KeyboardAvoidingView
           style={checkinModalStyles.root}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -1512,7 +1937,9 @@ function PremiumPlanPanel({
         >
           <View
             className="flex-1 justify-end"
-            style={{ backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.3)" }}
+            style={{
+              backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.3)",
+            }}
           >
             <Pressable
               style={StyleSheet.absoluteFillObject}
@@ -1545,7 +1972,9 @@ function PremiumPlanPanel({
                 }}
               >
                 <View className="flex-row items-center justify-between mb-6">
-                  <Text className="text-xl font-clash text-app font-bold">Session Check-in</Text>
+                  <Text className="text-xl font-clash text-app font-bold">
+                    Session Check-in
+                  </Text>
                   <TouchableOpacity
                     onPress={() => {
                       if (isSubmitting) return;
@@ -1560,16 +1989,33 @@ function PremiumPlanPanel({
 
                 <View className="gap-4">
                   {[
-                    { label: "RPE (1–10)", value: rpe, onChange: setRpe, placeholder: "How hard was it?" },
-                    { label: "Soreness (0–10)", value: soreness, onChange: setSoreness, placeholder: "Muscle soreness?" },
-                    { label: "Fatigue (0–10)", value: fatigue, onChange: setFatigue, placeholder: "Overall tiredness?" },
+                    {
+                      label: "RPE (1–10)",
+                      value: rpe,
+                      onChange: setRpe,
+                      placeholder: "How hard was it?",
+                    },
+                    {
+                      label: "Soreness (0–10)",
+                      value: soreness,
+                      onChange: setSoreness,
+                      placeholder: "Muscle soreness?",
+                    },
+                    {
+                      label: "Fatigue (0–10)",
+                      value: fatigue,
+                      onChange: setFatigue,
+                      placeholder: "Overall tiredness?",
+                    },
                   ].map((field) => (
                     <View
                       key={field.label}
                       className="rounded-2xl border px-4 py-2"
                       style={{
                         borderColor: borderSoft,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC",
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.02)"
+                          : "#F8FAFC",
                       }}
                     >
                       <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mt-1">
@@ -1579,7 +2025,11 @@ function PremiumPlanPanel({
                         value={field.value}
                         onChangeText={field.onChange}
                         placeholder={field.placeholder}
-                        placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
+                        placeholderTextColor={
+                          isDark
+                            ? "rgba(255,255,255,0.3)"
+                            : "rgba(15,23,42,0.3)"
+                        }
                         keyboardType="number-pad"
                         style={{
                           paddingVertical: 8,
@@ -1595,7 +2045,9 @@ function PremiumPlanPanel({
                     className="rounded-2xl border px-4 py-2"
                     style={{
                       borderColor: borderSoft,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC",
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.02)"
+                        : "#F8FAFC",
                     }}
                   >
                     <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mt-1">
@@ -1605,7 +2057,9 @@ function PremiumPlanPanel({
                       value={notes}
                       onChangeText={setNotes}
                       placeholder="Anything your coach should know…"
-                      placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
+                      placeholderTextColor={
+                        isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"
+                      }
                       multiline
                       textAlignVertical="top"
                       style={{
@@ -1619,17 +2073,27 @@ function PremiumPlanPanel({
                   </View>
 
                   {checkinError ? (
-                    <Text className="text-sm font-outfit text-center text-red-500 mt-2">{checkinError}</Text>
+                    <Text className="text-sm font-outfit text-center text-red-500 mt-2">
+                      {checkinError}
+                    </Text>
                   ) : null}
 
                   <Pressable
                     onPress={submitCheckin}
                     disabled={isSubmitting}
                     className="mt-4 rounded-full px-4 py-4 flex-row items-center justify-center gap-2"
-                    style={{ backgroundColor: colors.accent, opacity: isSubmitting ? 0.7 : 1 }}
+                    style={{
+                      backgroundColor: colors.accent,
+                      opacity: isSubmitting ? 0.7 : 1,
+                    }}
                   >
-                    {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
-                    <Text className="font-outfit font-bold text-[15px]" style={{ color: "#FFFFFF" }}>
+                    {isSubmitting ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : null}
+                    <Text
+                      className="font-outfit font-bold text-[15px]"
+                      style={{ color: "#FFFFFF" }}
+                    >
                       {isSubmitting ? "Saving Check-in…" : "Submit Check-in"}
                     </Text>
                   </Pressable>

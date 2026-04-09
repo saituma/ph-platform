@@ -83,7 +83,8 @@ export default function HomeScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, token, programTier } = useAppSelector((state) => state.user);
+  const { profile, token, programTier, athleteUserId, managedAthletes } =
+    useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const { isSectionHidden } = useAgeExperience();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -105,6 +106,23 @@ export default function HomeScreen() {
     const candidate = profile?.name?.trim()?.split(/\s+/)[0];
     return candidate || "Athlete";
   }, [profile?.name]);
+
+  const activeAthlete = useMemo(() => {
+    if (!managedAthletes?.length) return null;
+    return (
+      managedAthletes.find(
+        (athlete) =>
+          athlete.id === athleteUserId || athlete.userId === athleteUserId,
+      ) ?? managedAthletes[0]
+    );
+  }, [athleteUserId, managedAthletes]);
+
+  const teamName = useMemo(() => {
+    const raw = activeAthlete?.team;
+    if (typeof raw !== "string") return null;
+    const trimmed = raw.trim();
+    return trimmed.length ? trimmed : null;
+  }, [activeAthlete?.team]);
 
   const fallbackWelcome = useMemo(() => {
     const opening =
@@ -283,6 +301,16 @@ export default function HomeScreen() {
                 <Text className="font-clash text-[34px] font-bold leading-tight text-app">
                   Welcome back, {firstName}
                 </Text>
+
+                {teamName ? (
+                  <Text
+                    className="mt-2 text-[12px] font-outfit"
+                    style={{ color: colors.textSecondary }}
+                    numberOfLines={1}
+                  >
+                    Team: {teamName}
+                  </Text>
+                ) : null}
 
                 {welcomeHeroState === "loading" ? (
                   <View className="mt-4 gap-2">

@@ -78,10 +78,15 @@ export function VideoUploadPanel({
   refreshToken = 0,
   sectionContentId,
   sectionTitle,
+  onUploaded,
 }: {
   refreshToken?: number;
   sectionContentId?: number | null;
   sectionTitle?: string | null;
+  onUploaded?: (payload: {
+    sectionContentId?: number | null;
+    publicUrl: string;
+  }) => void;
 }) {
   const { token, profile, athleteUserId } = useAppSelector(
     (state) => state.user,
@@ -100,8 +105,11 @@ export function VideoUploadPanel({
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase | null>(null);
-  const [uploadingPreviewUri, setUploadingPreviewUri] = useState<string | null>(null);
-  const [uploadByteProgressUnknown, setUploadByteProgressUnknown] = useState(false);
+  const [uploadingPreviewUri, setUploadingPreviewUri] = useState<string | null>(
+    null,
+  );
+  const [uploadByteProgressUnknown, setUploadByteProgressUnknown] =
+    useState(false);
   const uploadByteUnknownRef = useRef(false);
   const [preparingVideo, setPreparingVideo] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -199,7 +207,9 @@ export function VideoUploadPanel({
         const headers = athleteUserId
           ? { "X-Acting-User-Id": String(athleteUserId) }
           : undefined;
-        const query = sectionContentId ? `?sectionContentId=${sectionContentId}` : "";
+        const query = sectionContentId
+          ? `?sectionContentId=${sectionContentId}`
+          : "";
         const data = await apiRequest<any>(`/videos${query}`, {
           token,
           headers,
@@ -292,8 +302,10 @@ export function VideoUploadPanel({
 
         if (sectionContentId && videoItemIdsRef.current.size) {
           const allowed = videoItemIdsRef.current;
-          items = items.filter((item: CoachResponse) =>
-            Number.isFinite(item.videoUploadId) && allowed.has(Number(item.videoUploadId))
+          items = items.filter(
+            (item: CoachResponse) =>
+              Number.isFinite(item.videoUploadId) &&
+              allowed.has(Number(item.videoUploadId)),
           );
         }
 
@@ -314,10 +326,15 @@ export function VideoUploadPanel({
         previousCoachResponsesRef.current = items.map(
           (item: CoachResponse) => item.id,
         );
-      } catch {
-      }
+      } catch {}
     },
-    [athleteUserId, profile.id, scheduleLocalNotification, sectionContentId, token],
+    [
+      athleteUserId,
+      profile.id,
+      scheduleLocalNotification,
+      sectionContentId,
+      token,
+    ],
   );
 
   useEffect(() => {
@@ -484,9 +501,7 @@ export function VideoUploadPanel({
 
       uploadProgressRef.current = { value: clamped, ts: now };
       setOptimisticUploads((prev) =>
-        prev.map((u) =>
-          u.id === tempId ? { ...u, progress: clamped } : u,
-        ),
+        prev.map((u) => (u.id === tempId ? { ...u, progress: clamped } : u)),
       );
     };
 
@@ -564,9 +579,15 @@ export function VideoUploadPanel({
       );
 
       const uploadResult = await uploadTask.uploadAsync();
-      if (!uploadResult || uploadResult.status < 200 || uploadResult.status >= 300) {
+      if (
+        !uploadResult ||
+        uploadResult.status < 200 ||
+        uploadResult.status >= 300
+      ) {
         throw new Error(
-          uploadResult ? `Upload failed (${uploadResult.status}).` : "Upload failed.",
+          uploadResult
+            ? `Upload failed (${uploadResult.status}).`
+            : "Upload failed.",
         );
       }
 
@@ -587,6 +608,8 @@ export function VideoUploadPanel({
         },
       });
 
+      onUploaded?.({ sectionContentId, publicUrl: presign.publicUrl });
+
       setOptimisticUploads((prev) =>
         prev.map((u) =>
           u.id === tempId
@@ -600,7 +623,7 @@ export function VideoUploadPanel({
             : u,
         ),
       );
-      setStatus("Video submitted for coach review.");
+      setStatus("Uploaded. Tap your clip below to watch it.");
 
       void scheduleLocalNotification(
         "Video uploaded",
@@ -630,7 +653,9 @@ export function VideoUploadPanel({
           eyebrow="Premium Review"
           title="Video Review"
           description="One focused clip per upload. Tell your coach exactly what to look for."
-          rightSlot={<ProgramPanelStatusBadge label="Coach Review" variant="default" />}
+          rightSlot={
+            <ProgramPanelStatusBadge label="Coach Review" variant="default" />
+          }
         />
         {sectionTitle ? (
           <Text
@@ -654,7 +679,10 @@ export function VideoUploadPanel({
             elevation: isDark ? 0 : 2,
           }}
         >
-          <Text className="text-sm font-outfit" style={{ color: colors.warning }}>
+          <Text
+            className="text-sm font-outfit"
+            style={{ color: colors.warning }}
+          >
             Select a training module with video uploads enabled to start.
           </Text>
         </View>
@@ -680,7 +708,8 @@ export function VideoUploadPanel({
                 className="mt-2 font-outfit text-sm leading-6"
                 style={{ color: colors.textSecondary }}
               >
-                Coaches give better feedback when the rep is visible, the goal is obvious, and your note is specific.
+                Coaches give better feedback when the rep is visible, the goal
+                is obvious, and your note is specific.
               </Text>
             </View>
             <View
@@ -704,10 +733,16 @@ export function VideoUploadPanel({
                 elevation: isDark ? 0 : 2,
               }}
             >
-              <Text className="font-clash text-2xl" style={{ color: colors.text }}>
+              <Text
+                className="font-clash text-2xl"
+                style={{ color: colors.text }}
+              >
                 {totalUploads}
               </Text>
-              <Text className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]" style={{ color: colors.textSecondary }}>
+              <Text
+                className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]"
+                style={{ color: colors.textSecondary }}
+              >
                 Total Uploads
               </Text>
             </View>
@@ -723,10 +758,16 @@ export function VideoUploadPanel({
                 elevation: isDark ? 0 : 2,
               }}
             >
-              <Text className="font-clash text-2xl" style={{ color: colors.warning }}>
+              <Text
+                className="font-clash text-2xl"
+                style={{ color: colors.warning }}
+              >
                 {awaitingVideos.length + optimisticUploads.length}
               </Text>
-              <Text className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]" style={{ color: colors.warning }}>
+              <Text
+                className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]"
+                style={{ color: colors.warning }}
+              >
                 Waiting
               </Text>
             </View>
@@ -742,10 +783,16 @@ export function VideoUploadPanel({
                 elevation: isDark ? 0 : 2,
               }}
             >
-              <Text className="font-clash text-2xl" style={{ color: colors.success }}>
+              <Text
+                className="font-clash text-2xl"
+                style={{ color: colors.success }}
+              >
                 {feedbackReadyCount}
               </Text>
-              <Text className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]" style={{ color: colors.success }}>
+              <Text
+                className="mt-1 font-outfit text-[11px] uppercase tracking-[1.3px]"
+                style={{ color: colors.success }}
+              >
                 Feedback Items
               </Text>
             </View>
@@ -817,65 +864,69 @@ export function VideoUploadPanel({
           Choose capture mode
         </Text>
         <View className="flex-row gap-4">
-        <UIButton
-          onPress={() => pickVideo("camera")}
-          isDisabled={uploading || !canUploadForSection}
-          className="flex-1 items-center rounded-3xl py-5"
-          style={{
-            backgroundColor: isDark ? colors.accent : "#f0fdf4",
-            shadowColor: isDark ? "#00000000" : "#166534",
-            shadowOpacity: isDark ? 0 : 0.14,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: 10 },
-            elevation: isDark ? 0 : 6,
-          }}
-        >
-          <View
-            className="h-12 w-12 items-center justify-center rounded-[20px]"
+          <UIButton
+            onPress={() => pickVideo("camera")}
+            isDisabled={uploading || !canUploadForSection}
+            className="flex-1 items-center rounded-3xl py-5"
             style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.15)"
-                : "#166534",
+              backgroundColor: isDark ? colors.accent : "#f0fdf4",
+              shadowColor: isDark ? "#00000000" : "#166534",
+              shadowOpacity: isDark ? 0 : 0.14,
+              shadowRadius: 18,
+              shadowOffset: { width: 0, height: 10 },
+              elevation: isDark ? 0 : 6,
             }}
           >
-            <Feather name="video" size={22} color="#ffffff" />
-          </View>
-          <Text
-            className="mt-3 text-sm font-outfit font-bold uppercase tracking-[1.6px]"
-            style={{ color: isDark ? "#ffffff" : "#14532d" }}
+            <View
+              className="h-12 w-12 items-center justify-center rounded-[20px]"
+              style={{
+                backgroundColor: isDark ? "rgba(255,255,255,0.15)" : "#166534",
+              }}
+            >
+              <Feather name="video" size={22} color="#ffffff" />
+            </View>
+            <Text
+              className="mt-3 text-sm font-outfit font-bold uppercase tracking-[1.6px]"
+              style={{ color: isDark ? "#ffffff" : "#14532d" }}
+            >
+              Record
+            </Text>
+            <Text
+              className="mt-1 text-center font-outfit text-xs"
+              style={{
+                color: isDark
+                  ? "rgba(255,255,255,0.78)"
+                  : "rgba(20,83,45,0.82)",
+              }}
+            >
+              Capture a new rep right now
+            </Text>
+          </UIButton>
+          <UIButton
+            onPress={() => pickVideo("library")}
+            variant="secondary"
+            isDisabled={uploading || !canUploadForSection}
+            className="flex-1 items-center rounded-3xl py-5"
           >
-            Record
-          </Text>
-          <Text
-            className="mt-1 text-center font-outfit text-xs"
-            style={{
-              color: isDark
-                ? "rgba(255,255,255,0.78)"
-                : "rgba(20,83,45,0.82)",
-            }}
-          >
-            Capture a new rep right now
-          </Text>
-        </UIButton>
-        <UIButton
-          onPress={() => pickVideo("library")}
-          variant="secondary"
-          isDisabled={uploading || !canUploadForSection}
-          className="flex-1 items-center rounded-3xl py-5"
-        >
-          <View className="h-12 w-12 items-center justify-center rounded-[20px]" style={{ backgroundColor: colors.accentLight }}>
-            <Feather name="upload" size={22} color={colors.accent} />
-          </View>
-          <Text
-            className="mt-3 text-sm font-outfit font-semibold uppercase tracking-[1.4px]"
-            style={{ color: colors.text }}
-          >
-            Upload
-          </Text>
-          <Text className="mt-1 text-center font-outfit text-xs" style={{ color: colors.textSecondary }}>
-            Choose a clip from your library
-          </Text>
-        </UIButton>
+            <View
+              className="h-12 w-12 items-center justify-center rounded-[20px]"
+              style={{ backgroundColor: colors.accentLight }}
+            >
+              <Feather name="upload" size={22} color={colors.accent} />
+            </View>
+            <Text
+              className="mt-3 text-sm font-outfit font-semibold uppercase tracking-[1.4px]"
+              style={{ color: colors.text }}
+            >
+              Upload
+            </Text>
+            <Text
+              className="mt-1 text-center font-outfit text-xs"
+              style={{ color: colors.textSecondary }}
+            >
+              Choose a clip from your library
+            </Text>
+          </UIButton>
         </View>
       </View>
 
@@ -928,7 +979,9 @@ export function VideoUploadPanel({
           <View className="flex-row items-center gap-3">
             <View
               className="h-12 w-12 overflow-hidden rounded-2xl items-center justify-center"
-              style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+              style={{
+                backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted,
+              }}
             >
               {uploadingPreviewUri ? (
                 <VideoPlayer
@@ -949,7 +1002,10 @@ export function VideoUploadPanel({
               )}
             </View>
             <View className="flex-1">
-              <Text className="font-outfit text-[13px] font-semibold" style={{ color: colors.text }}>
+              <Text
+                className="font-outfit text-[13px] font-semibold"
+                style={{ color: colors.text }}
+              >
                 {uploadPhase === "presign"
                   ? "Getting upload link…"
                   : uploadPhase === "finalizing"
@@ -959,21 +1015,31 @@ export function VideoUploadPanel({
                       : "Uploading to secure storage…"}
               </Text>
               {uploadByteProgressUnknown && uploadPhase === "uploading" ? (
-                <Text className="mt-0.5 font-outfit text-[11px]" style={{ color: colors.textSecondary }}>
+                <Text
+                  className="mt-0.5 font-outfit text-[11px]"
+                  style={{ color: colors.textSecondary }}
+                >
                   Progress will appear when your device reports file size.
                 </Text>
               ) : null}
               {uploadByteProgressUnknown && uploadPhase === "uploading" ? (
                 <View className="mt-2 flex-row items-center gap-2">
                   <ActivityIndicator size="small" color={colors.accent} />
-                  <Text className="font-outfit text-[11px]" style={{ color: colors.textSecondary }}>
+                  <Text
+                    className="font-outfit text-[11px]"
+                    style={{ color: colors.textSecondary }}
+                  >
                     Working…
                   </Text>
                 </View>
               ) : (
                 <View
                   className="mt-2 h-1.5 w-full overflow-hidden rounded-full"
-                  style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)" }}
+                  style={{
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.1)"
+                      : "rgba(15,23,42,0.08)",
+                  }}
                 >
                   <View
                     className="h-full rounded-full"
@@ -985,7 +1051,10 @@ export function VideoUploadPanel({
                 </View>
               )}
               {!uploadByteProgressUnknown || uploadPhase !== "uploading" ? (
-                <Text className="mt-1.5 font-outfit text-[11px] font-semibold" style={{ color: colors.accent }}>
+                <Text
+                  className="mt-1.5 font-outfit text-[11px] font-semibold"
+                  style={{ color: colors.accent }}
+                >
                   {uploadPhase === "finalizing"
                     ? "Almost done"
                     : uploadPhase === "presign"
@@ -1020,7 +1089,10 @@ export function VideoUploadPanel({
                 >
                   Preview Clip
                 </Text>
-                <Text className="mt-1 font-outfit text-sm" style={{ color: colors.textSecondary }}>
+                <Text
+                  className="mt-1 font-outfit text-sm"
+                  style={{ color: colors.textSecondary }}
+                >
                   Tap the video to open full screen before you send.
                 </Text>
               </View>
@@ -1049,14 +1121,22 @@ export function VideoUploadPanel({
           />
           <View className="p-5 flex-row items-center justify-between">
             <View className="flex-row gap-3">
-              <UIChip label="MP4" className="rounded-xl px-3 py-1.5" textClassName="text-xs font-medium normal-case tracking-normal" />
+              <UIChip
+                label="MP4"
+                className="rounded-xl px-3 py-1.5"
+                textClassName="text-xs font-medium normal-case tracking-normal"
+              />
               <UIChip
                 label={formatBytes(selectedVideo.sizeBytes)}
                 className="rounded-xl px-3 py-1.5"
                 textClassName="text-xs font-medium normal-case tracking-normal"
               />
             </View>
-            <UIButton onPress={() => setSelectedVideo(null)} variant="ghost" className="min-h-0 rounded-2xl px-2 py-2">
+            <UIButton
+              onPress={() => setSelectedVideo(null)}
+              variant="ghost"
+              className="min-h-0 rounded-2xl px-2 py-2"
+            >
               <Feather name="trash-2" size={22} color={colors.danger} />
             </UIButton>
           </View>
@@ -1129,7 +1209,9 @@ export function VideoUploadPanel({
                       Awaiting Review
                     </Text>
                     <UIChip
-                      label={String(awaitingVideos.length + optimisticUploads.length)}
+                      label={String(
+                        awaitingVideos.length + optimisticUploads.length,
+                      )}
                       color="warning"
                     />
                   </View>
@@ -1155,7 +1237,11 @@ export function VideoUploadPanel({
                       >
                         <View
                           className="h-56 items-center justify-center relative"
-                          style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+                          style={{
+                            backgroundColor: isDark
+                              ? "#0b0b0b"
+                              : colors.heroSurfaceMuted,
+                          }}
                         >
                           <Feather
                             name="play-circle"
@@ -1172,7 +1258,7 @@ export function VideoUploadPanel({
                               className="text-sm font-outfit font-semibold mb-1"
                               style={{ color: colors.text }}
                             >
-                              {u.progress < 1 ? "Uploading..." : "Submitted"}
+                              {u.progress < 1 ? "Uploading..." : "Uploaded"}
                             </Text>
                             <Text
                               className="text-sm"
@@ -1182,9 +1268,28 @@ export function VideoUploadPanel({
                             </Text>
                           </View>
                           <UIChip
-                            label={u.progress < 1 ? `${Math.round(u.progress * 100)}%` : "Pending"}
+                            label={
+                              u.progress < 1
+                                ? `${Math.round(u.progress * 100)}%`
+                                : "Uploaded"
+                            }
                             color="warning"
                           />
+                        </View>
+
+                        <View className="flex-row items-center justify-between">
+                          <Text
+                            className="text-[11px] uppercase tracking-[1.2px]"
+                            style={{
+                              color: colors.textSecondary,
+                              opacity: 0.7,
+                            }}
+                          >
+                            {u.submittedAt ? formatDate(u.submittedAt) : ""}
+                          </Text>
+                          {u.progress >= 1 ? (
+                            <UIChip label="Tap to preview" />
+                          ) : null}
                         </View>
                       </View>
                     </UICard>
@@ -1211,7 +1316,11 @@ export function VideoUploadPanel({
                       >
                         <View
                           className="h-56 items-center justify-center"
-                          style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+                          style={{
+                            backgroundColor: isDark
+                              ? "#0b0b0b"
+                              : colors.heroSurfaceMuted,
+                          }}
                         >
                           <Feather
                             name="play-circle"
@@ -1242,12 +1351,91 @@ export function VideoUploadPanel({
                         <View className="flex-row items-center justify-between">
                           <Text
                             className="text-[11px] uppercase tracking-[1.2px]"
-                            style={{ color: colors.textSecondary, opacity: 0.7 }}
+                            style={{
+                              color: colors.textSecondary,
+                              opacity: 0.7,
+                            }}
                           >
                             {formatDate(item.createdAt)}
                           </Text>
                           <UIChip label="Tap to preview" />
                         </View>
+
+                        {(
+                          coachResponsesByUploadId.get(String(item.id)) ?? []
+                        ).map((resp) => (
+                          <UICard
+                            key={resp.id}
+                            className="mt-4 overflow-hidden rounded-2xl px-0 py-0"
+                            style={{
+                              backgroundColor: colors.backgroundSecondary,
+                              borderColor: colors.border,
+                            }}
+                          >
+                            <Pressable
+                              onPress={() =>
+                                setReelPreview({
+                                  id: resp.id,
+                                  uri: resp.mediaUrl,
+                                  title: "Coach reply",
+                                })
+                              }
+                            >
+                              <View
+                                className="h-40 items-center justify-center"
+                                style={{
+                                  backgroundColor: isDark
+                                    ? "#0b0b0b"
+                                    : colors.heroSurfaceMuted,
+                                }}
+                              >
+                                <Feather
+                                  name="play-circle"
+                                  size={48}
+                                  color={isDark ? "#ffffff" : colors.text}
+                                  style={{ opacity: isDark ? 0.8 : 0.68 }}
+                                />
+                              </View>
+                            </Pressable>
+                            <View className="p-4">
+                              <View className="mb-2 flex-row items-center justify-between gap-3">
+                                <Text
+                                  className="text-[11px] font-outfit font-semibold uppercase tracking-[1.6px]"
+                                  style={{ color: colors.text }}
+                                >
+                                  Coach Reply
+                                </Text>
+                                <UIChip label="Video response" color="accent" />
+                              </View>
+                              {resp.text ? (
+                                <Text
+                                  className="text-sm"
+                                  style={{ color: colors.textSecondary }}
+                                >
+                                  {resp.text}
+                                </Text>
+                              ) : (
+                                <Text
+                                  className="text-sm italic"
+                                  style={{ color: colors.textSecondary }}
+                                >
+                                  Video response
+                                </Text>
+                              )}
+                              {resp.createdAt && (
+                                <Text
+                                  className="text-[11px] mt-2 uppercase tracking-[1.2px]"
+                                  style={{
+                                    color: colors.textSecondary,
+                                    opacity: 0.7,
+                                  }}
+                                >
+                                  {formatDate(resp.createdAt)}
+                                </Text>
+                              )}
+                            </View>
+                          </UICard>
+                        ))}
                       </View>
                     </UICard>
                   ))}
@@ -1291,7 +1479,11 @@ export function VideoUploadPanel({
                       >
                         <View
                           className="h-56 items-center justify-center"
-                          style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+                          style={{
+                            backgroundColor: isDark
+                              ? "#0b0b0b"
+                              : colors.heroSurfaceMuted,
+                          }}
                         >
                           <Feather
                             name="play-circle"
@@ -1319,7 +1511,9 @@ export function VideoUploadPanel({
                         >
                           {item.feedback}
                         </Text>
-                        {(coachResponsesByUploadId.get(String(item.id)) ?? []).map((resp) => (
+                        {(
+                          coachResponsesByUploadId.get(String(item.id)) ?? []
+                        ).map((resp) => (
                           <UICard
                             key={resp.id}
                             className="mt-4 overflow-hidden rounded-2xl px-0 py-0"
@@ -1339,7 +1533,11 @@ export function VideoUploadPanel({
                             >
                               <View
                                 className="h-40 items-center justify-center"
-                                style={{ backgroundColor: isDark ? "#0b0b0b" : colors.heroSurfaceMuted }}
+                                style={{
+                                  backgroundColor: isDark
+                                    ? "#0b0b0b"
+                                    : colors.heroSurfaceMuted,
+                                }}
                               >
                                 <Feather
                                   name="play-circle"
@@ -1402,7 +1600,10 @@ export function VideoUploadPanel({
                         <View className="mt-3 flex-row items-center justify-between">
                           <Text
                             className="text-[11px] uppercase tracking-[1.2px]"
-                            style={{ color: colors.textSecondary, opacity: 0.7 }}
+                            style={{
+                              color: colors.textSecondary,
+                              opacity: 0.7,
+                            }}
                           >
                             {formatDate(item.createdAt)}
                           </Text>
@@ -1452,7 +1653,6 @@ export function VideoUploadPanel({
           </View>
         </View>
       </Modal>
-
     </ProgramPanelCard>
   );
 }

@@ -28,3 +28,26 @@ export type ServiceType = {
   programTier?: string | null;
   isActive?: boolean | null;
 };
+
+export type GeneratedAvailabilitySlot = {
+  slotKey: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number | null;
+  remainingCapacity: number | null;
+};
+
+export type GeneratedAvailabilityOccurrence = {
+  serviceTypeId: number;
+  serviceName: string;
+  type: string;
+  dateKey: string;
+  occurrenceKey: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number | null;
+  remainingCapacity: number | null;
+  slotMode: string;
+  eligiblePlans?: string[];
+  slots: GeneratedAvailabilitySlot[];
+};
