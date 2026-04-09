@@ -405,23 +405,7 @@ export default function MoreScreen() {
                 </View>
               </View>
 
-              <View>
-                <View className="flex-row items-center gap-3 mb-3 ml-2">
-                  <View className="h-4 w-1 rounded-full bg-accent" />
-                  <Text className="text-xs font-bold font-outfit text-secondary uppercase tracking-wider">
-                    Features
-                  </Text>
-                </View>
-                <View className="bg-card rounded-3xl overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
-                  <MenuItem
-                    icon="layers"
-                    label="Liquid Glass Demo"
-                    isLast={true}
-                    onPress={() => router.push("/liquid-glass-demo")}
-                    accentColor={colors.accent}
-                  />
-                </View>
-              </View>
+
 
               <View>
                 <View className="flex-row items-center gap-3 mb-3 ml-2">

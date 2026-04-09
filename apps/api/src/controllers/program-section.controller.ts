@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
+import { inArray } from "drizzle-orm";
 import { z } from "zod";
 
-import { ProgramType, sessionType } from "../db/schema";
+import { db } from "../db";
+import { ProgramType, programSectionContentTable, sessionType } from "../db/schema";
 import {
   createProgramSectionContent,
   getProgramSectionContentById,
@@ -26,6 +28,46 @@ function resolveAgeFromAthlete(row: any) {
     return clampYouthAge(calculateAge(birthDate), row.athleteType);
   }
   return clampYouthAge(row.age ?? null, row.athleteType);
+}
+
+const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
+  PHP: 1,
+  PHP_Premium: 2,
+  PHP_Premium_Plus: 3,
+  PHP_Pro: 4,
+};
+
+function normalizeTier(value: unknown): (typeof ProgramType.enumValues)[number] | null {
+  if (typeof value !== "string") return null;
+  return (ProgramType.enumValues as readonly string[]).includes(value)
+    ? (value as (typeof ProgramType.enumValues)[number])
+    : null;
+}
+
+function isTierAllowed(input: {
+  requestedTier: (typeof ProgramType.enumValues)[number] | null;
+  allowedTier: (typeof ProgramType.enumValues)[number] | null;
+}) {
+  const requested = input.requestedTier ?? "PHP";
+  const allowed = input.allowedTier ?? "PHP";
+  return tierOrder[requested] <= tierOrder[allowed];
+}
+
+function normalizeAgeList(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => Number(item))
+    .filter((item) => Number.isFinite(item));
+}
+
+function matchesAgeList(
+  item: { ageList?: unknown | null },
+  age: number | null,
+) {
+  const list = normalizeAgeList(item.ageList);
+  if (list.length === 0) return true;
+  if (age === null || age === undefined) return false;
+  return list.includes(age);
 }
 
 const listSchema = z.object({
@@ -89,27 +131,34 @@ export async function listProgramSectionContentHandler(req: Request, res: Respon
   const input = listSchema.parse(req.query);
   
   let age = Number.isFinite(input.age) ? input.age! : null;
-  
+
   // If age not provided in query, try to resolve it from the user (athlete or guardian's active athlete)
   // HOWEVER: If user is admin/coach/superAdmin, we WANT them to see everything in the admin lib by default.
   // The mobile app (athlete/guardian) will either pass age or it will be resolved here.
   const isAdmin = req.user && ["admin", "superAdmin", "coach"].includes(req.user.role);
 
-  if (!isAdmin && age === null && req.user) {
-    const athlete = await getAthleteForUser(req.user.id);
+  const athlete = !isAdmin && req.user ? await getAthleteForUser(req.user.id) : null;
+  const allowedTier = normalizeTier(athlete?.currentProgramTier) ?? "PHP";
+  const requestedTier =
+    isAdmin ? (input.programTier ?? null) : (input.programTier ?? allowedTier);
+
+  if (!isAdmin && requestedTier && !isTierAllowed({ requestedTier, allowedTier })) {
+    return res.status(403).json({ error: "Plan locked" });
+  }
+
+  if (!isAdmin && age === null) {
     age = resolveAgeFromAthlete(athlete);
   }
 
   const items = await listProgramSectionContent({
     sectionType: input.sectionType,
-    programTier: input.programTier ?? null,
+    programTier: requestedTier ?? null,
     age: age,
     bypassAgeFilter: isAdmin,
   });
   if (!req.user || isAdmin) {
     return res.status(200).json({ items });
   }
-  const athlete = await getAthleteForUser(req.user.id);
   if (!athlete) {
     return res.status(200).json({ items });
   }
@@ -136,6 +185,15 @@ export async function getProgramSectionContentHandler(req: Request, res: Respons
     return res.status(200).json({ item });
   }
   const athlete = await getAthleteForUser(req.user.id);
+  const allowedTier = normalizeTier(athlete?.currentProgramTier) ?? "PHP";
+  const itemTier = normalizeTier(item.programTier) ?? null;
+  if (itemTier && !isTierAllowed({ requestedTier: itemTier, allowedTier })) {
+    return res.status(403).json({ error: "Plan locked" });
+  }
+  const athleteAge = resolveAgeFromAthlete(athlete);
+  if (!matchesAgeList(item, athleteAge)) {
+    return res.status(403).json({ error: "Content locked" });
+  }
   if (!athlete) {
     return res.status(200).json({ item });
   }
@@ -201,6 +259,20 @@ export async function completeProgramSectionContentHandler(req: Request, res: Re
     return res.status(400).json({ error: "Onboarding incomplete" });
   }
 
+  const item = await getProgramSectionContentById(contentId);
+  if (!item) {
+    return res.status(404).json({ error: "Content not found" });
+  }
+  const allowedTier = normalizeTier(athlete.currentProgramTier) ?? "PHP";
+  const itemTier = normalizeTier(item.programTier) ?? null;
+  if (itemTier && !isTierAllowed({ requestedTier: itemTier, allowedTier })) {
+    return res.status(403).json({ error: "Plan locked" });
+  }
+  const athleteAge = resolveAgeFromAthlete(athlete);
+  if (!matchesAgeList(item, athleteAge)) {
+    return res.status(403).json({ error: "Content locked" });
+  }
+
   const row = await createProgramSectionCompletion({
     athleteId: athlete.id,
     programSectionContentId: contentId,
@@ -218,6 +290,28 @@ export async function completeTrainingSessionHandler(req: Request, res: Response
   const athlete = await getAthleteForUser(req.user!.id);
   if (!athlete) {
     return res.status(400).json({ error: "Onboarding incomplete" });
+  }
+
+  const allowedTier = normalizeTier(athlete.currentProgramTier) ?? "PHP";
+  const athleteAge = resolveAgeFromAthlete(athlete);
+  const ids = [...new Set(input.contentIds)];
+  const rows = await db
+    .select()
+    .from(programSectionContentTable)
+    .where(inArray(programSectionContentTable.id, ids));
+
+  if (rows.length !== ids.length) {
+    return res.status(400).json({ error: "One or more exercises are invalid or were removed." });
+  }
+
+  for (const row of rows) {
+    const itemTier = normalizeTier(row.programTier) ?? null;
+    if (itemTier && !isTierAllowed({ requestedTier: itemTier, allowedTier })) {
+      return res.status(403).json({ error: "Plan locked" });
+    }
+    if (!matchesAgeList(row, athleteAge)) {
+      return res.status(403).json({ error: "Content locked" });
+    }
   }
 
   try {

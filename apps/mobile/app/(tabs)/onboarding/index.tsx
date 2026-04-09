@@ -1,14 +1,21 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { Shadows } from "@/constants/theme";
+import { useAppSelector } from "@/store/hooks";
+import { isAdminRole } from "@/lib/isAdminRole";
 
 export default function OnboardingScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
+
+  if (isAdminRole(apiUserRole)) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   return (
     <ScrollView
@@ -70,7 +77,8 @@ export default function OnboardingScreen() {
             selectable
             style={{ fontSize: 16, lineHeight: 24, maxWidth: 340 }}
           >
-            Share a few details about age, training rhythm, and goals so we can personalize coaching from the start.
+            Share a few details about age, training rhythm, and goals so we can
+            personalize coaching from the start.
           </Text>
         </View>
 
@@ -100,7 +108,9 @@ export default function OnboardingScreen() {
                 gap: 14,
                 padding: 16,
                 borderRadius: 22,
-                backgroundColor: isDark ? `${colors.background}80` : colors.background,
+                backgroundColor: isDark
+                  ? `${colors.background}80`
+                  : colors.background,
                 borderWidth: 1,
                 borderColor: colors.border,
               }}
@@ -112,16 +122,28 @@ export default function OnboardingScreen() {
                   borderRadius: 14,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark ? `${colors.accent}20` : colors.accentLight,
+                  backgroundColor: isDark
+                    ? `${colors.accent}20`
+                    : colors.accentLight,
                 }}
               >
-                <Feather name={item.icon as any} size={18} color={colors.accent} />
+                <Feather
+                  name={item.icon as any}
+                  size={18}
+                  color={colors.accent}
+                />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
-                <Text className="font-outfit-semibold text-app" style={{ fontSize: 16 }}>
+                <Text
+                  className="font-outfit-semibold text-app"
+                  style={{ fontSize: 16 }}
+                >
                   {item.title}
                 </Text>
-                <Text className="font-outfit text-secondary" style={{ fontSize: 14, lineHeight: 20 }}>
+                <Text
+                  className="font-outfit text-secondary"
+                  style={{ fontSize: 14, lineHeight: 20 }}
+                >
                   {item.body}
                 </Text>
               </View>
@@ -141,11 +163,18 @@ export default function OnboardingScreen() {
         }}
       >
         <View style={{ gap: 6 }}>
-          <Text className="font-outfit-semibold text-app" style={{ fontSize: 18 }}>
+          <Text
+            className="font-outfit-semibold text-app"
+            style={{ fontSize: 18 }}
+          >
             Ready to continue?
           </Text>
-          <Text className="font-outfit text-secondary" style={{ fontSize: 14, lineHeight: 21 }}>
-            This only takes a few minutes, and you can update athlete details later.
+          <Text
+            className="font-outfit text-secondary"
+            style={{ fontSize: 14, lineHeight: 21 }}
+          >
+            This only takes a few minutes, and you can update athlete details
+            later.
           </Text>
         </View>
 
@@ -162,7 +191,10 @@ export default function OnboardingScreen() {
             backgroundColor: colors.accent,
           }}
         >
-          <Text className="font-outfit-semibold" style={{ color: "#FFFFFF", fontSize: 17 }}>
+          <Text
+            className="font-outfit-semibold"
+            style={{ color: "#FFFFFF", fontSize: 17 }}
+          >
             Register an Athlete
           </Text>
         </Pressable>

@@ -386,6 +386,24 @@ export async function finishTrainingSessionHandler(req: Request, res: Response) 
   if (!athlete) {
     return res.status(400).json({ error: "Onboarding incomplete" });
   }
+  const age = athlete.age ?? null;
+  if (!age) {
+    return res.status(400).json({ error: "Athlete age missing" });
+  }
+  const workspace = await getTrainingContentMobileWorkspace({
+    age,
+    athleteId: athlete.id,
+    programTier: athlete.currentProgramTier ?? null,
+  });
+  const foundSession = workspace.modules
+    .flatMap((module) => module.sessions)
+    .find((session) => session.id === sessionId);
+  if (!foundSession) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+  if (foundSession.locked) {
+    return res.status(403).json({ error: "Session locked" });
+  }
   const item = await finishTrainingModuleSession({
     athleteId: athlete.id,
     sessionId,

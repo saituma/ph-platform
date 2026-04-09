@@ -180,6 +180,7 @@ export default function ProgramContentDetailScreen() {
       setError(null);
       lastLoadedRef.current = key;
     } catch (err: any) {
+      setItem(null);
       setError(err?.message ?? "Failed to load content.");
     } finally {
       loadingRef.current = false;

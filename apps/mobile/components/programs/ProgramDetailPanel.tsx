@@ -161,6 +161,7 @@ export function ProgramDetailPanel({
   const {
     programTier,
     token,
+    apiUserRole,
     athleteUserId,
     managedAthletes,
     messagingAccessTiers,
@@ -378,25 +379,40 @@ export function ProgramDetailPanel({
     async (tab: string, options?: { force?: boolean }) => {
       if (trainingContentV2?.tabs?.includes(tab)) {
         setSectionContent([]);
+        setExpandedContent(new Set());
         setContentError(null);
         setIsLoadingContent(false);
         return;
       }
       if (!token) {
         setSectionContent([]);
+        setExpandedContent(new Set());
+        setContentError(null);
         return;
       }
       const types = getSessionTypesForTab(tab);
       if (types.length === 0) {
         setSectionContent([]);
+        setExpandedContent(new Set());
+        setContentError(null);
         return;
       }
       const tier = programIdToTier(programId);
+      const isAdminViewer = ["admin", "superAdmin", "coach"].includes(String(apiUserRole ?? ""));
+      if (!isAdminViewer && !canAccessTier(programTier, tier) && !isPendingApproval) {
+        setSectionContent([]);
+        setExpandedContent(new Set());
+        setContentError("This plan is locked. Upgrade or wait for approval to access this content.");
+        setIsLoadingContent(false);
+        return;
+      }
       const ageQ =
         activeAthleteAge !== null
           ? `&age=${encodeURIComponent(String(activeAthleteAge))}`
           : "";
       const force = options?.force ?? false;
+      setSectionContent([]);
+      setExpandedContent(new Set());
       setIsLoadingContent(true);
       setContentError(null);
       try {
@@ -421,6 +437,8 @@ export function ProgramDetailPanel({
         });
         setSectionContent(merged);
       } catch (err) {
+        setSectionContent([]);
+        setExpandedContent(new Set());
         setContentError(
           err instanceof Error
             ? err.message
@@ -430,7 +448,15 @@ export function ProgramDetailPanel({
         setIsLoadingContent(false);
       }
     },
-    [token, activeAthleteAge, programId, trainingContentV2],
+    [
+      apiUserRole,
+      isPendingApproval,
+      programTier,
+      token,
+      activeAthleteAge,
+      programId,
+      trainingContentV2,
+    ],
   );
 
   const loadTrainingContentV2 = useCallback(

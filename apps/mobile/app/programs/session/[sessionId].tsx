@@ -319,58 +319,72 @@ export default function ProgramSessionDetailScreen() {
                   opacity: session.locked ? 0.7 : 1,
                 }}
               >
-                <View className="mt-1 gap-3">
-                  {BLOCK_ORDER.map((blockType) => {
-                    const blockItems = session.items.filter((item) => item.blockType === blockType);
-                    return (
-                      <View key={`${session.id}-${blockType}`}>
-                        <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1px]" style={{ color: colors.accent }}>
-                          {BLOCK_LABELS[blockType]}
-                        </Text>
-                        <View className="mt-2 gap-2">
-                          {blockItems.map((item) => (
-                            <View
-                              key={item.id}
-                              className="rounded-2xl px-3 py-3"
-                              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#F8FAFC" }}
-                            >
-                              <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>
-                                {item.order}. {item.title}
+                {session.locked ? (
+                  <View className="mt-1 gap-3">
+                    <View className="flex-row items-center gap-2">
+                      <Feather name="lock" size={16} color={colors.textSecondary} />
+                      <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                        Locked
+                      </Text>
+                    </View>
+                    <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
+                      Finish the previous session(s) to unlock this session.
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="mt-1 gap-3">
+                    {BLOCK_ORDER.map((blockType) => {
+                      const blockItems = session.items.filter((item) => item.blockType === blockType);
+                      return (
+                        <View key={`${session.id}-${blockType}`}>
+                          <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1px]" style={{ color: colors.accent }}>
+                            {BLOCK_LABELS[blockType]}
+                          </Text>
+                          <View className="mt-2 gap-2">
+                            {blockItems.map((item) => (
+                              <View
+                                key={item.id}
+                                className="rounded-2xl px-3 py-3"
+                                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#F8FAFC" }}
+                              >
+                                <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>
+                                  {item.order}. {item.title}
+                                </Text>
+                                <Text className="mt-1 text-xs font-outfit" style={{ color: colors.textSecondary }}>
+                                  {item.body}
+                                </Text>
+                                {(item.metadata?.sets != null || item.metadata?.reps != null || item.metadata?.duration != null) ? (
+                                  <View className="mt-2 flex-row flex-wrap gap-2">
+                                    {item.metadata?.sets != null ? (
+                                      <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
+                                        {item.metadata.sets} sets
+                                      </Text>
+                                    ) : null}
+                                    {item.metadata?.reps != null ? (
+                                      <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
+                                        {item.metadata.reps} reps
+                                      </Text>
+                                    ) : null}
+                                    {item.metadata?.duration != null ? (
+                                      <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
+                                        {item.metadata.duration}s
+                                      </Text>
+                                    ) : null}
+                                  </View>
+                                ) : null}
+                              </View>
+                            ))}
+                            {!blockItems.length ? (
+                              <Text className="text-xs font-outfit" style={{ color: colors.textSecondary }}>
+                                No items added yet.
                               </Text>
-                              <Text className="mt-1 text-xs font-outfit" style={{ color: colors.textSecondary }}>
-                                {item.body}
-                              </Text>
-                              {(item.metadata?.sets != null || item.metadata?.reps != null || item.metadata?.duration != null) ? (
-                                <View className="mt-2 flex-row flex-wrap gap-2">
-                                  {item.metadata?.sets != null ? (
-                                    <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
-                                      {item.metadata.sets} sets
-                                    </Text>
-                                  ) : null}
-                                  {item.metadata?.reps != null ? (
-                                    <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
-                                      {item.metadata.reps} reps
-                                    </Text>
-                                  ) : null}
-                                  {item.metadata?.duration != null ? (
-                                    <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
-                                      {item.metadata.duration}s
-                                    </Text>
-                                  ) : null}
-                                </View>
-                              ) : null}
-                            </View>
-                          ))}
-                          {!blockItems.length ? (
-                            <Text className="text-xs font-outfit" style={{ color: colors.textSecondary }}>
-                              No items added yet.
-                            </Text>
-                          ) : null}
+                            ) : null}
+                          </View>
                         </View>
-                      </View>
-                    );
-                  })}
-                </View>
+                      );
+                    })}
+                  </View>
+                )}
 
                 {!session.locked && !session.completed ? (
                   <Pressable

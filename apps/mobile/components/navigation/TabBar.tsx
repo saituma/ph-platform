@@ -14,7 +14,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Shadows } from "@/constants/theme";
-import { isLiquidGlassAvailable, isGlassEffectAPIAvailable } from "expo-glass-effect";
+import {
+  isLiquidGlassAvailable,
+  isGlassEffectAPIAvailable,
+} from "expo-glass-effect";
 
 export interface TabConfig {
   key: string;
@@ -40,12 +43,13 @@ interface TabItemProps {
   scrollOffset?: SharedValue<number>;
   colors: any;
   isDark: boolean;
+  pillSize: number;
+  homePillSize: number;
+  iconSize: number;
+  homeIconSize: number;
+  labelFontSize: number;
+  labelMarginTop: number;
 }
-
-const PILL_SIZE = 40;
-const HOME_PILL_SIZE = 48;
-const ICON_SIZE = 20;
-const HOME_ICON_SIZE = 22;
 
 const TabItem = React.memo(
   ({
@@ -56,10 +60,16 @@ const TabItem = React.memo(
     scrollOffset,
     colors,
     isDark,
+    pillSize,
+    homePillSize,
+    iconSize,
+    homeIconSize,
+    labelFontSize,
+    labelMarginTop,
   }: TabItemProps) => {
     const isHome = tab.key === "index";
-    const pillSize = isHome ? HOME_PILL_SIZE : PILL_SIZE;
-    const iconSize = isHome ? HOME_ICON_SIZE : ICON_SIZE;
+    const effectivePillSize = isHome ? homePillSize : pillSize;
+    const effectiveIconSize = isHome ? homeIconSize : iconSize;
 
     // Animated pill background: active = soft fill, inactive = transparent
     const pillStyle = useAnimatedStyle(() => {
@@ -82,12 +92,7 @@ const TabItem = React.memo(
         [0, 1],
         [activeBg, inactiveBg],
       );
-      const scale = interpolate(
-        distance,
-        [0, 1],
-        [1.05, 1],
-        Extrapolate.CLAMP,
-      );
+      const scale = interpolate(distance, [0, 1], [1.05, 1], Extrapolate.CLAMP);
 
       return { backgroundColor: bgColor, transform: [{ scale }] };
     }, [scrollOffset, index, activeIndex, isDark]);
@@ -95,7 +100,9 @@ const TabItem = React.memo(
     // Icon color animation
     const activeColor = colors.tint;
     // UI polish: keep inactive icons legible without using harsh pure-black tones.
-    const inactiveColor = isDark ? "rgba(248,250,252,0.52)" : colors.textSecondary;
+    const inactiveColor = isDark
+      ? "rgba(248,250,252,0.52)"
+      : colors.textSecondary;
 
     const iconColorStyle = useAnimatedStyle(() => {
       if (!scrollOffset) {
@@ -118,12 +125,7 @@ const TabItem = React.memo(
       }
 
       const distance = Math.abs(scrollOffset.value - index);
-      const scale = interpolate(
-        distance,
-        [0, 1],
-        [1.12, 1],
-        Extrapolate.CLAMP,
-      );
+      const scale = interpolate(distance, [0, 1], [1.12, 1], Extrapolate.CLAMP);
       return { transform: [{ scale }] };
     }, [scrollOffset, index, activeIndex]);
 
@@ -133,24 +135,12 @@ const TabItem = React.memo(
         const active = index === activeIndex;
         return {
           opacity: active ? 1 : 0,
-          height: active ? 12 : 0,
         };
       }
 
       const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
-      const opacity = interpolate(
-        distance,
-        [0, 1],
-        [1, 0],
-        Extrapolate.CLAMP,
-      );
-      const height = interpolate(
-        distance,
-        [0, 1],
-        [12, 0],
-        Extrapolate.CLAMP,
-      );
-      return { opacity, height };
+      const opacity = interpolate(distance, [0, 1], [1, 0], Extrapolate.CLAMP);
+      return { opacity };
     }, [scrollOffset, index, activeIndex]);
 
     // Determine icon color based on active state (for non-animated layer)
@@ -195,9 +185,9 @@ const TabItem = React.memo(
         <Animated.View
           style={[
             {
-              width: pillSize,
-              height: pillSize,
-              borderRadius: pillSize / 2,
+              width: effectivePillSize,
+              height: effectivePillSize,
+              borderRadius: effectivePillSize / 2,
               alignItems: "center",
               justifyContent: "center",
             },
@@ -211,7 +201,7 @@ const TabItem = React.memo(
             <Animated.View style={[activeTintStyle, { position: "absolute" }]}>
               <Ionicons
                 name={tab.icon}
-                size={iconSize}
+                size={effectiveIconSize}
                 color={activeColor}
               />
             </Animated.View>
@@ -219,7 +209,7 @@ const TabItem = React.memo(
             <Animated.View style={inactiveTintStyle}>
               <Ionicons
                 name={tab.iconOutline ?? tab.icon}
-                size={iconSize}
+                size={effectiveIconSize}
                 color={inactiveColor}
               />
             </Animated.View>
@@ -258,14 +248,14 @@ const TabItem = React.memo(
         {/* Label — shown only for focused tab */}
         <Animated.View
           style={[
-            { marginTop: 3, overflow: "hidden" },
+            { marginTop: labelMarginTop, overflow: "hidden", height: 12 },
             labelStyle,
           ]}
         >
           <AnimatedText
             style={{
               color: "#22c55e",
-              fontSize: 10,
+              fontSize: labelFontSize,
               fontFamily: "Outfit-Medium",
               textAlign: "center",
             }}
@@ -288,22 +278,51 @@ export function TabBar({
 }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const barHeight = Platform.OS === "ios" ? 64 : 68;
   const visibleTabs = tabs
     .map((tab, index) => ({ tab, index }))
     .filter(({ tab }) => !tab.hidden);
 
-  const canUseLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
-  
+  const tabCount = visibleTabs.length;
+  const compact = tabCount >= 7;
+
+  const barHeight =
+    Platform.OS === "ios" ? (compact ? 60 : 64) : compact ? 64 : 68;
+  const safeBottom = Math.max(insets.bottom, Platform.OS === "ios" ? 10 : 8);
+  const pillSize = compact ? 36 : 40;
+  const homePillSize = compact ? 44 : 48;
+  const iconSize = compact ? 18 : 20;
+  const homeIconSize = compact ? 20 : 22;
+  const labelFontSize = compact ? 9 : 10;
+  const labelMarginTop = compact ? 2 : 3;
+
+  const canUseLiquidGlass =
+    Platform.OS === "ios" &&
+    isLiquidGlassAvailable() &&
+    isGlassEffectAPIAvailable();
+
   // Use semi-transparent tint for glass, but solid opaque theme color for fallback
   const glassTintColor = canUseLiquidGlass
-    ? (isDark ? "rgba(12, 12, 14, 0.55)" : "rgba(255, 255, 255, 0.55)")
-    : (isDark ? colors.cardElevated : colors.card);
+    ? isDark
+      ? "rgba(12, 12, 14, 0.55)"
+      : "rgba(255, 255, 255, 0.55)"
+    : isDark
+      ? colors.cardElevated
+      : colors.card;
 
-  const borderTopColor = isDark ? "rgba(255, 255, 255, 0.22)" : "rgba(0, 0, 0, 0.10)";
+  const borderTopColor = isDark
+    ? "rgba(255, 255, 255, 0.22)"
+    : "rgba(0, 0, 0, 0.10)";
   const highlightGradientColors: readonly [string, string, string] = isDark
-    ? ["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)", "rgba(255,255,255,0.00)"]
-    : ["rgba(255,255,255,0.26)", "rgba(255,255,255,0.12)", "rgba(255,255,255,0.00)"];
+    ? [
+        "rgba(255,255,255,0.10)",
+        "rgba(255,255,255,0.04)",
+        "rgba(255,255,255,0.00)",
+      ]
+    : [
+        "rgba(255,255,255,0.26)",
+        "rgba(255,255,255,0.12)",
+        "rgba(255,255,255,0.00)",
+      ];
 
   return (
     <View
@@ -317,7 +336,7 @@ export function TabBar({
       <View
         style={{
           width: "100%",
-          height: barHeight + insets.bottom,
+          height: barHeight + safeBottom,
           ...Shadows.lg,
         }}
       >
@@ -338,10 +357,10 @@ export function TabBar({
               borderTopColor,
               alignItems: "center",
               justifyContent: "space-around",
-              paddingHorizontal: 12,
-              paddingBottom: insets.bottom,
+              paddingHorizontal: compact ? 8 : 12,
+              paddingBottom: safeBottom,
               overflow: "hidden",
-            }
+            },
           ]}
         >
           <LinearGradient
@@ -361,6 +380,12 @@ export function TabBar({
               scrollOffset={scrollOffset}
               colors={colors}
               isDark={isDark}
+              pillSize={pillSize}
+              homePillSize={homePillSize}
+              iconSize={iconSize}
+              homeIconSize={homeIconSize}
+              labelFontSize={labelFontSize}
+              labelMarginTop={labelMarginTop}
             />
           ))}
         </LiquidGlass>

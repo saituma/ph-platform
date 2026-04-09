@@ -24,6 +24,7 @@ import trainingContentV2Routes from "./training-content-v2.routes";
 import openGraphRoutes from "./open-graph.routes";
 import versionRoutes from "./version.routes";
 import giphyRoutes from "./giphy.routes";
+import runsRoutes from "./runs.routes";
 
 const router = Router();
 
@@ -51,5 +52,6 @@ router.use(trainingContentV2Routes);
 router.use(openGraphRoutes);
 router.use(versionRoutes);
 router.use(giphyRoutes);
+router.use(runsRoutes);
 
 export default router;

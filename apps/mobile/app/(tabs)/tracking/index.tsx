@@ -20,6 +20,7 @@ import { formatDurationClock, formatHoursMinutes } from "../../../lib/tracking/r
 import { getLastNDaysLabel, getLastNDaysRangeLabel } from "../../../lib/tracking/dateRange";
 import { RunGoalSheet } from "../../../components/tracking/RunGoalSheet";
 import { useRunStore } from "../../../store/useRunStore";
+import { syncRuns } from "../../../lib/runSync";
 
 const QUOTES = [
   "Rest is a weapon. Use it wisely.", // Sunday
@@ -61,11 +62,15 @@ export default function TrackingHomeScreen() {
     // Entry animations
     opacity.value = withTiming(1, { duration: 350 });
     translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+
+    // Cloud sync on mount (fire-and-forget)
+    syncRuns().then(() => loadStats());
   }, []);
 
   useEffect(() => {
     if (!isFocused) return;
-    loadStats();
+    // Reload local stats and sync with cloud
+    syncRuns().then(() => loadStats());
   }, [isFocused]);
 
   useEffect(() => {

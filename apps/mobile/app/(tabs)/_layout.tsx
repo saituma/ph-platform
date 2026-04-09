@@ -36,6 +36,8 @@ import AdminVideosScreen from "./admin-videos";
 import AdminUsersScreen from "./admin-users";
 import AdminContentScreen from "./admin-content";
 import AdminOpsScreen from "./admin-ops";
+import AdminMessagesScreen from "./admin-messages";
+import AdminProfileScreen from "./admin-profile";
 
 let lastTabKey = "index";
 
@@ -88,6 +90,12 @@ const ADMIN_TAB_ROUTES: TabConfig[] = [
     iconOutline: "people-outline",
   },
   {
+    key: "admin-messages",
+    label: "Messages",
+    icon: "chatbox-ellipses",
+    iconOutline: "chatbox-ellipses-outline",
+  },
+  {
     key: "admin-content",
     label: "Content",
     icon: "library",
@@ -98,6 +106,12 @@ const ADMIN_TAB_ROUTES: TabConfig[] = [
     label: "Ops",
     icon: "settings",
     iconOutline: "settings-outline",
+  },
+  {
+    key: "admin-profile",
+    label: "Profile",
+    icon: "person",
+    iconOutline: "person-outline",
   },
 ];
 
@@ -125,8 +139,10 @@ const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
   "admin-home": React.memo(AdminHomeScreen),
   "admin-videos": React.memo(AdminVideosScreen),
   "admin-users": React.memo(AdminUsersScreen),
+  "admin-messages": React.memo(AdminMessagesScreen),
   "admin-content": React.memo(AdminContentScreen),
   "admin-ops": React.memo(AdminOpsScreen),
+  "admin-profile": React.memo(AdminProfileScreen),
 };
 
 export default function TabLayout() {
@@ -158,6 +174,7 @@ export default function TabLayout() {
 
   const lastHandledNotificationRef = useRef<string | null>(null);
   const [messagesUnread, setMessagesUnread] = useState(0);
+  const [adminMessagesUnread, setAdminMessagesUnread] = useState(0);
   const lastPrefetchAt = useRef(0);
 
   const isOnboarding =
@@ -166,10 +183,18 @@ export default function TabLayout() {
 
   useEffect(() => {
     if (!effectiveAuth) return;
-    if (onboardingCompleted === false && !isOnboarding) {
+    if (!bootstrapReady) return;
+    if (!isAdmin && onboardingCompleted === false && !isOnboarding) {
       router.replace("/(tabs)/onboarding");
     }
-  }, [effectiveAuth, onboardingCompleted, isOnboarding, router]);
+  }, [
+    bootstrapReady,
+    effectiveAuth,
+    isAdmin,
+    onboardingCompleted,
+    isOnboarding,
+    router,
+  ]);
 
   useEffect(() => {
     if (!hydrated || !bootstrapReady || !effectiveAuth) return;
@@ -266,6 +291,41 @@ export default function TabLayout() {
 
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
 
+  const syncAdminUnread = useCallback(async () => {
+    if (!token || !effectiveAuth || !bootstrapReady || !isAdmin) {
+      setAdminMessagesUnread(0);
+      return;
+    }
+    try {
+      const [threadsRes, groupsRes] = await Promise.all([
+        apiRequest<{ threads?: any[] }>("/admin/messages/threads?limit=200", {
+          token,
+          suppressStatusCodes: [403],
+          skipCache: true,
+        }),
+        apiRequest<{ groups?: any[] }>("/chat/groups?limit=100", {
+          token,
+          suppressStatusCodes: [401, 403],
+          skipCache: true,
+        }),
+      ]);
+
+      const dmUnread =
+        (threadsRes?.threads ?? []).reduce(
+          (sum, t) => sum + (Number(t?.unread) || 0),
+          0,
+        ) ?? 0;
+      const groupUnread =
+        (groupsRes?.groups ?? []).reduce(
+          (sum, g) => sum + (Number(g?.unreadCount) || 0),
+          0,
+        ) ?? 0;
+      setAdminMessagesUnread(Math.max(0, dmUnread + groupUnread));
+    } catch {
+      setAdminMessagesUnread(0);
+    }
+  }, [bootstrapReady, effectiveAuth, isAdmin, token]);
+
   const syncUnread = useCallback(async () => {
     if (!token || !effectiveAuth || !bootstrapReady || !hasMessaging) {
       setMessagesUnread(0);
@@ -288,6 +348,30 @@ export default function TabLayout() {
       setMessagesUnread(0);
     }
   }, [bootstrapReady, effectiveAuth, hasMessaging, profile.id, token]);
+
+  useEffect(() => {
+    if (!token || !effectiveAuth || !bootstrapReady || !isAdmin) {
+      setAdminMessagesUnread(0);
+      return;
+    }
+
+    let active = true;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (active) {
+        syncAdminUnread();
+      }
+    });
+    const timer = setInterval(() => {
+      if (active) {
+        syncAdminUnread();
+      }
+    }, 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      task?.cancel?.();
+    };
+  }, [bootstrapReady, effectiveAuth, isAdmin, syncAdminUnread, token]);
 
   useEffect(() => {
     if (!token || !effectiveAuth || !bootstrapReady || !hasMessaging) {
@@ -381,6 +465,47 @@ export default function TabLayout() {
   ]);
 
   useEffect(() => {
+    if (!socket || !token || !effectiveAuth || !bootstrapReady || !isAdmin)
+      return;
+
+    const isInAdminMessages = pathname.includes("/admin-messages");
+
+    const handleDirectMessage = (payload: any) => {
+      if (!payload?.senderId || !payload?.receiverId) return;
+      if (isInAdminMessages) {
+        // Best-effort resync when already on the messages surface.
+        syncAdminUnread();
+        return;
+      }
+      setAdminMessagesUnread((prev) => prev + 1);
+    };
+
+    const handleGroupMessage = (payload: any) => {
+      if (!payload?.groupId) return;
+      if (isInAdminMessages) {
+        syncAdminUnread();
+        return;
+      }
+      setAdminMessagesUnread((prev) => prev + 1);
+    };
+
+    socket.on("message:new", handleDirectMessage);
+    socket.on("group:message", handleGroupMessage);
+    return () => {
+      socket.off("message:new", handleDirectMessage);
+      socket.off("group:message", handleGroupMessage);
+    };
+  }, [
+    bootstrapReady,
+    effectiveAuth,
+    isAdmin,
+    pathname,
+    socket,
+    syncAdminUnread,
+    token,
+  ]);
+
+  useEffect(() => {
     if (!pathname.startsWith("/messages")) return;
     syncUnread();
   }, [pathname, syncUnread]);
@@ -392,11 +517,12 @@ export default function TabLayout() {
         typeof Notifications.setBadgeCountAsync !== "function"
       )
         return;
-      Notifications.setBadgeCountAsync(Math.max(0, messagesUnread)).catch(
+      const badgeCount = isAdmin ? adminMessagesUnread : messagesUnread;
+      Notifications.setBadgeCountAsync(Math.max(0, badgeCount)).catch(
         () => null,
       );
     });
-  }, [messagesUnread]);
+  }, [adminMessagesUnread, isAdmin, messagesUnread]);
 
   const baseTabs = useMemo(() => {
     if (isAdmin) {
@@ -419,9 +545,12 @@ export default function TabLayout() {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
+      if (tab.key === "admin-messages") {
+        return { ...tab, badgeCount: adminMessagesUnread };
+      }
       return tab;
     });
-  }, [baseTabs, messagesUnread]);
+  }, [adminMessagesUnread, baseTabs, messagesUnread]);
 
   useEffect(() => {
     setGlobalTabRoutes(visibleTabs.map((tab) => tab.key));
