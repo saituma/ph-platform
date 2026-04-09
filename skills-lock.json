@@ -86,6 +86,11 @@
       "sourceType": "github",
       "computedHash": "0ba2c7406316ba0ce33d101d90dc8d25bb8a905351bddf82304f9b22188f1602"
     },
+    "play-store-submission-auditor": {
+      "source": "sifenfisaha/play-store-submission-auditor",
+      "sourceType": "github",
+      "computedHash": "ebeddb5935d5d0b87fb79fe94ae48530b5887831dee8837fbb3a98ada0042276"
+    },
     "polish": {
       "source": "pbakaus/impeccable",
       "sourceType": "github",

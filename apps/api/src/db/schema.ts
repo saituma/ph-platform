@@ -147,6 +147,19 @@ export const guardianTable = pgTable("guardians", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const teamTable = pgTable(
+  "teams",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    name: varchar({ length: 255 }).notNull(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    nameUnique: uniqueIndex("teams_name_unique").on(table.name),
+  }),
+);
+
 
 export const athleteTable = pgTable("athletes", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

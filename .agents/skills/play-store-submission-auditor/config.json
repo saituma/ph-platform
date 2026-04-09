@@ -1,0 +1,16 @@
+{
+  "_note": "This file is created automatically after your first audit. Edit it to update your preferences.",
+  "mode": null,
+  "strict_mode": true,
+  "stack": null,
+  "uses_play_billing": null,
+  "has_subscriptions": null,
+  "has_ugc": null,
+  "targets_children": null,
+  "uses_sensitive_permissions": [],
+  "has_data_safety_risk": null,
+  "first_time_submitter": null,
+  "last_audit": null,
+  "issues_fixed": [],
+  "issues_outstanding": []
+}

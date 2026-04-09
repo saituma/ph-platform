@@ -3,26 +3,75 @@ import { db } from "../../db";
 import {
   athleteTable,
   guardianTable,
+  teamTable,
   userTable,
   ProgramType,
 } from "../../db/schema";
 
+async function ensureTeamExists(teamName: string) {
+  const cleanTeamName = teamName.trim();
+  if (!cleanTeamName) return null;
+
+  const existing = await db
+    .select({ id: teamTable.id, name: teamTable.name })
+    .from(teamTable)
+    .where(eq(teamTable.name, cleanTeamName))
+    .limit(1);
+  if (existing[0]) return existing[0];
+
+  const [created] = await db
+    .insert(teamTable)
+    .values({
+      name: cleanTeamName,
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing({ target: teamTable.name })
+    .returning({ id: teamTable.id, name: teamTable.name });
+  if (created) return created;
+
+  const fallback = await db
+    .select({ id: teamTable.id, name: teamTable.name })
+    .from(teamTable)
+    .where(eq(teamTable.name, cleanTeamName))
+    .limit(1);
+  return fallback[0] ?? null;
+}
+
+export async function createTeamAdmin(input: { teamName: string }) {
+  const cleanTeamName = input.teamName.trim();
+  if (!cleanTeamName) {
+    throw { status: 400, message: "Team name is required." };
+  }
+
+  const existing = await db
+    .select({ id: teamTable.id })
+    .from(teamTable)
+    .where(eq(teamTable.name, cleanTeamName))
+    .limit(1);
+  if (existing[0]) {
+    throw { status: 409, message: "A team with this name already exists." };
+  }
+
+  const created = await ensureTeamExists(cleanTeamName);
+  return { ok: true, team: created?.name ?? cleanTeamName };
+}
+
 export async function listTeamsAdmin() {
   const rows = await db
     .select({
-      team: athleteTable.team,
-      memberCount: sql<number>`count(*)`,
-      guardianCount: sql<number>`count(distinct ${athleteTable.guardianId})`,
-      createdAt: sql<Date>`min(${athleteTable.createdAt})`,
-      updatedAt: sql<Date>`max(${athleteTable.updatedAt})`,
+      team: teamTable.name,
+      memberCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`,
+      guardianCount: sql<number>`coalesce(count(distinct ${athleteTable.guardianId}) filter (where ${userTable.isDeleted} = false), 0)`,
+      createdAt: teamTable.createdAt,
+      updatedAt: teamTable.updatedAt,
     })
-    .from(athleteTable)
-    .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
-    .where(eq(userTable.isDeleted, false))
-    .groupBy(athleteTable.team)
-    .orderBy(desc(sql<number>`count(*)`), athleteTable.team);
+    .from(teamTable)
+    .leftJoin(athleteTable, eq(athleteTable.team, teamTable.name))
+    .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
+    .groupBy(teamTable.name, teamTable.createdAt, teamTable.updatedAt)
+    .orderBy(desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`), teamTable.name);
 
-  return rows;
+  return rows.filter((row) => row.team.trim().length > 0);
 }
 
 function normalizeInjuriesForText(value: unknown): string | null {
@@ -44,6 +93,18 @@ function normalizeInjuriesForText(value: unknown): string | null {
 export async function getTeamDetailsAdmin(teamName: string) {
   const cleanTeamName = teamName.trim();
   if (!cleanTeamName) return null;
+
+  const teamRows = await db
+    .select({
+      name: teamTable.name,
+      createdAt: teamTable.createdAt,
+      updatedAt: teamTable.updatedAt,
+    })
+    .from(teamTable)
+    .where(eq(teamTable.name, cleanTeamName))
+    .limit(1);
+  const team = teamRows[0];
+  if (!team) return null;
 
   const rows = await db
     .select({
@@ -69,12 +130,8 @@ export async function getTeamDetailsAdmin(teamName: string) {
     .where(and(eq(athleteTable.team, cleanTeamName), eq(userTable.isDeleted, false)))
     .orderBy(asc(athleteTable.name));
 
-  if (!rows.length) return null;
-
   const memberCount = rows.length;
   const guardianCount = new Set(rows.map((row) => row.guardianId).filter((id) => id != null)).size;
-  const createdAt = rows.reduce((min, row) => (row.createdAt < min ? row.createdAt : min), rows[0].createdAt);
-  const updatedAt = rows.reduce((max, row) => (row.updatedAt > max ? row.updatedAt : max), rows[0].updatedAt);
 
   const defaults = rows.reduce(
     (acc, row) => ({
@@ -88,16 +145,16 @@ export async function getTeamDetailsAdmin(teamName: string) {
       growthNotes: null as string | null,
       performanceGoals: null as string | null,
       equipmentAccess: null as string | null,
-    }
+    },
   );
 
   return {
-    team: cleanTeamName,
+    team: team.name,
     summary: {
       memberCount,
       guardianCount,
-      createdAt,
-      updatedAt,
+      createdAt: team.createdAt,
+      updatedAt: team.updatedAt,
     },
     defaults,
     members: rows.map((row) => ({
@@ -177,6 +234,15 @@ export async function updateTeamDefaultsAdmin(input: {
   performanceGoals?: string | null;
   equipmentAccess?: string | null;
 }) {
+  const cleanTeamName = input.teamName.trim();
+  if (cleanTeamName) {
+    await ensureTeamExists(cleanTeamName);
+    await db
+      .update(teamTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(teamTable.name, cleanTeamName));
+  }
+
   const rows = await db
     .update(athleteTable)
     .set({
@@ -186,7 +252,7 @@ export async function updateTeamDefaultsAdmin(input: {
       equipmentAccess: input.equipmentAccess?.trim() ? input.equipmentAccess.trim() : null,
       updatedAt: new Date(),
     })
-    .where(eq(athleteTable.team, input.teamName.trim()))
+    .where(eq(athleteTable.team, cleanTeamName))
     .returning({ id: athleteTable.id });
 
   return {
@@ -209,6 +275,8 @@ export async function updateTeamMemberAdmin(input: {
   guardianPhone?: string | null;
   relationToAthlete?: string | null;
 }) {
+  const cleanTeamName = input.teamName.trim();
+
   const athleteRows = await db
     .select({
       id: athleteTable.id,
@@ -224,7 +292,7 @@ export async function updateTeamMemberAdmin(input: {
   if (!athlete) {
     throw { status: 404, message: "Team member not found." };
   }
-  if (athlete.team !== input.teamName.trim()) {
+  if (athlete.team !== cleanTeamName) {
     throw { status: 400, message: "Member does not belong to this team." };
   }
 
@@ -268,6 +336,13 @@ export async function updateTeamMemberAdmin(input: {
     await db.update(guardianTable).set(guardianPatch).where(eq(guardianTable.id, athlete.guardianId));
   }
 
+  if (cleanTeamName) {
+    await db
+      .update(teamTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(teamTable.name, cleanTeamName));
+  }
+
   return { ok: true };
 }
 
@@ -304,6 +379,8 @@ export async function attachAthleteToTeamAdmin(input: { teamName: string; athlet
     };
   }
 
+  await ensureTeamExists(cleanTeamName);
+
   await db
     .update(athleteTable)
     .set({
@@ -311,6 +388,11 @@ export async function attachAthleteToTeamAdmin(input: { teamName: string; athlet
       updatedAt: new Date(),
     })
     .where(eq(athleteTable.id, athlete.id));
+
+  await db
+    .update(teamTable)
+    .set({ updatedAt: new Date() })
+    .where(eq(teamTable.name, cleanTeamName));
 
   return { ok: true, alreadyInTeam: false };
 }
