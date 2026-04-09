@@ -38,8 +38,15 @@ const OTHER_TYPES: OtherType[] = [
 ];
 
 const YOUTH_AGES = Array.from({ length: 12 }, (_, idx) => 7 + idx);
-const ADULT_AUDIENCE_LABEL = "19-99";
 const ADULT_AGE = 19;
+const ADULT_AUDIENCE_PREFIX = "adult::";
+
+const TIER_LABELS: Record<Tier, string> = {
+  PHP: "PHP Program",
+  PHP_Premium: "PHP Premium",
+  PHP_Premium_Plus: "PHP Premium Plus",
+  PHP_Pro: "PHP Pro",
+};
 
 const MODULES_PER_AUDIENCE = 12;
 const SESSIONS_PER_MODULE = 5;
@@ -236,33 +243,17 @@ async function main() {
   }
 
   console.log("Seeding adult tiers...");
-  const adultLabel = normalizeAudienceLabel(ADULT_AUDIENCE_LABEL);
-  await ensureTrainingAudienceExists(adultLabel, adminId);
-  let moduleOrder = 1;
-  const tierStartMap = new Map<Tier, number>();
   for (const tier of TIERS) {
-    const modules = await seedModulesForAudience({
-      audienceLabel: adultLabel,
+    const audienceLabel = `${ADULT_AUDIENCE_PREFIX}${TIER_LABELS[tier]}`;
+    await ensureTrainingAudienceExists(audienceLabel, adminId);
+    await seedModulesForAudience({
+      audienceLabel,
       age: ADULT_AGE,
       createdBy: adminId,
-      moduleTitlePrefix: `${tier}`,
-      startOrder: moduleOrder,
+      moduleTitlePrefix: TIER_LABELS[tier],
     });
-    if (modules[0]) {
-      tierStartMap.set(tier, modules[0].id);
-    }
-    moduleOrder += modules.length;
-  }
-
-  await seedTierLocksForAdultModules({
-    audienceLabel: adultLabel,
-    createdBy: adminId,
-    tierStartMap,
-  });
-
-  for (const tier of TIERS) {
     await seedOtherContent({
-      audienceLabel: adultLabel,
+      audienceLabel,
       age: ADULT_AGE,
       createdBy: adminId,
       titlePrefix: "Adult",
