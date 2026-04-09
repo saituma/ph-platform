@@ -22,6 +22,8 @@ import {
   PROGRAM_TIERS,
   isYouthAgeAudienceLabel,
   isAdultStorageAudienceLabel,
+  isTeamStorageAudienceLabel,
+  fromTeamStorageAudienceLabel,
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../components/admin/training-content-v2/api";
@@ -40,8 +42,12 @@ type AudienceCard = {
 export default function ExerciseLibraryAudiencePage() {
   const searchParams = useSearchParams();
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
-  const [adultMode, setAdultMode] = useState(
-    searchParams.get("mode") === "adult",
+  const [viewMode, setViewMode] = useState<"youth" | "adult" | "team">(
+    (searchParams.get("mode") as any) === "team"
+      ? "team"
+      : searchParams.get("mode") === "adult"
+        ? "adult"
+        : "youth",
   );
   const [modalOpen, setModalOpen] = useState(false);
   const [audienceInput, setAudienceInput] = useState("");
@@ -68,12 +74,15 @@ export default function ExerciseLibraryAudiencePage() {
   }, []);
 
   useEffect(() => {
-    setAdultMode(searchParams.get("mode") === "adult");
+    const mode = searchParams.get("mode");
+    if (mode === "team") setViewMode("team");
+    else if (mode === "adult") setViewMode("adult");
+    else setViewMode("youth");
   }, [searchParams]);
 
   const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
 
-  const cards = useMemo<AudienceCard[]>(() => {
+  const youthCards = useMemo<AudienceCard[]>(() => {
     const youthAudiences = audiences.filter((audience) =>
       isYouthAgeAudienceLabel(audience.label, 18),
     );
@@ -129,13 +138,32 @@ export default function ExerciseLibraryAudiencePage() {
     });
   }, [audiences]);
 
+  const teamCards = useMemo<AudienceCard[]>(() => {
+    return audiences
+      .filter((audience) => isTeamStorageAudienceLabel(audience.label))
+      .map((audience) => ({
+        label: fromTeamStorageAudienceLabel(audience.label),
+        moduleCount: audience.moduleCount,
+        otherCount: audience.otherCount,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [audiences]);
+
+  const activeCards = useMemo(() => {
+    if (viewMode === "adult") return adultTierCards;
+    if (viewMode === "team") return teamCards;
+    return youthCards;
+  }, [viewMode, adultTierCards, teamCards, youthCards]);
+
   return (
     <AdminShell
       title="Exercise library"
       subtitle={
-        adultMode
+        viewMode === "adult"
           ? "Adult mode is on. Open a tier to manage adult modules and other content."
-          : "Organized by age. Open an age card to manage modules and session content."
+          : viewMode === "team"
+            ? "Team mode is on. Open a team to manage training content for that team."
+            : "Organized by age. Open an age card to manage modules and session content."
       }
     >
       <div className="space-y-6">
@@ -144,27 +172,41 @@ export default function ExerciseLibraryAudiencePage() {
             <div className="space-y-4">
               <div className="flex w-full items-center gap-2 rounded-full border border-border bg-card p-1 sm:w-fit">
                 <Button
-                  variant={adultMode ? "outline" : "default"}
-                  onClick={() => setAdultMode(false)}
+                  variant={viewMode === "youth" ? "default" : "outline"}
+                  onClick={() => setViewMode("youth")}
                 >
                   Youth mode
                 </Button>
                 <Button
-                  variant={adultMode ? "default" : "outline"}
-                  onClick={() => setAdultMode(true)}
+                  variant={viewMode === "adult" ? "default" : "outline"}
+                  onClick={() => setViewMode("adult")}
                 >
                   Adult mode
                 </Button>
+                <Button
+                  variant={viewMode === "team" ? "default" : "outline"}
+                  onClick={() => setViewMode("team")}
+                >
+                  Team mode
+                </Button>
               </div>
               <SectionHeader
-                title={adultMode ? "Adult tiers" : "Age groups"}
+                title={
+                  viewMode === "adult"
+                    ? "Adult tiers"
+                    : viewMode === "team"
+                      ? "Team training"
+                      : "Age groups"
+                }
                 description={
-                  adultMode
+                  viewMode === "adult"
                     ? "Choose a tier to manage adult modules and other content."
-                    : "Start with ages 7 to 18. Open any card to manage modules, sessions, warm-up, sessions A/B/C, mobility, recovery, and cool-down content."
+                    : viewMode === "team"
+                      ? "Manage training content posted to specific teams."
+                      : "Start with ages 7 to 18. Open any card to manage modules, sessions, warm-up, sessions A/B/C, mobility, recovery, and cool-down content."
                 }
               />
-              {!adultMode ? (
+              {viewMode !== "adult" ? (
                 <Button
                   className="w-full sm:w-auto"
                   onClick={() => {
@@ -172,7 +214,7 @@ export default function ExerciseLibraryAudiencePage() {
                     setModalOpen(true);
                   }}
                 >
-                  + Add age or range
+                  {viewMode === "team" ? "+ Add team training" : "+ Add age or range"}
                 </Button>
               ) : null}
             </div>
@@ -181,19 +223,27 @@ export default function ExerciseLibraryAudiencePage() {
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
             {isLoading ? (
               <p className="text-sm text-muted-foreground">
-                {adultMode ? "Loading tiers..." : "Loading age groups..."}
+                {viewMode === "adult"
+                  ? "Loading tiers..."
+                  : viewMode === "team"
+                    ? "Loading teams..."
+                    : "Loading age groups..."}
               </p>
             ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {(adultMode ? adultTierCards : cards).map((audience) => (
+              {activeCards.map((audience) => (
                 <Link
                   key={audience.label}
-                  href={`/exercise-library/${encodeURIComponent(audience.label)}${adultMode ? "?mode=adult" : ""}`}
+                  href={`/exercise-library/${encodeURIComponent(audience.label)}${viewMode !== "youth" ? `?mode=${viewMode}` : ""}`}
                   className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
                 >
                   <p className="text-lg font-semibold text-foreground">
-                    {adultMode ? audience.label : `Age ${audience.label}`}
+                    {viewMode === "adult"
+                      ? audience.label
+                      : viewMode === "team"
+                        ? audience.label
+                        : `Age ${audience.label}`}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {audience.moduleCount} modules · {audience.otherCount} other
@@ -201,55 +251,66 @@ export default function ExerciseLibraryAudiencePage() {
                   </p>
                 </Link>
               ))}
+              {viewMode === "team" && activeCards.length === 0 && !isLoading && (
+                <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                  No team training posted yet. Click "+ Add team training" to start.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add age group</DialogTitle>
-            <DialogDescription>
-              Enter a value like 7, 8, 12, 7-18, or All.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              placeholder="7, 8, 12, 7-18, All"
-              value={audienceInput}
-              onChange={(event) => setAudienceInput(event.target.value)}
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (!normalizedAudience) return;
-                  try {
-                    await trainingContentRequest("/admin/audiences", {
-                      method: "POST",
-                      body: JSON.stringify({ label: normalizedAudience }),
-                    });
-                    setAudienceInput("");
-                    setModalOpen(false);
-                    await loadAudiences();
-                  } catch (err) {
-                    setError(
-                      err instanceof Error
-                        ? err.message
-                        : "Failed to create audience.",
-                    );
-                  }
-                }}
-                disabled={!normalizedAudience}
-              >
-                Save
-              </Button>
-            </div>
+        <DialogHeader>
+          <DialogTitle>
+            {viewMode === "team" ? "Add team training" : "Add age group"}
+          </DialogTitle>
+          <DialogDescription>
+            {viewMode === "team"
+              ? "Enter the exact name of the team to create a training space for them."
+              : "Enter a value like 7, 8, 12, 7-18, or All."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-4">
+          <Input
+            placeholder={viewMode === "team" ? "e.g. U14 Elite" : "7, 8, 12, 7-18, All"}
+            value={audienceInput}
+            onChange={(event) => setAudienceInput(event.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!normalizedAudience) return;
+                try {
+                  const label = viewMode === "team" 
+                    ? toTeamStorageAudienceLabel(audienceInput)
+                    : normalizedAudience;
+                  
+                  await trainingContentRequest("/admin/audiences", {
+                    method: "POST",
+                    body: JSON.stringify({ label }),
+                  });
+                  setAudienceInput("");
+                  setModalOpen(false);
+                  await loadAudiences();
+                } catch (err) {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Failed to create audience.",
+                  );
+                }
+              }}
+              disabled={!audienceInput.trim()}
+            >
+              Save
+            </Button>
           </div>
-        </DialogContent>
+        </div>
       </Dialog>
     </AdminShell>
   );

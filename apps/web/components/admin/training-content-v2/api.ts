@@ -111,6 +111,7 @@ export const PROGRAM_TIERS = [
 ] as const;
 
 export const ADULT_AUDIENCE_PREFIX = "adult::";
+export const TEAM_AUDIENCE_PREFIX = "team::";
 
 function getCsrfToken() {
   if (typeof document === "undefined") return "";
@@ -191,6 +192,21 @@ export function fromStorageAudienceLabel(label: string) {
   const normalized = normalizeAudienceLabelInput(label);
   if (!normalized.startsWith(ADULT_AUDIENCE_PREFIX)) return normalized;
   return normalizeAudienceLabelInput(normalized.slice(ADULT_AUDIENCE_PREFIX.length));
+}
+
+export function isTeamStorageAudienceLabel(label: string) {
+  return normalizeAudienceLabelInput(label).startsWith(TEAM_AUDIENCE_PREFIX);
+}
+
+export function toTeamStorageAudienceLabel(teamName: string) {
+  const normalized = teamName.trim().replace(/\s+/g, " ").replace(/::+/g, ":");
+  return `${TEAM_AUDIENCE_PREFIX}${normalized || "All"}`;
+}
+
+export function fromTeamStorageAudienceLabel(label: string) {
+  const normalized = normalizeAudienceLabelInput(label);
+  if (!normalized.startsWith(TEAM_AUDIENCE_PREFIX)) return normalized;
+  return normalized.slice(TEAM_AUDIENCE_PREFIX.length);
 }
 
 export function buildMetadata(input: {

@@ -5,8 +5,12 @@
  * emitter just like ActiveTabContext.
  */
 
-export type AdminOpsSection = "bookings" | "availability" | "services";
-export type AdminOpsAction = "createBooking" | "createAvailability" | "createService";
+export type AdminOpsSection = "bookings" | "availability" | "services" | "teams";
+export type AdminOpsAction =
+  | "createBooking"
+  | "createAvailability"
+  | "createService"
+  | "createTeam";
 
 type RequestPayload = {
   section?: AdminOpsSection;
@@ -27,4 +31,3 @@ export function subscribeToAdminOpsRequests(listener: Listener) {
     _listeners.delete(listener);
   };
 }
-
