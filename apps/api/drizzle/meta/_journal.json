@@ -442,6 +442,20 @@
       "when": 1775696500000,
       "tag": "0062_service_types_scheduling_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1775780000000,
+      "tag": "0063_run_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1775721591546,
+      "tag": "0064_nifty_cerebro",
+      "breakpoints": true
     }
   ]
 }
