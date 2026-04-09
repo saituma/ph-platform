@@ -356,191 +356,191 @@ DO $$
 DECLARE
   -- Re-runnable: cast known tier columns to program_type if they exist and aren't already program_type.
   -- Handles both camelCase and snake_case column names in older DBs.
-  table_name text;
-  column_name text;
-  udt text;
+  target_table text;
+  target_column text;
+  target_udt text;
 BEGIN
     -- athletes.currentProgramTier
-    table_name := 'athletes';
+    target_table := 'athletes';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('currentProgramTier','current_program_tier')
      ORDER BY CASE WHEN c.column_name = 'currentProgramTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- contents.programTier
-    table_name := 'contents';
+    target_table := 'contents';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('programTier','program_tier')
      ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- enrollments.programType
-    table_name := 'enrollments';
+    target_table := 'enrollments';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('programType','program_type')
      ORDER BY CASE WHEN c.column_name = 'programType' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- guardians.currentProgramTier
-    table_name := 'guardians';
+    target_table := 'guardians';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('currentProgramTier','current_program_tier')
      ORDER BY CASE WHEN c.column_name = 'currentProgramTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- onboarding_configs.defaultProgramTier
-    table_name := 'onboarding_configs';
+    target_table := 'onboarding_configs';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('defaultProgramTier','default_program_tier')
      ORDER BY CASE WHEN c.column_name = 'defaultProgramTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL THEN
-      IF udt <> 'program_type' THEN
-        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL THEN
+      IF target_udt <> 'program_type' THEN
+        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
       END IF;
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT ''PHP''::"public"."program_type"', table_name, column_name);
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT ''PHP''::"public"."program_type"', target_table, target_column);
     END IF;
 
     -- parent_courses.programTier
-    table_name := 'parent_courses';
+    target_table := 'parent_courses';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('programTier','program_tier')
      ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- physio_refferals.programTier
-    table_name := 'physio_refferals';
+    target_table := 'physio_refferals';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('programTier','program_tier')
      ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- program_section_contents.programTier
-    table_name := 'program_section_contents';
+    target_table := 'program_section_contents';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('programTier','program_tier')
      ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- programs.type
-    table_name := 'programs';
+    target_table := 'programs';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('type')
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- service_types.programTier
-    table_name := 'service_types';
+    target_table := 'service_types';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('programTier','program_tier')
      ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- subscription_plans.tier
-    table_name := 'subscription_plans';
+    target_table := 'subscription_plans';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('tier')
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- training_module_tier_locks.programTier
-    table_name := 'training_module_tier_locks';
+    target_table := 'training_module_tier_locks';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('programTier','program_tier')
      ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 
     -- training_session_tier_locks.programTier
-    table_name := 'training_session_tier_locks';
+    target_table := 'training_session_tier_locks';
     SELECT c.column_name, c.udt_name
-      INTO column_name, udt
+      INTO target_column, target_udt
       FROM information_schema.columns c
      WHERE c.table_schema = 'public'
-       AND c.table_name = table_name
+       AND c.table_name = target_table
        AND c.column_name IN ('programTier','program_tier')
      ORDER BY CASE WHEN c.column_name = 'programTier' THEN 1 ELSE 2 END
      LIMIT 1;
-    IF column_name IS NOT NULL AND udt <> 'program_type' THEN
-      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', table_name, column_name, column_name);
+    IF target_column IS NOT NULL AND target_udt <> 'program_type' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DATA TYPE "public"."program_type" USING %I::"public"."program_type"', target_table, target_column, target_column);
     END IF;
 END $$;--> statement-breakpoint
 ALTER TABLE "athletes" ALTER COLUMN "guardianId" DROP NOT NULL;--> statement-breakpoint
