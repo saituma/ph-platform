@@ -22,7 +22,8 @@
     "admin:set-password": "ts-node src/scripts/set-admin-password.ts",
     "subscription:expiry-sweep": "PH_API_SCRIPT=1 ts-node src/scripts/check-subscription-expiry.ts",
     "load:palette": "tsx src/scripts/load-command-palette.ts",
-    "athletes:clamp-youth-ages": "PH_API_SCRIPT=1 tsx src/scripts/clamp-youth-ages.ts"
+    "athletes:clamp-youth-ages": "PH_API_SCRIPT=1 tsx src/scripts/clamp-youth-ages.ts",
+    "fix:adult-tiers": "PH_API_SCRIPT=1 tsx src/scripts/fix-adult-tier-modules.ts"
   },
   "keywords": [],
   "author": "",
