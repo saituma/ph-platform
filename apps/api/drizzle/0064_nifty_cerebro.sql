@@ -1,10 +1,34 @@
-CREATE TYPE "public"."athlete_type" AS ENUM('youth', 'adult');--> statement-breakpoint
-CREATE TYPE "public"."plan_payment_type" AS ENUM('monthly', 'upfront');--> statement-breakpoint
-CREATE TYPE "public"."chat_group_category" AS ENUM('announcement', 'coach_group', 'team');--> statement-breakpoint
-CREATE TYPE "public"."story_media_type" AS ENUM('image', 'video');--> statement-breakpoint
-CREATE TYPE "public"."training_other_type" AS ENUM('warmup', 'cooldown', 'mobility', 'recovery', 'inseason', 'offseason', 'education');--> statement-breakpoint
-CREATE TYPE "public"."training_session_block_type" AS ENUM('warmup', 'main', 'cooldown');--> statement-breakpoint
-ALTER TYPE "public"."session_type" ADD VALUE 'screening' BEFORE 'mobility';--> statement-breakpoint
+DO $$ BEGIN
+  CREATE TYPE "public"."athlete_type" AS ENUM('youth', 'adult');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  CREATE TYPE "public"."plan_payment_type" AS ENUM('monthly', 'upfront');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  CREATE TYPE "public"."chat_group_category" AS ENUM('announcement', 'coach_group', 'team');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  CREATE TYPE "public"."story_media_type" AS ENUM('image', 'video');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  CREATE TYPE "public"."training_other_type" AS ENUM('warmup', 'cooldown', 'mobility', 'recovery', 'inseason', 'offseason', 'education');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  CREATE TYPE "public"."training_session_block_type" AS ENUM('warmup', 'main', 'cooldown');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+ALTER TYPE "public"."session_type" ADD VALUE IF NOT EXISTS 'screening' BEFORE 'mobility';--> statement-breakpoint
 CREATE TABLE "athlete_achievement_unlocks" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "athlete_achievement_unlocks_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"athleteId" integer NOT NULL,
