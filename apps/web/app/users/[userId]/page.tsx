@@ -212,6 +212,11 @@ export default function UserDetailPage() {
     [usersData, userId],
   );
 
+  const isTechnicalAthleteUser = useMemo(() => {
+    const email = String(rawUser?.email ?? "").toLowerCase();
+    return rawUser?.role === "athlete" && email.endsWith("@athlete.local");
+  }, [rawUser?.email, rawUser?.role]);
+
   const athleteId = onboarding?.athlete?.id ?? rawUser?.athleteId;
   const resolvedTier =
     onboarding?.athlete?.currentProgramTier ??
@@ -672,49 +677,61 @@ export default function UserDetailPage() {
           <ProfileField label="Cognito sub" value={rawUser?.cognitoSub} />
         </UserProfileSection>
 
-        <UserDetailSectionCard
-          title="Password"
-          description="Passwords can’t be viewed. Resetting generates (or sets) a temporary password and invalidates existing sessions."
-          icon={ShieldAlert}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">
-                New temporary password (optional)
-              </p>
-              <Input
-                type="password"
-                placeholder="Leave blank to generate a secure password"
-                value={passwordInput}
-                onChange={(event) => setPasswordInput(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Minimum 8 characters.
-              </p>
-            </div>
-            <div className="flex items-end justify-end">
-              <Button
-                type="button"
-                onClick={() => void handleResetPassword()}
-                disabled={isResettingPassword}
-              >
-                {isResettingPassword ? "Resetting..." : "Reset password"}
-              </Button>
-            </div>
-          </div>
-
-          {temporaryPassword ? (
-            <div className="mt-4 rounded-2xl border bg-muted/40 p-3 text-sm">
-              <p className="font-medium">Temporary password</p>
-              <p className="mt-1 break-all font-mono">{temporaryPassword}</p>
-              {passwordEmailSent != null ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Email sent: {passwordEmailSent ? "Yes" : "No"}
+        {isTechnicalAthleteUser ? (
+          <UserDetailSectionCard
+            title="Password"
+            description="This is a technical athlete record used for linking/profile data. Youth athletes sign in via the guardian account, so there’s no password to reset here."
+            icon={ShieldAlert}
+          >
+            <p className="text-sm text-muted-foreground">
+              Password resets are available on the guardian user record.
+            </p>
+          </UserDetailSectionCard>
+        ) : (
+          <UserDetailSectionCard
+            title="Password"
+            description="Passwords can’t be viewed. Resetting generates (or sets) a temporary password and invalidates existing sessions."
+            icon={ShieldAlert}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">
+                  New temporary password (optional)
                 </p>
-              ) : null}
+                <Input
+                  type="password"
+                  placeholder="Leave blank to generate a secure password"
+                  value={passwordInput}
+                  onChange={(event) => setPasswordInput(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Minimum 8 characters.
+                </p>
+              </div>
+              <div className="flex items-end justify-end">
+                <Button
+                  type="button"
+                  onClick={() => void handleResetPassword()}
+                  disabled={isResettingPassword}
+                >
+                  {isResettingPassword ? "Resetting..." : "Reset password"}
+                </Button>
+              </div>
             </div>
-          ) : null}
-        </UserDetailSectionCard>
+
+            {temporaryPassword ? (
+              <div className="mt-4 rounded-2xl border bg-muted/40 p-3 text-sm">
+                <p className="font-medium">Temporary password</p>
+                <p className="mt-1 break-all font-mono">{temporaryPassword}</p>
+                {passwordEmailSent != null ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Email sent: {passwordEmailSent ? "Yes" : "No"}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </UserDetailSectionCard>
+        )}
 
         {(onboarding?.guardian || rawUser?.guardianProgramTier != null) && (
           <UserProfileSection

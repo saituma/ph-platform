@@ -13,7 +13,6 @@ import {
 } from "../../../../../components/ui/card";
 import { Input } from "../../../../../components/ui/input";
 import { Label } from "../../../../../components/ui/label";
-import { Select } from "../../../../../components/ui/select";
 import { Textarea } from "../../../../../components/ui/textarea";
 import { SectionHeader } from "../../../../../components/admin/section-header";
 
@@ -109,9 +108,6 @@ export default function TeamMemberDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [passwordInput, setPasswordInput] = useState("");
-  const [passwordTarget, setPasswordTarget] = useState<"guardian" | "athlete">(
-    "guardian",
-  );
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(
     null,
@@ -203,23 +199,15 @@ export default function TeamMemberDetailPage() {
     void loadMember();
   }, [teamName, athleteId]);
 
-  useEffect(() => {
-    // Prefer guardian reset for youth athletes; fall back to athlete user for adults.
-    if (details?.guardianUserId) setPasswordTarget("guardian");
-    else setPasswordTarget("athlete");
-  }, [details?.guardianUserId]);
-
   const resetPassword = async () => {
     setNotice(null);
     setError(null);
     setTemporaryPassword(null);
     setPasswordEmailSent(null);
 
-    const targetUserId =
-      passwordTarget === "guardian"
-        ? details?.guardianUserId
-        : details?.athleteUserId;
-
+    // Youth athletes sign in as the guardian. If a guardian account exists, always reset that.
+    // Fall back to athlete user only when no guardian login is attached (e.g. adult athletes).
+    const targetUserId = details?.guardianUserId ?? details?.athleteUserId;
     if (!targetUserId) {
       setError("No user account is linked to this member.");
       return;
@@ -539,7 +527,7 @@ export default function TeamMemberDetailPage() {
           <CardHeader>
             <SectionHeader
               title="Password"
-              description="Passwords can’t be viewed. You can reset the linked account password and share the temporary password with the user."
+              description="Passwords can’t be viewed. For youth athletes, reset the guardian login password and share the temporary password with the user."
             />
           </CardHeader>
           <CardContent className="grid gap-3">
@@ -551,25 +539,12 @@ export default function TeamMemberDetailPage() {
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <Label>Reset target</Label>
-                    <Select
-                      value={passwordTarget}
-                      onChange={(event) =>
-                        setPasswordTarget(
-                          event.target.value as "guardian" | "athlete",
-                        )
-                      }
-                    >
-                      <option
-                        value="guardian"
-                        disabled={!details.guardianUserId}
-                      >
-                        Guardian account
-                      </option>
-                      <option value="athlete" disabled={!details.athleteUserId}>
-                        Athlete account
-                      </option>
-                    </Select>
+                    <Label>Resetting</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {details.guardianUserId
+                        ? "Guardian login (youth athletes)"
+                        : "Athlete login (no guardian attached)"}
+                    </p>
                   </div>
 
                   <div className="space-y-1">
