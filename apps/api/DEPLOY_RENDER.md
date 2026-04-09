@@ -2,6 +2,16 @@
 
 Render Docker builds default to using the repository root as the build context. `apps/api/Dockerfile` expects the build context to be `apps/api`, so it will fail if you point Render at that Dockerfile without changing the build context.
 
+## Option 0 (fastest): use the repo root `Dockerfile`
+
+- **Runtime**: Docker
+- **Dockerfile path**: `Dockerfile`
+- **Docker build context**: repository root (default)
+
+## Blueprint option (no manual settings)
+
+This repo includes a root `render.yaml`, so you can deploy via a **Render Blueprint** instead of configuring the service manually.
+
 ## Option A (recommended): keep repo root build context
 
 - **Runtime**: Docker
