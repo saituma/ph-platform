@@ -28,7 +28,11 @@ DO $$ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;--> statement-breakpoint
-ALTER TYPE "public"."session_type" ADD VALUE IF NOT EXISTS 'screening' BEFORE 'mobility';--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TYPE "public"."session_type" ADD VALUE 'screening' BEFORE 'mobility';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
 DO $$ BEGIN
   -- If a previous deploy partially ran this migration, some IDENTITY sequences may exist without their tables.
   -- Clean those up so reruns can safely create the tables.
@@ -327,10 +331,26 @@ DO $$ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;--> statement-breakpoint
-ALTER TYPE "public"."program_type" ADD VALUE IF NOT EXISTS 'PHP';--> statement-breakpoint
-ALTER TYPE "public"."program_type" ADD VALUE IF NOT EXISTS 'PHP_Premium';--> statement-breakpoint
-ALTER TYPE "public"."program_type" ADD VALUE IF NOT EXISTS 'PHP_Premium_Plus';--> statement-breakpoint
-ALTER TYPE "public"."program_type" ADD VALUE IF NOT EXISTS 'PHP_Pro';--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TYPE "public"."program_type" ADD VALUE 'PHP';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TYPE "public"."program_type" ADD VALUE 'PHP_Premium';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TYPE "public"."program_type" ADD VALUE 'PHP_Premium_Plus';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TYPE "public"."program_type" ADD VALUE 'PHP_Pro';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
 
 DO $$
 DECLARE
