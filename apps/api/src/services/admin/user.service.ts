@@ -75,6 +75,7 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
       updatedAt: userTable.updatedAt,
       athleteId: athleteTable.id,
       athleteName: athleteTable.name,
+      athleteTeam: athleteTable.team,
       athleteAge: athleteTable.age,
       athleteType: athleteTable.athleteType,
       programTier: athleteTable.currentProgramTier,

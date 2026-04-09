@@ -10,7 +10,13 @@ import { Card, CardContent, CardHeader } from "../../../components/ui/card";
 import { SectionHeader } from "../../../components/admin/section-header";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 
 type TeamDetails = {
   team: string;
@@ -41,6 +47,7 @@ type AdminUser = {
   email?: string | null;
   athleteId?: number | null;
   athleteName?: string | null;
+  athleteTeam?: string | null;
 };
 
 type AvailableAthlete = {
@@ -70,7 +77,10 @@ function getCsrfToken() {
 export default function TeamDetailPage() {
   const params = useParams<{ teamName: string }>();
   const encodedName = String(params.teamName ?? "");
-  const teamName = useMemo(() => decodeURIComponent(encodedName), [encodedName]);
+  const teamName = useMemo(
+    () => decodeURIComponent(encodedName),
+    [encodedName],
+  );
   const [details, setDetails] = useState<TeamDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,10 +88,15 @@ export default function TeamDetailPage() {
   const [attachModalOpen, setAttachModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [athleteSearch, setAthleteSearch] = useState("");
-  const [availableAthletes, setAvailableAthletes] = useState<AvailableAthlete[]>([]);
-  const [isLoadingAvailableAthletes, setIsLoadingAvailableAthletes] = useState(false);
+  const [availableAthletes, setAvailableAthletes] = useState<
+    AvailableAthlete[]
+  >([]);
+  const [isLoadingAvailableAthletes, setIsLoadingAvailableAthletes] =
+    useState(false);
   const [isAttachingAthlete, setIsAttachingAthlete] = useState(false);
-  const [selectedAthleteId, setSelectedAthleteId] = useState<number | null>(null);
+  const [selectedAthleteId, setSelectedAthleteId] = useState<number | null>(
+    null,
+  );
   const [isRegisteringAthlete, setIsRegisteringAthlete] = useState(false);
   const [registerForm, setRegisterForm] = useState({
     email: "",
@@ -98,9 +113,12 @@ export default function TeamDetailPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/backend/admin/teams/${encodeURIComponent(teamName)}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `/api/backend/admin/teams/${encodeURIComponent(teamName)}`,
+        {
+          credentials: "include",
+        },
+      );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(payload?.error ?? "Failed to load team details.");
@@ -108,7 +126,9 @@ export default function TeamDetailPage() {
       const next = payload as TeamDetails;
       setDetails(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load team details.");
+      setError(
+        err instanceof Error ? err.message : "Failed to load team details.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -123,26 +143,46 @@ export default function TeamDetailPage() {
     if (!details) return;
     setIsLoadingAvailableAthletes(true);
     try {
-      const response = await fetch("/api/backend/admin/users", { credentials: "include" });
+      const response = await fetch("/api/backend/admin/users", {
+        credentials: "include",
+      });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(payload?.error ?? "Failed to load athletes.");
       }
-      const teamMemberIds = new Set(details.members.map((member) => member.athleteId));
+      const teamMemberIds = new Set(
+        details.members.map((member) => member.athleteId),
+      );
       const nextAthletes = (Array.isArray(payload?.users) ? payload.users : [])
-        .filter((user: AdminUser) => user.role === "athlete" && Number.isFinite(user.athleteId))
-        .map((user: AdminUser): AvailableAthlete => ({
-          athleteId: Number(user.athleteId),
-          displayName: user.athleteName ?? user.name ?? `Athlete ${user.athleteId}`,
-          email: user.email ?? "—",
-        }))
-        .filter((athlete: AvailableAthlete) => !teamMemberIds.has(athlete.athleteId))
-        .sort((a: AvailableAthlete, b: AvailableAthlete) => a.displayName.localeCompare(b.displayName));
+        .filter(
+          (user: AdminUser) =>
+            user.role === "athlete" && Number.isFinite(user.athleteId),
+        )
+        .filter((user: AdminUser) => {
+          const existingTeam = (user.athleteTeam ?? "").trim();
+          return existingTeam.length === 0;
+        })
+        .map(
+          (user: AdminUser): AvailableAthlete => ({
+            athleteId: Number(user.athleteId),
+            displayName:
+              user.athleteName ?? user.name ?? `Athlete ${user.athleteId}`,
+            email: user.email ?? "—",
+          }),
+        )
+        .filter(
+          (athlete: AvailableAthlete) => !teamMemberIds.has(athlete.athleteId),
+        )
+        .sort((a: AvailableAthlete, b: AvailableAthlete) =>
+          a.displayName.localeCompare(b.displayName),
+        );
 
       setAvailableAthletes(nextAthletes);
       setSelectedAthleteId(nextAthletes[0]?.athleteId ?? null);
     } catch (err) {
-      setPageNotice(err instanceof Error ? err.message : "Failed to load athletes.");
+      setPageNotice(
+        err instanceof Error ? err.message : "Failed to load athletes.",
+      );
     } finally {
       setIsLoadingAvailableAthletes(false);
     }
@@ -168,25 +208,36 @@ export default function TeamDetailPage() {
             ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
           },
           credentials: "include",
-        }
+        },
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to add athlete to this team.");
+        throw new Error(
+          payload?.error ?? "Failed to add athlete to this team.",
+        );
       }
       setAttachModalOpen(false);
       setAthleteSearch("");
       setPageNotice("Athlete added to team.");
       await loadDetails();
     } catch (err) {
-      setPageNotice(err instanceof Error ? err.message : "Failed to add athlete to this team.");
+      setPageNotice(
+        err instanceof Error
+          ? err.message
+          : "Failed to add athlete to this team.",
+      );
     } finally {
       setIsAttachingAthlete(false);
     }
   };
 
   const registerNewAthlete = async () => {
-    if (!registerForm.email.trim() || !registerForm.guardianDisplayName.trim() || !registerForm.athleteName.trim() || !registerForm.birthDate.trim()) {
+    if (
+      !registerForm.email.trim() ||
+      !registerForm.guardianDisplayName.trim() ||
+      !registerForm.athleteName.trim() ||
+      !registerForm.birthDate.trim()
+    ) {
       setPageNotice("Please fill all required fields.");
       return;
     }
@@ -217,7 +268,11 @@ export default function TeamDetailPage() {
           trainingPerWeek,
           parentPhone: registerForm.parentPhone.trim() || null,
           relationToAthlete: registerForm.relationToAthlete.trim() || null,
-          desiredProgramType: registerForm.desiredProgramType as "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro",
+          desiredProgramType: registerForm.desiredProgramType as
+            | "PHP"
+            | "PHP_Premium"
+            | "PHP_Premium_Plus"
+            | "PHP_Pro",
           planPaymentType: "monthly",
           planCommitmentMonths: 6,
           termsVersion: "1.0",
@@ -240,10 +295,16 @@ export default function TeamDetailPage() {
         relationToAthlete: "Guardian",
         desiredProgramType: "PHP",
       });
-      setPageNotice(payload?.emailSent ? "Player registered and invite email sent." : "Player registered. Email sending failed.");
+      setPageNotice(
+        payload?.emailSent
+          ? "Player registered and invite email sent."
+          : "Player registered. Email sending failed.",
+      );
       await loadDetails();
     } catch (err) {
-      setPageNotice(err instanceof Error ? err.message : "Failed to register player.");
+      setPageNotice(
+        err instanceof Error ? err.message : "Failed to register player.",
+      );
     } finally {
       setIsRegisteringAthlete(false);
     }
@@ -252,17 +313,26 @@ export default function TeamDetailPage() {
   const filteredAvailableAthletes = availableAthletes.filter((athlete) => {
     const normalized = athleteSearch.trim().toLowerCase();
     if (!normalized) return true;
-    return `${athlete.displayName} ${athlete.email}`.toLowerCase().includes(normalized);
+    return `${athlete.displayName} ${athlete.email}`
+      .toLowerCase()
+      .includes(normalized);
   });
 
   return (
-    <AdminShell title={teamName || "Team details"} subtitle="Team details and member list.">
+    <AdminShell
+      title={teamName || "Team details"}
+      subtitle="Team details and member list."
+    >
       <div className="grid gap-6">
         {error ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            {error}
+          </div>
         ) : null}
         {pageNotice ? (
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">{pageNotice}</div>
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+            {pageNotice}
+          </div>
         ) : null}
 
         <Card>
@@ -271,12 +341,19 @@ export default function TeamDetailPage() {
               size="sm"
               onClick={() => {
                 setRegisterModalOpen(true);
-                setRegisterForm((current) => ({ ...current, relationToAthlete: current.relationToAthlete || "Guardian" }));
+                setRegisterForm((current) => ({
+                  ...current,
+                  relationToAthlete: current.relationToAthlete || "Guardian",
+                }));
               }}
             >
               Register new player
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setAttachModalOpen(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAttachModalOpen(true)}
+            >
               Add existing athlete
             </Button>
             <Button variant="outline" size="sm" asChild>
@@ -287,28 +364,41 @@ export default function TeamDetailPage() {
 
         <Card>
           <CardHeader>
-            <SectionHeader title="Summary" description="Overview for this team." />
+            <SectionHeader
+              title="Summary"
+              description="Overview for this team."
+            />
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading team details...</p>
+              <p className="text-sm text-muted-foreground">
+                Loading team details...
+              </p>
             ) : (
               <>
                 <div className="rounded-xl border border-border p-3">
                   <p className="text-xs text-muted-foreground">Athletes</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{details?.summary.memberCount ?? 0}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {details?.summary.memberCount ?? 0}
+                  </p>
                 </div>
                 <div className="rounded-xl border border-border p-3">
                   <p className="text-xs text-muted-foreground">Guardians</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{details?.summary.guardianCount ?? 0}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {details?.summary.guardianCount ?? 0}
+                  </p>
                 </div>
                 <div className="rounded-xl border border-border p-3">
                   <p className="text-xs text-muted-foreground">Created</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{formatDate(details?.summary.createdAt ?? null)}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {formatDate(details?.summary.createdAt ?? null)}
+                  </p>
                 </div>
                 <div className="rounded-xl border border-border p-3">
                   <p className="text-xs text-muted-foreground">Last updated</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{formatDate(details?.summary.updatedAt ?? null)}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {formatDate(details?.summary.updatedAt ?? null)}
+                  </p>
                 </div>
               </>
             )}
@@ -317,13 +407,20 @@ export default function TeamDetailPage() {
 
         <Card>
           <CardHeader>
-            <SectionHeader title="Members" description="Team member names. Click a member to open detail page." />
+            <SectionHeader
+              title="Members"
+              description="Team member names. Click a member to open detail page."
+            />
           </CardHeader>
           <CardContent className="space-y-3">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading members...</p>
+              <p className="text-sm text-muted-foreground">
+                Loading members...
+              </p>
             ) : !details?.members.length ? (
-              <p className="text-sm text-muted-foreground">No members found for this team.</p>
+              <p className="text-sm text-muted-foreground">
+                No members found for this team.
+              </p>
             ) : (
               details.members.map((member) => (
                 <Link
@@ -333,15 +430,20 @@ export default function TeamDetailPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">{member.athleteName}</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {member.athleteName}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        Tier: {member.currentProgramTier ?? "—"} · Training/week: {member.trainingPerWeek ?? "—"}
+                        Tier: {member.currentProgramTier ?? "—"} ·
+                        Training/week: {member.trainingPerWeek ?? "—"}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Guardian: {member.guardianEmail ?? "N/A"}
                       </p>
                     </div>
-                    <span className="text-xs font-medium text-primary">Open member</span>
+                    <span className="text-xs font-medium text-primary">
+                      Open member
+                    </span>
                   </div>
                 </Link>
               ))
@@ -354,7 +456,9 @@ export default function TeamDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add existing athlete</DialogTitle>
-            <DialogDescription>Select an athlete to attach to {teamName}.</DialogDescription>
+            <DialogDescription>
+              Select an athlete to attach to {teamName}.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input
@@ -364,9 +468,13 @@ export default function TeamDetailPage() {
             />
             <div className="max-h-72 space-y-2 overflow-auto rounded-xl border border-border p-2">
               {isLoadingAvailableAthletes ? (
-                <p className="p-2 text-sm text-muted-foreground">Loading athletes...</p>
+                <p className="p-2 text-sm text-muted-foreground">
+                  Loading athletes...
+                </p>
               ) : filteredAvailableAthletes.length === 0 ? (
-                <p className="p-2 text-sm text-muted-foreground">No available athletes found.</p>
+                <p className="p-2 text-sm text-muted-foreground">
+                  No available athletes found.
+                </p>
               ) : (
                 filteredAvailableAthletes.map((athlete) => (
                   <button
@@ -379,19 +487,30 @@ export default function TeamDetailPage() {
                         : "border-border hover:border-primary/40"
                     }`}
                   >
-                    <p className="text-sm font-medium text-foreground">{athlete.displayName}</p>
-                    <p className="text-xs text-muted-foreground">{athlete.email}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {athlete.displayName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {athlete.email}
+                    </p>
                   </button>
                 ))
               )}
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setAttachModalOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setAttachModalOpen(false)}
+              >
                 Cancel
               </Button>
               <Button
                 onClick={() => void attachExistingAthlete()}
-                disabled={!selectedAthleteId || isAttachingAthlete || isLoadingAvailableAthletes}
+                disabled={
+                  !selectedAthleteId ||
+                  isAttachingAthlete ||
+                  isLoadingAvailableAthletes
+                }
               >
                 {isAttachingAthlete ? "Adding..." : "Add athlete"}
               </Button>
@@ -404,7 +523,9 @@ export default function TeamDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Register new player</DialogTitle>
-            <DialogDescription>Create a youth player and assign them directly to {teamName}.</DialogDescription>
+            <DialogDescription>
+              Create a youth player and assign them directly to {teamName}.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1 sm:col-span-2">
@@ -412,7 +533,12 @@ export default function TeamDetailPage() {
               <Input
                 type="email"
                 value={registerForm.email}
-                onChange={(event) => setRegisterForm((current) => ({ ...current, email: event.target.value }))}
+                onChange={(event) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    email: event.target.value,
+                  }))
+                }
                 placeholder="guardian@email.com"
               />
             </div>
@@ -420,7 +546,12 @@ export default function TeamDetailPage() {
               <Label>Guardian name</Label>
               <Input
                 value={registerForm.guardianDisplayName}
-                onChange={(event) => setRegisterForm((current) => ({ ...current, guardianDisplayName: event.target.value }))}
+                onChange={(event) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    guardianDisplayName: event.target.value,
+                  }))
+                }
                 placeholder="Parent / guardian name"
               />
             </div>
@@ -428,7 +559,12 @@ export default function TeamDetailPage() {
               <Label>Athlete name</Label>
               <Input
                 value={registerForm.athleteName}
-                onChange={(event) => setRegisterForm((current) => ({ ...current, athleteName: event.target.value }))}
+                onChange={(event) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    athleteName: event.target.value,
+                  }))
+                }
                 placeholder="Player full name"
               />
             </div>
@@ -437,7 +573,12 @@ export default function TeamDetailPage() {
               <Input
                 type="date"
                 value={registerForm.birthDate}
-                onChange={(event) => setRegisterForm((current) => ({ ...current, birthDate: event.target.value }))}
+                onChange={(event) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    birthDate: event.target.value,
+                  }))
+                }
               />
             </div>
             <div className="space-y-1">
@@ -446,7 +587,12 @@ export default function TeamDetailPage() {
                 type="number"
                 min={0}
                 value={registerForm.trainingPerWeek}
-                onChange={(event) => setRegisterForm((current) => ({ ...current, trainingPerWeek: event.target.value }))}
+                onChange={(event) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    trainingPerWeek: event.target.value,
+                  }))
+                }
               />
             </div>
             <div className="space-y-1">
@@ -454,7 +600,12 @@ export default function TeamDetailPage() {
               <select
                 className="h-10 w-full rounded-full border border-input bg-background px-4 text-sm"
                 value={registerForm.desiredProgramType}
-                onChange={(event) => setRegisterForm((current) => ({ ...current, desiredProgramType: event.target.value }))}
+                onChange={(event) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    desiredProgramType: event.target.value,
+                  }))
+                }
               >
                 <option value="PHP">PHP Program</option>
                 <option value="PHP_Premium">PHP Premium</option>
@@ -466,22 +617,38 @@ export default function TeamDetailPage() {
               <Label>Guardian phone (optional)</Label>
               <Input
                 value={registerForm.parentPhone}
-                onChange={(event) => setRegisterForm((current) => ({ ...current, parentPhone: event.target.value }))}
+                onChange={(event) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    parentPhone: event.target.value,
+                  }))
+                }
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Relation (optional)</Label>
               <Input
                 value={registerForm.relationToAthlete}
-                onChange={(event) => setRegisterForm((current) => ({ ...current, relationToAthlete: event.target.value }))}
+                onChange={(event) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    relationToAthlete: event.target.value,
+                  }))
+                }
                 placeholder="Guardian"
               />
             </div>
             <div className="sm:col-span-2 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setRegisterModalOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setRegisterModalOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={() => void registerNewAthlete()} disabled={isRegisteringAthlete}>
+              <Button
+                onClick={() => void registerNewAthlete()}
+                disabled={isRegisteringAthlete}
+              >
                 {isRegisteringAthlete ? "Registering..." : "Register player"}
               </Button>
             </div>

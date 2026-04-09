@@ -17,12 +17,25 @@ import {
 } from "./admin.service";
 
 const ADULT_AUDIENCE_PREFIX = "adult::";
+const TEAM_AUDIENCE_PREFIX = "team::";
 const DEFAULT_ADULT_PROGRAM_TIER: (typeof ProgramType.enumValues)[number] = "PHP";
+
+function hasTeam(team: string | null | undefined) {
+  return Boolean(team && team.trim().length > 0);
+}
+
+function formatTeamAudienceLabel(team: string) {
+  const normalized = team.trim().replace(/\s+/g, " ").replace(/::+/g, ":");
+  const maxTeamLength = 64 - TEAM_AUDIENCE_PREFIX.length;
+  const clipped = normalized.length > maxTeamLength ? normalized.slice(0, maxTeamLength).trim() : normalized;
+  return `${TEAM_AUDIENCE_PREFIX}${clipped || "All"}`;
+}
 
 export async function getTrainingContentMobileWorkspace(input: {
   age: number;
   athleteId: number | null;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
+  team?: string | null;
 }) {
   const resolvedAthleteTier =
     input.programTier ??
@@ -37,13 +50,15 @@ export async function getTrainingContentMobileWorkspace(input: {
       : null);
   const isAdult = input.age >= 18;
   const effectiveTier = isAdult ? (resolvedAthleteTier ?? DEFAULT_ADULT_PROGRAM_TIER) : resolvedAthleteTier;
-  const selectedAudienceLabel = isAdult
-    ? `${ADULT_AUDIENCE_PREFIX}${PROGRAM_TIER_LABELS[effectiveTier!]}`
-    : (() => {
-        // Youth still selects by age.
-        // Audience labels are age ranges (e.g. "12-14") or "All".
-        return null;
-      })();
+  const selectedAudienceLabel = hasTeam(input.team)
+    ? formatTeamAudienceLabel(input.team!.trim())
+    : isAdult
+      ? `${ADULT_AUDIENCE_PREFIX}${PROGRAM_TIER_LABELS[effectiveTier!]}`
+      : (() => {
+          // Youth still selects by age.
+          // Audience labels are age ranges (e.g. "12-14") or "All".
+          return null;
+        })();
 
   const resolvedAudienceLabel = selectedAudienceLabel ? selectedAudienceLabel : "age_scored";
 

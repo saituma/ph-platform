@@ -14,7 +14,10 @@ import {
   UIManager,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { apiRequest } from "@/lib/api";
 import {
   setLatestSubscriptionRequest,
@@ -24,13 +27,24 @@ import { Shadows } from "@/constants/theme";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
+import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
+import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
 import { Ionicons } from "@expo/vector-icons";
 import { buildPlanPricing, PlanPricing } from "@/lib/billing";
-import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
+import {
+  initPaymentSheet,
+  presentPaymentSheet,
+} from "@stripe/stripe-react-native";
 import { useRouter } from "expo-router";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 import { Transition } from "@/components/navigation/TransitionStack";
+
+type TrainingContentV2Workspace = {
+  tabs: string[];
+  modules: any[];
+  others: any[];
+};
 
 export default function ProgramsScreen() {
   const dispatch = useAppDispatch();
@@ -51,15 +65,44 @@ export default function ProgramsScreen() {
     appRole === "youth_athlete_guardian_only" ||
     appRole === "youth_athlete_team_guardian";
 
+  const activeAthlete = useMemo(() => {
+    if (managedAthletes.length) {
+      return (
+        managedAthletes.find(
+          (athlete) =>
+            athlete.id === athleteUserId || athlete.userId === athleteUserId,
+        ) ?? managedAthletes[0]
+      );
+    }
+    return null;
+  }, [athleteUserId, managedAthletes]);
+
+  const isTeamMode = Boolean(
+    activeAthlete?.team && activeAthlete.team.trim().length > 0,
+  );
+
   const [plansByTier, setPlansByTier] = useState<Record<string, number>>({});
-  const [planDetailsByTier, setPlanDetailsByTier] = useState<Record<string, any>>({});
-  const [pricingByTier, setPricingByTier] = useState<Record<string, PlanPricing>>({});
+  const [planDetailsByTier, setPlanDetailsByTier] = useState<
+    Record<string, any>
+  >({});
+  const [pricingByTier, setPricingByTier] = useState<
+    Record<string, PlanPricing>
+  >({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showOtherYouthPlans, setShowOtherYouthPlans] = useState(false);
 
+  const [teamWorkspace, setTeamWorkspace] =
+    useState<TrainingContentV2Workspace | null>(null);
+  const [teamActiveTab, setTeamActiveTab] = useState<string>("Modules");
+  const [isTeamLoading, setIsTeamLoading] = useState(false);
+  const [teamError, setTeamError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+    if (
+      Platform.OS === "android" &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
@@ -72,12 +115,17 @@ export default function ProgramsScreen() {
   );
 
   const waitForInteractions = useCallback(
-    () => new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve())),
+    () =>
+      new Promise<void>((resolve) =>
+        InteractionManager.runAfterInteractions(() => resolve()),
+      ),
     [],
   );
   const getDiscountCopy = useCallback((plan?: any | null) => {
     const pricing = plan?.pricing;
-    const discountedEntries = [pricing?.monthly].filter((entry: any) => entry?.hasDiscount);
+    const discountedEntries = [pricing?.monthly].filter(
+      (entry: any) => entry?.hasDiscount,
+    );
     if (discountedEntries.length > 0) {
       return discountedEntries
         .map((entry: any) =>
@@ -91,10 +139,7 @@ export default function ProgramsScreen() {
     const value = String(plan.discountValue).trim();
     if (!value) return null;
     const unit = plan.discountType === "percent" ? "%" : "";
-    const applies =
-      plan.discountAppliesTo === "monthly"
-        ? "monthly"
-        : "plans";
+    const applies = plan.discountAppliesTo === "monthly" ? "monthly" : "plans";
     return `Discount: ${value}${unit} (${applies})`;
   }, []);
 
@@ -139,7 +184,8 @@ export default function ProgramsScreen() {
     () =>
       PROGRAM_TIERS.map((tier) => ({
         ...tier,
-        icon: tier.id === "php" ? "pulse" : tier.id === "plus" ? "layers" : "star",
+        icon:
+          tier.id === "php" ? "pulse" : tier.id === "plus" ? "layers" : "star",
         popular: tier.id === "plus",
         highlight: tier.id === "premium" ? "Limited spots" : tier.highlight,
       })),
@@ -168,12 +214,10 @@ export default function ProgramsScreen() {
     if (!isYouthAthleteRole) {
       return enriched;
     }
-    return enriched
-      .slice()
-      .sort((a, b) => {
-        if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
-        return a.index - b.index;
-      });
+    return enriched.slice().sort((a, b) => {
+      if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
+      return a.index - b.index;
+    });
   }, [isYouthAthleteRole, programTier, tierToRequiredTier, tiers]);
 
   const currentTierCards = useMemo(
@@ -185,31 +229,26 @@ export default function ProgramsScreen() {
     [orderedTiers],
   );
 
-  const activeAthlete = useMemo(() => {
-    if (managedAthletes.length) {
-      return (
-        managedAthletes.find(
-          (athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId,
-        ) ?? managedAthletes[0]
-      );
-    }
-    return null;
-  }, [athleteUserId, managedAthletes]);
-
   const focusName = activeAthlete?.name || profile.name || "Athlete";
   const focusInfo = [
     activeAthlete?.age ? `${activeAthlete.age} yrs` : null,
     activeAthlete?.level || null,
     activeAthlete?.team || null,
   ].filter(Boolean);
-  const currentTierLabel = normalizeProgramTier(programTier)?.replace("PHP_", "").replace("_", " ") || "Starter";
+  const currentTierLabel =
+    normalizeProgramTier(programTier)?.replace("PHP_", "").replace("_", " ") ||
+    "Starter";
   const overlayColor = isDark ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.18)";
   const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
-  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
+  const mutedSurface = isDark
+    ? "rgba(255,255,255,0.06)"
+    : "rgba(255,255,255,0.84)";
+  const accentSurface = isDark
+    ? "rgba(34,197,94,0.16)"
+    : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const refreshBillingStatus = useCallback(async () => {
-    if (!token) return;
+    if (!token || isTeamMode) return;
     try {
       const status = await apiRequest<{
         currentProgramTier?: string | null;
@@ -227,13 +266,53 @@ export default function ProgramsScreen() {
       const nextRequestStatus = status?.latestRequest?.status ?? null;
       const nextTier =
         status?.currentProgramTier ??
-        (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
+        (nextRequestStatus === "approved"
+          ? (status?.latestRequest?.planTier ?? null)
+          : null);
       dispatch(setProgramTier(nextTier ?? null));
       dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
     } catch {
       // no-op
     }
-  }, [dispatch, token]);
+  }, [dispatch, isTeamMode, token]);
+
+  const loadTeamProgram = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (!token || !isTeamMode) {
+        setTeamWorkspace(null);
+        return;
+      }
+      const ageQ =
+        activeAthlete?.age != null
+          ? `?age=${encodeURIComponent(String(activeAthlete.age))}`
+          : "";
+      setIsTeamLoading(true);
+      setTeamError(null);
+      try {
+        const response = await apiRequest<TrainingContentV2Workspace>(
+          `/training-content-v2/mobile${ageQ}`,
+          { token, forceRefresh: options?.force ?? false },
+        );
+        const tabs =
+          Array.isArray(response?.tabs) && response.tabs.length
+            ? response.tabs
+            : ["Modules"];
+        const normalized = { ...response, tabs };
+        setTeamWorkspace(normalized);
+        setTeamActiveTab((prev) => (tabs.includes(prev) ? prev : tabs[0]!));
+      } catch (error) {
+        setTeamWorkspace(null);
+        setTeamError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load team program.",
+        );
+      } finally {
+        setIsTeamLoading(false);
+      }
+    },
+    [activeAthlete?.age, isTeamMode, token],
+  );
 
   const handleApply = useCallback(
     async (tierId: "php" | "plus" | "premium" | "pro") => {
@@ -244,7 +323,13 @@ export default function ProgramsScreen() {
         return;
       }
       const requiredTier =
-        tierId === "pro" ? "PHP_Pro" : tierId === "plus" ? "PHP_Premium_Plus" : tierId === "premium" ? "PHP_Premium" : "PHP";
+        tierId === "pro"
+          ? "PHP_Pro"
+          : tierId === "plus"
+            ? "PHP_Premium_Plus"
+            : tierId === "premium"
+              ? "PHP_Premium"
+              : "PHP";
 
       const planId = plansByTier[requiredTier];
       const plan = planDetailsByTier[requiredTier];
@@ -284,16 +369,20 @@ export default function ProgramsScreen() {
             throw new Error(result.error.message);
           }
 
-          const confirm = await apiRequest<{ paymentStatus?: string; request?: any }>(
-            "/billing/payment-sheet/confirm",
-            {
-              method: "POST",
-              body: { paymentIntentId: data.paymentIntentId },
-              token,
-            },
-          );
+          const confirm = await apiRequest<{
+            paymentStatus?: string;
+            request?: any;
+          }>("/billing/payment-sheet/confirm", {
+            method: "POST",
+            body: { paymentIntentId: data.paymentIntentId },
+            token,
+          });
 
-          dispatch(setLatestSubscriptionRequest(confirm.request ?? data.request ?? null));
+          dispatch(
+            setLatestSubscriptionRequest(
+              confirm.request ?? data.request ?? null,
+            ),
+          );
         } catch (error: any) {
           const message = error?.message || "Failed to start checkout.";
           Alert.alert("Payment failed", message);
@@ -303,14 +392,20 @@ export default function ProgramsScreen() {
       };
       await startCheckout();
     },
-    [dispatch, isProcessingPayment, planDetailsByTier, plansByTier, token, waitForInteractions],
+    [
+      dispatch,
+      isProcessingPayment,
+      planDetailsByTier,
+      plansByTier,
+      token,
+      waitForInteractions,
+    ],
   );
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || isTeamMode) return;
     refreshBillingStatus();
-  }, [refreshBillingStatus, token]);
-
+  }, [isTeamMode, refreshBillingStatus, token]);
 
   const loadPlans = useCallback(async (forceRefresh = true) => {
     const plansResponse = await apiRequest<{ plans: any[] }>("/public/plans", {
@@ -333,23 +428,32 @@ export default function ProgramsScreen() {
 
   useEffect(() => {
     (async () => {
+      if (isTeamMode) return;
       try {
         await loadPlans();
       } catch {
         // ignore
       }
     })();
-  }, [loadPlans]);
+  }, [isTeamMode, loadPlans]);
+
+  useEffect(() => {
+    void loadTeamProgram();
+  }, [loadTeamProgram]);
 
   const handleRefresh = useCallback(async () => {
     if (!token) return;
     try {
       setIsRefreshing(true);
-      await Promise.all([refreshBillingStatus(), loadPlans(true)]);
+      if (isTeamMode) {
+        await loadTeamProgram({ force: true });
+      } else {
+        await Promise.all([refreshBillingStatus(), loadPlans(true)]);
+      }
     } finally {
       setIsRefreshing(false);
     }
-  }, [loadPlans, refreshBillingStatus, token]);
+  }, [isTeamMode, loadPlans, loadTeamProgram, refreshBillingStatus, token]);
 
   const insets = useSafeAreaInsets();
 
@@ -362,6 +466,168 @@ export default function ProgramsScreen() {
     );
   }
 
+  if (isTeamMode) {
+    const teamTabs = teamWorkspace?.tabs?.length
+      ? teamWorkspace.tabs
+      : ["Modules"];
+    return (
+      <View className="flex-1" style={{ paddingTop: insets.top }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          directionalLockEnabled
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
+        >
+          <View className="px-6 pt-6 pb-4">
+            <View
+              className="overflow-hidden rounded-[30px] border px-5 py-5"
+              style={{
+                backgroundColor: surfaceColor,
+                borderColor: borderSoft,
+                ...(isDark ? Shadows.none : Shadows.md),
+              }}
+            >
+              <View
+                className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
+                style={{ backgroundColor: accentSurface }}
+              />
+              <View
+                className="absolute -bottom-10 left-10 h-24 w-24 rounded-full"
+                style={{ backgroundColor: mutedSurface }}
+              />
+
+              <View
+                className="self-start rounded-full px-3 py-1.5"
+                style={{ backgroundColor: mutedSurface }}
+              >
+                <Text
+                  className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]"
+                  style={{ color: colors.accent }}
+                >
+                  Team program
+                </Text>
+              </View>
+
+              <Text className="mt-3 text-3xl font-telma-bold text-app">
+                Program
+              </Text>
+              <Text className="text-secondary font-outfit text-sm mt-2 leading-6">
+                Your training content is managed by your team.
+              </Text>
+
+              <View className="mt-4 flex-row gap-3">
+                <View
+                  className="flex-1 rounded-[22px] px-4 py-4"
+                  style={{ backgroundColor: mutedSurface }}
+                >
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
+                    Focus athlete
+                  </Text>
+                  <Text
+                    className="mt-2 text-lg font-clash text-app"
+                    numberOfLines={1}
+                  >
+                    {focusName}
+                  </Text>
+                  {focusInfo.length ? (
+                    <Text
+                      className="text-xs font-outfit text-secondary mt-1"
+                      numberOfLines={1}
+                    >
+                      {focusInfo.join(" • ")}
+                    </Text>
+                  ) : null}
+                </View>
+                <View
+                  className="flex-1 rounded-[22px] px-4 py-4"
+                  style={{ backgroundColor: mutedSurface }}
+                >
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
+                    Team
+                  </Text>
+                  <Text
+                    className="mt-2 text-lg font-clash text-app"
+                    numberOfLines={1}
+                  >
+                    {activeAthlete?.team ?? ""}
+                  </Text>
+                  <Text className="text-xs font-outfit text-secondary mt-1">
+                    Modules update as coaches publish
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <View className="px-6">
+            {isTeamLoading ? (
+              <View
+                className="rounded-[24px] border px-4 py-4"
+                style={{
+                  borderColor: borderSoft,
+                  backgroundColor: surfaceColor,
+                }}
+              >
+                <Text className="text-sm font-outfit text-secondary">
+                  Loading team program…
+                </Text>
+              </View>
+            ) : teamError ? (
+              <View
+                className="rounded-[24px] border px-4 py-4"
+                style={{
+                  borderColor: borderSoft,
+                  backgroundColor: surfaceColor,
+                }}
+              >
+                <Text className="text-sm font-outfit text-secondary">
+                  {teamError}
+                </Text>
+              </View>
+            ) : !teamWorkspace ? (
+              <View
+                className="rounded-[24px] border px-4 py-4"
+                style={{
+                  borderColor: borderSoft,
+                  backgroundColor: surfaceColor,
+                }}
+              >
+                <Text className="text-sm font-outfit text-secondary">
+                  No team program is available yet.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <ProgramTabBar
+                  tabs={teamTabs}
+                  activeTab={teamActiveTab}
+                  onTabChange={setTeamActiveTab}
+                />
+                <View className="mt-2">
+                  <AgeBasedTrainingPanel
+                    workspace={teamWorkspace as any}
+                    activeTab={teamActiveTab}
+                    onOpenModule={(moduleId) => {
+                      router.push(
+                        `/programs/module/${encodeURIComponent(String(moduleId))}?programId=php`,
+                      );
+                    }}
+                  />
+                </View>
+              </>
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   // Otherwise, show the plan cards
   return (
     <View className="flex-1" style={{ paddingTop: insets.top }}>
@@ -370,7 +636,9 @@ export default function ProgramsScreen() {
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         directionalLockEnabled
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+        }
       >
         <View className="px-6 pt-6 pb-4">
           <View
@@ -390,32 +658,53 @@ export default function ProgramsScreen() {
               style={{ backgroundColor: mutedSurface }}
             />
 
-            <View className="self-start rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+            <View
+              className="self-start rounded-full px-3 py-1.5"
+              style={{ backgroundColor: mutedSurface }}
+            >
+              <Text
+                className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]"
+                style={{ color: colors.accent }}
+              >
                 {"Player pathway"}
               </Text>
             </View>
 
-            <Text className="mt-3 text-3xl font-telma-bold text-app">Programs</Text>
+            <Text className="mt-3 text-3xl font-telma-bold text-app">
+              Programs
+            </Text>
             <Text className="text-secondary font-outfit text-sm mt-2 leading-6">
-              Explore every training tier, compare value quickly, and open a more premium detail experience for each plan.
+              Explore every training tier, compare value quickly, and open a
+              more premium detail experience for each plan.
             </Text>
 
             <View className="mt-4 flex-row gap-3">
-              <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: mutedSurface }}>
+              <View
+                className="flex-1 rounded-[22px] px-4 py-4"
+                style={{ backgroundColor: mutedSurface }}
+              >
                 <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
                   Focus athlete
                 </Text>
-                <Text className="mt-2 text-lg font-clash text-app" numberOfLines={1}>
+                <Text
+                  className="mt-2 text-lg font-clash text-app"
+                  numberOfLines={1}
+                >
                   {focusName}
                 </Text>
                 {focusInfo.length ? (
-                  <Text className="text-xs font-outfit text-secondary mt-1" numberOfLines={1}>
+                  <Text
+                    className="text-xs font-outfit text-secondary mt-1"
+                    numberOfLines={1}
+                  >
                     {focusInfo.join(" • ")}
                   </Text>
                 ) : null}
               </View>
-              <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: mutedSurface }}>
+              <View
+                className="flex-1 rounded-[22px] px-4 py-4"
+                style={{ backgroundColor: mutedSurface }}
+              >
                 <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] text-secondary">
                   Current tier
                 </Text>
@@ -432,18 +721,32 @@ export default function ProgramsScreen() {
 
         <View className="px-6 gap-5 mt-2">
           {isYouthAthleteRole ? (
-            <View className="mb-1 rounded-[24px] border px-4 py-4" style={{ borderColor: borderSoft, backgroundColor: surfaceColor }}>
-              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+            <View
+              className="mb-1 rounded-[24px] border px-4 py-4"
+              style={{ borderColor: borderSoft, backgroundColor: surfaceColor }}
+            >
+              <Text
+                className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
+                style={{ color: colors.accent }}
+              >
                 Youth program mode
               </Text>
-              <Text className="mt-1 text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                Your current plan appears first. Open it to continue in Modules and the plan-specific header tabs.
+              <Text
+                className="mt-1 text-sm font-outfit"
+                style={{ color: colors.textSecondary }}
+              >
+                Your current plan appears first. Open it to continue in Modules
+                and the plan-specific header tabs.
               </Text>
               {currentTierCards[0]?.tier?.id ? (
                 <Pressable
                   onPress={() =>
                     openProgramDetail(
-                      currentTierCards[0]!.tier.id as "premium" | "plus" | "php" | "pro",
+                      currentTierCards[0]!.tier.id as
+                        | "premium"
+                        | "plus"
+                        | "php"
+                        | "pro",
                     )
                   }
                   className="mt-3 rounded-full py-3 items-center"
@@ -459,16 +762,22 @@ export default function ProgramsScreen() {
 
           {currentTierCards.length > 0 ? (
             <View className="gap-4">
-              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+              <Text
+                className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
+                style={{ color: colors.accent }}
+              >
                 Current plan
               </Text>
               {currentTierCards.map(({ tier, requiredTier }) => {
                 const pricing = pricingByTier[requiredTier];
                 const plan = planDetailsByTier[requiredTier];
                 const isPlanInactive = plan?.isActive === false;
-                const isTierEnrolled = normalizeProgramTier(programTier) === requiredTier;
+                const isTierEnrolled =
+                  normalizeProgramTier(programTier) === requiredTier;
                 const hasTierAccess = canAccessTier(programTier, requiredTier);
-                const requestStatus = String(latestSubscriptionRequest?.status ?? "");
+                const requestStatus = String(
+                  latestSubscriptionRequest?.status ?? "",
+                );
                 const isPendingApproval =
                   !isPlanInactive &&
                   !isTierEnrolled &&
@@ -482,14 +791,14 @@ export default function ProgramsScreen() {
                 const primaryLabel = isPlanInactive
                   ? "Locked"
                   : isTierEnrolled
-                  ? "Current"
-                  : isPendingApproval
-                    ? "Pending"
-                    : isPendingPayment
-                      ? "Pay Now"
-                      : tier.id === "premium"
-                        ? "Apply"
-                        : "Get Started";
+                    ? "Current"
+                    : isPendingApproval
+                      ? "Pending"
+                      : isPendingPayment
+                        ? "Pay Now"
+                        : tier.id === "premium"
+                          ? "Apply"
+                          : "Get Started";
 
                 return (
                   <Transition.Pressable
@@ -502,7 +811,11 @@ export default function ProgramsScreen() {
                       borderColor: colors.accent,
                       ...(isDark ? Shadows.none : Shadows.md),
                     }}
-                    onPress={() => openProgramDetail(tier.id as "premium" | "plus" | "php" | "pro")}
+                    onPress={() =>
+                      openProgramDetail(
+                        tier.id as "premium" | "plus" | "php" | "pro",
+                      )
+                    }
                   >
                     {/* Card Header */}
                     <View className={`${tier.color} p-5 rounded-b-[24px]`}>
@@ -566,12 +879,19 @@ export default function ProgramsScreen() {
                           >
                             {plan?.name ?? tier.name}
                           </Text>
-                          <Text className="font-outfit text-sm leading-snug" style={{ color: "#E6F2E6" }}>
+                          <Text
+                            className="font-outfit text-sm leading-snug"
+                            style={{ color: "#E6F2E6" }}
+                          >
                             {tier.description}
                           </Text>
                         </View>
                         <View className="h-12 w-12 bg-white/20 rounded-2xl items-center justify-center">
-                          <Ionicons name={tier.icon as any} size={22} color="white" />
+                          <Ionicons
+                            name={tier.icon as any}
+                            size={22}
+                            color="white"
+                          />
                         </View>
                       </View>
                     </View>
@@ -579,14 +899,31 @@ export default function ProgramsScreen() {
                     {/* Card Body */}
                     <View className="p-5">
                       <View className="mb-4 flex-row gap-2">
-                        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-                          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                            {tier.id === "premium" ? "1:1 support" : tier.id === "plus" ? "Enhanced support" : "Structured training"}
+                        <View
+                          className="rounded-full px-3 py-1.5"
+                          style={{ backgroundColor: accentSurface }}
+                        >
+                          <Text
+                            className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                            style={{ color: colors.accent }}
+                          >
+                            {tier.id === "premium"
+                              ? "1:1 support"
+                              : tier.id === "plus"
+                                ? "Enhanced support"
+                                : "Structured training"}
                           </Text>
                         </View>
-                        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                        <View
+                          className="rounded-full px-3 py-1.5"
+                          style={{ backgroundColor: mutedSurface }}
+                        >
                           <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-secondary">
-                            {isPlanInactive ? "Locked in admin" : hasTierAccess ? "Available" : "Upgrade path"}
+                            {isPlanInactive
+                              ? "Locked in admin"
+                              : hasTierAccess
+                                ? "Available"
+                                : "Upgrade path"}
                           </Text>
                         </View>
                       </View>
@@ -595,8 +932,12 @@ export default function ProgramsScreen() {
                         <View
                           className="mb-4 rounded-2xl border px-4 py-3"
                           style={{
-                            backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
-                            borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.16)",
+                            backgroundColor: isDark
+                              ? "rgba(34,197,94,0.08)"
+                              : "#F0FDF4",
+                            borderColor: isDark
+                              ? "rgba(34,197,94,0.18)"
+                              : "rgba(34,197,94,0.16)",
                           }}
                         >
                           <Text
@@ -605,21 +946,33 @@ export default function ProgramsScreen() {
                           >
                             Discount
                           </Text>
-                          <Text className="mt-1 text-[13px] font-outfit" style={{ color: colors.text }}>
+                          <Text
+                            className="mt-1 text-[13px] font-outfit"
+                            style={{ color: colors.text }}
+                          >
                             {getDiscountCopy(plan)}
                           </Text>
                         </View>
                       ) : null}
 
                       {pricing ? (
-                        <View className="mb-4">{renderPricingLines(pricing)}</View>
+                        <View className="mb-4">
+                          {renderPricingLines(pricing)}
+                        </View>
                       ) : null}
 
                       <View className="gap-2.5 mb-5">
                         {tier.features.map((feature) => (
-                          <View key={feature} className="flex-row items-center gap-2.5">
+                          <View
+                            key={feature}
+                            className="flex-row items-center gap-2.5"
+                          >
                             <View className="h-5 w-5 bg-[#2F8F57]/15 rounded-full items-center justify-center">
-                              <Ionicons name="checkmark" size={12} color="#2F8F57" />
+                              <Ionicons
+                                name="checkmark"
+                                size={12}
+                                color="#2F8F57"
+                              />
                             </View>
                             <Text className="text-[13px] font-outfit text-app flex-1">
                               {feature}
@@ -632,11 +985,22 @@ export default function ProgramsScreen() {
                       <View className="gap-2.5">
                         {/* Detail button — always visible */}
                         <Pressable
-                          onPress={() => openProgramDetail(tier.id as "php" | "plus" | "premium" | "pro")}
+                          onPress={() =>
+                            openProgramDetail(
+                              tier.id as "php" | "plus" | "premium" | "pro",
+                            )
+                          }
                           className="rounded-full py-3 items-center"
-                          style={{ borderWidth: 1, borderColor: `${colors.accent}33`, backgroundColor: accentSurface }}
+                          style={{
+                            borderWidth: 1,
+                            borderColor: `${colors.accent}33`,
+                            backgroundColor: accentSurface,
+                          }}
                         >
-                          <Text className="text-sm font-outfit font-semibold" style={{ color: colors.accent }}>
+                          <Text
+                            className="text-sm font-outfit font-semibold"
+                            style={{ color: colors.accent }}
+                          >
                             View Program Details
                           </Text>
                         </Pressable>
@@ -645,21 +1009,39 @@ export default function ProgramsScreen() {
                         <Pressable
                           onPress={() => {
                             if (isPlanInactive) {
-                              Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
+                              Alert.alert(
+                                "Plan locked",
+                                "This plan is currently inactive and unavailable in the app.",
+                              );
                               return;
                             }
-                            handleApply(tier.id as "php" | "plus" | "premium" | "pro");
+                            handleApply(
+                              tier.id as "php" | "plus" | "premium" | "pro",
+                            );
                           }}
                           className={`rounded-full py-3 items-center ${
-                            isPlanInactive || isTierEnrolled || isPendingApproval
+                            isPlanInactive ||
+                            isTierEnrolled ||
+                            isPendingApproval
                               ? "bg-secondary/20"
                               : "bg-[#2F8F57]"
                           } ${isProcessingPayment ? "opacity-60" : ""}`}
-                          disabled={isPlanInactive || isTierEnrolled || isPendingApproval || isProcessingPayment}
+                          disabled={
+                            isPlanInactive ||
+                            isTierEnrolled ||
+                            isPendingApproval ||
+                            isProcessingPayment
+                          }
                         >
-                          <Text className={`text-sm font-outfit font-semibold ${
-                            isPlanInactive || isTierEnrolled || isPendingApproval ? "text-secondary" : "text-white"
-                          }`}>
+                          <Text
+                            className={`text-sm font-outfit font-semibold ${
+                              isPlanInactive ||
+                              isTierEnrolled ||
+                              isPendingApproval
+                                ? "text-secondary"
+                                : "text-white"
+                            }`}
+                          >
                             {primaryLabel}
                           </Text>
                         </Pressable>
@@ -674,17 +1056,27 @@ export default function ProgramsScreen() {
           {isYouthAthleteRole && otherTierCards.length > 0 ? (
             <Pressable
               onPress={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                LayoutAnimation.configureNext(
+                  LayoutAnimation.Presets.easeInEaseOut,
+                );
                 setShowOtherYouthPlans((prev) => !prev);
               }}
               className="mt-2 rounded-[18px] border px-4 py-3 flex-row items-center justify-between"
               style={{ borderColor: borderSoft, backgroundColor: surfaceColor }}
             >
-              <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.textSecondary }}>
+              <Text
+                className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
+                style={{ color: colors.textSecondary }}
+              >
                 Other plans
               </Text>
-              <Text className="text-xs font-outfit font-bold" style={{ color: colors.accent }}>
-                {showOtherYouthPlans ? "Hide" : `Show (${otherTierCards.length})`}
+              <Text
+                className="text-xs font-outfit font-bold"
+                style={{ color: colors.accent }}
+              >
+                {showOtherYouthPlans
+                  ? "Hide"
+                  : `Show (${otherTierCards.length})`}
               </Text>
             </Pressable>
           ) : null}
@@ -698,9 +1090,12 @@ export default function ProgramsScreen() {
             const pricing = pricingByTier[requiredTier];
             const plan = planDetailsByTier[requiredTier];
             const isPlanInactive = plan?.isActive === false;
-            const isTierEnrolled = normalizeProgramTier(programTier) === requiredTier;
+            const isTierEnrolled =
+              normalizeProgramTier(programTier) === requiredTier;
             const hasTierAccess = canAccessTier(programTier, requiredTier);
-            const requestStatus = String(latestSubscriptionRequest?.status ?? "");
+            const requestStatus = String(
+              latestSubscriptionRequest?.status ?? "",
+            );
             const isPendingApproval =
               !isPlanInactive &&
               !isTierEnrolled &&
@@ -714,22 +1109,30 @@ export default function ProgramsScreen() {
             const primaryLabel = isPlanInactive
               ? "Locked"
               : isTierEnrolled
-              ? "Current"
-              : isPendingApproval
-                ? "Pending"
-                : isPendingPayment
-                  ? "Pay Now"
-                  : tier.id === "premium"
-                    ? "Apply"
-                    : "Get Started";
+                ? "Current"
+                : isPendingApproval
+                  ? "Pending"
+                  : isPendingPayment
+                    ? "Pay Now"
+                    : tier.id === "premium"
+                      ? "Apply"
+                      : "Get Started";
 
             return (
               <Transition.Pressable
                 key={tier.id}
                 sharedBoundTag={`program-card-${tier.id}`}
                 className="rounded-[30px] overflow-hidden"
-                style={{ backgroundColor: surfaceColor, opacity: isYouthAthleteRole ? 0.92 : 1, ...(isDark ? Shadows.none : Shadows.md) }}
-                onPress={() => openProgramDetail(tier.id as "premium" | "plus" | "php" | "pro")}
+                style={{
+                  backgroundColor: surfaceColor,
+                  opacity: isYouthAthleteRole ? 0.92 : 1,
+                  ...(isDark ? Shadows.none : Shadows.md),
+                }}
+                onPress={() =>
+                  openProgramDetail(
+                    tier.id as "premium" | "plus" | "php" | "pro",
+                  )
+                }
               >
                 {/* Card Header */}
                 <View className={`${tier.color} p-5 rounded-b-[24px]`}>
@@ -793,12 +1196,19 @@ export default function ProgramsScreen() {
                       >
                         {plan?.name ?? tier.name}
                       </Text>
-                      <Text className="font-outfit text-sm leading-snug" style={{ color: "#E6F2E6" }}>
+                      <Text
+                        className="font-outfit text-sm leading-snug"
+                        style={{ color: "#E6F2E6" }}
+                      >
                         {tier.description}
                       </Text>
                     </View>
                     <View className="h-12 w-12 bg-white/20 rounded-2xl items-center justify-center">
-                      <Ionicons name={tier.icon as any} size={22} color="white" />
+                      <Ionicons
+                        name={tier.icon as any}
+                        size={22}
+                        color="white"
+                      />
                     </View>
                   </View>
                 </View>
@@ -806,14 +1216,31 @@ export default function ProgramsScreen() {
                 {/* Card Body */}
                 <View className="p-5">
                   <View className="mb-4 flex-row gap-2">
-                    <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-                      <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
-                        {tier.id === "premium" ? "1:1 support" : tier.id === "plus" ? "Enhanced support" : "Structured training"}
+                    <View
+                      className="rounded-full px-3 py-1.5"
+                      style={{ backgroundColor: accentSurface }}
+                    >
+                      <Text
+                        className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                        style={{ color: colors.accent }}
+                      >
+                        {tier.id === "premium"
+                          ? "1:1 support"
+                          : tier.id === "plus"
+                            ? "Enhanced support"
+                            : "Structured training"}
                       </Text>
                     </View>
-                    <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
+                    <View
+                      className="rounded-full px-3 py-1.5"
+                      style={{ backgroundColor: mutedSurface }}
+                    >
                       <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px] text-secondary">
-                        {isPlanInactive ? "Locked in admin" : hasTierAccess ? "Available" : "Upgrade path"}
+                        {isPlanInactive
+                          ? "Locked in admin"
+                          : hasTierAccess
+                            ? "Available"
+                            : "Upgrade path"}
                       </Text>
                     </View>
                   </View>
@@ -822,8 +1249,12 @@ export default function ProgramsScreen() {
                     <View
                       className="mb-4 rounded-2xl border px-4 py-3"
                       style={{
-                        backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
-                        borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.16)",
+                        backgroundColor: isDark
+                          ? "rgba(34,197,94,0.08)"
+                          : "#F0FDF4",
+                        borderColor: isDark
+                          ? "rgba(34,197,94,0.18)"
+                          : "rgba(34,197,94,0.16)",
                       }}
                     >
                       <Text
@@ -832,7 +1263,10 @@ export default function ProgramsScreen() {
                       >
                         Discount
                       </Text>
-                      <Text className="mt-1 text-[13px] font-outfit" style={{ color: colors.text }}>
+                      <Text
+                        className="mt-1 text-[13px] font-outfit"
+                        style={{ color: colors.text }}
+                      >
                         {getDiscountCopy(plan)}
                       </Text>
                     </View>
@@ -844,9 +1278,16 @@ export default function ProgramsScreen() {
 
                   <View className="gap-2.5 mb-5">
                     {tier.features.map((feature) => (
-                      <View key={feature} className="flex-row items-center gap-2.5">
+                      <View
+                        key={feature}
+                        className="flex-row items-center gap-2.5"
+                      >
                         <View className="h-5 w-5 bg-[#2F8F57]/15 rounded-full items-center justify-center">
-                          <Ionicons name="checkmark" size={12} color="#2F8F57" />
+                          <Ionicons
+                            name="checkmark"
+                            size={12}
+                            color="#2F8F57"
+                          />
                         </View>
                         <Text className="text-[13px] font-outfit text-app flex-1">
                           {feature}
@@ -859,11 +1300,22 @@ export default function ProgramsScreen() {
                   <View className="gap-2.5">
                     {/* Detail button — always visible */}
                     <Pressable
-                      onPress={() => openProgramDetail(tier.id as "php" | "plus" | "premium" | "pro")}
+                      onPress={() =>
+                        openProgramDetail(
+                          tier.id as "php" | "plus" | "premium" | "pro",
+                        )
+                      }
                       className="rounded-full py-3 items-center"
-                      style={{ borderWidth: 1, borderColor: `${colors.accent}33`, backgroundColor: accentSurface }}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: `${colors.accent}33`,
+                        backgroundColor: accentSurface,
+                      }}
                     >
-                      <Text className="text-sm font-outfit font-semibold" style={{ color: colors.accent }}>
+                      <Text
+                        className="text-sm font-outfit font-semibold"
+                        style={{ color: colors.accent }}
+                      >
                         View Program Details
                       </Text>
                     </Pressable>
@@ -872,21 +1324,35 @@ export default function ProgramsScreen() {
                     <Pressable
                       onPress={() => {
                         if (isPlanInactive) {
-                          Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
+                          Alert.alert(
+                            "Plan locked",
+                            "This plan is currently inactive and unavailable in the app.",
+                          );
                           return;
                         }
-                        handleApply(tier.id as "php" | "plus" | "premium" | "pro");
+                        handleApply(
+                          tier.id as "php" | "plus" | "premium" | "pro",
+                        );
                       }}
                       className={`rounded-full py-3 items-center ${
                         isPlanInactive || isTierEnrolled || isPendingApproval
                           ? "bg-secondary/20"
                           : "bg-[#2F8F57]"
                       } ${isProcessingPayment ? "opacity-60" : ""}`}
-                      disabled={isPlanInactive || isTierEnrolled || isPendingApproval || isProcessingPayment}
+                      disabled={
+                        isPlanInactive ||
+                        isTierEnrolled ||
+                        isPendingApproval ||
+                        isProcessingPayment
+                      }
                     >
-                      <Text className={`text-sm font-outfit font-semibold ${
-                        isPlanInactive || isTierEnrolled || isPendingApproval ? "text-secondary" : "text-white"
-                      }`}>
+                      <Text
+                        className={`text-sm font-outfit font-semibold ${
+                          isPlanInactive || isTierEnrolled || isPendingApproval
+                            ? "text-secondary"
+                            : "text-white"
+                        }`}
+                      >
                         {primaryLabel}
                       </Text>
                     </Pressable>

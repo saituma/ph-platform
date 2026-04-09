@@ -296,6 +296,14 @@ export async function attachAthleteToTeamAdmin(input: { teamName: string; athlet
     return { ok: true, alreadyInTeam: true };
   }
 
+  const existingTeam = (athlete.team ?? "").trim();
+  if (existingTeam) {
+    throw {
+      status: 400,
+      message: `Athlete is already assigned to team "${existingTeam}". An athlete can only belong to one team.`,
+    };
+  }
+
   await db
     .update(athleteTable)
     .set({
