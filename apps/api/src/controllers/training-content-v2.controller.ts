@@ -197,6 +197,7 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
     age,
     athleteId: athlete?.id ?? null,
     programTier: athlete?.currentProgramTier ?? null,
+    team: athlete?.team ?? null,
   });
   return res.status(200).json(workspace);
 }
