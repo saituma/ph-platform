@@ -68,12 +68,7 @@ function readSqlMigrationTags(migrationsFolder: string) {
 
 async function tableExists(db: ReturnType<typeof drizzle>, tableName: string) {
   const result = await db.execute(sql`
-    select exists (
-      select 1
-      from information_schema.tables
-      where table_schema = 'public'
-        and table_name = ${tableName}
-    ) as exists
+    select to_regclass('public.' || ${tableName}) is not null as exists
   `);
   return Boolean(result.rows[0]?.exists);
 }
@@ -84,15 +79,121 @@ async function columnExists(
   columnName: string,
 ) {
   const result = await db.execute(sql`
-    select exists (
+    select exists(
       select 1
-      from information_schema.columns
-      where table_schema = 'public'
-        and table_name = ${tableName}
-        and column_name = ${columnName}
+      from pg_attribute a
+      join pg_class t on t.oid = a.attrelid
+      join pg_namespace n on n.oid = t.relnamespace
+      where n.nspname = 'public'
+        and t.relname = ${tableName}
+        and a.attname = ${columnName}
+        and a.attnum > 0
+        and not a.attisdropped
     ) as exists
   `);
   return Boolean(result.rows[0]?.exists);
+}
+
+function isSafePgIdentifier(value: string) {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
+}
+
+async function renameColumnTo(
+  db: ReturnType<typeof drizzle>,
+  tableName: string,
+  from: string,
+  to: string,
+) {
+  await db.execute(
+    sql.raw(
+      `ALTER TABLE "${tableName}" RENAME COLUMN "${from}" TO "${to}"`,
+    ),
+  );
+}
+
+async function renameColumnIfPresent(
+  db: ReturnType<typeof drizzle>,
+  tableName: string,
+  fromCandidates: string[],
+  to: string,
+) {
+  const hasTo = await columnExists(db, tableName, to);
+  if (hasTo) return;
+
+  for (const from of fromCandidates) {
+    const hasFrom = await columnExists(db, tableName, from);
+    if (hasFrom) {
+      await renameColumnTo(db, tableName, from, to);
+      return;
+    }
+  }
+}
+
+async function normalizeRunLogsSchema(db: ReturnType<typeof drizzle>) {
+  const hasRunLogs = await tableExists(db, "run_logs");
+  if (!hasRunLogs) return;
+
+  // Legacy variants we've seen:
+  // - snake_case (user_id)
+  // - unquoted camelCase ends up lowercased (userid)
+  await renameColumnIfPresent(db, "run_logs", ["client_id", "clientid"], "clientId");
+  await renameColumnIfPresent(db, "run_logs", ["user_id", "userid"], "userId");
+  await renameColumnIfPresent(
+    db,
+    "run_logs",
+    ["distance_meters", "distancemeters"],
+    "distanceMeters",
+  );
+  await renameColumnIfPresent(
+    db,
+    "run_logs",
+    ["duration_seconds", "durationseconds"],
+    "durationSeconds",
+  );
+  await renameColumnIfPresent(db, "run_logs", ["avg_pace", "avgpace"], "avgPace");
+  await renameColumnIfPresent(db, "run_logs", ["avg_speed", "avgspeed"], "avgSpeed");
+  await renameColumnIfPresent(
+    db,
+    "run_logs",
+    ["effort_level", "effortlevel"],
+    "effortLevel",
+  );
+  await renameColumnIfPresent(db, "run_logs", ["feel_tags", "feeltags"], "feelTags");
+  await renameColumnIfPresent(db, "run_logs", ["created_at", "createdat"], "createdAt");
+  await renameColumnIfPresent(db, "run_logs", ["updated_at", "updatedat"], "updatedAt");
+
+  // If an older schema created the FK constraint under a different name,
+  // rename it to match what newer drizzle snapshots expect.
+  const desiredFkName = "run_logs_userId_users_id_fk";
+  const desiredFkExists = await db.execute(sql`
+    select exists(
+      select 1
+      from pg_constraint
+      where conname = ${desiredFkName}
+    ) as exists
+  `);
+
+  if (!Boolean(desiredFkExists.rows[0]?.exists)) {
+    const existingFk = await db.execute(sql`
+      select c.conname
+      from pg_constraint c
+      join pg_class t on t.oid = c.conrelid
+      join pg_namespace n on n.oid = t.relnamespace
+      where n.nspname = 'public'
+        and t.relname = 'run_logs'
+        and c.contype = 'f'
+        and c.confrelid = 'public.users'::regclass
+      limit 1
+    `);
+    const conname = String(existingFk.rows[0]?.conname ?? "");
+    if (conname && conname !== desiredFkName && isSafePgIdentifier(conname)) {
+      await db.execute(
+        sql.raw(
+          `ALTER TABLE "run_logs" RENAME CONSTRAINT "${conname}" TO "${desiredFkName}"`,
+        ),
+      );
+    }
+  }
 }
 
 async function assertTrainingContentV2Schema(db: ReturnType<typeof drizzle>) {
@@ -152,6 +253,11 @@ export async function runMigrations(options?: {
 
   try {
     const db = drizzle(pool);
+
+      // Compatibility shim: older DBs may have snake_case run_logs columns.
+      // Newer migrations expect camelCase columns (e.g. "userId").
+      await normalizeRunLogsSchema(db);
+
     const migrationsFolder =
       options?.migrationsFolder ??
       path.resolve(process.cwd(), "drizzle");

@@ -656,6 +656,198 @@ EXCEPTION
 END $$;--> statement-breakpoint
 DO $$
 DECLARE
+  desired_fk_name text := 'run_logs_userId_users_id_fk';
+  existing_fk_name text;
+BEGIN
+  -- If `run_logs` already exists from older migrations / manual schemas, it may
+  -- still be using snake_case columns (e.g. `user_id`). This migration's later
+  -- statements expect camelCase (e.g. `userId`).
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'client_id'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'clientId'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "client_id" TO "clientId";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'user_id'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'userId'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "user_id" TO "userId";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'distance_meters'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'distanceMeters'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "distance_meters" TO "distanceMeters";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'duration_seconds'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'durationSeconds'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "duration_seconds" TO "durationSeconds";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'avg_pace'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'avgPace'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "avg_pace" TO "avgPace";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'avg_speed'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'avgSpeed'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "avg_speed" TO "avgSpeed";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'effort_level'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'effortLevel'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "effort_level" TO "effortLevel";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'feel_tags'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'feelTags'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "feel_tags" TO "feelTags";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'created_at'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'createdAt'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "created_at" TO "createdAt";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'updated_at'
+  ) AND NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'run_logs'
+       AND column_name = 'updatedAt'
+  ) THEN
+    ALTER TABLE "run_logs" RENAME COLUMN "updated_at" TO "updatedAt";
+  END IF;
+
+  -- Keep FK name stable so the drizzle snapshot matches across schemas.
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = desired_fk_name) THEN
+    SELECT c.conname
+      INTO existing_fk_name
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+     WHERE n.nspname = 'public'
+       AND t.relname = 'run_logs'
+       AND c.contype = 'f'
+       AND c.confrelid = 'public.users'::regclass
+     LIMIT 1;
+
+    IF existing_fk_name IS NOT NULL
+       AND existing_fk_name <> desired_fk_name
+       AND existing_fk_name ~ '^[A-Za-z_][A-Za-z0-9_]*$' THEN
+      EXECUTE format(
+        'ALTER TABLE "run_logs" RENAME CONSTRAINT %I TO %I',
+        existing_fk_name,
+        desired_fk_name
+      );
+    END IF;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+DECLARE
   run_logs_user_col text;
 BEGIN
   SELECT c.column_name
