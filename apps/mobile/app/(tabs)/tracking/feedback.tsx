@@ -9,6 +9,7 @@ import { fonts, radius, icons as themeIcons } from "@/constants/theme";
 
 import { useRunStore } from "../../../store/useRunStore";
 import { saveRunRecord } from "../../../lib/sqliteRuns";
+import { pushRunsToCloud } from "../../../lib/runSync";
 
 import { EffortSelector } from "../../../components/tracking/EffortSelector";
 import { FeelTagSelector, FEEL_TAGS } from "../../../components/tracking/FeelTagSelector";
@@ -78,6 +79,9 @@ export default function FeedbackScreen() {
         feel_tags: JSON.stringify(selectedTags.map(st => FEEL_TAGS.find(t => t.id === st)?.label)),
         notes,
       });
+
+      // Sync to cloud in background (fire-and-forget)
+      pushRunsToCloud();
 
       setShowToast(true);
       setTimeout(() => {

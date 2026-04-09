@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/api";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type AdminDashboard = {
@@ -20,6 +20,10 @@ type AdminDashboard = {
   priorityQueue?: { title?: string; detail?: string; status?: string }[];
 };
 
+type HomeDetail =
+  | { kind: "stat"; label: string; value: string }
+  | { kind: "priority"; title: string; detail: string; status?: string };
+
 export default function AdminHomeScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -29,6 +33,8 @@ export default function AdminHomeScreen() {
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [detail, setDetail] = useState<HomeDetail | null>(null);
 
   const load = useCallback(
     async (forceRefresh: boolean) => {
@@ -144,8 +150,16 @@ export default function AdminHomeScreen() {
           ) : (
             <View className="flex-row flex-wrap gap-3">
               {stats.map((item) => (
-                <View
+                <Pressable
                   key={item.label}
+                  accessibilityRole="button"
+                  onPress={() =>
+                    setDetail({
+                      kind: "stat",
+                      label: item.label,
+                      value: item.value == null ? "—" : String(item.value),
+                    })
+                  }
                   className="rounded-2xl border px-4 py-3"
                   style={{
                     backgroundColor: isDark
@@ -166,7 +180,7 @@ export default function AdminHomeScreen() {
                   >
                     {item.value == null ? "—" : String(item.value)}
                   </Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           )}
@@ -197,8 +211,17 @@ export default function AdminHomeScreen() {
           ) : (
             <View className="gap-3">
               {(data?.priorityQueue ?? []).map((item, idx) => (
-                <View
+                <Pressable
                   key={`${item.title ?? "item"}-${idx}`}
+                  accessibilityRole="button"
+                  onPress={() =>
+                    setDetail({
+                      kind: "priority",
+                      title: item.title ?? "Item",
+                      detail: item.detail ?? "",
+                      status: item.status ?? undefined,
+                    })
+                  }
                   className="rounded-2xl border px-4 py-3"
                   style={{
                     backgroundColor: isDark
@@ -229,11 +252,118 @@ export default function AdminHomeScreen() {
                       {item.status}
                     </Text>
                   ) : null}
-                </View>
+                </Pressable>
               ))}
             </View>
           )}
         </View>
+
+        <Modal
+          visible={detail != null}
+          animationType="slide"
+          presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+          onRequestClose={() => setDetail(null)}
+        >
+          <View
+            style={{
+              flex: 1,
+              paddingTop: insets.top,
+              backgroundColor: isDark ? colors.background : "#FFFFFF",
+            }}
+          >
+            <ThemedScrollView
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingBottom: 24 + insets.bottom,
+              }}
+            >
+              <View className="pt-4 mb-4 flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text
+                    className="text-2xl font-clash font-bold text-app"
+                    numberOfLines={1}
+                  >
+                    {detail?.kind === "stat"
+                      ? detail.label
+                      : (detail?.title ?? "Detail")}
+                  </Text>
+                  {detail?.kind === "stat" ? (
+                    <Text className="text-[12px] font-outfit text-secondary">
+                      From /admin/dashboard
+                    </Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setDetail(null)}
+                  style={({ pressed }) => [
+                    {
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      opacity: pressed ? 0.85 : 1,
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.04)"
+                        : "rgba(15,23,42,0.04)",
+                      borderColor: isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(15,23,42,0.08)",
+                    },
+                  ]}
+                >
+                  <Text className="text-[12px] font-outfit-semibold text-app">
+                    Close
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View
+                className="rounded-[28px] border p-5"
+                style={{
+                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                  ...(isDark ? Shadows.none : Shadows.md),
+                }}
+              >
+                {detail?.kind === "stat" ? (
+                  <Text
+                    className="text-4xl font-clash font-bold text-app"
+                    style={{ fontVariant: ["tabular-nums"] }}
+                    selectable
+                  >
+                    {detail.value}
+                  </Text>
+                ) : detail?.kind === "priority" ? (
+                  <View className="gap-2">
+                    <Text
+                      className="text-[13px] font-clash font-bold text-app"
+                      selectable
+                    >
+                      {detail.title}
+                    </Text>
+                    <Text
+                      className="text-[12px] font-outfit text-secondary"
+                      selectable
+                    >
+                      {detail.detail || "—"}
+                    </Text>
+                    {detail.status ? (
+                      <Text
+                        className="text-[11px] font-outfit text-secondary"
+                        selectable
+                      >
+                        Status: {detail.status}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+              </View>
+            </ThemedScrollView>
+          </View>
+        </Modal>
       </ThemedScrollView>
     </View>
   );

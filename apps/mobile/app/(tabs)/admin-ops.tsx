@@ -6,7 +6,7 @@ import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type AdminBooking = {
@@ -77,6 +77,23 @@ function parseIntOrUndefined(value: string): number | undefined {
   const asInt = Math.floor(n);
   if (asInt < 0) return undefined;
   return asInt;
+}
+
+function defaultServicePatchJson(s: ServiceType) {
+  return JSON.stringify(
+    {
+      name: s.name ?? undefined,
+      type: s.type ?? undefined,
+      durationMinutes: s.durationMinutes ?? undefined,
+      capacity: s.capacity ?? undefined,
+      isActive: s.isActive ?? undefined,
+      defaultLocation: s.defaultLocation ?? undefined,
+      defaultMeetingLink: s.defaultMeetingLink ?? undefined,
+      programTier: s.programTier ?? undefined,
+    },
+    null,
+    2,
+  );
 }
 
 function Chip({
@@ -212,7 +229,7 @@ export default function AdminOpsScreen() {
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [bookingsError, setBookingsError] = useState<string | null>(null);
-  const [expandedBookingId, setExpandedBookingId] = useState<number | null>(
+  const [bookingDetailOpenId, setBookingDetailOpenId] = useState<number | null>(
     null,
   );
   const [bookingDetails, setBookingDetails] = useState<
@@ -232,6 +249,9 @@ export default function AdminOpsScreen() {
   const [availabilityError, setAvailabilityError] = useState<string | null>(
     null,
   );
+  const [availabilityDetailOpenId, setAvailabilityDetailOpenId] = useState<
+    number | null
+  >(null);
   const [availabilityServiceTypeId, setAvailabilityServiceTypeId] =
     useState("");
   const [availabilityStartsAt, setAvailabilityStartsAt] = useState("");
@@ -254,7 +274,7 @@ export default function AdminOpsScreen() {
   const [serviceCreateAdvancedJson, setServiceCreateAdvancedJson] =
     useState("{}");
   const [serviceCreateBusy, setServiceCreateBusy] = useState(false);
-  const [expandedServiceId, setExpandedServiceId] = useState<number | null>(
+  const [serviceDetailOpenId, setServiceDetailOpenId] = useState<number | null>(
     null,
   );
   const [serviceEditAdvancedJson, setServiceEditAdvancedJson] = useState<
@@ -352,7 +372,7 @@ export default function AdminOpsScreen() {
           forceRefresh: true,
         });
         await loadBookings(true);
-        if (expandedBookingId === bookingId) {
+        if (bookingDetailOpenId === bookingId) {
           await loadBookingDetail(bookingId, true);
         }
       } catch (e) {
@@ -363,7 +383,7 @@ export default function AdminOpsScreen() {
         setBookingMutatingId(null);
       }
     },
-    [canLoad, expandedBookingId, loadBookingDetail, loadBookings, token],
+    [bookingDetailOpenId, canLoad, loadBookingDetail, loadBookings, token],
   );
 
   const loadAvailability = useCallback(
@@ -595,7 +615,7 @@ export default function AdminOpsScreen() {
           skipCache: true,
           forceRefresh: true,
         });
-        if (expandedServiceId === serviceId) setExpandedServiceId(null);
+        if (serviceDetailOpenId === serviceId) setServiceDetailOpenId(null);
         await loadServices(true);
       } catch (e) {
         setServicesError(
@@ -605,8 +625,36 @@ export default function AdminOpsScreen() {
         setServiceEditBusyId(null);
       }
     },
-    [canLoad, expandedServiceId, loadServices, token],
+    [canLoad, loadServices, serviceDetailOpenId, token],
   );
+
+  useEffect(() => {
+    if (!canLoad) return;
+    if (!bookingDetailOpenId) return;
+    if (bookingDetails[bookingDetailOpenId]) return;
+    if (bookingDetailLoadingIds[bookingDetailOpenId]) return;
+    void loadBookingDetail(bookingDetailOpenId, false);
+  }, [
+    bookingDetailLoadingIds,
+    bookingDetailOpenId,
+    bookingDetails,
+    canLoad,
+    loadBookingDetail,
+  ]);
+
+  useEffect(() => {
+    if (!serviceDetailOpenId) return;
+    if (serviceEditAdvancedJson[serviceDetailOpenId]) return;
+
+    const svc = services.find((s) => s.id === serviceDetailOpenId);
+    if (!svc) return;
+
+    setServiceEditAdvancedJson((prev) =>
+      prev[serviceDetailOpenId]
+        ? prev
+        : { ...prev, [serviceDetailOpenId]: defaultServicePatchJson(svc) },
+    );
+  }, [serviceDetailOpenId, serviceEditAdvancedJson, services]);
 
   useEffect(() => {
     if (!canLoad) return;
@@ -803,21 +851,13 @@ export default function AdminOpsScreen() {
               ) : (
                 <View className="gap-3">
                   {bookings.map((b) => {
-                    const isExpanded = expandedBookingId === b.id;
-                    const detail = bookingDetails[b.id];
-                    const detailLoading = Boolean(
-                      bookingDetailLoadingIds[b.id],
-                    );
-                    const status = (b.status ??
-                      detail?.status ??
-                      "—") as string;
+                    const status = (b.status ?? "—") as string;
                     return (
                       <Pressable
                         key={String(b.id)}
                         onPress={() => {
-                          const next = isExpanded ? null : b.id;
-                          setExpandedBookingId(next);
-                          if (!isExpanded && !bookingDetails[b.id]) {
+                          setBookingDetailOpenId(b.id);
+                          if (!bookingDetails[b.id]) {
                             void loadBookingDetail(b.id, false);
                           }
                         }}
@@ -887,64 +927,6 @@ export default function AdminOpsScreen() {
                               disabled={bookingMutatingId === b.id}
                             />
                           </View>
-
-                          {isExpanded ? (
-                            <View className="gap-2 mt-3">
-                              {detailLoading ? (
-                                <View className="gap-2">
-                                  <Skeleton width="82%" height={12} />
-                                  <Skeleton width="88%" height={12} />
-                                  <Skeleton width="76%" height={12} />
-                                </View>
-                              ) : detail ? (
-                                <View className="gap-1">
-                                  <Text
-                                    selectable
-                                    className="text-[12px] font-outfit text-secondary"
-                                  >
-                                    Guardian: {detail.guardianName ?? "—"} •{" "}
-                                    {detail.guardianEmail ?? "—"}
-                                  </Text>
-                                  <Text
-                                    selectable
-                                    className="text-[12px] font-outfit text-secondary"
-                                  >
-                                    Window: {formatIsoShort(detail.startsAt)} →{" "}
-                                    {formatIsoShort(detail.endTime)}
-                                  </Text>
-                                  {detail.slotsTotal != null ? (
-                                    <Text
-                                      selectable
-                                      className="text-[12px] font-outfit text-secondary"
-                                    >
-                                      Capacity: {detail.slotsUsed ?? 0}/
-                                      {detail.slotsTotal}
-                                    </Text>
-                                  ) : null}
-                                  {detail.location ? (
-                                    <Text
-                                      selectable
-                                      className="text-[12px] font-outfit text-secondary"
-                                    >
-                                      Location: {detail.location}
-                                    </Text>
-                                  ) : null}
-                                  {detail.meetingLink ? (
-                                    <Text
-                                      selectable
-                                      className="text-[12px] font-outfit text-secondary"
-                                    >
-                                      Meeting: {detail.meetingLink}
-                                    </Text>
-                                  ) : null}
-                                </View>
-                              ) : (
-                                <Text className="text-[12px] font-outfit text-secondary">
-                                  Tap to load details.
-                                </Text>
-                              )}
-                            </View>
-                          ) : null}
                         </View>
                       </Pressable>
                     );
@@ -1068,8 +1050,10 @@ export default function AdminOpsScreen() {
               ) : (
                 <View className="gap-3">
                   {availability.map((a) => (
-                    <View
+                    <Pressable
                       key={String(a.id)}
+                      accessibilityRole="button"
+                      onPress={() => setAvailabilityDetailOpenId(a.id)}
                       className="rounded-2xl border px-4 py-3"
                       style={{
                         backgroundColor: isDark
@@ -1099,7 +1083,7 @@ export default function AdminOpsScreen() {
                       >
                         Created {formatIsoShort(a.createdAt)}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -1350,37 +1334,19 @@ export default function AdminOpsScreen() {
               ) : (
                 <View className="gap-3">
                   {services.map((s) => {
-                    const expanded = expandedServiceId === s.id;
                     const busy = serviceEditBusyId === s.id;
-                    const advancedJson =
-                      serviceEditAdvancedJson[s.id] ??
-                      JSON.stringify(
-                        {
-                          name: s.name ?? undefined,
-                          type: s.type ?? undefined,
-                          durationMinutes: s.durationMinutes ?? undefined,
-                          capacity: s.capacity ?? undefined,
-                          isActive: s.isActive ?? undefined,
-                          defaultLocation: s.defaultLocation ?? undefined,
-                          defaultMeetingLink: s.defaultMeetingLink ?? undefined,
-                          programTier: s.programTier ?? undefined,
-                        },
-                        null,
-                        2,
-                      );
+                    const advancedJson = defaultServicePatchJson(s);
 
                     return (
                       <Pressable
                         key={String(s.id)}
                         onPress={() => {
-                          setExpandedServiceId(expanded ? null : s.id);
-                          if (!expanded) {
-                            setServiceEditAdvancedJson((prev) =>
-                              prev[s.id]
-                                ? prev
-                                : { ...prev, [s.id]: advancedJson },
-                            );
-                          }
+                          setServiceDetailOpenId(s.id);
+                          setServiceEditAdvancedJson((prev) =>
+                            prev[s.id]
+                              ? prev
+                              : { ...prev, [s.id]: advancedJson },
+                          );
                         }}
                         style={({ pressed }) => [
                           {
@@ -1420,99 +1386,6 @@ export default function AdminOpsScreen() {
                             {s.type ?? "—"} • {s.durationMinutes ?? "—"}m • cap{" "}
                             {s.capacity ?? "—"}
                           </Text>
-
-                          {expanded ? (
-                            <View className="gap-2 mt-3">
-                              <Text className="text-[12px] font-outfit text-secondary">
-                                Patch JSON (send only the fields you want to
-                                change)
-                              </Text>
-                              <View
-                                className="rounded-2xl border px-4 py-3"
-                                style={{
-                                  backgroundColor: isDark
-                                    ? "rgba(255,255,255,0.03)"
-                                    : "rgba(15,23,42,0.03)",
-                                  borderColor: isDark
-                                    ? "rgba(255,255,255,0.06)"
-                                    : "rgba(15,23,42,0.06)",
-                                }}
-                              >
-                                <TextInput
-                                  className="text-[12px] font-outfit text-app"
-                                  value={
-                                    serviceEditAdvancedJson[s.id] ??
-                                    advancedJson
-                                  }
-                                  onChangeText={(t) =>
-                                    setServiceEditAdvancedJson((prev) => ({
-                                      ...prev,
-                                      [s.id]: t,
-                                    }))
-                                  }
-                                  autoCapitalize="none"
-                                  autoCorrect={false}
-                                  multiline
-                                  style={{
-                                    minHeight: 96,
-                                    textAlignVertical: "top",
-                                  }}
-                                  placeholderTextColor={colors.placeholder}
-                                />
-                              </View>
-                              <View className="flex-row gap-2">
-                                <SmallAction
-                                  label={busy ? "Saving…" : "Save"}
-                                  tone="success"
-                                  onPress={() => {
-                                    let patch: Record<string, unknown> = {};
-                                    try {
-                                      const parsed = JSON.parse(
-                                        (
-                                          serviceEditAdvancedJson[s.id] ?? "{}"
-                                        ).trim() || "{}",
-                                      );
-                                      if (
-                                        parsed &&
-                                        typeof parsed === "object" &&
-                                        !Array.isArray(parsed)
-                                      ) {
-                                        patch = parsed;
-                                      } else {
-                                        setServicesError(
-                                          "Patch JSON must be an object",
-                                        );
-                                        return;
-                                      }
-                                    } catch {
-                                      setServicesError(
-                                        "Patch JSON must be valid JSON",
-                                      );
-                                      return;
-                                    }
-                                    void updateServiceType(s.id, patch);
-                                  }}
-                                  disabled={busy}
-                                />
-                                <SmallAction
-                                  label={busy ? "Deleting…" : "Delete"}
-                                  tone="danger"
-                                  onPress={() => deleteServiceType(s.id)}
-                                  disabled={busy}
-                                />
-                                <SmallAction
-                                  label="Toggle active"
-                                  tone="neutral"
-                                  onPress={() =>
-                                    updateServiceType(s.id, {
-                                      isActive: !(s.isActive ?? true),
-                                    })
-                                  }
-                                  disabled={busy}
-                                />
-                              </View>
-                            </View>
-                          ) : null}
                         </View>
                       </Pressable>
                     );
@@ -1523,6 +1396,482 @@ export default function AdminOpsScreen() {
           )}
         </View>
       </ThemedScrollView>
+
+      <Modal
+        visible={bookingDetailOpenId != null}
+        animationType="slide"
+        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+        onRequestClose={() => setBookingDetailOpenId(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: isDark ? colors.background : colors.background,
+            paddingTop: insets.top,
+          }}
+        >
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingBottom: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                className="text-[18px] font-clash font-bold text-app"
+                numberOfLines={1}
+              >
+                Booking #{bookingDetailOpenId ?? ""}
+              </Text>
+              <Text className="text-[12px] font-outfit text-secondary">
+                Details and actions
+              </Text>
+            </View>
+            <SmallAction
+              label="Done"
+              tone="neutral"
+              onPress={() => setBookingDetailOpenId(null)}
+            />
+          </View>
+
+          <ThemedScrollView>
+            {bookingDetailOpenId == null
+              ? null
+              : (() => {
+                  const b = bookings.find((x) => x.id === bookingDetailOpenId);
+                  const detail = bookingDetails[bookingDetailOpenId];
+                  const detailLoading = Boolean(
+                    bookingDetailLoadingIds[bookingDetailOpenId],
+                  );
+
+                  const status =
+                    (detail?.status ?? b?.status ?? "—")?.toString() ?? "—";
+
+                  return (
+                    <View className="gap-4">
+                      <View
+                        className="rounded-[20px] border p-4"
+                        style={{
+                          backgroundColor: isDark
+                            ? colors.cardElevated
+                            : "#FFFFFF",
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(15,23,42,0.06)",
+                          ...(isDark ? Shadows.none : Shadows.md),
+                        }}
+                      >
+                        <View className="gap-1">
+                          <View className="flex-row items-center justify-between gap-3">
+                            <Text
+                              className="text-[14px] font-clash font-bold text-app"
+                              numberOfLines={1}
+                            >
+                              {b?.serviceName ?? "(service)"}
+                            </Text>
+                            <Text
+                              className="text-[12px] font-outfit text-secondary"
+                              style={{ fontVariant: ["tabular-nums"] }}
+                            >
+                              {status}
+                            </Text>
+                          </View>
+                          <Text
+                            className="text-[12px] font-outfit text-secondary"
+                            numberOfLines={2}
+                          >
+                            {b?.athleteName ?? "(athlete)"} •{" "}
+                            {formatIsoShort(b?.startsAt)}
+                          </Text>
+                        </View>
+
+                        <View className="flex-row gap-2 mt-3">
+                          <SmallAction
+                            label="Confirm"
+                            tone="success"
+                            onPress={() =>
+                              bookingDetailOpenId != null &&
+                              updateBookingStatus(
+                                bookingDetailOpenId,
+                                "confirmed",
+                              )
+                            }
+                            disabled={bookingMutatingId === bookingDetailOpenId}
+                          />
+                          <SmallAction
+                            label="Decline"
+                            tone="danger"
+                            onPress={() =>
+                              bookingDetailOpenId != null &&
+                              updateBookingStatus(
+                                bookingDetailOpenId,
+                                "declined",
+                              )
+                            }
+                            disabled={bookingMutatingId === bookingDetailOpenId}
+                          />
+                          <SmallAction
+                            label="Cancel"
+                            tone="neutral"
+                            onPress={() =>
+                              bookingDetailOpenId != null &&
+                              updateBookingStatus(
+                                bookingDetailOpenId,
+                                "cancelled",
+                              )
+                            }
+                            disabled={bookingMutatingId === bookingDetailOpenId}
+                          />
+                        </View>
+                      </View>
+
+                      <View
+                        className="rounded-[20px] border p-4"
+                        style={{
+                          backgroundColor: isDark
+                            ? "rgba(255,255,255,0.03)"
+                            : "rgba(15,23,42,0.03)",
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.06)"
+                            : "rgba(15,23,42,0.06)",
+                        }}
+                      >
+                        {detailLoading ? (
+                          <View className="gap-2">
+                            <Skeleton width="82%" height={12} />
+                            <Skeleton width="88%" height={12} />
+                            <Skeleton width="76%" height={12} />
+                          </View>
+                        ) : detail ? (
+                          <View className="gap-2">
+                            <Text
+                              selectable
+                              className="text-[12px] font-outfit text-secondary"
+                            >
+                              Guardian: {detail.guardianName ?? "—"} •{" "}
+                              {detail.guardianEmail ?? "—"}
+                            </Text>
+                            <Text
+                              selectable
+                              className="text-[12px] font-outfit text-secondary"
+                            >
+                              Window: {formatIsoShort(detail.startsAt)} →{" "}
+                              {formatIsoShort(detail.endTime)}
+                            </Text>
+                            {detail.slotsTotal != null ? (
+                              <Text
+                                selectable
+                                className="text-[12px] font-outfit text-secondary"
+                              >
+                                Capacity: {detail.slotsUsed ?? 0}/
+                                {detail.slotsTotal}
+                              </Text>
+                            ) : null}
+                            {detail.location ? (
+                              <Text
+                                selectable
+                                className="text-[12px] font-outfit text-secondary"
+                              >
+                                Location: {detail.location}
+                              </Text>
+                            ) : null}
+                            {detail.meetingLink ? (
+                              <Text
+                                selectable
+                                className="text-[12px] font-outfit text-secondary"
+                              >
+                                Meeting: {detail.meetingLink}
+                              </Text>
+                            ) : null}
+                            {detail.createdAt ? (
+                              <Text
+                                selectable
+                                className="text-[11px] font-outfit text-secondary"
+                              >
+                                Created {formatIsoShort(detail.createdAt)}
+                              </Text>
+                            ) : null}
+                          </View>
+                        ) : (
+                          <Text className="text-[12px] font-outfit text-secondary">
+                            No detail loaded.
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })()}
+          </ThemedScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={availabilityDetailOpenId != null}
+        animationType="slide"
+        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+        onRequestClose={() => setAvailabilityDetailOpenId(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: isDark ? colors.background : colors.background,
+            paddingTop: insets.top,
+          }}
+        >
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingBottom: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                className="text-[18px] font-clash font-bold text-app"
+                numberOfLines={1}
+              >
+                Availability #{availabilityDetailOpenId ?? ""}
+              </Text>
+              <Text className="text-[12px] font-outfit text-secondary">
+                Block details
+              </Text>
+            </View>
+            <SmallAction
+              label="Done"
+              tone="neutral"
+              onPress={() => setAvailabilityDetailOpenId(null)}
+            />
+          </View>
+
+          <ThemedScrollView>
+            {availabilityDetailOpenId == null
+              ? null
+              : (() => {
+                  const block = availability.find(
+                    (x) => x.id === availabilityDetailOpenId,
+                  );
+                  if (!block) {
+                    return (
+                      <Text className="text-sm font-outfit text-secondary">
+                        Not found.
+                      </Text>
+                    );
+                  }
+                  return (
+                    <View className="gap-3">
+                      <View
+                        className="rounded-[20px] border p-4"
+                        style={{
+                          backgroundColor: isDark
+                            ? colors.cardElevated
+                            : "#FFFFFF",
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(15,23,42,0.06)",
+                          ...(isDark ? Shadows.none : Shadows.md),
+                        }}
+                      >
+                        <Text
+                          className="text-[14px] font-clash font-bold text-app"
+                          numberOfLines={2}
+                        >
+                          {block.serviceName ?? "(service)"}
+                        </Text>
+                        <Text
+                          selectable
+                          className="text-[12px] font-outfit text-secondary"
+                        >
+                          {formatIsoShort(block.startsAt)} →{" "}
+                          {formatIsoShort(block.endsAt)}
+                        </Text>
+                        <Text
+                          selectable
+                          className="text-[11px] font-outfit text-secondary"
+                        >
+                          Created {formatIsoShort(block.createdAt)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })()}
+          </ThemedScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={serviceDetailOpenId != null}
+        animationType="slide"
+        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+        onRequestClose={() => setServiceDetailOpenId(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: isDark ? colors.background : colors.background,
+            paddingTop: insets.top,
+          }}
+        >
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingBottom: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                className="text-[18px] font-clash font-bold text-app"
+                numberOfLines={1}
+              >
+                Service #{serviceDetailOpenId ?? ""}
+              </Text>
+              <Text className="text-[12px] font-outfit text-secondary">
+                Patch and manage
+              </Text>
+            </View>
+            <SmallAction
+              label="Done"
+              tone="neutral"
+              onPress={() => setServiceDetailOpenId(null)}
+            />
+          </View>
+
+          <ThemedScrollView>
+            {serviceDetailOpenId == null
+              ? null
+              : (() => {
+                  const s = services.find((x) => x.id === serviceDetailOpenId);
+                  const busy = serviceEditBusyId === serviceDetailOpenId;
+                  const jsonValue =
+                    serviceEditAdvancedJson[serviceDetailOpenId] ??
+                    (s ? defaultServicePatchJson(s) : "{} ");
+
+                  return (
+                    <View className="gap-4">
+                      <View
+                        className="rounded-[20px] border p-4"
+                        style={{
+                          backgroundColor: isDark
+                            ? colors.cardElevated
+                            : "#FFFFFF",
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(15,23,42,0.06)",
+                          ...(isDark ? Shadows.none : Shadows.md),
+                        }}
+                      >
+                        <Text
+                          className="text-[14px] font-clash font-bold text-app"
+                          numberOfLines={2}
+                        >
+                          {s?.name ?? "(name)"}
+                        </Text>
+                        <Text className="text-[12px] font-outfit text-secondary">
+                          {s?.type ?? "—"} • {s?.durationMinutes ?? "—"}m • cap{" "}
+                          {s?.capacity ?? "—"}
+                        </Text>
+                        <Text className="text-[11px] font-outfit text-secondary">
+                          Status:{" "}
+                          {s?.isActive === false ? "inactive" : "active"}
+                        </Text>
+                      </View>
+
+                      <View className="gap-2">
+                        <Text className="text-[12px] font-outfit text-secondary">
+                          Patch JSON (send only the fields you want to change)
+                        </Text>
+                        <View
+                          className="rounded-2xl border px-4 py-3"
+                          style={{
+                            backgroundColor: isDark
+                              ? "rgba(255,255,255,0.03)"
+                              : "rgba(15,23,42,0.03)",
+                            borderColor: isDark
+                              ? "rgba(255,255,255,0.06)"
+                              : "rgba(15,23,42,0.06)",
+                          }}
+                        >
+                          <TextInput
+                            className="text-[12px] font-outfit text-app"
+                            value={jsonValue}
+                            onChangeText={(t) =>
+                              setServiceEditAdvancedJson((prev) => ({
+                                ...prev,
+                                [serviceDetailOpenId]: t,
+                              }))
+                            }
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            multiline
+                            style={{ minHeight: 160, textAlignVertical: "top" }}
+                            placeholderTextColor={colors.placeholder}
+                          />
+                        </View>
+                      </View>
+
+                      <View className="flex-row gap-2">
+                        <SmallAction
+                          label={busy ? "Saving…" : "Save"}
+                          tone="success"
+                          onPress={() => {
+                            let patch: Record<string, unknown> = {};
+                            try {
+                              const parsed = JSON.parse(
+                                (jsonValue ?? "{}").trim() || "{}",
+                              );
+                              if (
+                                parsed &&
+                                typeof parsed === "object" &&
+                                !Array.isArray(parsed)
+                              ) {
+                                patch = parsed;
+                              } else {
+                                setServicesError(
+                                  "Patch JSON must be an object",
+                                );
+                                return;
+                              }
+                            } catch {
+                              setServicesError("Patch JSON must be valid JSON");
+                              return;
+                            }
+                            void updateServiceType(serviceDetailOpenId, patch);
+                          }}
+                          disabled={busy}
+                        />
+                        <SmallAction
+                          label={busy ? "Deleting…" : "Delete"}
+                          tone="danger"
+                          onPress={() => deleteServiceType(serviceDetailOpenId)}
+                          disabled={busy}
+                        />
+                        <SmallAction
+                          label="Toggle active"
+                          tone="neutral"
+                          onPress={() =>
+                            updateServiceType(serviceDetailOpenId, {
+                              isActive: !((s?.isActive ?? true) as boolean),
+                            })
+                          }
+                          disabled={busy}
+                        />
+                      </View>
+                    </View>
+                  );
+                })()}
+          </ThemedScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }

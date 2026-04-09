@@ -1,6 +1,10 @@
 import React from "react";
 import { TouchableOpacity, View } from "react-native";
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetView,
+} from "@gorhom/bottom-sheet";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
@@ -10,6 +14,8 @@ import { Shadows } from "@/constants/theme";
 type ComposerActionsModalProps = {
   open: boolean;
   onClose: () => void;
+  title?: string;
+  subtitle?: string;
   onAttachFile: () => void;
   onAttachImage: () => void;
   onAttachVideo: () => void;
@@ -27,7 +33,13 @@ type ActionItemProps = {
   isDark: boolean;
 };
 
-const ActionItem = ({ icon, label, onPress, color, isDark }: ActionItemProps) => (
+const ActionItem = ({
+  icon,
+  label,
+  onPress,
+  color,
+  isDark,
+}: ActionItemProps) => (
   <TouchableOpacity
     onPress={onPress}
     activeOpacity={0.7}
@@ -36,7 +48,9 @@ const ActionItem = ({ icon, label, onPress, color, isDark }: ActionItemProps) =>
     <View
       className="h-16 w-16 items-center justify-center rounded-[22px] border"
       style={{
-        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.03)",
+        backgroundColor: isDark
+          ? "rgba(255,255,255,0.05)"
+          : "rgba(15,23,42,0.03)",
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
       }}
     >
@@ -54,6 +68,8 @@ const ActionItem = ({ icon, label, onPress, color, isDark }: ActionItemProps) =>
 export function ComposerActionsModal({
   open,
   onClose,
+  title,
+  subtitle,
   onAttachFile,
   onAttachImage,
   onAttachVideo,
@@ -96,7 +112,9 @@ export function ComposerActionsModal({
         backgroundColor: colors.card,
       }}
       handleIndicatorStyle={{
-        backgroundColor: isDark ? "rgba(255,255,255,0.28)" : "rgba(15,23,42,0.25)",
+        backgroundColor: isDark
+          ? "rgba(255,255,255,0.28)"
+          : "rgba(15,23,42,0.25)",
       }}
     >
       <BottomSheetView className="px-6 pb-8">
@@ -104,23 +122,35 @@ export function ComposerActionsModal({
           className="rounded-[28px] border p-6"
           style={{
             backgroundColor: colors.card,
-            borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+            borderColor: isDark
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(15,23,42,0.08)",
             ...(isDark ? Shadows.none : Shadows.lg),
           }}
         >
           <View className="mb-6 flex-row items-center justify-between">
             <View>
-              <Text className="font-clash text-[20px] font-bold" style={{ color: colors.text }}>
-                Add content
+              <Text
+                className="font-clash text-[20px] font-bold"
+                style={{ color: colors.text }}
+              >
+                {title ?? "Add content"}
               </Text>
-              <Text className="mt-0.5 font-outfit text-[13px]" style={{ color: colors.textSecondary }}>
-                Share media or files with your coach
+              <Text
+                className="mt-0.5 font-outfit text-[13px]"
+                style={{ color: colors.textSecondary }}
+              >
+                {subtitle ?? "Share media or files with your coach"}
               </Text>
             </View>
             <TouchableOpacity
               onPress={onClose}
               className="h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)" }}
+              style={{
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(15,23,42,0.05)",
+              }}
             >
               <Feather name="x" size={20} color={colors.textSecondary} />
             </TouchableOpacity>

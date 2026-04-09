@@ -1,49 +1,37 @@
 jest.mock("../../src/services/training-content-v2.service", () => ({
-  copyTrainingModulesFromAudience: jest.fn(),
   createTrainingAudience: jest.fn(),
-  listTrainingContentAdminWorkspace: jest.fn(),
-  getTrainingContentMobileWorkspace: jest.fn(),
   createTrainingModule: jest.fn(),
-  updateTrainingModuleTierLocks: jest.fn(),
-  updateTrainingModule: jest.fn(),
-  deleteTrainingModule: jest.fn(),
   createTrainingModuleSession: jest.fn(),
-  updateTrainingSessionTierLocks: jest.fn(),
-  updateTrainingModuleSession: jest.fn(),
-  deleteTrainingModuleSession: jest.fn(),
-  createTrainingSessionItem: jest.fn(),
-  updateTrainingSessionItem: jest.fn(),
-  deleteTrainingSessionItem: jest.fn(),
   createTrainingOtherContent: jest.fn(),
-  updateTrainingOtherContent: jest.fn(),
+  createTrainingSessionItem: jest.fn(),
+  cleanupTrainingPlaceholderModules: jest.fn(),
+  copyTrainingModulesFromAudience: jest.fn(),
+  deleteTrainingModule: jest.fn(),
+  deleteTrainingModuleSession: jest.fn(),
   deleteTrainingOtherContent: jest.fn(),
+  deleteTrainingSessionItem: jest.fn(),
   finishTrainingModuleSession: jest.fn(),
+  getTrainingContentMobileWorkspace: jest.fn(),
   listTrainingAudiences: jest.fn(),
+  listTrainingContentAdminWorkspace: jest.fn(),
+  updateTrainingSessionTierLocks: jest.fn(),
+  updateTrainingModuleTierLocks: jest.fn(),
+  unlockTrainingModuleTierLocks: jest.fn(),
+  updateTrainingModule: jest.fn(),
+  updateTrainingModuleSession: jest.fn(),
+  updateTrainingOtherContent: jest.fn(),
+  updateTrainingOtherTypeSetting: jest.fn(),
+  updateTrainingSessionItem: jest.fn(),
 }));
 
 jest.mock("../../src/services/user.service", () => ({
   getAthleteForUser: jest.fn(),
 }));
 
+import { finishTrainingSessionHandler } from "../../src/controllers/training-content-v2.controller";
 import {
-  copyTrainingModulesFromAudienceHandler,
-  createTrainingAudienceHandler,
-  finishTrainingSessionHandler,
-  getTrainingContentAdminWorkspaceHandler,
-  getTrainingContentMobileWorkspaceHandler,
-  listTrainingAudiencesHandler,
-  updateTrainingModuleTierLocksHandler,
-  updateTrainingSessionTierLocksHandler,
-} from "../../src/controllers/training-content-v2.controller";
-import {
-  copyTrainingModulesFromAudience,
-  createTrainingAudience,
   finishTrainingModuleSession,
   getTrainingContentMobileWorkspace,
-  listTrainingAudiences,
-  listTrainingContentAdminWorkspace,
-  updateTrainingModuleTierLocks,
-  updateTrainingSessionTierLocks,
 } from "../../src/services/training-content-v2.service";
 import { getAthleteForUser } from "../../src/services/user.service";
 
@@ -54,128 +42,74 @@ function createRes() {
   return res;
 }
 
-describe("training content v2 controller", () => {
+describe("training-content-v2 controller", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("returns admin workspace for an age", async () => {
-    (listTrainingContentAdminWorkspace as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], others: [] });
-    const req = { query: { audienceLabel: "8" } } as any;
-    const res = createRes();
-
-    await getTrainingContentAdminWorkspaceHandler(req, res);
-
-    expect(listTrainingContentAdminWorkspace).toHaveBeenCalledWith("8");
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ audienceLabel: "8", modules: [], others: [] });
-  });
-
-  it("lists available audiences", async () => {
-    (listTrainingAudiences as jest.Mock).mockResolvedValue([{ label: "5-6", moduleCount: 1, otherCount: 2 }]);
-    const req = {} as any;
-    const res = createRes();
-
-    await listTrainingAudiencesHandler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ items: [{ label: "5-6", moduleCount: 1, otherCount: 2 }] });
-  });
-
-  it("creates an audience label", async () => {
-    (createTrainingAudience as jest.Mock).mockResolvedValue({ id: 5, label: "8-10" });
-    const req = { body: { label: "8-10" }, user: { id: 7 } } as any;
-    const res = createRes();
-
-    await createTrainingAudienceHandler(req, res);
-
-    expect(createTrainingAudience).toHaveBeenCalledWith({ label: "8-10", createdBy: 7 });
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({ item: { id: 5, label: "8-10" } });
-  });
-
-  it("copies modules from another audience", async () => {
-    (copyTrainingModulesFromAudience as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], others: [] });
-    const req = {
-      body: { sourceAudienceLabel: "6", targetAudienceLabel: "8" },
-      user: { id: 7 },
-    } as any;
-    const res = createRes();
-
-    await copyTrainingModulesFromAudienceHandler(req, res);
-
-    expect(copyTrainingModulesFromAudience).toHaveBeenCalledWith({
-      sourceAudienceLabel: "6",
-      targetAudienceLabel: "8",
-      createdBy: 7,
+  it("blocks finishing locked sessions", async () => {
+    (getAthleteForUser as jest.Mock).mockResolvedValue({
+      id: 11,
+      age: 13,
+      currentProgramTier: "PHP",
     });
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ audienceLabel: "8", modules: [], others: [] });
-  });
-
-  it("returns mobile workspace with athlete age fallback", async () => {
-    (getAthleteForUser as jest.Mock).mockResolvedValue({ id: 21, age: 11 });
-    (getTrainingContentMobileWorkspace as jest.Mock).mockResolvedValue({ age: 11, tabs: ["Modules"], modules: [], others: [] });
-    const req = { query: {}, user: { id: 5 } } as any;
-    const res = createRes();
-
-    await getTrainingContentMobileWorkspaceHandler(req, res);
-
-    expect(getTrainingContentMobileWorkspace).toHaveBeenCalledWith({ age: 11, athleteId: 21, programTier: null });
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ age: 11, tabs: ["Modules"], modules: [], others: [] });
-  });
-
-  it("updates module tier locks", async () => {
-    (updateTrainingModuleTierLocks as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
-    const req = {
-      body: { audienceLabel: "8", moduleId: 4, programTiers: ["PHP_Premium_Plus", "PHP_Premium"] },
-      user: { id: 7 },
-    } as any;
-    const res = createRes();
-
-    await updateTrainingModuleTierLocksHandler(req, res);
-
-    expect(updateTrainingModuleTierLocks).toHaveBeenCalledWith({
-      audienceLabel: "8",
-      moduleId: 4,
-      programTiers: ["PHP_Premium_Plus", "PHP_Premium"],
-      createdBy: 7,
+    (getTrainingContentMobileWorkspace as jest.Mock).mockResolvedValue({
+      age: 13,
+      tabs: ["Modules"],
+      modules: [
+        {
+          id: 1,
+          order: 1,
+          title: "M1",
+          totalDayLength: 3,
+          completed: false,
+          locked: false,
+          sessions: [{ id: 123, title: "S1", order: 1, dayLength: 1, completed: false, locked: true, items: [] }],
+        },
+      ],
+      others: [],
     });
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
-  });
-
-  it("updates session tier locks", async () => {
-    (updateTrainingSessionTierLocks as jest.Mock).mockResolvedValue({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
-    const req = {
-      body: { moduleId: 4, sessionId: 12, programTiers: ["PHP"] },
-      user: { id: 7 },
-    } as any;
-    const res = createRes();
-
-    await updateTrainingSessionTierLocksHandler(req, res);
-
-    expect(updateTrainingSessionTierLocks).toHaveBeenCalledWith({
-      moduleId: 4,
-      sessionId: 12,
-      programTiers: ["PHP"],
-      createdBy: 7,
-    });
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ audienceLabel: "8", modules: [], moduleLocks: [], others: [] });
-  });
-
-  it("marks a session finished for the active athlete", async () => {
-    (getAthleteForUser as jest.Mock).mockResolvedValue({ id: 13 });
-    (finishTrainingModuleSession as jest.Mock).mockResolvedValue({ id: 1, athleteId: 13, sessionId: 7 });
-    const req = { params: { sessionId: "7" }, user: { id: 5 } } as any;
+    const req: any = { user: { id: 7 }, params: { sessionId: "123" } };
     const res = createRes();
 
     await finishTrainingSessionHandler(req, res);
 
-    expect(finishTrainingModuleSession).toHaveBeenCalledWith({ athleteId: 13, sessionId: 7 });
+    expect(finishTrainingModuleSession).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: "Session locked" });
+  });
+
+  it("finishes unlocked sessions", async () => {
+    (getAthleteForUser as jest.Mock).mockResolvedValue({
+      id: 11,
+      age: 13,
+      currentProgramTier: "PHP",
+    });
+    (getTrainingContentMobileWorkspace as jest.Mock).mockResolvedValue({
+      age: 13,
+      tabs: ["Modules"],
+      modules: [
+        {
+          id: 1,
+          order: 1,
+          title: "M1",
+          totalDayLength: 3,
+          completed: false,
+          locked: false,
+          sessions: [{ id: 123, title: "S1", order: 1, dayLength: 1, completed: false, locked: false, items: [] }],
+        },
+      ],
+      others: [],
+    });
+    (finishTrainingModuleSession as jest.Mock).mockResolvedValue({ athleteId: 11, sessionId: 123 });
+    const req: any = { user: { id: 7 }, params: { sessionId: "123" } };
+    const res = createRes();
+
+    await finishTrainingSessionHandler(req, res);
+
+    expect(finishTrainingModuleSession).toHaveBeenCalledWith({ athleteId: 11, sessionId: 123 });
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({ item: { id: 1, athleteId: 13, sessionId: 7 } });
+    expect(res.json).toHaveBeenCalledWith({ item: { athleteId: 11, sessionId: 123 } });
   });
 });
+

@@ -12,26 +12,63 @@ import {
 } from "./audience.service";
 import {
   listTrainingContentAdminWorkspace,
+  PROGRAM_TIER_LABELS,
   sortItemsByBlockThenOrder,
 } from "./admin.service";
+
+const ADULT_AUDIENCE_PREFIX = "adult::";
 
 export async function getTrainingContentMobileWorkspace(input: {
   age: number;
   athleteId: number | null;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
 }) {
-  const audiences = await listTrainingAudiences();
-  const audienceScores = audiences.map((item) => ({
-    ...item,
-    score: audienceScore(item.label, input.age),
-  }));
+  const resolvedAthleteTier =
+    input.programTier ??
+    (input.athleteId
+      ? (
+          await db
+            .select({ currentProgramTier: athleteTable.currentProgramTier })
+            .from(athleteTable)
+            .where(eq(athleteTable.id, input.athleteId))
+            .limit(1)
+        )[0]?.currentProgramTier ?? null
+      : null);
+  const isAdult = input.age >= 18;
+  const selectedAudienceLabel =
+    isAdult && resolvedAthleteTier
+      ? `${ADULT_AUDIENCE_PREFIX}${PROGRAM_TIER_LABELS[resolvedAthleteTier]}`
+      : (() => {
+          // Youth (and un-tiered adults) still select by age.
+          // Audience labels are age ranges (e.g. "12-14") or "All".
+          return null;
+        })();
 
-  const bestAudience = audienceScores
-    .filter((item) => item.score >= 0)
-    .sort((a, b) => b.score - a.score)[0];
+  const resolvedAudienceLabel = selectedAudienceLabel
+    ? selectedAudienceLabel
+    : (() => {
+        // Age-scored fallback
+        // (kept for youth flow + adults missing a plan tier).
+        return "age_scored";
+      })();
 
-  const selectedAudienceLabel = bestAudience?.label ?? "All";
-  const workspace = await listTrainingContentAdminWorkspace(selectedAudienceLabel);
+  const workspace =
+    resolvedAudienceLabel === "age_scored"
+      ? await (async () => {
+          const audiences = await listTrainingAudiences();
+          const audienceScores = audiences.map((item) => ({
+            ...item,
+            score: audienceScore(item.label, input.age),
+          }));
+
+          const bestAudience = audienceScores
+            .filter((item) => item.score >= 0)
+            .sort((a, b) => b.score - a.score)[0];
+
+          const label = bestAudience?.label ?? "All";
+          return listTrainingContentAdminWorkspace(label);
+        })()
+      : await listTrainingContentAdminWorkspace(resolvedAudienceLabel);
   const completionRows = input.athleteId
     ? await db
         .select()
@@ -39,21 +76,8 @@ export async function getTrainingContentMobileWorkspace(input: {
         .where(eq(athleteTrainingSessionCompletionTable.athleteId, input.athleteId))
     : [];
   const completionSet = new Set(completionRows.map((row) => row.sessionId));
-  const athleteTier =
-    input.programTier ??
-    (
-      input.athleteId
-        ? (
-            await db
-              .select({ currentProgramTier: athleteTable.currentProgramTier })
-              .from(athleteTable)
-              .where(eq(athleteTable.id, input.athleteId))
-              .limit(1)
-          )[0]?.currentProgramTier ?? null
-        : null
-    );
-  const tierLockStartModuleId = athleteTier
-    ? workspace.moduleLocks.find((lock) => lock.programTier === athleteTier)?.startModuleId ?? null
+  const tierLockStartModuleId = resolvedAthleteTier
+    ? workspace.moduleLocks.find((lock) => lock.programTier === resolvedAthleteTier)?.startModuleId ?? null
     : null;
   const tierLockStartOrder = tierLockStartModuleId
     ? workspace.modules.find((module) => module.id === tierLockStartModuleId)?.order ?? null
@@ -69,7 +93,7 @@ export async function getTrainingContentMobileWorkspace(input: {
         sessionLockStartOrderByTier.set(tier, session.order!);
       }
     }
-    const sessionTierLockStartOrder = athleteTier ? sessionLockStartOrderByTier.get(athleteTier) ?? null : null;
+    const sessionTierLockStartOrder = resolvedAthleteTier ? sessionLockStartOrderByTier.get(resolvedAthleteTier) ?? null : null;
     let priorSessionComplete = true;
     const sessions = module.sessions.map((session) => {
       const completed = completionSet.has(session.id);
@@ -85,7 +109,8 @@ export async function getTrainingContentMobileWorkspace(input: {
         order: session.order,
         completed,
         locked,
-        items: sortItemsByBlockThenOrder(session.items as any[]).map((item) => ({ ...item })),
+        // Do not deliver session items while locked (prevents clients from "peeking" ahead).
+        items: locked ? [] : sortItemsByBlockThenOrder(session.items as any[]).map((item) => ({ ...item })),
       };
     });
     const completed = sessions.length > 0 && sessions.every((session) => session.completed);

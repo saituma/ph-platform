@@ -935,3 +935,29 @@ export const auditLogsTable = pgTable("audit_logs", {
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
+
+export const runLogTable = pgTable(
+  "run_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    clientId: varchar({ length: 64 }).notNull(),
+    userId: integer().notNull().references(() => userTable.id),
+    date: timestamp().notNull(),
+    distanceMeters: doublePrecision().notNull(),
+    durationSeconds: integer().notNull(),
+    avgPace: doublePrecision(),
+    avgSpeed: doublePrecision(),
+    calories: doublePrecision(),
+    coordinates: jsonb(),
+    effortLevel: integer(),
+    feelTags: jsonb(),
+    notes: text(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdx: index("run_logs_user_idx").on(table.userId),
+    clientIdUserUnique: uniqueIndex("run_logs_client_id_user_unique").on(table.clientId, table.userId),
+    dateIdx: index("run_logs_date_idx").on(table.date),
+  })
+);

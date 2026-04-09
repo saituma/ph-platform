@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Pressable } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -80,9 +80,23 @@ export function AgeBasedTrainingPanel({
         {workspace.modules.map((module) => (
           <Pressable
             key={module.id}
-            onPress={() => onOpenModule(module.id)}
+            onPress={() => {
+              if (module.locked) {
+                Alert.alert(
+                  "Module locked",
+                  "Complete the previous sessions/modules to unlock this module.",
+                );
+                return;
+              }
+              onOpenModule(module.id);
+            }}
             className="rounded-[28px] border px-5 py-5"
-            style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}
+            style={{
+              backgroundColor: colors.card,
+              borderColor: borderSoft,
+              opacity: module.locked ? 0.7 : 1,
+              ...(isDark ? Shadows.none : Shadows.sm),
+            }}
           >
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1">

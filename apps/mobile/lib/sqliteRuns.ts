@@ -12,6 +12,7 @@ export interface RunRecord {
   effort_level: number;
   feel_tags: string; // JSON string array
   notes: string;
+  synced_at: string | null;
 }
 
 const db = SQLite.openDatabaseSync("tracking_premium.db"); // new db name to prevent schema mismatch
@@ -30,9 +31,22 @@ export function initSQLiteRuns() {
       coordinates TEXT,
       effort_level INTEGER,
       feel_tags TEXT,
-      notes TEXT
+      notes TEXT,
+      synced_at TEXT
     );
   `);
+
+  // Migration: add synced_at column if it doesn't exist on older installs
+  try {
+    const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(runs)");
+    const hasSyncedAt = columns.some((c) => c.name === "synced_at");
+    if (!hasSyncedAt) {
+      db.execSync("ALTER TABLE runs ADD COLUMN synced_at TEXT;");
+    }
+  } catch {
+    // ignore — column likely already exists
+  }
+
   isInitialized = true;
 }
 
@@ -48,11 +62,11 @@ function ensureInitialized() {
   }
 }
 
-export function saveRunRecord(run: RunRecord) {
+export function saveRunRecord(run: Omit<RunRecord, "synced_at">) {
   ensureInitialized();
   return db.runSync(
-    `INSERT INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     [
       run.id,
       run.date,
@@ -124,4 +138,58 @@ export function getPersonalBests(): PersonalBests {
   });
 
   return { best5kSeconds, longestRunMeters, bestPaceMinPerKm };
+}
+
+// ──────────────────────────────────────────────
+// Cloud sync helpers
+// ──────────────────────────────────────────────
+
+export function getUnsyncedRuns(): RunRecord[] {
+  ensureInitialized();
+  return db.getAllSync<RunRecord>("SELECT * FROM runs WHERE synced_at IS NULL");
+}
+
+export function markRunsSynced(ids: string[]) {
+  ensureInitialized();
+  if (!ids.length) return;
+  const now = new Date().toISOString();
+  const placeholders = ids.map(() => "?").join(", ");
+  db.runSync(
+    `UPDATE runs SET synced_at = ? WHERE id IN (${placeholders})`,
+    [now, ...ids],
+  );
+}
+
+export function upsertRunFromServer(run: {
+  id: string;
+  date: string;
+  distance_meters: number;
+  duration_seconds: number;
+  avg_pace: number | null;
+  avg_speed: number | null;
+  calories: number | null;
+  coordinates: string | null;
+  effort_level: number | null;
+  feel_tags: string | null;
+  notes: string | null;
+}) {
+  ensureInitialized();
+  db.runSync(
+    `INSERT OR IGNORE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      run.id,
+      run.date,
+      run.distance_meters,
+      run.duration_seconds,
+      run.avg_pace ?? 0,
+      run.avg_speed ?? 0,
+      run.calories ?? 0,
+      run.coordinates ?? "[]",
+      run.effort_level ?? 0,
+      run.feel_tags ?? "[]",
+      run.notes ?? "",
+      new Date().toISOString(),
+    ],
+  );
 }

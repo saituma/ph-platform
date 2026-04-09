@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
@@ -212,46 +212,72 @@ export default function ProgramModuleDetailScreen() {
 
             {!isLoading && !error && module ? (
               <View className="gap-4">
-                {module.sessions.map((session) => (
-                  <Pressable
-                    key={session.id}
-                    onPress={() => {
-                      router.push(
-                        `/programs/session/${encodeURIComponent(String(session.id))}?programId=${encodeURIComponent(safeProgramId)}&moduleId=${encodeURIComponent(String(module.id))}` as any,
-                      );
-                    }}
-                    className="rounded-[22px] border px-4 py-4"
-                    style={{
-                      backgroundColor: session.locked ? (isDark ? "rgba(255,255,255,0.03)" : "#F8FAFC") : colors.background,
-                      borderColor: session.completed ? "rgba(34,197,94,0.25)" : borderSoft,
-                      opacity: session.locked ? 0.7 : 1,
-                    }}
+                {module.locked ? (
+                  <View
+                    className="rounded-[24px] border px-5 py-5"
+                    style={{ backgroundColor: colors.card, borderColor: borderSoft }}
                   >
-                    <View className="flex-row items-start justify-between gap-3">
-                      <View className="flex-1">
-                        <Text className="text-base font-clash font-bold" style={{ color: colors.text }}>
-                          {session.order}. {session.title}
-                        </Text>
-                        <Text className="mt-1 text-xs font-outfit" style={{ color: colors.textSecondary }}>
-                          {session.dayLength} day target
-                        </Text>
-                      </View>
-                      <View className="flex-row items-center gap-2">
-                        {session.completed ? <Feather name="check-circle" size={18} color="#16A34A" /> : null}
-                        {session.locked ? <Feather name="lock" size={16} color={colors.textSecondary} /> : null}
-                        <Feather name="chevron-right" size={18} color={colors.textSecondary} />
-                      </View>
+                    <View className="flex-row items-center gap-2">
+                      <Feather name="lock" size={16} color={colors.textSecondary} />
+                      <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                        Locked
+                      </Text>
                     </View>
-                  </Pressable>
-                ))}
-
-                {!module.sessions.length ? (
-                  <View className="rounded-[24px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: borderSoft }}>
-                    <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                      No sessions available for this module yet.
+                    <Text className="mt-2 text-sm font-outfit" style={{ color: colors.textSecondary }}>
+                      Complete the previous modules/sessions to unlock this module.
                     </Text>
                   </View>
-                ) : null}
+                ) : (
+                  <>
+                    {module.sessions.map((session) => (
+                      <Pressable
+                        key={session.id}
+                        onPress={() => {
+                          if (session.locked) {
+                            Alert.alert(
+                              "Session locked",
+                              "Finish the previous session(s) to unlock this one.",
+                            );
+                            return;
+                          }
+                          router.push(
+                            `/programs/session/${encodeURIComponent(String(session.id))}?programId=${encodeURIComponent(safeProgramId)}&moduleId=${encodeURIComponent(String(module.id))}` as any,
+                          );
+                        }}
+                        className="rounded-[22px] border px-4 py-4"
+                        style={{
+                          backgroundColor: session.locked ? (isDark ? "rgba(255,255,255,0.03)" : "#F8FAFC") : colors.background,
+                          borderColor: session.completed ? "rgba(34,197,94,0.25)" : borderSoft,
+                          opacity: session.locked ? 0.7 : 1,
+                        }}
+                      >
+                        <View className="flex-row items-start justify-between gap-3">
+                          <View className="flex-1">
+                            <Text className="text-base font-clash font-bold" style={{ color: colors.text }}>
+                              {session.order}. {session.title}
+                            </Text>
+                            <Text className="mt-1 text-xs font-outfit" style={{ color: colors.textSecondary }}>
+                              {session.dayLength} day target
+                            </Text>
+                          </View>
+                          <View className="flex-row items-center gap-2">
+                            {session.completed ? <Feather name="check-circle" size={18} color="#16A34A" /> : null}
+                            {session.locked ? <Feather name="lock" size={16} color={colors.textSecondary} /> : null}
+                            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+                          </View>
+                        </View>
+                      </Pressable>
+                    ))}
+
+                    {!module.sessions.length ? (
+                      <View className="rounded-[24px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: borderSoft }}>
+                        <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
+                          No sessions available for this module yet.
+                        </Text>
+                      </View>
+                    ) : null}
+                  </>
+                )}
               </View>
             ) : null}
           </View>

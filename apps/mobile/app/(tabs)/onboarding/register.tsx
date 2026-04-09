@@ -3,7 +3,7 @@ import { RegisterFormFields } from "@/components/onboarding/register/RegisterFor
 import { RegisterOverlays } from "@/components/onboarding/register/RegisterOverlays";
 import { useRegisterController } from "@/hooks/onboarding/useRegisterController";
 import { Feather } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
   Alert,
@@ -17,20 +17,31 @@ import {
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { buildPlanPricing } from "@/lib/billing";
-import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
+import {
+  initPaymentSheet,
+  presentPaymentSheet,
+} from "@stripe/stripe-react-native";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setLatestSubscriptionRequest } from "@/store/slices/userSlice";
+import { isAdminRole } from "@/lib/isAdminRole";
 
 export default function RegisterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string | string[] }>();
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
-  const { token } = useAppSelector((state) => state.user);
+  const { token, apiUserRole } = useAppSelector((state) => state.user);
+
+  if (isAdminRole(apiUserRole)) {
+    return <Redirect href="/(tabs)" />;
+  }
   const {
     profile,
     control,
@@ -63,7 +74,9 @@ export default function RegisterScreen() {
   } = useRegisterController({ router: router as any, mode: params?.mode });
 
   const [planByTier, setPlanByTier] = React.useState<Record<string, any>>({});
-  const [planPricingByTier, setPlanPricingByTier] = React.useState<Record<string, any>>({});
+  const [planPricingByTier, setPlanPricingByTier] = React.useState<
+    Record<string, any>
+  >({});
   const [isPaying, setIsPaying] = React.useState(false);
   const [payingTier, setPayingTier] = React.useState<string | null>(null);
   const [currentStep, setCurrentStep] = React.useState(0);
@@ -73,7 +86,9 @@ export default function RegisterScreen() {
     let active = true;
     const loadPlans = async () => {
       try {
-        const data = await apiRequest<{ plans: any[] }>("/public/plans", { forceRefresh: true });
+        const data = await apiRequest<{ plans: any[] }>("/public/plans", {
+          forceRefresh: true,
+        });
         if (!active) return;
         const map: Record<string, any> = {};
         const pricingMap: Record<string, any> = {};
@@ -96,11 +111,17 @@ export default function RegisterScreen() {
   }, []);
 
   React.useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
-    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    const showSub = Keyboard.addListener(showEvent, () =>
+      setKeyboardVisible(true),
+    );
+    const hideSub = Keyboard.addListener(hideEvent, () =>
+      setKeyboardVisible(false),
+    );
 
     return () => {
       showSub.remove();
@@ -117,11 +138,17 @@ export default function RegisterScreen() {
         return;
       }
       if (plan?.isActive === false) {
-        Alert.alert("Plan locked", "This plan is currently inactive and unavailable.");
+        Alert.alert(
+          "Plan locked",
+          "This plan is currently inactive and unavailable.",
+        );
         return;
       }
       if (!token) {
-        Alert.alert("Login required", "Please log in as a guardian to purchase a plan.");
+        Alert.alert(
+          "Login required",
+          "Please log in as a guardian to purchase a plan.",
+        );
         router.replace("/(auth)/login");
         return;
       }
@@ -129,7 +156,9 @@ export default function RegisterScreen() {
         setIsPaying(true);
         setPayingTier(tierKey);
 
-        await new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve()));
+        await new Promise<void>((resolve) =>
+          InteractionManager.runAfterInteractions(() => resolve()),
+        );
         const data = await apiRequest<{
           customerId: string;
           ephemeralKey: string;
@@ -158,27 +187,33 @@ export default function RegisterScreen() {
           throw new Error(result.error.message);
         }
 
-        const confirm = await apiRequest<{ paymentStatus?: string; request?: any }>(
-          "/billing/payment-sheet/confirm",
-          {
-            method: "POST",
-            body: { paymentIntentId: data.paymentIntentId },
-            token,
-          }
-        );
+        const confirm = await apiRequest<{
+          paymentStatus?: string;
+          request?: any;
+        }>("/billing/payment-sheet/confirm", {
+          method: "POST",
+          body: { paymentIntentId: data.paymentIntentId },
+          token,
+        });
 
-        dispatch(setLatestSubscriptionRequest(confirm.request ?? data.request ?? null));
+        dispatch(
+          setLatestSubscriptionRequest(confirm.request ?? data.request ?? null),
+        );
 
         Alert.alert(
           "Payment status",
-          confirm.paymentStatus === "succeeded" || confirm.paymentStatus === "processing"
+          confirm.paymentStatus === "succeeded" ||
+            confirm.paymentStatus === "processing"
             ? "Payment received. Awaiting admin approval."
-            : "Payment pending. We will update your plan once confirmed."
+            : "Payment pending. We will update your plan once confirmed.",
         );
       } catch (error: any) {
         const message = error?.message || "Failed to start checkout.";
         if (typeof message === "string" && message.includes("403")) {
-          Alert.alert("Guardian only", "Only guardian accounts can purchase plans.");
+          Alert.alert(
+            "Guardian only",
+            "Only guardian accounts can purchase plans.",
+          );
           return;
         }
         Alert.alert("Payment failed", message);
@@ -251,11 +286,19 @@ export default function RegisterScreen() {
         </Pressable>
 
         <View style={{ flex: 1, paddingHorizontal: 14 }}>
-          <Text className="font-outfit-semibold text-app" style={{ fontSize: 19 }}>
+          <Text
+            className="font-outfit-semibold text-app"
+            style={{ fontSize: 19 }}
+          >
             {steps[currentStep].title}
           </Text>
-          <Text className="font-outfit text-secondary" style={{ fontSize: 13, lineHeight: 18 }}>
-            {profile?.name ? `For ${profile.name} • Step ${currentStep + 1} of ${steps.length}` : `Step ${currentStep + 1} of ${steps.length}`}
+          <Text
+            className="font-outfit text-secondary"
+            style={{ fontSize: 13, lineHeight: 18 }}
+          >
+            {profile?.name
+              ? `For ${profile.name} • Step ${currentStep + 1} of ${steps.length}`
+              : `Step ${currentStep + 1} of ${steps.length}`}
           </Text>
         </View>
 
@@ -271,7 +314,10 @@ export default function RegisterScreen() {
             borderColor: `${colors.accent}22`,
           }}
         >
-          <Text className="font-outfit-semibold" style={{ color: colors.accent, fontSize: 12 }}>
+          <Text
+            className="font-outfit-semibold"
+            style={{ color: colors.accent, fontSize: 12 }}
+          >
             {`${currentStep + 1}/${steps.length}`}
           </Text>
         </View>
@@ -290,7 +336,10 @@ export default function RegisterScreen() {
             borderColor: colors.border,
           }}
         >
-          <Text className="font-outfit-semibold" style={{ color: colors.textSecondary, fontSize: 11 }}>
+          <Text
+            className="font-outfit-semibold"
+            style={{ color: colors.textSecondary, fontSize: 11 }}
+          >
             ONBOARDING
           </Text>
         </View>
@@ -311,13 +360,19 @@ export default function RegisterScreen() {
                   flex: 1,
                   height: 6,
                   borderRadius: 999,
-                  backgroundColor: isActive || isComplete ? colors.accent : `${colors.textSecondary}22`,
+                  backgroundColor:
+                    isActive || isComplete
+                      ? colors.accent
+                      : `${colors.textSecondary}22`,
                 }}
               />
             );
           })}
         </View>
-        <Text className="font-outfit text-secondary" style={{ fontSize: 14, lineHeight: 20, maxWidth: "92%" }}>
+        <Text
+          className="font-outfit text-secondary"
+          style={{ fontSize: 14, lineHeight: 20, maxWidth: "92%" }}
+        >
           {steps[currentStep].body}
         </Text>
       </View>
@@ -333,12 +388,18 @@ export default function RegisterScreen() {
             flexGrow: 1,
             paddingHorizontal: 20,
             paddingBottom: isFinalStep
-              ? (keyboardVisible ? 140 : 150)
-              : (keyboardVisible ? 180 : 190),
+              ? keyboardVisible
+                ? 140
+                : 150
+              : keyboardVisible
+                ? 180
+                : 190,
           }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
           automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
         >
           <View
@@ -362,10 +423,16 @@ export default function RegisterScreen() {
                 borderBottomColor: colors.border,
               }}
             >
-              <Text className="font-outfit-semibold text-app" style={{ fontSize: 17, marginBottom: 4 }}>
+              <Text
+                className="font-outfit-semibold text-app"
+                style={{ fontSize: 17, marginBottom: 4 }}
+              >
                 {steps[currentStep].title}
               </Text>
-              <Text className="font-outfit text-secondary" style={{ fontSize: 13, lineHeight: 18 }}>
+              <Text
+                className="font-outfit text-secondary"
+                style={{ fontSize: 13, lineHeight: 18 }}
+              >
                 {stepBody}
               </Text>
             </View>
@@ -378,7 +445,11 @@ export default function RegisterScreen() {
                 paddingBottom: 24,
               }}
             >
-              {configLoading ? <Text className="text-secondary font-outfit mb-4">Loading form...</Text> : null}
+              {configLoading ? (
+                <Text className="text-secondary font-outfit mb-4">
+                  Loading form...
+                </Text>
+              ) : null}
 
               <RegisterFormFields
                 control={control}
@@ -405,10 +476,17 @@ export default function RegisterScreen() {
                 payingTier={payingTier}
                 isPaying={isPaying}
               />
-              {formError ? <Text className="text-danger text-sm font-outfit mt-2">{formError}</Text> : null}
+              {formError ? (
+                <Text className="text-danger text-sm font-outfit mt-2">
+                  {formError}
+                </Text>
+              ) : null}
               {isFinalStep ? (
                 <View style={{ marginTop: 18, gap: 10 }}>
-                  <Text className="font-outfit text-secondary" style={{ fontSize: 12, lineHeight: 18 }}>
+                  <Text
+                    className="font-outfit text-secondary"
+                    style={{ fontSize: 12, lineHeight: 18 }}
+                  >
                     Final step: submit the onboarding details to finish setup.
                   </Text>
                 </View>
@@ -436,7 +514,10 @@ export default function RegisterScreen() {
         }}
       >
         {!keyboardVisible ? (
-          <Text className="font-outfit text-secondary" style={{ fontSize: 13, lineHeight: 19 }}>
+          <Text
+            className="font-outfit text-secondary"
+            style={{ fontSize: 13, lineHeight: 19 }}
+          >
             {!isFinalStep
               ? "Complete this step, then continue."
               : "Review the details, then finish registration."}
@@ -459,7 +540,10 @@ export default function RegisterScreen() {
                   backgroundColor: colors.background,
                 }}
               >
-                <Text className="font-outfit-semibold text-app" style={{ fontSize: 16 }}>
+                <Text
+                  className="font-outfit-semibold text-app"
+                  style={{ fontSize: 16 }}
+                >
                   Back
                 </Text>
               </Pressable>
@@ -479,7 +563,10 @@ export default function RegisterScreen() {
                   backgroundColor: colors.accent,
                 }}
               >
-                <Text className="font-outfit-semibold" style={{ color: "#FFFFFF", fontSize: 16 }}>
+                <Text
+                  className="font-outfit-semibold"
+                  style={{ color: "#FFFFFF", fontSize: 16 }}
+                >
                   Next
                 </Text>
               </Pressable>
@@ -509,7 +596,10 @@ export default function RegisterScreen() {
                 size={18}
                 color="#FFFFFF"
               />
-              <Text className="font-outfit-semibold" style={{ color: "#FFFFFF", fontSize: 16 }}>
+              <Text
+                className="font-outfit-semibold"
+                style={{ color: "#FFFFFF", fontSize: 16 }}
+              >
                 {isSubmitting ? "Saving registration" : "Complete Registration"}
               </Text>
             </Pressable>
@@ -526,7 +616,10 @@ export default function RegisterScreen() {
                 backgroundColor: colors.background,
               }}
             >
-              <Text className="font-outfit-semibold text-app" style={{ fontSize: 15 }}>
+              <Text
+                className="font-outfit-semibold text-app"
+                style={{ fontSize: 15 }}
+              >
                 Back
               </Text>
             </Pressable>

@@ -23,14 +23,19 @@ import {
 } from "@/components/auth/AuthPrimitives";
 import {
   setCredentials,
+  setApiUserRole,
   setOnboardingCompleted,
   setAthleteUserId,
   setProgramTier,
   setAppRole,
   setLatestSubscriptionRequest,
 } from "../../store/slices/userSlice";
-import { reduxStateFromOnboardingAthlete, shouldOpenTabsAfterAuth } from "@/lib/onboardingFromApi";
+import {
+  reduxStateFromOnboardingAthlete,
+  shouldOpenTabsAfterAuth,
+} from "@/lib/onboardingFromApi";
 import { resolveAppRole } from "@/lib/appRole";
+import { isAdminRole } from "@/lib/isAdminRole";
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -90,6 +95,9 @@ export default function LoginScreen() {
         token,
       });
 
+      const apiRole = me.user.role ?? null;
+      const admin = isAdminRole(apiRole);
+
       dispatch(
         setCredentials({
           token,
@@ -100,23 +108,47 @@ export default function LoginScreen() {
             email: me.user.email,
             avatar: me.user.profilePicture ?? null,
           },
-        })
+        }),
       );
-      const onboarding = await apiRequest<{
-        athlete: {
-          onboardingCompleted?: boolean;
-          userId?: number;
-          athleteType?: "youth" | "adult" | null;
-          team?: string | null;
-        } | null;
-      }>(
-        "/onboarding",
-        { token, suppressStatusCodes: [401], skipCache: true, forceRefresh: true }
+
+      dispatch(setApiUserRole(apiRole));
+
+      let onboardingAthlete: {
+        onboardingCompleted?: boolean;
+        userId?: number;
+        athleteType?: "youth" | "adult" | null;
+        team?: string | null;
+      } | null = null;
+
+      if (admin) {
+        // Admin accounts do not need athlete onboarding/registration.
+        dispatch(setOnboardingCompleted(true));
+        dispatch(setAthleteUserId(null));
+      } else {
+        const onboarding = await apiRequest<{
+          athlete: {
+            onboardingCompleted?: boolean;
+            userId?: number;
+            athleteType?: "youth" | "adult" | null;
+            team?: string | null;
+          } | null;
+        }>("/onboarding", {
+          token,
+          suppressStatusCodes: [401],
+          skipCache: true,
+          forceRefresh: true,
+        });
+        onboardingAthlete = onboarding.athlete ?? null;
+        const next = reduxStateFromOnboardingAthlete(onboardingAthlete);
+        dispatch(setOnboardingCompleted(next.onboardingCompleted));
+        dispatch(setAthleteUserId(next.athleteUserId));
+      }
+
+      dispatch(
+        setAppRole(
+          resolveAppRole({ userRole: apiRole, athlete: onboardingAthlete }),
+        ),
       );
-      const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
-      dispatch(setOnboardingCompleted(next.onboardingCompleted));
-      dispatch(setAthleteUserId(next.athleteUserId));
-      dispatch(setAppRole(resolveAppRole({ userRole: me.user.role, athlete: onboarding.athlete })));
       try {
         const status = await apiRequest<{
           currentProgramTier?: string | null;
@@ -137,7 +169,12 @@ export default function LoginScreen() {
         dispatch(setProgramTier(null));
         dispatch(setLatestSubscriptionRequest(null));
       }
-      router.replace(shouldOpenTabsAfterAuth(onboarding.athlete) ? "/(tabs)" : "/(tabs)/onboarding");
+
+      router.replace(
+        admin || shouldOpenTabsAfterAuth(onboardingAthlete)
+          ? "/(tabs)"
+          : "/(tabs)/onboarding",
+      );
     } catch (err: any) {
       const message = extractAuthErrorMessage(err);
       if (message.toLowerCase().includes("not confirmed")) {
