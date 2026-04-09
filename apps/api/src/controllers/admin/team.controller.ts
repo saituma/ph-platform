@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import {
   listTeamsAdmin,
+  createTeamAdmin,
   getTeamDetailsAdmin,
   getTeamMemberAdmin,
   updateTeamDefaultsAdmin,
@@ -35,6 +36,29 @@ const teamMemberUpdateSchema = z.object({
 export async function listTeamsAdminDetails(_req: Request, res: Response) {
   const teams = await listTeamsAdmin();
   return res.status(200).json({ teams });
+}
+
+export async function createTeamAdminDetails(req: Request, res: Response) {
+  const parsed = z
+    .object({ teamName: z.string().min(1) })
+    .safeParse(req.body);
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+
+  try {
+    const result = await createTeamAdmin({ teamName: parsed.data.teamName });
+    return res.status(201).json(result);
+  } catch (error: any) {
+    const status = typeof error?.status === "number" ? error.status : 500;
+    const message = typeof error?.message === "string" ? error.message : "Failed to create team.";
+    if (status >= 500) {
+      console.error("[admin] createTeamAdminDetails", error);
+    }
+    return res.status(status).json({ error: message });
+  }
 }
 
 export async function getTeamAdminDetails(req: Request, res: Response) {

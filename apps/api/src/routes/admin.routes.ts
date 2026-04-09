@@ -30,6 +30,7 @@ router.post("/admin/users/program-tier", AdminUserController.updateProgramTier);
 
 // Teams
 router.get("/admin/teams", AdminTeamController.listTeamsAdminDetails);
+router.post("/admin/teams", AdminTeamController.createTeamAdminDetails);
 router.get("/admin/teams/:teamName", AdminTeamController.getTeamAdminDetails);
 router.get("/admin/teams/:teamName/members/:athleteId", AdminTeamController.getTeamMemberAdminDetails);
 router.patch("/admin/teams/:teamName/members/:athleteId", AdminTeamController.updateTeamMemberAdminDetails);
