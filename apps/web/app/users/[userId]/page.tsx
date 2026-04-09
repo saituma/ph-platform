@@ -19,6 +19,8 @@ import {
   Activity,
   ClipboardList,
   CreditCard,
+  Eye,
+  EyeOff,
   ShieldAlert,
   UserCircle,
   UserRound,
@@ -28,6 +30,10 @@ import { Button } from "../../../components/ui/button";
 import { Select } from "../../../components/ui/select";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
+import {
+  getPasswordRuleStatus,
+  isStrongPassword,
+} from "../../../lib/password-rules";
 import {
   Dialog,
   DialogContent,
@@ -198,6 +204,7 @@ export default function UserDetailPage() {
   } | null>(null);
 
   const [passwordInput, setPasswordInput] = useState("");
+  const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(
     null,
@@ -205,6 +212,13 @@ export default function UserDetailPage() {
   const [passwordEmailSent, setPasswordEmailSent] = useState<boolean | null>(
     null,
   );
+
+  const normalizedPassword = passwordInput.trim();
+  const passwordRules = getPasswordRuleStatus(normalizedPassword);
+  const isManualPasswordInvalid =
+    normalizedPassword.length > 0 && !isStrongPassword(normalizedPassword);
+  const passwordRuleClassName = (isMet: boolean) =>
+    isMet ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground";
 
   const rawUser = useMemo(
     () =>
@@ -698,21 +712,62 @@ export default function UserDetailPage() {
                 <p className="text-sm font-medium">
                   New temporary password (optional)
                 </p>
-                <Input
-                  type="password"
-                  placeholder="Leave blank to generate a secure password"
-                  value={passwordInput}
-                  onChange={(event) => setPasswordInput(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Minimum 8 characters.
-                </p>
+                <div className="relative">
+                  <Input
+                    type={showTemporaryPassword ? "text" : "password"}
+                    className="pr-10"
+                    placeholder="Leave blank to generate a secure password"
+                    value={passwordInput}
+                    onChange={(event) => setPasswordInput(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTemporaryPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    aria-label={
+                      showTemporaryPassword
+                        ? "Hide temporary password"
+                        : "Show temporary password"
+                    }
+                  >
+                    {showTemporaryPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <div className="mt-2 grid gap-1 text-xs">
+                  <p className="text-muted-foreground">
+                    If you set one manually, it must include:
+                  </p>
+                  <p className={passwordRuleClassName(passwordRules.minLength)}>
+                    • At least 8 characters
+                  </p>
+                  <p className={passwordRuleClassName(passwordRules.uppercase)}>
+                    • 1 uppercase letter (A-Z)
+                  </p>
+                  <p className={passwordRuleClassName(passwordRules.lowercase)}>
+                    • 1 lowercase letter (a-z)
+                  </p>
+                  <p className={passwordRuleClassName(passwordRules.number)}>
+                    • 1 number (0-9)
+                  </p>
+                  <p className={passwordRuleClassName(passwordRules.special)}>
+                    • 1 special character
+                  </p>
+                  {isManualPasswordInvalid ? (
+                    <p className="text-destructive">
+                      Password doesn’t meet requirements.
+                    </p>
+                  ) : null}
+                </div>
               </div>
               <div className="flex items-end justify-end">
                 <Button
                   type="button"
                   onClick={() => void handleResetPassword()}
-                  disabled={isResettingPassword}
+                  disabled={isResettingPassword || isManualPasswordInvalid}
                 >
                   {isResettingPassword ? "Resetting..." : "Reset password"}
                 </Button>
