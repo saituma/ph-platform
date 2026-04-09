@@ -7,6 +7,7 @@ import { stripeWebhook } from "./controllers/billing.controller";
 import { errorHandler } from "./middlewares/error";
 import { requestLogger } from "./middlewares/request-logger";
 import { env } from "./config/env";
+import { isApiReady } from "./config/readiness";
 
 export function createApp() {
   const app = express();
@@ -17,6 +18,17 @@ export function createApp() {
   // Returning 200 here avoids noisy 404s and prevents false-negative health checks.
   app.get("/", (_req, res) => res.status(200).json({ ok: true }));
   app.head("/", (_req, res) => res.sendStatus(200));
+
+  app.use((req, res, next) => {
+    if (!isApiReady()) {
+      const p = req.path ?? "";
+      if (p.startsWith("/api") && !p.startsWith("/api/health")) {
+        res.setHeader("Retry-After", "5");
+        return res.status(503).json({ error: "Service is starting up. Try again shortly.", ready: false });
+      }
+    }
+    return next();
+  });
 
   app.use(
     helmet({
