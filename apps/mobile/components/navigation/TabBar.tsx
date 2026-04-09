@@ -166,7 +166,7 @@ const TabItem = React.memo(
       <Pressable
         onPress={() => onTabPress(index)}
         style={({ pressed }) => ({
-          width: `${100 / Math.max(1, tabCount)}%`,
+          flex: 1,
           alignItems: "center",
           justifyContent: "center",
           paddingVertical: 4,
