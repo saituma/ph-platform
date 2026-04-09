@@ -38,6 +38,23 @@ export async function listTeamsAdminDetails(_req: Request, res: Response) {
   return res.status(200).json({ teams });
 }
 
+function safeAdminErrorMessage(error: unknown, fallback: string) {
+  const err = error as any;
+  const message = typeof err?.message === "string" ? err.message : "";
+
+  // Drizzle's DrizzleQueryError message includes full SQL + params.
+  if (err?.name === "DrizzleQueryError" || typeof err?.query === "string") {
+    const pgCode = err?.cause?.code;
+    if (pgCode === "42P01") {
+      return "Database is missing required tables. Run migrations and try again.";
+    }
+    return fallback;
+  }
+
+  if (message.startsWith("Failed query:")) return fallback;
+  return message || fallback;
+}
+
 export async function createTeamAdminDetails(req: Request, res: Response) {
   const parsed = z
     .object({ teamName: z.string().min(1) })
@@ -53,7 +70,7 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
     return res.status(201).json(result);
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;
-    const message = typeof error?.message === "string" ? error.message : "Failed to create team.";
+    const message = safeAdminErrorMessage(error, "Failed to create team.");
     if (status >= 500) {
       console.error("[admin] createTeamAdminDetails", error);
     }
