@@ -13,7 +13,13 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**"],
-      "env": ["API_BASE_URL", "NEXT_PUBLIC_API_BASE_URL"]
+      "env": [
+        "API_BASE_URL",
+        "NEXT_PUBLIC_API_BASE_URL",
+        "GIPHY_API_KEY",
+        "NEXT_PUBLIC_GIPHY_API_KEY",
+        "r"
+      ]
     }
   }
 }
