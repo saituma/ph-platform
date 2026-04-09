@@ -346,7 +346,11 @@ export async function updateTeamMemberAdmin(input: {
   return { ok: true };
 }
 
-export async function attachAthleteToTeamAdmin(input: { teamName: string; athleteId: number }) {
+export async function attachAthleteToTeamAdmin(input: {
+  teamName: string;
+  athleteId: number;
+  allowMoveFromOtherTeam?: boolean;
+}) {
   const cleanTeamName = input.teamName.trim();
   if (!cleanTeamName) {
     throw { status: 400, message: "Team name is required." };
@@ -373,10 +377,12 @@ export async function attachAthleteToTeamAdmin(input: { teamName: string; athlet
 
   const existingTeam = (athlete.team ?? "").trim();
   if (existingTeam) {
-    throw {
-      status: 400,
-      message: `Athlete is already assigned to team "${existingTeam}". An athlete can only belong to one team.`,
-    };
+    if (!input.allowMoveFromOtherTeam) {
+      throw {
+        status: 400,
+        message: `Athlete is already assigned to team "${existingTeam}". An athlete can only belong to one team.`,
+      };
+    }
   }
 
   await ensureTeamExists(cleanTeamName);
@@ -389,10 +395,21 @@ export async function attachAthleteToTeamAdmin(input: { teamName: string; athlet
     })
     .where(eq(athleteTable.id, athlete.id));
 
+  if (existingTeam) {
+    await db
+      .update(teamTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(teamTable.name, existingTeam));
+  }
+
   await db
     .update(teamTable)
     .set({ updatedAt: new Date() })
     .where(eq(teamTable.name, cleanTeamName));
 
-  return { ok: true, alreadyInTeam: false };
+  return {
+    ok: true,
+    alreadyInTeam: false,
+    ...(existingTeam ? { movedFromTeam: existingTeam } : {}),
+  };
 }

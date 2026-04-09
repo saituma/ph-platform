@@ -145,7 +145,18 @@ export async function attachAthleteToTeamAdminDetails(req: Request, res: Respons
   const teamName = z.string().min(1).parse(req.params.teamName);
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   try {
-    const result = await attachAthleteToTeamAdmin({ teamName, athleteId });
+    const parsed = z
+      .object({ allowMoveFromOtherTeam: z.coerce.boolean().optional() })
+      .safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request" });
+    }
+
+    const result = await attachAthleteToTeamAdmin({
+      teamName,
+      athleteId,
+      allowMoveFromOtherTeam: parsed.data.allowMoveFromOtherTeam === true,
+    });
     return res.status(200).json(result);
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;
