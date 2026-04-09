@@ -4,12 +4,14 @@ import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { subscribeToAdminOpsRequests } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useRouter } from "expo-router";
 
 type AdminBooking = {
   id: number;
@@ -69,29 +71,6 @@ type ServiceType = {
   defaultMeetingLink?: string | null;
   programTier?: string | null;
   eligiblePlans?: string[] | null;
-};
-
-type AdminTeam = {
-  team: string;
-  memberCount: number;
-  guardianCount: number;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-type AdminTeamDetail = {
-  team: string;
-  summary: {
-    memberCount: number;
-    guardianCount: number;
-    createdAt: string | null;
-    updatedAt: string | null;
-  };
-  members: {
-    athleteId: number;
-    athleteName: string | null;
-    currentProgramTier: string | null;
-  }[];
 };
 
 type OpsSection = "bookings" | "availability" | "services" | "teams";
@@ -254,6 +233,7 @@ function SmallAction({
 export default function AdminOpsScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
@@ -323,11 +303,13 @@ export default function AdminOpsScreen() {
   const [availabilityStartsAt, setAvailabilityStartsAt] = useState("");
   const [availabilityEndsAt, setAvailabilityEndsAt] = useState("");
   const [availabilityCreateBusy, setAvailabilityCreateBusy] = useState(false);
-  const [availabilityStartDate, setAvailabilityStartDate] = useState<Date>(() => {
-    const d = new Date();
-    d.setHours(9, 0, 0, 0);
-    return d;
-  });
+  const [availabilityStartDate, setAvailabilityStartDate] = useState<Date>(
+    () => {
+      const d = new Date();
+      d.setHours(9, 0, 0, 0);
+      return d;
+    },
+  );
   const [availabilityEndDate, setAvailabilityEndDate] = useState<Date>(() => {
     const d = new Date();
     d.setHours(17, 0, 0, 0);
@@ -376,16 +358,6 @@ export default function AdminOpsScreen() {
     string[]
   >([]);
   const [serviceEditIsActive, setServiceEditIsActive] = useState(true);
-
-  const [teams, setTeams] = useState<AdminTeam[]>([]);
-  const [teamsLoading, setTeamsLoading] = useState(false);
-  const [teamsError, setTeamsError] = useState<string | null>(null);
-  const [teamDetailOpenName, setTeamDetailOpenName] = useState<string | null>(null);
-  const [teamDetail, setTeamDetail] = useState<AdminTeamDetail | null>(null);
-  const [teamDetailLoading, setTeamDetailLoading] = useState(false);
-  const [teamCreateName, setTeamCreateName] = useState("");
-  const [teamCreateBusy, setTeamCreateBusy] = useState(false);
-  const [teamCreateOpen, setTeamCreateOpen] = useState(false);
 
   const canLoad = Boolean(token && bootstrapReady);
 
@@ -483,7 +455,8 @@ export default function AdminOpsScreen() {
       setCreateBookingError("Pick a service type first.");
       return;
     }
-    const service = services.find((s) => s.id === createBookingServiceId) ?? null;
+    const service =
+      services.find((s) => s.id === createBookingServiceId) ?? null;
     if (!service) {
       setCreateBookingError("Service type not found.");
       return;
@@ -498,7 +471,12 @@ export default function AdminOpsScreen() {
     setCreateBookingError(null);
     try {
       const startsAt = new Date(createBookingDate);
-      startsAt.setHours(createBookingTime.getHours(), createBookingTime.getMinutes(), 0, 0);
+      startsAt.setHours(
+        createBookingTime.getHours(),
+        createBookingTime.getMinutes(),
+        0,
+        0,
+      );
       const endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
 
       await apiRequest("/admin/bookings", {
@@ -850,81 +828,6 @@ export default function AdminOpsScreen() {
     [canLoad, loadServices, serviceDetailOpenId, token],
   );
 
-  const loadTeams = useCallback(
-    async (forceRefresh: boolean) => {
-      if (!canLoad) return;
-      setTeamsLoading(true);
-      setTeamsError(null);
-      try {
-        const res = await apiRequest<{ teams?: AdminTeam[] }>(
-          "/admin/teams",
-          {
-            token,
-            suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
-          },
-        );
-        setTeams(Array.isArray(res?.teams) ? res.teams : []);
-      } catch (e) {
-        setTeamsError(e instanceof Error ? e.message : "Failed to load teams");
-        setTeams([]);
-      } finally {
-        setTeamsLoading(false);
-      }
-    },
-    [canLoad, token],
-  );
-
-  const createTeam = useCallback(async () => {
-    if (!canLoad || !teamCreateName.trim()) return;
-    setTeamCreateBusy(true);
-    setTeamsError(null);
-    try {
-      await apiRequest("/admin/teams", {
-        method: "POST",
-        token,
-        body: { teamName: teamCreateName.trim() },
-        suppressStatusCodes: [403],
-        skipCache: true,
-      });
-      setTeamCreateName("");
-      setTeamCreateOpen(false);
-      await loadTeams(true);
-    } catch (e) {
-      setTeamsError(e instanceof Error ? e.message : "Failed to create team");
-    } finally {
-      setTeamCreateBusy(false);
-    }
-  }, [canLoad, teamCreateName, token, loadTeams]);
-
-  const loadTeamDetail = useCallback(
-    async (teamName: string) => {
-      if (!canLoad) return;
-      setTeamDetailLoading(true);
-      setTeamsError(null);
-      try {
-        const res = await apiRequest<AdminTeamDetail>(
-          `/admin/teams/${encodeURIComponent(teamName)}`,
-          {
-            token,
-            suppressStatusCodes: [403],
-            skipCache: true,
-          },
-        );
-        setTeamDetail(res ?? null);
-      } catch (e) {
-        setTeamsError(
-          e instanceof Error ? e.message : "Failed to load team details",
-        );
-        setTeamDetail(null);
-      } finally {
-        setTeamDetailLoading(false);
-      }
-    },
-    [canLoad, token],
-  );
-
   useEffect(() => {
     if (!canLoad) return;
     if (!bookingDetailOpenId) return;
@@ -980,18 +883,9 @@ export default function AdminOpsScreen() {
 
   useEffect(() => {
     if (!canLoad) return;
-    if (section === "teams") void loadTeams(false);
-  }, [canLoad, loadTeams, section]);
-
-  useEffect(() => {
-    if (!canLoad || !teamDetailOpenName) return;
-    void loadTeamDetail(teamDetailOpenName);
-  }, [canLoad, loadTeamDetail, teamDetailOpenName]);
-
-  useEffect(() => {
-    if (!canLoad) return;
     if (section === "availability") void loadAvailability(false);
-    if (section === "availability" && services.length === 0) void loadServices(false);
+    if (section === "availability" && services.length === 0)
+      void loadServices(false);
     if (section === "services") void loadServices(false);
   }, [canLoad, loadAvailability, loadServices, section, services.length]);
 
@@ -1021,9 +915,7 @@ export default function AdminOpsScreen() {
       return `${availability.length} availability blocks`;
     }
     if (section === "teams") {
-      if (teamsLoading) return "Loading teams…";
-      if (teamsError) return "Teams error";
-      return `${teams.length} teams`;
+      return "Teams";
     }
     if (servicesLoading) return "Loading services…";
     if (servicesError) return "Services error";
@@ -1039,9 +931,6 @@ export default function AdminOpsScreen() {
     services.length,
     servicesError,
     servicesLoading,
-    teams.length,
-    teamsError,
-    teamsLoading,
   ]);
 
   return (
@@ -1050,6 +939,7 @@ export default function AdminOpsScreen() {
         onRefresh={() => {
           if (section === "bookings") return loadBookings(true);
           if (section === "availability") return loadAvailability(true);
+          if (section === "teams") return;
           return loadServices(true);
         }}
       >
@@ -1125,7 +1015,8 @@ export default function AdminOpsScreen() {
                   />
                 </View>
                 <Text className="text-[12px] font-outfit text-secondary">
-                  Places a booking for a client as admin/coach (defaults to confirmed).
+                  Places a booking for a client as admin/coach (defaults to
+                  confirmed).
                 </Text>
               </View>
               <View className="gap-3">
@@ -1313,82 +1204,21 @@ export default function AdminOpsScreen() {
                 </Text>
                 <View className="flex-row gap-2">
                   <SmallAction
-                    label="Create team"
+                    label="Open teams"
                     tone="success"
-                    onPress={() => setTeamCreateOpen(true)}
+                    onPress={() => router.push("/admin-teams")}
                   />
                   <SmallAction
-                    label="Refresh"
+                    label="Post training"
                     tone="neutral"
-                    onPress={() => loadTeams(true)}
-                    disabled={teamsLoading}
+                    onPress={() => requestGlobalTabChange(5)}
                   />
                 </View>
                 <Text className="text-[12px] font-outfit text-secondary">
-                  Create teams and post training content to them.
+                  Create teams, assign athletes, and move athletes (with MOVE
+                  confirmation).
                 </Text>
               </View>
-
-              {teamsLoading && teams.length === 0 ? (
-                <View className="gap-2">
-                  <Skeleton width="92%" height={14} />
-                  <Skeleton width="86%" height={14} />
-                  <Skeleton width="90%" height={14} />
-                </View>
-              ) : teamsError ? (
-                <Text selectable className="text-sm font-outfit text-red-400">
-                  {teamsError}
-                </Text>
-              ) : teams.length === 0 ? (
-                <Text className="text-sm font-outfit text-secondary">
-                  No teams found.
-                </Text>
-              ) : (
-                <View className="gap-3">
-                  {teams.map((t) => (
-                    <Pressable
-                      key={t.team}
-                      accessibilityRole="button"
-                      onPress={() => setTeamDetailOpenName(t.team)}
-                      className="rounded-2xl border px-4 py-3"
-                      style={{
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.03)"
-                          : "rgba(15,23,42,0.03)",
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.06)"
-                          : "rgba(15,23,42,0.06)",
-                      }}
-                    >
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-1 mr-3">
-                          <Text
-                            className="text-[13px] font-clash font-bold text-app"
-                            numberOfLines={1}
-                          >
-                            {t.team}
-                          </Text>
-                          <Text
-                            className="text-[12px] font-outfit text-secondary"
-                            numberOfLines={1}
-                          >
-                            {t.memberCount} members • {t.guardianCount} guardians
-                          </Text>
-                        </View>
-                        <SmallAction
-                          label="Post training"
-                          tone="success"
-                          onPress={() => {
-                            requestGlobalTabChange(5); // Content tab
-                            // Pass team info via some global state or ref later if needed,
-                            // but for now the user can just select the team in Content tab.
-                          }}
-                        />
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
             </View>
           ) : section === "availability" ? (
             <View className="gap-4">
@@ -1409,7 +1239,9 @@ export default function AdminOpsScreen() {
                           <Pressable
                             key={`svc-chip-${s.id}`}
                             accessibilityRole="button"
-                            onPress={() => setAvailabilityServiceTypeId(String(s.id))}
+                            onPress={() =>
+                              setAvailabilityServiceTypeId(String(s.id))
+                            }
                             className="rounded-full border px-3 py-2"
                             style={{
                               backgroundColor:
@@ -1862,7 +1694,6 @@ export default function AdminOpsScreen() {
               ) : (
                 <View className="gap-3">
                   {services.map((s) => {
-                    const busy = serviceEditBusyId === s.id;
                     const advancedJson = defaultServicePatchJson(s);
 
                     return (
@@ -2018,51 +1849,73 @@ export default function AdminOpsScreen() {
                 </View>
 
                 {createBookingSelectedUser?.id ? (
-                  <View className="mt-3 rounded-2xl border px-4 py-3" style={{
-                    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-                  }}>
+                  <View
+                    className="mt-3 rounded-2xl border px-4 py-3"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.03)"
+                        : "rgba(15,23,42,0.03)",
+                      borderColor: isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(15,23,42,0.06)",
+                    }}
+                  >
                     <Text className="text-[12px] font-outfit text-secondary">
                       Selected
                     </Text>
-                    <Text className="text-[14px] font-outfit text-app" numberOfLines={1}>
-                      #{createBookingSelectedUser.id} {createBookingSelectedUser.name ?? createBookingSelectedUser.email ?? "User"}
+                    <Text
+                      className="text-[14px] font-outfit text-app"
+                      numberOfLines={1}
+                    >
+                      #{createBookingSelectedUser.id}{" "}
+                      {createBookingSelectedUser.name ??
+                        createBookingSelectedUser.email ??
+                        "User"}
                     </Text>
-                    <Text className="text-[12px] font-outfit text-secondary" numberOfLines={1}>
+                    <Text
+                      className="text-[12px] font-outfit text-secondary"
+                      numberOfLines={1}
+                    >
                       {createBookingSelectedUser.email ?? ""}
-                      {createBookingSelectedUser.athleteName ? ` • ${createBookingSelectedUser.athleteName}` : ""}
+                      {createBookingSelectedUser.athleteName
+                        ? ` • ${createBookingSelectedUser.athleteName}`
+                        : ""}
                     </Text>
                   </View>
-                ) : (
-                  createBookingUsers.length > 0 ? (
-                    <View className="mt-3 gap-2">
-                      {createBookingUsers.slice(0, 8).map((u) => (
-                        <Pressable
-                          key={`u-${u.id ?? "x"}-${u.email ?? ""}`}
-                          accessibilityRole="button"
-                          onPress={() => setCreateBookingSelectedUser(u)}
-                          className="rounded-2xl border px-4 py-3"
-                          style={{
-                            backgroundColor: isDark
-                              ? "rgba(255,255,255,0.03)"
-                              : "rgba(15,23,42,0.03)",
-                            borderColor: isDark
-                              ? "rgba(255,255,255,0.06)"
-                              : "rgba(15,23,42,0.06)",
-                          }}
+                ) : createBookingUsers.length > 0 ? (
+                  <View className="mt-3 gap-2">
+                    {createBookingUsers.slice(0, 8).map((u) => (
+                      <Pressable
+                        key={`u-${u.id ?? "x"}-${u.email ?? ""}`}
+                        accessibilityRole="button"
+                        onPress={() => setCreateBookingSelectedUser(u)}
+                        className="rounded-2xl border px-4 py-3"
+                        style={{
+                          backgroundColor: isDark
+                            ? "rgba(255,255,255,0.03)"
+                            : "rgba(15,23,42,0.03)",
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.06)"
+                            : "rgba(15,23,42,0.06)",
+                        }}
+                      >
+                        <Text
+                          className="text-[13px] font-clash font-bold text-app"
+                          numberOfLines={1}
                         >
-                          <Text className="text-[13px] font-clash font-bold text-app" numberOfLines={1}>
-                            #{u.id ?? "—"} {u.name ?? u.email ?? "User"}
-                          </Text>
-                          <Text className="text-[12px] font-outfit text-secondary" numberOfLines={1}>
-                            {u.email ?? ""}
-                            {u.athleteName ? ` • ${u.athleteName}` : ""}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null
-                )}
+                          #{u.id ?? "—"} {u.name ?? u.email ?? "User"}
+                        </Text>
+                        <Text
+                          className="text-[12px] font-outfit text-secondary"
+                          numberOfLines={1}
+                        >
+                          {u.email ?? ""}
+                          {u.athleteName ? ` • ${u.athleteName}` : ""}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
               </View>
 
               <View
@@ -2184,7 +2037,10 @@ export default function AdminOpsScreen() {
                       Start time
                     </Text>
                     <Text className="text-[14px] font-outfit text-app">
-                      {createBookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {createBookingTime.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </Text>
                   </Pressable>
                 </View>
@@ -2915,7 +2771,9 @@ export default function AdminOpsScreen() {
 
                           <View className="flex-row gap-2">
                             <SmallAction
-                              label={serviceEditIsActive ? "Active" : "Inactive"}
+                              label={
+                                serviceEditIsActive ? "Active" : "Inactive"
+                              }
                               tone="neutral"
                               onPress={() => setServiceEditIsActive((v) => !v)}
                               disabled={busy}
@@ -2924,15 +2782,24 @@ export default function AdminOpsScreen() {
                               label={busy ? "Saving…" : "Save quick edit"}
                               tone="success"
                               onPress={() => {
-                                const duration = parseIntOrUndefined(serviceEditDurationMinutes);
-                                const cap = parseIntOrUndefined(serviceEditCapacity);
+                                const duration = parseIntOrUndefined(
+                                  serviceEditDurationMinutes,
+                                );
+                                const cap =
+                                  parseIntOrUndefined(serviceEditCapacity);
                                 void updateServiceType(serviceDetailOpenId, {
                                   name: serviceEditName.trim() || undefined,
                                   type: serviceEditType,
                                   durationMinutes: duration ?? undefined,
                                   capacity: cap ?? undefined,
-                                  defaultLocation: serviceEditDefaultLocation.trim() ? serviceEditDefaultLocation.trim() : null,
-                                  defaultMeetingLink: serviceEditDefaultMeetingLink.trim() ? serviceEditDefaultMeetingLink.trim() : null,
+                                  defaultLocation:
+                                    serviceEditDefaultLocation.trim()
+                                      ? serviceEditDefaultLocation.trim()
+                                      : null,
+                                  defaultMeetingLink:
+                                    serviceEditDefaultMeetingLink.trim()
+                                      ? serviceEditDefaultMeetingLink.trim()
+                                      : null,
                                   eligiblePlans: serviceEditEligiblePlans,
                                   isActive: serviceEditIsActive,
                                 });

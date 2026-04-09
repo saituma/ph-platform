@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/api";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { requestAdminOps } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
+import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -117,10 +118,7 @@ export default function AdminHomeScreen() {
               icon="shield"
               label="Teams"
               color="bg-accent"
-              onPress={() => {
-                requestGlobalTabChange(6);
-                requestAdminOps({ section: "teams" });
-              }}
+              onPress={() => router.push("/admin-teams")}
             />
           </View>
           <View className="flex-row gap-3">
