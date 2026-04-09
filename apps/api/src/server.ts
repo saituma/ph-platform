@@ -11,7 +11,11 @@ export async function startServer() {
       await runMigrations({ databaseUrl: env.databaseUrl });
       console.log("[Startup] Database migrations complete.");
     } catch (error) {
-      console.error("[Startup] Database migrations failed.", error);
+      const message =
+        error instanceof Error
+          ? `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ""}`
+          : String(error);
+      console.error(`[Startup] Database migrations failed.\n${message}`);
       if (env.nodeEnv === "production") {
         throw error;
       }
