@@ -1,7 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
@@ -38,6 +45,7 @@ type TrainingContentV2Workspace = {
 
 export default function ProgramModuleDetailScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { moduleId, programId } = useLocalSearchParams<{
     moduleId?: string | string[];
     programId?: ProgramId | string;
@@ -66,14 +74,16 @@ export default function ProgramModuleDetailScreen() {
       managedAthletes.find(
         (athlete) =>
           athlete.id === athleteUserId || athlete.userId === athleteUserId,
-      ) ??
-      managedAthletes[0];
+      ) ?? managedAthletes[0];
     return selected?.age ?? null;
   }, [managedAthletes, athleteUserId]);
 
-  const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(null);
+  const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedOnceRef = useRef(false);
 
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
@@ -111,9 +121,7 @@ export default function ProgramModuleDetailScreen() {
       } catch (err) {
         setWorkspace(null);
         setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load module details.",
+          err instanceof Error ? err.message : "Failed to load module details.",
         );
       } finally {
         setIsLoading(false);
@@ -128,8 +136,11 @@ export default function ProgramModuleDetailScreen() {
   }, [router]);
 
   useEffect(() => {
-    void loadWorkspace();
-  }, [loadWorkspace]);
+    if (!isFocused) return;
+    const force = hasLoadedOnceRef.current;
+    hasLoadedOnceRef.current = true;
+    void loadWorkspace({ force });
+  }, [isFocused, loadWorkspace]);
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
@@ -142,19 +153,44 @@ export default function ProgramModuleDetailScreen() {
           <View className="px-6 pt-4 gap-5">
             <View
               className="overflow-hidden rounded-[30px] border px-5 py-5"
-              style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.md) }}
+              style={{
+                backgroundColor: colors.card,
+                borderColor: borderSoft,
+                ...(isDark ? Shadows.none : Shadows.md),
+              }}
             >
-              <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)" }} />
+              <View
+                className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
+                style={{
+                  backgroundColor: isDark
+                    ? "rgba(34,197,94,0.16)"
+                    : "rgba(34,197,94,0.10)",
+                }}
+              />
               <View className="flex-row items-center justify-between">
                 <Pressable
                   onPress={handleBack}
                   className="h-11 w-11 items-center justify-center rounded-[18px]"
-                  style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)" }}
+                  style={{
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.06)"
+                      : "rgba(255,255,255,0.84)",
+                  }}
                 >
                   <Feather name="arrow-left" size={20} color={colors.accent} />
                 </Pressable>
-                <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)" }}>
-                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+                <View
+                  className="rounded-full px-3 py-1.5"
+                  style={{
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.06)"
+                      : "rgba(255,255,255,0.84)",
+                  }}
+                >
+                  <Text
+                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
+                    style={{ color: colors.accent }}
+                  >
                     Module details
                   </Text>
                 </View>
@@ -166,14 +202,35 @@ export default function ProgramModuleDetailScreen() {
 
               {module ? (
                 <View className="mt-4 flex-row flex-wrap gap-2">
-                  <View className="rounded-full px-3 py-2" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)" }}>
-                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                  <View
+                    className="rounded-full px-3 py-2"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(255,255,255,0.84)",
+                    }}
+                  >
+                    <Text
+                      className="text-[11px] font-outfit font-semibold"
+                      style={{ color: colors.text }}
+                    >
                       {module.totalDayLength} planned days
                     </Text>
                   </View>
-                  <View className="rounded-full px-3 py-2" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)" }}>
-                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                      {module.sessions.length} session{module.sessions.length === 1 ? "" : "s"}
+                  <View
+                    className="rounded-full px-3 py-2"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(255,255,255,0.84)",
+                    }}
+                  >
+                    <Text
+                      className="text-[11px] font-outfit font-semibold"
+                      style={{ color: colors.text }}
+                    >
+                      {module.sessions.length} session
+                      {module.sessions.length === 1 ? "" : "s"}
                     </Text>
                   </View>
                 </View>
@@ -181,30 +238,63 @@ export default function ProgramModuleDetailScreen() {
             </View>
 
             {isLoading ? (
-              <View className="rounded-[24px] border px-5 py-5 items-center" style={{ backgroundColor: colors.card, borderColor: borderSoft }}>
+              <View
+                className="rounded-[24px] border px-5 py-5 items-center"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: borderSoft,
+                }}
+              >
                 <ActivityIndicator size="small" color={colors.accent} />
               </View>
             ) : null}
 
             {error ? (
-              <View className="rounded-[24px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: borderSoft }}>
-                <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
+              <View
+                className="rounded-[24px] border px-5 py-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: borderSoft,
+                }}
+              >
+                <Text
+                  className="text-sm font-outfit"
+                  style={{ color: colors.textSecondary }}
+                >
                   {error}
                 </Text>
               </View>
             ) : null}
 
             {!isLoading && !error && moduleIdValue == null ? (
-              <View className="rounded-[24px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: borderSoft }}>
-                <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
+              <View
+                className="rounded-[24px] border px-5 py-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: borderSoft,
+                }}
+              >
+                <Text
+                  className="text-sm font-outfit"
+                  style={{ color: colors.textSecondary }}
+                >
                   Invalid module id.
                 </Text>
               </View>
             ) : null}
 
             {!isLoading && !error && moduleIdValue != null && !module ? (
-              <View className="rounded-[24px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: borderSoft }}>
-                <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
+              <View
+                className="rounded-[24px] border px-5 py-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: borderSoft,
+                }}
+              >
+                <Text
+                  className="text-sm font-outfit"
+                  style={{ color: colors.textSecondary }}
+                >
                   Module not found.
                 </Text>
               </View>
@@ -215,16 +305,30 @@ export default function ProgramModuleDetailScreen() {
                 {module.locked ? (
                   <View
                     className="rounded-[24px] border px-5 py-5"
-                    style={{ backgroundColor: colors.card, borderColor: borderSoft }}
+                    style={{
+                      backgroundColor: colors.card,
+                      borderColor: borderSoft,
+                    }}
                   >
                     <View className="flex-row items-center gap-2">
-                      <Feather name="lock" size={16} color={colors.textSecondary} />
-                      <Text className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.textSecondary }}>
+                      <Feather
+                        name="lock"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text
+                        className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]"
+                        style={{ color: colors.textSecondary }}
+                      >
                         Locked
                       </Text>
                     </View>
-                    <Text className="mt-2 text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                      Complete the previous modules/sessions to unlock this module.
+                    <Text
+                      className="mt-2 text-sm font-outfit"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      Complete the previous modules/sessions to unlock this
+                      module.
                     </Text>
                   </View>
                 ) : (
@@ -246,32 +350,69 @@ export default function ProgramModuleDetailScreen() {
                         }}
                         className="rounded-[22px] border px-4 py-4"
                         style={{
-                          backgroundColor: session.locked ? (isDark ? "rgba(255,255,255,0.03)" : "#F8FAFC") : colors.background,
-                          borderColor: session.completed ? "rgba(34,197,94,0.25)" : borderSoft,
+                          backgroundColor: session.locked
+                            ? isDark
+                              ? "rgba(255,255,255,0.03)"
+                              : "#F8FAFC"
+                            : colors.background,
+                          borderColor: session.completed
+                            ? "rgba(34,197,94,0.25)"
+                            : borderSoft,
                           opacity: session.locked ? 0.7 : 1,
                         }}
                       >
                         <View className="flex-row items-start justify-between gap-3">
                           <View className="flex-1">
-                            <Text className="text-base font-clash font-bold" style={{ color: colors.text }}>
+                            <Text
+                              className="text-base font-clash font-bold"
+                              style={{ color: colors.text }}
+                            >
                               {session.order}. {session.title}
                             </Text>
-                            <Text className="mt-1 text-xs font-outfit" style={{ color: colors.textSecondary }}>
+                            <Text
+                              className="mt-1 text-xs font-outfit"
+                              style={{ color: colors.textSecondary }}
+                            >
                               {session.dayLength} day target
                             </Text>
                           </View>
                           <View className="flex-row items-center gap-2">
-                            {session.completed ? <Feather name="check-circle" size={18} color="#16A34A" /> : null}
-                            {session.locked ? <Feather name="lock" size={16} color={colors.textSecondary} /> : null}
-                            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+                            {session.completed ? (
+                              <Feather
+                                name="check-circle"
+                                size={18}
+                                color="#16A34A"
+                              />
+                            ) : null}
+                            {session.locked ? (
+                              <Feather
+                                name="lock"
+                                size={16}
+                                color={colors.textSecondary}
+                              />
+                            ) : null}
+                            <Feather
+                              name="chevron-right"
+                              size={18}
+                              color={colors.textSecondary}
+                            />
                           </View>
                         </View>
                       </Pressable>
                     ))}
 
                     {!module.sessions.length ? (
-                      <View className="rounded-[24px] border px-5 py-5" style={{ backgroundColor: colors.card, borderColor: borderSoft }}>
-                        <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
+                      <View
+                        className="rounded-[24px] border px-5 py-5"
+                        style={{
+                          backgroundColor: colors.card,
+                          borderColor: borderSoft,
+                        }}
+                      >
+                        <Text
+                          className="text-sm font-outfit"
+                          style={{ color: colors.textSecondary }}
+                        >
                           No sessions available for this module yet.
                         </Text>
                       </View>

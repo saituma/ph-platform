@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
+import { Label } from "../../ui/label";
 import { Select } from "../../ui/select";
 import {
   useCreateServiceMutation,
@@ -129,6 +130,24 @@ const formatDate = (date: Date) =>
 
 const formatTime = (date: Date) =>
   date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+function getEndTimeHint(startTime: string, durationMinutes: string): string | null {
+  const duration = Number(durationMinutes);
+  if (!startTime || !Number.isFinite(duration) || duration <= 0) return null;
+  const match = /^(\d{2}):(\d{2})$/.exec(startTime);
+  if (!match) return null;
+  const startHours = Number(match[1]);
+  const startMins = Number(match[2]);
+  if (!Number.isFinite(startHours) || !Number.isFinite(startMins)) return null;
+  const startTotal = startHours * 60 + startMins;
+  const endTotal = startTotal + duration;
+  const dayOffset = Math.floor(endTotal / (24 * 60));
+  const endInDay = ((endTotal % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const endHours = Math.floor(endInDay / 60);
+  const endMins = endInDay % 60;
+  const label = `${pad(endHours)}:${pad(endMins)}${dayOffset > 0 ? ` (+${dayOffset}d)` : ""}`;
+  return `Ends ${label}`;
+}
 
 export function BookingsDialogs({
   active,
@@ -326,37 +345,52 @@ export function BookingsDialogs({
         <div className="mt-6 space-y-4">
           {active === "new-service" || active === "edit-service" ? (
             <>
-              <Input
-                placeholder="Service name"
-                value={serviceName}
-                onChange={(e) => {
-                  setServiceName(e.target.value);
-                  setError(null);
-                }}
-              />
-              <Select
-                value={serviceType}
-                onChange={(e) => {
-                  setServiceType(e.target.value);
-                  setError(null);
-                }}
-              >
-                <option value="call">Call</option>
-                <option value="group_call">Group Call</option>
-                <option value="individual_call">Individual Call</option>
-                <option value="lift_lab_1on1">Lift Lab 1:1</option>
-                <option value="role_model">Role Model (Premium)</option>
-              </Select>
-              <Input
-                placeholder="Duration (mins)"
-                value={durationMinutes}
-                onChange={(e) => {
-                  setDurationMinutes(e.target.value);
-                  setError(null);
-                }}
-              />
               <div className="space-y-1">
+                <Label htmlFor="service-name">Name</Label>
                 <Input
+                  id="service-name"
+                  placeholder="Service name"
+                  value={serviceName}
+                  onChange={(e) => {
+                    setServiceName(e.target.value);
+                    setError(null);
+                  }}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="service-type">Type</Label>
+                <Select
+                  id="service-type"
+                  value={serviceType}
+                  onChange={(e) => {
+                    setServiceType(e.target.value);
+                    setError(null);
+                  }}
+                >
+                  <option value="call">Call</option>
+                  <option value="group_call">Group Call</option>
+                  <option value="individual_call">Individual Call</option>
+                  <option value="lift_lab_1on1">Lift Lab 1:1</option>
+                  <option value="role_model">Role Model (Premium)</option>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="service-duration">Duration (mins)</Label>
+                <Input
+                  id="service-duration"
+                  placeholder="60"
+                  inputMode="numeric"
+                  value={durationMinutes}
+                  onChange={(e) => {
+                    setDurationMinutes(e.target.value);
+                    setError(null);
+                  }}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="service-capacity">Capacity</Label>
+                <Input
+                  id="service-capacity"
                   placeholder="Slots available"
                   value={capacity}
                   onChange={(e) => {
@@ -375,6 +409,7 @@ export function BookingsDialogs({
                     { value: "PHP", label: "PHP" },
                     { value: "PHP_Premium_Plus", label: "PHP Premium Plus" },
                     { value: "PHP_Premium", label: "PHP Premium" },
+                    { value: "PHP_Pro", label: "PHP Pro" },
                   ].map((plan) => (
                     <label key={plan.value} className="flex items-center gap-2 text-sm text-muted-foreground">
                       <input
@@ -393,14 +428,36 @@ export function BookingsDialogs({
                   ))}
                 </div>
               </div>
-              <Select value={schedulePattern} onChange={(e) => setSchedulePattern(e.target.value)}>
-                <option value="one_time">One-time service</option>
-                <option value="weekly_recurring">Weekly recurring</option>
-              </Select>
+              <div className="space-y-1">
+                <Label htmlFor="service-schedule-pattern">Schedule pattern</Label>
+                <Select id="service-schedule-pattern" value={schedulePattern} onChange={(e) => setSchedulePattern(e.target.value)}>
+                  <option value="one_time">One-time service</option>
+                  <option value="weekly_recurring">Weekly recurring</option>
+                </Select>
+              </div>
               {schedulePattern === "one_time" ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Input type="date" value={oneTimeDate} onChange={(e) => setOneTimeDate(e.target.value)} />
-                  <Input type="time" value={oneTimeTime} onChange={(e) => setOneTimeTime(e.target.value)} />
+                  <div className="space-y-1">
+                    <Label htmlFor="service-one-time-date">Date</Label>
+                    <Input
+                      id="service-one-time-date"
+                      type="date"
+                      value={oneTimeDate}
+                      onChange={(e) => setOneTimeDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="service-one-time-time">Start time</Label>
+                    <Input
+                      id="service-one-time-time"
+                      type="time"
+                      value={oneTimeTime}
+                      onChange={(e) => setOneTimeTime(e.target.value)}
+                    />
+                    {getEndTimeHint(oneTimeTime, durationMinutes) ? (
+                      <div className="text-xs text-muted-foreground">{getEndTimeHint(oneTimeTime, durationMinutes)}</div>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3 rounded-2xl border border-border bg-secondary/20 p-4">
@@ -417,35 +474,50 @@ export function BookingsDialogs({
                   </div>
                   {weeklyEntries.map((entry, index) => (
                     <div key={`weekly-${index}`} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                      <Select
-                        value={entry.weekday}
-                        onChange={(e) =>
-                          setWeeklyEntries((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, weekday: e.target.value } : item,
-                            ),
-                          )
-                        }
-                      >
-                        <option value="1">Monday</option>
-                        <option value="2">Tuesday</option>
-                        <option value="3">Wednesday</option>
-                        <option value="4">Thursday</option>
-                        <option value="5">Friday</option>
-                        <option value="6">Saturday</option>
-                        <option value="7">Sunday</option>
-                      </Select>
-                      <Input
-                        type="time"
-                        value={entry.time}
-                        onChange={(e) =>
-                          setWeeklyEntries((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, time: e.target.value } : item,
-                            ),
-                          )
-                        }
-                      />
+                      <div className="space-y-1">
+                        <Label className={index === 0 ? "" : "sr-only"} htmlFor={`service-weekly-weekday-${index}`}>
+                          Day
+                        </Label>
+                        <Select
+                          id={`service-weekly-weekday-${index}`}
+                          value={entry.weekday}
+                          onChange={(e) =>
+                            setWeeklyEntries((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, weekday: e.target.value } : item,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="1">Monday</option>
+                          <option value="2">Tuesday</option>
+                          <option value="3">Wednesday</option>
+                          <option value="4">Thursday</option>
+                          <option value="5">Friday</option>
+                          <option value="6">Saturday</option>
+                          <option value="7">Sunday</option>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className={index === 0 ? "" : "sr-only"} htmlFor={`service-weekly-time-${index}`}>
+                          Start time
+                        </Label>
+                        <Input
+                          id={`service-weekly-time-${index}`}
+                          type="time"
+                          value={entry.time}
+                          onChange={(e) =>
+                            setWeeklyEntries((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, time: e.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                        {getEndTimeHint(entry.time, durationMinutes) ? (
+                          <div className="text-xs text-muted-foreground">{getEndTimeHint(entry.time, durationMinutes)}</div>
+                        ) : null}
+                      </div>
                       <Button
                         type="button"
                         variant="outline"
@@ -460,28 +532,40 @@ export function BookingsDialogs({
                     </div>
                   ))}
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Select value={recurrenceEndMode} onChange={(e) => setRecurrenceEndMode(e.target.value)}>
-                      <option value="forever">Repeat until disabled</option>
-                      <option value="weeks">Repeat for weeks</option>
-                      <option value="months">Repeat for months</option>
-                    </Select>
+                    <div className="space-y-1">
+                      <Label htmlFor="service-recurrence-end-mode">Repeat</Label>
+                      <Select id="service-recurrence-end-mode" value={recurrenceEndMode} onChange={(e) => setRecurrenceEndMode(e.target.value)}>
+                        <option value="forever">Repeat until disabled</option>
+                        <option value="weeks">Repeat for weeks</option>
+                        <option value="months">Repeat for months</option>
+                      </Select>
+                    </div>
                     {recurrenceEndMode === "forever" ? null : (
-                      <Input
-                        type="number"
-                        min={1}
-                        placeholder={recurrenceEndMode === "weeks" ? "Number of weeks" : "Number of months"}
-                        value={recurrenceCount}
-                        onChange={(e) => setRecurrenceCount(e.target.value)}
-                      />
+                      <div className="space-y-1">
+                        <Label htmlFor="service-recurrence-count">
+                          {recurrenceEndMode === "weeks" ? "Weeks" : "Months"}
+                        </Label>
+                        <Input
+                          id="service-recurrence-count"
+                          type="number"
+                          min={1}
+                          placeholder={recurrenceEndMode === "weeks" ? "Number of weeks" : "Number of months"}
+                          value={recurrenceCount}
+                          onChange={(e) => setRecurrenceCount(e.target.value)}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
               )}
-              <Select value={slotMode} onChange={(e) => setSlotMode(e.target.value)}>
-                <option value="shared_capacity">Shared capacity</option>
-                <option value="exact_sub_slots">Exact sub-slots</option>
-                <option value="both">Both shared and exact slots</option>
-              </Select>
+              <div className="space-y-1">
+                <Label htmlFor="service-slot-mode">Slot mode</Label>
+                <Select id="service-slot-mode" value={slotMode} onChange={(e) => setSlotMode(e.target.value)}>
+                  <option value="shared_capacity">Shared capacity</option>
+                  <option value="exact_sub_slots">Exact sub-slots</option>
+                  <option value="both">Both shared and exact slots</option>
+                </Select>
+              </div>
               {slotMode === "shared_capacity" ? null : (
                 <div className="space-y-3 rounded-2xl border border-border bg-secondary/20 p-4">
                   <div className="flex items-center justify-between gap-3">
@@ -495,39 +579,58 @@ export function BookingsDialogs({
                       Add slot
                     </Button>
                   </div>
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="Slot interval in minutes (optional)"
-                    value={slotIntervalMinutes}
-                    onChange={(e) => setSlotIntervalMinutes(e.target.value)}
-                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="service-slot-interval">Slot interval (mins, optional)</Label>
+                    <Input
+                      id="service-slot-interval"
+                      type="number"
+                      min={1}
+                      placeholder="e.g. 15"
+                      value={slotIntervalMinutes}
+                      onChange={(e) => setSlotIntervalMinutes(e.target.value)}
+                    />
+                  </div>
                   {slotDefinitions.map((slot, index) => (
                     <div key={`slot-${index}`} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                      <Input
-                        type="time"
-                        value={slot.time}
-                        onChange={(e) =>
-                          setSlotDefinitions((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, time: e.target.value } : item,
-                            ),
-                          )
-                        }
-                      />
-                      <Input
-                        type="number"
-                        min={1}
-                        placeholder="Capacity"
-                        value={slot.capacity}
-                        onChange={(e) =>
-                          setSlotDefinitions((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, capacity: e.target.value } : item,
-                            ),
-                          )
-                        }
-                      />
+                      <div className="space-y-1">
+                        <Label className={index === 0 ? "" : "sr-only"} htmlFor={`service-slot-time-${index}`}>
+                          Start time
+                        </Label>
+                        <Input
+                          id={`service-slot-time-${index}`}
+                          type="time"
+                          value={slot.time}
+                          onChange={(e) =>
+                            setSlotDefinitions((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, time: e.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                        {getEndTimeHint(slot.time, durationMinutes) ? (
+                          <div className="text-xs text-muted-foreground">{getEndTimeHint(slot.time, durationMinutes)}</div>
+                        ) : null}
+                      </div>
+                      <div className="space-y-1">
+                        <Label className={index === 0 ? "" : "sr-only"} htmlFor={`service-slot-capacity-${index}`}>
+                          Capacity
+                        </Label>
+                        <Input
+                          id={`service-slot-capacity-${index}`}
+                          type="number"
+                          min={1}
+                          placeholder="Capacity"
+                          value={slot.capacity}
+                          onChange={(e) =>
+                            setSlotDefinitions((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, capacity: e.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
                       <Button
                         type="button"
                         variant="outline"
@@ -560,11 +663,15 @@ export function BookingsDialogs({
                 />
                 Service is active (shown to clients while capacity remains)
               </label>
-              <Input
-                placeholder="Default location (optional)"
-                value={defaultLocation}
-                onChange={(e) => setDefaultLocation(e.target.value)}
-              />
+              <div className="space-y-1">
+                <Label htmlFor="service-default-location">Default location (optional)</Label>
+                <Input
+                  id="service-default-location"
+                  placeholder="Lift Lab — main floor"
+                  value={defaultLocation}
+                  onChange={(e) => setDefaultLocation(e.target.value)}
+                />
+              </div>
               {/* Default video link removed */}
               {error ? <p className="text-sm text-red-500">{error}</p> : null}
               <div className="flex justify-end gap-2">

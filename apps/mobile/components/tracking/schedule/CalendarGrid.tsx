@@ -12,6 +12,7 @@ interface CalendarGridProps {
   todayKey: string;
   selectedCalendarDate: string;
   eventsByDate: Map<string, ScheduleEvent[]>;
+  availabilityByDate: Map<string, string[]>;
   eventsTotalCount: number;
   onSelectDate: (dateKey: string) => void;
   onChangeMonth: (offset: number) => void;
@@ -23,6 +24,7 @@ export function CalendarGrid({
   todayKey,
   selectedCalendarDate,
   eventsByDate,
+  availabilityByDate,
   eventsTotalCount,
   onSelectDate,
   onChangeMonth,
@@ -67,10 +69,34 @@ export function CalendarGrid({
     return cells;
   }, [calendarMonth]);
 
+  const openDaysCount = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    let count = 0;
+    availabilityByDate.forEach((types, dateKey) => {
+      if (!types?.length) return;
+      const [y, m] = dateKey.split("-").map((value) => Number(value));
+      if (y === year && m === month + 1) count += 1;
+    });
+    return count;
+  }, [availabilityByDate, calendarMonth]);
+
   const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
   const mutedSurface = isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.82)";
   const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
+  const availabilitySurface = isDark ? "rgba(0,229,255,0.10)" : "rgba(8,145,178,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+
+  const getAvailabilityDotColor = (serviceType: string) => {
+    const palette = colors as any;
+    if (serviceType.includes("group_call")) return (palette.purple as string | undefined) ?? colors.accent;
+    if (serviceType.includes("lift_lab")) return (palette.amber as string | undefined) ?? colors.accent;
+    if (serviceType.includes("role_model")) return (palette.amber as string | undefined) ?? colors.accent;
+    if (serviceType.includes("individual_call") || serviceType === "call" || serviceType.includes("one_on_one")) {
+      return (palette.cyan as string | undefined) ?? colors.accent;
+    }
+    return (palette.cyan as string | undefined) ?? colors.accent;
+  };
 
   return (
     <View className="px-6 pb-4">
@@ -79,13 +105,22 @@ export function CalendarGrid({
           <View className="h-5 w-1.5 rounded-full bg-accent" />
           <Text className="text-xl font-clash text-app">Calendar</Text>
         </View>
-        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-          <Text
-            className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
-            style={{ color: colors.accent }}
-          >
-            {eventsTotalCount} bookings
-          </Text>
+        <View className="flex-row items-center gap-2">
+          {openDaysCount > 0 ? (
+            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: availabilitySurface }}>
+              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.cyan }}>
+                {openDaysCount} open days
+              </Text>
+            </View>
+          ) : null}
+          <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
+            <Text
+              className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
+              style={{ color: colors.accent }}
+            >
+              {eventsTotalCount} bookings
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -149,6 +184,8 @@ export function CalendarGrid({
               const isSelected = selectedCalendarDate === cell.key;
               const eventsForDay = eventsByDate.get(cell.key) ?? [];
               const hasEvents = eventsForDay.length > 0;
+              const availabilityForDay = availabilityByDate.get(cell.key) ?? [];
+              const hasAvailability = availabilityForDay.length > 0;
               return (
                 <Pressable
                   key={`${cell.key}-${index}`}
@@ -163,6 +200,8 @@ export function CalendarGrid({
                       ? accentSurface
                       : cell.isOutside
                         ? mutedSurface
+                        : hasAvailability
+                          ? availabilitySurface
                         : "transparent",
                   }}
                 >
@@ -193,11 +232,22 @@ export function CalendarGrid({
                           {cell.date.getDate()}
                         </Text>
                       </View>
-                      {hasEvents ? (
-                        <View
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: colors.accent }}
-                        />
+                      {hasEvents || hasAvailability ? (
+                        <View className="flex-row items-center gap-1">
+                          {availabilityForDay.slice(0, 3).map((type) => (
+                            <View
+                              key={`${cell.key}-avail-${type}`}
+                              className="h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: getAvailabilityDotColor(type) }}
+                            />
+                          ))}
+                          {hasEvents ? (
+                            <View
+                              className="h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: colors.accent }}
+                            />
+                          ) : null}
+                        </View>
                       ) : null}
                     </View>
 

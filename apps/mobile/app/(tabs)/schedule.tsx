@@ -15,7 +15,7 @@ import { ScheduleHeader } from "@/components/tracking/schedule/ScheduleHeader";
 import { CalendarGrid } from "@/components/tracking/schedule/CalendarGrid";
 import { EventList } from "@/components/tracking/schedule/EventList";
 import { BookingModal } from "@/components/tracking/schedule/BookingModal";
-import { useScheduleData } from "@/components/tracking/schedule/hooks";
+import { useGeneratedAvailability, useScheduleData } from "@/components/tracking/schedule/hooks";
 import { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
 
@@ -45,6 +45,24 @@ export default function ScheduleScreen() {
     refreshServices,
   } = useScheduleData(token, isFocused);
 
+  const availabilityWindow = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0);
+    // Pad a couple days for timezone edges.
+    start.setDate(start.getDate() - 2);
+    end.setDate(end.getDate() + 2);
+    return { from: start, to: end };
+  }, [calendarMonth]);
+
+  const { availability } = useGeneratedAvailability({
+    token,
+    from: availabilityWindow.from,
+    to: availabilityWindow.to,
+    enabled: isFocused,
+  });
+
   const dayEvents = useMemo(() => {
     return events.filter((event) => event.dateKey === selectedCalendarDate);
   }, [events, selectedCalendarDate]);
@@ -57,6 +75,29 @@ export default function ScheduleScreen() {
     });
     return map;
   }, [events]);
+
+  const availabilityByDate = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const hasRemainingCapacity = (item: any) => {
+      if (item?.remainingCapacity == null) return true;
+      if (Number(item.remainingCapacity) > 0) return true;
+      const slots: any[] = Array.isArray(item?.slots) ? item.slots : [];
+      return slots.some((slot) => slot?.remainingCapacity == null || Number(slot.remainingCapacity) > 0);
+    };
+
+    (availability ?? []).forEach((item: any) => {
+      if (!item?.startsAt || !hasRemainingCapacity(item)) return;
+      const key = formatDateKey(new Date(item.startsAt));
+      const current = map.get(key) ?? [];
+      const nextType = String(item.type ?? "service");
+      if (!current.includes(nextType)) {
+        map.set(key, [...current, nextType]);
+      } else {
+        map.set(key, current);
+      }
+    });
+    return map;
+  }, [availability]);
 
   const selectedDate = useMemo(() => parseDateKey(selectedCalendarDate), [selectedCalendarDate]);
   const selectedDateLabel = useMemo(
@@ -179,6 +220,7 @@ export default function ScheduleScreen() {
           todayKey={todayKey}
           selectedCalendarDate={selectedCalendarDate}
           eventsByDate={eventsByDate}
+          availabilityByDate={availabilityByDate}
           eventsTotalCount={events.length}
           onSelectDate={handleSelectDate}
           onChangeMonth={handleChangeMonth}

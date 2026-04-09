@@ -44,11 +44,10 @@ interface TabItemProps {
   colors: any;
   isDark: boolean;
   pillSize: number;
-  homePillSize: number;
   iconSize: number;
-  homeIconSize: number;
   labelFontSize: number;
   labelMarginTop: number;
+  tabCount: number;
 }
 
 const TabItem = React.memo(
@@ -61,16 +60,11 @@ const TabItem = React.memo(
     colors,
     isDark,
     pillSize,
-    homePillSize,
     iconSize,
-    homeIconSize,
     labelFontSize,
     labelMarginTop,
+    tabCount,
   }: TabItemProps) => {
-    const isHome = tab.key === "index";
-    const effectivePillSize = isHome ? homePillSize : pillSize;
-    const effectiveIconSize = isHome ? homeIconSize : iconSize;
-
     // Animated pill background: active = soft fill, inactive = transparent
     const pillStyle = useAnimatedStyle(() => {
       const activeBg = isDark
@@ -172,8 +166,7 @@ const TabItem = React.memo(
       <Pressable
         onPress={() => onTabPress(index)}
         style={({ pressed }) => ({
-          flexGrow: 1,
-          flexBasis: 0,
+          width: `${100 / Math.max(1, tabCount)}%`,
           alignItems: "center",
           justifyContent: "center",
           paddingVertical: 4,
@@ -185,9 +178,9 @@ const TabItem = React.memo(
         <Animated.View
           style={[
             {
-              width: effectivePillSize,
-              height: effectivePillSize,
-              borderRadius: effectivePillSize / 2,
+              width: pillSize,
+              height: pillSize,
+              borderRadius: pillSize / 2,
               alignItems: "center",
               justifyContent: "center",
             },
@@ -201,7 +194,7 @@ const TabItem = React.memo(
             <Animated.View style={[activeTintStyle, { position: "absolute" }]}>
               <Ionicons
                 name={tab.icon}
-                size={effectiveIconSize}
+                size={iconSize}
                 color={activeColor}
               />
             </Animated.View>
@@ -209,7 +202,7 @@ const TabItem = React.memo(
             <Animated.View style={inactiveTintStyle}>
               <Ionicons
                 name={tab.iconOutline ?? tab.icon}
-                size={effectiveIconSize}
+                size={iconSize}
                 color={inactiveColor}
               />
             </Animated.View>
@@ -289,9 +282,7 @@ export function TabBar({
     Platform.OS === "ios" ? (compact ? 60 : 64) : compact ? 64 : 68;
   const safeBottom = Math.max(insets.bottom, Platform.OS === "ios" ? 10 : 8);
   const pillSize = compact ? 36 : 40;
-  const homePillSize = compact ? 44 : 48;
   const iconSize = compact ? 18 : 20;
-  const homeIconSize = compact ? 20 : 22;
   const labelFontSize = compact ? 9 : 10;
   const labelMarginTop = compact ? 2 : 3;
 
@@ -352,13 +343,8 @@ export function TabBar({
             {
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
-              flexDirection: "row",
               borderTopWidth: StyleSheet.hairlineWidth,
               borderTopColor,
-              alignItems: "center",
-              justifyContent: "space-around",
-              paddingHorizontal: compact ? 8 : 12,
-              paddingBottom: safeBottom,
               overflow: "hidden",
             },
           ]}
@@ -370,24 +356,34 @@ export function TabBar({
             end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          {visibleTabs.map(({ tab, index }) => (
-            <TabItem
-              key={tab.key}
-              tab={tab}
-              index={index}
-              activeIndex={activeIndex}
-              onTabPress={onTabPress}
-              scrollOffset={scrollOffset}
-              colors={colors}
-              isDark={isDark}
-              pillSize={pillSize}
-              homePillSize={homePillSize}
-              iconSize={iconSize}
-              homeIconSize={homeIconSize}
-              labelFontSize={labelFontSize}
-              labelMarginTop={labelMarginTop}
-            />
-          ))}
+          <View
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: compact ? 8 : 12,
+              paddingBottom: safeBottom,
+            }}
+          >
+            {visibleTabs.map(({ tab, index }) => (
+              <TabItem
+                key={tab.key}
+                tab={tab}
+                index={index}
+                activeIndex={activeIndex}
+                onTabPress={onTabPress}
+                scrollOffset={scrollOffset}
+                colors={colors}
+                isDark={isDark}
+                pillSize={pillSize}
+                iconSize={iconSize}
+                labelFontSize={labelFontSize}
+                labelMarginTop={labelMarginTop}
+                tabCount={tabCount}
+              />
+            ))}
+          </View>
         </LiquidGlass>
       </View>
     </View>
