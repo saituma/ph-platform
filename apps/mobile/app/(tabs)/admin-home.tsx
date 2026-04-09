@@ -6,6 +6,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
+import { requestAdminOps } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, View } from "react-native";
@@ -29,10 +30,12 @@ export default function AdminHomeScreen() {
   const insets = useSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
+  const canLoad = Boolean(token && bootstrapReady);
 
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const [detail, setDetail] = useState<HomeDetail | null>(null);
 
@@ -55,14 +58,16 @@ export default function AdminHomeScreen() {
         );
       } finally {
         setLoading(false);
+        setHasLoadedOnce(true);
       }
     },
     [bootstrapReady, token],
   );
 
   useEffect(() => {
+    if (!canLoad) return;
     void load(false);
-  }, [load]);
+  }, [canLoad, load]);
 
   const stats = useMemo(
     () => [
@@ -100,25 +105,36 @@ export default function AdminHomeScreen() {
               icon="users"
               label="Users"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(2)}
+              onPress={() => requestGlobalTabChange(3)}
             />
             <ActionButton
               icon="video"
               label="Videos"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(1)}
+              onPress={() => requestGlobalTabChange(2)}
             />
             <ActionButton
               icon="layers"
               label="Content"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(3)}
+              onPress={() => requestGlobalTabChange(5)}
             />
+            <ActionButton
+              icon="settings"
+              label="Scheduling"
+              color="bg-accent"
+              onPress={() => {
+                requestGlobalTabChange(6);
+                requestAdminOps({ section: "bookings", action: "createBooking" });
+              }}
+            />
+          </View>
+          <View className="flex-row gap-3">
             <ActionButton
               icon="settings"
               label="Ops"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(4)}
+              onPress={() => requestGlobalTabChange(6)}
             />
           </View>
         </View>
@@ -137,7 +153,17 @@ export default function AdminHomeScreen() {
             Today
           </Text>
 
-          {loading && !data ? (
+          {!canLoad ? (
+            <View className="gap-2">
+              <Text className="text-sm font-outfit text-secondary">
+                Waiting for auth bootstrap…
+              </Text>
+              <View className="gap-2 mt-1">
+                <Skeleton width="70%" height={16} />
+                <Skeleton width="55%" height={16} />
+              </View>
+            </View>
+          ) : (loading && !data) || (!hasLoadedOnce && !data) ? (
             <View className="gap-2">
               <Skeleton width="70%" height={16} />
               <Skeleton width="55%" height={16} />

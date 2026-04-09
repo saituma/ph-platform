@@ -3,6 +3,7 @@ import {
   AdminCreateUserCommand,
   AdminDeleteUserCommand,
   AdminGetUserCommand,
+  AdminSetUserPasswordCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
@@ -19,9 +20,9 @@ import {
   enrollmentTable,
 } from "../../db/schema";
 import { env } from "../../config/env";
-import { sendAdminWelcomeCredentialsEmail } from "../../lib/mailer";
+import { sendAdminPasswordResetEmail, sendAdminWelcomeCredentialsEmail } from "../../lib/mailer";
 import { ensureAthleteUserRecord, submitOnboarding } from "../onboarding.service";
-import { createUserFromCognito, getAthleteForUser, getUserByEmail } from "../user.service";
+import { createUserFromCognito, getAthleteForUser, getUserByEmail, getUserById } from "../user.service";
 import { calculateAge, parseISODate } from "../../lib/age";
 
 export async function listUsers(options?: { q?: string; limit?: number }) {
@@ -653,4 +654,76 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
     }
     throw error;
   }
+}
+
+export async function resetUserPasswordAdmin(input: { userId: number; temporaryPassword?: string | null }) {
+  const user = await getUserById(input.userId);
+  if (!user) {
+    throw { status: 404, message: "User not found." };
+  }
+
+  const nextPassword = resolveProvisionPassword(input.temporaryPassword);
+
+  if (env.authMode === "local") {
+    const { hash, salt } = hashLocalProvisionPassword(nextPassword);
+    await db
+      .update(userTable)
+      .set({
+        passwordHash: hash,
+        passwordSalt: salt,
+        tokenVersion: (user.tokenVersion ?? 0) + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTable.id, user.id));
+  } else {
+    if (!env.cognitoUserPoolId) {
+      throw { status: 500, message: "Authentication is not configured for password resets." };
+    }
+
+    try {
+      await cognitoClient.send(
+        new AdminSetUserPasswordCommand({
+          UserPoolId: env.cognitoUserPoolId,
+          Username: user.email,
+          Password: nextPassword,
+          Permanent: false,
+        })
+      );
+    } catch (error: any) {
+      if (error?.name === "UserNotFoundException") {
+        throw { status: 404, message: "User not found in Cognito." };
+      }
+      if (error?.name === "InvalidPasswordException") {
+        throw { status: 400, message: "Temporary password did not meet your Cognito password policy." };
+      }
+      throw error;
+    }
+
+    await db
+      .update(userTable)
+      .set({
+        tokenVersion: (user.tokenVersion ?? 0) + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTable.id, user.id));
+  }
+
+  let emailSent = true;
+  try {
+    await sendAdminPasswordResetEmail({
+      to: user.email,
+      displayName: user.name,
+      temporaryPassword: nextPassword,
+    });
+  } catch (mailErr) {
+    console.error("[admin] Password reset email failed", mailErr);
+    emailSent = false;
+  }
+
+  return {
+    ok: true,
+    temporaryPassword: nextPassword,
+    emailSent,
+    generated: !((input.temporaryPassword ?? "").trim()),
+  };
 }

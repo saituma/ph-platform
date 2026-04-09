@@ -4,10 +4,12 @@ import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { subscribeToAdminOpsRequests } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 type AdminBooking = {
   id: number;
@@ -48,6 +50,14 @@ type AdminAvailabilityBlock = {
   serviceName?: string | null;
 };
 
+type AdminUserLite = {
+  id?: number;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  athleteName?: string | null;
+};
+
 type ServiceType = {
   id: number;
   name?: string | null;
@@ -58,6 +68,7 @@ type ServiceType = {
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;
   programTier?: string | null;
+  eligiblePlans?: string[] | null;
 };
 
 type OpsSection = "bookings" | "availability" | "services";
@@ -90,6 +101,7 @@ function defaultServicePatchJson(s: ServiceType) {
       defaultLocation: s.defaultLocation ?? undefined,
       defaultMeetingLink: s.defaultMeetingLink ?? undefined,
       programTier: s.programTier ?? undefined,
+      eligiblePlans: s.eligiblePlans ?? undefined,
     },
     null,
     2,
@@ -242,6 +254,37 @@ export default function AdminOpsScreen() {
     null,
   );
 
+  const [createBookingOpen, setCreateBookingOpen] = useState(false);
+  const [createBookingUserQuery, setCreateBookingUserQuery] = useState("");
+  const [createBookingUsers, setCreateBookingUsers] = useState<AdminUserLite[]>(
+    [],
+  );
+  const [createBookingSelectedUser, setCreateBookingSelectedUser] =
+    useState<AdminUserLite | null>(null);
+  const [createBookingServiceId, setCreateBookingServiceId] = useState<
+    number | null
+  >(null);
+  const [createBookingDate, setCreateBookingDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    return d;
+  });
+  const [createBookingTime, setCreateBookingTime] = useState<Date>(() => {
+    const t = new Date();
+    t.setHours(9, 0, 0, 0);
+    return t;
+  });
+  const [createBookingShowDatePicker, setCreateBookingShowDatePicker] =
+    useState(false);
+  const [createBookingShowTimePicker, setCreateBookingShowTimePicker] =
+    useState(false);
+  const [createBookingLocation, setCreateBookingLocation] = useState("");
+  const [createBookingMeetingLink, setCreateBookingMeetingLink] = useState("");
+  const [createBookingBusy, setCreateBookingBusy] = useState(false);
+  const [createBookingError, setCreateBookingError] = useState<string | null>(
+    null,
+  );
+
   const [availability, setAvailability] = useState<AdminAvailabilityBlock[]>(
     [],
   );
@@ -257,6 +300,20 @@ export default function AdminOpsScreen() {
   const [availabilityStartsAt, setAvailabilityStartsAt] = useState("");
   const [availabilityEndsAt, setAvailabilityEndsAt] = useState("");
   const [availabilityCreateBusy, setAvailabilityCreateBusy] = useState(false);
+  const [availabilityStartDate, setAvailabilityStartDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(9, 0, 0, 0);
+    return d;
+  });
+  const [availabilityEndDate, setAvailabilityEndDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(17, 0, 0, 0);
+    return d;
+  });
+  const [availabilityShowStartPicker, setAvailabilityShowStartPicker] =
+    useState(false);
+  const [availabilityShowEndPicker, setAvailabilityShowEndPicker] =
+    useState(false);
 
   const [services, setServices] = useState<ServiceType[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
@@ -283,8 +340,37 @@ export default function AdminOpsScreen() {
   const [serviceEditBusyId, setServiceEditBusyId] = useState<number | null>(
     null,
   );
+  const [serviceEditName, setServiceEditName] = useState("");
+  const [serviceEditType, setServiceEditType] = useState("call");
+  const [serviceEditDurationMinutes, setServiceEditDurationMinutes] =
+    useState("30");
+  const [serviceEditCapacity, setServiceEditCapacity] = useState("");
+  const [serviceEditDefaultLocation, setServiceEditDefaultLocation] =
+    useState("");
+  const [serviceEditDefaultMeetingLink, setServiceEditDefaultMeetingLink] =
+    useState("");
+  const [serviceEditEligiblePlans, setServiceEditEligiblePlans] = useState<
+    string[]
+  >([]);
+  const [serviceEditIsActive, setServiceEditIsActive] = useState(true);
 
   const canLoad = Boolean(token && bootstrapReady);
+
+  useEffect(() => {
+    return subscribeToAdminOpsRequests((payload) => {
+      if (payload.section) setSection(payload.section);
+      if (payload.action === "createBooking") {
+        setSection("bookings");
+        setCreateBookingOpen(true);
+      }
+      if (payload.action === "createAvailability") {
+        setSection("availability");
+      }
+      if (payload.action === "createService") {
+        setSection("services");
+      }
+    });
+  }, []);
 
   const loadBookings = useCallback(
     async (forceRefresh: boolean) => {
@@ -318,6 +404,109 @@ export default function AdminOpsScreen() {
     },
     [bookingLimit, bookingQuery, canLoad, token],
   );
+
+  const loadCreateBookingUsers = useCallback(
+    async (forceRefresh: boolean) => {
+      if (!canLoad) return;
+      const q = createBookingUserQuery.trim();
+      if (!q) {
+        setCreateBookingUsers([]);
+        return;
+      }
+      setCreateBookingError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set("q", q);
+        params.set("limit", "25");
+        const res = await apiRequest<{ users?: AdminUserLite[] }>(
+          `/admin/users?${params.toString()}`,
+          {
+            token,
+            suppressStatusCodes: [403],
+            skipCache: forceRefresh,
+            forceRefresh,
+          },
+        );
+        setCreateBookingUsers(Array.isArray(res?.users) ? res.users : []);
+      } catch (e) {
+        setCreateBookingUsers([]);
+        setCreateBookingError(
+          e instanceof Error ? e.message : "Failed to search users",
+        );
+      }
+    },
+    [canLoad, createBookingUserQuery, token],
+  );
+
+  const submitAdminBooking = useCallback(async () => {
+    if (!canLoad) return;
+    if (createBookingBusy) return;
+    const userId = createBookingSelectedUser?.id;
+    if (!userId) {
+      setCreateBookingError("Pick a user first.");
+      return;
+    }
+    if (!createBookingServiceId) {
+      setCreateBookingError("Pick a service type first.");
+      return;
+    }
+    const service = services.find((s) => s.id === createBookingServiceId) ?? null;
+    if (!service) {
+      setCreateBookingError("Service type not found.");
+      return;
+    }
+    const durationMinutes = Number(service.durationMinutes ?? 30);
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+      setCreateBookingError("Service duration is invalid.");
+      return;
+    }
+
+    setCreateBookingBusy(true);
+    setCreateBookingError(null);
+    try {
+      const startsAt = new Date(createBookingDate);
+      startsAt.setHours(createBookingTime.getHours(), createBookingTime.getMinutes(), 0, 0);
+      const endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
+
+      await apiRequest("/admin/bookings", {
+        method: "POST",
+        token,
+        body: {
+          userId,
+          serviceTypeId: createBookingServiceId,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+          location: createBookingLocation.trim() || null,
+          meetingLink: createBookingMeetingLink.trim() || null,
+          status: "confirmed",
+        },
+        suppressStatusCodes: [400, 403],
+        skipCache: true,
+        forceRefresh: true,
+      });
+
+      setCreateBookingOpen(false);
+      await loadBookings(true);
+    } catch (e) {
+      setCreateBookingError(
+        e instanceof Error ? e.message : "Failed to create booking",
+      );
+    } finally {
+      setCreateBookingBusy(false);
+    }
+  }, [
+    canLoad,
+    createBookingBusy,
+    createBookingDate,
+    createBookingLocation,
+    createBookingMeetingLink,
+    createBookingSelectedUser?.id,
+    createBookingServiceId,
+    createBookingTime,
+    loadBookings,
+    services,
+    token,
+  ]);
 
   const loadBookingDetail = useCallback(
     async (bookingId: number, forceRefresh: boolean) => {
@@ -363,7 +552,7 @@ export default function AdminOpsScreen() {
       setBookingMutatingId(bookingId);
       setBookingsError(null);
       try {
-        await apiRequest(`/admin/bookings/${bookingId}/status`, {
+        await apiRequest(`/admin/bookings/${bookingId}`, {
           method: "PATCH",
           token,
           body: { status },
@@ -657,6 +846,26 @@ export default function AdminOpsScreen() {
   }, [serviceDetailOpenId, serviceEditAdvancedJson, services]);
 
   useEffect(() => {
+    if (!serviceDetailOpenId) return;
+    const svc = services.find((s) => s.id === serviceDetailOpenId);
+    if (!svc) return;
+    setServiceEditName(String(svc.name ?? ""));
+    setServiceEditType(String(svc.type ?? "call"));
+    setServiceEditDurationMinutes(String(svc.durationMinutes ?? 30));
+    setServiceEditCapacity(svc.capacity == null ? "" : String(svc.capacity));
+    setServiceEditDefaultLocation(String(svc.defaultLocation ?? ""));
+    setServiceEditDefaultMeetingLink(String(svc.defaultMeetingLink ?? ""));
+    setServiceEditEligiblePlans(
+      Array.isArray(svc.eligiblePlans)
+        ? svc.eligiblePlans
+        : svc.programTier
+          ? [String(svc.programTier)]
+          : [],
+    );
+    setServiceEditIsActive(svc.isActive !== false);
+  }, [serviceDetailOpenId, services]);
+
+  useEffect(() => {
     if (!canLoad) return;
     void loadBookings(false);
   }, [canLoad, loadBookings]);
@@ -664,8 +873,23 @@ export default function AdminOpsScreen() {
   useEffect(() => {
     if (!canLoad) return;
     if (section === "availability") void loadAvailability(false);
+    if (section === "availability" && services.length === 0) void loadServices(false);
     if (section === "services") void loadServices(false);
-  }, [canLoad, loadAvailability, loadServices, section]);
+  }, [canLoad, loadAvailability, loadServices, section, services.length]);
+
+  useEffect(() => {
+    if (!createBookingOpen) return;
+    setCreateBookingError(null);
+    if (services.length === 0) void loadServices(false);
+  }, [createBookingOpen, loadServices, services.length]);
+
+  useEffect(() => {
+    setAvailabilityStartsAt(availabilityStartDate.toISOString());
+  }, [availabilityStartDate]);
+
+  useEffect(() => {
+    setAvailabilityEndsAt(availabilityEndDate.toISOString());
+  }, [availabilityEndDate]);
 
   const subtitle = useMemo(() => {
     if (section === "bookings") {
@@ -757,6 +981,22 @@ export default function AdminOpsScreen() {
             </Text>
           ) : section === "bookings" ? (
             <View className="gap-4">
+              <View className="gap-2">
+                <Text className="text-[13px] font-outfit-semibold text-app">
+                  Create booking
+                </Text>
+                <View className="flex-row gap-2">
+                  <SmallAction
+                    label="New booking"
+                    tone="success"
+                    onPress={() => setCreateBookingOpen(true)}
+                    disabled={createBookingBusy}
+                  />
+                </View>
+                <Text className="text-[12px] font-outfit text-secondary">
+                  Places a booking for a client as admin/coach (defaults to confirmed).
+                </Text>
+              </View>
               <View className="gap-3">
                 <Text className="text-[13px] font-outfit-semibold text-app">
                   Search
@@ -942,8 +1182,54 @@ export default function AdminOpsScreen() {
                 </Text>
                 <View className="gap-2">
                   <Text className="text-[12px] font-outfit text-secondary">
-                    Service Type ID
+                    Service type
                   </Text>
+                  {services.length > 0 ? (
+                    <View className="flex-row flex-wrap gap-2">
+                      {services
+                        .filter((s) => s.isActive !== false)
+                        .slice(0, 8)
+                        .map((s) => (
+                          <Pressable
+                            key={`svc-chip-${s.id}`}
+                            accessibilityRole="button"
+                            onPress={() => setAvailabilityServiceTypeId(String(s.id))}
+                            className="rounded-full border px-3 py-2"
+                            style={{
+                              backgroundColor:
+                                availabilityServiceTypeId === String(s.id)
+                                  ? isDark
+                                    ? `${colors.accent}22`
+                                    : `${colors.accent}16`
+                                  : isDark
+                                    ? "rgba(255,255,255,0.03)"
+                                    : "rgba(15,23,42,0.03)",
+                              borderColor:
+                                availabilityServiceTypeId === String(s.id)
+                                  ? isDark
+                                    ? `${colors.accent}44`
+                                    : `${colors.accent}2E`
+                                  : isDark
+                                    ? "rgba(255,255,255,0.06)"
+                                    : "rgba(15,23,42,0.06)",
+                            }}
+                          >
+                            <Text
+                              className="text-[11px] font-outfit-semibold"
+                              style={{
+                                color:
+                                  availabilityServiceTypeId === String(s.id)
+                                    ? colors.accent
+                                    : colors.textSecondary,
+                              }}
+                              numberOfLines={1}
+                            >
+                              #{s.id} {s.name ?? "Service"}
+                            </Text>
+                          </Pressable>
+                        ))}
+                    </View>
+                  ) : null}
                   <View
                     className="rounded-2xl border px-4 py-3"
                     style={{
@@ -967,7 +1253,7 @@ export default function AdminOpsScreen() {
                 </View>
                 <View className="gap-2">
                   <Text className="text-[12px] font-outfit text-secondary">
-                    Starts at (ISO)
+                    Start
                   </Text>
                   <View
                     className="rounded-2xl border px-4 py-3"
@@ -980,20 +1266,22 @@ export default function AdminOpsScreen() {
                         : "rgba(15,23,42,0.06)",
                     }}
                   >
-                    <TextInput
-                      className="text-[14px] font-outfit text-app"
-                      value={availabilityStartsAt}
-                      onChangeText={setAvailabilityStartsAt}
-                      placeholder="2026-04-09T15:00:00.000Z"
-                      placeholderTextColor={colors.placeholder}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setAvailabilityShowStartPicker(true)}
+                    >
+                      <Text className="text-[14px] font-outfit text-app">
+                        {availabilityStartDate.toLocaleString()}
+                      </Text>
+                      <Text className="text-[11px] font-outfit text-secondary mt-1">
+                        {availabilityStartsAt}
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
                 <View className="gap-2">
                   <Text className="text-[12px] font-outfit text-secondary">
-                    Ends at (ISO)
+                    End
                   </Text>
                   <View
                     className="rounded-2xl border px-4 py-3"
@@ -1006,15 +1294,17 @@ export default function AdminOpsScreen() {
                         : "rgba(15,23,42,0.06)",
                     }}
                   >
-                    <TextInput
-                      className="text-[14px] font-outfit text-app"
-                      value={availabilityEndsAt}
-                      onChangeText={setAvailabilityEndsAt}
-                      placeholder="2026-04-09T15:30:00.000Z"
-                      placeholderTextColor={colors.placeholder}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setAvailabilityShowEndPicker(true)}
+                    >
+                      <Text className="text-[14px] font-outfit text-app">
+                        {availabilityEndDate.toLocaleString()}
+                      </Text>
+                      <Text className="text-[11px] font-outfit text-secondary mt-1">
+                        {availabilityEndsAt}
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
                 <View className="flex-row gap-2">
@@ -1031,6 +1321,28 @@ export default function AdminOpsScreen() {
                     disabled={availabilityLoading}
                   />
                 </View>
+                {availabilityShowStartPicker ? (
+                  <DateTimePicker
+                    value={availabilityStartDate}
+                    mode="datetime"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_, date) => {
+                      setAvailabilityShowStartPicker(false);
+                      if (date) setAvailabilityStartDate(date);
+                    }}
+                  />
+                ) : null}
+                {availabilityShowEndPicker ? (
+                  <DateTimePicker
+                    value={availabilityEndDate}
+                    mode="datetime"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_, date) => {
+                      setAvailabilityShowEndPicker(false);
+                      if (date) setAvailabilityEndDate(date);
+                    }}
+                  />
+                ) : null}
               </View>
 
               {availabilityLoading && availability.length === 0 ? (
@@ -1396,6 +1708,370 @@ export default function AdminOpsScreen() {
           )}
         </View>
       </ThemedScrollView>
+
+      <Modal
+        visible={createBookingOpen}
+        animationType="slide"
+        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+        onRequestClose={() => setCreateBookingOpen(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: isDark ? colors.background : colors.background,
+            paddingTop: insets.top,
+          }}
+        >
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingBottom: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text className="text-[18px] font-clash font-bold text-app">
+                Create booking
+              </Text>
+              <Text className="text-[12px] font-outfit text-secondary">
+                Admin/coach creates a confirmed booking.
+              </Text>
+            </View>
+            <SmallAction
+              label="Done"
+              tone="neutral"
+              onPress={() => setCreateBookingOpen(false)}
+            />
+          </View>
+
+          <ThemedScrollView>
+            <View className="gap-4">
+              <View
+                className="rounded-[20px] border p-4"
+                style={{
+                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                  ...(isDark ? Shadows.none : Shadows.md),
+                }}
+              >
+                <Text className="text-[13px] font-outfit-semibold text-app">
+                  User
+                </Text>
+                <Text className="text-[12px] font-outfit text-secondary mt-1">
+                  Search by name or email, then select.
+                </Text>
+                <View
+                  className="mt-3 rounded-2xl border px-4 py-3"
+                  style={{
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.03)"
+                      : "rgba(15,23,42,0.03)",
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.06)"
+                      : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <TextInput
+                    className="text-[14px] font-outfit text-app"
+                    value={createBookingUserQuery}
+                    onChangeText={setCreateBookingUserQuery}
+                    placeholder="e.g. piers, piers@email.com"
+                    placeholderTextColor={colors.placeholder}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <View className="flex-row gap-2 mt-3">
+                  <SmallAction
+                    label="Search"
+                    tone="neutral"
+                    onPress={() => loadCreateBookingUsers(true)}
+                  />
+                  {createBookingSelectedUser?.id ? (
+                    <SmallAction
+                      label="Clear"
+                      tone="neutral"
+                      onPress={() => setCreateBookingSelectedUser(null)}
+                    />
+                  ) : null}
+                </View>
+
+                {createBookingSelectedUser?.id ? (
+                  <View className="mt-3 rounded-2xl border px-4 py-3" style={{
+                    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+                    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+                  }}>
+                    <Text className="text-[12px] font-outfit text-secondary">
+                      Selected
+                    </Text>
+                    <Text className="text-[14px] font-outfit text-app" numberOfLines={1}>
+                      #{createBookingSelectedUser.id} {createBookingSelectedUser.name ?? createBookingSelectedUser.email ?? "User"}
+                    </Text>
+                    <Text className="text-[12px] font-outfit text-secondary" numberOfLines={1}>
+                      {createBookingSelectedUser.email ?? ""}
+                      {createBookingSelectedUser.athleteName ? ` • ${createBookingSelectedUser.athleteName}` : ""}
+                    </Text>
+                  </View>
+                ) : (
+                  createBookingUsers.length > 0 ? (
+                    <View className="mt-3 gap-2">
+                      {createBookingUsers.slice(0, 8).map((u) => (
+                        <Pressable
+                          key={`u-${u.id ?? "x"}-${u.email ?? ""}`}
+                          accessibilityRole="button"
+                          onPress={() => setCreateBookingSelectedUser(u)}
+                          className="rounded-2xl border px-4 py-3"
+                          style={{
+                            backgroundColor: isDark
+                              ? "rgba(255,255,255,0.03)"
+                              : "rgba(15,23,42,0.03)",
+                            borderColor: isDark
+                              ? "rgba(255,255,255,0.06)"
+                              : "rgba(15,23,42,0.06)",
+                          }}
+                        >
+                          <Text className="text-[13px] font-clash font-bold text-app" numberOfLines={1}>
+                            #{u.id ?? "—"} {u.name ?? u.email ?? "User"}
+                          </Text>
+                          <Text className="text-[12px] font-outfit text-secondary" numberOfLines={1}>
+                            {u.email ?? ""}
+                            {u.athleteName ? ` • ${u.athleteName}` : ""}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null
+                )}
+              </View>
+
+              <View
+                className="rounded-[20px] border p-4"
+                style={{
+                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                  ...(isDark ? Shadows.none : Shadows.md),
+                }}
+              >
+                <Text className="text-[13px] font-outfit-semibold text-app">
+                  Service type
+                </Text>
+                <Text className="text-[12px] font-outfit text-secondary mt-1">
+                  Pick the session type.
+                </Text>
+                {services.length === 0 ? (
+                  <Text className="text-[12px] font-outfit text-secondary mt-3">
+                    Loading services…
+                  </Text>
+                ) : (
+                  <View className="mt-3 flex-row flex-wrap gap-2">
+                    {services
+                      .filter((s) => s.isActive !== false)
+                      .slice(0, 12)
+                      .map((s) => (
+                        <Pressable
+                          key={`svc-${s.id}`}
+                          accessibilityRole="button"
+                          onPress={() => setCreateBookingServiceId(s.id)}
+                          className="rounded-full border px-3 py-2"
+                          style={{
+                            backgroundColor:
+                              createBookingServiceId === s.id
+                                ? isDark
+                                  ? `${colors.accent}22`
+                                  : `${colors.accent}16`
+                                : isDark
+                                  ? "rgba(255,255,255,0.03)"
+                                  : "rgba(15,23,42,0.03)",
+                            borderColor:
+                              createBookingServiceId === s.id
+                                ? isDark
+                                  ? `${colors.accent}44`
+                                  : `${colors.accent}2E`
+                                : isDark
+                                  ? "rgba(255,255,255,0.06)"
+                                  : "rgba(15,23,42,0.06)",
+                          }}
+                        >
+                          <Text
+                            className="text-[11px] font-outfit-semibold"
+                            style={{
+                              color:
+                                createBookingServiceId === s.id
+                                  ? colors.accent
+                                  : colors.textSecondary,
+                            }}
+                            numberOfLines={1}
+                          >
+                            #{s.id} {s.name ?? "Service"}
+                          </Text>
+                        </Pressable>
+                      ))}
+                  </View>
+                )}
+              </View>
+
+              <View
+                className="rounded-[20px] border p-4"
+                style={{
+                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                  ...(isDark ? Shadows.none : Shadows.md),
+                }}
+              >
+                <Text className="text-[13px] font-outfit-semibold text-app">
+                  Date & time
+                </Text>
+                <View className="mt-3 gap-2">
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setCreateBookingShowDatePicker(true)}
+                    className="rounded-2xl border px-4 py-3"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.03)"
+                        : "rgba(15,23,42,0.03)",
+                      borderColor: isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    <Text className="text-[12px] font-outfit text-secondary">
+                      Date
+                    </Text>
+                    <Text className="text-[14px] font-outfit text-app">
+                      {createBookingDate.toLocaleDateString()}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setCreateBookingShowTimePicker(true)}
+                    className="rounded-2xl border px-4 py-3"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.03)"
+                        : "rgba(15,23,42,0.03)",
+                      borderColor: isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    <Text className="text-[12px] font-outfit text-secondary">
+                      Start time
+                    </Text>
+                    <Text className="text-[14px] font-outfit text-app">
+                      {createBookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {createBookingShowDatePicker ? (
+                  <DateTimePicker
+                    value={createBookingDate}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_, date) => {
+                      setCreateBookingShowDatePicker(false);
+                      if (date) setCreateBookingDate(date);
+                    }}
+                  />
+                ) : null}
+                {createBookingShowTimePicker ? (
+                  <DateTimePicker
+                    value={createBookingTime}
+                    mode="time"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_, date) => {
+                      setCreateBookingShowTimePicker(false);
+                      if (date) setCreateBookingTime(date);
+                    }}
+                  />
+                ) : null}
+              </View>
+
+              <View
+                className="rounded-[20px] border p-4"
+                style={{
+                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                  ...(isDark ? Shadows.none : Shadows.md),
+                }}
+              >
+                <Text className="text-[13px] font-outfit-semibold text-app">
+                  Details (optional)
+                </Text>
+                <View className="mt-3 gap-2">
+                  <View
+                    className="rounded-2xl border px-4 py-3"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.03)"
+                        : "rgba(15,23,42,0.03)",
+                      borderColor: isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    <TextInput
+                      className="text-[14px] font-outfit text-app"
+                      value={createBookingLocation}
+                      onChangeText={setCreateBookingLocation}
+                      placeholder="Location"
+                      placeholderTextColor={colors.placeholder}
+                    />
+                  </View>
+                  <View
+                    className="rounded-2xl border px-4 py-3"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.03)"
+                        : "rgba(15,23,42,0.03)",
+                      borderColor: isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    <TextInput
+                      className="text-[14px] font-outfit text-app"
+                      value={createBookingMeetingLink}
+                      onChangeText={setCreateBookingMeetingLink}
+                      placeholder="Meeting link"
+                      placeholderTextColor={colors.placeholder}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </View>
+
+                {createBookingError ? (
+                  <Text className="text-[12px] font-outfit text-red-400 mt-3">
+                    {createBookingError}
+                  </Text>
+                ) : null}
+
+                <View className="flex-row gap-2 mt-4">
+                  <SmallAction
+                    label={createBookingBusy ? "Creating…" : "Create confirmed"}
+                    tone="success"
+                    onPress={submitAdminBooking}
+                    disabled={createBookingBusy}
+                  />
+                </View>
+              </View>
+            </View>
+          </ThemedScrollView>
+        </View>
+      </Modal>
 
       <Modal
         visible={bookingDetailOpenId != null}
@@ -1784,6 +2460,271 @@ export default function AdminOpsScreen() {
                           Status:{" "}
                           {s?.isActive === false ? "inactive" : "active"}
                         </Text>
+                      </View>
+
+                      <View
+                        className="rounded-[20px] border p-4"
+                        style={{
+                          backgroundColor: isDark
+                            ? colors.cardElevated
+                            : "#FFFFFF",
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(15,23,42,0.06)",
+                          ...(isDark ? Shadows.none : Shadows.md),
+                        }}
+                      >
+                        <Text className="text-[13px] font-outfit-semibold text-app">
+                          Quick edit
+                        </Text>
+                        <Text className="text-[12px] font-outfit text-secondary mt-1">
+                          Simple fields (no JSON).
+                        </Text>
+
+                        <View className="mt-3 gap-2">
+                          <View
+                            className="rounded-2xl border px-4 py-3"
+                            style={{
+                              backgroundColor: isDark
+                                ? "rgba(255,255,255,0.03)"
+                                : "rgba(15,23,42,0.03)",
+                              borderColor: isDark
+                                ? "rgba(255,255,255,0.06)"
+                                : "rgba(15,23,42,0.06)",
+                            }}
+                          >
+                            <TextInput
+                              className="text-[14px] font-outfit text-app"
+                              value={serviceEditName}
+                              onChangeText={setServiceEditName}
+                              placeholder="Service name"
+                              placeholderTextColor={colors.placeholder}
+                            />
+                          </View>
+
+                          <View className="flex-row flex-wrap gap-2">
+                            {[
+                              "call",
+                              "group_call",
+                              "individual_call",
+                              "lift_lab_1on1",
+                              "role_model",
+                            ].map((t) => (
+                              <Pressable
+                                key={`type-${t}`}
+                                accessibilityRole="button"
+                                onPress={() => setServiceEditType(t)}
+                                className="rounded-full border px-3 py-2"
+                                style={{
+                                  backgroundColor:
+                                    serviceEditType === t
+                                      ? isDark
+                                        ? `${colors.accent}22`
+                                        : `${colors.accent}16`
+                                      : isDark
+                                        ? "rgba(255,255,255,0.03)"
+                                        : "rgba(15,23,42,0.03)",
+                                  borderColor:
+                                    serviceEditType === t
+                                      ? isDark
+                                        ? `${colors.accent}44`
+                                        : `${colors.accent}2E`
+                                      : isDark
+                                        ? "rgba(255,255,255,0.06)"
+                                        : "rgba(15,23,42,0.06)",
+                                }}
+                              >
+                                <Text
+                                  className="text-[11px] font-outfit-semibold"
+                                  style={{
+                                    color:
+                                      serviceEditType === t
+                                        ? colors.accent
+                                        : colors.textSecondary,
+                                  }}
+                                >
+                                  {t}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+
+                          <View className="flex-row gap-2">
+                            <View
+                              className="flex-1 rounded-2xl border px-4 py-3"
+                              style={{
+                                backgroundColor: isDark
+                                  ? "rgba(255,255,255,0.03)"
+                                  : "rgba(15,23,42,0.03)",
+                                borderColor: isDark
+                                  ? "rgba(255,255,255,0.06)"
+                                  : "rgba(15,23,42,0.06)",
+                              }}
+                            >
+                              <TextInput
+                                className="text-[14px] font-outfit text-app"
+                                value={serviceEditDurationMinutes}
+                                onChangeText={setServiceEditDurationMinutes}
+                                placeholder="Duration (mins)"
+                                placeholderTextColor={colors.placeholder}
+                                keyboardType="number-pad"
+                              />
+                            </View>
+                            <View
+                              className="flex-1 rounded-2xl border px-4 py-3"
+                              style={{
+                                backgroundColor: isDark
+                                  ? "rgba(255,255,255,0.03)"
+                                  : "rgba(15,23,42,0.03)",
+                                borderColor: isDark
+                                  ? "rgba(255,255,255,0.06)"
+                                  : "rgba(15,23,42,0.06)",
+                              }}
+                            >
+                              <TextInput
+                                className="text-[14px] font-outfit text-app"
+                                value={serviceEditCapacity}
+                                onChangeText={setServiceEditCapacity}
+                                placeholder="Capacity"
+                                placeholderTextColor={colors.placeholder}
+                                keyboardType="number-pad"
+                              />
+                            </View>
+                          </View>
+
+                          <View
+                            className="rounded-2xl border px-4 py-3"
+                            style={{
+                              backgroundColor: isDark
+                                ? "rgba(255,255,255,0.03)"
+                                : "rgba(15,23,42,0.03)",
+                              borderColor: isDark
+                                ? "rgba(255,255,255,0.06)"
+                                : "rgba(15,23,42,0.06)",
+                            }}
+                          >
+                            <TextInput
+                              className="text-[14px] font-outfit text-app"
+                              value={serviceEditDefaultLocation}
+                              onChangeText={setServiceEditDefaultLocation}
+                              placeholder="Default location"
+                              placeholderTextColor={colors.placeholder}
+                            />
+                          </View>
+
+                          <View
+                            className="rounded-2xl border px-4 py-3"
+                            style={{
+                              backgroundColor: isDark
+                                ? "rgba(255,255,255,0.03)"
+                                : "rgba(15,23,42,0.03)",
+                              borderColor: isDark
+                                ? "rgba(255,255,255,0.06)"
+                                : "rgba(15,23,42,0.06)",
+                            }}
+                          >
+                            <TextInput
+                              className="text-[14px] font-outfit text-app"
+                              value={serviceEditDefaultMeetingLink}
+                              onChangeText={setServiceEditDefaultMeetingLink}
+                              placeholder="Default meeting link"
+                              placeholderTextColor={colors.placeholder}
+                              autoCapitalize="none"
+                              autoCorrect={false}
+                            />
+                          </View>
+
+                          <View className="gap-2 mt-1">
+                            <Text className="text-[12px] font-outfit text-secondary">
+                              Eligible plans (4)
+                            </Text>
+                            <View className="flex-row flex-wrap gap-2">
+                              {[
+                                { value: "PHP", label: "PHP" },
+                                {
+                                  value: "PHP_Premium_Plus",
+                                  label: "Premium Plus",
+                                },
+                                { value: "PHP_Premium", label: "Premium" },
+                                { value: "PHP_Pro", label: "Pro" },
+                              ].map((plan) => {
+                                const selected =
+                                  serviceEditEligiblePlans.includes(plan.value);
+                                return (
+                                  <Pressable
+                                    key={`plan-${plan.value}`}
+                                    accessibilityRole="button"
+                                    onPress={() =>
+                                      setServiceEditEligiblePlans((current) =>
+                                        selected
+                                          ? current.filter(
+                                              (p) => p !== plan.value,
+                                            )
+                                          : [...current, plan.value],
+                                      )
+                                    }
+                                    className="rounded-full border px-3 py-2"
+                                    style={{
+                                      backgroundColor: selected
+                                        ? isDark
+                                          ? `${colors.accent}22`
+                                          : `${colors.accent}16`
+                                        : isDark
+                                          ? "rgba(255,255,255,0.03)"
+                                          : "rgba(15,23,42,0.03)",
+                                      borderColor: selected
+                                        ? isDark
+                                          ? `${colors.accent}44`
+                                          : `${colors.accent}2E`
+                                        : isDark
+                                          ? "rgba(255,255,255,0.06)"
+                                          : "rgba(15,23,42,0.06)",
+                                    }}
+                                  >
+                                    <Text
+                                      className="text-[11px] font-outfit-semibold"
+                                      style={{
+                                        color: selected
+                                          ? colors.accent
+                                          : colors.textSecondary,
+                                      }}
+                                    >
+                                      {plan.label}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                          </View>
+
+                          <View className="flex-row gap-2">
+                            <SmallAction
+                              label={serviceEditIsActive ? "Active" : "Inactive"}
+                              tone="neutral"
+                              onPress={() => setServiceEditIsActive((v) => !v)}
+                              disabled={busy}
+                            />
+                            <SmallAction
+                              label={busy ? "Saving…" : "Save quick edit"}
+                              tone="success"
+                              onPress={() => {
+                                const duration = parseIntOrUndefined(serviceEditDurationMinutes);
+                                const cap = parseIntOrUndefined(serviceEditCapacity);
+                                void updateServiceType(serviceDetailOpenId, {
+                                  name: serviceEditName.trim() || undefined,
+                                  type: serviceEditType,
+                                  durationMinutes: duration ?? undefined,
+                                  capacity: cap ?? undefined,
+                                  defaultLocation: serviceEditDefaultLocation.trim() ? serviceEditDefaultLocation.trim() : null,
+                                  defaultMeetingLink: serviceEditDefaultMeetingLink.trim() ? serviceEditDefaultMeetingLink.trim() : null,
+                                  eligiblePlans: serviceEditEligiblePlans,
+                                  isActive: serviceEditIsActive,
+                                });
+                              }}
+                              disabled={busy}
+                            />
+                          </View>
+                        </View>
                       </View>
 
                       <View className="gap-2">

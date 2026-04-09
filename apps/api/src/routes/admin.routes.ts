@@ -22,6 +22,7 @@ router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]))
 router.get("/admin/users", AdminUserController.listAllUsers);
 router.post("/admin/users/provision", AdminUserController.provisionGuardianWithOnboarding);
 router.post("/admin/users/provision-adult", AdminUserController.provisionAdultAthlete);
+router.post("/admin/users/:userId/reset-password", AdminUserController.resetPassword);
 router.post("/admin/users/:userId/block", AdminUserController.blockUser);
 router.delete("/admin/users/:userId", AdminUserController.deleteUser);
 router.get("/admin/users/:userId/onboarding", AdminUserController.getOnboarding);

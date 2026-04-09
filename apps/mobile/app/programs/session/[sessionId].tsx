@@ -115,9 +115,22 @@ export default function ProgramSessionDetailScreen() {
   const [uploadTarget, setUploadTarget] = useState<{
     sectionContentId: number;
     sectionTitle: string | null;
+    autoPickSource?: "camera" | "library" | null;
   } | null>(null);
   const [hasUploadedBySectionId, setHasUploadedBySectionId] = useState<
     Record<number, boolean>
+  >({});
+
+  const [uploadsBySectionId, setUploadsBySectionId] = useState<
+    Record<
+      number,
+      {
+        id: string;
+        videoUrl: string;
+        createdAt?: string | null;
+        feedback?: string | null;
+      }[]
+    >
   >({});
 
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
@@ -258,11 +271,68 @@ export default function ProgramSessionDetailScreen() {
           ...prev,
           [sectionContentId]: items.length > 0,
         }));
+        setUploadsBySectionId((prev) => ({
+          ...prev,
+          [sectionContentId]: items
+            .map((item: any) => ({
+              id: String(item?.id ?? ""),
+              videoUrl: String(item?.videoUrl ?? ""),
+              createdAt: item?.createdAt ?? null,
+              feedback: item?.feedback ?? null,
+            }))
+            .filter((item: any) => Boolean(item.videoUrl)),
+        }));
       } catch {
         // ignore
       }
     },
     [athleteUserId, token],
+  );
+
+  const openUploadFlow = useCallback(
+    (input: { sectionContentId: number; sectionTitle: string | null }) => {
+      const alreadyUploaded = Boolean(
+        hasUploadedBySectionId[input.sectionContentId],
+      );
+      const buttons: Array<{
+        text: string;
+        onPress?: () => void;
+        style?: "cancel";
+      }> = [
+        {
+          text: "Record video",
+          onPress: () =>
+            setUploadTarget({
+              ...input,
+              autoPickSource: "camera",
+            }),
+        },
+        {
+          text: "Upload video",
+          onPress: () =>
+            setUploadTarget({
+              ...input,
+              autoPickSource: "library",
+            }),
+        },
+      ];
+
+      if (alreadyUploaded) {
+        buttons.unshift({
+          text: "View uploaded videos",
+          onPress: () =>
+            setUploadTarget({
+              ...input,
+              autoPickSource: null,
+            }),
+        });
+      }
+
+      buttons.push({ text: "Cancel", style: "cancel" });
+
+      Alert.alert("Upload video", "Choose an option", buttons);
+    },
+    [hasUploadedBySectionId],
   );
 
   useEffect(() => {
@@ -625,7 +695,7 @@ export default function ProgramSessionDetailScreen() {
                                   {item.allowVideoUpload ? (
                                     <Pressable
                                       onPress={() => {
-                                        setUploadTarget({
+                                        openUploadFlow({
                                           sectionContentId: item.id,
                                           sectionTitle:
                                             String(item.title ?? "").trim() ||
@@ -656,6 +726,41 @@ export default function ProgramSessionDetailScreen() {
                                           : "Upload video"}
                                       </Text>
                                     </Pressable>
+                                  ) : null}
+
+                                  {item.allowVideoUpload &&
+                                  (uploadsBySectionId[item.id]?.length ?? 0) >
+                                    0 ? (
+                                    <View className="mt-3">
+                                      <Text
+                                        className="text-[11px] font-outfit font-semibold"
+                                        style={{ color: colors.textSecondary }}
+                                      >
+                                        Uploaded videos:{" "}
+                                        {uploadsBySectionId[item.id]!.length}
+                                      </Text>
+                                      <View
+                                        className="mt-2 overflow-hidden rounded-2xl"
+                                        style={{ backgroundColor: "#000" }}
+                                      >
+                                        <VideoPlayer
+                                          uri={
+                                            uploadsBySectionId[item.id]![0]
+                                              .videoUrl
+                                          }
+                                          height={190}
+                                          autoPlay={false}
+                                          initialMuted={true}
+                                          isLooping={true}
+                                          useVideoResolution={true}
+                                          controllerKey={`session-upload-${item.id}`}
+                                          maxHeightRatio={0.5}
+                                          showLoadingOverlay={true}
+                                          ignoreTabFocus={false}
+                                          contentFitOverride="contain"
+                                        />
+                                      </View>
+                                    </View>
                                   ) : null}
                                 </View>
                               ))}
@@ -755,6 +860,7 @@ export default function ProgramSessionDetailScreen() {
                     <VideoUploadPanel
                       sectionContentId={uploadTarget.sectionContentId}
                       sectionTitle={uploadTarget.sectionTitle}
+                      autoPickSource={uploadTarget.autoPickSource ?? null}
                       onUploaded={() =>
                         setHasUploadedBySectionId((prev) => ({
                           ...prev,

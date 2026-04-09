@@ -8,6 +8,7 @@ import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useSocket } from "@/context/SocketContext";
+import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -139,6 +140,12 @@ export default function AdminMessagesScreen() {
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const myUserId = useAppSelector((state) => state.user.profile?.id);
   const { socket } = useSocket();
+
+  const params = useLocalSearchParams<{
+    userId?: string;
+    name?: string;
+    videoUploadId?: string;
+  }>();
 
   const [activeTab, setActiveTab] = useState<HeaderTabKey>("inbox");
 
@@ -523,6 +530,42 @@ export default function AdminMessagesScreen() {
     },
     [bootstrapReady, token],
   );
+
+  const handledDeepLinkKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!token || !bootstrapReady) return;
+    const deepLinkUserId = params?.userId ? Number(params.userId) : NaN;
+    if (!Number.isFinite(deepLinkUserId) || deepLinkUserId <= 0) return;
+
+    const deepLinkUploadId = params?.videoUploadId
+      ? Number(params.videoUploadId)
+      : NaN;
+    const key = `${deepLinkUserId}:${
+      Number.isFinite(deepLinkUploadId) ? deepLinkUploadId : ""
+    }`;
+    if (handledDeepLinkKeyRef.current === key) return;
+    handledDeepLinkKeyRef.current = key;
+
+    const name =
+      typeof params?.name === "string" && params.name.trim()
+        ? params.name.trim()
+        : undefined;
+
+    void (async () => {
+      setActiveTab("inbox");
+      await openDmThread({ userId: deepLinkUserId, name });
+      if (Number.isFinite(deepLinkUploadId) && deepLinkUploadId > 0) {
+        setDmVideoUploadId(deepLinkUploadId);
+      }
+    })();
+  }, [
+    bootstrapReady,
+    openDmThread,
+    params?.name,
+    params?.userId,
+    params?.videoUploadId,
+    token,
+  ]);
 
   const sendDm = useCallback(async () => {
     const userId = activeDmUserId;
