@@ -654,8 +654,24 @@ DO $$ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;--> statement-breakpoint
-DO $$ BEGIN
-  ALTER TABLE "run_logs" ADD CONSTRAINT "run_logs_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
+DO $$
+DECLARE
+  run_logs_user_col text;
+BEGIN
+  SELECT c.column_name
+    INTO run_logs_user_col
+    FROM information_schema.columns c
+   WHERE c.table_schema = 'public'
+     AND c.table_name = 'run_logs'
+     AND c.column_name IN ('userId', 'user_id')
+   ORDER BY CASE WHEN c.column_name = 'userId' THEN 1 ELSE 2 END
+   LIMIT 1;
+
+  IF run_logs_user_col = 'userId' THEN
+    ALTER TABLE "run_logs" ADD CONSTRAINT "run_logs_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
+  ELSIF run_logs_user_col = 'user_id' THEN
+    ALTER TABLE "run_logs" ADD CONSTRAINT "run_logs_userId_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
+  END IF;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;--> statement-breakpoint
