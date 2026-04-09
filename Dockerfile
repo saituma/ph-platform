@@ -1,9 +1,5 @@
-FROM node:20-slim AS base
+FROM node:20 AS base
 WORKDIR /app
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable
 RUN corepack prepare pnpm@10.26.0 --activate
@@ -20,15 +16,8 @@ COPY apps/api/drizzle ./apps/api/drizzle
 
 RUN pnpm --filter ./apps/api build
 
-FROM node:20-slim
+FROM node:20
 WORKDIR /app
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-
-RUN corepack enable
-RUN corepack prepare pnpm@10.26.0 --activate
 
 ENV NODE_ENV=production
 
