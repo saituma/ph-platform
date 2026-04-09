@@ -156,6 +156,22 @@ export function normalizeAudienceLabelInput(input: string) {
   return cleaned;
 }
 
+export function isYouthAgeAudienceLabel(label: string, maxYouthAge = 18) {
+  const normalized = normalizeAudienceLabelInput(label);
+  if (normalized === "All") return true;
+
+  const exact = normalized.match(/^(\d{1,2})$/);
+  if (exact) return Number(exact[1]) <= maxYouthAge;
+
+  const range = normalized.match(/^(\d{1,2})-(\d{1,2})$/);
+  if (range) {
+    const max = Number(range[2]);
+    return max <= maxYouthAge;
+  }
+
+  return false;
+}
+
 export function isProgramTierAudienceLabel(label: string) {
   const normalized = normalizeAudienceLabelInput(label);
   return PROGRAM_TIERS.some((tier) => tier.label === normalized);

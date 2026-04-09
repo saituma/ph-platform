@@ -20,13 +20,15 @@ import {
   fromStorageAudienceLabel,
   AudienceSummary,
   PROGRAM_TIERS,
+  isYouthAgeAudienceLabel,
   isAdultStorageAudienceLabel,
-  isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
   trainingContentRequest,
 } from "../../components/admin/training-content-v2/api";
 
-const BASE_AGE_CARDS = Array.from({ length: 12 }, (_, index) => String(index + 7));
+const BASE_AGE_CARDS = Array.from({ length: 12 }, (_, index) =>
+  String(index + 7),
+);
 const ADULT_TIER_CARDS = PROGRAM_TIERS.map((tier) => tier.label);
 
 type AudienceCard = {
@@ -38,7 +40,9 @@ type AudienceCard = {
 export default function ExerciseLibraryAudiencePage() {
   const searchParams = useSearchParams();
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
-  const [adultMode, setAdultMode] = useState(searchParams.get("mode") === "adult");
+  const [adultMode, setAdultMode] = useState(
+    searchParams.get("mode") === "adult",
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [audienceInput, setAudienceInput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +51,9 @@ export default function ExerciseLibraryAudiencePage() {
   const loadAudiences = async () => {
     setIsLoading(true);
     try {
-      const data = await trainingContentRequest<{ items: AudienceSummary[] }>("/admin/audiences");
+      const data = await trainingContentRequest<{ items: AudienceSummary[] }>(
+        "/admin/audiences",
+      );
       setAudiences(data.items ?? []);
       setError(null);
     } catch (err) {
@@ -68,11 +74,15 @@ export default function ExerciseLibraryAudiencePage() {
   const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
 
   const cards = useMemo<AudienceCard[]>(() => {
-    const youthAudiences = audiences.filter((audience) => {
-      if (isAdultStorageAudienceLabel(audience.label)) return false;
-      return !isProgramTierAudienceLabel(audience.label);
-    });
-    const byLabel = new Map(youthAudiences.map((audience) => [normalizeAudienceLabelInput(audience.label), audience]));
+    const youthAudiences = audiences.filter((audience) =>
+      isYouthAgeAudienceLabel(audience.label, 18),
+    );
+    const byLabel = new Map(
+      youthAudiences.map((audience) => [
+        normalizeAudienceLabelInput(audience.label),
+        audience,
+      ]),
+    );
 
     const primary = BASE_AGE_CARDS.map((label) => {
       const existing = byLabel.get(label);
@@ -84,8 +94,13 @@ export default function ExerciseLibraryAudiencePage() {
     });
 
     const additional = youthAudiences
-      .filter((audience) => !BASE_AGE_CARDS.includes(normalizeAudienceLabelInput(audience.label)))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+      .filter(
+        (audience) =>
+          !BASE_AGE_CARDS.includes(normalizeAudienceLabelInput(audience.label)),
+      )
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { numeric: true }),
+      )
       .map((audience) => ({
         label: normalizeAudienceLabelInput(audience.label),
         moduleCount: audience.moduleCount,
@@ -99,7 +114,10 @@ export default function ExerciseLibraryAudiencePage() {
     const byLabel = new Map(
       audiences
         .filter((audience) => isAdultStorageAudienceLabel(audience.label))
-        .map((audience) => [fromStorageAudienceLabel(audience.label), audience])
+        .map((audience) => [
+          fromStorageAudienceLabel(audience.label),
+          audience,
+        ]),
     );
     return ADULT_TIER_CARDS.map((label) => {
       const existing = byLabel.get(label);
@@ -125,10 +143,16 @@ export default function ExerciseLibraryAudiencePage() {
           <CardHeader>
             <div className="space-y-4">
               <div className="flex w-full items-center gap-2 rounded-full border border-border bg-card p-1 sm:w-fit">
-                <Button variant={adultMode ? "outline" : "default"} onClick={() => setAdultMode(false)}>
+                <Button
+                  variant={adultMode ? "outline" : "default"}
+                  onClick={() => setAdultMode(false)}
+                >
                   Youth mode
                 </Button>
-                <Button variant={adultMode ? "default" : "outline"} onClick={() => setAdultMode(true)}>
+                <Button
+                  variant={adultMode ? "default" : "outline"}
+                  onClick={() => setAdultMode(true)}
+                >
                   Adult mode
                 </Button>
               </div>
@@ -155,7 +179,11 @@ export default function ExerciseLibraryAudiencePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {isLoading ? <p className="text-sm text-muted-foreground">{adultMode ? "Loading tiers..." : "Loading age groups..."}</p> : null}
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">
+                {adultMode ? "Loading tiers..." : "Loading age groups..."}
+              </p>
+            ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {(adultMode ? adultTierCards : cards).map((audience) => (
@@ -164,9 +192,12 @@ export default function ExerciseLibraryAudiencePage() {
                   href={`/exercise-library/${encodeURIComponent(audience.label)}${adultMode ? "?mode=adult" : ""}`}
                   className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
                 >
-                  <p className="text-lg font-semibold text-foreground">{adultMode ? audience.label : `Age ${audience.label}`}</p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {adultMode ? audience.label : `Age ${audience.label}`}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {audience.moduleCount} modules · {audience.otherCount} other items
+                    {audience.moduleCount} modules · {audience.otherCount} other
+                    items
                   </p>
                 </Link>
               ))}
@@ -205,7 +236,11 @@ export default function ExerciseLibraryAudiencePage() {
                     setModalOpen(false);
                     await loadAudiences();
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : "Failed to create audience.");
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to create audience.",
+                    );
                   }
                 }}
                 disabled={!normalizedAudience}
