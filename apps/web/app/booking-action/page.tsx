@@ -1,5 +1,5 @@
 type BookingActionPageProps = {
-  searchParams?: { token?: string };
+  searchParams?: Promise<{ token?: string }>;
 };
 
 const getApiBase = () => {
@@ -18,7 +18,8 @@ async function actOnBooking(token: string) {
 }
 
 export default async function BookingActionPage({ searchParams }: BookingActionPageProps) {
-  const token = searchParams?.token ?? "";
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const token = resolvedSearchParams.token ?? "";
   const result = token ? await actOnBooking(token) : { ok: false, message: "Missing booking action token." };
   const adminUrl = process.env.NEXT_PUBLIC_ADMIN_WEB_URL || "https://ph-app-web.vercel.app/bookings";
 
