@@ -3,7 +3,7 @@ import { AgeGate } from "@/components/AgeGate";
 import { InboxScreen } from "@/components/messages/InboxScreen";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
-import { requestGlobalTabChange, useActiveTabIndex } from "@/context/ActiveTabContext";
+import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { apiRequest } from "@/lib/api";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export type MessagesHomeMode = "team" | "adult" | "youth";
 
-export function MessagesHome({ mode: _mode }: { mode: MessagesHomeMode }) {
+export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   const { colors } = useAppTheme();
   const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.user.token);
@@ -71,7 +71,6 @@ export function MessagesHome({ mode: _mode }: { mode: MessagesHomeMode }) {
   } = useMessagesController();
   const pathname = usePathname();
   const router = useRouter();
-  const activeTabIndex = useActiveTabIndex();
   const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
   const paidPlan = hasPaidProgramTier(programTier);
   const isYouthAthleteRole =
@@ -97,7 +96,9 @@ export function MessagesHome({ mode: _mode }: { mode: MessagesHomeMode }) {
   const focusName = activeAthlete?.name || profile?.name || "Athlete";
   const heroSubtitle = isYouthAthleteRole
     ? `Stay connected with your coach and keep ${focusName}'s plan on track.`
-    : "Cleaner chat, faster replies, and a calmer mobile flow.";
+    : mode === "team"
+      ? "Team chat, groups, and announcements — in one place."
+      : "Cleaner chat, faster replies, and a calmer mobile flow.";
 
   const [announcementsMeta, setAnnouncementsMeta] = React.useState<{
     count: number;
@@ -107,9 +108,7 @@ export function MessagesHome({ mode: _mode }: { mode: MessagesHomeMode }) {
   } | null>(null);
 
   const isMessagesRoute =
-    activeTabIndex === 1 ||
-    pathname.startsWith("/messages") ||
-    pathname.startsWith("/(tabs)/messages");
+    pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
 
   React.useEffect(() => {
     if (!token) return;
@@ -436,4 +435,3 @@ export function MessagesHome({ mode: _mode }: { mode: MessagesHomeMode }) {
     </SafeAreaView>
   );
 }
-
