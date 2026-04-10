@@ -76,36 +76,35 @@ export default function TeamsPage() {
             ) : teams.length === 0 ? (
               <p className="text-sm text-muted-foreground">No teams yet. Create one from Add team.</p>
             ) : (
-                <div
-                  key={team.team}
-                  className="group relative block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5"
-                >
-                  <Link
-                    href={`/teams/${encodeURIComponent(team.team)}`}
-                    className="absolute inset-0 z-0"
-                  />
-                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-base font-semibold text-foreground">{team.team}</p>
-                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <span className="rounded-full border border-border px-2 py-1">
-                          {team.memberCount} athlete{team.memberCount === 1 ? "" : "s"}
-                        </span>
-                        <span className="rounded-full border border-border px-2 py-1">
-                          {team.guardianCount} guardian{team.guardianCount === 1 ? "" : "s"}
-                        </span>
+              <div className="grid gap-3">
+                {teams.map((team) => (
+                  <div
+                    key={team.team}
+                    className="group relative block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5"
+                  >
+                    <Link href={`/teams/${encodeURIComponent(team.team)}`} className="absolute inset-0 z-0" />
+                    <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-foreground">{team.team}</p>
+                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span className="rounded-full border border-border px-2 py-1">
+                            {team.memberCount} athlete{team.memberCount === 1 ? "" : "s"}
+                          </span>
+                          <span className="rounded-full border border-border px-2 py-1">
+                            {team.guardianCount} guardian{team.guardianCount === 1 ? "" : "s"}
+                          </span>
+                        </div>
                       </div>
+                      <Button variant="outline" size="sm" asChild className="h-8">
+                        <Link href={`/exercise-library/${encodeURIComponent(team.team)}?mode=team`}>Post training</Link>
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm" asChild className="h-8">
-                      <Link href={`/exercise-library/${encodeURIComponent(team.team)}?mode=team`}>
-                        Post training
-                      </Link>
-                    </Button>
+                    <p className="relative z-10 mt-2 text-xs text-muted-foreground">
+                      Created: {formatDate(team.createdAt)} · Last updated: {formatDate(team.updatedAt)}
+                    </p>
                   </div>
-                  <p className="relative z-10 mt-2 text-xs text-muted-foreground">
-                    Created: {formatDate(team.createdAt)} · Last updated: {formatDate(team.updatedAt)}
-                  </p>
-                </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
