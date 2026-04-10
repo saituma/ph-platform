@@ -6,6 +6,7 @@ import { SHARED_TAB_COMPONENTS } from "../shared/tabComponents";
 import { useBaseLayoutLogic } from "../shared/useBaseLayoutLogic";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { ADULT_TAB_ROUTES } from "./tabs";
+import AdultMessagesScreen from "./screens/Messages";
 
 export function AdultLayout() {
   const { token, profile, programTier, messagingAccessTiers } = useAppSelector((state) => state.user);
@@ -21,7 +22,18 @@ export function AdultLayout() {
     });
   }, [messagesUnread]);
 
-  const { initialIndex, handleIndexChange, screens } = useBaseLayoutLogic(visibleTabs, SHARED_TAB_COMPONENTS);
+  const tabComponents = useMemo(
+    () => ({
+      ...SHARED_TAB_COMPONENTS,
+      messages: React.memo(AdultMessagesScreen),
+    }),
+    [],
+  );
+
+  const { initialIndex, handleIndexChange, screens } = useBaseLayoutLogic(
+    visibleTabs,
+    tabComponents,
+  );
 
   return (
     <SwipeableTabLayout

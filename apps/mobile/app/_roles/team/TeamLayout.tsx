@@ -6,6 +6,7 @@ import { SHARED_TAB_COMPONENTS } from "../shared/tabComponents";
 import { useBaseLayoutLogic } from "../shared/useBaseLayoutLogic";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { TEAM_TAB_ROUTES } from "./tabs";
+import TeamMessagesScreen from "./screens/Messages";
 
 export function TeamLayout() {
   const { token, profile, programTier, messagingAccessTiers, appRole } = useAppSelector((state) => state.user);
@@ -27,7 +28,18 @@ export function TeamLayout() {
     });
   }, [messagesUnread, isYouth]);
 
-  const { initialIndex, handleIndexChange, screens } = useBaseLayoutLogic(visibleTabs, SHARED_TAB_COMPONENTS);
+  const tabComponents = useMemo(
+    () => ({
+      ...SHARED_TAB_COMPONENTS,
+      messages: React.memo(TeamMessagesScreen),
+    }),
+    [],
+  );
+
+  const { initialIndex, handleIndexChange, screens } = useBaseLayoutLogic(
+    visibleTabs,
+    tabComponents,
+  );
 
   return (
     <SwipeableTabLayout
