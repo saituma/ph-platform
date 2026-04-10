@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -65,23 +62,18 @@ export default function BookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
   const [activeChip, setActiveChip] = useState<string>("All");
-  const [selectedDateKey, setSelectedDateKey] = useState<string>(() => {
-    const now = new Date();
-    const pad = (value: number) => String(value).padStart(2, "0");
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  });
+
   const chips = ["All", "Group", "Individual", "Lift Lab", "Premium"];
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery();
   const { data: servicesData, isLoading: servicesLoading, refetch: refetchServices } = useGetServicesQuery();
   const { data: usersData } = useGetUsersQuery();
   const [updateBookingStatus, { isLoading: isUpdatingBooking }] = useUpdateBookingStatusMutation();
   const isLoading = bookingsLoading || servicesLoading;
-  const [popoverBooking, setPopoverBooking] = useState<BookingItem | null>(null);
-  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(null);
-  const [popoverRect, setPopoverRect] = useState<{ left: number; top: number; width: number; height: number } | null>(
-    null
-  );
-  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery();
+  const { data: servicesData, isLoading: servicesLoading, refetch: refetchServices } = useGetServicesQuery();
+  const { data: usersData } = useGetUsersQuery();
+  const [updateBookingStatus, { isLoading: isUpdatingBooking }] = useUpdateBookingStatusMutation();
+  const isLoading = bookingsLoading || servicesLoading;
 
 
   const bookings = useMemo<BookingItem[]>(() => {
@@ -113,75 +105,14 @@ export default function BookingsPage() {
     return bookings;
   }, [activeChip, bookings]);
 
-  const calendarEvents = useMemo(() => {
-    const pad = (value: number) => String(value).padStart(2, "0");
-    return bookings
-      .filter((booking) => booking.startsAt)
-      .map((booking) => {
-        const start = new Date(booking.startsAt as string);
-        const end = booking.endTime ? new Date(booking.endTime) : undefined;
-        const safeTitle = booking.name || booking.type || "Session";
-        const dateKey = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
-        return {
-          id: String(booking.id),
-          title: safeTitle,
-          start: start.toISOString(),
-          end: end?.toISOString(),
-          allDay: false,
-          extendedProps: {
-            dateKey,
-          },
-        };
-      });
-  }, [bookings]);
 
-  const bookingsById = useMemo(() => {
-    const map = new Map<string, BookingItem>();
-    bookings.forEach((booking) => {
-      map.set(String(booking.id), booking);
-    });
-    return map;
-  }, [bookings]);
-
-  useEffect(() => {
-    if (!popoverBooking) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setPopoverBooking(null);
-        setPopoverPos(null);
-      }
-    };
-    const onMouseDown = (event: MouseEvent) => {
-      if (!popoverRef.current) return;
-      if (popoverRef.current.contains(event.target as Node)) return;
-      setPopoverBooking(null);
-      setPopoverPos(null);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("mousedown", onMouseDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("mousedown", onMouseDown);
-    };
-  }, [popoverBooking]);
-
-  const filteredByDate = useMemo(() => {
-    return filteredBookings.filter((booking) => {
-      if (!booking.startsAt) return false;
-      const date = new Date(booking.startsAt);
-      if (Number.isNaN(date.getTime())) return false;
-      const pad = (value: number) => String(value).padStart(2, "0");
-      const key = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-      return key === selectedDateKey;
-    });
-  }, [filteredBookings, selectedDateKey]);
 
   const now = new Date();
-  const upcomingBookings = filteredByDate.filter((booking) => {
+  const upcomingBookings = filteredBookings.filter((booking) => {
     if (!booking.startsAt) return true;
     return new Date(booking.startsAt) >= now;
   });
-  const pastBookings = filteredByDate.filter((booking) => {
+  const pastBookings = filteredBookings.filter((booking) => {
     if (!booking.startsAt) return false;
     return new Date(booking.startsAt) < now;
   });
@@ -191,116 +122,7 @@ export default function BookingsPage() {
       title="Bookings"
       subtitle="Manage bookable services, capacities, and client bookings."
     >
-      <Card>
-        <CardHeader className="space-y-4">
-          <SectionHeader title="Calendar" description="Select a date to review upcoming and past bookings." />
-          <div className="w-full max-w-full rounded-2xl border border-border bg-background p-2 overflow-x-auto">
-            <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
-              headerToolbar={{
-                left: "prev,next today",
-                center: "title",
-                right: "dayGridMonth,timeGridWeek",
-              }}
-              height="auto"
-              events={calendarEvents}
-              dayCellClassNames={(arg) => {
-                const pad = (value: number) => String(value).padStart(2, "0");
-                const key = `${arg.date.getFullYear()}-${pad(arg.date.getMonth() + 1)}-${pad(arg.date.getDate())}`;
-                return key === selectedDateKey ? ["fc-selected-day"] : [];
-              }}
-              eventClick={(info) => {
-                const booking = bookingsById.get(String(info.event.id));
-                if (booking) {
-                  setPopoverBooking(booking);
-                  setPopoverPos({ x: info.jsEvent.clientX, y: info.jsEvent.clientY });
-                  const rect = info.el.getBoundingClientRect();
-                  setPopoverRect({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
-                }
-              }}
-              dateClick={(info) => {
-                const date = info.date;
-                const pad = (value: number) => String(value).padStart(2, "0");
-                const key = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-                setSelectedDateKey(key);
-              }}
-            />
-          </div>
-        </CardHeader>
-      </Card>
-      {popoverBooking && popoverPos ? (
-        <div
-          className="fixed inset-0 z-50"
-          aria-hidden="true"
-        >
-          <div
-            ref={popoverRef}
-            className="absolute w-72 rounded-2xl border border-border bg-card p-4 text-sm text-foreground shadow-lg"
-            style={{
-              left:
-                typeof window !== "undefined" && window.innerWidth < 640
-                  ? 16
-                  : Math.min(popoverPos.x + 12, window.innerWidth - 300),
-              right: typeof window !== "undefined" && window.innerWidth < 640 ? 16 : "auto",
-              top:
-                typeof window !== "undefined" && window.innerWidth < 640
-                  ? Math.min((popoverRect?.top ?? popoverPos.y) + (popoverRect?.height ?? 0) + 12, window.innerHeight - 220)
-                  : Math.min(popoverPos.y + 12, window.innerHeight - 220),
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{popoverBooking.name}</p>
-                <p className="text-xs text-muted-foreground">{popoverBooking.athlete}</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setPopoverBooking(null);
-                  setPopoverPos(null);
-                }}
-              >
-                Close
-              </Button>
-            </div>
-            <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-              <div>
-                Time:{" "}
-                <span className="text-foreground">
-                  {popoverBooking.startsAt
-                    ? new Date(popoverBooking.startsAt).toLocaleString()
-                    : popoverBooking.time}
-                </span>
-              </div>
-              <div>
-                Status: <span className="text-foreground">{popoverBooking.status ?? "unknown"}</span>
-              </div>
-              <div>
-                Location: <span className="text-foreground">{popoverBooking.location ?? "None"}</span>
-              </div>
-              <div>
-                Meeting: <span className="text-foreground">{popoverBooking.meetingLink ?? "None"}</span>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelectedBooking(popoverBooking);
-                  setActiveDialog("booking-details");
-                  setPopoverBooking(null);
-                  setPopoverPos(null);
-                }}
-              >
-                View Details
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="lg:col-span-2 w-full min-w-0">
           <CardHeader>
@@ -341,10 +163,9 @@ export default function BookingsPage() {
           <CardHeader className="space-y-4">
             <SectionHeader
               title="Upcoming"
-              description="Pending and confirmed bookings for the selected date."
-              actionLabel="Calendar"
-              onAction={() => setActiveDialog("calendar")}
+              description="Pending and confirmed bookings"
             />
+
             <BookingsFilters chips={chips} onChipSelect={setActiveChip} />
           </CardHeader>
           <CardContent>
@@ -354,7 +175,7 @@ export default function BookingsPage() {
               </div>
             ) : upcomingBookings.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
-                No upcoming bookings for this date.
+                No upcoming bookings.
               </div>
             ) : (
               <BookingsList
@@ -383,7 +204,7 @@ export default function BookingsPage() {
               </div>
             ) : pastBookings.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-4 text-center text-sm text-muted-foreground">
-                No past bookings for this date.
+                No past bookings.
               </div>
             ) : (
               pastBookings.map((booking) => (

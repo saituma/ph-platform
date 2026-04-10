@@ -99,40 +99,22 @@ export default function ScheduleScreen() {
     return map;
   }, [availability]);
 
-  const selectedDate = useMemo(() => parseDateKey(selectedCalendarDate), [selectedCalendarDate]);
-  const selectedDateLabel = useMemo(
-    () => selectedDate.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }),
-    [selectedDate]
-  );
+  const upcomingEvents = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return events.filter((event) => {
+      const eventDate = parseDateKey(event.dateKey);
+      return eventDate >= today;
+    }).sort((a, b) => {
+      const aDate = parseDateKey(a.dateKey).getTime();
+      const bDate = parseDateKey(b.dateKey).getTime();
+      return aDate - bDate;
+    });
+  }, [events]);
 
-  const nextEvent = dayEvents[0] ?? null;
+  const nextEvent = upcomingEvents[0] ?? null;
 
-  const handleSelectDate = useCallback((dateKey: string) => {
-    hasUserSelectedDate.current = true;
-    setSelectedCalendarDate(dateKey);
-    const nextDate = parseDateKey(dateKey);
-    setCalendarMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
-  }, []);
 
-  const handleChangeMonth = useCallback(
-    (offset: number) => {
-      setCalendarMonth((current) => {
-        const nextMonth = new Date(current.getFullYear(), current.getMonth() + offset, 1);
-        const preferredDay = selectedDate.getDate();
-        const maxDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
-        const nextSelectedDate = new Date(
-          nextMonth.getFullYear(),
-          nextMonth.getMonth(),
-          Math.min(preferredDay, maxDay)
-        );
-        const nextKey = formatDateKey(nextSelectedDate);
-        hasUserSelectedDate.current = true;
-        setSelectedCalendarDate(nextKey);
-        return nextMonth;
-      });
-    },
-    [selectedDate]
-  );
 
   const getEventTone = useCallback(
     (type: ScheduleEvent["type"]) => {
@@ -209,36 +191,24 @@ export default function ScheduleScreen() {
         contentContainerStyle={{ paddingBottom: 28 }}
       >
         <ScheduleHeader
-          selectedDateLabel={selectedDateLabel}
-          dayEventsCount={dayEvents.length}
+          selectedDateLabel="Schedule"
+          dayEventsCount={upcomingEvents.length}
           nextEventTime={nextEvent?.timeStart ?? null}
           onRequestSession={() => setBookingOpen(true)}
         />
 
-        <CalendarGrid
-          calendarMonth={calendarMonth}
-          todayKey={todayKey}
-          selectedCalendarDate={selectedCalendarDate}
-          eventsByDate={eventsByDate}
-          availabilityByDate={availabilityByDate}
-          eventsTotalCount={events.length}
-          onSelectDate={handleSelectDate}
-          onChangeMonth={handleChangeMonth}
-          getEventTone={getEventTone}
-        />
-
         <EventList
-          dayEvents={dayEvents}
+          dayEvents={upcomingEvents}
           eventsLoading={eventsLoading}
           eventsError={eventsError}
-          selectedDateLabel={selectedDateLabel}
+          selectedDateLabel="Upcoming bookings"
           onReschedule={(event) => {
-            handleSelectDate(event.dateKey);
             setBookingOpen(true);
           }}
           getEventTone={getEventTone}
           onRequestForDay={() => setBookingOpen(true)}
         />
+
       </ThemedScrollView>
 
       <BookingModal
@@ -248,7 +218,6 @@ export default function ScheduleScreen() {
         services={services}
         servicesLoading={servicesLoading}
         servicesError={servicesError}
-        selectedDate={selectedDate}
         canCreateBookings={canCreateBookings}
         onSuccess={() => refreshEvents()}
       />

@@ -15,6 +15,8 @@ export function useProgramContent(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trainingContentV2, setTrainingContentV2] = useState<TrainingContentV2Workspace | null>(null);
+  const [trainingIsLoading, setTrainingIsLoading] = useState(false);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
   const [phpPlusTabs, setPhpPlusTabs] = useState<string[] | null>(null);
 
   const loadPhpPlusTabs = useCallback(async () => {
@@ -58,13 +60,43 @@ export function useProgramContent(
     [token, programId, activeAthleteAge, hasAccess]
   );
 
+  const loadTrainingContentV2 = useCallback(
+    async (force = false) => {
+      if (!token || !hasAccess) {
+        setTrainingContentV2(null);
+        setTrainingIsLoading(false);
+        setTrainingError(null);
+        return;
+      }
+      setTrainingIsLoading(true);
+      setTrainingError(null);
+      try {
+        const workspace = await programsService.fetchTeamWorkspace(
+          token,
+          activeAthleteAge,
+          force,
+        );
+        setTrainingContentV2(workspace as any);
+      } catch {
+        setTrainingContentV2(null);
+        setTrainingError("Failed to load training modules.");
+      } finally {
+        setTrainingIsLoading(false);
+      }
+    },
+    [token, activeAthleteAge, hasAccess],
+  );
+
   return {
     sectionContent,
     isLoading,
     error,
     trainingContentV2,
+    trainingIsLoading,
+    trainingError,
     phpPlusTabs,
     loadPhpPlusTabs,
+    loadTrainingContentV2,
     loadSectionContent,
     setTrainingContentV2,
   };

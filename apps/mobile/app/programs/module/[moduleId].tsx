@@ -27,6 +27,8 @@ type ModuleSession = {
   order: number;
   completed: boolean;
   locked: boolean;
+  lockedReason?: "tier" | "sequence" | null;
+  unlockTiers?: Array<{ tier: string; label: string }>;
 };
 
 type Module = {
@@ -36,6 +38,8 @@ type Module = {
   totalDayLength: number;
   completed: boolean;
   locked: boolean;
+  lockedReason?: "tier" | "sequence" | null;
+  unlockTiers?: Array<{ tier: string; label: string }>;
   sessions: ModuleSession[];
 };
 
@@ -86,6 +90,35 @@ export default function ProgramModuleDetailScreen() {
   const hasLoadedOnceRef = useRef(false);
 
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+
+  const formatUnlockTiers = (
+    tiers?: Array<{ tier: string; label: string }>,
+  ) => {
+    const labels = (tiers ?? [])
+      .map((t) => String(t?.label ?? "").trim())
+      .filter(Boolean);
+    return labels.length ? labels.join(", ") : null;
+  };
+
+  const moduleLockedCopy = (item: Module) => {
+    if (item.lockedReason === "tier") {
+      const available = formatUnlockTiers(item.unlockTiers);
+      return available
+        ? `Locked for this plan. Purchase ${available}`
+        : "Locked for this plan.";
+    }
+    return "Complete the previous modules/sessions to unlock this module.";
+  };
+
+  const sessionLockedCopy = (item: ModuleSession) => {
+    if (item.lockedReason === "tier") {
+      const available = formatUnlockTiers(item.unlockTiers);
+      return available
+        ? `Locked for this plan. Purchase ${available}`
+        : "Locked for this plan.";
+    }
+    return "Finish the previous session(s) to unlock this one.";
+  };
 
   const module = useMemo(() => {
     if (!workspace?.modules?.length || moduleIdValue == null) return null;
@@ -327,8 +360,7 @@ export default function ProgramModuleDetailScreen() {
                       className="mt-2 text-sm font-outfit"
                       style={{ color: colors.textSecondary }}
                     >
-                      Complete the previous modules/sessions to unlock this
-                      module.
+                      {moduleLockedCopy(module)}
                     </Text>
                   </View>
                 ) : (
@@ -340,7 +372,7 @@ export default function ProgramModuleDetailScreen() {
                           if (session.locked) {
                             Alert.alert(
                               "Session locked",
-                              "Finish the previous session(s) to unlock this one.",
+                              sessionLockedCopy(session),
                             );
                             return;
                           }
@@ -375,6 +407,14 @@ export default function ProgramModuleDetailScreen() {
                             >
                               {session.dayLength} day target
                             </Text>
+                            {session.locked ? (
+                              <Text
+                                className="mt-2 text-xs font-outfit"
+                                style={{ color: colors.textSecondary }}
+                              >
+                                {sessionLockedCopy(session)}
+                              </Text>
+                            ) : null}
                           </View>
                           <View className="flex-row items-center gap-2">
                             {session.completed ? (

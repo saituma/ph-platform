@@ -37,6 +37,7 @@ import { useProgramContent } from "@/hooks/programs/useProgramContent";
 import { useProgramStats } from "@/hooks/programs/useProgramStats";
 import { AdminProgramTabs } from "./AdminProgramTabs";
 import { PremiumPlanPanel } from "./PremiumPlanPanel";
+import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -86,13 +87,16 @@ export function ProgramDetailPanel({
     isLoading,
     error,
     trainingContentV2,
+    trainingIsLoading,
+    trainingError,
     phpPlusTabs,
     loadPhpPlusTabs,
+    loadTrainingContentV2,
     loadSectionContent,
     setTrainingContentV2,
   } = useProgramContent(token, programId, activeAthleteAge, hasAccess);
 
-  const [activeTab, setActiveTab] = useState<string>("Program");
+  const [activeTab, setActiveTab] = useState<string>("Modules");
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [expandedContent, setExpandedContent] = useState<Set<number>>(
     new Set(),
@@ -101,34 +105,23 @@ export function ProgramDetailPanel({
 
   const tabs = useMemo(() => {
     if (trainingContentV2?.tabs?.length) return trainingContentV2.tabs;
-    if (programId === "plus") return phpPlusTabs ?? PROGRAM_TABS.plus;
-
-    let base = [...PROGRAM_TABS[programId]];
-    if (isSectionHidden("videoFeedback"))
-      base = base.filter((t) => t !== "Video Upload");
-    if (isSectionHidden("foodDiary"))
-      base = base.filter(
-        (t) => !["Nutrition & Food Diaries", "Submit Diary"].includes(t),
-      );
-    if (isSectionHidden("physioReferrals"))
-      base = base.filter(
-        (t) =>
-          !["Physio Referral", "Physio Referrals", "Referrals"].includes(t),
-      );
-    return base;
-  }, [programId, isSectionHidden, phpPlusTabs, trainingContentV2]);
+    return ["Modules"];
+  }, [trainingContentV2]);
 
   useEffect(() => {
     if (isFocused) {
       loadPhpPlusTabs();
       loadProgress();
       refreshBillingStatus();
+      loadTrainingContentV2();
     }
   }, [isFocused]);
 
   useEffect(() => {
-    loadSectionContent(activeTab);
-  }, [activeTab, loadSectionContent]);
+    if (!tabs.length) return;
+    if (tabs.includes(activeTab)) return;
+    setActiveTab(tabs[0] ?? "Modules");
+  }, [activeTab, tabs]);
 
   const toggleContent = (id: number) => {
     setExpandedContent((prev) => {
@@ -141,7 +134,7 @@ export function ProgramDetailPanel({
 
   const handleRefresh = async () => {
     await Promise.all([
-      loadSectionContent(activeTab, true),
+      loadTrainingContentV2(true),
       loadPhpPlusTabs(),
       loadProgress(),
       refreshBillingStatus(),
@@ -257,41 +250,48 @@ export function ProgramDetailPanel({
           <View className="px-5">{renderLockedPlan()}</View>
         ) : (
           <View className="px-5 gap-5">
-            {activeTab === "Program" && programId === "premium" && (
-              <PremiumPlanPanel
-                token={token}
-                onNavigate={onNavigate}
-                canMessageCoach={canMessageCoach}
-              />
-            )}
+            {trainingIsLoading ? (
+              <View
+                className="rounded-[24px] border px-5 py-5 items-center"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: borderSoft,
+                }}
+              >
+                <Text
+                  className="text-sm font-outfit"
+                  style={{ color: colors.textSecondary }}
+                >
+                  Loading modules...
+                </Text>
+              </View>
+            ) : null}
 
-            {activeTab === "Program" && progress && (
-              <AchievementsStrip
-                stats={progress.stats}
-                achievements={progress.achievements}
-              />
-            )}
+            {trainingError ? (
+              <View
+                className="rounded-[24px] border px-5 py-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: borderSoft,
+                }}
+              >
+                <Text
+                  className="text-sm font-outfit"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {trainingError}
+                </Text>
+              </View>
+            ) : null}
 
-            <AdminProgramTabs
+            <AgeBasedTrainingPanel
+              workspace={trainingContentV2 as any}
               activeTab={activeTab}
-              programId={programId}
-              programTitle={PROGRAM_TITLES[programId]}
-              sectionContent={sectionContent}
-              isLoading={isLoading}
-              error={error}
-              expandedIds={expandedContent}
-              onToggle={toggleContent}
-              onVideoPress={setActiveVideoUrl}
-              onMessageCoach={(draft) =>
-                onNavigate?.(`/messages?draft=${encodeURIComponent(draft)}`)
-              }
-              onUploadPress={(item) =>
-                onNavigate?.(`/video-upload?sectionContentId=${item.id}`)
-              }
-              onNavigate={onNavigate}
-              trainingContentV2={trainingContentV2}
-              isTeamPlanBoundaryReached={false}
-              renderTeamPlanLockedCard={() => null}
+              onOpenModule={(moduleId) => {
+                onNavigate?.(
+                  `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(programId)}`,
+                );
+              }}
             />
           </View>
         )}

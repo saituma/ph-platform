@@ -22,6 +22,8 @@ export type ServiceType = {
   type: string;
   durationMinutes: number;
   capacity?: number | null;
+  oneTimeDate?: string | null;
+  oneTimeTime?: string | null;
   attendeeVisibility?: boolean | null;
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;

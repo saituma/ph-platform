@@ -23,7 +23,6 @@ interface BookingModalProps {
   services: ServiceType[];
   servicesLoading: boolean;
   servicesError: string | null;
-  selectedDate: Date;
   canCreateBookings: boolean;
   onSuccess: (startsAt: Date) => void;
 }
@@ -35,7 +34,6 @@ export function BookingModal({
   services,
   servicesLoading,
   servicesError,
-  selectedDate,
   canCreateBookings,
   onSuccess,
 }: BookingModalProps) {
@@ -43,14 +41,7 @@ export function BookingModal({
   const { colors, isDark } = useAppTheme();
 
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
-  const [bookingDate, setBookingDate] = useState<Date>(() => normalizeBookingCalendarDay(selectedDate));
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [bookingTime, setBookingTime] = useState<Date>(() => {
-    const next = new Date();
-    next.setHours(9, 0, 0, 0);
-    return next;
-  });
-  const [showTimePicker, setShowTimePicker] = useState(false);
+
   const [bookingLocation, setBookingLocation] = useState("");
   const [bookingMeetingLink, setBookingMeetingLink] = useState("");
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
@@ -59,7 +50,6 @@ export function BookingModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const hasUserSelectedService = useRef(false);
-  const hasUserAdjustedBookingDate = useRef(false);
 
   const activeServices = services.filter((s) => s.isActive !== false);
   const selectedService = activeServices.find((s) => s.id === selectedServiceId) ?? null;
@@ -77,10 +67,8 @@ export function BookingModal({
       setBookingError(null);
       setConfirmedStartsAt(null);
       hasUserSelectedService.current = false;
-      hasUserAdjustedBookingDate.current = false;
       return;
     }
-    setBookingDate(normalizeBookingCalendarDay(selectedDate));
     if (!activeServices.length) {
       setSelectedServiceId(null);
       return;
@@ -89,10 +77,8 @@ export function BookingModal({
     if (!selectedServiceId || !activeServices.some((s) => s.id === selectedServiceId)) {
       const next = activeServices[0];
       setSelectedServiceId(next.id);
-      setBookingLocation(next.defaultLocation ?? "");
-      setBookingMeetingLink(next.defaultMeetingLink ?? "");
     }
-  }, [visible, activeServices, selectedServiceId, selectedDate]);
+  }, [visible, activeServices, selectedServiceId]);
 
   const notifyBookingConfirmed = useCallback(async (startsAt?: Date | null) => {
     try {
@@ -132,8 +118,13 @@ export function BookingModal({
     setBookingError(null);
     setIsSubmitting(true);
     try {
-      const startsAt = new Date(bookingDate);
-      startsAt.setHours(bookingTime.getHours(), bookingTime.getMinutes(), 0, 0);
+      let startsAt = new Date();
+      if (selectedService.oneTimeDate) {
+        startsAt = new Date(`${selectedService.oneTimeDate}T${selectedService.oneTimeTime || "09:00:00"}`);
+      } else {
+        startsAt = new Date();
+        startsAt.setHours(12, 0, 0, 0);
+      }
       const endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
       await apiRequest("/bookings", {
         method: "POST",
@@ -272,7 +263,6 @@ export function BookingModal({
                           key={item.id}
                           onPress={() => {
                             hasUserSelectedService.current = true;
-                            hasUserAdjustedBookingDate.current = false;
                             if (item.id) {
                               setSelectedServiceId(item.id);
                               setBookingLocation(item.defaultLocation ?? "");
@@ -299,40 +289,12 @@ export function BookingModal({
                   </View>
                 )}
 
-                <View
-                  className="mt-4 rounded-[22px] border p-4"
-                  style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}
-                >
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Date
-                  </Text>
-                  <Pressable
-                    onPress={() => setShowDatePicker(true)}
-                    className="mt-3 rounded-2xl border px-3 py-3"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
-                  >
-                    <Text className="text-sm font-outfit text-app">
-                      {bookingDate.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
-                    </Text>
-                  </Pressable>
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mt-4">
-                    Time
-                  </Text>
-                  <Pressable
-                    onPress={() => setShowTimePicker(true)}
-                    className="mt-3 rounded-2xl border px-3 py-3"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderSoft }}
-                  >
-                    <Text className="text-sm font-outfit text-app">
-                      {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </Text>
-                  </Pressable>
                   {selectedService && (
                     <Text className="text-xs font-outfit text-secondary mt-3">
-                      Capacity: {selectedService.capacity ?? 0} total booking{selectedService.capacity === 1 ? "" : "s"} available for this service.
+                      Capacity: {selectedService.capacity ?? "Unlimited"} total
                     </Text>
                   )}
-                  {selectedService && (
+                  {selectedService && selectedService.oneTimeDate ? (
                     <View
                       className="mt-4 rounded-2xl border px-3 py-3"
                       style={{ borderColor: colors.accent, backgroundColor: accentSurface }}
@@ -341,22 +303,18 @@ export function BookingModal({
                         className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
                         style={{ color: colors.accent }}
                       >
-                        Your selection
+                        Scheduled for
                       </Text>
                       <Text className="text-sm font-outfit text-app font-semibold mt-1">
-                        {selectedService.name}
-                      </Text>
-                      <Text className="text-xs font-outfit text-secondary mt-1">
-                        {bookingDate.toLocaleDateString([], {
+                        {new Date(`${selectedService.oneTimeDate}T12:00:00`).toLocaleDateString([], {
                           weekday: "long",
                           month: "short",
                           day: "numeric",
                         })}{" "}
-                        · {bookingTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        · {selectedService.oneTimeTime}
                       </Text>
                     </View>
-                  )}
-                </View>
+                  ) : null}
 
                 <View
                   className="mt-4 rounded-[22px] border p-4"
@@ -427,53 +385,7 @@ export function BookingModal({
                   </Text>
                 )}
 
-                {showDatePicker && (
-                  <View className="mt-3">
-                    <DateTimePicker
-                      value={bookingDate}
-                      mode="date"
-                      display={Platform.OS === "ios" ? "spinner" : "default"}
-                      onChange={(event, date) => {
-                        if (Platform.OS !== "ios") setShowDatePicker(false);
-                        if (event.type === "dismissed") return;
-                        if (!date) return;
-                        hasUserAdjustedBookingDate.current = true;
-                        setBookingDate(normalizeBookingCalendarDay(date));
-                      }}
-                    />
-                    {Platform.OS === "ios" && (
-                      <Pressable
-                        onPress={() => setShowDatePicker(false)}
-                        className="mt-2 self-end rounded-full border border-app px-4 py-2"
-                      >
-                        <Text className="text-app font-outfit text-xs">Done</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                )}
-                {showTimePicker && (
-                  <View className="mt-3">
-                    <DateTimePicker
-                      value={bookingTime}
-                      mode="time"
-                      display={Platform.OS === "ios" ? "spinner" : "default"}
-                      onChange={(event, date) => {
-                        if (Platform.OS !== "ios") setShowTimePicker(false);
-                        if (event.type === "dismissed") return;
-                        if (!date) return;
-                        setBookingTime(date);
-                      }}
-                    />
-                    {Platform.OS === "ios" && (
-                      <Pressable
-                        onPress={() => setShowTimePicker(false)}
-                        className="mt-2 self-end rounded-full border border-app px-4 py-2"
-                      >
-                        <Text className="text-app font-outfit text-xs">Done</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                )}
+
               </>
             )}
           </ScrollView>

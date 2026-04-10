@@ -220,6 +220,14 @@ export async function apiRequest<T>(
 
   let { res, requestUrl, text } = await performRequest(resolvedToken);
 
+  const shouldRetryOnce =
+    method === "GET" &&
+    (res.status === 502 || res.status === 503 || res.status === 504);
+  if (shouldRetryOnce) {
+    await new Promise((r) => setTimeout(r, 650));
+    ({ res, requestUrl, text } = await performRequest(resolvedToken));
+  }
+
   const shouldTryRefresh =
     res.status === 401 &&
     Boolean(resolvedToken) &&

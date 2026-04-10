@@ -87,6 +87,9 @@ export default function ThreadScreen() {
 
   const {
     reactionOptions,
+    effectiveProfileId,
+    effectiveProfileName,
+    groupMembers,
     currentThread,
     localMessages,
     typingStatus,
@@ -203,6 +206,9 @@ export default function ThreadScreen() {
       <ThreadChatBody
         thread={currentThread}
         messages={localMessages}
+        effectiveProfileId={effectiveProfileId}
+        effectiveProfileName={effectiveProfileName}
+        groupMembers={groupMembers}
         token={token}
         draft={draft}
         replyTarget={replyTarget}

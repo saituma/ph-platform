@@ -14,6 +14,12 @@ export type SessionItem = {
     reps?: number | null;
     duration?: number | null;
     restSeconds?: number | null;
+    steps?: string | null;
+    cues?: string | null;
+    progression?: string | null;
+    regression?: string | null;
+    category?: string | null;
+    equipment?: string | null;
   } | null;
 };
 

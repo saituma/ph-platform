@@ -26,6 +26,8 @@ type ModuleSession = {
   order: number;
   completed: boolean;
   locked: boolean;
+  lockedReason?: "tier" | "sequence" | null;
+  unlockTiers?: Array<{ tier: string; label: string }>;
   items: SessionItem[];
 };
 
@@ -36,6 +38,8 @@ type Module = {
   totalDayLength: number;
   completed: boolean;
   locked: boolean;
+  lockedReason?: "tier" | "sequence" | null;
+  unlockTiers?: Array<{ tier: string; label: string }>;
   sessions: ModuleSession[];
 };
 
@@ -76,6 +80,25 @@ export function AgeBasedTrainingPanel({
   const modules = workspace?.modules ?? [];
   const others = workspace?.others ?? [];
 
+  const formatUnlockTiers = (
+    tiers?: Array<{ tier: string; label: string }>,
+  ) => {
+    const labels = (tiers ?? [])
+      .map((t) => String(t?.label ?? "").trim())
+      .filter(Boolean);
+    return labels.length ? labels.join(", ") : null;
+  };
+
+  const lockedCopy = (module: Module) => {
+    if (module.lockedReason === "tier") {
+      const available = formatUnlockTiers(module.unlockTiers);
+      return available
+        ? `Locked for this plan. Purchase ${available}`
+        : "Locked for this plan.";
+    }
+    return "Locked. Complete the previous sessions/modules to unlock this module.";
+  };
+
   if (activeTab === "Modules") {
     return (
       <View className="gap-4">
@@ -84,10 +107,7 @@ export function AgeBasedTrainingPanel({
             key={module.id}
             onPress={() => {
               if (module.locked) {
-                Alert.alert(
-                  "Module locked",
-                  "Complete the previous sessions/modules to unlock this module.",
-                );
+                Alert.alert("Module locked", lockedCopy(module));
                 return;
               }
               onOpenModule(module.id);
@@ -121,6 +141,15 @@ export function AgeBasedTrainingPanel({
                   {module.sessions.length} session
                   {module.sessions.length === 1 ? "" : "s"} in this module
                 </Text>
+
+                {module.locked ? (
+                  <Text
+                    className="mt-2 text-xs font-outfit"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    {lockedCopy(module)}
+                  </Text>
+                ) : null}
               </View>
               <View
                 className="rounded-full px-3 py-1.5"
