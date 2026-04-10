@@ -2,12 +2,18 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect } from "react";
-import { ActivityIndicator, Pressable, StyleProp, View, ViewStyle } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleProp,
+  View,
+  ViewStyle,
+} from "react-native";
 import Animated, {
-    interpolate,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from "react-native-reanimated";
 
 type ThemeToggleProps = {
@@ -55,28 +61,48 @@ export function ThemeToggle({
     <Pressable
       onPress={toggleColorScheme}
       disabled={isSwitching}
-      style={({ pressed }) => ({
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: isDark ? colors.card : colors.backgroundSecondary,
-        overflow: "visible",
-        transform: [{ scale: pressed ? 0.93 : 1 }],
-        ...(isDark ? Shadows.none : Shadows.sm),
-        ...(Array.isArray(style) ? Object.assign({}, ...style) : ((style as ViewStyle) ?? {})),
-      })}
+      style={({ pressed }) => [
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: isDark ? colors.card : colors.backgroundSecondary,
+          overflow: "visible",
+          transform: [{ scale: pressed ? 0.93 : 1 }],
+          ...(isDark ? Shadows.none : Shadows.sm),
+        },
+        style,
+      ]}
     >
       {isSwitching ? (
         <View style={{ position: "absolute" }}>
           <ActivityIndicator size="small" color={colors.themeToggleIcon} />
         </View>
       ) : null}
-      <Animated.View style={[sunStyle, { position: "absolute", alignItems: "center", justifyContent: "center" }]}>
+      <Animated.View
+        style={[
+          sunStyle,
+          {
+            position: "absolute",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
         <Feather name="sun" size={iconSize} color={colors.themeToggleIcon} />
       </Animated.View>
-      <Animated.View style={[moonStyle, { position: "absolute", alignItems: "center", justifyContent: "center" }]}>
+      <Animated.View
+        style={[
+          moonStyle,
+          {
+            position: "absolute",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
         <Feather name="moon" size={iconSize} color={colors.accent} />
       </Animated.View>
     </Pressable>

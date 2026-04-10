@@ -1,4 +1,3 @@
-import { GuardianDashboard } from "@/components/dashboard/GuardianDashboard";
 import { AdminStorySection } from "@/components/home/AdminStorySection";
 import { IntroVideoSection } from "@/components/home/IntroVideoSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
@@ -431,14 +430,6 @@ export default function HomeScreen() {
                   />
                 </Animated.View>
               )}
-
-              <Animated.View
-                entering={FadeInDown.delay(700)
-                  .duration(400)
-                  .easing(Easing.out(Easing.cubic))}
-              >
-                <GuardianDashboard />
-              </Animated.View>
 
               {homeContent?.adminStory && (
                 <Animated.View

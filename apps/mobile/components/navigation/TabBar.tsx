@@ -1,29 +1,23 @@
-import { LiquidGlass } from "@/components/ui/LiquidGlass";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { AnimatedText } from "@/components/ScaledText";
-import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
-  Extrapolate,
-  interpolate,
   interpolateColor,
   SharedValue,
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
+
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-import {
-  isLiquidGlassAvailable,
-  isGlassEffectAPIAvailable,
-} from "expo-glass-effect";
+
+const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
 
 export interface TabConfig {
   key: string;
-  label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  iconOutline?: keyof typeof Ionicons.glyphMap;
   badgeCount?: number;
   hidden?: boolean;
 }
@@ -35,19 +29,10 @@ interface TabBarProps {
   scrollOffset?: SharedValue<number>;
 }
 
-interface TabItemProps {
-  tab: TabConfig;
-  index: number;
-  activeIndex: number;
-  onTabPress: (index: number) => void;
-  scrollOffset?: SharedValue<number>;
-  colors: any;
-  isDark: boolean;
-  pillSize: number;
+interface TabLayoutConfig {
+  pillWidth: number;
+  pillHeight: number;
   iconSize: number;
-  labelFontSize: number;
-  labelMarginTop: number;
-  tabCount: number;
 }
 
 const TabItem = React.memo(
@@ -59,203 +44,106 @@ const TabItem = React.memo(
     scrollOffset,
     colors,
     isDark,
-    pillSize,
-    iconSize,
-    labelFontSize,
-    labelMarginTop,
-    tabCount,
-  }: TabItemProps) => {
-    // Animated pill background: active = soft fill, inactive = transparent
-    const pillStyle = useAnimatedStyle(() => {
-      const activeBg = isDark
-        ? "rgba(34, 197, 94, 0.15)"
-        : "rgba(34, 197, 94, 0.1)";
-      const inactiveBg = "transparent";
+    layout,
+  }: {
+    tab: TabConfig;
+    index: number;
+    activeIndex: number;
+    onTabPress: (index: number) => void;
+    scrollOffset?: SharedValue<number>;
+    colors: any;
+    isDark: boolean;
+    layout: TabLayoutConfig;
+  }) => {
+    const activeIconColor = colors.tint;
+    const inactiveIconColor = colors.textDim;
+    const activeBgColor = isDark ? colors.surfaceHigher : colors.limeGlow;
 
-      if (!scrollOffset) {
-        const active = index === activeIndex;
-        return {
-          backgroundColor: active ? activeBg : inactiveBg,
-          transform: [{ scale: active ? 1.05 : 1 }],
-        };
+    const getDistance = () => {
+      "worklet";
+      if (scrollOffset) {
+        return Math.min(Math.abs(scrollOffset.value - index), 1);
       }
+      return index === activeIndex ? 0 : 1;
+    };
 
-      const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
-      const bgColor = interpolateColor(
-        distance,
-        [0, 1],
-        [activeBg, inactiveBg],
-      );
-      const scale = interpolate(distance, [0, 1], [1.05, 1], Extrapolate.CLAMP);
+    const pillStyle = useAnimatedStyle(() => {
+      const distance = getDistance();
+      const scale = 1 - distance * 0.15;
+      const opacity = Math.max(0, 1 - distance);
 
-      return { backgroundColor: bgColor, transform: [{ scale }] };
-    }, [scrollOffset, index, activeIndex, isDark]);
-
-    // Icon color animation
-    const activeColor = colors.tint;
-    // UI polish: keep inactive icons legible without using harsh pure-black tones.
-    const inactiveColor = isDark
-      ? "rgba(248,250,252,0.52)"
-      : colors.textSecondary;
+      return {
+        backgroundColor: activeBgColor,
+        transform: [{ scale }],
+        opacity,
+      };
+    });
 
     const iconColorStyle = useAnimatedStyle(() => {
-      if (!scrollOffset) {
-        return { opacity: index === activeIndex ? 1 : 0.5 };
-      }
-
-      const distance = Math.abs(scrollOffset.value - index);
-      const opacity = interpolate(
+      const distance = getDistance();
+      const color = interpolateColor(
         distance,
-        [0, 0.5, 1],
-        [1, 0.65, 0.5],
-        Extrapolate.CLAMP,
-      );
-      return { opacity };
-    }, [scrollOffset, index, activeIndex]);
-
-    const iconScaleStyle = useAnimatedStyle(() => {
-      if (!scrollOffset) {
-        return { transform: [{ scale: index === activeIndex ? 1.12 : 1 }] };
-      }
-
-      const distance = Math.abs(scrollOffset.value - index);
-      const scale = interpolate(distance, [0, 1], [1.12, 1], Extrapolate.CLAMP);
-      return { transform: [{ scale }] };
-    }, [scrollOffset, index, activeIndex]);
-
-    // Label animation (focused tab only)
-    const labelStyle = useAnimatedStyle(() => {
-      if (!scrollOffset) {
-        const active = index === activeIndex;
-        return {
-          opacity: active ? 1 : 0,
-        };
-      }
-
-      const distance = Math.min(Math.abs(scrollOffset.value - index), 1);
-      const opacity = interpolate(distance, [0, 1], [1, 0], Extrapolate.CLAMP);
-      return { opacity };
-    }, [scrollOffset, index, activeIndex]);
-
-    // Determine icon color based on active state (for non-animated layer)
-    const activeTintStyle = useAnimatedStyle(() => {
-      if (!scrollOffset) return { opacity: index === activeIndex ? 1 : 0 };
-      const distance = Math.abs(scrollOffset.value - index);
-      const opacity = interpolate(
-        distance,
-        [0, 0.5],
-        [1, 0],
-        Extrapolate.CLAMP,
-      );
-      return { opacity };
-    });
-
-    const inactiveTintStyle = useAnimatedStyle(() => {
-      if (!scrollOffset) return { opacity: index === activeIndex ? 0 : 1 };
-      const distance = Math.abs(scrollOffset.value - index);
-      const opacity = interpolate(
-        distance,
-        [0, 0.5],
         [0, 1],
-        Extrapolate.CLAMP,
+        [activeIconColor, inactiveIconColor],
       );
-      return { opacity };
+      return { color };
     });
+
+    const iconContainerStyle = useAnimatedStyle(() => {
+      const distance = getDistance();
+      const translateY = distance * 6 - 6;
+      return { transform: [{ translateY }] };
+    });
+
+    const handlePress = () => {
+      if (index !== activeIndex) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      onTabPress(index);
+    };
 
     return (
       <Pressable
-        onPress={() => onTabPress(index)}
-        style={({ pressed }) => ({
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingVertical: 4,
-          opacity: pressed ? 0.8 : 1,
-          transform: [{ scale: pressed ? 0.92 : 1 }],
-        })}
+        onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityState={{ selected: activeIndex === index }}
+        style={({ pressed }) => [
+          styles.tabItemContainer,
+          pressed && { transform: [{ scale: 0.94 }] },
+        ]}
       >
-        {/* Soft filled pill — no border */}
         <Animated.View
           style={[
-            {
-              width: pillSize,
-              height: pillSize,
-              borderRadius: pillSize / 2,
-              alignItems: "center",
-              justifyContent: "center",
-            },
-            pillStyle,
+            { alignItems: "center", justifyContent: "center" },
+            iconContainerStyle,
           ]}
         >
           <Animated.View
-            style={[iconColorStyle, iconScaleStyle, { position: "relative" }]}
-          >
-            {/* Active icon layer */}
-            <Animated.View style={[activeTintStyle, { position: "absolute" }]}>
-              <Ionicons
-                name={tab.icon}
-                size={iconSize}
-                color={activeColor}
-              />
-            </Animated.View>
-            {/* Inactive icon layer */}
-            <Animated.View style={inactiveTintStyle}>
-              <Ionicons
-                name={tab.iconOutline ?? tab.icon}
-                size={iconSize}
-                color={inactiveColor}
-              />
-            </Animated.View>
-          </Animated.View>
+            style={[
+              {
+                position: "absolute",
+                width: layout.pillWidth,
+                height: layout.pillHeight,
+                borderRadius: layout.pillHeight / 2,
+              },
+              pillStyle,
+            ]}
+          />
 
-          {/* Badge */}
+          <AnimatedIcon
+            name={tab.icon}
+            size={layout.iconSize}
+            style={[iconColorStyle, { zIndex: 2 }]}
+          />
+
           {tab.badgeCount && tab.badgeCount > 0 ? (
             <View
-              style={{
-                position: "absolute",
-                top: -2,
-                right: -4,
-                minWidth: 16,
-                height: 16,
-                borderRadius: 999,
-                backgroundColor: colors.danger,
-                paddingHorizontal: 3,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <AnimatedText
-                style={{
-                  color: "#FFFFFF",
-                  fontSize: 10,
-                  fontFamily: "Outfit-SemiBold",
-                }}
-                numberOfLines={1}
-              >
-                {tab.badgeCount > 99 ? "99+" : String(tab.badgeCount)}
-              </AnimatedText>
-            </View>
+              style={[
+                styles.badgeContainer,
+                { backgroundColor: colors.danger },
+              ]}
+            />
           ) : null}
-        </Animated.View>
-
-        {/* Label — shown only for focused tab */}
-        <Animated.View
-          style={[
-            { marginTop: labelMarginTop, overflow: "hidden", height: 12 },
-            labelStyle,
-          ]}
-        >
-          <AnimatedText
-            style={{
-              color: "#22c55e",
-              fontSize: labelFontSize,
-              fontFamily: "Outfit-Medium",
-              textAlign: "center",
-            }}
-            numberOfLines={1}
-          >
-            {tab.label}
-          </AnimatedText>
         </Animated.View>
       </Pressable>
     );
@@ -271,78 +159,47 @@ export function TabBar({
 }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const visibleTabs = tabs
-    .map((tab, index) => ({ tab, index }))
-    .filter(({ tab }) => !tab.hidden);
+
+  const visibleTabs = React.useMemo(
+    () =>
+      tabs
+        .map((tab, index) => ({ tab, index }))
+        .filter(({ tab }) => !tab.hidden),
+    [tabs],
+  );
 
   const tabCount = visibleTabs.length;
-  const compact = tabCount >= 7;
+  const compact = tabCount >= 5;
 
-  const barHeight =
-    Platform.OS === "ios" ? (compact ? 60 : 64) : compact ? 64 : 68;
-  const safeBottom = Math.max(insets.bottom, Platform.OS === "ios" ? 10 : 8);
-  const pillSize = compact ? 36 : 40;
-  const iconSize = compact ? 18 : 20;
-  const labelFontSize = compact ? 9 : 10;
-  const labelMarginTop = compact ? 2 : 3;
+  const safeBottom = Math.max(insets.bottom, 12);
+  const barHeight = compact ? 72 : 86;
 
-  const canUseLiquidGlass =
-    Platform.OS === "ios" &&
-    isLiquidGlassAvailable() &&
-    isGlassEffectAPIAvailable();
+  const layoutConfig: TabLayoutConfig = React.useMemo(
+    () => ({
+      pillWidth: compact ? 56 : 64,
+      pillHeight: compact ? 48 : 56,
+      iconSize: compact ? 30 : 33,
+    }),
+    [compact],
+  );
 
-  // Use semi-transparent tint for glass, but solid opaque theme color for fallback
-  const glassTintColor = canUseLiquidGlass
-    ? isDark
-      ? "rgba(12, 12, 14, 0.55)"
-      : "rgba(255, 255, 255, 0.55)"
-    : isDark
-      ? colors.cardElevated
-      : colors.card;
-
-  const borderTopColor = isDark
-    ? "rgba(255, 255, 255, 0.22)"
-    : "rgba(0, 0, 0, 0.10)";
+  const borderTopColor = colors.borderSubtle;
   const highlightGradientColors: readonly [string, string, string] = isDark
-    ? [
-        "rgba(255,255,255,0.10)",
-        "rgba(255,255,255,0.04)",
-        "rgba(255,255,255,0.00)",
-      ]
-    : [
-        "rgba(255,255,255,0.26)",
-        "rgba(255,255,255,0.12)",
-        "rgba(255,255,255,0.00)",
-      ];
+    ? ["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)", "transparent"]
+    : ["rgba(255,255,255,0.8)", "rgba(255,255,255,0.3)", "transparent"];
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={{
-        width: "100%",
-        alignItems: "center",
-        justifyContent: "flex-end",
-      }}
-    >
+    <View pointerEvents="box-none" style={styles.wrapper}>
       <View
-        style={{
-          width: "100%",
-          height: barHeight + safeBottom,
-          ...Shadows.lg,
-        }}
+        style={{ width: "100%", height: barHeight + safeBottom, ...Shadows.lg }}
       >
-        <LiquidGlass
-          isInteractive
-          glassStyle="regular"
-          tintColor={glassTintColor}
-          colorScheme={isDark ? "dark" : "light"}
-          blurTint={isDark ? "dark" : "light"}
-          blurIntensity={70}
+        <View
           style={[
             StyleSheet.absoluteFill,
             {
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
+              backgroundColor: isDark ? colors.cardElevated : colors.surface,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
               borderTopWidth: StyleSheet.hairlineWidth,
               borderTopColor,
               overflow: "hidden",
@@ -353,18 +210,21 @@ export function TabBar({
             pointerEvents="none"
             colors={highlightGradientColors}
             start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
+            end={{ x: 0.5, y: 0.3 }}
             style={StyleSheet.absoluteFill}
           />
+
           <View
-            style={{
-              ...StyleSheet.absoluteFillObject,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: compact ? 8 : 12,
-              paddingBottom: safeBottom,
-            }}
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: compact ? 8 : 16,
+                paddingBottom: safeBottom,
+              },
+            ]}
           >
             {visibleTabs.map(({ tab, index }) => (
               <TabItem
@@ -376,16 +236,42 @@ export function TabBar({
                 scrollOffset={scrollOffset}
                 colors={colors}
                 isDark={isDark}
-                pillSize={pillSize}
-                iconSize={iconSize}
-                labelFontSize={labelFontSize}
-                labelMarginTop={labelMarginTop}
-                tabCount={tabCount}
+                layout={layoutConfig}
               />
             ))}
           </View>
-        </LiquidGlass>
+        </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    position: "absolute",
+    bottom: 0,
+  },
+  tabItemContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+  },
+  badgeContainer: {
+    position: "absolute",
+    top: -6,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#0F0F1E",
+    zIndex: 3,
+  },
+});
