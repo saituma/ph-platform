@@ -26,6 +26,17 @@ import { createUserFromCognito, getAthleteForUser, getUserByEmail, getUserById }
 import { calculateAge, parseISODate } from "../../lib/age";
 
 export async function listUsers(options?: { q?: string; limit?: number }) {
+  type ProgramTier = (typeof ProgramType.enumValues)[number];
+  type AthleteTypeValue = (typeof AthleteType.enumValues)[number];
+  const coerceProgramTier = (value?: string | null): ProgramTier | null =>
+    ProgramType.enumValues.includes(value as ProgramTier)
+      ? (value as ProgramTier)
+      : null;
+  const coerceAthleteType = (value?: string | null): AthleteTypeValue | null =>
+    AthleteType.enumValues.includes(value as AthleteTypeValue)
+      ? (value as AthleteTypeValue)
+      : null;
+
   const q = options?.q?.trim() ?? "";
   const requestedLimit = options?.limit;
   const limit =
@@ -134,10 +145,11 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
     guardianIds.push(guardian.guardianId);
   }
 
-  const tierByUserId = new Map<number, string | null>();
+  const tierByUserId = new Map<number, ProgramTier | null>();
   for (const guardian of guardians) {
-    if (guardian.guardianProgramTier) {
-      tierByUserId.set(guardian.userId, guardian.guardianProgramTier);
+    const tier = coerceProgramTier(guardian.guardianProgramTier);
+    if (tier) {
+      tierByUserId.set(guardian.userId, tier);
     }
   }
   const activeAthleteIds = guardians
@@ -150,8 +162,8 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
       id: number;
       name: string | null;
       team: string | null;
-      athleteType: string | null;
-      programTier: string | null;
+      athleteType: AthleteTypeValue | null;
+      programTier: ProgramTier | null;
     }
   >();
 
@@ -174,13 +186,15 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
         id: athlete.id,
         name: athlete.name,
         team: athlete.team,
-        athleteType: athlete.athleteType,
-        programTier: athlete.programTier,
+        athleteType: coerceAthleteType(athlete.athleteType),
+        programTier: coerceProgramTier(athlete.programTier),
       });
       const guardian = guardianById.get(athlete.guardianId);
-      if (!guardian || !athlete.programTier) continue;
+      if (!guardian) continue;
+      const tier = coerceProgramTier(athlete.programTier);
+      if (!tier) continue;
       if (tierByUserId.has(guardian.userId)) continue;
-      tierByUserId.set(guardian.userId, athlete.programTier);
+      tierByUserId.set(guardian.userId, tier);
     }
   }
 
@@ -205,8 +219,9 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
       if (!athlete.guardianId) continue;
       const guardian = guardianById.get(athlete.guardianId);
       if (!guardian || tierByUserId.has(guardian.userId)) continue;
-      if (athlete.programTier) {
-        tierByUserId.set(guardian.userId, athlete.programTier);
+      const tier = coerceProgramTier(athlete.programTier);
+      if (tier) {
+        tierByUserId.set(guardian.userId, tier);
       }
     }
   }
@@ -228,7 +243,7 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
       next.athleteId = activeAthlete.id;
       next.athleteName = activeAthlete.name;
       next.athleteTeam = activeAthlete.team;
-      next.athleteType = activeAthlete.athleteType as AthleteType | null;
+      next.athleteType = activeAthlete.athleteType;
       if (!next.programTier && activeAthlete.programTier) {
         next.programTier = activeAthlete.programTier;
       }
