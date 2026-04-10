@@ -1,20 +1,11 @@
 import { Colors } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
-import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColorScheme } from "nativewind";
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  startTransition,
-} from "react";
-import {
-  InteractionManager,
-  View,
-  useColorScheme as useSystemColorScheme,
-} from "react-native";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useColorScheme as useSystemColorScheme } from "react-native";
+
+const THEME_MODE_KEY = "themeMode";
 
 type ColorSchemeName = "light" | "dark" | "system";
 
@@ -26,18 +17,21 @@ type AppTheme = {
   isDark: boolean;
 };
 
-const defaultTheme: AppTheme = {
-  colorScheme: "light",
-  colors: Colors.light,
-  toggleColorScheme: () => {},
-  isSwitching: false,
-  isDark: false,
+export const AppThemeContext = createContext<AppTheme | null>(null);
+const persistTheme = async (key: string, value: string) => {
+  try {
+    await AsyncStorage.setItem(key, value);
+  } catch (err) {
+    console.error("Failed to persist theme preference", err);
+  }
 };
-
-export const AppThemeContext = createContext<AppTheme>(defaultTheme);
-
 export function useAppTheme() {
-  return useContext(AppThemeContext);
+  const context = useContext(AppThemeContext);
+
+  if (context === null) {
+    throw new Error("useAppTheme must be used within an AppThemeProvider");
+  }
+  return context;
 }
 
 export default function AppThemeProvider({
@@ -45,88 +39,87 @@ export default function AppThemeProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { colorScheme, setColorScheme } = useColorScheme();
+  const { setColorScheme } = useColorScheme();
   const { isAuthenticated, profile } = useAppSelector((state) => state.user);
   const [isSwitching, setIsSwitching] = useState(false);
-  const THEME_MODE_KEY = "themeMode";
+  const [themeMode, setThemeMode] = useState<ColorSchemeName>("system");
   const themeKey =
     isAuthenticated && profile.id !== undefined && profile.id !== null
       ? `${THEME_MODE_KEY}_user_${profile.id}`
       : null;
   const guestKey = `${THEME_MODE_KEY}_guest`;
 
+  const systemScheme = useSystemColorScheme();
+  const systemResolvedScheme: "light" | "dark" =
+    systemScheme === "dark" ? "dark" : "light";
+
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
     (async () => {
       try {
         const stored = themeKey
-          ? await SecureStore.getItemAsync(themeKey)
-          : await SecureStore.getItemAsync(guestKey);
-        if (!mounted || !stored) return;
+          ? await AsyncStorage.getItem(themeKey)
+          : await AsyncStorage.getItem(guestKey);
+        if (cancelled || !stored) return;
         if (stored === "light" || stored === "dark" || stored === "system") {
-          setColorScheme(stored);
+          setThemeMode(stored);
+          // Work around RN Android crash: don't send "system" to native.
+          setColorScheme(stored === "system" ? systemResolvedScheme : stored);
         }
-      } catch {
-        // ignore secure store failures
+      } catch (err) {
+        console.error("Failed to load theme preference", err);
       }
     })();
     return () => {
-      mounted = false;
+      cancelled = true;
     };
-  }, [setColorScheme, themeKey]);
+  }, [setColorScheme, systemResolvedScheme, themeKey, guestKey]);
 
   useEffect(() => {
-    if (!isSwitching) return;
-    const timer = setTimeout(() => setIsSwitching(false), 150);
-    return () => clearTimeout(timer);
-  }, [colorScheme, isSwitching]);
+    if (themeMode !== "system") return;
+    // Keep "system" mode in sync with OS changes without passing null.
+    setColorScheme(systemResolvedScheme);
+  }, [setColorScheme, systemResolvedScheme, themeMode]);
 
-  // NativeWind 4 handle system scheme, but for our usage we imply dark if 'dark'.
-  // If 'system', we might rely on system preference?
-  // NativeWind usually resolves it in CSS.
-  // For 'isDark', let's just check strict equality or system?
-  // Actually, standard NativeWind usage:
-  const systemScheme = useSystemColorScheme();
-  const currentScheme = (colorScheme as ColorSchemeName | undefined) ?? "light";
-  const resolvedScheme =
-    currentScheme === "system" ? (systemScheme ?? "light") : currentScheme;
+  const resolvedScheme = themeMode === "system" ? systemResolvedScheme : themeMode;
   const isDark = resolvedScheme === "dark";
   const colors = isDark ? Colors.dark : Colors.light;
 
-  const value = useMemo(
+  const toggleColorScheme = React.useCallback(async () => {
+    const next =
+      themeMode === "light"
+        ? "dark"
+        : themeMode === "dark"
+          ? "system"
+          : "light";
+    setIsSwitching(true);
+
+    setThemeMode(next);
+    setColorScheme(next === "system" ? systemResolvedScheme : next);
+
+    const key = themeKey ?? guestKey;
+    try {
+      await persistTheme(key, next);
+    } catch (error) {
+      console.error("Failed to persist theme preference", error);
+    } finally {
+      setIsSwitching(false);
+    }
+  }, [guestKey, setColorScheme, systemResolvedScheme, themeKey, themeMode]);
+  const value = React.useMemo(
     () => ({
-      colorScheme: colorScheme ?? "light",
+      colorScheme: themeMode,
       colors,
-      toggleColorScheme: () => {
-        const next = colorScheme === "dark" ? "light" : "dark";
-        setIsSwitching(true);
-        startTransition(() => {
-          setColorScheme(next);
-        });
-        const key = themeKey ?? guestKey;
-        InteractionManager.runAfterInteractions(() => {
-          SecureStore.setItemAsync(key, next);
-        });
-      },
+      toggleColorScheme,
       isSwitching,
       isDark,
     }),
-    [
-      colorScheme,
-      colors,
-      guestKey,
-      isDark,
-      isSwitching,
-      setColorScheme,
-      themeKey,
-    ],
+    [colors, isDark, isSwitching, themeMode, toggleColorScheme],
   );
 
   return (
     <AppThemeContext.Provider value={value}>
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        {children}
-      </View>
+      {children}
     </AppThemeContext.Provider>
   );
 }

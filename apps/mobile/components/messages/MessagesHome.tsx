@@ -115,6 +115,15 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
     return sortedThreads.filter((thread) => thread.channelType !== "team");
   }, [mode, sortedThreads]);
 
+  const channelCounts = React.useMemo(() => {
+    const team = inboxThreads.filter((t) => t.channelType === "team").length;
+    const coach = inboxThreads.filter((t) => t.channelType === "coach_group").length;
+    const direct = inboxThreads.filter(
+      (t) => t.channelType === "direct" || !t.id.startsWith("group:"),
+    ).length;
+    return { team, coach, direct };
+  }, [inboxThreads]);
+
   React.useEffect(() => {
     if (!token) return;
     if (!isMessagesRoute) return;
@@ -428,6 +437,25 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
           </Text>
         </Pressable>
       </View>
+
+      {__DEV__ && mode === "team" ? (
+        <View className="px-6 pb-2">
+          <View
+            className="rounded-[18px] px-4 py-2 border"
+            style={{
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: colors.borderSubtle,
+            }}
+          >
+            <Text
+              className="text-[11px] font-outfit font-semibold"
+              style={{ color: colors.text }}
+            >
+              Team mode debug — Team: {channelCounts.team}, Coach groups: {channelCounts.coach}, Direct: {channelCounts.direct}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <InboxScreen
         threads={inboxThreads}
