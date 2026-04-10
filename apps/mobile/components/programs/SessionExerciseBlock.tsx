@@ -259,10 +259,15 @@ export function SessionExerciseBlock({
             </View>
 
             {canUpload && item.allowVideoUpload ? (
-              <View className="mt-4 flex-row items-center justify-end">
+              <View className="mt-4 items-end">
+                <Text className="text-[11px] font-outfit text-secondary opacity-80 mb-2">
+                  Upload video (optional)
+                </Text>
                 <Pressable
                   onPress={() => onUploadPress(item.id, item.title)}
                   className="h-10 w-10 rounded-full bg-accent/10 items-center justify-center"
+                  accessibilityRole="button"
+                  accessibilityLabel="Upload video"
                 >
                   <Feather
                     name="video"
@@ -272,6 +277,9 @@ export function SessionExerciseBlock({
                     }
                   />
                 </Pressable>
+                <Text className="text-[10px] font-outfit text-secondary opacity-70 mt-2">
+                  Coach feedback will show below.
+                </Text>
               </View>
             ) : null}
 

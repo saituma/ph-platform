@@ -33,7 +33,7 @@ const slotDefinitionSchema = z.object({
 
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(["call", "group_call", "individual_call", "lift_lab_1on1", "role_model", "one_on_one"]),
+  type: z.enum(["one_to_one", "semi_private", "in_person"]),
   durationMinutes: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)),
   capacity: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional(),
   attendeeVisibility: z.boolean().optional(),
