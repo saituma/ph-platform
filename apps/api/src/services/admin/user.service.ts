@@ -547,7 +547,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
   }
 
   const desiredProgramType = input.desiredProgramType ?? null;
-  const resolvedTeam = input.team?.trim() || "Adult";
+  const resolvedTeam = input.team?.trim() || null;
   const planExpiresAt = computePlanExpiryFromCommitment(input.planCommitmentMonths);
 
   const tempPassword = resolveProvisionPassword(input.initialPassword);
