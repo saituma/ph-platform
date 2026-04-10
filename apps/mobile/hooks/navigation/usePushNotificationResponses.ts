@@ -1,10 +1,14 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "expo-router";
 import { getNotifications } from "@/lib/notifications";
+import { useAppSelector } from "@/store/hooks";
+import { getMessagesRolePrefix, messagesThreadHref } from "@/lib/messages/roleMessageRoutes";
 
 export function usePushNotificationResponses(enabled: boolean) {
   const router = useRouter();
   const lastHandledNotificationRef = useRef<string | null>(null);
+  const { appRole, apiUserRole } = useAppSelector((state) => state.user);
+  const rolePrefix = getMessagesRolePrefix({ appRole, apiUserRole });
 
   useEffect(() => {
     if (!enabled) return;
@@ -28,12 +32,18 @@ export function usePushNotificationResponses(enabled: boolean) {
         | undefined;
 
       if (data?.url) {
-        router.push(data.url as any);
+        const url = String(data.url);
+        if (url.startsWith("/messages/")) {
+          const thread = url.replace("/messages/", "");
+          router.push(messagesThreadHref(rolePrefix, thread));
+          return;
+        }
+        router.push(url as any);
         return;
       }
       const threadId = data?.threadId;
       if (threadId) {
-        router.push(`/messages/${String(threadId)}`);
+        router.push(messagesThreadHref(rolePrefix, String(threadId)));
         return;
       }
       if (data?.type === "booking" || data?.screen === "schedule") {
@@ -97,5 +107,5 @@ export function usePushNotificationResponses(enabled: boolean) {
     return () => {
       sub?.remove();
     };
-  }, [enabled, router]);
+  }, [enabled, rolePrefix, router]);
 }
