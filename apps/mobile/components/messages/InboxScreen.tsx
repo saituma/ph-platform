@@ -66,7 +66,9 @@ function groupThreadsByChannel(
           { key: "team", title: "Team inbox", items: team },
         ];
 
-  return sections.filter((section) => section.items.length > 0);
+  return variant === "team"
+    ? sections
+    : sections.filter((section) => section.items.length > 0);
 }
 
 function ThreadSkeletonCard({
@@ -222,7 +224,7 @@ function InboxScreenBase({
                 shimmerColor={colors.backgroundSecondary}
               />
             ))
-          ) : threads.length > 0 ? (
+          ) : threads.length > 0 || variant === "team" ? (
             groupedSections.map((section) => (
               <View key={section.key} className="gap-3">
                 <View className="px-1 pt-1">
@@ -233,202 +235,248 @@ function InboxScreenBase({
                     {section.title}
                   </Text>
                 </View>
-                {section.items.map((thread) => {
-                  const typingKey = getTypingKey(thread.id);
-                  const typing = typingStatus[typingKey];
-                  const isOpening = openingThreadId === thread.id;
-                  const sharedBoundTag = `thread-card-${thread.id}`;
-                  const sharedAvatarTag = `thread-avatar-${thread.id}`;
-                  const unreadBadge = formatUnreadBadge(thread.unread);
+                {section.items.length === 0 ? (
+                  <View
+                    className="rounded-[28px] border p-4"
+                    style={{
+                      backgroundColor: colors.card,
+                      borderColor: cardBorder,
+                      ...(isDark ? Shadows.none : Shadows.sm),
+                    }}
+                  >
+                    <View className="flex-row items-center gap-3">
+                      <View
+                        className="h-10 w-10 rounded-2xl items-center justify-center"
+                        style={{ backgroundColor: colors.backgroundSecondary }}
+                      >
+                        <Feather
+                          name={section.key === "team" ? "users" : "message-circle"}
+                          size={18}
+                          color={colors.accent}
+                        />
+                      </View>
+                      <View className="flex-1">
+                        <Text
+                          className="font-outfit font-semibold"
+                          style={{ color: colors.text }}
+                        >
+                          {section.key === "team"
+                            ? "No team chat yet"
+                            : section.key === "coach_group"
+                              ? "No coach groups yet"
+                              : "No direct messages yet"}
+                        </Text>
+                        <Text
+                          className="mt-0.5 text-[12px] font-outfit"
+                          style={{ color: colors.textSecondary }}
+                        >
+                          {section.key === "team"
+                            ? "When you’re added to a team group, it’ll show up here."
+                            : "This section will appear when you have messages."}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  section.items.map((thread) => {
+                    const typingKey = getTypingKey(thread.id);
+                    const typing = typingStatus[typingKey];
+                    const isOpening = openingThreadId === thread.id;
+                    const sharedBoundTag = `thread-card-${thread.id}`;
+                    const sharedAvatarTag = `thread-avatar-${thread.id}`;
+                    const unreadBadge = formatUnreadBadge(thread.unread);
 
-                  return (
-                    <Transition.Pressable
-                      key={thread.id}
-                      sharedBoundTag={sharedBoundTag}
-                      onPress={() =>
-                        onOpenThread(thread, sharedBoundTag, sharedAvatarTag)
-                      }
-                      className="rounded-[28px] border p-4 active:opacity-95"
-                      style={{
-                        backgroundColor: colors.card,
-                        borderColor: cardBorder,
-                        ...(isDark ? Shadows.none : Shadows.md),
-                      }}
-                    >
-                      <View className="flex-row items-start gap-4">
-                        <View className="relative flex-shrink-0">
-                          <Transition.View sharedBoundTag={sharedAvatarTag}>
-                            {thread.avatarUrl ? (
-                              <Image
-                                source={{ uri: thread.avatarUrl }}
-                                className="h-14 w-14 rounded-2xl"
-                              />
-                            ) : (
-                              <View
-                                className="h-14 w-14 rounded-2xl items-center justify-center"
-                                style={{ backgroundColor: colors.successSoft }}
-                              >
-                                <Text
-                                  className="font-clash text-2xl"
-                                  style={{ color: colors.success }}
-                                >
-                                  {getInitials(thread.name)}
-                                </Text>
-                              </View>
-                            )}
-                          </Transition.View>
-
-                          {unreadBadge ? (
-                            <View className="absolute -top-1 -right-1 min-w-6 h-6 px-1 bg-accent rounded-full items-center justify-center">
-                              <Text className="text-white text-[9px] font-bold font-outfit">
-                                {unreadBadge}
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-
-                        <View className="flex-1 pt-0.5">
-                          <View className="flex-row justify-between items-start">
-                            <View className="flex-1 pr-2">
-                              <Text
-                                className="font-clash text-lg"
-                                numberOfLines={1}
-                                style={{ color: colors.text }}
-                              >
-                                {thread.name}
-                              </Text>
-                              <Text
-                                className="text-sm font-outfit mt-0.5"
-                                style={{ color: colors.textSecondary }}
-                                numberOfLines={1}
-                              >
-                                {thread.role}
-                              </Text>
-                            </View>
-
-                            <View className="items-end">
-                              {isOpening ? (
-                                <ActivityIndicator
-                                  size="small"
-                                  color={colors.accent}
+                    return (
+                      <Transition.Pressable
+                        key={thread.id}
+                        sharedBoundTag={sharedBoundTag}
+                        onPress={() =>
+                          onOpenThread(thread, sharedBoundTag, sharedAvatarTag)
+                        }
+                        className="rounded-[28px] border p-4 active:opacity-95"
+                        style={{
+                          backgroundColor: colors.card,
+                          borderColor: cardBorder,
+                          ...(isDark ? Shadows.none : Shadows.md),
+                        }}
+                      >
+                        <View className="flex-row items-start gap-4">
+                          <View className="relative flex-shrink-0">
+                            <Transition.View sharedBoundTag={sharedAvatarTag}>
+                              {thread.avatarUrl ? (
+                                <Image
+                                  source={{ uri: thread.avatarUrl }}
+                                  className="h-14 w-14 rounded-2xl"
                                 />
                               ) : (
-                                <View className="items-end gap-1.5">
+                                <View
+                                  className="h-14 w-14 rounded-2xl items-center justify-center"
+                                  style={{
+                                    backgroundColor: colors.successSoft,
+                                  }}
+                                >
                                   <Text
-                                    className="text-[11px] font-bold font-outfit"
-                                    style={{ color: colors.textSecondary }}
+                                    className="font-clash text-2xl"
+                                    style={{ color: colors.success }}
                                   >
-                                    {thread.time}
+                                    {getInitials(thread.name)}
                                   </Text>
-                                  {unreadBadge ? (
+                                </View>
+                              )}
+                            </Transition.View>
+
+                            {unreadBadge ? (
+                              <View className="absolute -top-1 -right-1 min-w-6 h-6 px-1 bg-accent rounded-full items-center justify-center">
+                                <Text className="text-white text-[9px] font-bold font-outfit">
+                                  {unreadBadge}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+
+                          <View className="flex-1 pt-0.5">
+                            <View className="flex-row justify-between items-start">
+                              <View className="flex-1 pr-2">
+                                <Text
+                                  className="font-clash text-lg"
+                                  numberOfLines={1}
+                                  style={{ color: colors.text }}
+                                >
+                                  {thread.name}
+                                </Text>
+                                <Text
+                                  className="text-sm font-outfit mt-0.5"
+                                  style={{ color: colors.textSecondary }}
+                                  numberOfLines={1}
+                                >
+                                  {thread.role}
+                                </Text>
+                              </View>
+
+                              <View className="items-end">
+                                {isOpening ? (
+                                  <ActivityIndicator
+                                    size="small"
+                                    color={colors.accent}
+                                  />
+                                ) : (
+                                  <View className="items-end gap-1.5">
+                                    <Text
+                                      className="text-[11px] font-bold font-outfit"
+                                      style={{ color: colors.textSecondary }}
+                                    >
+                                      {thread.time}
+                                    </Text>
+                                    {unreadBadge ? (
+                                      <View
+                                        className="rounded-full px-2.5 py-1 flex-row items-center gap-1.5"
+                                        style={{
+                                          backgroundColor: colors.successSoft,
+                                        }}
+                                      >
+                                        <Text
+                                          className="text-[9px] font-bold font-outfit uppercase tracking-[1px]"
+                                          style={{ color: colors.success }}
+                                        >
+                                          {unreadBadge}
+                                        </Text>
+                                        <Text
+                                          className="text-[9px] font-bold font-outfit uppercase tracking-[1px]"
+                                          style={{ color: colors.success }}
+                                        >
+                                          New
+                                        </Text>
+                                      </View>
+                                    ) : null}
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+
+                            <Text
+                              className="mt-2.5 text-sm leading-6 font-outfit"
+                              style={{
+                                color: typing?.isTyping
+                                  ? colors.accent
+                                  : colors.textSecondary,
+                              }}
+                              numberOfLines={1}
+                            >
+                              {typing?.isTyping
+                                ? `${typing.name} is typing...`
+                                : thread.preview}
+                            </Text>
+
+                            <View className="flex-row items-end justify-between mt-4">
+                              <View className="flex-row items-center gap-2 flex-wrap">
+                                {thread.pinned ? (
+                                  <View
+                                    className="px-2.5 py-1 rounded-full flex-row items-center border"
+                                    style={{
+                                      backgroundColor: colors.warningSoft,
+                                      borderColor: colors.warningSoft,
+                                    }}
+                                  >
+                                    <Feather
+                                      name="bookmark"
+                                      size={11}
+                                      color={colors.warning}
+                                    />
+                                    <Text
+                                      className="ml-1 text-[9px] font-bold uppercase tracking-widest"
+                                      style={{ color: colors.warning }}
+                                    >
+                                      Pinned
+                                    </Text>
+                                  </View>
+                                ) : null}
+                                <View
+                                  className="px-2.5 py-1 rounded-full"
+                                  style={{ backgroundColor: mutedPill }}
+                                >
+                                  <Text
+                                    className="text-[10px] font-outfit font-semibold"
+                                    style={{ color: colors.text }}
+                                  >
+                                    {thread.lastSeen ?? "Open thread"}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              {thread.premium ? (
+                                <View className="flex-col items-end gap-1">
+                                  <View
+                                    className="px-2 py-1 rounded-full shadow-sm"
+                                    style={{ backgroundColor: colors.accent }}
+                                  >
+                                    <Text className="text-[8px] font-bold text-white uppercase tracking-[1px]">
+                                      Premium
+                                    </Text>
+                                  </View>
+                                  {thread.responseTime ? (
                                     <View
-                                      className="rounded-full px-2.5 py-1 flex-row items-center gap-1.5"
+                                      className="px-2 py-1 rounded-full shadow-sm"
                                       style={{
                                         backgroundColor: colors.successSoft,
                                       }}
                                     >
                                       <Text
-                                        className="text-[9px] font-bold font-outfit uppercase tracking-[1px]"
+                                        className="text-[8px] font-bold uppercase tracking-[1px]"
                                         style={{ color: colors.success }}
                                       >
-                                        {unreadBadge}
-                                      </Text>
-                                      <Text
-                                        className="text-[9px] font-bold font-outfit uppercase tracking-[1px]"
-                                        style={{ color: colors.success }}
-                                      >
-                                        New
+                                        {thread.responseTime}
                                       </Text>
                                     </View>
                                   ) : null}
                                 </View>
-                              )}
-                            </View>
-                          </View>
-
-                          <Text
-                            className="mt-2.5 text-sm leading-6 font-outfit"
-                            style={{
-                              color: typing?.isTyping
-                                ? colors.accent
-                                : colors.textSecondary,
-                            }}
-                            numberOfLines={1}
-                          >
-                            {typing?.isTyping
-                              ? `${typing.name} is typing...`
-                              : thread.preview}
-                          </Text>
-
-                          <View className="flex-row items-end justify-between mt-4">
-                            <View className="flex-row items-center gap-2 flex-wrap">
-                              {thread.pinned ? (
-                                <View
-                                  className="px-2.5 py-1 rounded-full flex-row items-center border"
-                                  style={{
-                                    backgroundColor: colors.warningSoft,
-                                    borderColor: colors.warningSoft,
-                                  }}
-                                >
-                                  <Feather
-                                    name="bookmark"
-                                    size={11}
-                                    color={colors.warning}
-                                  />
-                                  <Text
-                                    className="ml-1 text-[9px] font-bold uppercase tracking-widest"
-                                    style={{ color: colors.warning }}
-                                  >
-                                    Pinned
-                                  </Text>
-                                </View>
                               ) : null}
-                              <View
-                                className="px-2.5 py-1 rounded-full"
-                                style={{ backgroundColor: mutedPill }}
-                              >
-                                <Text
-                                  className="text-[10px] font-outfit font-semibold"
-                                  style={{ color: colors.text }}
-                                >
-                                  {thread.lastSeen ?? "Open thread"}
-                                </Text>
-                              </View>
                             </View>
-
-                            {thread.premium ? (
-                              <View className="flex-col items-end gap-1">
-                                <View
-                                  className="px-2 py-1 rounded-full shadow-sm"
-                                  style={{ backgroundColor: colors.accent }}
-                                >
-                                  <Text className="text-[8px] font-bold text-white uppercase tracking-[1px]">
-                                    Premium
-                                  </Text>
-                                </View>
-                                {thread.responseTime ? (
-                                  <View
-                                    className="px-2 py-1 rounded-full shadow-sm"
-                                    style={{
-                                      backgroundColor: colors.successSoft,
-                                    }}
-                                  >
-                                    <Text
-                                      className="text-[8px] font-bold uppercase tracking-[1px]"
-                                      style={{ color: colors.success }}
-                                    >
-                                      {thread.responseTime}
-                                    </Text>
-                                  </View>
-                                ) : null}
-                              </View>
-                            ) : null}
                           </View>
                         </View>
-                      </View>
-                    </Transition.Pressable>
-                  );
-                })}
+                      </Transition.Pressable>
+                    );
+                  })
+                )}
               </View>
             ))
           ) : (
