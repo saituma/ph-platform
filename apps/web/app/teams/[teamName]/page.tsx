@@ -164,10 +164,10 @@ export default function TeamDetailPage() {
       );
 
       const nextAthletes = (Array.isArray(payload?.users) ? payload.users : [])
-        .filter(
-          (user: AdminUser) =>
-            user.role === "athlete" && Number.isFinite(user.athleteId),
-        )
+        .filter((user: AdminUser) => {
+          if (!Number.isFinite(user.athleteId)) return false;
+          return user.role === "athlete" || user.role === "guardian";
+        })
         .filter((user: AdminUser) => {
           const existingTeam = (user.athleteTeam ?? "").trim();
           if (includeOtherTeams) {
