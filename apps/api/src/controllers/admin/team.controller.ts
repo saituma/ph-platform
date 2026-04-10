@@ -66,7 +66,10 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
   }
 
   try {
-    const result = await createTeamAdmin({ teamName: parsed.data.teamName });
+    const result = await createTeamAdmin({
+      teamName: parsed.data.teamName,
+      createdByUserId: req.user!.id,
+    });
     return res.status(201).json(result);
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;
@@ -156,6 +159,7 @@ export async function attachAthleteToTeamAdminDetails(req: Request, res: Respons
       teamName,
       athleteId,
       allowMoveFromOtherTeam: parsed.data.allowMoveFromOtherTeam === true,
+      createdByUserId: req.user!.id,
     });
     return res.status(200).json(result);
   } catch (error: any) {
