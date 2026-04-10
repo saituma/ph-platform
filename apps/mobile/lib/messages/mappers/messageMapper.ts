@@ -1,17 +1,18 @@
 import { parseReplyPrefix } from "@/lib/messages/reply";
 import { ChatMessage } from "@/constants/messages";
+import { ApiChatMessage, ApiCoach } from "@/types/chat-api";
 
 export function mapApiDirectMessageToChatMessage(
-  msg: any,
+  msg: ApiChatMessage,
   selfId: string,
-  coaches: any[],
+  coaches: ApiCoach[],
   profileName?: string | null,
 ): ChatMessage {
   const otherId =
     String(msg.senderId) === selfId
       ? String(msg.receiverId)
       : String(msg.senderId);
-  const otherCoach = (coaches ?? []).find((c: any) => String(c.id) === otherId);
+  const otherCoach = (coaches ?? []).find((c: ApiCoach) => String(c.id) === otherId);
   const parsed = parseReplyPrefix(msg.content);
   const isOutgoing = String(msg.senderId) === selfId;
 
@@ -41,7 +42,7 @@ export function mapApiDirectMessageToChatMessage(
 }
 
 export function mapApiGroupMessageToChatMessage(
-  msg: any,
+  msg: ApiChatMessage,
   groupId: number,
   selfId: string,
   memberMap: Record<number, { name: string; avatar?: string | null }>,

@@ -1,5 +1,6 @@
 import { buildPlanPricing, PlanPricing } from "@/lib/billing";
-import { PlanDetail, TrainingContentV2Workspace, ProgramSectionContent } from "@/types/programs";
+import { PlanDetail, TrainingContentV2Workspace } from "@/types/billing";
+import { ProgramSectionContent } from "@/types/programs";
 import { normalizeProgramTabLabel } from "@/constants/program-details";
 
 export type MappedPlans = {

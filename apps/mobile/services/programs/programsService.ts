@@ -1,5 +1,6 @@
 import { apiRequest } from "@/lib/api";
-import { PlanDetail, TrainingContentV2Workspace, ProgramSectionContent } from "@/types/programs";
+import { PlanDetail, TrainingContentV2Workspace } from "@/types/billing";
+import { ProgramSectionContent } from "@/types/programs";
 
 export async function fetchPublicPlans(forceRefresh = true) {
   return apiRequest<{ plans: PlanDetail[] }>("/public/plans", { forceRefresh });

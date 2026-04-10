@@ -3,35 +3,36 @@ import React from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 import { Text } from "@/components/ScaledText";
 
+type DropdownState = {
+  anchor: { x: number; y: number; width: number; height: number };
+  top: number;
+  maxHeight: number;
+  options: string[];
+};
+
 type RegisterOverlaysProps = {
   showTerms: boolean;
   showPrivacy: boolean;
   dropdownOpen: "team" | "level" | null;
-  dropdownTop: number;
-  dropdownLeft: number;
-  dropdownWidth: number;
-  dropdownMaxHeight: number;
-  dropdownOptions: string[];
   onCloseTerms: () => void;
   onClosePrivacy: () => void;
   onCloseDropdown: () => void;
-  onPickDropdownOption: (option: string) => void;
+  dropdownState: DropdownState | null;
+  onSelectOption: (option: string) => void;
 };
 
 export function RegisterOverlays({
   showTerms,
   showPrivacy,
   dropdownOpen,
-  dropdownTop,
-  dropdownLeft,
-  dropdownWidth,
-  dropdownMaxHeight,
-  dropdownOptions,
   onCloseTerms,
   onClosePrivacy,
   onCloseDropdown,
-  onPickDropdownOption,
+  dropdownState,
+  onSelectOption,
 }: RegisterOverlaysProps) {
+  const dropdownVisible = dropdownOpen !== null && dropdownState !== null;
+
   return (
     <>
       <LegalModal visible={showTerms} onClose={onCloseTerms} title="Terms of Service">
@@ -62,15 +63,32 @@ export function RegisterOverlays({
         <LegalSection title="5. Policy Updates" content="We may update this policy occasionally. Continued use of the app after changes constitutes acceptance of the new terms." />
       </LegalModal>
 
-      <Modal transparent animationType="fade" visible={dropdownOpen !== null} onRequestClose={onCloseDropdown}>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={dropdownVisible}
+        onRequestClose={onCloseDropdown}
+      >
         <Pressable className="flex-1 bg-transparent" onPress={onCloseDropdown}>
-          {dropdownOpen ? (
-            <Pressable className="absolute" style={{ top: dropdownTop, left: dropdownLeft, width: dropdownWidth }} onPress={() => {}}>
+          {dropdownVisible ? (
+            <Pressable
+              className="absolute"
+              style={{
+                top: dropdownState!.top,
+                left: dropdownState!.anchor.x,
+                width: dropdownState!.anchor.width,
+              }}
+              onPress={() => {}}
+            >
               <View className="bg-input rounded-2xl border border-border shadow-xl overflow-hidden">
-                <ScrollView style={{ maxHeight: dropdownMaxHeight }}>
+                <ScrollView style={{ maxHeight: dropdownState!.maxHeight }}>
                   <View className="gap-2 px-3 py-3">
-                    {dropdownOptions.map((option) => (
-                      <Pressable key={`dropdown-${dropdownOpen}-${option}`} onPress={() => onPickDropdownOption(option)} className="rounded-xl bg-secondary/40 px-4 py-3">
+                    {dropdownState!.options.map((option) => (
+                      <Pressable
+                        key={`dropdown-${dropdownOpen}-${option}`}
+                        onPress={() => onSelectOption(option)}
+                        className="rounded-xl bg-secondary/40 px-4 py-3"
+                      >
                         <Text className="text-app font-outfit text-sm">{option}</Text>
                       </Pressable>
                     ))}

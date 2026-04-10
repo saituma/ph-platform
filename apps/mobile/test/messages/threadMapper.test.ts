@@ -1,24 +1,31 @@
 import { classifyGroupThread, mapGroupToThread } from "@/lib/messages/mappers/threadMapper";
+import { ApiChatGroup } from "@/types/chat-api";
 
 describe("threadMapper", () => {
+  const baseGroup: ApiChatGroup = {
+    id: 1,
+    name: "Base Group",
+    createdAt: "2023-01-01T00:00:00Z",
+  };
+
   describe("classifyGroupThread", () => {
     it("should classify announcement correctly", () => {
-      expect(classifyGroupThread({ category: "announcement" })).toBe("announcement");
+      expect(classifyGroupThread({ ...baseGroup, category: "announcement" })).toBe("announcement");
     });
 
     it("should classify team correctly", () => {
-      expect(classifyGroupThread({ category: "team" })).toBe("team");
+      expect(classifyGroupThread({ ...baseGroup, category: "team" })).toBe("team");
     });
 
     it("should default to coach_group", () => {
-      expect(classifyGroupThread({ category: "anything" })).toBe("coach_group");
-      expect(classifyGroupThread({})).toBe("coach_group");
+      expect(classifyGroupThread({ ...baseGroup, category: "anything" })).toBe("coach_group");
+      expect(classifyGroupThread(baseGroup)).toBe("coach_group");
     });
   });
 
   describe("mapGroupToThread", () => {
     it("should map a basic group correctly", () => {
-      const group = {
+      const group: ApiChatGroup = {
         id: 123,
         name: "Test Group",
         category: "team",
@@ -36,10 +43,11 @@ describe("threadMapper", () => {
     });
 
     it("should use last message for preview and time", () => {
-      const group = {
+      const group: ApiChatGroup = {
         id: 123,
         name: "Test Group",
         category: "coach_group",
+        createdAt: "2023-01-01T12:00:00Z",
         lastMessage: {
           content: "Hello world",
           createdAt: "2023-01-01T15:30:00Z",
@@ -49,7 +57,6 @@ describe("threadMapper", () => {
       const thread = mapGroupToThread(group);
 
       expect(thread.preview).toBe("Hello world");
-      // Time format depends on locale in real environment, but we can check it's non-empty
       expect(thread.time).toBeTruthy();
     });
   });

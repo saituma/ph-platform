@@ -5,10 +5,10 @@ import { useAppSelector } from "@/store/hooks";
 import { isAdminRole } from "@/lib/isAdminRole";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 
-import { CoachLayout } from "@/components/roles/coach/CoachLayout";
-import { AdultLayout } from "@/components/roles/adult/AdultLayout";
-import { TeamLayout } from "@/components/roles/team/TeamLayout";
-import { YouthGuardianLayout } from "@/components/roles/youth_guardian/YouthGuardianLayout";
+import { AdminLayout } from "@/app/_roles/admin/AdminLayout";
+import { AdultLayout } from "@/app/_roles/adult/AdultLayout";
+import { TeamLayout } from "@/app/_roles/team/TeamLayout";
+import { YouthLayout } from "@/app/_roles/youth/YouthLayout";
 
 import { usePushNotificationResponses } from "@/hooks/navigation/usePushNotificationResponses";
 import { useProfileSync } from "@/hooks/navigation/useProfileSync";
@@ -86,7 +86,7 @@ export default function TabLayout() {
   // Role Switching Logic
   const renderRoleLayout = () => {
     if (isAdmin || appRole === "coach") {
-      return <CoachLayout />;
+      return <AdminLayout />;
     }
     if (appRole === "adult_athlete") {
       return <AdultLayout />;
@@ -98,7 +98,7 @@ export default function TabLayout() {
       return <TeamLayout />;
     }
     // Default fallback for youth guardian or other athlete states
-    return <YouthGuardianLayout />;
+    return <YouthLayout />;
   };
 
   return (
