@@ -326,10 +326,10 @@ export default function MoreScreen() {
                   ) : null}
                   {canAccessFoodDiary ? (
                     <MenuItem
-                      icon="coffee"
-                      label="Food Diary"
+                      icon="clipboard"
+                      label="Nutrition Tracking"
                       isLast={false}
-                      onPress={() => router.push("/food-diary")}
+                      onPress={() => router.push("/nutrition")}
                       accentColor={colors.accent}
                     />
                   ) : null}

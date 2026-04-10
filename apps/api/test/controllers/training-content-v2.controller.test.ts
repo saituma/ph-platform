@@ -10,7 +10,7 @@ jest.mock("../../src/services/training-content-v2.service", () => ({
   deleteTrainingModuleSession: jest.fn(),
   deleteTrainingOtherContent: jest.fn(),
   deleteTrainingSessionItem: jest.fn(),
-  finishTrainingModuleSession: jest.fn(),
+  finishTrainingModuleSessionWithLog: jest.fn(),
   getTrainingContentMobileWorkspace: jest.fn(),
   listTrainingAudiences: jest.fn(),
   listTrainingContentAdminWorkspace: jest.fn(),
@@ -30,7 +30,7 @@ jest.mock("../../src/services/user.service", () => ({
 
 import { finishTrainingSessionHandler } from "../../src/controllers/training-content-v2.controller";
 import {
-  finishTrainingModuleSession,
+  finishTrainingModuleSessionWithLog,
   getTrainingContentMobileWorkspace,
 } from "../../src/services/training-content-v2.service";
 import { getAthleteForUser } from "../../src/services/user.service";
@@ -74,16 +74,17 @@ describe("training-content-v2 controller", () => {
 
     await finishTrainingSessionHandler(req, res);
 
-    expect(finishTrainingModuleSession).not.toHaveBeenCalled();
+    expect(finishTrainingModuleSessionWithLog).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ error: "Session locked" });
   });
 
-  it("finishes unlocked sessions", async () => {
+  it("finishes unlocked sessions (no log)", async () => {
     (getAthleteForUser as jest.Mock).mockResolvedValue({
       id: 11,
       age: 13,
       currentProgramTier: "PHP",
+      team: "Team A",
     });
     (getTrainingContentMobileWorkspace as jest.Mock).mockResolvedValue({
       age: 13,
@@ -101,15 +102,98 @@ describe("training-content-v2 controller", () => {
       ],
       others: [],
     });
-    (finishTrainingModuleSession as jest.Mock).mockResolvedValue({ athleteId: 11, sessionId: 123 });
+    (finishTrainingModuleSessionWithLog as jest.Mock).mockResolvedValue({ athleteId: 11, sessionId: 123 });
     const req: any = { user: { id: 7 }, params: { sessionId: "123" } };
     const res = createRes();
 
     await finishTrainingSessionHandler(req, res);
 
-    expect(finishTrainingModuleSession).toHaveBeenCalledWith({ athleteId: 11, sessionId: 123 });
+    expect(finishTrainingModuleSessionWithLog).toHaveBeenCalledWith({
+      athleteId: 11,
+      sessionId: 123,
+      workoutLog: null,
+    });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ item: { athleteId: 11, sessionId: 123 } });
+  });
+
+  it("finishes unlocked sessions with workout log", async () => {
+    (getAthleteForUser as jest.Mock).mockResolvedValue({
+      id: 11,
+      age: 22,
+      currentProgramTier: "PHP",
+      team: "Team A",
+    });
+    (getTrainingContentMobileWorkspace as jest.Mock).mockResolvedValue({
+      age: 22,
+      tabs: ["Modules"],
+      modules: [
+        {
+          id: 1,
+          order: 1,
+          title: "M1",
+          totalDayLength: 3,
+          completed: false,
+          locked: false,
+          sessions: [{ id: 123, title: "S1", order: 1, dayLength: 1, completed: false, locked: false, items: [] }],
+        },
+      ],
+      others: [],
+    });
+    (finishTrainingModuleSessionWithLog as jest.Mock).mockResolvedValue({ athleteId: 11, sessionId: 123 });
+    const req: any = {
+      user: { id: 7 },
+      params: { sessionId: "123" },
+      body: { weightsUsed: " 20kg ", repsCompleted: " 8,8,8 ", rpe: 7 },
+    };
+    const res = createRes();
+
+    await finishTrainingSessionHandler(req, res);
+
+    expect(finishTrainingModuleSessionWithLog).toHaveBeenCalledWith({
+      athleteId: 11,
+      sessionId: 123,
+      workoutLog: { weightsUsed: "20kg", repsCompleted: "8,8,8", rpe: 7 },
+    });
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("rejects invalid rpe", async () => {
+    (getAthleteForUser as jest.Mock).mockResolvedValue({
+      id: 11,
+      age: 22,
+      currentProgramTier: "PHP",
+      team: "Team A",
+    });
+    (getTrainingContentMobileWorkspace as jest.Mock).mockResolvedValue({
+      age: 22,
+      tabs: ["Modules"],
+      modules: [
+        {
+          id: 1,
+          order: 1,
+          title: "M1",
+          totalDayLength: 3,
+          completed: false,
+          locked: false,
+          sessions: [{ id: 123, title: "S1", order: 1, dayLength: 1, completed: false, locked: false, items: [] }],
+        },
+      ],
+      others: [],
+    });
+
+    const req: any = {
+      user: { id: 7 },
+      params: { sessionId: "123" },
+      body: { rpe: 11 },
+    };
+    const res = createRes();
+
+    await finishTrainingSessionHandler(req, res);
+
+    expect(finishTrainingModuleSessionWithLog).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Invalid workout log" });
   });
 });
 

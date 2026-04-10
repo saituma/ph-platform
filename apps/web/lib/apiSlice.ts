@@ -740,35 +740,32 @@ export const apiSlice = createApi({
       query: () => "/content/parent-courses",
       providesTags: ["ParentCourses"],
     }),
-    getFoodDiary: builder.query<
-      { items: any[] },
-      {
-        athleteId?: number;
-        guardianId?: number;
-        q?: string;
-        limit?: number;
-      } | void
-    >({
+    getNutritionTargets: builder.query<{ targets: any }, number>({
+      query: (userId) => `/nutrition/targets/${userId}`,
+      providesTags: ["FoodDiary"],
+    }),
+    updateNutritionTargets: builder.mutation<{ targets: any }, { userId: number; calories?: number; protein?: number; carbs?: number; fats?: number; micronutrientsGuidance?: string }>({
+      query: ({ userId, ...body }) => ({
+        url: `/nutrition/targets/${userId}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["FoodDiary"],
+    }),
+    getNutritionLogs: builder.query<{ logs: any[] }, { userId: number; limit?: number }>({
       query: (params) => {
-        if (!params) return "/admin/food-diary";
         const query = new URLSearchParams();
-        if (params.athleteId) query.set("athleteId", String(params.athleteId));
-        if (params.guardianId)
-          query.set("guardianId", String(params.guardianId));
-        if (params.q) query.set("q", params.q);
+        query.set("userId", String(params.userId));
         if (params.limit) query.set("limit", String(params.limit));
-        return `/admin/food-diary?${query.toString()}`;
+        return `/nutrition/logs?${query.toString()}`;
       },
       providesTags: ["FoodDiary"],
     }),
-    reviewFoodDiary: builder.mutation<
-      { item: any },
-      { entryId: number; feedback?: string | null }
-    >({
-      query: ({ entryId, feedback }) => ({
-        url: `/admin/food-diary/${entryId}/review`,
+    reviewNutritionLog: builder.mutation<{ log: any }, { logId: number; feedback: string }>({
+      query: ({ logId, feedback }) => ({
+        url: `/nutrition/logs/${logId}/feedback`,
         method: "POST",
-        body: { feedback: feedback ?? "" },
+        body: { feedback },
       }),
       invalidatesTags: ["FoodDiary"],
     }),

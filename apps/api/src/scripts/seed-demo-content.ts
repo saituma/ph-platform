@@ -813,7 +813,7 @@ async function seedCanonicalServiceTypes(adminId: number) {
   await db.insert(serviceTypeTable).values([
     {
       name: "Lift Lab — 1:1 session",
-      type: "lift_lab_1on1",
+      type: "in_person",
       durationMinutes: 60,
       capacity: 1,
       attendeeVisibility: true,
@@ -824,7 +824,7 @@ async function seedCanonicalServiceTypes(adminId: number) {
     },
     {
       name: "Remote coaching check-in",
-      type: "one_on_one",
+      type: "one_to_one",
       durationMinutes: 25,
       capacity: 1,
       attendeeVisibility: true,
@@ -835,7 +835,7 @@ async function seedCanonicalServiceTypes(adminId: number) {
     },
     {
       name: "Team lift — small group",
-      type: "group_call",
+      type: "semi_private",
       durationMinutes: 75,
       capacity: 6,
       attendeeVisibility: true,

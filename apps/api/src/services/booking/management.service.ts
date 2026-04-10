@@ -143,19 +143,9 @@ export async function createServiceType(input: {
   isActive?: boolean | null;
   createdBy: number;
 }) {
-  const programTier =
-    input.type === "role_model"
-      ? input.programTier && input.programTier !== "PHP_Premium"
-        ? (() => {
-            throw new Error("Role model calls must be Premium tier");
-          })()
-        : "PHP_Premium"
-      : input.programTier ?? null;
+  const programTier = input.programTier ?? null;
 
-  const eligiblePlans =
-    input.type === "role_model"
-      ? ["PHP_Premium"]
-      : (input.eligiblePlans?.length ? input.eligiblePlans : programTier ? [programTier] : []);
+  const eligiblePlans = input.eligiblePlans?.length ? input.eligiblePlans : programTier ? [programTier] : [];
 
   const result = await db
     .insert(serviceTypeTable)
@@ -217,18 +207,8 @@ export async function updateServiceType(
   }
 
   const nextType = input.type ?? existing[0].type;
-  const programTier =
-    nextType === "role_model"
-      ? input.programTier && input.programTier !== "PHP_Premium"
-        ? (() => {
-            throw new Error("Role model calls must be Premium tier");
-          })()
-        : "PHP_Premium"
-      : input.programTier ?? existing[0].programTier ?? null;
-  const eligiblePlans =
-    nextType === "role_model"
-      ? ["PHP_Premium"]
-      : input.eligiblePlans ??
+  const programTier = input.programTier ?? existing[0].programTier ?? null;
+  const eligiblePlans = input.eligiblePlans ??
         normalizeEligiblePlans({
           eligiblePlans: existing[0].eligiblePlans,
           programTier: programTier ?? existing[0].programTier ?? null,

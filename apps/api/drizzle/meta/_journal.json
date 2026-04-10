@@ -470,6 +470,20 @@
       "when": 1775858136052,
       "tag": "0066_freezing_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1775859027207,
+      "tag": "0067_furry_makkari",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1775950000000,
+      "tag": "0068_training_session_workout_logs",
+      "breakpoints": true
     }
   ]
 }
