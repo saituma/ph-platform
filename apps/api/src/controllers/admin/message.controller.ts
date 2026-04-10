@@ -7,9 +7,7 @@ import {
   markThreadReadAdmin,
   sendMessageAdmin,
 } from "../../services/admin/message.service";
-import { db } from "../../db";
-import { notificationTable } from "../../db/schema";
-import { env } from "../../config/env";
+import { notifyCoachResponseVideo } from "../../services/video.service";
 
 const adminSearchQuerySchema = z.object({
   q: z.string().trim().optional(),
@@ -66,31 +64,7 @@ export async function sendAdminMessage(req: Request, res: Response) {
     replyPreview: body.replyPreview,
   });
   if (body.contentType === "video" && body.videoUploadId) {
-    const content = "Coach sent a response video to your upload.";
-    try {
-      await db.insert(notificationTable).values({
-        userId,
-        type: "video_response",
-        content,
-        link: "/video-upload",
-      });
-    } catch (error) {
-      console.error("Failed to store response video notification", error);
-    }
-    if (env.pushWebhookUrl) {
-      await fetch(env.pushWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          title: "Coach response video",
-          body: content,
-          link: "/video-upload",
-        }),
-      }).catch((error) => {
-        console.error("Failed to send push notification", error);
-      });
-    }
+    void notifyCoachResponseVideo({ videoUploadId: body.videoUploadId });
   }
   return res.status(201).json({ message });
 }

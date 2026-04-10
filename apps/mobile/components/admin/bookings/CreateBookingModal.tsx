@@ -167,7 +167,6 @@ export function CreateBookingModal({
               )}
             </View>
 
-            {/* Date & Time Pick */}
             <View
               className="rounded-[20px] border p-4"
               style={{
@@ -177,49 +176,9 @@ export function CreateBookingModal({
               }}
             >
               <Text className="text-[13px] font-outfit-semibold text-app">Date & time</Text>
-              <View className="mt-3 gap-2">
-                <Pressable
-                  onPress={() => form.setShowDatePicker(true)}
-                  className="rounded-2xl border px-4 py-3"
-                  style={{ backgroundColor: inputBg, borderColor: inputBorder }}
-                >
-                  <Text className="text-[12px] font-outfit text-secondary">Date</Text>
-                  <Text className="text-[14px] font-outfit text-app">{form.date.toLocaleDateString()}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => form.setShowTimePicker(true)}
-                  className="rounded-2xl border px-4 py-3"
-                  style={{ backgroundColor: inputBg, borderColor: inputBorder }}
-                >
-                  <Text className="text-[12px] font-outfit text-secondary">Start time</Text>
-                  <Text className="text-[14px] font-outfit text-app">
-                    {form.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </Text>
-                </Pressable>
-              </View>
-
-              {form.showDatePicker && (
-                <DateTimePicker
-                  value={form.date}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
-                  onChange={(_, d) => {
-                    form.setShowDatePicker(false);
-                    if (d) form.setDate(d);
-                  }}
-                />
-              )}
-              {form.showTimePicker && (
-                <DateTimePicker
-                  value={form.time}
-                  mode="time"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
-                  onChange={(_, d) => {
-                    form.setShowTimePicker(false);
-                    if (d) form.setTime(d);
-                  }}
-                />
-              )}
+              <Text className="text-[12px] font-outfit text-secondary mt-1 tracking-wider">
+                Managed securely by the Service Type parameters. Manual calendar overrides have been disabled to prevent scheduling conflicts.
+              </Text>
             </View>
 
             {/* Details & Submit */}

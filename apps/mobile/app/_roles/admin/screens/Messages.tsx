@@ -15,6 +15,7 @@ import { AdminStatsSection } from "@/components/admin/messages/AdminStatsSection
 import { useAdminDms } from "@/hooks/admin/useAdminDms";
 import { useAdminGroups } from "@/hooks/admin/useAdminGroups";
 import { safeNumber } from "@/lib/admin-messages-utils";
+import { consumeAdminMessagesNavTarget } from "@/lib/admin/adminMessagesNav";
 
 export default function AdminMessagesScreen() {
   const { colors, isDark } = useAppTheme();
@@ -27,6 +28,9 @@ export default function AdminMessagesScreen() {
     const n = Number(myUserIdRaw);
     return Number.isFinite(n) ? n : null;
   }, [myUserIdRaw]);
+
+  const [pendingTarget] = useState(() => consumeAdminMessagesNavTarget());
+  const initialUserId = pendingTarget?.userId ?? null;
 
   const [activeTab, setActiveTab] = useState<HeaderTabKey>("inbox");
 
@@ -117,6 +121,7 @@ export default function AdminMessagesScreen() {
                   token={token}
                   canLoad={canLoad}
                   myUserId={myUserId}
+                  initialUserId={initialUserId}
                 />
               )}
               {activeTab === "announcement" && (

@@ -261,7 +261,7 @@ export function SessionExerciseBlock({
             {canUpload && item.allowVideoUpload ? (
               <View className="mt-4 items-end">
                 <Text className="text-[11px] font-outfit text-secondary opacity-80 mb-2">
-                  Upload video (optional)
+                  Upload video
                 </Text>
                 <Pressable
                   onPress={() => onUploadPress(item.id, item.title)}

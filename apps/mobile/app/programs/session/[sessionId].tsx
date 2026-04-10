@@ -242,7 +242,9 @@ export default function ProgramSessionDetailScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView
-        onRefresh={() => load(true)}
+        onRefresh={() => {
+          void load(true);
+        }}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         <View className="px-6 pt-4">

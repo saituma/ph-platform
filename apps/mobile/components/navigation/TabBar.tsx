@@ -17,7 +17,9 @@ const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
 
 export interface TabConfig {
   key: string;
+  label?: string;
   icon: keyof typeof Ionicons.glyphMap;
+  iconOutline?: keyof typeof Ionicons.glyphMap;
   badgeCount?: number;
   hidden?: boolean;
 }
@@ -58,6 +60,9 @@ const TabItem = React.memo(
     const activeIconColor = colors.tint;
     const inactiveIconColor = colors.textDim;
     const activeBgColor = isDark ? colors.surfaceHigher : colors.limeGlow;
+
+    const iconName =
+      activeIndex === index ? tab.icon : (tab.iconOutline ?? tab.icon);
 
     const getDistance = () => {
       "worklet";
@@ -106,6 +111,7 @@ const TabItem = React.memo(
       <Pressable
         onPress={handlePress}
         accessibilityRole="button"
+        accessibilityLabel={tab.label ?? tab.key}
         accessibilityState={{ selected: activeIndex === index }}
         style={({ pressed }) => [
           styles.tabItemContainer,
@@ -131,7 +137,7 @@ const TabItem = React.memo(
           />
 
           <AnimatedIcon
-            name={tab.icon}
+            name={iconName}
             size={layout.iconSize}
             style={[iconColorStyle, { zIndex: 2 }]}
           />

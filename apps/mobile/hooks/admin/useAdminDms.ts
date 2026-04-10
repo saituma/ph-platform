@@ -75,12 +75,16 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
     videoUploadId?: number;
   }) => {
     if (!token || !canLoad) return;
-    const res = await apiRequest<{ message?: DirectMessage }>("/admin/messages", {
+    const { receiverId, ...body } = params;
+    const res = await apiRequest<{ message?: DirectMessage }>(
+      `/admin/messages/${receiverId}`,
+      {
       method: "POST",
       token,
-      body: params,
+      body,
       skipCache: true,
-    });
+      },
+    );
     return res?.message;
   }, [canLoad, token]);
 

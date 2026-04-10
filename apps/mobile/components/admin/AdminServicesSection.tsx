@@ -29,6 +29,11 @@ export function AdminServicesSection({ token, canLoad }: Props) {
   const [serviceCreateDefaultLocation, setServiceCreateDefaultLocation] = useState("");
   const [serviceCreateDefaultMeetingLink, setServiceCreateDefaultMeetingLink] = useState("");
   const [serviceCreateAdvancedJson, setServiceCreateAdvancedJson] = useState("{}");
+  const [serviceCreateSchedulePattern, setServiceCreateSchedulePattern] = useState<"temporary" | "permanent">("temporary");
+  const [serviceCreateDate, setServiceCreateDate] = useState<Date>(new Date());
+  const [serviceCreateTime, setServiceCreateTime] = useState<Date>(new Date());
+  const [showCreateDatePicker, setShowCreateDatePicker] = useState(false);
+  const [showCreateTimePicker, setShowCreateTimePicker] = useState(false);
 
   // Edit service state
   const [serviceDetailOpenId, setServiceDetailOpenId] = useState<number | null>(null);
@@ -41,6 +46,11 @@ export function AdminServicesSection({ token, canLoad }: Props) {
   const [serviceEditEligiblePlans, setServiceEditEligiblePlans] = useState<string[]>([]);
   const [serviceEditIsActive, setServiceEditIsActive] = useState(true);
   const [serviceEditAdvancedJson, setServiceEditAdvancedJson] = useState<Record<number, string>>({});
+  const [serviceEditSchedulePattern, setServiceEditSchedulePattern] = useState<Record<number, "temporary" | "permanent">>({});
+  const [serviceEditDate, setServiceEditDate] = useState<Record<number, Date>>({});
+  const [serviceEditTime, setServiceEditTime] = useState<Record<number, Date>>({});
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
+  const [showEditTimePicker, setShowEditTimePicker] = useState(false);
 
   useEffect(() => {
     if (canLoad) {
@@ -66,6 +76,20 @@ export function AdminServicesSection({ token, canLoad }: Props) {
     );
     setServiceEditIsActive(svc.isActive !== false);
 
+    setServiceEditSchedulePattern(prev => ({ ...prev, [serviceDetailOpenId]: (svc.schedulePattern === "permanent" ? "permanent" : "temporary") }));
+    if (svc.schedulePatternOptions && typeof svc.schedulePatternOptions === "object" && !Array.isArray(svc.schedulePatternOptions)) {
+      const opts = svc.schedulePatternOptions as any;
+      if (opts.oneTimeDate) {
+        setServiceEditDate(prev => ({ ...prev, [serviceDetailOpenId]: new Date(opts.oneTimeDate) }));
+      }
+      if (opts.oneTimeTime) {
+        const t = new Date();
+        const [hr, mn] = opts.oneTimeTime.split(":");
+        t.setHours(Number(hr), Number(mn), 0, 0);
+        setServiceEditTime(prev => ({ ...prev, [serviceDetailOpenId]: t }));
+      }
+    }
+
     if (!serviceEditAdvancedJson[serviceDetailOpenId]) {
       setServiceEditAdvancedJson((prev) => ({
         ...prev,
@@ -74,9 +98,11 @@ export function AdminServicesSection({ token, canLoad }: Props) {
     }
   }, [serviceDetailOpenId, servicesHook.services]);
 
-  const handleCreate = async () => {
     try {
-      await servicesHook.createServiceType({
+      const dateStr = serviceCreateDate.toISOString().slice(0, 10);
+      const timeStr = serviceCreateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+      
+      const payload: any = {
         name: serviceCreateName,
         type: serviceCreateType,
         durationMinutes: serviceCreateDurationMinutes,
@@ -84,8 +110,22 @@ export function AdminServicesSection({ token, canLoad }: Props) {
         isActive: serviceCreateIsActive,
         defaultLocation: serviceCreateDefaultLocation,
         defaultMeetingLink: serviceCreateDefaultMeetingLink,
-        advancedJson: serviceCreateAdvancedJson,
-      });
+        schedulePattern: serviceCreateSchedulePattern,
+        schedulePatternOptions: {
+          oneTimeDate: dateStr,
+          oneTimeTime: timeStr,
+        },
+      };
+
+      try {
+         const adv = JSON.parse(serviceCreateAdvancedJson);
+         Object.assign(payload, adv);
+      } catch (e) {
+         // ignore
+      }
+
+      await servicesHook.createServiceType(payload);
+      
       // Reset state
       setServiceCreateName("");
       setServiceCreateType("call");
@@ -95,10 +135,10 @@ export function AdminServicesSection({ token, canLoad }: Props) {
       setServiceCreateDefaultLocation("");
       setServiceCreateDefaultMeetingLink("");
       setServiceCreateAdvancedJson("{}");
+      setServiceCreateSchedulePattern("temporary");
     } catch (e) {
       servicesHook.setServicesError(e instanceof Error ? e.message : "Create failed");
     }
-  };
 
   return (
     <View className="gap-4">
@@ -145,7 +185,44 @@ export function AdminServicesSection({ token, canLoad }: Props) {
             />
           </View>
         </View>
+        <View className="gap-2">
+          <Text className="text-[12px] font-outfit text-secondary">
+            Service Pattern
+          </Text>
+          <View className="flex-row gap-2">
+            {(["temporary", "permanent"] as const).map(p => (
+              <Pressable 
+                key={p} 
+                onPress={() => setServiceCreateSchedulePattern(p)} 
+                className="flex-1 rounded-2xl border py-3 items-center" 
+                style={{
+                  backgroundColor: serviceCreateSchedulePattern === p ? `${colors.accent}22` : (isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)"),
+                  borderColor: serviceCreateSchedulePattern === p ? colors.accent : (isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)")
+                }}
+              >
+                <Text className="text-[13px] font-outfit-semibold" style={{ color: serviceCreateSchedulePattern === p ? colors.accent : colors.textSecondary }}>
+                   {p.charAt(0).toUpperCase() + p.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
+        <View className="gap-2">
+          <Text className="text-[12px] font-outfit text-secondary">
+            Schedule Date & Time
+          </Text>
+          <View className="flex-row gap-2">
+            <Pressable onPress={() => setShowCreateDatePicker(true)} className="flex-1 rounded-2xl border px-4 py-3" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)", borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" }}>
+              <Text className="text-[14px] font-outfit text-app">{serviceCreateDate.toLocaleDateString()}</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowCreateTimePicker(true)} className="flex-1 rounded-2xl border px-4 py-3" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)", borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" }}>
+              <Text className="text-[14px] font-outfit text-app">{serviceCreateTime.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Date Time pickers via React Native community standard (if needed we can use generic imports but they might fail. We inject generic DateTimePicker logic if it wasn't stripped) */}
         <View className="gap-2">
           <Text className="text-[12px] font-outfit text-secondary">Duration minutes</Text>
           <View
@@ -475,17 +552,25 @@ export function AdminServicesSection({ token, canLoad }: Props) {
                           label={busy ? "Saving…" : "Save quick edit"}
                           tone="success"
                           onPress={() => {
-                            const duration = parseIntOrUndefined(serviceEditDurationMinutes);
+                          const duration = parseIntOrUndefined(serviceEditDurationMinutes);
                             const cap = parseIntOrUndefined(serviceEditCapacity);
+                            
+                            const dDate = serviceEditDate[serviceDetailOpenId] ?? new Date();
+                            const dTime = serviceEditTime[serviceDetailOpenId] ?? new Date();
+                            const dateStr = dDate.toISOString().slice(0, 10);
+                            const timeStr = dTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+
                             servicesHook.updateServiceType(serviceDetailOpenId, {
                               name: serviceEditName.trim() || undefined,
                               type: serviceEditType,
                               durationMinutes: duration ?? undefined,
                               capacity: cap ?? undefined,
-                              defaultLocation: serviceEditDefaultLocation.trim() || null,
-                              defaultMeetingLink: serviceEditDefaultMeetingLink.trim() || null,
-                              eligiblePlans: serviceEditEligiblePlans,
                               isActive: serviceEditIsActive,
+                              schedulePattern: serviceEditSchedulePattern[serviceDetailOpenId],
+                              schedulePatternOptions: {
+                                oneTimeDate: dateStr,
+                                oneTimeTime: timeStr,
+                              }
                             });
                           }}
                           disabled={busy}
