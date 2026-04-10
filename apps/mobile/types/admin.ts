@@ -80,6 +80,8 @@ export type ServiceType = {
   defaultMeetingLink?: string | null;
   programTier?: string | null;
   eligiblePlans?: string[] | null;
+  schedulePattern?: string | null;
+  schedulePatternOptions?: any | null;
 };
 
 export type OpsSection = "bookings" | "availability" | "services" | "teams";

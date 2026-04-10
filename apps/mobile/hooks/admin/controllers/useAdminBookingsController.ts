@@ -68,8 +68,23 @@ export function useAdminBookingsController(token: string | null, canLoad: boolea
     }
 
     const durationMinutes = Number(service.durationMinutes ?? 30);
-    const startsAt = new Date(createBookingDate);
-    startsAt.setHours(createBookingTime.getHours(), createBookingTime.getMinutes(), 0, 0);
+    
+    // Auto-calculate start time from the Service configuration
+    let startsAt = new Date();
+    
+    if (service.schedulePatternOptions && typeof service.schedulePatternOptions === 'object') {
+      const opts = service.schedulePatternOptions as any;
+      if (opts.oneTimeDate && opts.oneTimeTime) {
+         try {
+           const [hr, mn] = opts.oneTimeTime.split(":");
+           startsAt = new Date(`${opts.oneTimeDate}T${hr.padStart(2, '0')}:${mn.padStart(2, '0')}:00`);
+         } catch(e) {}
+      }
+    } else {
+      // If permanent and no oneTimeDate is set, we fallback to today at 12:00
+      startsAt.setHours(12, 0, 0, 0);
+    }
+
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
 
     try {

@@ -1,9 +1,113 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { athleteTable, guardianTable, videoUploadTable } from "../db/schema";
+import {
+  athleteTable,
+  guardianTable,
+  notificationTable,
+  programSectionContentTable,
+  trainingModuleSessionTable,
+  trainingSessionItemTable,
+  videoUploadTable,
+} from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { sendPushNotification } from "./push.service";
+
+export async function notifyCoachResponseVideo(input: { videoUploadId: number }) {
+  try {
+    const [upload] = await db
+      .select({
+        id: videoUploadTable.id,
+        athleteId: videoUploadTable.athleteId,
+        programSectionContentId: videoUploadTable.programSectionContentId,
+      })
+      .from(videoUploadTable)
+      .where(eq(videoUploadTable.id, input.videoUploadId))
+      .limit(1);
+
+    if (!upload) return;
+
+    const [athlete] = await db
+      .select({
+        athleteUserId: athleteTable.userId,
+        guardianUserId: guardianTable.userId,
+      })
+      .from(athleteTable)
+      .leftJoin(guardianTable, eq(guardianTable.id, athleteTable.guardianId))
+      .where(eq(athleteTable.id, upload.athleteId))
+      .limit(1);
+
+    const recipients = new Set<number>();
+    if (athlete?.athleteUserId) recipients.add(athlete.athleteUserId);
+    if (athlete?.guardianUserId) recipients.add(athlete.guardianUserId);
+    if (!recipients.size) return;
+
+    const contentId = upload.programSectionContentId;
+
+    let resolvedSessionId: number | null = null;
+    let resolvedSessionTitle: string | null = null;
+
+    if (contentId != null) {
+      const [item] = await db
+        .select({ sessionId: trainingSessionItemTable.sessionId })
+        .from(trainingSessionItemTable)
+        .where(eq(trainingSessionItemTable.id, contentId))
+        .limit(1);
+
+      resolvedSessionId = item?.sessionId ?? null;
+
+      if (resolvedSessionId != null) {
+        const [session] = await db
+          .select({ title: trainingModuleSessionTable.title })
+          .from(trainingModuleSessionTable)
+          .where(eq(trainingModuleSessionTable.id, resolvedSessionId))
+          .limit(1);
+        resolvedSessionTitle = session?.title ?? null;
+      }
+
+      if (!resolvedSessionTitle) {
+        const [legacy] = await db
+          .select({ title: programSectionContentTable.title })
+          .from(programSectionContentTable)
+          .where(eq(programSectionContentTable.id, contentId))
+          .limit(1);
+        resolvedSessionTitle = legacy?.title ?? null;
+      }
+    }
+
+    const sessionTitle = (resolvedSessionTitle ?? "").trim() || "your session";
+    const messageBody = `Coach sent a response to ${sessionTitle}`;
+    const deepLinkUrl =
+      resolvedSessionId != null
+        ? `/programs/session/${resolvedSessionId}`
+        : contentId != null
+          ? `/video-upload?sectionContentId=${contentId}`
+          : "/video-upload";
+
+    try {
+      await db.insert(notificationTable).values(
+        Array.from(recipients).map((userId) => ({
+          userId,
+          type: "video_response",
+          content: messageBody,
+          link: deepLinkUrl,
+        })),
+      );
+    } catch (err) {
+      console.error("[Video Service] Failed to store response video notification", err);
+    }
+
+    for (const userId of recipients) {
+      await sendPushNotification(userId, "Coach response", messageBody, {
+        type: "video_response",
+        videoUploadId: upload.id,
+        url: deepLinkUrl,
+      });
+    }
+  } catch (err) {
+    console.error("[Video Service] Failed to send response video push", err);
+  }
+}
 
 export async function createVideoUpload(input: {
   athleteId: number;

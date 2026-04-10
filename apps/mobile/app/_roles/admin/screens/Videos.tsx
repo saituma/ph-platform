@@ -4,11 +4,17 @@ import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { requestGlobalTabChange } from "@/context/ActiveTabContext";
+import { setAdminMessagesNavTarget } from "@/lib/admin/adminMessagesNav";
 import { useAppSelector } from "@/store/hooks";
-import { useRouter } from "expo-router";
+import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
+import type { PendingAttachment } from "@/types/admin-messages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+
+import { ADMIN_TAB_ROUTES } from "../tabs";
 
 type AdminVideoItem = Record<string, any> & {
   id?: number | string;
@@ -108,7 +114,8 @@ export default function AdminVideosScreen() {
   const insets = useSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
-  const router = useRouter();
+
+  const { uploadAttachment } = useMediaUpload(token);
 
   const [items, setItems] = useState<AdminVideoItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +127,10 @@ export default function AdminVideosScreen() {
   const [videoDetailBusy, setVideoDetailBusy] = useState(false);
   const [videoDetailError, setVideoDetailError] = useState<string | null>(null);
   const [feedbackDraft, setFeedbackDraft] = useState("");
+
+  const [responseVideoAttachment, setResponseVideoAttachment] =
+    useState<PendingAttachment | null>(null);
+  const [responseVideoBusy, setResponseVideoBusy] = useState(false);
 
   const load = useCallback(
     async (forceRefresh: boolean) => {
@@ -166,7 +177,19 @@ export default function AdminVideosScreen() {
     if (selectedVideo?.feedback)
       setFeedbackDraft(String(selectedVideo.feedback));
     else setFeedbackDraft("");
+
+    setResponseVideoAttachment(null);
+    setResponseVideoBusy(false);
   }, [selectedVideo?.id, selectedVideo?.feedback]);
+
+  const responseVideoLabel = useMemo(() => {
+    if (!responseVideoAttachment) return "";
+    if (responseVideoAttachment.fileName)
+      return responseVideoAttachment.fileName;
+    const uri = responseVideoAttachment.uri;
+    const lastSlash = uri.lastIndexOf("/");
+    return lastSlash >= 0 ? uri.slice(lastSlash + 1) : uri;
+  }, [responseVideoAttachment]);
 
   const openVideoUrl = useCallback(async () => {
     const url = selectedVideo?.videoUrl;
@@ -202,16 +225,18 @@ export default function AdminVideosScreen() {
     }
 
     setVideoDetailOpenId(null);
-    router.push({
-      pathname: "/(tabs)/admin-messages",
-      params: {
-        userId: String(userId),
-        name: nameRaw,
-        videoUploadId: String(uploadId),
-      },
+
+    setAdminMessagesNavTarget({
+      userId,
+      name: nameRaw,
+      videoUploadId: uploadId,
     });
+
+    const messagesIndex = ADMIN_TAB_ROUTES.findIndex(
+      (tab) => tab.key === "admin-messages",
+    );
+    requestGlobalTabChange(messagesIndex >= 0 ? messagesIndex : 0);
   }, [
-    router,
     selectedVideo?.athleteName,
     selectedVideo?.athleteUserId,
     selectedVideo?.id,
@@ -255,6 +280,120 @@ export default function AdminVideosScreen() {
     }
   }, [bootstrapReady, feedbackDraft, selectedVideo?.id, token]);
 
+  const pickResponseVideo = useCallback(
+    async (source: "camera" | "library") => {
+      const permission =
+        source === "camera"
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) return;
+
+      const result =
+        source === "camera"
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              quality: 1,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              quality: 1,
+            });
+
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+
+      setResponseVideoAttachment({
+        uri: asset.uri,
+        fileName: asset.fileName ?? "response-video.mp4",
+        mimeType: asset.mimeType ?? "video/mp4",
+        sizeBytes: asset.fileSize ?? 0,
+        isImage: false,
+      });
+    },
+    [],
+  );
+
+  const sendResponseVideo = useCallback(async () => {
+    if (!token || !bootstrapReady) return;
+
+    const userIdRaw = selectedVideo?.athleteUserId;
+    const uploadIdRaw = selectedVideo?.id;
+
+    const userId = userIdRaw == null ? NaN : Number(userIdRaw);
+    const uploadId = uploadIdRaw == null ? NaN : Number(uploadIdRaw);
+
+    if (!Number.isFinite(userId) || userId <= 0) {
+      setVideoDetailError("This upload is missing the athlete user ID.");
+      return;
+    }
+    if (!Number.isFinite(uploadId) || uploadId <= 0) {
+      setVideoDetailError("This upload is missing an ID.");
+      return;
+    }
+    if (!responseVideoAttachment) {
+      setVideoDetailError("Choose or record a response video first.");
+      return;
+    }
+
+    setResponseVideoBusy(true);
+    setVideoDetailError(null);
+    try {
+      const uploaded = await uploadAttachment(responseVideoAttachment);
+      if (uploaded.contentType !== "video") {
+        throw new Error("Selected file is not a video.");
+      }
+
+      await apiRequest(`/admin/messages/${userId}`, {
+        method: "POST",
+        token,
+        body: {
+          contentType: "video",
+          mediaUrl: uploaded.mediaUrl,
+          videoUploadId: uploadId,
+        },
+        skipCache: true,
+      });
+
+      const feedback = feedbackDraft.trim() || "Coach sent a response video.";
+      const res = await apiRequest<{ item?: any }>("/videos/review", {
+        method: "POST",
+        token,
+        body: { uploadId, feedback },
+        skipCache: true,
+      });
+
+      setItems((prev) =>
+        prev.map((v) => {
+          const vId = v.id == null ? NaN : Number(v.id);
+          if (!Number.isFinite(vId) || vId !== uploadId) return v;
+          return {
+            ...v,
+            feedback: res?.item?.feedback ?? feedback,
+            reviewedAt: res?.item?.reviewedAt ?? new Date().toISOString(),
+          };
+        }),
+      );
+
+      setResponseVideoAttachment(null);
+      setVideoDetailOpenId(null);
+    } catch (e) {
+      setVideoDetailError(
+        e instanceof Error ? e.message : "Failed to send response video",
+      );
+    } finally {
+      setResponseVideoBusy(false);
+    }
+  }, [
+    bootstrapReady,
+    feedbackDraft,
+    responseVideoAttachment,
+    selectedVideo?.athleteUserId,
+    selectedVideo?.id,
+    token,
+    uploadAttachment,
+  ]);
+
   const headerLine = useMemo(() => {
     if (loading) return "Loading…";
     if (error) return "Error";
@@ -263,7 +402,11 @@ export default function AdminVideosScreen() {
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top }}>
-      <ThemedScrollView onRefresh={() => load(true)}>
+      <ThemedScrollView
+        onRefresh={() => {
+          void load(true);
+        }}
+      >
         <View className="pt-6 mb-4">
           <View className="flex-row items-center gap-3 overflow-hidden">
             <View className="h-6 w-1.5 rounded-full bg-accent" />
@@ -549,6 +692,63 @@ export default function AdminVideosScreen() {
                     tone="success"
                     onPress={submitFeedback}
                     disabled={videoDetailBusy}
+                  />
+                </View>
+              </View>
+
+              <View
+                className="rounded-[28px] border p-5 mt-4"
+                style={{
+                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                  ...(isDark ? Shadows.none : Shadows.md),
+                }}
+              >
+                <Text className="text-base font-clash font-bold text-app mb-3">
+                  Coach response video
+                </Text>
+
+                {responseVideoAttachment ? (
+                  <Text
+                    className="text-[12px] font-outfit text-secondary mb-3"
+                    numberOfLines={2}
+                  >
+                    Selected: {responseVideoLabel}
+                  </Text>
+                ) : (
+                  <Text className="text-[12px] font-outfit text-secondary mb-3">
+                    Choose or record a video to send to the athlete.
+                  </Text>
+                )}
+
+                <View className="flex-row flex-wrap gap-2">
+                  <SmallAction
+                    label="Choose video"
+                    tone="neutral"
+                    onPress={() => {
+                      void pickResponseVideo("library");
+                    }}
+                    disabled={responseVideoBusy}
+                  />
+                  <SmallAction
+                    label="Record video"
+                    tone="neutral"
+                    onPress={() => {
+                      void pickResponseVideo("camera");
+                    }}
+                    disabled={responseVideoBusy}
+                  />
+                  <SmallAction
+                    label={
+                      responseVideoBusy ? "Sending…" : "Send response video"
+                    }
+                    tone="success"
+                    onPress={() => {
+                      void sendResponseVideo();
+                    }}
+                    disabled={responseVideoBusy || !responseVideoAttachment}
                   />
                 </View>
               </View>
