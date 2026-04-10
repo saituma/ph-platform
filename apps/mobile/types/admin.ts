@@ -1,0 +1,61 @@
+export type AdminBooking = {
+  id: number;
+  startsAt?: string | null;
+  endTime?: string | null;
+  type?: string | null;
+  status?: "pending" | "confirmed" | "declined" | "cancelled" | string | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  serviceName?: string | null;
+  athleteName?: string | null;
+};
+
+export type AdminBookingDetail = {
+  id: number;
+  startsAt?: string | null;
+  endTime?: string | null;
+  type?: string | null;
+  status?: "pending" | "confirmed" | "declined" | "cancelled" | string | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  serviceTypeId?: number | null;
+  serviceName?: string | null;
+  serviceCapacity?: number | null;
+  slotsUsed?: number | null;
+  slotsTotal?: number | null;
+  athleteName?: string | null;
+  guardianName?: string | null;
+  guardianEmail?: string | null;
+  createdAt?: string | null;
+};
+
+export type AdminAvailabilityBlock = {
+  id: number;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  createdAt?: string | null;
+  serviceName?: string | null;
+};
+
+export type AdminUserLite = {
+  id?: number;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  athleteName?: string | null;
+};
+
+export type ServiceType = {
+  id: number;
+  name?: string | null;
+  type?: string | null;
+  durationMinutes?: number | null;
+  capacity?: number | null;
+  isActive?: boolean | null;
+  defaultLocation?: string | null;
+  defaultMeetingLink?: string | null;
+  programTier?: string | null;
+  eligiblePlans?: string[] | null;
+};
+
+export type OpsSection = "bookings" | "availability" | "services" | "teams";
