@@ -37,6 +37,30 @@ export default function MessagesScreen() {
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const { isSectionHidden } = useAgeExperience();
 
+  const actingUserId = React.useMemo(() => {
+    const raw = athleteUserId ? Number(athleteUserId) : NaN;
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+
+    if (Array.isArray(managedAthletes) && managedAthletes.length > 0) {
+      const byUserId = managedAthletes.find(
+        (athlete) => String((athlete as any)?.userId) === String(raw),
+      );
+      if ((byUserId as any)?.userId) {
+        const userId = Number((byUserId as any).userId);
+        if (Number.isFinite(userId) && userId > 0) return userId;
+      }
+      const byAthleteId = managedAthletes.find(
+        (athlete) => String((athlete as any)?.id) === String(raw),
+      );
+      if ((byAthleteId as any)?.userId) {
+        const userId = Number((byAthleteId as any).userId);
+        if (Number.isFinite(userId) && userId > 0) return userId;
+      }
+    }
+
+    return raw;
+  }, [athleteUserId, managedAthletes]);
+
   const {
     sortedThreads,
     typingStatus,
@@ -94,8 +118,8 @@ export default function MessagesScreen() {
     let active = true;
     (async () => {
       try {
-        const headers = athleteUserId
-          ? { "X-Acting-User-Id": String(athleteUserId) }
+        const headers = actingUserId
+          ? { "X-Acting-User-Id": String(actingUserId) }
           : undefined;
         const res = await apiRequest<{ items?: any[] }>(
           "/content/announcements",
@@ -142,7 +166,7 @@ export default function MessagesScreen() {
     return () => {
       active = false;
     };
-  }, [isMessagesRoute, token]);
+  }, [actingUserId, isMessagesRoute, token]);
 
   React.useEffect(() => {
     if (!token) return;
@@ -195,7 +219,9 @@ export default function MessagesScreen() {
   }
 
   // ====================== LOCKED / UPGRADE STATE ======================
-  if (!canMessage) {
+  // Youth team guardians may still have access to team chat groups even when
+  // direct coach messaging is plan-locked.
+  if (!canMessage && appRole !== "youth_athlete_team_guardian") {
     return (
       <SafeAreaView
         className="flex-1"

@@ -33,7 +33,9 @@ export default function TeamsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch("/api/backend/admin/teams", { credentials: "include" });
+        const response = await fetch("/api/backend/admin/teams", {
+          credentials: "include",
+        });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(payload?.error ?? "Failed to load teams.");
@@ -61,7 +63,9 @@ export default function TeamsPage() {
     >
       <div className="grid gap-6">
         {error ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            {error}
+          </div>
         ) : null}
         <Card>
           <CardHeader>
@@ -74,7 +78,9 @@ export default function TeamsPage() {
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading teams...</p>
             ) : teams.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No teams yet. Create one from Add team.</p>
+              <p className="text-sm text-muted-foreground">
+                No teams yet. Create one from Add team.
+              </p>
             ) : (
               <div className="grid gap-3">
                 {teams.map((team) => (
@@ -82,25 +88,42 @@ export default function TeamsPage() {
                     key={team.team}
                     className="group relative block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5"
                   >
-                    <Link href={`/teams/${encodeURIComponent(team.team)}`} className="absolute inset-0 z-0" />
+                    <Link
+                      href={`/teams/${encodeURIComponent(team.team)}`}
+                      className="absolute inset-0 z-0"
+                    />
                     <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="text-base font-semibold text-foreground">{team.team}</p>
+                        <p className="text-base font-semibold text-foreground">
+                          {team.team}
+                        </p>
                         <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                           <span className="rounded-full border border-border px-2 py-1">
-                            {team.memberCount} athlete{team.memberCount === 1 ? "" : "s"}
+                            {team.memberCount} athlete
+                            {team.memberCount === 1 ? "" : "s"}
                           </span>
                           <span className="rounded-full border border-border px-2 py-1">
-                            {team.guardianCount} guardian{team.guardianCount === 1 ? "" : "s"}
+                            {team.guardianCount} guardian
+                            {team.guardianCount === 1 ? "" : "s"}
                           </span>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm" asChild className="h-8">
-                        <Link href={`/exercise-library/${encodeURIComponent(team.team)}?mode=team`}>Post training</Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="h-8"
+                      >
+                        <Link
+                          href={`/exercise-library/teams/${encodeURIComponent(team.team)}`}
+                        >
+                          Post training
+                        </Link>
                       </Button>
                     </div>
                     <p className="relative z-10 mt-2 text-xs text-muted-foreground">
-                      Created: {formatDate(team.createdAt)} · Last updated: {formatDate(team.updatedAt)}
+                      Created: {formatDate(team.createdAt)} · Last updated:{" "}
+                      {formatDate(team.updatedAt)}
                     </p>
                   </div>
                 ))}

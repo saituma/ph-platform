@@ -21,7 +21,12 @@ export default function AdminMessagesScreen() {
   const insets = useSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
-  const myUserId = useAppSelector((state) => state.user.profile?.id) ?? null;
+  const myUserIdRaw = useAppSelector((state) => state.user.profile?.id) ?? null;
+  const myUserId = useMemo(() => {
+    if (myUserIdRaw == null) return null;
+    const n = Number(myUserIdRaw);
+    return Number.isFinite(n) ? n : null;
+  }, [myUserIdRaw]);
 
   const [activeTab, setActiveTab] = useState<HeaderTabKey>("inbox");
 
@@ -34,17 +39,27 @@ export default function AdminMessagesScreen() {
   }, [dms.threads]);
 
   const groupUnreadTotal = useMemo(() => {
-    return groups.groups.reduce((sum, g) => sum + safeNumber(g.unreadCount, 0), 0);
+    return groups.groups.reduce(
+      (sum, g) => sum + safeNumber(g.unreadCount, 0),
+      0,
+    );
   }, [groups.groups]);
 
-  const stats = useMemo(() => ({
-    directThreads: dms.threads.length,
-    directUnread: dmUnreadTotal,
-    groups: groups.groups.length,
-    groupUnread: groupUnreadTotal,
-    announcementGroups: groups.groups.filter(g => (g.category ?? "").toLowerCase() === "announcement").length,
-    teamGroups: groups.groups.filter(g => ["team", "coach_group"].includes((g.category ?? "").toLowerCase())).length,
-  }), [dms.threads.length, dmUnreadTotal, groups.groups, groupUnreadTotal]);
+  const stats = useMemo(
+    () => ({
+      directThreads: dms.threads.length,
+      directUnread: dmUnreadTotal,
+      groups: groups.groups.length,
+      groupUnread: groupUnreadTotal,
+      announcementGroups: groups.groups.filter(
+        (g) => (g.category ?? "").toLowerCase() === "announcement",
+      ).length,
+      teamGroups: groups.groups.filter((g) =>
+        ["team", "coach_group"].includes((g.category ?? "").toLowerCase()),
+      ).length,
+    }),
+    [dms.threads.length, dmUnreadTotal, groups.groups, groupUnreadTotal],
+  );
 
   const headerTabs: { key: HeaderTabKey; label: string }[] = [
     { key: "inbox", label: "Inbox" },
@@ -60,8 +75,12 @@ export default function AdminMessagesScreen() {
           <View className="flex-row items-center gap-3 overflow-hidden">
             <View className="h-6 w-1.5 rounded-full bg-accent" />
             <View className="flex-1">
-              <Text className="text-4xl font-telma-bold text-app tracking-tight">Messages</Text>
-              <Text className="text-[12px] font-outfit text-secondary">Admin Controls</Text>
+              <Text className="text-4xl font-telma-bold text-app tracking-tight">
+                Messages
+              </Text>
+              <Text className="text-[12px] font-outfit text-secondary">
+                Admin Controls
+              </Text>
             </View>
           </View>
         </View>
@@ -81,7 +100,9 @@ export default function AdminMessagesScreen() {
           className="rounded-[28px] border p-5"
           style={{
             backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+            borderColor: isDark
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(15,23,42,0.06)",
             ...(isDark ? Shadows.none : Shadows.md),
           }}
         >
@@ -92,13 +113,27 @@ export default function AdminMessagesScreen() {
           ) : (
             <>
               {activeTab === "inbox" && (
-                <AdminDmSection token={token} canLoad={canLoad} myUserId={myUserId} />
+                <AdminDmSection
+                  token={token}
+                  canLoad={canLoad}
+                  myUserId={myUserId}
+                />
               )}
               {activeTab === "announcement" && (
-                <AdminGroupSection token={token} canLoad={canLoad} myUserId={myUserId} category="announcement" />
+                <AdminGroupSection
+                  token={token}
+                  canLoad={canLoad}
+                  myUserId={myUserId}
+                  category="announcement"
+                />
               )}
               {activeTab === "teams" && (
-                <AdminGroupSection token={token} canLoad={canLoad} myUserId={myUserId} category="team" />
+                <AdminGroupSection
+                  token={token}
+                  canLoad={canLoad}
+                  myUserId={myUserId}
+                  category="team"
+                />
               )}
               {activeTab === "stats" && <AdminStatsSection stats={stats} />}
             </>

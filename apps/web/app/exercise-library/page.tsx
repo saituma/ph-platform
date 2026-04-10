@@ -40,9 +40,16 @@ type AudienceCard = {
   otherCount: number;
 };
 
+type TeamSummary = {
+  team: string;
+  memberCount: number;
+  guardianCount: number;
+};
+
 export default function ExerciseLibraryAudiencePage() {
   const searchParams = useSearchParams();
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
+  const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [viewMode, setViewMode] = useState<"youth" | "adult" | "team">(
     (searchParams.get("mode") as any) === "team"
       ? "team"
@@ -53,7 +60,9 @@ export default function ExerciseLibraryAudiencePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [audienceInput, setAudienceInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [teamError, setTeamError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTeamsLoading, setIsTeamsLoading] = useState(false);
 
   const loadAudiences = async () => {
     setIsLoading(true);
@@ -70,9 +79,35 @@ export default function ExerciseLibraryAudiencePage() {
     }
   };
 
+  const loadTeams = async () => {
+    setIsTeamsLoading(true);
+    try {
+      const response = await fetch("/api/backend/admin/teams", {
+        credentials: "include",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to load teams.");
+      }
+      setTeams(Array.isArray(payload?.teams) ? payload.teams : []);
+      setTeamError(null);
+    } catch (err) {
+      setTeamError(
+        err instanceof Error ? err.message : "Failed to load teams.",
+      );
+    } finally {
+      setIsTeamsLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadAudiences();
   }, []);
+
+  useEffect(() => {
+    if (viewMode !== "team") return;
+    void loadTeams();
+  }, [viewMode]);
 
   useEffect(() => {
     const mode = searchParams.get("mode");
@@ -140,15 +175,41 @@ export default function ExerciseLibraryAudiencePage() {
   }, [audiences]);
 
   const teamCards = useMemo<AudienceCard[]>(() => {
-    return audiences
-      .filter((audience) => isTeamStorageAudienceLabel(audience.label))
-      .map((audience) => ({
-        label: fromTeamStorageAudienceLabel(audience.label),
-        moduleCount: audience.moduleCount,
-        otherCount: audience.otherCount,
-      }))
+    const audienceSummaryByTeamName = new Map(
+      audiences
+        .filter((audience) => isTeamStorageAudienceLabel(audience.label))
+        .map((audience) => [
+          normalizeAudienceLabelInput(
+            fromTeamStorageAudienceLabel(audience.label),
+          ),
+          audience,
+        ]),
+    );
+
+    const canonicalTeamNameByNormalized = new Map(
+      teams.map(
+        (team) => [normalizeAudienceLabelInput(team.team), team.team] as const,
+      ),
+    );
+
+    const allNormalizedTeamNames = new Set<string>([
+      ...teams.map((team) => normalizeAudienceLabelInput(team.team)),
+      ...Array.from(audienceSummaryByTeamName.keys()),
+    ]);
+
+    return [...allNormalizedTeamNames]
+      .map((normalized) => {
+        const existing = audienceSummaryByTeamName.get(normalized);
+        const label =
+          canonicalTeamNameByNormalized.get(normalized) ?? normalized;
+        return {
+          label,
+          moduleCount: existing?.moduleCount ?? 0,
+          otherCount: existing?.otherCount ?? 0,
+        };
+      })
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [audiences]);
+  }, [audiences, teams]);
 
   const activeCards = useMemo(() => {
     if (viewMode === "adult") return adultTierCards;
@@ -215,13 +276,17 @@ export default function ExerciseLibraryAudiencePage() {
                     setModalOpen(true);
                   }}
                 >
-                  {viewMode === "team" ? "+ Add team training" : "+ Add age or range"}
+                  {viewMode === "team"
+                    ? "+ Add team training"
+                    : "+ Add age or range"}
                 </Button>
               ) : null}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {error || teamError ? (
+              <p className="text-sm text-red-600">{error ?? teamError}</p>
+            ) : null}
             {isLoading ? (
               <p className="text-sm text-muted-foreground">
                 {viewMode === "adult"
@@ -231,12 +296,19 @@ export default function ExerciseLibraryAudiencePage() {
                     : "Loading age groups..."}
               </p>
             ) : null}
+            {viewMode === "team" && isTeamsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading teams...</p>
+            ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {activeCards.map((audience) => (
                 <Link
                   key={audience.label}
-                  href={`/exercise-library/${encodeURIComponent(audience.label)}${viewMode !== "youth" ? `?mode=${viewMode}` : ""}`}
+                  href={
+                    viewMode === "team"
+                      ? `/exercise-library/teams/${encodeURIComponent(audience.label)}`
+                      : `/exercise-library/${encodeURIComponent(audience.label)}${viewMode !== "youth" ? `?mode=${viewMode}` : ""}`
+                  }
                   className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
                 >
                   <p className="text-lg font-semibold text-foreground">
@@ -252,11 +324,14 @@ export default function ExerciseLibraryAudiencePage() {
                   </p>
                 </Link>
               ))}
-              {viewMode === "team" && activeCards.length === 0 && !isLoading && (
-                <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-                  No team training posted yet. Click "+ Add team training" to start.
-                </p>
-              )}
+              {viewMode === "team" &&
+                activeCards.length === 0 &&
+                !isLoading &&
+                !isTeamsLoading && (
+                  <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                    No teams yet.
+                  </p>
+                )}
             </div>
           </CardContent>
         </Card>
@@ -275,7 +350,9 @@ export default function ExerciseLibraryAudiencePage() {
         </DialogHeader>
         <div className="space-y-4 pt-4">
           <Input
-            placeholder={viewMode === "team" ? "e.g. U14 Elite" : "7, 8, 12, 7-18, All"}
+            placeholder={
+              viewMode === "team" ? "e.g. U14 Elite" : "7, 8, 12, 7-18, All"
+            }
             value={audienceInput}
             onChange={(event) => setAudienceInput(event.target.value)}
           />
@@ -287,10 +364,11 @@ export default function ExerciseLibraryAudiencePage() {
               onClick={async () => {
                 if (!normalizedAudience) return;
                 try {
-                  const label = viewMode === "team" 
-                    ? toTeamStorageAudienceLabel(audienceInput)
-                    : normalizedAudience;
-                  
+                  const label =
+                    viewMode === "team"
+                      ? toTeamStorageAudienceLabel(audienceInput)
+                      : normalizedAudience;
+
                   await trainingContentRequest("/admin/audiences", {
                     method: "POST",
                     body: JSON.stringify({ label }),

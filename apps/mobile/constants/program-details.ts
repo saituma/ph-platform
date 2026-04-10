@@ -23,7 +23,7 @@ export type SessionItem = {
   exercises: ExerciseItem[];
 };
 
-export type ProgramId = "php" | "plus" | "premium";
+export type ProgramId = "php" | "plus" | "premium" | "pro";
 
 /** Single labels for warm-up / cool-down across all tiers (KISS). */
 export const WARM_UP_TAB = "Warm-up";
@@ -56,6 +56,20 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
     "Referrals",
   ],
   premium: [
+    "Program",
+    WARM_UP_TAB,
+    COOL_DOWN_TAB,
+    "Movement Screening",
+    "Mobility",
+    "Recovery",
+    "In-Season Program",
+    "Off-Season Program",
+    "Video Upload",
+    "Education",
+    "Submit Diary",
+    "Bookings",
+  ],
+  pro: [
     "Program",
     WARM_UP_TAB,
     COOL_DOWN_TAB,
