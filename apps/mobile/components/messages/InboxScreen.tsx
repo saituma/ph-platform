@@ -19,6 +19,7 @@ type InboxScreenProps = {
     sharedBoundTag?: string,
     avatarTag?: string,
   ) => void;
+  variant?: "default" | "team";
 };
 
 function getInitials(name?: string | null) {
@@ -39,7 +40,10 @@ function formatUnreadBadge(unread: number) {
   return unread > 9 ? "9+" : String(unread);
 }
 
-function groupThreadsByChannel(threads: MessageThread[]) {
+function groupThreadsByChannel(
+  threads: MessageThread[],
+  variant: "default" | "team",
+) {
   const coachGroups = threads.filter(
     (thread) => thread.channelType === "coach_group",
   );
@@ -49,11 +53,20 @@ function groupThreadsByChannel(threads: MessageThread[]) {
   );
   const team = threads.filter((thread) => thread.channelType === "team");
 
-  return [
-    { key: "coach_group", title: "Coach groups", items: coachGroups },
-    { key: "direct", title: "Direct inbox", items: direct },
-    { key: "team", title: "Team inbox", items: team },
-  ].filter((section) => section.items.length > 0);
+  const sections =
+    variant === "team"
+      ? [
+          { key: "team", title: "Team inbox", items: team },
+          { key: "coach_group", title: "Coach groups", items: coachGroups },
+          { key: "direct", title: "Direct inbox", items: direct },
+        ]
+      : [
+          { key: "coach_group", title: "Coach groups", items: coachGroups },
+          { key: "direct", title: "Direct inbox", items: direct },
+          { key: "team", title: "Team inbox", items: team },
+        ];
+
+  return sections.filter((section) => section.items.length > 0);
 }
 
 function ThreadSkeletonCard({
@@ -179,6 +192,7 @@ function InboxScreenBase({
   openingThreadId,
   onRefresh,
   onOpenThread,
+  variant = "default",
 }: InboxScreenProps) {
   const { colors, isDark } = useAppTheme();
 
@@ -188,8 +202,8 @@ function InboxScreenBase({
     : colors.backgroundSecondary;
 
   const groupedSections = React.useMemo(() => {
-    return groupThreadsByChannel(threads);
-  }, [threads]);
+    return groupThreadsByChannel(threads, variant);
+  }, [threads, variant]);
 
   return (
     <ThemedScrollView

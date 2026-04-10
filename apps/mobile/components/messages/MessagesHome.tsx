@@ -110,6 +110,11 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   const isMessagesRoute =
     pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
 
+  const inboxThreads = React.useMemo(() => {
+    if (mode === "team") return sortedThreads;
+    return sortedThreads.filter((thread) => thread.channelType !== "team");
+  }, [mode, sortedThreads]);
+
   React.useEffect(() => {
     if (!token) return;
     if (!isMessagesRoute) return;
@@ -425,12 +430,13 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
       </View>
 
       <InboxScreen
-        threads={sortedThreads}
+        threads={inboxThreads}
         typingStatus={typingStatus}
         isLoading={isLoading}
         openingThreadId={openingThreadId}
         onRefresh={loadMessages}
         onOpenThread={openThread}
+        variant={mode === "team" ? "team" : "default"}
       />
     </SafeAreaView>
   );
