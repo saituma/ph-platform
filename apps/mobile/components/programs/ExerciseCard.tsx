@@ -1,9 +1,11 @@
 import React from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { ExerciseItem } from "@/constants/program-details";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 export function ExerciseCard({
   exercise,
@@ -16,18 +18,19 @@ export function ExerciseCard({
   const { colors, isDark } = useAppTheme();
   const isNavigable = typeof onPress === "function";
 
+  const borderColor = exercise.completed
+    ? isDark
+      ? "rgba(34,197,94,0.28)"
+      : "rgba(34,197,94,0.22)"
+    : colors.border;
+
   return (
-    <View
-      className="rounded-[24px] border px-5 py-4"
+    <Card
+      padding={16}
+      radius="xl"
       style={{
-        backgroundColor: colors.card,
-        borderColor: exercise.completed
-          ? isDark
-            ? "rgba(34,197,94,0.28)"
-            : "rgba(34,197,94,0.22)"
-          : isDark
-            ? "rgba(255,255,255,0.1)"
-            : "rgba(15,23,42,0.06)",
+        borderWidth: 1,
+        borderColor,
       }}
     >
       <View className="flex-row items-center justify-between gap-3">
@@ -55,18 +58,17 @@ export function ExerciseCard({
             </Text>
           </View>
         </View>
-        {isNavigable ? (
-          <Pressable
+        {isNavigable && (
+          <Button
+            label="View Detail"
             onPress={onPress}
-            className="rounded-full px-4 py-2"
-            style={{ backgroundColor: colors.accent }}
-          >
-            <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px] text-white">
-              View Detail
-            </Text>
-          </Pressable>
-        ) : null}
+            size="sm"
+            fullWidth={false}
+            radius="pill"
+            textStyle={{ fontSize: 12, fontFamily: "Outfit-Bold" }}
+          />
+        )}
       </View>
-    </View>
+    </Card>
   );
 }

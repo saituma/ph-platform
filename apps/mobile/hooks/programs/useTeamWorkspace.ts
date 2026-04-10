@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
-import { apiRequest } from "@/lib/api";
 import { TrainingContentV2Workspace } from "@/types/billing";
+import * as programsService from "@/services/programs/programsService";
+import { mapTeamWorkspace } from "@/lib/programs/programMapper";
 
 export function useTeamWorkspace(token: string | null, age: number | null) {
   const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(null);
@@ -13,14 +14,10 @@ export function useTeamWorkspace(token: string | null, age: number | null) {
     setIsLoading(true);
     setError(null);
     try {
-      const ageQ = age != null ? `?age=${age}` : "";
-      const response = await apiRequest<TrainingContentV2Workspace>(
-        `/training-content-v2/mobile${ageQ}`,
-        { token, forceRefresh: force }
-      );
-      const tabs = Array.isArray(response?.tabs) && response.tabs.length ? response.tabs : ["Modules"];
-      setWorkspace({ ...response, tabs });
-      setActiveTab(prev => tabs.includes(prev) ? prev : tabs[0]);
+      const response = await programsService.fetchTeamWorkspace(token, age, force);
+      const mapped = mapTeamWorkspace(response);
+      setWorkspace(mapped);
+      setActiveTab(prev => mapped.tabs.includes(prev) ? prev : mapped.tabs[0]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load team program.");
     } finally {

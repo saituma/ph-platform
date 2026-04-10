@@ -1,9 +1,8 @@
 import { Feather } from "@/components/ui/theme-icons";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
 import React from "react";
 import { View } from "react-native";
 import { Text } from "@/components/ScaledText";
+import { Card } from "@/components/ui/Card";
 
 interface StatCardProps {
   label: string;
@@ -22,13 +21,13 @@ export function StatCard({
   icon,
   color = "bg-accent",
 }: StatCardProps) {
-  const { isDark } = useAppTheme();
   const iconColorClass = color.replace("bg-", "text-");
 
   return (
-    <View
-      className="bg-card p-4 rounded-[20px] flex-1 min-w-[100px] relative overflow-hidden"
-      style={isDark ? Shadows.none : Shadows.sm}
+    <Card
+      padding={16}
+      radius="lg"
+      style={{ flex: 1, minWidth: 100, position: "relative", overflow: "hidden" }}
     >
       <View className="flex-row justify-between items-start mb-2">
         <View className={`${color}/10 p-2 rounded-xl`}>
@@ -58,6 +57,6 @@ export function StatCard({
       <View
         className={`absolute -right-2 -bottom-2 w-12 h-12 ${color}/5 rounded-full`}
       />
-    </View>
+    </Card>
   );
 }

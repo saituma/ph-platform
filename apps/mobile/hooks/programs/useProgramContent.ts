@@ -1,8 +1,9 @@
-import { useState, useCallback, useMemo } from "react";
-import { apiRequest } from "@/lib/api";
+import { useState, useCallback } from "react";
 import { ProgramSectionContent, TrainingContentV2Workspace } from "@/types/programs";
-import { ProgramId, getSessionTypesForTab, normalizeProgramTabLabel, PROGRAM_TABS } from "@/constants/program-details";
+import { ProgramId, getSessionTypesForTab } from "@/constants/program-details";
 import { programIdToTier } from "@/lib/planAccess";
+import * as programsService from "@/services/programs/programsService";
+import { mapPhpPlusTabs, mapMergedSectionContent } from "@/lib/programs/programMapper";
 
 export function useProgramContent(
   token: string | null,
@@ -19,13 +20,8 @@ export function useProgramContent(
   const loadPhpPlusTabs = useCallback(async () => {
     if (programId !== "plus") return;
     try {
-      const response = await apiRequest<{ tabs?: string[] }>(
-        `/onboarding/php-plus-tabs?ts=${Date.now()}`,
-        { method: "GET", suppressLog: true },
-      );
-      if (Array.isArray(response.tabs)) {
-        setPhpPlusTabs(response.tabs.map((tab) => normalizeProgramTabLabel(String(tab))));
-      }
+      const response = await programsService.fetchPhpPlusTabs();
+      setPhpPlusTabs(mapPhpPlusTabs(response.tabs));
     } catch {
       setPhpPlusTabs(null);
     }
@@ -45,29 +41,14 @@ export function useProgramContent(
       setError(null);
       try {
         const tier = programIdToTier(programId);
-        const ageQ = activeAthleteAge !== null ? `&age=${activeAthleteAge}` : "";
         
         const responses = await Promise.all(
           types.map((type) =>
-            apiRequest<{ items: ProgramSectionContent[] }>(
-              `/program-section-content?sectionType=${encodeURIComponent(String(type))}&programTier=${encodeURIComponent(tier)}${ageQ}`,
-              { token, forceRefresh: force },
-            ),
+            programsService.fetchSectionContent(token, type, tier, activeAthleteAge, force)
           ),
         );
         
-        const merged = responses
-          .flatMap((res) => res.items ?? [])
-          .filter((item) => item && item.id);
-          
-        merged.sort((a, b) => {
-          const orderA = Number.isFinite(a.order) ? (a.order as number) : 9999;
-          const orderB = Number.isFinite(b.order) ? (b.order as number) : 9999;
-          if (orderA !== orderB) return orderA - orderB;
-          return String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""));
-        });
-        
-        setSectionContent(merged);
+        setSectionContent(mapMergedSectionContent(responses));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load program content.");
       } finally {

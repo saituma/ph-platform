@@ -5,13 +5,11 @@ import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Image,
-  InteractionManager,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -25,40 +23,30 @@ import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useRouter } from "expo-router";
 import { hasPaidProgramTier } from "@/lib/planAccess";
-import Animated, { Easing, FadeInDown, FadeInRight } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  FadeInDown,
+  FadeInRight,
+} from "react-native-reanimated";
+import { useHomeContent } from "@/hooks/home/useHomeContent";
 
-type HomeTestimonial = {
-  id: string;
-  name: string;
-  role?: string | null;
-  quote: string;
-  rating?: number | null;
-  photoUrl?: string | null;
-  photo?: string | null;
-  imageUrl?: string | null;
-  image?: string | null;
-};
+const AnimatedTouchableOpacity =
+  Animated.createAnimatedComponent(TouchableOpacity);
 
-type HomeContentPayload = {
-  headline?: string | null;
-  description?: string | null;
-  welcome?: string | null;
-  introVideoUrl?: string | null;
-  heroImageUrl?: string | null;
-  testimonials?: HomeTestimonial[] | null;
-  adminStory?: string | null;
-  professionalPhoto?: string | null;
-  professionalPhotos?: string[] | string | null;
-};
-
-const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
-
-type WelcomeHeroState = "loading" | "ready" | "fallback" | "error";
-
-const QuickLink = ({ icon, label, sublabel, onPress, index, colors, isDark }: any) => {
+const QuickLink = ({
+  icon,
+  label,
+  sublabel,
+  onPress,
+  index,
+  colors,
+  isDark,
+}: any) => {
   return (
     <AnimatedTouchableOpacity
-      entering={FadeInRight.delay(400 + index * 100).duration(380).easing(Easing.out(Easing.cubic))}
+      entering={FadeInRight.delay(400 + index * 100)
+        .duration(380)
+        .easing(Easing.out(Easing.cubic))}
       onPress={onPress}
       activeOpacity={0.8}
       className="flex-1 rounded-[32px] p-5 h-[160px] justify-between border"
@@ -68,12 +56,27 @@ const QuickLink = ({ icon, label, sublabel, onPress, index, colors, isDark }: an
         ...(isDark ? Shadows.none : Shadows.md),
       }}
     >
-      <View className="h-12 w-12 rounded-[20px] items-center justify-center" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "#F0FDF4" }}>
+      <View
+        className="h-12 w-12 rounded-[20px] items-center justify-center"
+        style={{
+          backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "#F0FDF4",
+        }}
+      >
         <Feather name={icon} size={22} color={colors.accent} />
       </View>
       <View>
-        <Text className="text-[16px] font-clash font-bold text-app mb-0.5" numberOfLines={1}>{label}</Text>
-        <Text className="text-[11px] font-outfit text-secondary" numberOfLines={1}>{sublabel}</Text>
+        <Text
+          className="text-[16px] font-clash font-bold text-app mb-0.5"
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+        <Text
+          className="text-[11px] font-outfit text-secondary"
+          numberOfLines={1}
+        >
+          {sublabel}
+        </Text>
       </View>
     </AnimatedTouchableOpacity>
   );
@@ -88,12 +91,11 @@ export default function HomeScreen() {
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const { isSectionHidden } = useAgeExperience();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
-  const [homeContentError, setHomeContentError] = useState<string | null>(null);
-  const [isLoadingContent, setIsLoadingContent] = useState(true);
-  const isMountedRef = useRef(true);
-  const lastLoadAtRef = useRef(0);
-  const hasLoadedRef = useRef(false);
+
+  const { homeContent, load, welcomeHeroState } = useHomeContent(
+    token,
+    bootstrapReady,
+  );
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -135,111 +137,40 @@ export default function HomeScreen() {
     return `${opening} Check your next steps, stay consistent, and keep building.`;
   }, [greeting]);
 
-  const normalizedWelcome = useMemo(() => {
-    const welcome = homeContent?.welcome?.trim();
-    if (welcome) return welcome;
-
-    const headline = homeContent?.headline?.trim();
-    if (headline) return headline;
-
-    return null;
-  }, [homeContent?.headline, homeContent?.welcome]);
-
-  const welcomeHeroState = useMemo<WelcomeHeroState>(() => {
-    if (isLoadingContent && !homeContent && !homeContentError) return "loading";
-    if (homeContentError) return "error";
-    if (normalizedWelcome) return "ready";
-    return "fallback";
-  }, [homeContent, homeContentError, isLoadingContent, normalizedWelcome]);
-
-  const resolvedWelcomeMessage =
-    welcomeHeroState === "ready" ? normalizedWelcome : fallbackWelcome;
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  const loadHomeContent = React.useCallback(async (forceRefresh = false) => {
-    if (!token || !bootstrapReady) return;
-    setIsLoadingContent(true);
-    try {
-      const data = await apiRequest<{ items?: any[] }>("/content/home", { token, forceRefresh });
-      const item = (data.items ?? [])[0];
-      if (!item) {
-        if (!isMountedRef.current) return;
-        if (!hasLoadedRef.current) setHomeContent(null);
-      } else {
-        let body: HomeContentPayload = {};
-        if (item.body) {
-          if (typeof item.body === "string" && item.body.trim().length) {
-            try { body = JSON.parse(item.body) as HomeContentPayload; } catch { body = {}; }
-          } else if (typeof item.body === "object") {
-            body = item.body as HomeContentPayload;
-          }
-        }
-        const parsedTestimonials = typeof body.testimonials === "string" && (body.testimonials as string).trim().length
-            ? (() => { try { const parsed = JSON.parse(body.testimonials); return Array.isArray(parsed) ? parsed : null; } catch { return null; } })()
-            : null;
-        
-        const professionalPhoto = typeof body.professionalPhoto === "string" && body.professionalPhoto.trim()
-            ? body.professionalPhoto.trim()
-            : Array.isArray(body.professionalPhotos)
-              ? body.professionalPhotos[0] ?? null
-              : typeof body.professionalPhotos === "string"
-                ? body.professionalPhotos.split(/\r?\n|,/).map((entry) => entry.trim()).filter(Boolean)[0] ?? null
-                : null;
-
-        if (!isMountedRef.current) return;
-        setHomeContent({
-          headline: body.headline ?? item.content ?? item.title ?? null,
-          description: body.description ?? null,
-          welcome: body.welcome ?? null,
-          introVideoUrl: body.introVideoUrl ?? null,
-          heroImageUrl: body.heroImageUrl ?? null,
-          testimonials: parsedTestimonials ?? (Array.isArray(body.testimonials) ? body.testimonials : null),
-          adminStory: body.adminStory ?? null,
-          professionalPhoto,
-        });
-      }
-      setHomeContentError(null);
-    } catch (err: any) {
-      if (!isMountedRef.current) return;
-      setHomeContentError(err?.message ?? "Failed to load home content");
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoadingContent(false);
-        hasLoadedRef.current = true;
-      }
+  const resolvedWelcomeMessage = useMemo(() => {
+    if (welcomeHeroState === "ready") {
+      return homeContent?.welcome?.trim() || homeContent?.headline?.trim();
     }
-  }, [bootstrapReady, token]);
+    return fallbackWelcome;
+  }, [welcomeHeroState, homeContent, fallbackWelcome]);
 
-  useEffect(() => {
-    if (!bootstrapReady || !token) return;
-    const now = Date.now();
-    if (now - lastLoadAtRef.current < 500) return;
-    lastLoadAtRef.current = now;
-    setIsLoadingContent(true);
-    const task = InteractionManager.runAfterInteractions(() => {
-      void loadHomeContent();
-    });
-    return () => task?.cancel?.();
-  }, [bootstrapReady, loadHomeContent, token]);
-
-  const showSkeleton = isLoadingContent && !homeContentError;
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await load(true);
+    setIsRefreshing(false);
+  };
 
   if (isSectionHidden("dashboard")) {
-    return <AgeGate title="Dashboard locked" message="Dashboard content is restricted for this age." />;
+    return (
+      <AgeGate
+        title="Dashboard locked"
+        message="Dashboard content is restricted for this age."
+      />
+    );
   }
 
   if (!bootstrapReady) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
+      <View
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: colors.background }}
+      >
         <Skeleton width={160} height={40} borderRadius={999} />
       </View>
     );
   }
+
+  const showSkeleton = welcomeHeroState === "loading";
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -253,12 +184,7 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => {
-              setIsRefreshing(true);
-              Promise.all([loadHomeContent(true)]).finally(() => {
-                setTimeout(() => setIsRefreshing(false), 400);
-              });
-            }}
+            onRefresh={handleRefresh}
             tintColor={colors.accent}
           />
         }
@@ -272,7 +198,9 @@ export default function HomeScreen() {
             className="rounded-[36px] border p-5"
             style={{
               backgroundColor: isDark ? colors.heroSurfaceStrong : colors.card,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.12)",
+              borderColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(34,197,94,0.12)",
               ...(isDark ? Shadows.none : Shadows.lg),
             }}
           >
@@ -287,9 +215,15 @@ export default function HomeScreen() {
             />
             <View className="flex-row items-start justify-between">
               <View className="flex-1 pr-4">
-                <View className="mb-3 self-start rounded-full px-3 py-2" style={{ backgroundColor: colors.accentLight }}>
+                <View
+                  className="mb-3 self-start rounded-full px-3 py-2"
+                  style={{ backgroundColor: colors.accentLight }}
+                >
                   <View className="flex-row items-center gap-2">
-                    <View className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.accent }} />
+                    <View
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: colors.accent }}
+                    />
                     <Text
                       className="text-[11px] font-outfit font-bold uppercase tracking-[1.8px]"
                       style={{ color: colors.accent }}
@@ -329,15 +263,12 @@ export default function HomeScreen() {
 
                     {welcomeHeroState === "error" ? (
                       <Pressable
-                        onPress={() => {
-                          setIsRefreshing(true);
-                          void loadHomeContent(true).finally(() => {
-                            setTimeout(() => setIsRefreshing(false), 400);
-                          });
-                        }}
+                        onPress={handleRefresh}
                         className="mt-4 self-start rounded-full px-4 py-2.5"
                         style={{
-                          backgroundColor: isDark ? colors.backgroundSecondary : colors.accentLight,
+                          backgroundColor: isDark
+                            ? colors.backgroundSecondary
+                            : colors.accentLight,
                           borderWidth: 1,
                           borderColor: isDark
                             ? "rgba(255,255,255,0.08)"
@@ -345,8 +276,15 @@ export default function HomeScreen() {
                         }}
                       >
                         <View className="flex-row items-center gap-2">
-                          <Feather name="refresh-cw" size={15} color={colors.accent} />
-                          <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                          <Feather
+                            name="refresh-cw"
+                            size={15}
+                            color={colors.accent}
+                          />
+                          <Text
+                            className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px]"
+                            style={{ color: colors.accent }}
+                          >
                             Try again
                           </Text>
                         </View>
@@ -361,12 +299,19 @@ export default function HomeScreen() {
                 activeOpacity={0.85}
                 className="h-16 w-16 rounded-[24px] overflow-hidden border p-1"
                 style={{
-                  backgroundColor: isDark ? colors.heroSurfaceMuted : colors.backgroundSecondary,
-                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(34,197,94,0.12)",
+                  backgroundColor: isDark
+                    ? colors.heroSurfaceMuted
+                    : colors.backgroundSecondary,
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.10)"
+                    : "rgba(34,197,94,0.12)",
                 }}
               >
                 {profile?.avatar ? (
-                  <Image source={{ uri: profile.avatar }} className="h-full w-full rounded-[20px]" />
+                  <Image
+                    source={{ uri: profile.avatar }}
+                    className="h-full w-full rounded-[20px]"
+                  />
                 ) : (
                   <View
                     className="h-full w-full items-center justify-center rounded-[20px]"
@@ -382,7 +327,9 @@ export default function HomeScreen() {
               <View
                 className="rounded-full px-3 py-2"
                 style={{
-                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : colors.backgroundSecondary,
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.06)"
+                    : colors.backgroundSecondary,
                 }}
               >
                 <Text
@@ -396,7 +343,10 @@ export default function HomeScreen() {
                       : "Daily focus"}
                 </Text>
               </View>
-              <Text className="flex-1 text-[12px] font-outfit" style={{ color: colors.textSecondary }}>
+              <Text
+                className="flex-1 text-[12px] font-outfit"
+                style={{ color: colors.textSecondary }}
+              >
                 {welcomeHeroState === "ready"
                   ? "Your latest home message is ready."
                   : "Your plan is still here and ready even when content needs a moment."}
@@ -407,28 +357,30 @@ export default function HomeScreen() {
 
         {/* Command Center - Refined Two-Column Layout */}
         <View className="mb-10 px-6">
-          <Animated.View 
+          <Animated.View
             entering={FadeInDown.delay(300).duration(600)}
             className="flex-row items-center justify-between mb-4"
           >
-            <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2.5px]">Command Center</Text>
+            <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2.5px]">
+              Command Center
+            </Text>
           </Animated.View>
-          
+
           <View className="flex-row gap-4">
-            <QuickLink 
+            <QuickLink
               index={0}
-              icon="edit-3" 
-              label="Submit Diary" 
-              sublabel="Log your fuel" 
+              icon="edit-3"
+              label="Submit Diary"
+              sublabel="Log your fuel"
               onPress={() => router.push("/food-diary")}
               colors={colors}
               isDark={isDark}
             />
-            <QuickLink 
+            <QuickLink
               index={1}
-              icon="users" 
-              label="Parent Platform" 
-              sublabel="Family support" 
+              icon="users"
+              label="Parent Platform"
+              sublabel="Family support"
               onPress={() => {
                 if (!hasPaidProgramTier(programTier)) {
                   Alert.alert(
@@ -436,7 +388,10 @@ export default function HomeScreen() {
                     "Pick a training plan in the Programs tab to unlock parent education content.",
                     [
                       { text: "Not now", style: "cancel" },
-                      { text: "Programs", onPress: () => router.push("/(tabs)/programs") },
+                      {
+                        text: "Programs",
+                        onPress: () => router.push("/(tabs)/programs"),
+                      },
                     ],
                   );
                   return;
@@ -459,10 +414,16 @@ export default function HomeScreen() {
           ) : (
             <>
               {homeContent?.introVideoUrl && (
-                <Animated.View entering={FadeInDown.delay(600).duration(400).easing(Easing.out(Easing.cubic))}>
+                <Animated.View
+                  entering={FadeInDown.delay(600)
+                    .duration(400)
+                    .easing(Easing.out(Easing.cubic))}
+                >
                   <View className="flex-row items-center gap-2 mb-4">
                     <View className="h-1.5 w-1.5 rounded-full bg-accent" />
-                    <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2px]">Featured Highlight</Text>
+                    <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2px]">
+                      Featured Highlight
+                    </Text>
                   </View>
                   <IntroVideoSection
                     introVideoUrl={homeContent.introVideoUrl}
@@ -471,12 +432,20 @@ export default function HomeScreen() {
                 </Animated.View>
               )}
 
-              <Animated.View entering={FadeInDown.delay(700).duration(400).easing(Easing.out(Easing.cubic))}>
+              <Animated.View
+                entering={FadeInDown.delay(700)
+                  .duration(400)
+                  .easing(Easing.out(Easing.cubic))}
+              >
                 <GuardianDashboard />
               </Animated.View>
 
               {homeContent?.adminStory && (
-                <Animated.View entering={FadeInDown.delay(800).duration(400).easing(Easing.out(Easing.cubic))}>
+                <Animated.View
+                  entering={FadeInDown.delay(800)
+                    .duration(400)
+                    .easing(Easing.out(Easing.cubic))}
+                >
                   <AdminStorySection
                     story={homeContent.adminStory}
                     photoUrl={homeContent.professionalPhoto ?? null}
@@ -485,7 +454,12 @@ export default function HomeScreen() {
               )}
 
               {homeContent?.testimonials && (
-                <Animated.View entering={FadeInDown.delay(900).duration(400).easing(Easing.out(Easing.cubic))} className="mb-10">
+                <Animated.View
+                  entering={FadeInDown.delay(900)
+                    .duration(400)
+                    .easing(Easing.out(Easing.cubic))}
+                  className="mb-10"
+                >
                   <TestimonialsSection items={homeContent.testimonials} />
                 </Animated.View>
               )}
