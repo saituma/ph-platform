@@ -123,12 +123,14 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
   }
 
   const guardianById = new Map<number, { userId: number; activeAthleteId: number | null }>();
+  const guardianIdByUserId = new Map<number, number>();
   const guardianIds: number[] = [];
   for (const guardian of guardians) {
     guardianById.set(guardian.guardianId, {
       userId: guardian.userId,
       activeAthleteId: guardian.activeAthleteId ?? null,
     });
+    guardianIdByUserId.set(guardian.userId, guardian.guardianId);
     guardianIds.push(guardian.guardianId);
   }
 
@@ -142,18 +144,39 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
     .map((guardian) => guardian.activeAthleteId)
     .filter((id): id is number => typeof id === "number");
 
+  const activeAthleteByGuardianId = new Map<
+    number,
+    {
+      id: number;
+      name: string | null;
+      team: string | null;
+      athleteType: string | null;
+      programTier: string | null;
+    }
+  >();
+
   if (activeAthleteIds.length) {
     const activeAthletes = await db
       .select({
         id: athleteTable.id,
         guardianId: athleteTable.guardianId,
         programTier: athleteTable.currentProgramTier,
+        name: athleteTable.name,
+        team: athleteTable.team,
+        athleteType: athleteTable.athleteType,
       })
       .from(athleteTable)
       .where(inArray(athleteTable.id, activeAthleteIds));
 
     for (const athlete of activeAthletes) {
       if (!athlete.guardianId) continue;
+      activeAthleteByGuardianId.set(athlete.guardianId, {
+        id: athlete.id,
+        name: athlete.name,
+        team: athlete.team,
+        athleteType: athlete.athleteType,
+        programTier: athlete.programTier,
+      });
       const guardian = guardianById.get(athlete.guardianId);
       if (!guardian || !athlete.programTier) continue;
       if (tierByUserId.has(guardian.userId)) continue;
@@ -191,8 +214,26 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
   return users.map((user) => {
     if (user.role !== "guardian") return user;
     const resolvedTier = tierByUserId.get(user.id);
-    if (!resolvedTier) return user;
-    return { ...user, programTier: resolvedTier };
+    const guardianId = guardianIdByUserId.get(user.id);
+    const activeAthlete =
+      typeof guardianId === "number"
+        ? activeAthleteByGuardianId.get(guardianId)
+        : undefined;
+
+    const next = { ...user };
+    if (resolvedTier) {
+      next.programTier = resolvedTier;
+    }
+    if (!next.athleteId && activeAthlete) {
+      next.athleteId = activeAthlete.id;
+      next.athleteName = activeAthlete.name;
+      next.athleteTeam = activeAthlete.team;
+      next.athleteType = activeAthlete.athleteType as AthleteType | null;
+      if (!next.programTier && activeAthlete.programTier) {
+        next.programTier = activeAthlete.programTier;
+      }
+    }
+    return next;
   });
 }
 
