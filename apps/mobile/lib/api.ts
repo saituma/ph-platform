@@ -1,9 +1,17 @@
 import * as SecureStore from "expo-secure-store";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { store } from "@/store";
 import { setCredentials, logout } from "@/store/slices/userSlice";
+import {
+  hashString,
+  hydrateCache,
+  getCachedData,
+  setCachedData,
+  clearApiCache,
+} from "./api/cache";
+import { isTransportFailure, extractErrorMessage } from "./api/errorUtils";
+
+export { clearApiCache };
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -13,59 +21,23 @@ type ApiRequestOptions = {
   suppressLog?: boolean;
   suppressStatusCodes?: number[];
   skipAuthRefresh?: boolean;
-  /** When true, a 401 after failed refresh does not wipe SecureStore or dispatch logout (caller owns session). */
   skipSessionInvalidateOn401?: boolean;
   skipCache?: boolean;
   forceRefresh?: boolean;
   timeoutMs?: number;
 };
-type ApiCacheEntry = { data: any; savedAt: number };
-const apiCache = new Map<string, ApiCacheEntry>();
-const ASYNC_CACHE_KEY = "ph_api_cache_v2";
-const hashString = (value: string) => {
-  let hash = 5381;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 33) ^ value.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(16);
-};
-
-const hydrateCache = () =>
-  Promise.resolve(AsyncStorage?.getItem?.(ASYNC_CACHE_KEY))
-    .then((stored: string | null | undefined) => {
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored) as Record<string, any>;
-          const now = Date.now();
-          for (const [key, value] of Object.entries(parsed)) {
-            if (!value || typeof value !== "object") continue;
-            const legacyExpiry = typeof value.expiry === "number" ? value.expiry : null;
-            if (legacyExpiry !== null && legacyExpiry < now) continue;
-            const data = "data" in value ? value.data : value;
-            const savedAt = typeof value.savedAt === "number" ? value.savedAt : now;
-            apiCache.set(key, { data, savedAt });
-          }
-        } catch {
-          // ignore parsing errors
-        }
-      }
-    })
-    .catch(() => {});
 
 let cacheHydrationPromise: Promise<void> | null = hydrateCache();
 
-function persistCache() {
-  const obj = Object.fromEntries(apiCache.entries());
-  Promise.resolve(AsyncStorage?.setItem?.(ASYNC_CACHE_KEY, JSON.stringify(obj))).catch(() => {});
-}
-
-export function clearApiCache() {
-  apiCache.clear();
-  Promise.resolve(AsyncStorage?.removeItem?.(ASYNC_CACHE_KEY)).catch(() => {});
-}
-
-export function prefetchApi<T>(path: string, options: ApiRequestOptions = {}): void {
-  apiRequest<T>(path, { ...options, suppressLog: true, forceRefresh: true }).catch(() => {});
+export function prefetchApi<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): void {
+  apiRequest<T>(path, {
+    ...options,
+    suppressLog: true,
+    forceRefresh: true,
+  }).catch(() => {});
 }
 
 const AUTH_TOKEN_KEY = "authToken";
@@ -80,17 +52,6 @@ const normalizeBaseUrls = (baseUrl: string) => {
   return { withApi, withoutApi };
 };
 
-const extractErrorMessage = (text: string, payload: any) => {
-  if (payload?.error || payload?.message) {
-    return payload?.error || payload?.message;
-  }
-  const cannotMatch = text.match(/Cannot\s+(GET|POST|PUT|PATCH|DELETE)\s+([^\s<]+)/i);
-  if (cannotMatch) {
-    return `${cannotMatch[1].toUpperCase()} ${cannotMatch[2]} not found`;
-  }
-  return text || "Request failed";
-};
-
 const parseJsonSafe = (text: string) => {
   if (!text) return null;
   try {
@@ -100,26 +61,9 @@ const parseJsonSafe = (text: string) => {
   }
 };
 
-/** True when failure is likely offline / transient transport — do not treat as invalid refresh or wipe session. */
-function isTransportFailure(error: unknown): boolean {
-  if (error == null) return false;
-  if (typeof error === "object" && error !== null && "name" in error && (error as { name?: string }).name === "AbortError") {
-    return true;
-  }
-  if (error instanceof TypeError) return true;
-  if (error instanceof Error) {
-    const m = error.message;
-    return (
-      m.includes("Network request failed") ||
-      m.includes("Failed to fetch") ||
-      m.includes("Cannot reach API") ||
-      m.includes("Request timed out")
-    );
-  }
-  return false;
-}
-
-async function refreshAuthToken(normalizedBaseUrl: string): Promise<string | null> {
+async function refreshAuthToken(
+  normalizedBaseUrl: string,
+): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
@@ -139,7 +83,8 @@ async function refreshAuthToken(normalizedBaseUrl: string): Promise<string | nul
       if (!nextToken || typeof nextToken !== "string") return null;
 
       const nextRefreshToken =
-        typeof payload?.refreshToken === "string" && payload.refreshToken.trim().length
+        typeof payload?.refreshToken === "string" &&
+        payload.refreshToken.trim().length
           ? payload.refreshToken.trim()
           : refreshToken;
       await SecureStore.setItemAsync(AUTH_REFRESH_KEY, nextRefreshToken);
@@ -151,7 +96,7 @@ async function refreshAuthToken(normalizedBaseUrl: string): Promise<string | nul
           token: nextToken,
           refreshToken: nextRefreshToken,
           profile: state.user.profile,
-        })
+        }),
       );
       return nextToken;
     } catch (e) {
@@ -169,7 +114,10 @@ async function refreshAuthToken(normalizedBaseUrl: string): Promise<string | nul
   }
 }
 
-export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
   const baseUrl = getApiBaseUrl();
   if (!baseUrl) {
     throw new Error("API base URL not configured");
@@ -180,9 +128,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${apiBaseUrl}${normalizedPath}`;
   const fallbackBaseUrl = withoutApi !== withApi ? withoutApi : null;
-  const fallbackUrl = fallbackBaseUrl ? `${fallbackBaseUrl}${normalizedPath}` : null;
-
-
+  const fallbackUrl = fallbackBaseUrl
+    ? `${fallbackBaseUrl}${normalizedPath}`
+    : null;
 
   let resolvedToken =
     options.token !== undefined ? options.token : store.getState().user.token;
@@ -190,52 +138,48 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     try {
       resolvedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
     } catch {
-      // ignore secure store failures, request will go unauthenticated
+      // ignore secure store failures
     }
   }
 
-  const fetchRequest = async (requestUrl: string, authToken?: string | null) =>
-    {
-      const controller = new AbortController();
-      const timeoutMs = Number.isFinite(options.timeoutMs) ? (options.timeoutMs as number) : 30000;
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        return await fetch(requestUrl, {
-          method: options.method ?? "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-            ...(authToken ? { Authorization: `Bearer ${authToken.trim()}` } : {}),
-            ...(options.headers ?? {}),
-          },
-          body: options.body ? JSON.stringify(options.body) : undefined,
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    };
+  const fetchRequest = async (requestUrl: string, authToken?: string | null) => {
+    const controller = new AbortController();
+    const timeoutMs = Number.isFinite(options.timeoutMs)
+      ? (options.timeoutMs as number)
+      : 30000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(requestUrl, {
+        method: options.method ?? "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+          ...(authToken ? { Authorization: `Bearer ${authToken.trim()}` } : {}),
+          ...(options.headers ?? {}),
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
 
   const method = options.method ?? "GET";
   const tokenKey = resolvedToken ? hashString(resolvedToken) : "anon";
   const cacheKey = `${tokenKey}:${url}`;
 
-  const shouldReadCache = method === "GET" && !options.skipCache && !options.forceRefresh;
+  const shouldReadCache =
+    method === "GET" && !options.skipCache && !options.forceRefresh;
   if (shouldReadCache) {
     if (cacheHydrationPromise) {
       await cacheHydrationPromise;
       cacheHydrationPromise = null;
     }
-    const cached = apiCache.get(cacheKey);
-    const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-    if (cached && Date.now() - cached.savedAt < CACHE_TTL_MS) {
-      return cached.data as T;
-    }
-    if (cached) {
-      apiCache.delete(cacheKey);
-    }
+    const cached = getCachedData<T>(cacheKey, 5 * 60 * 1000);
+    if (cached) return cached;
   }
 
   const performRequest = async (authToken?: string | null) => {
@@ -243,13 +187,15 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     try {
       res = await fetchRequest(url, authToken);
     } catch (error) {
-      const isAbortError =
+      const isAbort =
         !!error &&
         typeof error === "object" &&
         "name" in error &&
-        (error as { name?: unknown }).name === "AbortError";
-      const timeoutMs = Number.isFinite(options.timeoutMs) ? (options.timeoutMs as number) : 30000;
-      const message = isAbortError
+        (error as any).name === "AbortError";
+      const timeoutMs = Number.isFinite(options.timeoutMs)
+        ? (options.timeoutMs as number)
+        : 30000;
+      const message = isAbort
         ? `Request timed out after ${timeoutMs}ms`
         : error instanceof Error
           ? error.message
@@ -262,13 +208,11 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (res.status === 404 && fallbackUrl) {
       try {
         const fallbackRes = await fetchRequest(fallbackUrl, authToken);
-        // Use the fallback response whenever it is reachable so we surface
-        // the real downstream status (401/400/etc.), not the initial route miss.
         res = fallbackRes;
         requestUrl = fallbackUrl;
         text = await fallbackRes.text();
       } catch {
-        // keep original response if fallback is unreachable
+        // keep original
       }
     }
     return { res, requestUrl, text };
@@ -289,7 +233,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       }
     } catch (e) {
       if (isTransportFailure(e)) {
-        const message = e instanceof Error ? e.message : "Network request failed";
+        const message =
+          e instanceof Error ? e.message : "Network request failed";
         throw new Error(`Cannot reach API at ${url}. ${message}`);
       }
     }
@@ -303,7 +248,6 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       normalizedPath !== "/auth/login" &&
       !options.skipSessionInvalidateOn401;
     if (shouldInvalidateSession) {
-      // Invalid or expired session after refresh attempt — clear stored credentials.
       SecureStore.deleteItemAsync(AUTH_TOKEN_KEY).catch(() => {});
       SecureStore.deleteItemAsync(AUTH_REFRESH_KEY).catch(() => {});
       store.dispatch(logout());
@@ -312,43 +256,45 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (payload?.upstreamStatus && Number.isFinite(payload.upstreamStatus)) {
       message = `${message} (upstream ${payload.upstreamStatus})`;
     }
-    if (payload?.hint && typeof payload.hint === "string" && payload.hint.trim().length) {
+    if (
+      payload?.hint &&
+      typeof payload.hint === "string" &&
+      payload.hint.trim().length
+    ) {
       message = `${message} — ${payload.hint.trim()}`;
     }
     const details =
-      payload?.details?.fieldErrors || payload?.details?.formErrors || payload?.details;
+      payload?.details?.fieldErrors ||
+      payload?.details?.formErrors ||
+      payload?.details;
     if (details) {
       try {
-        const detailText = typeof details === "string" ? details : JSON.stringify(details);
+        const detailText =
+          typeof details === "string" ? details : JSON.stringify(details);
         message = `${message}: ${detailText}`;
       } catch {
-        // ignore detail formatting errors
+        // ignore
       }
     }
     const shouldSuppress =
       options.suppressLog ||
       (options.suppressStatusCodes ?? []).includes(res.status);
     if (!shouldSuppress) {
-      if (__DEV__) {
-        const tokenHint =
-          resolvedToken && typeof resolvedToken === "string"
-            ? `len:${resolvedToken.length} ${resolvedToken.slice(0, 8)}…`
-            : "none";
-        console.warn("API auth debug", { url: requestUrl, status: res.status, token: tokenHint });
-      }
-      console.warn("API error", { url: requestUrl, status: res.status, message });
+      console.warn("API error", {
+        url: requestUrl,
+        status: res.status,
+        message,
+      });
     }
     throw new Error(`${res.status} ${message}`);
   }
   if (payload === null) {
-    console.warn("API invalid response", { url: requestUrl, status: res.status, text });
     throw new Error("Invalid response from server");
   }
-  
+
   const shouldWriteCache = method === "GET" && !options.skipCache;
   if (shouldWriteCache) {
-    apiCache.set(cacheKey, { data: payload, savedAt: Date.now() });
-    persistCache();
+    setCachedData(cacheKey, payload);
   }
 
   return payload as T;

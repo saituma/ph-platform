@@ -1,3 +1,6 @@
+import { classifyGroupThread, mapGroupToThread, mapCoachToThread } from "@/lib/messages/mappers/threadMapper";
+import { mapApiDirectMessageToChatMessage, mapApiGroupMessageToChatMessage } from "@/lib/messages/mappers/messageMapper";
+import * as chatService from "@/services/messages/chatService";
 import { ChatMessage } from "@/constants/messages";
 import { apiRequest } from "@/lib/api";
 import { parseReplyPrefix } from "@/lib/messages/reply";
@@ -240,201 +243,33 @@ export function useMessagesController() {
         setIsLoading(true);
       }
       try {
-        // Team/Group chat should still render even if direct messaging is not
-        // available (e.g. plan-locked or 403 on /messages). Use allSettled so
-        // one failing endpoint doesn't blank the entire inbox.
-        const [messagesResult, groupsResult] = await Promise.allSettled([
-          apiRequest<{
-            messages: any[];
-            coach?: {
-              id: number;
-              name: string;
-              role?: string;
-              profilePicture?: string | null;
-            };
-            coaches?: {
-              id: number;
-              name: string;
-              role: string;
-              profilePicture?: string | null;
-              isAi?: boolean;
-            }[];
-          }>("/messages", {
-            token,
-            skipCache: true,
-            headers: actingHeaders,
-            suppressStatusCodes: [401, 403],
-          }),
-          apiRequest<{ groups: any[] }>("/chat/groups", {
-            token,
-            skipCache: true,
-            headers: actingHeaders,
-            suppressStatusCodes: [401, 403],
-          }),
-        ]);
+        const [messagesResult, groupsResult] = await chatService.fetchInbox(token, actingHeaders);
 
         const data =
           messagesResult.status === "fulfilled"
-            ? (messagesResult.value as {
-                messages: any[];
-                coach?: any;
-                coaches?: any[];
-              })
-            : ({ messages: [], coaches: [] } as {
-                messages: any[];
-                coach?: any;
-                coaches?: any[];
-              });
+            ? messagesResult.value
+            : { messages: [], coaches: [] };
+        
         const groupsData =
           groupsResult.status === "fulfilled"
-            ? (groupsResult.value as { groups: any[] })
-            : ({ groups: [] } as { groups: any[] });
-
-        const classifyGroupThread = (group: any) => {
-          const category = String(group?.category ?? "")
-            .trim()
-            .toLowerCase();
-          if (category === "announcement") return "announcement" as const;
-          if (category === "team") return "team" as const;
-          return "coach_group" as const;
-        };
+            ? groupsResult.value
+            : { groups: [] };
 
         const groupThreads = (groupsData.groups ?? [])
           .filter((group) => classifyGroupThread(group) !== "announcement")
-          .map((group) => {
-            const channelType = classifyGroupThread(group);
-            const last = group?.lastMessage ?? null;
-            const updatedAt = last?.createdAt
-              ? new Date(last.createdAt)
-              : group?.createdAt
-                ? new Date(group.createdAt)
-                : null;
-            const updatedAtMs = updatedAt ? updatedAt.getTime() : 0;
-            const time = updatedAt
-              ? updatedAt.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "";
-            const lastContentType = String(last?.contentType ?? "")
-              .trim()
-              .toLowerCase();
-            const parsedLast =
-              last && typeof last.content === "string"
-                ? parseReplyPrefix(last.content)
-                : null;
-            const previewText =
-              parsedLast?.text?.trim() || String(last?.content ?? "").trim();
-            const preview =
-              lastContentType === "image"
-                ? "Photo"
-                : lastContentType === "video"
-                  ? "Video"
-                  : previewText ||
-                    (channelType === "team" ? "Team chat" : "Group chat");
-
-            return {
-              id: `group:${group.id}`,
-              name: group.name,
-              role: channelType === "team" ? "Team" : "Group",
-              channelType,
-              preview,
-              time,
-              pinned: false,
-              premium: false,
-              unread: Number(group?.unreadCount ?? 0) || 0,
-              lastSeen: "Active",
-              responseTime: "Group updates",
-              updatedAtMs,
-            };
-          });
+          .map(mapGroupToThread);
 
         const selfId = String(effectiveProfileId ?? "");
         const isPremium = programTier === "PHP_Premium";
+        const coaches = data.coaches ?? (data.coach ? [data.coach] : []);
 
-        const coachThreads = (data.coaches ?? (data.coach ? [data.coach] : []))
+        const coachThreads = coaches
           .filter((c: any) => !c.isAi)
-          .map((c: any) => {
-            const lastMsg = (data.messages ?? [])
-              .filter(
-                (m: any) =>
-                  String(m.senderId) === String(c.id) ||
-                  String(m.receiverId) === String(c.id),
-              )
-              .sort(
-                (a: any, b: any) =>
-                  new Date(b.createdAt).getTime() -
-                  new Date(a.createdAt).getTime(),
-              )[0];
+          .map((c: any) => mapCoachToThread(c, data.messages ?? [], isPremium));
 
-            return {
-              id: String(c.id),
-              name: c.name,
-              role: c.role ?? "Coach",
-              channelType: "direct" as const,
-              preview: lastMsg ? lastMsg.content : "Start the conversation",
-              time: lastMsg?.createdAt
-                ? new Date(lastMsg.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "",
-              updatedAtMs: lastMsg?.createdAt
-                ? new Date(lastMsg.createdAt).getTime()
-                : 0,
-              pinned: false,
-              premium: isPremium,
-              unread:
-                (data.messages ?? []).filter(
-                  (msg: any) =>
-                    !msg.read && String(msg.senderId) === String(c.id),
-                ).length ?? 0,
-              lastSeen: "Active",
-              responseTime: isPremium
-                ? "Priority response window"
-                : "Standard response window",
-              avatarUrl: c.profilePicture ?? null,
-              isAi: false,
-            };
-          });
-
-        const mappedMessages = (data.messages ?? []).map((msg: any) => {
-          const otherId =
-            String(msg.senderId) === selfId
-              ? String(msg.receiverId)
-              : String(msg.senderId);
-          const otherCoach = (
-            data.coaches ?? (data.coach ? [data.coach] : [])
-          ).find((c: any) => String(c.id) === otherId);
-          const parsed = parseReplyPrefix(msg.content);
-          const isOutgoing = String(msg.senderId) === selfId;
-
-          return {
-            id: String(msg.id),
-            threadId: otherId,
-            from: isOutgoing ? "user" : "coach",
-            text: parsed.text,
-            replyToMessageId: parsed.replyToMessageId ?? undefined,
-            replyPreview: parsed.replyPreview || undefined,
-            contentType: msg.contentType ?? "text",
-            mediaUrl: msg.mediaUrl ?? undefined,
-            videoUploadId: msg.videoUploadId ?? undefined,
-            time: msg.createdAt
-              ? new Date(msg.createdAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "",
-            status: msg.read ? "read" : "sent",
-            reactions: msg.reactions ?? [],
-            authorName: isOutgoing
-              ? (profile.name ?? undefined)
-              : (otherCoach?.name ?? undefined),
-            authorAvatar: isOutgoing
-              ? null
-              : (otherCoach?.profilePicture ?? null),
-          };
-        }) as ChatMessage[];
+        const mappedMessages = (data.messages ?? []).map((msg: any) => 
+          mapApiDirectMessageToChatMessage(msg, selfId, coaches, profile.name)
+        );
 
         const sortedThreads = [...coachThreads, ...groupThreads].sort(
           (a, b) => b.updatedAtMs - a.updatedAtMs,
@@ -463,7 +298,7 @@ export function useMessagesController() {
         }
       }
     },
-    [actingHeaders, effectiveProfileId, programTier, token],
+    [actingHeaders, effectiveProfileId, profile.name, programTier, token],
   );
 
   const loadGroupMessages = useCallback(
@@ -474,16 +309,8 @@ export function useMessagesController() {
         setIsThreadLoading(true);
       }
       try {
-        const [data, membersData] = await Promise.all([
-          apiRequest<{ messages: any[] }>(`/chat/groups/${groupId}/messages`, {
-            token,
-            headers: actingHeaders,
-          }),
-          apiRequest<{ members: any[] }>(`/chat/groups/${groupId}/members`, {
-            token,
-            headers: actingHeaders,
-          }),
-        ]);
+        const [data, membersData] = await chatService.fetchGroupDetails(token, groupId, actingHeaders);
+        
         const memberMap = membersData.members.reduce<
           Record<number, { name: string; avatar?: string | null }>
         >((acc, member) => {
@@ -496,29 +323,9 @@ export function useMessagesController() {
         setGroupMembers((prev) => ({ ...prev, [groupId]: memberMap }));
 
         const selfId = String(effectiveProfileId ?? "");
-        const mappedMessages = (data.messages ?? []).map((msg: any) => {
-          const parsed = parseReplyPrefix(msg.content);
-          return {
-            id: `group-${msg.id}`,
-            threadId: `group:${groupId}`,
-            from: String(msg.senderId) === selfId ? "user" : "coach",
-            text: parsed.text,
-            replyToMessageId: parsed.replyToMessageId ?? undefined,
-            replyPreview: parsed.replyPreview || undefined,
-            contentType: msg.contentType ?? "text",
-            mediaUrl: msg.mediaUrl ?? undefined,
-            time: msg.createdAt
-              ? new Date(msg.createdAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "",
-            status: "sent",
-            authorName: memberMap[msg.senderId]?.name,
-            authorAvatar: memberMap[msg.senderId]?.avatar ?? null,
-            reactions: msg.reactions ?? [],
-          } as ChatMessage;
-        });
+        const mappedMessages = (data.messages ?? []).map((msg: any) => 
+          mapApiGroupMessageToChatMessage(msg, groupId, selfId, memberMap)
+        );
 
         setMessages((prev) => {
           const threadKey = `group:${groupId}`;
@@ -536,6 +343,7 @@ export function useMessagesController() {
           const seen = new Set<string>();
           const next: ChatMessage[] = [];
           for (const msg of [...remaining, ...optimistic, ...mappedMessages]) {
+            if (!msg?.id) continue;
             if (seen.has(msg.id)) continue;
             seen.add(msg.id);
             next.push(msg);
@@ -575,23 +383,11 @@ export function useMessagesController() {
       if (threadId.startsWith("group:")) {
         const groupId = Number(threadId.replace("group:", ""));
         if (!Number.isFinite(groupId)) return;
-        await apiRequest(`/chat/groups/${groupId}/messages`, {
-          method: "POST",
-          token,
-          headers: actingHeaders,
-          body: { content: text.trim() },
-        });
+        await chatService.sendGroupMessage(token, groupId, text, actingHeaders);
         await loadGroupMessages(groupId, { silent: true });
       } else {
-        await apiRequest("/messages", {
-          method: "POST",
-          token,
-          headers: actingHeaders,
-          body: {
-            content: text.trim(),
-            receiverId: isNaN(Number(threadId)) ? undefined : Number(threadId),
-          },
-        });
+        const receiverId = isNaN(Number(threadId)) ? undefined : Number(threadId);
+        await chatService.sendDirectMessage(token, text, receiverId, actingHeaders);
         await loadMessages({ silent: true });
       }
     },
