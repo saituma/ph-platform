@@ -2,8 +2,14 @@ import { ChatMessage } from "@/constants/messages";
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { parseReplyPrefix } from "@/lib/messages/reply";
 import { useEffect, useRef } from "react";
-import { Socket } from "socket.io-client";
 import { useSocket } from "@/context/SocketContext";
+import {
+  SocketMessageNewPayload,
+  SocketGroupMessagePayload,
+  SocketTypingUpdatePayload,
+  SocketMessageReactionPayload,
+  SocketMessageDeletedPayload,
+} from "@/types/socket-api";
 
 type UseMessagesRealtimeParams = {
   token: string | null | undefined;
@@ -56,7 +62,7 @@ export function useMessagesRealtime({
       return [nextThread, ...threads.filter((thread) => thread.id !== nextThread.id)];
     };
 
-    const handleMessageNew = async (payload: any) => {
+    const handleMessageNew = async (payload: SocketMessageNewPayload) => {
       if (!payload?.id) return;
       const senderId = Number(payload.senderId);
       const receiverId = Number(payload.receiverId);
@@ -70,7 +76,7 @@ export function useMessagesRealtime({
         threadId: threadIdFromMessage,
         from: String(senderId) === selfId ? "user" : "coach",
         text: parsed.text,
-        replyToMessageId: parsed.replyToMessageId ?? undefined,
+        replyToMessageId: payload.videoUploadId ? undefined : parsed.replyToMessageId ?? undefined,
         replyPreview: parsed.replyPreview || undefined,
         contentType: payload.contentType ?? "text",
         mediaUrl: payload.mediaUrl ?? undefined,
@@ -130,7 +136,7 @@ export function useMessagesRealtime({
       });
     };
 
-    const handleGroupMessage = async (payload: any) => {
+    const handleGroupMessage = async (payload: SocketGroupMessagePayload) => {
       if (!payload?.id || !payload?.groupId) return;
       const groupId = Number(payload.groupId);
       const currentProfileId = profileIdRef.current;
@@ -201,7 +207,7 @@ export function useMessagesRealtime({
       });
     };
 
-    const handleTypingUpdate = (payload: { name: string; isTyping: boolean; scope: string; groupId?: number; fromUserId?: number }) => {
+    const handleTypingUpdate = (payload: SocketTypingUpdatePayload) => {
       const key =
         payload.scope === "group" && payload.groupId
           ? `group:${payload.groupId}`
@@ -214,27 +220,27 @@ export function useMessagesRealtime({
       }));
     };
 
-    const handleMessageReaction = (payload: { messageId: number; reactions: ChatMessage["reactions"] }) => {
+    const handleMessageReaction = (payload: SocketMessageReactionPayload) => {
       const id = String(payload.messageId);
       setMessagesRef.current((prev) =>
         prev.map((message) => (message.id === id ? { ...message, reactions: payload.reactions ?? [] } : message))
       );
     };
 
-    const handleGroupReaction = (payload: { messageId: number; reactions: ChatMessage["reactions"] }) => {
+    const handleGroupReaction = (payload: SocketMessageReactionPayload) => {
       const id = `group-${payload.messageId}`;
       setMessagesRef.current((prev) =>
         prev.map((message) => (message.id === id ? { ...message, reactions: payload.reactions ?? [] } : message))
       );
     };
 
-    const handleMessageDeleted = (payload: { messageId: number }) => {
+    const handleMessageDeleted = (payload: SocketMessageDeletedPayload) => {
       const id = String(payload.messageId);
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
       loadMessagesRef.current({ silent: true });
     };
 
-    const handleGroupMessageDeleted = (payload: { messageId: number }) => {
+    const handleGroupMessageDeleted = (payload: SocketMessageDeletedPayload) => {
       const id = `group-${payload.messageId}`;
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
     };
@@ -256,7 +262,7 @@ export function useMessagesRealtime({
       socket.off("message:deleted", handleMessageDeleted);
       socket.off("group:message:deleted", handleGroupMessageDeleted);
     };
-  }, [socket]); // Simplified deps to avoid listener re-attachment spam
+  }, [socket]);
 
   useEffect(() => {
     if (!socket || !currentThread) return;

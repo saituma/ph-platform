@@ -2,10 +2,11 @@ import React, { useMemo } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { SwipeableTabLayout } from "@/components/navigation";
 import { useCoachUnreadMessaging } from "@/hooks/navigation/useCoachUnreadMessaging";
-import { ADMIN_TAB_ROUTES, SHARED_TAB_COMPONENTS } from "@/constants/navigation";
-import { useBaseLayoutLogic } from "./useBaseLayoutLogic";
+import { useBaseLayoutLogic } from "../shared/useBaseLayoutLogic";
+import { ADMIN_TAB_ROUTES } from "./tabs";
+import { ADMIN_TAB_COMPONENTS } from "./tabComponents";
 
-export function CoachLayout() {
+export function AdminLayout() {
   const token = useAppSelector((state) => state.user.token);
   const { unreadCount: adminMessagesUnread } = useCoachUnreadMessaging(token, true);
 
@@ -18,7 +19,10 @@ export function CoachLayout() {
     });
   }, [adminMessagesUnread]);
 
-  const { initialIndex, handleIndexChange, screens } = useBaseLayoutLogic(visibleTabs, SHARED_TAB_COMPONENTS);
+  const { initialIndex, handleIndexChange, screens } = useBaseLayoutLogic(
+    visibleTabs,
+    ADMIN_TAB_COMPONENTS,
+  );
 
   return (
     <SwipeableTabLayout

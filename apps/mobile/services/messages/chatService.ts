@@ -1,33 +1,10 @@
 import { apiRequest } from "@/lib/api";
-
-export type ChatMessagesResponse = {
-  messages: any[];
-  coach?: {
-    id: number;
-    name: string;
-    role?: string;
-    profilePicture?: string | null;
-  };
-  coaches?: {
-    id: number;
-    name: string;
-    role: string;
-    profilePicture?: string | null;
-    isAi?: boolean;
-  }[];
-};
-
-export type ChatGroupsResponse = {
-  groups: any[];
-};
-
-export type GroupMessagesResponse = {
-  messages: any[];
-};
-
-export type GroupMembersResponse = {
-  members: any[];
-};
+import {
+  ChatMessagesResponse,
+  ChatGroupsResponse,
+  GroupMessagesResponse,
+  GroupMembersResponse,
+} from "@/types/chat-api";
 
 export async function fetchInbox(token: string, actingHeaders?: Record<string, string>) {
   return Promise.allSettled([

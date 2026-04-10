@@ -27,7 +27,7 @@ export function FullScreenMediaModal({ visible, onClose, uri, contentType }: Pro
             </Pressable>
           </View>
 
-          <View style={{ flex: 1, alignItems: "center", justifyCenter: "center" }}>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
             {contentType === "image" ? (
               <ExpoImage source={uri} contentFit="contain" style={{ width, height: height - 150 }} />
             ) : isYoutubeUrl(uri) ? (

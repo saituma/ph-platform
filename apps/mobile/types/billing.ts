@@ -17,6 +17,7 @@ export type PlanDetail = {
   id: number;
   tier: string;
   pricing: any;
+  isActive?: boolean | null;
   discountValue?: string | number;
   discountType?: string;
   discountAppliesTo?: string;

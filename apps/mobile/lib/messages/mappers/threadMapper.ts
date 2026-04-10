@@ -1,9 +1,10 @@
 import { parseReplyPrefix } from "@/lib/messages/reply";
 import { MessageThread } from "@/types/messages";
+import { ApiChatGroup, ApiCoach, ApiChatMessage } from "@/types/chat-api";
 
 export type GroupThreadCategory = "announcement" | "team" | "coach_group";
 
-export function classifyGroupThread(group: any): GroupThreadCategory {
+export function classifyGroupThread(group: ApiChatGroup): GroupThreadCategory {
   const category = String(group?.category ?? "")
     .trim()
     .toLowerCase();
@@ -12,7 +13,7 @@ export function classifyGroupThread(group: any): GroupThreadCategory {
   return "coach_group";
 }
 
-export function mapGroupToThread(group: any): MessageThread {
+export function mapGroupToThread(group: ApiChatGroup): MessageThread {
   const channelType = classifyGroupThread(group);
   const last = group?.lastMessage ?? null;
   const updatedAt = last?.createdAt
@@ -61,18 +62,18 @@ export function mapGroupToThread(group: any): MessageThread {
 }
 
 export function mapCoachToThread(
-  coach: any,
-  messages: any[],
+  coach: ApiCoach,
+  messages: ApiChatMessage[],
   isPremium: boolean,
 ): MessageThread {
   const lastMsg = (messages ?? [])
     .filter(
-      (m: any) =>
+      (m: ApiChatMessage) =>
         String(m.senderId) === String(coach.id) ||
         String(m.receiverId) === String(coach.id),
     )
     .sort(
-      (a: any, b: any) =>
+      (a: ApiChatMessage, b: ApiChatMessage) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )[0];
 
@@ -93,7 +94,7 @@ export function mapCoachToThread(
     premium: isPremium,
     unread:
       (messages ?? []).filter(
-        (msg: any) => !msg.read && String(msg.senderId) === String(coach.id),
+        (msg: ApiChatMessage) => !msg.read && String(msg.senderId) === String(coach.id),
       ).length ?? 0,
     lastSeen: "Active",
     responseTime: isPremium
