@@ -1,14 +1,29 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Pressable, TextInput, Modal, Platform, ActivityIndicator } from "react-native";
+import {
+  View,
+  Pressable,
+  TextInput,
+  Modal,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-import { formatWhen, stripPreview, safeNumber } from "@/lib/admin-messages-utils";
+import {
+  formatWhen,
+  stripPreview,
+  safeNumber,
+} from "@/lib/admin-messages-utils";
 import { SmallAction } from "../AdminShared";
 import { useAdminDms } from "@/hooks/admin/useAdminDms";
 import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
-import { DirectMessage, PendingAttachment, AdminDmThread } from "@/types/admin-messages";
+import {
+  DirectMessage,
+  PendingAttachment,
+  AdminDmThread,
+} from "@/types/admin-messages";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,7 +41,12 @@ interface Props {
   initialUserId?: number | null;
 }
 
-export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Props) {
+export function AdminDmSection({
+  token,
+  canLoad,
+  myUserId,
+  initialUserId,
+}: Props) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { socket } = useSocket();
@@ -40,7 +60,8 @@ export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Prop
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [gifPickerOpen, setGifPickerOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [pendingAttachment, setPendingAttachment] =
+    useState<PendingAttachment | null>(null);
 
   const queryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -131,13 +152,37 @@ export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Prop
     }
   };
 
+  const takePhoto = async () => {
+    setComposerMenuOpen(false);
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setPendingAttachment({
+        uri: asset.uri,
+        fileName: asset.fileName ?? "photo.jpg",
+        mimeType: asset.mimeType ?? "image/jpeg",
+        sizeBytes: asset.fileSize ?? 0,
+        isImage: true,
+      });
+    }
+  };
+
   return (
     <View className="gap-4">
       <View
         className="rounded-2xl border px-4 py-3"
         style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-          borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+          backgroundColor: isDark
+            ? "rgba(255,255,255,0.03)"
+            : "rgba(15,23,42,0.03)",
+          borderColor: isDark
+            ? "rgba(255,255,255,0.06)"
+            : "rgba(15,23,42,0.06)",
         }}
       >
         <TextInput
@@ -170,18 +215,28 @@ export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Prop
                   borderRadius: 18,
                   borderWidth: 1,
                   padding: 14,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                  borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.03)"
+                    : "rgba(15,23,42,0.03)",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.06)"
+                    : "rgba(15,23,42,0.06)",
                   opacity: pressed ? 0.9 : 1,
                 },
               ]}
             >
               <View className="flex-row justify-between items-start">
                 <View className="flex-1 mr-2">
-                  <Text className="text-[14px] font-clash font-bold text-app" numberOfLines={1}>
+                  <Text
+                    className="text-[14px] font-clash font-bold text-app"
+                    numberOfLines={1}
+                  >
                     {t.name ?? `User ${t.userId}`}
                   </Text>
-                  <Text className="text-[12px] font-outfit text-secondary" numberOfLines={1}>
+                  <Text
+                    className="text-[12px] font-outfit text-secondary"
+                    numberOfLines={1}
+                  >
                     {stripPreview(t.preview)}
                   </Text>
                 </View>
@@ -210,14 +265,30 @@ export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Prop
         presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
         onRequestClose={() => dms.setActiveDmUserId(null)}
       >
-        <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-          <View className="px-4 pb-3 flex-row items-center justify-between border-b" style={{ borderColor: colors.border }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.background,
+            paddingTop: insets.top,
+          }}
+        >
+          <View
+            className="px-4 pb-3 flex-row items-center justify-between border-b"
+            style={{ borderColor: colors.border }}
+          >
             <View className="flex-1">
-              <Text className="text-[18px] font-clash font-bold text-app" numberOfLines={1}>
+              <Text
+                className="text-[18px] font-clash font-bold text-app"
+                numberOfLines={1}
+              >
                 {dms.activeDmName}
               </Text>
             </View>
-            <SmallAction label="Close" tone="neutral" onPress={() => dms.setActiveDmUserId(null)} />
+            <SmallAction
+              label="Close"
+              tone="neutral"
+              onPress={() => dms.setActiveDmUserId(null)}
+            />
           </View>
 
           <ThemedScrollView className="flex-1 p-4">
@@ -231,19 +302,36 @@ export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Prop
                     <View
                       key={m.id ?? idx}
                       className={`max-w-[85%] rounded-2xl p-3 ${isMe ? "self-end bg-accent" : "self-start bg-card"}`}
-                      style={isMe ? {} : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }}
+                      style={
+                        isMe
+                          ? {}
+                          : {
+                              backgroundColor: isDark
+                                ? "rgba(255,255,255,0.05)"
+                                : "rgba(0,0,0,0.05)",
+                            }
+                      }
                     >
                       {m.mediaUrl && (
                         <ExpoImage
                           source={{ uri: m.mediaUrl }}
-                          style={{ width: 200, height: 200, borderRadius: 12, marginBottom: 4 }}
+                          style={{
+                            width: 200,
+                            height: 200,
+                            borderRadius: 12,
+                            marginBottom: 4,
+                          }}
                           contentFit="cover"
                         />
                       )}
-                      <Text className={`text-[14px] font-outfit ${isMe ? "text-white" : "text-app"}`}>
+                      <Text
+                        className={`text-[14px] font-outfit ${isMe ? "text-white" : "text-app"}`}
+                      >
                         {m.content}
                       </Text>
-                      <Text className={`text-[10px] font-outfit mt-1 opacity-60 ${isMe ? "text-white" : "text-secondary"}`}>
+                      <Text
+                        className={`text-[10px] font-outfit mt-1 opacity-60 ${isMe ? "text-white" : "text-secondary"}`}
+                      >
                         {formatWhen(m.createdAt)}
                       </Text>
                     </View>
@@ -253,21 +341,50 @@ export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Prop
             )}
           </ThemedScrollView>
 
-          <View className="p-4 border-t" style={{ borderColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }}>
+          <View
+            className="p-4 border-t"
+            style={{
+              borderColor: colors.border,
+              paddingBottom: Math.max(insets.bottom, 16),
+            }}
+          >
             {pendingAttachment && (
               <View className="flex-row items-center gap-2 mb-2 bg-card p-2 rounded-xl">
-                <ExpoImage source={{ uri: pendingAttachment.uri }} style={{ width: 40, height: 40, borderRadius: 8 }} />
-                <Text className="flex-1 text-[12px] text-secondary" numberOfLines={1}>{pendingAttachment.fileName}</Text>
+                <ExpoImage
+                  source={{ uri: pendingAttachment.uri }}
+                  style={{ width: 40, height: 40, borderRadius: 8 }}
+                />
+                <Text
+                  className="flex-1 text-[12px] text-secondary"
+                  numberOfLines={1}
+                >
+                  {pendingAttachment.fileName}
+                </Text>
                 <Pressable onPress={() => setPendingAttachment(null)}>
-                  <Ionicons name="close-circle" size={20} color={colors.danger} />
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={colors.danger}
+                  />
                 </Pressable>
               </View>
             )}
             <View className="flex-row items-center gap-2">
               <Pressable onPress={() => setComposerMenuOpen(true)}>
-                <Ionicons name="add-circle-outline" size={28} color={colors.accent} />
+                <Ionicons
+                  name="add-circle-outline"
+                  size={28}
+                  color={colors.accent}
+                />
               </Pressable>
-              <View className="flex-1 bg-card rounded-2xl px-4 py-2" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }}>
+              <View
+                className="flex-1 bg-card rounded-2xl px-4 py-2"
+                style={{
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.05)"
+                    : "rgba(0,0,0,0.05)",
+                }}
+              >
                 <TextInput
                   value={draft}
                   onChangeText={setDraft}
@@ -277,7 +394,10 @@ export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Prop
                   className="text-[14px] font-outfit text-app max-h-32"
                 />
               </View>
-              <Pressable onPress={handleSend} disabled={isSending || isUploading}>
+              <Pressable
+                onPress={handleSend}
+                disabled={isSending || isUploading}
+              >
                 {isSending || isUploading ? (
                   <ActivityIndicator size="small" color={colors.accent} />
                 ) : (
@@ -289,22 +409,27 @@ export function AdminDmSection({ token, canLoad, myUserId, initialUserId }: Prop
         </View>
 
         <ComposerActionsModal
-          visible={composerMenuOpen}
+          open={composerMenuOpen}
           onClose={() => setComposerMenuOpen(false)}
-          onPickImage={pickImage}
-          onOpenEmoji={() => setEmojiPickerOpen(true)}
-          onOpenGif={() => setGifPickerOpen(true)}
+          onAttachFile={() => setComposerMenuOpen(false)}
+          onAttachImage={pickImage}
+          onAttachVideo={() => setComposerMenuOpen(false)}
+          onTakePhoto={takePhoto}
+          onRecordVideo={() => setComposerMenuOpen(false)}
+          onOpenEmojis={() => setEmojiPickerOpen(true)}
+          onOpenGifs={() => setGifPickerOpen(true)}
         />
         <EmojiPickerModal
-          visible={emojiPickerOpen}
+          open={emojiPickerOpen}
           onClose={() => setEmojiPickerOpen(false)}
-          onSelect={(emoji) => setDraft((prev) => prev + emoji)}
+          onSelectEmoji={(emoji: string) => setDraft((prev) => prev + emoji)}
         />
         <GifPickerModal
-          visible={gifPickerOpen}
+          open={gifPickerOpen}
           onClose={() => setGifPickerOpen(false)}
-          onSelect={(gif) => {
-            setDraft((prev) => prev + ` ${gif.url}`);
+          token={token}
+          onSelectGif={(url: string) => {
+            setDraft((prev) => prev + ` ${url}`);
             setGifPickerOpen(false);
           }}
         />

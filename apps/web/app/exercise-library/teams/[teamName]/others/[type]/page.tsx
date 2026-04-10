@@ -7,7 +7,11 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminShell } from "../../../../../../components/admin/shell";
 import { SectionHeader } from "../../../../../../components/admin/section-header";
 import { Button } from "../../../../../../components/ui/button";
-import { Card, CardContent, CardHeader } from "../../../../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+} from "../../../../../../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +24,7 @@ import { Textarea } from "../../../../../../components/ui/textarea";
 import {
   AudienceWorkspace,
   normalizeAudienceLabelInput,
+  toTeamStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../../../../components/admin/training-content-v2/api";
 import { InseasonListPage } from "../inseason-list-page";
@@ -29,8 +34,15 @@ export default function OtherContentDetailPage() {
   const params = useParams<{ teamName: string; type: string }>();
   const router = useRouter();
   const audienceLabel = useMemo(
-    () => normalizeAudienceLabelInput(decodeURIComponent(String(params.teamName ?? "All"))),
+    () =>
+      normalizeAudienceLabelInput(
+        decodeURIComponent(String(params.teamName ?? "All")),
+      ),
     [params.teamName],
+  );
+  const storageAudienceLabel = useMemo(
+    () => toTeamStorageAudienceLabel(audienceLabel),
+    [audienceLabel],
   );
   const type = String(params.type ?? "");
   const section = getOtherSectionConfig(type);
@@ -51,7 +63,9 @@ export default function OtherContentDetailPage() {
   const loadWorkspace = async () => {
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`);
+      const data = await trainingContentRequest<AudienceWorkspace>(
+        `/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`,
+      );
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load content.");
@@ -60,12 +74,14 @@ export default function OtherContentDetailPage() {
 
   useEffect(() => {
     if (!section) {
-      router.replace(`/exercise-library/teams/${encodeURIComponent(audienceLabel)}`);
+      router.replace(
+        `/exercise-library/teams/${encodeURIComponent(audienceLabel)}`,
+      );
       return;
     }
     if (section.type === "inseason") return;
     void loadWorkspace();
-  }, [audienceLabel, router, section]);
+  }, [storageAudienceLabel, audienceLabel, router, section]);
 
   if (!section) return null;
 
@@ -73,7 +89,8 @@ export default function OtherContentDetailPage() {
     return <InseasonListPage audienceLabel={audienceLabel} />;
   }
 
-  const group = workspace?.others.find((item) => item.type === section.type) ?? null;
+  const group =
+    workspace?.others.find((item) => item.type === section.type) ?? null;
   const items = group?.items ?? [];
 
   const saveItem = async () => {
@@ -81,7 +98,7 @@ export default function OtherContentDetailPage() {
     setIsSaving(true);
     try {
       const payload = {
-        audienceLabel,
+        audienceLabel: storageAudienceLabel,
         type: section.type,
         title: form.title.trim(),
         body: form.body.trim(),
@@ -127,17 +144,24 @@ export default function OtherContentDetailPage() {
       await trainingContentRequest(`/others/${itemId}`, { method: "DELETE" });
       await loadWorkspace();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete content.");
+      setError(
+        err instanceof Error ? err.message : "Failed to delete content.",
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <AdminShell title="Exercise library" subtitle={`Team ${audienceLabel} -> ${section.label}`}>
+    <AdminShell
+      title="Exercise library"
+      subtitle={`Team ${audienceLabel} -> ${section.label}`}
+    >
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Link href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}`}>
+          <Link
+            href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}`}
+          >
             <Button variant="outline">Back to team</Button>
           </Link>
           <Button
@@ -158,22 +182,36 @@ export default function OtherContentDetailPage() {
           </Button>
         </div>
 
-        {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {error ? (
+          <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
 
         <Card>
           <CardHeader>
-            <SectionHeader title={section.label} description={section.summary} />
+            <SectionHeader
+              title={section.label}
+              description={section.summary}
+            />
           </CardHeader>
           <CardContent className="space-y-3">
             {items.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-border p-4">
+              <div
+                key={item.id}
+                className="rounded-2xl border border-border p-4"
+              >
                 <p className="text-sm font-semibold text-foreground">
                   {item.order}. {item.title}
                 </p>
                 {item.scheduleNote ? (
-                  <p className="mt-1 text-xs font-semibold text-primary">{item.scheduleNote}</p>
+                  <p className="mt-1 text-xs font-semibold text-primary">
+                    {item.scheduleNote}
+                  </p>
                 ) : null}
-                <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {item.body}
+                </p>
                 {item.videoUrl ? (
                   <a
                     href={item.videoUrl}
@@ -202,13 +240,21 @@ export default function OtherContentDetailPage() {
                   >
                     Edit
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void deleteItem(item.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void deleteItem(item.id)}
+                  >
                     Delete
                   </Button>
                 </div>
               </div>
             ))}
-            {!items.length ? <p className="text-sm text-muted-foreground">No content created yet.</p> : null}
+            {!items.length ? (
+              <p className="text-sm text-muted-foreground">
+                No content created yet.
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </div>
@@ -216,7 +262,9 @@ export default function OtherContentDetailPage() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{form.id ? "Edit content" : `Add ${section.label} content`}</DialogTitle>
+            <DialogTitle>
+              {form.id ? "Edit content" : `Add ${section.label} content`}
+            </DialogTitle>
             <DialogDescription>
               Add or update team content for {section.label}.
             </DialogDescription>
@@ -225,33 +273,58 @@ export default function OtherContentDetailPage() {
             <Input
               placeholder="Title"
               value={form.title}
-              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
+              }
             />
             <Textarea
               placeholder="Content"
               value={form.body}
-              onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, body: event.target.value }))
+              }
             />
             <Input
               placeholder="Schedule note (optional)"
               value={form.scheduleNote}
-              onChange={(event) => setForm((current) => ({ ...current, scheduleNote: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  scheduleNote: event.target.value,
+                }))
+              }
             />
             <Input
               placeholder="Video URL (optional)"
               value={form.videoUrl}
-              onChange={(event) => setForm((current) => ({ ...current, videoUrl: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  videoUrl: event.target.value,
+                }))
+              }
             />
             <Input
               placeholder="Order (optional)"
               value={form.order}
-              onChange={(event) => setForm((current) => ({ ...current, order: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  order: event.target.value,
+                }))
+              }
             />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={saveItem} disabled={isSaving || !form.title.trim() || !form.body.trim()}>
+              <Button
+                onClick={saveItem}
+                disabled={isSaving || !form.title.trim() || !form.body.trim()}
+              >
                 {isSaving ? "Saving..." : form.id ? "Save" : "Create"}
               </Button>
             </div>

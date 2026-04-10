@@ -1,895 +1,127 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, View } from "react-native";
+import { ActivityIndicator, Alert, View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
-import { apiRequest } from "@/lib/api";
 import { canAccessTier } from "@/lib/planAccess";
 import { Shadows } from "@/constants/theme";
-import { ProgramId } from "@/constants/program-details";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { SafeMaskedView } from "@/components/navigation/TransitionStack";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
-import { VideoPlaybackControllerProvider } from "@/components/media/VideoPlaybackController";
 import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
+import { ProgramId } from "@/constants/program-details";
 
-type SessionItem = {
-  id: number;
-  blockType: string;
-  title: string;
-  body: string;
-  videoUrl?: string | null;
-  allowVideoUpload?: boolean | null;
-  order: number;
-  metadata?: {
-    sets?: number | null;
-    reps?: number | null;
-    duration?: number | null;
-    restSeconds?: number | null;
-  } | null;
-};
-
-type ModuleSession = {
-  id: number;
-  title: string;
-  dayLength: number;
-  order: number;
-  completed: boolean;
-  locked: boolean;
-  items: SessionItem[];
-};
-
-type Module = {
-  id: number;
-  title: string;
-  order: number;
-  locked: boolean;
-  sessions: ModuleSession[];
-};
-
-type TrainingContentV2Workspace = {
-  modules: Module[];
-};
-
-const BLOCK_ORDER = ["warmup", "main", "cooldown"] as const;
-const BLOCK_LABELS: Record<(typeof BLOCK_ORDER)[number], string> = {
-  warmup: "Warmup",
-  main: "Main session",
-  cooldown: "Cool down",
-};
+import { useSessionData } from "@/hooks/programs/useSessionData";
+import { useSessionNavigation } from "@/hooks/programs/useSessionNavigation";
+import { useSessionUploads } from "@/hooks/programs/useSessionUploads";
+import { SessionExerciseBlock } from "@/components/programs/SessionExerciseBlock";
 
 export default function ProgramSessionDetailScreen() {
   const router = useRouter();
-  const { sessionId, programId, moduleId } = useLocalSearchParams<{
-    sessionId?: string | string[];
-    programId?: ProgramId | string;
-    moduleId?: string | string[];
-  }>();
-
-  const sessionIdValue = useMemo(() => {
-    const raw = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }, [sessionId]);
-
-  const moduleIdValue = useMemo(() => {
-    const raw = Array.isArray(moduleId) ? moduleId[0] : moduleId;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }, [moduleId]);
-
-  const safeProgramId = useMemo(() => {
-    const raw = Array.isArray(programId) ? programId[0] : programId;
-    if (raw === "php" || raw === "plus" || raw === "premium") return raw;
-    return "php";
-  }, [programId]);
-
-  const token = useAppSelector((state) => state.user.token);
-  const programTier = useAppSelector((state) => state.user.programTier);
-  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
-  const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const { colors, isDark } = useAppTheme();
+  const { sessionId, programId, moduleId } = useLocalSearchParams<{ sessionId: string; programId: ProgramId; moduleId: string }>();
+  const { token, programTier, athleteUserId, managedAthletes } = useAppSelector((state) => state.user);
 
-  const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
-
-  const activeAthleteAge = useMemo(() => {
-    if (!managedAthletes.length) return null;
-    const selected =
-      managedAthletes.find(
-        (athlete) =>
-          athlete.id === athleteUserId || athlete.userId === athleteUserId,
-      ) ?? managedAthletes[0];
+  const activeAge = useMemo(() => {
+    const selected = managedAthletes.find(a => a.id === athleteUserId || a.userId === athleteUserId) ?? managedAthletes[0];
     return selected?.age ?? null;
   }, [managedAthletes, athleteUserId]);
 
-  const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
-    null,
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [finishing, setFinishing] = useState(false);
-  const [uploadTarget, setUploadTarget] = useState<{
-    sectionContentId: number;
-    sectionTitle: string | null;
-    autoPickSource?: "camera" | "library" | null;
-  } | null>(null);
-  const [hasUploadedBySectionId, setHasUploadedBySectionId] = useState<
-    Record<number, boolean>
-  >({});
+  const { workspace, isLoading, load, findModuleAndSession } = useSessionData(token, activeAge);
+  const { module, session } = findModuleAndSession(Number(sessionId), Number(moduleId));
+  const next = useSessionNavigation(workspace, module, session, programId as ProgramId);
+  const { hasUploadedBySectionId, loadUploadsForSection } = useSessionUploads(token, athleteUserId);
 
-  const [uploadsBySectionId, setUploadsBySectionId] = useState<
-    Record<
-      number,
-      {
-        id: string;
-        videoUrl: string;
-        createdAt?: string | null;
-        feedback?: string | null;
-      }[]
-    >
-  >({});
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<any>(null);
 
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-
-  const module = useMemo(() => {
-    if (!workspace?.modules?.length) return null;
-    if (moduleIdValue != null) {
-      return (
-        workspace.modules.find((item) => item.id === moduleIdValue) ?? null
-      );
-    }
-    return (
-      workspace.modules.find((item) =>
-        item.sessions.some((s) => s.id === sessionIdValue),
-      ) ?? null
-    );
-  }, [workspace, moduleIdValue, sessionIdValue]);
-
-  const session = useMemo(() => {
-    if (!module?.sessions?.length || sessionIdValue == null) return null;
-    return module.sessions.find((item) => item.id === sessionIdValue) ?? null;
-  }, [module, sessionIdValue]);
-
-  const nextNavigation = useMemo(() => {
-    if (!workspace?.modules?.length || !module || !session) return null;
-
-    const sortedModules = [...workspace.modules].sort(
-      (a, b) => Number(a.order) - Number(b.order),
-    );
-    const currentModuleIndex = sortedModules.findIndex(
-      (m) => m.id === module.id,
-    );
-    if (currentModuleIndex < 0) return null;
-
-    const sortedSessions = [...module.sessions].sort(
-      (a, b) => Number(a.order) - Number(b.order),
-    );
-    const currentSessionIndex = sortedSessions.findIndex(
-      (s) => s.id === session.id,
-    );
-
-    if (
-      currentSessionIndex >= 0 &&
-      currentSessionIndex < sortedSessions.length - 1
-    ) {
-      const nextSession = sortedSessions[currentSessionIndex + 1];
-      if (nextSession && !nextSession.locked) {
-        return {
-          label: "Open Next Session",
-          path: `/programs/session/${encodeURIComponent(String(nextSession.id))}?programId=${encodeURIComponent(
-            safeProgramId,
-          )}&moduleId=${encodeURIComponent(String(module.id))}`,
-        };
-      }
-      return null;
-    }
-
-    for (let i = currentModuleIndex + 1; i < sortedModules.length; i += 1) {
-      const nextModule = sortedModules[i];
-      if (!nextModule || nextModule.locked) continue;
-      return {
-        label: "Open Next Module",
-        path: `/programs/module/${encodeURIComponent(String(nextModule.id))}?programId=${encodeURIComponent(
-          safeProgramId,
-        )}`,
-      };
-    }
-
-    return null;
-  }, [module, safeProgramId, session, workspace]);
-
-  const handleBack = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    if (moduleIdValue != null) {
-      router.replace(
-        `/programs/module/${encodeURIComponent(String(moduleIdValue))}?programId=${encodeURIComponent(safeProgramId)}` as any,
-      );
-      return;
-    }
-    router.replace(`/programs/${safeProgramId}` as any);
-  }, [moduleIdValue, router, safeProgramId]);
-
-  const loadWorkspace = useCallback(
-    async (options?: { force?: boolean }) => {
-      if (!token) {
-        setWorkspace(null);
-        return;
-      }
-      const ageQ =
-        activeAthleteAge !== null
-          ? `?age=${encodeURIComponent(String(activeAthleteAge))}`
-          : "";
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await apiRequest<TrainingContentV2Workspace>(
-          `/training-content-v2/mobile${ageQ}`,
-          { token, forceRefresh: options?.force ?? false },
-        );
-        setWorkspace(response);
-      } catch (err) {
-        setWorkspace(null);
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load session details.",
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [activeAthleteAge, token],
-  );
-
-  const loadHasUploadForSection = useCallback(
-    async (sectionContentId: number, options?: { force?: boolean }) => {
-      if (!token) return;
-      try {
-        const headers = athleteUserId
-          ? { "X-Acting-User-Id": String(athleteUserId) }
-          : undefined;
-        const data = await apiRequest<any>(
-          `/videos?sectionContentId=${encodeURIComponent(
-            String(sectionContentId),
-          )}`,
-          {
-            token,
-            headers,
-            suppressLog: true,
-            forceRefresh: options?.force ?? false,
-          },
-        );
-        const items = Array.isArray(data?.items) ? data.items : [];
-        setHasUploadedBySectionId((prev) => ({
-          ...prev,
-          [sectionContentId]: items.length > 0,
-        }));
-        setUploadsBySectionId((prev) => ({
-          ...prev,
-          [sectionContentId]: items
-            .map((item: any) => ({
-              id: String(item?.id ?? ""),
-              videoUrl: String(item?.videoUrl ?? ""),
-              createdAt: item?.createdAt ?? null,
-              feedback: item?.feedback ?? null,
-            }))
-            .filter((item: any) => Boolean(item.videoUrl)),
-        }));
-      } catch {
-        // ignore
-      }
-    },
-    [athleteUserId, token],
-  );
-
-  const openUploadFlow = useCallback(
-    (input: { sectionContentId: number; sectionTitle: string | null }) => {
-      const alreadyUploaded = Boolean(
-        hasUploadedBySectionId[input.sectionContentId],
-      );
-      const buttons: Array<{
-        text: string;
-        onPress?: () => void;
-        style?: "cancel";
-      }> = [
-        {
-          text: "Record video",
-          onPress: () =>
-            setUploadTarget({
-              ...input,
-              autoPickSource: "camera",
-            }),
-        },
-        {
-          text: "Upload video",
-          onPress: () =>
-            setUploadTarget({
-              ...input,
-              autoPickSource: "library",
-            }),
-        },
-      ];
-
-      if (alreadyUploaded) {
-        buttons.unshift({
-          text: "View uploaded videos",
-          onPress: () =>
-            setUploadTarget({
-              ...input,
-              autoPickSource: null,
-            }),
-        });
-      }
-
-      buttons.push({ text: "Cancel", style: "cancel" });
-
-      Alert.alert("Upload video", "Choose an option", buttons);
-    },
-    [hasUploadedBySectionId],
-  );
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!session?.items?.length) return;
-    const uniqueIds = new Set<number>();
-    session.items.forEach((item) => {
-      if (!item.allowVideoUpload) return;
-      if (!Number.isFinite(Number(item.id))) return;
-      uniqueIds.add(Number(item.id));
-    });
-    uniqueIds.forEach((id) => {
-      if (hasUploadedBySectionId[id] != null) return;
-      void loadHasUploadForSection(id);
-    });
-  }, [hasUploadedBySectionId, loadHasUploadForSection, session?.items]);
+    if (!session?.items) return;
+    session.items.filter(i => i.allowVideoUpload).forEach(i => loadUploadsForSection(i.id));
+  }, [session, loadUploadsForSection]);
 
-  const finishSession = useCallback(async () => {
-    if (!token || !sessionIdValue) return;
-    setFinishing(true);
-    try {
-      await apiRequest(
-        `/training-content-v2/mobile/sessions/${sessionIdValue}/finish`,
-        {
-          method: "POST",
-          token,
-        },
-      );
-      await loadWorkspace({ force: true });
-    } catch {
-      Alert.alert("Session", "Could not mark session finished.");
-    } finally {
-      setFinishing(false);
-    }
-  }, [loadWorkspace, sessionIdValue, token]);
+  const handleUploadPress = (id: number, title: string) => {
+    Alert.alert("Video Upload", "Choose an action", [
+      { text: "Record", onPress: () => setUploadTarget({ sectionContentId: id, sectionTitle: title, autoPickSource: "camera" }) },
+      { text: "Library", onPress: () => setUploadTarget({ sectionContentId: id, sectionTitle: title, autoPickSource: "library" }) },
+      { text: "Cancel", style: "cancel" }
+    ]);
+  };
 
-  const closeUploadModal = useCallback(() => {
-    const target = uploadTarget;
-    setUploadTarget(null);
-    if (target) {
-      void loadHasUploadForSection(target.sectionContentId, { force: true });
-    }
-  }, [loadHasUploadForSection, uploadTarget]);
-
-  useEffect(() => {
-    if (router.canGoBack()) return;
-    router.replace("/(tabs)");
-  }, [router]);
-
-  useEffect(() => {
-    void loadWorkspace();
-  }, [loadWorkspace]);
+  if (isLoading && !workspace) return <View className="flex-1 items-center justify-center bg-app"><ActivityIndicator color={colors.accent} /></View>;
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <VideoPlaybackControllerProvider>
-        <SafeMaskedView style={{ flex: 1 }}>
-          <ThemedScrollView
-            onRefresh={() => loadWorkspace({ force: true })}
-            style={{ backgroundColor: colors.background }}
-            contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}
-          >
-            <View className="px-6 pt-4 gap-5">
-              <View
-                className="overflow-hidden rounded-[30px] border px-5 py-5"
-                style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
-                  ...(isDark ? Shadows.none : Shadows.md),
-                }}
-              >
-                <View
-                  className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
-                  style={{
-                    backgroundColor: isDark
-                      ? "rgba(34,197,94,0.16)"
-                      : "rgba(34,197,94,0.10)",
-                  }}
-                />
-                <View className="flex-row items-center justify-between">
-                  <Pressable
-                    onPress={handleBack}
-                    className="h-11 w-11 items-center justify-center rounded-[18px]"
-                    style={{
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(255,255,255,0.84)",
-                    }}
-                  >
-                    <Feather
-                      name="arrow-left"
-                      size={20}
-                      color={colors.accent}
-                    />
-                  </Pressable>
-                  <View
-                    className="rounded-full px-3 py-1.5"
-                    style={{
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(255,255,255,0.84)",
-                    }}
-                  >
-                    <Text
-                      className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
-                      style={{ color: colors.accent }}
-                    >
-                      Session details
-                    </Text>
-                  </View>
-                </View>
-
-                <Text className="mt-4 text-[26px] font-telma-bold text-app font-bold">
-                  {session ? `${session.order}. ${session.title}` : "Session"}
-                </Text>
-
-                {session ? (
-                  <View className="mt-4 flex-row flex-wrap gap-2">
-                    <View
-                      className="rounded-full px-3 py-2"
-                      style={{
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.06)"
-                          : "rgba(255,255,255,0.84)",
-                      }}
-                    >
-                      <Text
-                        className="text-[11px] font-outfit font-semibold"
-                        style={{ color: colors.text }}
-                      >
-                        {session.dayLength} day target
-                      </Text>
-                    </View>
-                    {module ? (
-                      <View
-                        className="rounded-full px-3 py-2"
-                        style={{
-                          backgroundColor: isDark
-                            ? "rgba(255,255,255,0.06)"
-                            : "rgba(255,255,255,0.84)",
-                        }}
-                      >
-                        <Text
-                          className="text-[11px] font-outfit font-semibold"
-                          style={{ color: colors.text }}
-                        >
-                          Module {module.order}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : null}
-              </View>
-
-              {isLoading ? (
-                <View
-                  className="rounded-[24px] border px-5 py-5 items-center"
-                  style={{
-                    backgroundColor: colors.card,
-                    borderColor: borderSoft,
-                  }}
-                >
-                  <ActivityIndicator size="small" color={colors.accent} />
-                </View>
-              ) : null}
-
-              {error ? (
-                <View
-                  className="rounded-[24px] border px-5 py-5"
-                  style={{
-                    backgroundColor: colors.card,
-                    borderColor: borderSoft,
-                  }}
-                >
-                  <Text
-                    className="text-sm font-outfit"
-                    style={{ color: colors.textSecondary }}
-                  >
-                    {error}
-                  </Text>
-                </View>
-              ) : null}
-
-              {!isLoading && !error && sessionIdValue == null ? (
-                <View
-                  className="rounded-[24px] border px-5 py-5"
-                  style={{
-                    backgroundColor: colors.card,
-                    borderColor: borderSoft,
-                  }}
-                >
-                  <Text
-                    className="text-sm font-outfit"
-                    style={{ color: colors.textSecondary }}
-                  >
-                    Invalid session id.
-                  </Text>
-                </View>
-              ) : null}
-
-              {!isLoading && !error && sessionIdValue != null && !session ? (
-                <View
-                  className="rounded-[24px] border px-5 py-5"
-                  style={{
-                    backgroundColor: colors.card,
-                    borderColor: borderSoft,
-                  }}
-                >
-                  <Text
-                    className="text-sm font-outfit"
-                    style={{ color: colors.textSecondary }}
-                  >
-                    Session not found.
-                  </Text>
-                </View>
-              ) : null}
-
-              {!isLoading && !error && session ? (
-                <View
-                  className="rounded-[22px] border px-4 py-4"
-                  style={{
-                    backgroundColor: session.locked
-                      ? isDark
-                        ? "rgba(255,255,255,0.03)"
-                        : "#F8FAFC"
-                      : colors.background,
-                    borderColor: session.completed
-                      ? "rgba(34,197,94,0.25)"
-                      : borderSoft,
-                    opacity: session.locked ? 0.7 : 1,
-                  }}
-                >
-                  {session.locked ? (
-                    <View className="mt-1 gap-3">
-                      <View className="flex-row items-center gap-2">
-                        <Feather
-                          name="lock"
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                        <Text
-                          className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]"
-                          style={{ color: colors.textSecondary }}
-                        >
-                          Locked
-                        </Text>
-                      </View>
-                      <Text
-                        className="text-sm font-outfit"
-                        style={{ color: colors.textSecondary }}
-                      >
-                        Finish the previous session(s) to unlock this session.
-                      </Text>
-                    </View>
-                  ) : (
-                    <View className="mt-1 gap-3">
-                      {BLOCK_ORDER.map((blockType) => {
-                        const blockItems = session.items.filter(
-                          (item) => item.blockType === blockType,
-                        );
-                        return (
-                          <View key={`${session.id}-${blockType}`}>
-                            <Text
-                              className="text-[11px] font-outfit font-bold uppercase tracking-[1px]"
-                              style={{ color: colors.accent }}
-                            >
-                              {BLOCK_LABELS[blockType]}
-                            </Text>
-                            <View className="mt-2 gap-2">
-                              {blockItems.map((item) => (
-                                <View
-                                  key={item.id}
-                                  className="rounded-2xl px-3 py-3"
-                                  style={{
-                                    backgroundColor: isDark
-                                      ? "rgba(255,255,255,0.04)"
-                                      : "#F8FAFC",
-                                  }}
-                                >
-                                  <Text
-                                    className="text-sm font-outfit font-semibold"
-                                    style={{ color: colors.text }}
-                                  >
-                                    {item.order}. {item.title}
-                                  </Text>
-                                  <Text
-                                    className="mt-1 text-xs font-outfit"
-                                    style={{ color: colors.textSecondary }}
-                                  >
-                                    {item.body}
-                                  </Text>
-                                  {item.metadata?.sets != null ||
-                                  item.metadata?.reps != null ||
-                                  item.metadata?.duration != null ||
-                                  item.metadata?.restSeconds != null ? (
-                                    <View className="mt-2 flex-row flex-wrap gap-2">
-                                      {item.metadata?.sets != null ? (
-                                        <Text
-                                          className="text-[11px] font-outfit"
-                                          style={{
-                                            color: colors.textSecondary,
-                                          }}
-                                        >
-                                          {item.metadata.sets} sets
-                                        </Text>
-                                      ) : null}
-                                      {item.metadata?.reps != null ? (
-                                        <Text
-                                          className="text-[11px] font-outfit"
-                                          style={{
-                                            color: colors.textSecondary,
-                                          }}
-                                        >
-                                          {item.metadata.reps} reps
-                                        </Text>
-                                      ) : null}
-                                      {item.metadata?.duration != null ? (
-                                        <Text
-                                          className="text-[11px] font-outfit"
-                                          style={{
-                                            color: colors.textSecondary,
-                                          }}
-                                        >
-                                          {item.metadata.duration}s
-                                        </Text>
-                                      ) : null}
-                                      {item.metadata?.restSeconds != null ? (
-                                        <Text
-                                          className="text-[11px] font-outfit"
-                                          style={{
-                                            color: colors.textSecondary,
-                                          }}
-                                        >
-                                          {item.metadata.restSeconds}s rest
-                                        </Text>
-                                      ) : null}
-                                    </View>
-                                  ) : null}
-
-                                  {item.videoUrl ? (
-                                    <View
-                                      className="mt-3 overflow-hidden rounded-2xl"
-                                      style={{ backgroundColor: "#000" }}
-                                    >
-                                      <VideoPlayer
-                                        uri={item.videoUrl}
-                                        height={210}
-                                        autoPlay={false}
-                                        initialMuted={true}
-                                        isLooping={true}
-                                        useVideoResolution={true}
-                                        controllerKey={`session-item-${item.id}`}
-                                        maxHeightRatio={0.55}
-                                        showLoadingOverlay={true}
-                                        ignoreTabFocus={false}
-                                        contentFitOverride="contain"
-                                      />
-                                    </View>
-                                  ) : null}
-
-                                  {item.allowVideoUpload ? (
-                                    <Pressable
-                                      onPress={() => {
-                                        openUploadFlow({
-                                          sectionContentId: item.id,
-                                          sectionTitle:
-                                            String(item.title ?? "").trim() ||
-                                            null,
-                                        });
-                                      }}
-                                      className="mt-3 flex-row items-center justify-center gap-2 rounded-full py-2 border"
-                                      style={{
-                                        borderColor: colors.accent,
-                                        backgroundColor: "transparent",
-                                      }}
-                                    >
-                                      <Feather
-                                        name={
-                                          hasUploadedBySectionId[item.id]
-                                            ? "check-circle"
-                                            : "video"
-                                        }
-                                        size={16}
-                                        color={colors.accent}
-                                      />
-                                      <Text
-                                        className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px]"
-                                        style={{ color: colors.accent }}
-                                      >
-                                        {hasUploadedBySectionId[item.id]
-                                          ? "Video uploaded"
-                                          : "Upload video"}
-                                      </Text>
-                                    </Pressable>
-                                  ) : null}
-
-                                  {item.allowVideoUpload &&
-                                  (uploadsBySectionId[item.id]?.length ?? 0) >
-                                    0 ? (
-                                    <View className="mt-3">
-                                      <Text
-                                        className="text-[11px] font-outfit font-semibold"
-                                        style={{ color: colors.textSecondary }}
-                                      >
-                                        Uploaded videos:{" "}
-                                        {uploadsBySectionId[item.id]!.length}
-                                      </Text>
-                                      <View
-                                        className="mt-2 overflow-hidden rounded-2xl"
-                                        style={{ backgroundColor: "#000" }}
-                                      >
-                                        <VideoPlayer
-                                          uri={
-                                            uploadsBySectionId[item.id]![0]
-                                              .videoUrl
-                                          }
-                                          height={190}
-                                          autoPlay={false}
-                                          initialMuted={true}
-                                          isLooping={true}
-                                          useVideoResolution={true}
-                                          controllerKey={`session-upload-${item.id}`}
-                                          maxHeightRatio={0.5}
-                                          showLoadingOverlay={true}
-                                          ignoreTabFocus={false}
-                                          contentFitOverride="contain"
-                                        />
-                                      </View>
-                                    </View>
-                                  ) : null}
-                                </View>
-                              ))}
-                              {!blockItems.length ? (
-                                <Text
-                                  className="text-xs font-outfit"
-                                  style={{ color: colors.textSecondary }}
-                                >
-                                  No items added yet.
-                                </Text>
-                              ) : null}
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-
-                  {!session.locked && !session.completed ? (
-                    <Pressable
-                      disabled={finishing}
-                      onPress={() => void finishSession()}
-                      className="mt-4 rounded-full py-3 items-center justify-center"
-                      style={{
-                        backgroundColor: colors.accent,
-                        opacity: finishing ? 0.7 : 1,
-                      }}
-                    >
-                      <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px] text-white">
-                        {finishing ? "Finishing..." : "Finished"}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-
-                  {session.completed && nextNavigation ? (
-                    <Pressable
-                      onPress={() => router.push(nextNavigation.path as any)}
-                      className="mt-3 rounded-full py-3 items-center justify-center border"
-                      style={{
-                        borderColor: colors.accent,
-                        backgroundColor: isDark
-                          ? "rgba(34,197,94,0.12)"
-                          : "#ECFDF3",
-                      }}
-                    >
-                      <Text
-                        className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px]"
-                        style={{ color: colors.accent }}
-                      >
-                        {nextNavigation.label}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              ) : null}
+      <ThemedScrollView onRefresh={() => load(true)} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View className="px-6 pt-4">
+          <View className="flex-row items-center gap-3 mb-6">
+            <Pressable onPress={() => router.back()} className="h-10 w-10 items-center justify-center rounded-full bg-white/10">
+              <Feather name="chevron-left" size={24} color="white" />
+            </Pressable>
+            <View>
+              <Text className="text-2xl font-clash font-bold text-white">{session?.title ?? "Training Session"}</Text>
+              <Text className="text-xs font-outfit text-white/60 uppercase tracking-widest">{module?.title}</Text>
             </View>
-          </ThemedScrollView>
+          </View>
 
-          <Modal
-            visible={Boolean(uploadTarget)}
-            transparent
-            animationType="slide"
-            onRequestClose={closeUploadModal}
-          >
-            <View
-              className="flex-1 justify-end"
-              style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-            >
-              <View
-                className="rounded-t-[32px] p-5 pb-8"
-                style={{ backgroundColor: colors.card }}
-              >
-                <View className="flex-row items-center justify-between mb-4">
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text className="text-xl font-clash text-app font-bold">
-                      Video Upload
-                    </Text>
-                    {uploadTarget?.sectionTitle ? (
-                      <Text
-                        className="mt-1 text-xs font-outfit"
-                        style={{ color: colors.textSecondary }}
-                      >
-                        {uploadTarget.sectionTitle}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Pressable
-                    onPress={closeUploadModal}
-                    className="h-10 w-10 rounded-full items-center justify-center bg-secondary/10"
-                  >
-                    <Feather name="x" size={20} color={colors.text} />
-                  </Pressable>
-                </View>
+          <SessionExerciseBlock 
+            title="Warmup" 
+            items={session?.items.filter(i => i.blockType === "warmup") ?? []} 
+            onVideoPress={setVideoUrl} 
+            onUploadPress={handleUploadPress}
+            hasUploaded={hasUploadedBySectionId}
+            canUpload={canAccessTier(programTier, "PHP_Premium")}
+          />
+          <SessionExerciseBlock 
+            title="Main Session" 
+            items={session?.items.filter(i => i.blockType === "main") ?? []} 
+            onVideoPress={setVideoUrl} 
+            onUploadPress={handleUploadPress}
+            hasUploaded={hasUploadedBySectionId}
+            canUpload={canAccessTier(programTier, "PHP_Premium")}
+          />
+          <SessionExerciseBlock 
+            title="Cooldown" 
+            items={session?.items.filter(i => i.blockType === "cooldown") ?? []} 
+            onVideoPress={setVideoUrl} 
+            onUploadPress={handleUploadPress}
+            hasUploaded={hasUploadedBySectionId}
+            canUpload={canAccessTier(programTier, "PHP_Premium")}
+          />
 
-                {uploadTarget ? (
-                  canUploadVideo ? (
-                    <VideoUploadPanel
-                      sectionContentId={uploadTarget.sectionContentId}
-                      sectionTitle={uploadTarget.sectionTitle}
-                      autoPickSource={uploadTarget.autoPickSource ?? null}
-                      onUploaded={() =>
-                        setHasUploadedBySectionId((prev) => ({
-                          ...prev,
-                          [uploadTarget.sectionContentId]: true,
-                        }))
-                      }
-                    />
-                  ) : (
-                    <View
-                      className="rounded-[24px] border px-5 py-5"
-                      style={{
-                        backgroundColor: colors.background,
-                        borderColor: borderSoft,
-                      }}
-                    >
-                      <Text
-                        className="text-sm font-outfit"
-                        style={{ color: colors.textSecondary }}
-                      >
-                        Video upload is locked for your plan.
-                      </Text>
-                    </View>
-                  )
-                ) : null}
-              </View>
+          {next && (
+            <Pressable onPress={() => router.push(next.path as any)} className="bg-accent py-4 rounded-full items-center mt-4">
+              <Text className="text-white font-outfit-bold uppercase">{next.label}</Text>
+            </Pressable>
+          )}
+        </View>
+      </ThemedScrollView>
+
+      {videoUrl && (
+        <View className="absolute inset-0 bg-black/90 items-center justify-center p-6">
+          <VideoPlayer uri={videoUrl} height={300} />
+          <Pressable onPress={() => setVideoUrl(null)} className="mt-6 bg-white/10 px-6 py-2 rounded-full">
+            <Text className="text-white font-outfit">Close</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {uploadTarget && (
+        <Modal visible animationType="slide">
+          <SafeAreaView className="flex-1 bg-app">
+            <View className="flex-row justify-between p-4 items-center">
+              <Text className="text-lg font-clash font-bold text-white">Upload Video</Text>
+              <Pressable onPress={() => { setUploadTarget(null); load(true); }}><Feather name="x" size={24} color="white" /></Pressable>
             </View>
-          </Modal>
-        </SafeMaskedView>
-      </VideoPlaybackControllerProvider>
+            <VideoUploadPanel {...uploadTarget} onUploaded={() => { setUploadTarget(null); load(true); }} />
+          </SafeAreaView>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }

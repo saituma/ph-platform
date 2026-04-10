@@ -1,7 +1,18 @@
 "use client";
 
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
@@ -25,6 +36,7 @@ import {
   AudienceWorkspace,
   PROGRAM_TIERS,
   normalizeAudienceLabelInput,
+  toTeamStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../../components/admin/training-content-v2/api";
 import { isInseasonAgeGroup } from "./others/inseason-shared";
@@ -51,7 +63,14 @@ function SortableModuleCard({
   onDelete: (path: string) => void;
   onLock: (module: AudienceWorkspace["modules"][number]) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: module.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: module.id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -76,9 +95,13 @@ function SortableModuleCard({
             Drag
           </span>
         </button>
-        <p className="text-xs text-muted-foreground">Hold and move up or down to reorder modules.</p>
+        <p className="text-xs text-muted-foreground">
+          Hold and move up or down to reorder modules.
+        </p>
       </div>
-      <p className="text-lg font-semibold text-foreground">{module.order}. {module.title}</p>
+      <p className="text-lg font-semibold text-foreground">
+        {module.order}. {module.title}
+      </p>
       <p className="mt-1 text-sm text-muted-foreground">
         {module.sessions.length} sessions · {module.totalDayLength} total days
       </p>
@@ -89,13 +112,16 @@ function SortableModuleCard({
               key={`${module.id}-${tier}`}
               className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
             >
-              Locked for {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
+              Locked for{" "}
+              {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
             </span>
           ))}
         </div>
       ) : null}
       <div className="mt-3 flex gap-2">
-        <Link href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}/modules/${module.id}`}>
+        <Link
+          href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}/modules/${module.id}`}
+        >
           <Button size="sm">Open module</Button>
         </Link>
         <Button size="sm" variant="secondary" onClick={() => onLock(module)}>
@@ -104,7 +130,11 @@ function SortableModuleCard({
         <Button size="sm" variant="outline" onClick={() => onEdit(module)}>
           Edit
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => onDelete(`/modules/${module.id}`)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onDelete(`/modules/${module.id}`)}
+        >
           Delete
         </Button>
       </div>
@@ -116,15 +146,26 @@ export default function TeamDetailPage() {
   const params = useParams<{ teamName: string }>();
   const searchParams = useSearchParams();
   const audienceLabel = useMemo(
-    () => normalizeAudienceLabelInput(decodeURIComponent(String(params.teamName ?? "All"))),
+    () =>
+      normalizeAudienceLabelInput(
+        decodeURIComponent(String(params.teamName ?? "All")),
+      ),
     [params.teamName],
   );
-  const activeView = searchParams.get("view") === "others" ? "others" : "modules";
+  const storageAudienceLabel = useMemo(
+    () => toTeamStorageAudienceLabel(audienceLabel),
+    [audienceLabel],
+  );
+  const activeView =
+    searchParams.get("view") === "others" ? "others" : "modules";
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [lockModalOpen, setLockModalOpen] = useState(false);
-  const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "" });
+  const [moduleForm, setModuleForm] = useState({
+    id: null as number | null,
+    title: "",
+  });
   const [otherModalOpen, setOtherModalOpen] = useState(false);
   const [otherForm, setOtherForm] = useState({
     id: null as number | null,
@@ -144,11 +185,15 @@ export default function TeamDetailPage() {
     moduleTitle: "",
     programTiers: [],
   });
-  const [plans, setPlans] = useState<Array<{ id: number; name: string; tier: string; isActive: boolean }>>([]);
+  const [plans, setPlans] = useState<
+    Array<{ id: number; name: string; tier: string; isActive: boolean }>
+  >([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [copySourceTeam, setCopySourceTeam] = useState("");
   const [copySearch, setCopySearch] = useState("");
-  const [otherPlanWorkspaces, setOtherPlanWorkspaces] = useState<Record<string, AudienceWorkspace>>({});
+  const [otherPlanWorkspaces, setOtherPlanWorkspaces] = useState<
+    Record<string, AudienceWorkspace>
+  >({});
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -164,12 +209,16 @@ export default function TeamDetailPage() {
     label: "",
     lockedPlanNames: [],
   });
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
 
   const loadWorkspace = async () => {
     try {
       setError(null);
-      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`);
+      const data = await trainingContentRequest<AudienceWorkspace>(
+        `/admin?audienceLabel=${encodeURIComponent(storageAudienceLabel)}`,
+      );
       setWorkspace(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load team.");
@@ -182,7 +231,9 @@ export default function TeamDetailPage() {
 
   const loadTeams = async () => {
     try {
-      const response = await fetch("/api/backend/admin/teams", { credentials: "include" });
+      const response = await fetch("/api/backend/admin/teams", {
+        credentials: "include",
+      });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(payload?.error ?? "Failed to load teams.");
@@ -191,7 +242,9 @@ export default function TeamDetailPage() {
       setTeams(nextTeams);
       setCopySourceTeam((current) => {
         if (current && current !== audienceLabel) return current;
-        const firstAvailable = nextTeams.find((team: TeamSummary) => team.team !== audienceLabel)?.team ?? "";
+        const firstAvailable =
+          nextTeams.find((team: TeamSummary) => team.team !== audienceLabel)
+            ?.team ?? "";
         return firstAvailable;
       });
     } catch (err) {
@@ -206,7 +259,9 @@ export default function TeamDetailPage() {
 
   const loadOtherPlans = async () => {
     try {
-      const response = await fetch("/api/backend/admin/subscription-plans", { credentials: "include" });
+      const response = await fetch("/api/backend/admin/subscription-plans", {
+        credentials: "include",
+      });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         throw new Error(data?.error ?? "Failed to load plans.");
@@ -216,12 +271,19 @@ export default function TeamDetailPage() {
       setPlans(
         nextPlans
           .filter((plan: { name?: string }) => Boolean(plan?.name))
-          .map((plan: { id: number; name: string; tier: string; isActive: boolean }) => ({
-            id: plan.id,
-            name: plan.name,
-            tier: plan.tier,
-            isActive: Boolean(plan.isActive),
-          }))
+          .map(
+            (plan: {
+              id: number;
+              name: string;
+              tier: string;
+              isActive: boolean;
+            }) => ({
+              id: plan.id,
+              name: plan.name,
+              tier: plan.tier,
+              isActive: Boolean(plan.isActive),
+            }),
+          ),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load plans.");
@@ -236,13 +298,19 @@ export default function TeamDetailPage() {
     try {
       const entries = await Promise.all(
         planNames.map(async (planName) => {
-          const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(planName)}`);
+          const data = await trainingContentRequest<AudienceWorkspace>(
+            `/admin?audienceLabel=${encodeURIComponent(planName)}`,
+          );
           return [planName, data] as const;
-        })
+        }),
       );
       setOtherPlanWorkspaces(Object.fromEntries(entries));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load plan section settings.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load plan section settings.",
+      );
     }
   };
 
@@ -271,7 +339,7 @@ export default function TeamDetailPage() {
         await trainingContentRequest("/modules", {
           method: "POST",
           body: JSON.stringify({
-            audienceLabel,
+            audienceLabel: storageAudienceLabel,
             title: moduleForm.title,
           }),
         });
@@ -301,16 +369,25 @@ export default function TeamDetailPage() {
 
   const reorderModules = async (sourceId: number, targetId: number) => {
     if (!workspace || sourceId === targetId) return;
-    const sourceIndex = workspace.modules.findIndex((item) => item.id === sourceId);
-    const targetIndex = workspace.modules.findIndex((item) => item.id === targetId);
+    const sourceIndex = workspace.modules.findIndex(
+      (item) => item.id === sourceId,
+    );
+    const targetIndex = workspace.modules.findIndex(
+      (item) => item.id === targetId,
+    );
     if (sourceIndex < 0 || targetIndex < 0) return;
 
     const reordered = [...workspace.modules];
     const [moved] = reordered.splice(sourceIndex, 1);
     reordered.splice(targetIndex, 0, moved);
 
-    const nextModules = reordered.map((module, index) => ({ ...module, order: index + 1 }));
-    setWorkspace((current) => (current ? { ...current, modules: nextModules } : current));
+    const nextModules = reordered.map((module, index) => ({
+      ...module,
+      order: index + 1,
+    }));
+    setWorkspace((current) =>
+      current ? { ...current, modules: nextModules } : current,
+    );
     setIsSaving(true);
     setError(null);
     try {
@@ -322,12 +399,14 @@ export default function TeamDetailPage() {
               title: module.title,
               order: module.order,
             }),
-          })
-        )
+          }),
+        ),
       );
       await loadWorkspace();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reorder modules.");
+      setError(
+        err instanceof Error ? err.message : "Failed to reorder modules.",
+      );
       await loadWorkspace();
     } finally {
       setIsSaving(false);
@@ -343,7 +422,7 @@ export default function TeamDetailPage() {
   const filteredCopyTeams = teams.filter(
     (item) =>
       item.team !== audienceLabel &&
-      item.team.toLowerCase().includes(copySearch.trim().toLowerCase())
+      item.team.toLowerCase().includes(copySearch.trim().toLowerCase()),
   );
 
   const copyModulesFromAnotherTeam = async () => {
@@ -354,15 +433,19 @@ export default function TeamDetailPage() {
       await trainingContentRequest<AudienceWorkspace>("/admin/copy-modules", {
         method: "POST",
         body: JSON.stringify({
-          sourceAudienceLabel: copySourceTeam,
-          targetAudienceLabel: audienceLabel,
+          sourceAudienceLabel: toTeamStorageAudienceLabel(copySourceTeam),
+          targetAudienceLabel: storageAudienceLabel,
         }),
       });
       await loadWorkspace();
       setCopyModalOpen(false);
       setCopySearch("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to copy modules from another team.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to copy modules from another team.",
+      );
     } finally {
       setIsCopying(false);
     }
@@ -374,18 +457,25 @@ export default function TeamDetailPage() {
       await trainingContentRequest("/others/settings", {
         method: "PUT",
         body: JSON.stringify({
-          audienceLabel,
+          audienceLabel: storageAudienceLabel,
           type,
           enabled,
         }),
       });
       await loadWorkspace();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update this content toggle.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update this content toggle.",
+      );
     }
   };
 
-  const saveOtherTypeLocks = async (type: string, lockedPlanNames: string[]) => {
+  const saveOtherTypeLocks = async (
+    type: string,
+    lockedPlanNames: string[],
+  ) => {
     setIsUpdatingOtherLocks(true);
     try {
       setError(null);
@@ -398,24 +488,30 @@ export default function TeamDetailPage() {
               type,
               enabled: !lockedPlanNames.includes(plan.name),
             }),
-          })
-        )
+          }),
+        ),
       );
-      await Promise.all([loadWorkspace(), loadOtherPlanWorkspaces(plans.map((plan) => plan.name))]);
+      await Promise.all([
+        loadWorkspace(),
+        loadOtherPlanWorkspaces(plans.map((plan) => plan.name)),
+      ]);
       setOtherLockModalOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update section locks.");
+      setError(
+        err instanceof Error ? err.message : "Failed to update section locks.",
+      );
     } finally {
       setIsUpdatingOtherLocks(false);
     }
   };
 
   const saveOtherContent = async () => {
-    if (!otherForm.type || !otherForm.title.trim() || !otherForm.body.trim()) return;
+    if (!otherForm.type || !otherForm.title.trim() || !otherForm.body.trim())
+      return;
     setIsSaving(true);
     try {
       const payload = {
-        audienceLabel,
+        audienceLabel: storageAudienceLabel,
         type: otherForm.type,
         title: otherForm.title,
         body: otherForm.body,
@@ -435,7 +531,15 @@ export default function TeamDetailPage() {
           body: JSON.stringify(payload),
         });
       }
-      setOtherForm({ id: null, type: "", title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
+      setOtherForm({
+        id: null,
+        type: "",
+        title: "",
+        body: "",
+        scheduleNote: "",
+        videoUrl: "",
+        order: "",
+      });
       setOtherModalOpen(false);
       await loadWorkspace();
     } catch (err) {
@@ -452,40 +556,56 @@ export default function TeamDetailPage() {
       await trainingContentRequest(`/others/${itemId}`, { method: "DELETE" });
       await loadWorkspace();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete content.");
+      setError(
+        err instanceof Error ? err.message : "Failed to delete content.",
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
-  const saveModuleLocks = async (moduleId: number | null, programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>) => {
+  const saveModuleLocks = async (
+    moduleId: number | null,
+    programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>,
+  ) => {
     if (!programTiers.length) return;
     setIsUpdatingLocks(true);
     try {
       setError(null);
-      const workspaceResponse = await trainingContentRequest<AudienceWorkspace>("/modules/locks", {
-        method: "PUT",
-        body: JSON.stringify({
-          audienceLabel,
-          moduleId,
-          programTiers,
-        }),
-      });
+      const workspaceResponse = await trainingContentRequest<AudienceWorkspace>(
+        "/modules/locks",
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            audienceLabel: storageAudienceLabel,
+            moduleId,
+            programTiers,
+          }),
+        },
+      );
       setWorkspace(workspaceResponse);
       setLockModalOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update module locks.");
+      setError(
+        err instanceof Error ? err.message : "Failed to update module locks.",
+      );
     } finally {
       setIsUpdatingLocks(false);
     }
   };
 
   const effectiveLockedTiersByModuleId = useMemo(() => {
-    if (!workspace) return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
+    if (!workspace)
+      return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
 
-    const lockStartOrderByTier = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
+    const lockStartOrderByTier = new Map<
+      (typeof PROGRAM_TIERS)[number]["value"],
+      number
+    >();
     for (const lock of workspace.moduleLocks) {
-      const lockModule = workspace.modules.find((module) => module.id === lock.startModuleId);
+      const lockModule = workspace.modules.find(
+        (module) => module.id === lock.startModuleId,
+      );
       if (lockModule) {
         lockStartOrderByTier.set(lock.programTier, lockModule.order);
       }
@@ -494,30 +614,35 @@ export default function TeamDetailPage() {
     return new Map(
       workspace.modules.map((module) => [
         module.id,
-        PROGRAM_TIERS
-          .filter((tier) => {
-            const startOrder = lockStartOrderByTier.get(tier.value);
-            return startOrder != null && module.order >= startOrder;
-          })
-          .map((tier) => tier.value),
-      ])
+        PROGRAM_TIERS.filter((tier) => {
+          const startOrder = lockStartOrderByTier.get(tier.value);
+          return startOrder != null && module.order >= startOrder;
+        }).map((tier) => tier.value),
+      ]),
     );
   }, [workspace]);
 
   return (
     <AdminShell
       title="Training content"
-      subtitle={activeView === "modules" ? `Team: ${audienceLabel}` : `Team others: ${audienceLabel}`}
+      subtitle={
+        activeView === "modules"
+          ? `Team: ${audienceLabel}`
+          : `Team others: ${audienceLabel}`
+      }
     >
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
-          <Link href={`/exercise-library`}>
+          <Link href={`/exercise-library?mode=team`}>
             <Button variant="outline">Back to teams</Button>
           </Link>
           <div className="ml-auto flex flex-wrap gap-2">
             {activeView === "modules" ? (
               <>
-                <Button variant="outline" onClick={() => setCopyModalOpen(true)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setCopyModalOpen(true)}
+                >
                   Copy from team
                 </Button>
                 <Button
@@ -532,10 +657,14 @@ export default function TeamDetailPage() {
             ) : null}
           </div>
         </div>
-        {error ? <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {error ? (
+          <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
 
         {activeView === "modules" ? (
-            <Card>
+          <Card>
             <CardHeader>
               <SectionHeader
                 title={`Modules for team ${audienceLabel}`}
@@ -544,15 +673,24 @@ export default function TeamDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {workspace?.modules.length ? (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleModuleDragEnd}>
-                  <SortableContext items={workspace.modules.map((module) => module.id)} strategy={verticalListSortingStrategy}>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleModuleDragEnd}
+                >
+                  <SortableContext
+                    items={workspace.modules.map((module) => module.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
                     <div className="space-y-3">
                       {workspace.modules.map((module) => (
                         <SortableModuleCard
                           key={module.id}
                           module={module}
                           audienceLabel={audienceLabel}
-                          effectiveLockedForTiers={effectiveLockedTiersByModuleId.get(module.id) ?? []}
+                          effectiveLockedForTiers={
+                            effectiveLockedTiersByModuleId.get(module.id) ?? []
+                          }
                           onLock={(current) => {
                             setLockForm({
                               moduleId: current.id,
@@ -562,7 +700,10 @@ export default function TeamDetailPage() {
                             setLockModalOpen(true);
                           }}
                           onEdit={(current) => {
-                            setModuleForm({ id: current.id, title: current.title });
+                            setModuleForm({
+                              id: current.id,
+                              title: current.title,
+                            });
                             setModalOpen(true);
                           }}
                           onDelete={(path) => void deletePath(path)}
@@ -572,25 +713,38 @@ export default function TeamDetailPage() {
                   </SortableContext>
                 </DndContext>
               ) : null}
-              {!workspace?.modules.length ? <p className="text-sm text-muted-foreground">No modules created yet.</p> : null}
+              {!workspace?.modules.length ? (
+                <p className="text-sm text-muted-foreground">
+                  No modules created yet.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-              <SectionHeader title={`Others for team ${audienceLabel}`} description="Turn each section on or off, then manage team content below." />
-              </CardHeader>
+        ) : (
+          <Card>
+            <CardHeader>
+              <SectionHeader
+                title={`Others for team ${audienceLabel}`}
+                description="Turn each section on or off, then manage team content below."
+              />
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 {OTHER_SECTION_CONFIGS.map((section) => {
-                  const group = workspace?.others.find((item) => item.type === section.type);
+                  const group = workspace?.others.find(
+                    (item) => item.type === section.type,
+                  );
                   const inseasonGroups =
                     section.concept === "age-schedule"
-                      ? (group?.items ?? []).filter((item) => isInseasonAgeGroup(item.metadata))
+                      ? (group?.items ?? []).filter((item) =>
+                          isInseasonAgeGroup(item.metadata),
+                        )
                       : [];
                   const lockedPlans = plans
                     .filter((plan) => {
-                      const planGroup = otherPlanWorkspaces[plan.name]?.others.find((item) => item.type === section.type);
+                      const planGroup = otherPlanWorkspaces[
+                        plan.name
+                      ]?.others.find((item) => item.type === section.type);
                       return planGroup ? !planGroup.enabled : false;
                     })
                     .map((plan) => plan.name);
@@ -601,7 +755,9 @@ export default function TeamDetailPage() {
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex-1 text-left">
-                          <p className="text-base font-semibold text-foreground">{section.label}</p>
+                          <p className="text-base font-semibold text-foreground">
+                            {section.label}
+                          </p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {section.concept === "age-schedule"
                               ? inseasonGroups.length
@@ -611,7 +767,9 @@ export default function TeamDetailPage() {
                                 ? `${group.items.length} item${group.items.length === 1 ? "" : "s"} added`
                                 : "No content created yet."}
                           </p>
-                          <p className="mt-1 text-xs text-muted-foreground">{section.summary}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {section.summary}
+                          </p>
                           {lockedPlans.length ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {lockedPlans.map((planName) => (
@@ -627,7 +785,9 @@ export default function TeamDetailPage() {
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {section.concept === "age-schedule" ? (
-                            <Link href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}/others/${section.type}`}>
+                            <Link
+                              href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}/others/${section.type}`}
+                            >
                               <Button type="button" size="sm">
                                 Open groups
                               </Button>
@@ -643,14 +803,14 @@ export default function TeamDetailPage() {
                                   title: "",
                                   body: "",
                                   scheduleNote: "",
-                                videoUrl: "",
-                                order: "",
-                              });
-                              setOtherModalOpen(true);
-                            }}
-                          >
-                            Add content
-                          </Button>
+                                  videoUrl: "",
+                                  order: "",
+                                });
+                                setOtherModalOpen(true);
+                              }}
+                            >
+                              Add content
+                            </Button>
                           )}
                           <Button
                             type="button"
@@ -673,7 +833,12 @@ export default function TeamDetailPage() {
                               type="checkbox"
                               checked={Boolean(group?.enabled)}
                               onClick={(event) => event.stopPropagation()}
-                              onChange={(event) => void toggleOtherType(section.type, event.target.checked)}
+                              onChange={(event) =>
+                                void toggleOtherType(
+                                  section.type,
+                                  event.target.checked,
+                                )
+                              }
                             />
                             <span>{group?.enabled ? "On" : "Off"}</span>
                           </label>
@@ -687,9 +852,12 @@ export default function TeamDetailPage() {
                               href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}/others/${section.type}/${item.id}`}
                               className="block rounded-2xl border border-border/70 p-4 transition hover:border-primary/40 hover:bg-primary/5"
                             >
-                              <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                              <p className="text-sm font-semibold text-foreground">
+                                {item.title}
+                              </p>
                               <p className="mt-1 text-sm text-muted-foreground">
-                                Open this group to add one or more recurring weekly schedule slots.
+                                Open this group to add one or more recurring
+                                weekly schedule slots.
                               </p>
                             </Link>
                           ))}
@@ -697,14 +865,21 @@ export default function TeamDetailPage() {
                       ) : (
                         <div className="mt-4 space-y-3">
                           {(group?.items ?? []).map((item) => (
-                            <div key={item.id} className="rounded-2xl border border-border/70 p-4">
+                            <div
+                              key={item.id}
+                              className="rounded-2xl border border-border/70 p-4"
+                            >
                               <p className="text-sm font-semibold text-foreground">
                                 {item.order}. {item.title}
                               </p>
                               {item.scheduleNote ? (
-                                <p className="mt-1 text-xs font-semibold text-primary">{item.scheduleNote}</p>
+                                <p className="mt-1 text-xs font-semibold text-primary">
+                                  {item.scheduleNote}
+                                </p>
                               ) : null}
-                              <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
+                              <p className="mt-2 text-sm text-muted-foreground">
+                                {item.body}
+                              </p>
                               <div className="mt-3 flex gap-2">
                                 <Button
                                   size="sm"
@@ -724,7 +899,11 @@ export default function TeamDetailPage() {
                                 >
                                   Edit
                                 </Button>
-                                <Button size="sm" variant="ghost" onClick={() => void deleteOtherItem(item.id)}>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => void deleteOtherItem(item.id)}
+                                >
                                   Delete
                                 </Button>
                               </div>
@@ -743,7 +922,9 @@ export default function TeamDetailPage() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{moduleForm.id ? "Edit module" : "Add module"}</DialogTitle>
+            <DialogTitle>
+              {moduleForm.id ? "Edit module" : "Add module"}
+            </DialogTitle>
             <DialogDescription>
               {`Create or update a module for team ${audienceLabel}.`}
             </DialogDescription>
@@ -751,14 +932,23 @@ export default function TeamDetailPage() {
           {activeView === "modules" ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Module title</label>
+                <label className="text-sm font-medium text-foreground">
+                  Module title
+                </label>
                 <Input
                   placeholder="e.g. Foundation block"
                   value={moduleForm.title}
-                  onChange={(event) => setModuleForm((current) => ({ ...current, title: event.target.value }))}
+                  onChange={(event) =>
+                    setModuleForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
                 />
                 <p className="text-xs text-muted-foreground">
-                  This is the module name athletes and coaches will see in the team flow. New modules are ordered automatically by when you add them.
+                  This is the module name athletes and coaches will see in the
+                  team flow. New modules are ordered automatically by when you
+                  add them.
                 </p>
               </div>
               <div className="flex justify-end gap-2">
@@ -778,7 +968,9 @@ export default function TeamDetailPage() {
           <DialogHeader>
             <DialogTitle>Lock module for plans</DialogTitle>
             <DialogDescription>
-              Starting from {lockForm.moduleTitle || "this module"}, the selected plan tiers will be locked here and for every module below it on mobile.
+              Starting from {lockForm.moduleTitle || "this module"}, the
+              selected plan tiers will be locked here and for every module below
+              it on mobile.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -786,14 +978,21 @@ export default function TeamDetailPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setLockForm((current) => ({ ...current, programTiers: PROGRAM_TIERS.map((tier) => tier.value) }))}
+                onClick={() =>
+                  setLockForm((current) => ({
+                    ...current,
+                    programTiers: PROGRAM_TIERS.map((tier) => tier.value),
+                  }))
+                }
               >
                 All plans
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setLockForm((current) => ({ ...current, programTiers: [] }))}
+                onClick={() =>
+                  setLockForm((current) => ({ ...current, programTiers: [] }))
+                }
               >
                 Clear selection
               </Button>
@@ -802,18 +1001,28 @@ export default function TeamDetailPage() {
               {PROGRAM_TIERS.map((tier) => {
                 const checked = lockForm.programTiers.includes(tier.value);
                 return (
-                  <label key={tier.value} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                  <label
+                    key={tier.value}
+                    className="flex items-center gap-3 rounded-xl border border-border px-4 py-3"
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={(event) => {
                         const nextProgramTiers = event.target.checked
                           ? [...lockForm.programTiers, tier.value]
-                          : lockForm.programTiers.filter((value) => value !== tier.value);
-                        setLockForm((current) => ({ ...current, programTiers: nextProgramTiers }));
+                          : lockForm.programTiers.filter(
+                              (value) => value !== tier.value,
+                            );
+                        setLockForm((current) => ({
+                          ...current,
+                          programTiers: nextProgramTiers,
+                        }));
                       }}
                     />
-                    <span className="text-sm font-medium text-foreground">{tier.label}</span>
+                    <span className="text-sm font-medium text-foreground">
+                      {tier.label}
+                    </span>
                   </label>
                 );
               })}
@@ -822,17 +1031,31 @@ export default function TeamDetailPage() {
               <Button
                 variant="ghost"
                 disabled={isUpdatingLocks || !lockForm.programTiers.length}
-                onClick={() => void saveModuleLocks(null, lockForm.programTiers)}
+                onClick={() =>
+                  void saveModuleLocks(null, lockForm.programTiers)
+                }
               >
                 Unlock selected plans
               </Button>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setLockModalOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setLockModalOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button
-                  disabled={isUpdatingLocks || !lockForm.moduleId || !lockForm.programTiers.length}
-                  onClick={() => void saveModuleLocks(lockForm.moduleId, lockForm.programTiers)}
+                  disabled={
+                    isUpdatingLocks ||
+                    !lockForm.moduleId ||
+                    !lockForm.programTiers.length
+                  }
+                  onClick={() =>
+                    void saveModuleLocks(
+                      lockForm.moduleId,
+                      lockForm.programTiers,
+                    )
+                  }
                 >
                   {isUpdatingLocks ? "Saving..." : "Save locks"}
                 </Button>
@@ -844,7 +1067,9 @@ export default function TeamDetailPage() {
       <Dialog open={otherLockModalOpen} onOpenChange={setOtherLockModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Lock plans for {otherLockForm.label || "section"}</DialogTitle>
+            <DialogTitle>
+              Lock plans for {otherLockForm.label || "section"}
+            </DialogTitle>
             <DialogDescription>
               Check each plan that should be locked for this section in mobile.
             </DialogDescription>
@@ -852,31 +1077,51 @@ export default function TeamDetailPage() {
           <div className="space-y-4">
             <div className="space-y-3">
               {plans.map((plan) => {
-                const checked = otherLockForm.lockedPlanNames.includes(plan.name);
+                const checked = otherLockForm.lockedPlanNames.includes(
+                  plan.name,
+                );
                 return (
-                  <label key={plan.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                  <label
+                    key={plan.id}
+                    className="flex items-center gap-3 rounded-xl border border-border px-4 py-3"
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={(event) => {
                         const nextLockedPlans = event.target.checked
                           ? [...otherLockForm.lockedPlanNames, plan.name]
-                          : otherLockForm.lockedPlanNames.filter((value) => value !== plan.name);
-                        setOtherLockForm((current) => ({ ...current, lockedPlanNames: nextLockedPlans }));
+                          : otherLockForm.lockedPlanNames.filter(
+                              (value) => value !== plan.name,
+                            );
+                        setOtherLockForm((current) => ({
+                          ...current,
+                          lockedPlanNames: nextLockedPlans,
+                        }));
                       }}
                     />
-                    <span className="text-sm font-medium text-foreground">{plan.name}</span>
+                    <span className="text-sm font-medium text-foreground">
+                      {plan.name}
+                    </span>
                   </label>
                 );
               })}
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOtherLockModalOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setOtherLockModalOpen(false)}
+              >
                 Cancel
               </Button>
               <Button
                 disabled={isUpdatingOtherLocks || !otherLockForm.type}
-                onClick={() => void saveOtherTypeLocks(otherLockForm.type, otherLockForm.lockedPlanNames)}
+                onClick={() =>
+                  void saveOtherTypeLocks(
+                    otherLockForm.type,
+                    otherLockForm.lockedPlanNames,
+                  )
+                }
               >
                 {isUpdatingOtherLocks ? "Saving..." : "Save locks"}
               </Button>
@@ -884,10 +1129,15 @@ export default function TeamDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={otherModalOpen && activeView === "others"} onOpenChange={setOtherModalOpen}>
+      <Dialog
+        open={otherModalOpen && activeView === "others"}
+        onOpenChange={setOtherModalOpen}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{otherForm.id ? "Edit content" : "Add content"}</DialogTitle>
+            <DialogTitle>
+              {otherForm.id ? "Edit content" : "Add content"}
+            </DialogTitle>
             <DialogDescription>
               Manage this Others section directly from the Others tab.
             </DialogDescription>
@@ -896,35 +1146,66 @@ export default function TeamDetailPage() {
             <Input
               placeholder="Title"
               value={otherForm.title}
-              onChange={(event) => setOtherForm((current) => ({ ...current, title: event.target.value }))}
+              onChange={(event) =>
+                setOtherForm((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
+              }
             />
             <Textarea
               placeholder="Content body"
               value={otherForm.body}
-              onChange={(event) => setOtherForm((current) => ({ ...current, body: event.target.value }))}
+              onChange={(event) =>
+                setOtherForm((current) => ({
+                  ...current,
+                  body: event.target.value,
+                }))
+              }
             />
             <Input
               placeholder="Schedule note"
               value={otherForm.scheduleNote}
-              onChange={(event) => setOtherForm((current) => ({ ...current, scheduleNote: event.target.value }))}
+              onChange={(event) =>
+                setOtherForm((current) => ({
+                  ...current,
+                  scheduleNote: event.target.value,
+                }))
+              }
             />
             <div className="grid gap-2 sm:grid-cols-2">
               <Input
                 placeholder="Video URL"
                 value={otherForm.videoUrl}
-                onChange={(event) => setOtherForm((current) => ({ ...current, videoUrl: event.target.value }))}
+                onChange={(event) =>
+                  setOtherForm((current) => ({
+                    ...current,
+                    videoUrl: event.target.value,
+                  }))
+                }
               />
               <Input
                 placeholder="Order"
                 value={otherForm.order}
-                onChange={(event) => setOtherForm((current) => ({ ...current, order: event.target.value }))}
+                onChange={(event) =>
+                  setOtherForm((current) => ({
+                    ...current,
+                    order: event.target.value,
+                  }))
+                }
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOtherModalOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setOtherModalOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={saveOtherContent} disabled={isSaving || !otherForm.type}>
+              <Button
+                onClick={saveOtherContent}
+                disabled={isSaving || !otherForm.type}
+              >
                 {otherForm.id ? "Update" : "Create"}
               </Button>
             </div>
@@ -936,23 +1217,30 @@ export default function TeamDetailPage() {
           <DialogHeader>
             <DialogTitle>Copy modules from another team</DialogTitle>
             <DialogDescription>
-              Copy all modules, sessions, and session items from another team into {audienceLabel}. This replaces the current module list for this team.
+              Copy all modules, sessions, and session items from another team
+              into {audienceLabel}. This replaces the current module list for
+              this team.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Search teams</label>
+              <label className="text-sm font-medium text-foreground">
+                Search teams
+              </label>
               <Input
                 placeholder="Search team name"
                 value={copySearch}
                 onChange={(event) => setCopySearch(event.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Search or scroll the list below, then choose the team you want to copy from.
+                Search or scroll the list below, then choose the team you want
+                to copy from.
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Available teams</label>
+              <label className="text-sm font-medium text-foreground">
+                Available teams
+              </label>
               <div className="max-h-72 overflow-y-auto rounded-xl border border-border">
                 <div className="divide-y divide-border">
                   {filteredCopyTeams.map((item) => (
@@ -961,13 +1249,20 @@ export default function TeamDetailPage() {
                       type="button"
                       onClick={() => setCopySourceTeam(item.team)}
                       className={`flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-secondary/40 ${
-                        copySourceTeam === item.team ? "bg-primary/10" : "bg-background"
+                        copySourceTeam === item.team
+                          ? "bg-primary/10"
+                          : "bg-background"
                       }`}
                     >
                       <div>
-                        <p className="font-medium text-foreground">{item.team}</p>
+                        <p className="font-medium text-foreground">
+                          {item.team}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {item.memberCount} athlete{item.memberCount === 1 ? "" : "s"} · {item.guardianCount} guardian{item.guardianCount === 1 ? "" : "s"}
+                          {item.memberCount} athlete
+                          {item.memberCount === 1 ? "" : "s"} ·{" "}
+                          {item.guardianCount} guardian
+                          {item.guardianCount === 1 ? "" : "s"}
                         </p>
                       </div>
                       <span className="text-xs text-muted-foreground">
@@ -983,7 +1278,8 @@ export default function TeamDetailPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                We will copy the full module structure from the selected team into this one.
+                We will copy the full module structure from the selected team
+                into this one.
               </p>
             </div>
             {isCopying ? (
@@ -991,19 +1287,29 @@ export default function TeamDetailPage() {
                 <div className="flex items-center gap-3">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">Copying module data...</p>
+                    <p className="text-sm font-medium text-foreground">
+                      Copying module data...
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Please wait while we copy modules, sessions, and session items from the selected team.
+                      Please wait while we copy modules, sessions, and session
+                      items from the selected team.
                     </p>
                   </div>
                 </div>
               </div>
             ) : null}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCopyModalOpen(false)} disabled={isCopying}>
+              <Button
+                variant="outline"
+                onClick={() => setCopyModalOpen(false)}
+                disabled={isCopying}
+              >
                 Cancel
               </Button>
-              <Button onClick={() => void copyModulesFromAnotherTeam()} disabled={!copySourceTeam || isCopying}>
+              <Button
+                onClick={() => void copyModulesFromAnotherTeam()}
+                disabled={!copySourceTeam || isCopying}
+              >
                 {isCopying ? "Copying..." : "Copy modules"}
               </Button>
             </div>

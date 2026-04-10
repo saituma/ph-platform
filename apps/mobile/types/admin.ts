@@ -1,3 +1,27 @@
+export type AdminUser = {
+  id?: number;
+  cognitoSub?: string | null;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  profilePicture?: string | null;
+  isBlocked?: boolean | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  athleteAge?: number | null;
+  athleteType?: string | null;
+  programTier?: string | null;
+  onboardingCompleted?: boolean | null;
+  guardianProgramTier?: string | null;
+};
+
+export type UserOnboardingPayload = {
+  guardian?: unknown;
+  athlete?: unknown;
+};
+
 export type AdminBooking = {
   id: number;
   startsAt?: string | null;

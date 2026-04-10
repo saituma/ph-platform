@@ -52,21 +52,42 @@ export function useMessagesController() {
   );
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const actingUserId = useMemo(() => {
-    const actingId = athleteUserId ? Number(athleteUserId) : NaN;
-    return Number.isFinite(actingId) && actingId > 0 ? actingId : null;
-  }, [athleteUserId]);
+    const raw = athleteUserId ? Number(athleteUserId) : NaN;
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+
+    // NOTE: In some flows `athleteUserId` is actually an athlete record id.
+    // The API expects a *user id* in X-Acting-User-Id (see requireAuth).
+    if (Array.isArray(managedAthletes) && managedAthletes.length > 0) {
+      const byUserId = managedAthletes.find(
+        (athlete: any) => String(athlete?.userId) === String(raw),
+      );
+      if (byUserId?.userId) {
+        const userId = Number(byUserId.userId);
+        if (Number.isFinite(userId) && userId > 0) return userId;
+      }
+
+      const byAthleteId = managedAthletes.find(
+        (athlete: any) => String(athlete?.id) === String(raw),
+      );
+      if (byAthleteId?.userId) {
+        const userId = Number(byAthleteId.userId);
+        if (Number.isFinite(userId) && userId > 0) return userId;
+      }
+    }
+
+    return raw;
+  }, [athleteUserId, managedAthletes]);
   const actingHeaders = useMemo(() => {
     if (!actingUserId) return undefined;
     return { "X-Acting-User-Id": String(actingUserId) };
   }, [actingUserId]);
   const effectiveProfileId = useMemo(() => {
-    const actingId = athleteUserId ? Number(athleteUserId) : NaN;
-    if (Number.isFinite(actingId) && actingId > 0) return actingId;
+    if (actingUserId) return actingUserId;
     const id = profile.id ? Number(profile.id) : 0;
     return Number.isFinite(id) ? id : 0;
-  }, [athleteUserId, profile.id]);
+  }, [actingUserId, profile.id]);
   const effectiveProfileName = useMemo(() => {
-    const actingId = athleteUserId ? Number(athleteUserId) : NaN;
+    const actingId = actingUserId ? Number(actingUserId) : NaN;
     if (Number.isFinite(actingId) && actingId > 0 && Array.isArray(managedAthletes)) {
       const found =
         managedAthletes.find(
@@ -77,7 +98,7 @@ export function useMessagesController() {
     }
     const fallback = profile?.name ? String(profile.name).trim() : "";
     return fallback || "You";
-  }, [athleteUserId, managedAthletes, profile?.name]);
+  }, [actingUserId, managedAthletes, profile?.name]);
 
   const { socket, setActiveThreadId } = useSocket();
 
@@ -219,7 +240,10 @@ export function useMessagesController() {
         setIsLoading(true);
       }
       try {
-        const [data, groupsData] = await Promise.all([
+        // Team/Group chat should still render even if direct messaging is not
+        // available (e.g. plan-locked or 403 on /messages). Use allSettled so
+        // one failing endpoint doesn't blank the entire inbox.
+        const [messagesResult, groupsResult] = await Promise.allSettled([
           apiRequest<{
             messages: any[];
             coach?: {
@@ -239,13 +263,32 @@ export function useMessagesController() {
             token,
             skipCache: true,
             headers: actingHeaders,
+            suppressStatusCodes: [401, 403],
           }),
           apiRequest<{ groups: any[] }>("/chat/groups", {
             token,
             skipCache: true,
             headers: actingHeaders,
+            suppressStatusCodes: [401, 403],
           }),
         ]);
+
+        const data =
+          messagesResult.status === "fulfilled"
+            ? (messagesResult.value as {
+                messages: any[];
+                coach?: any;
+                coaches?: any[];
+              })
+            : ({ messages: [], coaches: [] } as {
+                messages: any[];
+                coach?: any;
+                coaches?: any[];
+              });
+        const groupsData =
+          groupsResult.status === "fulfilled"
+            ? (groupsResult.value as { groups: any[] })
+            : ({ groups: [] } as { groups: any[] });
 
         const classifyGroupThread = (group: any) => {
           const category = String(group?.category ?? "")
