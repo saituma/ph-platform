@@ -88,7 +88,7 @@ export default function TeamDetailPage() {
   const [pageNotice, setPageNotice] = useState<string | null>(null);
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [includeOtherTeams, setIncludeOtherTeams] = useState(false);
+  const [includeOtherTeams, setIncludeOtherTeams] = useState(true);
   const [athleteSearch, setAthleteSearch] = useState("");
   const [availableAthletes, setAvailableAthletes] = useState<
     AvailableAthlete[]
@@ -299,7 +299,7 @@ export default function TeamDetailPage() {
             <Button
               size="sm"
               onClick={() => {
-                setIncludeOtherTeams(false);
+                setIncludeOtherTeams(true);
                 setAssignModalOpen(true);
               }}
             >
