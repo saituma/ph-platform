@@ -36,6 +36,7 @@ import {
   AudienceWorkspace,
   PROGRAM_TIERS,
   normalizeAudienceLabelInput,
+  toStorageAudienceLabel,
   toTeamStorageAudienceLabel,
   trainingContentRequest,
 } from "../../../../components/admin/training-content-v2/api";
@@ -47,6 +48,10 @@ type TeamSummary = {
   memberCount: number;
   guardianCount: number;
 };
+
+function toPlanStorageAudienceLabel(planName: string) {
+  return toStorageAudienceLabel({ audienceLabel: planName, adultMode: true });
+}
 
 function SortableModuleCard({
   module,
@@ -298,8 +303,9 @@ export default function TeamDetailPage() {
     try {
       const entries = await Promise.all(
         planNames.map(async (planName) => {
+          const storagePlanLabel = toPlanStorageAudienceLabel(planName);
           const data = await trainingContentRequest<AudienceWorkspace>(
-            `/admin?audienceLabel=${encodeURIComponent(planName)}`,
+            `/admin?audienceLabel=${encodeURIComponent(storagePlanLabel)}`,
           );
           return [planName, data] as const;
         }),
@@ -480,16 +486,17 @@ export default function TeamDetailPage() {
     try {
       setError(null);
       await Promise.all(
-        plans.map((plan) =>
-          trainingContentRequest("/others/settings", {
+        plans.map((plan) => {
+          const storagePlanLabel = toPlanStorageAudienceLabel(plan.name);
+          return trainingContentRequest("/others/settings", {
             method: "PUT",
             body: JSON.stringify({
-              audienceLabel: plan.name,
+              audienceLabel: storagePlanLabel,
               type,
               enabled: !lockedPlanNames.includes(plan.name),
             }),
-          }),
-        ),
+          });
+        }),
       );
       await Promise.all([
         loadWorkspace(),
