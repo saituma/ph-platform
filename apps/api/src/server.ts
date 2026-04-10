@@ -4,6 +4,7 @@ import { setApiReady } from "./config/readiness";
 import { initSocket } from "./socket";
 import http from "http";
 import { runMigrations } from "./db/migrations";
+import { fatalExit } from "./lib/fatal-exit";
 
 export async function startServer() {
   if (env.runMigrationsOnStartup) setApiReady(false);
@@ -24,7 +25,21 @@ export async function startServer() {
   if (env.runMigrationsOnStartup) {
     (async () => {
       try {
-        console.log("[Startup] Running database migrations...");
+        const target = (() => {
+          try {
+            const u = new URL(env.databaseUrl);
+            return {
+              host: u.hostname || "(unknown)",
+              port: u.port || undefined,
+              database: (u.pathname || "").replace(/^\//, "") || undefined,
+            };
+          } catch {
+            return { host: "(unparsed)", port: undefined as string | undefined, database: undefined as string | undefined };
+          }
+        })();
+        console.log(
+          `[Startup] Running database migrations (cwd=${process.cwd()}, host=${target.host}${target.port ? `:${target.port}` : ""}${target.database ? `/${target.database}` : ""})...`,
+        );
         await runMigrations({ databaseUrl: env.databaseUrl });
         console.log("[Startup] Database migrations complete.");
         setApiReady(true);
@@ -35,9 +50,7 @@ export async function startServer() {
             : String(error);
         console.error(`[Startup] Database migrations failed.\n${message}`);
         if (env.nodeEnv === "production") {
-          process.exitCode = 1;
-          // Give stdout/stderr a moment to flush before exiting.
-          setTimeout(() => process.exit(1), 250);
+          fatalExit("Database migrations failed during startup", error, 1);
         }
       }
     })();
