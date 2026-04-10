@@ -69,11 +69,6 @@ export default function BookingsPage() {
   const { data: usersData } = useGetUsersQuery();
   const [updateBookingStatus, { isLoading: isUpdatingBooking }] = useUpdateBookingStatusMutation();
   const isLoading = bookingsLoading || servicesLoading;
-  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery();
-  const { data: servicesData, isLoading: servicesLoading, refetch: refetchServices } = useGetServicesQuery();
-  const { data: usersData } = useGetUsersQuery();
-  const [updateBookingStatus, { isLoading: isUpdatingBooking }] = useUpdateBookingStatusMutation();
-  const isLoading = bookingsLoading || servicesLoading;
 
 
   const bookings = useMemo<BookingItem[]>(() => {
