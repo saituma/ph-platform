@@ -1,7 +1,9 @@
-import { and, asc, desc, eq, ilike, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   athleteTable,
+  chatGroupMemberTable,
+  chatGroupTable,
   guardianTable,
   teamTable,
   userTable,
@@ -37,7 +39,93 @@ async function ensureTeamExists(teamName: string) {
   return fallback[0] ?? null;
 }
 
-export async function createTeamAdmin(input: { teamName: string }) {
+async function ensureTeamChatGroup(teamName: string, createdByUserId: number) {
+  const cleanTeamName = teamName.trim();
+  if (!cleanTeamName) return null;
+
+  const existing = await db
+    .select({ id: chatGroupTable.id })
+    .from(chatGroupTable)
+    .where(
+      and(
+        eq(chatGroupTable.name, cleanTeamName),
+        eq(chatGroupTable.category, "team"),
+      ),
+    )
+    .limit(1);
+  if (existing[0]) return existing[0];
+
+  const [created] = await db
+    .insert(chatGroupTable)
+    .values({
+      name: cleanTeamName,
+      category: "team",
+      createdBy: createdByUserId,
+    })
+    .returning({ id: chatGroupTable.id });
+  if (created) return created;
+
+  const fallback = await db
+    .select({ id: chatGroupTable.id })
+    .from(chatGroupTable)
+    .where(
+      and(
+        eq(chatGroupTable.name, cleanTeamName),
+        eq(chatGroupTable.category, "team"),
+      ),
+    )
+    .limit(1);
+  return fallback[0] ?? null;
+}
+
+async function addUsersToGroup(groupId: number, userIds: number[]) {
+  const unique = Array.from(new Set(userIds.filter((id) => Number.isFinite(id))));
+  if (!unique.length) return;
+  await db
+    .insert(chatGroupMemberTable)
+    .values(unique.map((userId) => ({ groupId, userId })))
+    .onConflictDoNothing({
+      target: [chatGroupMemberTable.groupId, chatGroupMemberTable.userId],
+    });
+}
+
+async function syncTeamChatMembers(teamName: string, groupId: number) {
+  const cleanTeamName = teamName.trim();
+  if (!cleanTeamName) return;
+
+  const athleteUsers = await db
+    .select({
+      athleteUserId: athleteTable.userId,
+      guardianId: athleteTable.guardianId,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
+    .where(and(eq(athleteTable.team, cleanTeamName), eq(userTable.isDeleted, false)));
+
+  const guardianIds = athleteUsers
+    .map((row) => row.guardianId)
+    .filter((id): id is number => typeof id === "number");
+
+  const guardianUsers = guardianIds.length
+    ? await db
+        .select({ userId: guardianTable.userId })
+        .from(guardianTable)
+        .innerJoin(userTable, eq(guardianTable.userId, userTable.id))
+        .where(and(eq(userTable.isDeleted, false), inArray(guardianTable.id, guardianIds)))
+    : [];
+
+  const userIds = [
+    ...athleteUsers.map((row) => row.athleteUserId),
+    ...guardianUsers.map((row) => row.userId),
+  ];
+
+  await addUsersToGroup(groupId, userIds);
+}
+
+export async function createTeamAdmin(input: {
+  teamName: string;
+  createdByUserId: number;
+}) {
   const cleanTeamName = input.teamName.trim();
   if (!cleanTeamName) {
     throw { status: 400, message: "Team name is required." };
@@ -53,6 +141,10 @@ export async function createTeamAdmin(input: { teamName: string }) {
   }
 
   const created = await ensureTeamExists(cleanTeamName);
+  const group = await ensureTeamChatGroup(cleanTeamName, input.createdByUserId);
+  if (group?.id) {
+    await syncTeamChatMembers(cleanTeamName, group.id);
+  }
   return { ok: true, team: created?.name ?? cleanTeamName };
 }
 
@@ -350,6 +442,7 @@ export async function attachAthleteToTeamAdmin(input: {
   teamName: string;
   athleteId: number;
   allowMoveFromOtherTeam?: boolean;
+  createdByUserId: number;
 }) {
   const cleanTeamName = input.teamName.trim();
   if (!cleanTeamName) {
@@ -360,6 +453,8 @@ export async function attachAthleteToTeamAdmin(input: {
     .select({
       id: athleteTable.id,
       team: athleteTable.team,
+      userId: athleteTable.userId,
+      guardianId: athleteTable.guardianId,
     })
     .from(athleteTable)
     .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
@@ -406,6 +501,21 @@ export async function attachAthleteToTeamAdmin(input: {
     .update(teamTable)
     .set({ updatedAt: new Date() })
     .where(eq(teamTable.name, cleanTeamName));
+
+  const group = await ensureTeamChatGroup(cleanTeamName, input.createdByUserId);
+  if (group?.id) {
+    const memberIds: number[] = [athlete.userId];
+    if (athlete.guardianId) {
+      const guardianRows = await db
+        .select({ userId: guardianTable.userId })
+        .from(guardianTable)
+        .where(eq(guardianTable.id, athlete.guardianId))
+        .limit(1);
+      const guardianUserId = guardianRows[0]?.userId;
+      if (guardianUserId) memberIds.push(guardianUserId);
+    }
+    await addUsersToGroup(group.id, memberIds);
+  }
 
   return {
     ok: true,
