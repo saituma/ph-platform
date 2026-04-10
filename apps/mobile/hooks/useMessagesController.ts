@@ -146,15 +146,11 @@ export function useMessagesController() {
   }, [draftQuery, threadId, currentThread, setDraft, draftRef]);
 
   const clearThread = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace(messagesTabHref);
-    }
+    router.replace(messagesTabHref);
     setSelectedThread(null);
     setOpeningThreadId(null);
     setPendingAttachment(null);
-  }, [router, setSelectedThread, setPendingAttachment]);
+  }, [messagesTabHref, router, setPendingAttachment, setSelectedThread]);
 
   const openThread = useCallback(
     (
@@ -627,6 +623,9 @@ export function useMessagesController() {
 
   return {
     reactionOptions,
+    effectiveProfileId,
+    effectiveProfileName,
+    groupMembers,
     currentThread,
     sortedThreads,
     localMessages,

@@ -293,34 +293,51 @@ export function useChatActions({
     async (message: ChatMessage, emoji: string) => {
       if (!token) return;
       try {
-        if (message.threadId.startsWith("group:")) {
-          const groupId = Number(message.threadId.replace("group:", ""));
-          const messageId = Number(message.id.replace("group-", ""));
-          if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return;
-          await apiRequest(
-            `/chat/groups/${groupId}/messages/${messageId}/reactions`,
-            {
-              method: "PUT",
-              token,
-              headers: actingHeaders,
-              body: { emoji },
-            },
-          );
-        } else {
+        const currentUserId = Number.isFinite(effectiveProfileId)
+          ? effectiveProfileId
+          : 0;
+        const existingEmoji =
+          currentUserId > 0
+            ? message.reactions?.find((reaction) =>
+                reaction.userIds?.includes(currentUserId),
+              )?.emoji
+            : undefined;
+
+        const toggleReaction = async (nextEmoji: string) => {
+          if (message.threadId.startsWith("group:")) {
+            const groupId = Number(message.threadId.replace("group:", ""));
+            const messageId = Number(message.id.replace("group-", ""));
+            if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return;
+            await apiRequest(
+              `/chat/groups/${groupId}/messages/${messageId}/reactions`,
+              {
+                method: "PUT",
+                token,
+                headers: actingHeaders,
+                body: { emoji: nextEmoji },
+              },
+            );
+            return;
+          }
           const messageId = Number(message.id);
           if (!Number.isFinite(messageId)) return;
           await apiRequest(`/messages/${messageId}/reactions`, {
             method: "PUT",
             token,
             headers: actingHeaders,
-            body: { emoji },
+            body: { emoji: nextEmoji },
           });
+        };
+
+        if (existingEmoji && existingEmoji !== emoji) {
+          await toggleReaction(existingEmoji);
         }
+        await toggleReaction(emoji);
       } catch (error) {
         console.warn("Failed to react to message", error);
       }
     },
-    [actingHeaders, token],
+    [actingHeaders, effectiveProfileId, token],
   );
 
   return {

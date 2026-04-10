@@ -19,9 +19,12 @@ import { OpenGraphPreview } from "@/components/media/OpenGraphPreview";
 import { useMessageDimensions } from "@/hooks/messages/useMessageDimensions";
 import { MessageMediaView } from "./MessageMediaView";
 import { FullScreenMediaModal } from "./FullScreenMediaModal";
+import { ReactionsListModal } from "./ReactionsListModal";
 
 type MessageBubbleProps = {
   message: ChatMessage;
+  isGroupThread?: boolean;
+  resolveReactionUserName?: (userId: number) => string;
   onLongPress: (message: ChatMessage) => void;
   onReactionPress: (message: ChatMessage, emoji: string) => void;
   onOpenReactionPicker?: (message: ChatMessage) => void;
@@ -41,6 +44,8 @@ const BUBBLE_SPRING = {
 
 export const MessageBubble = React.memo(function MessageBubble({
   message,
+  isGroupThread = false,
+  resolveReactionUserName,
   onLongPress,
   onReactionPress,
   onOpenReactionPicker,
@@ -53,6 +58,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   const { colors, isDark } = useAppTheme();
   const isUser = message.from === "user";
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [reactionsOpen, setReactionsOpen] = useState(false);
 
   const swipeRef = useRef<Swipeable | null>(null);
   const lastTapRef = useRef<number>(0);
@@ -85,7 +91,13 @@ export const MessageBubble = React.memo(function MessageBubble({
     [message.authorName],
   );
 
-  const hasReactions = (message.reactions?.length ?? 0) > 0;
+  const reactions = message.reactions ?? [];
+  const hasReactions = reactions.length > 0;
+  const authorLabel = useMemo(() => {
+    if (!isGroupThread) return null;
+    if (isUser) return "You";
+    return message.authorName || "Member";
+  }, [isGroupThread, isUser, message.authorName]);
 
   const handleSwipeOpen = (direction: "left" | "right") => {
     if (direction === "left") {
@@ -110,9 +122,9 @@ export const MessageBubble = React.memo(function MessageBubble({
   };
 
   return (
-    <View className={`mb-1 ${isUser ? "items-end" : "items-start"}`}>
+    <View className="mb-1 w-full">
       <View
-        className={`flex-row items-end gap-2 w-full ${isUser ? "flex-row-reverse" : "flex-row"}`}
+        className={`flex-row items-end gap-2 w-full ${isUser ? "justify-end" : "justify-start"}`}
       >
         {!isUser && (
           <Animated.View entering={FadeIn.delay(100)}>
@@ -144,16 +156,21 @@ export const MessageBubble = React.memo(function MessageBubble({
           Container has a strict max width, so the bubble inside can naturally expand to fit content 
           up to 82% of the screen width, then it wraps the text.
         */}
-        <View style={{ maxWidth: "82%" }}>
-          {!isUser && message.authorName && (
+        <View
+          style={{
+            maxWidth: "82%",
+            alignSelf: isUser ? "flex-end" : "flex-start",
+          }}
+        >
+          {authorLabel && (
             <Text
-              className="mb-1 ml-1 text-[11px] font-bold uppercase tracking-wider"
+              className={`mb-1 text-[11px] font-bold uppercase tracking-wider ${isUser ? "text-right mr-1" : "text-left ml-1"}`}
               style={{
                 color: colors.textSecondary,
                 fontFamily: fonts.labelBold,
               }}
             >
-              {message.authorName}
+              {authorLabel}
             </Text>
           )}
 
@@ -326,14 +343,14 @@ export const MessageBubble = React.memo(function MessageBubble({
                 {/* Floating Reactions (Rendered OUTSIDE the overflow-hidden bubble) */}
                 {hasReactions && (
                   <View
-                    className="absolute flex-row flex-wrap gap-1 z-50"
+                    className="absolute flex-row gap-1 z-50"
                     style={{
                       bottom: -8,
-                      maxWidth: "85%",
+                      flexWrap: "nowrap",
                       [isUser ? "right" : "left"]: 8,
                     }}
                   >
-                    {message.reactions?.map((r) => (
+                    {reactions.slice(0, 1).map((r) => (
                       <Pressable
                         key={r.emoji}
                         onPress={() => onReactionPress(message, r.emoji)}
@@ -343,7 +360,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                             ? colors.surfaceHigh
                             : "#FFFFFF",
                           borderColor: colors.borderSubtle,
-                          ...Shadows.md, // Higher shadow to pop off the background
+                          ...Shadows.md,
                         }}
                       >
                         <Text className="text-[11px]">{r.emoji}</Text>
@@ -358,6 +375,30 @@ export const MessageBubble = React.memo(function MessageBubble({
                         </Text>
                       </Pressable>
                     ))}
+
+                    {reactions.length > 1 && (
+                      <Pressable
+                        onPress={() => setReactionsOpen(true)}
+                        className="px-2 py-1 rounded-full border flex-row items-center"
+                        style={{
+                          backgroundColor: isDark
+                            ? colors.surfaceHigh
+                            : "#FFFFFF",
+                          borderColor: colors.borderSubtle,
+                          ...Shadows.md,
+                        }}
+                      >
+                        <Text
+                          className="text-[10px]"
+                          style={{
+                            color: colors.textPrimary,
+                            fontFamily: fonts.labelBold,
+                          }}
+                        >
+                          +
+                        </Text>
+                      </Pressable>
+                    )}
                   </View>
                 )}
               </View>
@@ -365,6 +406,15 @@ export const MessageBubble = React.memo(function MessageBubble({
           </Swipeable>
         </View>
       </View>
+
+      <ReactionsListModal
+        open={reactionsOpen}
+        onClose={() => setReactionsOpen(false)}
+        reactions={reactions}
+        resolveUserName={(userId) =>
+          resolveReactionUserName?.(userId) ?? `User ${userId}`
+        }
+      />
 
       <FullScreenMediaModal
         visible={mediaOpen}

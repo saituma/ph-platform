@@ -20,12 +20,9 @@ export const AthleteType = pgEnum("athlete_type", ["youth", "adult"]);
 export const PlanPaymentType = pgEnum("plan_payment_type", ["monthly", "upfront"]);
 export const bookingStatus = pgEnum("booking_status", ["pending", "confirmed", "declined", "cancelled"]);
 export const bookingType = pgEnum("booking_type", [
-  "call",
-  "group_call",
-  "individual_call",
-  "lift_lab_1on1",
-  "role_model",
-  "one_on_one",
+  "one_to_one",
+  "semi_private",
+  "in_person",
 ]);
 export const contentType = pgEnum("content_type", ["article", "video", "image", "audio", "document", "link", "pdf", "faq"]);
 export const storyMediaType = pgEnum("story_media_type", ["image", "video"]);

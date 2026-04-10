@@ -93,12 +93,9 @@ type BookingsDialogsProps = {
 };
 
 export const BOOKING_TYPE_LABELS: Record<string, string> = {
-  group_call: "Group Call",
-  individual_call: "1:1",
-  one_on_one: "1:1",
-  lift_lab_1on1: "Lift Lab 1:1",
-  role_model: "Premium",
-  call: "Call",
+  one_to_one: "1-to-1 session",
+  semi_private: "Semi-private session",
+  in_person: "In-person session",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -168,15 +165,9 @@ export function BookingsDialogs({
   const [capacity, setCapacity] = useState("");
   const [programTier, setProgramTier] = useState("");
   const [eligiblePlans, setEligiblePlans] = useState<string[]>([]);
-  const [schedulePattern, setSchedulePattern] = useState("one_time");
-  const [recurrenceEndMode, setRecurrenceEndMode] = useState("forever");
-  const [recurrenceCount, setRecurrenceCount] = useState("");
-  const [weeklyEntries, setWeeklyEntries] = useState<Array<{ weekday: string; time: string }>>([{ weekday: "1", time: "" }]);
+  const [schedulePattern, setSchedulePattern] = useState("temporary");
   const [oneTimeDate, setOneTimeDate] = useState("");
   const [oneTimeTime, setOneTimeTime] = useState("");
-  const [slotMode, setSlotMode] = useState("shared_capacity");
-  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState("");
-  const [slotDefinitions, setSlotDefinitions] = useState<Array<{ time: string; capacity: string }>>([{ time: "", capacity: "" }]);
   const [attendeeVisibility, setAttendeeVisibility] = useState(true);
   const [defaultLocation, setDefaultLocation] = useState("");
   const [defaultVideoLink, setDefaultVideoLink] = useState("");
@@ -204,15 +195,9 @@ export function BookingsDialogs({
       setCapacity("");
       setProgramTier("");
       setEligiblePlans([]);
-      setSchedulePattern("one_time");
-      setRecurrenceEndMode("forever");
-      setRecurrenceCount("");
-      setWeeklyEntries([{ weekday: "1", time: "" }]);
+      setSchedulePattern("temporary");
       setOneTimeDate("");
       setOneTimeTime("");
-      setSlotMode("shared_capacity");
-      setSlotIntervalMinutes("");
-      setSlotDefinitions([{ time: "", capacity: "" }]);
       setAttendeeVisibility(true);
       setDefaultLocation("");
       setDefaultVideoLink("");
@@ -242,29 +227,9 @@ export function BookingsDialogs({
       setCapacity(selectedService.capacity ? String(selectedService.capacity) : "");
       setProgramTier(selectedService.programTier ?? "");
       setEligiblePlans(selectedService.eligiblePlans ?? (selectedService.programTier ? [selectedService.programTier] : []));
-      setSchedulePattern(selectedService.schedulePattern ?? "one_time");
-      setRecurrenceEndMode(selectedService.recurrenceEndMode ?? "forever");
-      setRecurrenceCount(selectedService.recurrenceCount ? String(selectedService.recurrenceCount) : "");
-      setWeeklyEntries(
-        selectedService.weeklyEntries?.length
-          ? selectedService.weeklyEntries.map((entry) => ({
-              weekday: String(entry.weekday),
-              time: entry.time,
-            }))
-          : [{ weekday: "1", time: "" }],
-      );
+      setSchedulePattern(selectedService.schedulePattern ?? "temporary");
       setOneTimeDate(selectedService.oneTimeDate ?? "");
       setOneTimeTime(selectedService.oneTimeTime ?? "");
-      setSlotMode(selectedService.slotMode ?? "shared_capacity");
-      setSlotIntervalMinutes(selectedService.slotIntervalMinutes ? String(selectedService.slotIntervalMinutes) : "");
-      setSlotDefinitions(
-        selectedService.slotDefinitions?.length
-          ? selectedService.slotDefinitions.map((slot) => ({
-              time: slot.time,
-              capacity: slot.capacity ? String(slot.capacity) : "",
-            }))
-          : [{ time: "", capacity: "" }],
-      );
       setAttendeeVisibility(selectedService.attendeeVisibility ?? true);
       setDefaultLocation(selectedService.defaultLocation ?? "");
       setDefaultVideoLink("");
@@ -367,11 +332,9 @@ export function BookingsDialogs({
                     setError(null);
                   }}
                 >
-                  <option value="call">Call</option>
-                  <option value="group_call">Group Call</option>
-                  <option value="individual_call">Individual Call</option>
-                  <option value="lift_lab_1on1">Lift Lab 1:1</option>
-                  <option value="role_model">Role Model (Premium)</option>
+                  <option value="one_to_one">1-to-1 session</option>
+                  <option value="semi_private">Semi-private session</option>
+                  <option value="in_person">In-person session</option>
                 </Select>
               </div>
               <div className="space-y-1">
@@ -431,221 +394,33 @@ export function BookingsDialogs({
               <div className="space-y-1">
                 <Label htmlFor="service-schedule-pattern">Schedule pattern</Label>
                 <Select id="service-schedule-pattern" value={schedulePattern} onChange={(e) => setSchedulePattern(e.target.value)}>
-                  <option value="one_time">One-time service</option>
-                  <option value="weekly_recurring">Weekly recurring</option>
+                  <option value="temporary">Temporary (one-time)</option>
+                  <option value="permanent">Permanent</option>
                 </Select>
               </div>
-              {schedulePattern === "one_time" ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="service-one-time-date">Date</Label>
-                    <Input
-                      id="service-one-time-date"
-                      type="date"
-                      value={oneTimeDate}
-                      onChange={(e) => setOneTimeDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="service-one-time-time">Start time</Label>
-                    <Input
-                      id="service-one-time-time"
-                      type="time"
-                      value={oneTimeTime}
-                      onChange={(e) => setOneTimeTime(e.target.value)}
-                    />
-                    {getEndTimeHint(oneTimeTime, durationMinutes) ? (
-                      <div className="text-xs text-muted-foreground">{getEndTimeHint(oneTimeTime, durationMinutes)}</div>
-                    ) : null}
-                  </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="service-one-time-date">Date</Label>
+                  <Input
+                    id="service-one-time-date"
+                    type="date"
+                    value={oneTimeDate}
+                    onChange={(e) => setOneTimeDate(e.target.value)}
+                  />
                 </div>
-              ) : (
-                <div className="space-y-3 rounded-2xl border border-border bg-secondary/20 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">Weekly schedule</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setWeeklyEntries((current) => [...current, { weekday: "1", time: "" }])}
-                    >
-                      Add day
-                    </Button>
-                  </div>
-                  {weeklyEntries.map((entry, index) => (
-                    <div key={`weekly-${index}`} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                      <div className="space-y-1">
-                        <Label className={index === 0 ? "" : "sr-only"} htmlFor={`service-weekly-weekday-${index}`}>
-                          Day
-                        </Label>
-                        <Select
-                          id={`service-weekly-weekday-${index}`}
-                          value={entry.weekday}
-                          onChange={(e) =>
-                            setWeeklyEntries((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, weekday: e.target.value } : item,
-                              ),
-                            )
-                          }
-                        >
-                          <option value="1">Monday</option>
-                          <option value="2">Tuesday</option>
-                          <option value="3">Wednesday</option>
-                          <option value="4">Thursday</option>
-                          <option value="5">Friday</option>
-                          <option value="6">Saturday</option>
-                          <option value="7">Sunday</option>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className={index === 0 ? "" : "sr-only"} htmlFor={`service-weekly-time-${index}`}>
-                          Start time
-                        </Label>
-                        <Input
-                          id={`service-weekly-time-${index}`}
-                          type="time"
-                          value={entry.time}
-                          onChange={(e) =>
-                            setWeeklyEntries((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, time: e.target.value } : item,
-                              ),
-                            )
-                          }
-                        />
-                        {getEndTimeHint(entry.time, durationMinutes) ? (
-                          <div className="text-xs text-muted-foreground">{getEndTimeHint(entry.time, durationMinutes)}</div>
-                        ) : null}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={weeklyEntries.length === 1}
-                        onClick={() =>
-                          setWeeklyEntries((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="service-recurrence-end-mode">Repeat</Label>
-                      <Select id="service-recurrence-end-mode" value={recurrenceEndMode} onChange={(e) => setRecurrenceEndMode(e.target.value)}>
-                        <option value="forever">Repeat until disabled</option>
-                        <option value="weeks">Repeat for weeks</option>
-                        <option value="months">Repeat for months</option>
-                      </Select>
-                    </div>
-                    {recurrenceEndMode === "forever" ? null : (
-                      <div className="space-y-1">
-                        <Label htmlFor="service-recurrence-count">
-                          {recurrenceEndMode === "weeks" ? "Weeks" : "Months"}
-                        </Label>
-                        <Input
-                          id="service-recurrence-count"
-                          type="number"
-                          min={1}
-                          placeholder={recurrenceEndMode === "weeks" ? "Number of weeks" : "Number of months"}
-                          value={recurrenceCount}
-                          onChange={(e) => setRecurrenceCount(e.target.value)}
-                        />
-                      </div>
-                    )}
-                  </div>
+                <div className="space-y-1">
+                  <Label htmlFor="service-one-time-time">Start time</Label>
+                  <Input
+                    id="service-one-time-time"
+                    type="time"
+                    value={oneTimeTime}
+                    onChange={(e) => setOneTimeTime(e.target.value)}
+                  />
+                  {getEndTimeHint(oneTimeTime, durationMinutes) ? (
+                    <div className="text-xs text-muted-foreground">{getEndTimeHint(oneTimeTime, durationMinutes)}</div>
+                  ) : null}
                 </div>
-              )}
-              <div className="space-y-1">
-                <Label htmlFor="service-slot-mode">Slot mode</Label>
-                <Select id="service-slot-mode" value={slotMode} onChange={(e) => setSlotMode(e.target.value)}>
-                  <option value="shared_capacity">Shared capacity</option>
-                  <option value="exact_sub_slots">Exact sub-slots</option>
-                  <option value="both">Both shared and exact slots</option>
-                </Select>
               </div>
-              {slotMode === "shared_capacity" ? null : (
-                <div className="space-y-3 rounded-2xl border border-border bg-secondary/20 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">Bookable slots</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSlotDefinitions((current) => [...current, { time: "", capacity: "" }])}
-                    >
-                      Add slot
-                    </Button>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="service-slot-interval">Slot interval (mins, optional)</Label>
-                    <Input
-                      id="service-slot-interval"
-                      type="number"
-                      min={1}
-                      placeholder="e.g. 15"
-                      value={slotIntervalMinutes}
-                      onChange={(e) => setSlotIntervalMinutes(e.target.value)}
-                    />
-                  </div>
-                  {slotDefinitions.map((slot, index) => (
-                    <div key={`slot-${index}`} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                      <div className="space-y-1">
-                        <Label className={index === 0 ? "" : "sr-only"} htmlFor={`service-slot-time-${index}`}>
-                          Start time
-                        </Label>
-                        <Input
-                          id={`service-slot-time-${index}`}
-                          type="time"
-                          value={slot.time}
-                          onChange={(e) =>
-                            setSlotDefinitions((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, time: e.target.value } : item,
-                              ),
-                            )
-                          }
-                        />
-                        {getEndTimeHint(slot.time, durationMinutes) ? (
-                          <div className="text-xs text-muted-foreground">{getEndTimeHint(slot.time, durationMinutes)}</div>
-                        ) : null}
-                      </div>
-                      <div className="space-y-1">
-                        <Label className={index === 0 ? "" : "sr-only"} htmlFor={`service-slot-capacity-${index}`}>
-                          Capacity
-                        </Label>
-                        <Input
-                          id={`service-slot-capacity-${index}`}
-                          type="number"
-                          min={1}
-                          placeholder="Capacity"
-                          value={slot.capacity}
-                          onChange={(e) =>
-                            setSlotDefinitions((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, capacity: e.target.value } : item,
-                              ),
-                            )
-                          }
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={slotDefinitions.length === 1}
-                        onClick={() =>
-                          setSlotDefinitions((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input
                   type="checkbox"
@@ -689,23 +464,8 @@ export function BookingsDialogs({
                       setError("Duration is required.");
                       return;
                     }
-                    if (schedulePattern === "one_time" && (!oneTimeDate || !oneTimeTime)) {
-                      setError("Set the one-time date and time.");
-                      return;
-                    }
-                    if (
-                      schedulePattern === "weekly_recurring" &&
-                      weeklyEntries.some((entry) => !entry.weekday || !entry.time)
-                    ) {
-                      setError("Each weekly row needs a day and time.");
-                      return;
-                    }
-                    if (recurrenceEndMode !== "forever" && !recurrenceCount) {
-                      setError("Set how long the recurring service should run.");
-                      return;
-                    }
-                    if (slotMode !== "shared_capacity" && slotDefinitions.some((slot) => !slot.time && !slot.capacity)) {
-                      setError("Each slot row needs at least a time.");
+                    if (!oneTimeDate || !oneTimeTime) {
+                      setError("Set the date and time.");
                       return;
                     }
                     try {
@@ -733,17 +493,14 @@ export function BookingsDialogs({
                         programTier: serviceType === "role_model" ? "PHP_Premium" : programTier || undefined,
                         eligiblePlans: normalizedEligiblePlans,
                         schedulePattern,
-                        recurrenceEndMode: schedulePattern === "weekly_recurring" ? recurrenceEndMode : undefined,
-                        recurrenceCount:
-                          schedulePattern === "weekly_recurring" && recurrenceEndMode !== "forever" && recurrenceCount
-                            ? Number(recurrenceCount)
-                            : undefined,
-                        weeklyEntries: schedulePattern === "weekly_recurring" ? weeklyPayload : undefined,
-                        oneTimeDate: schedulePattern === "one_time" ? oneTimeDate : undefined,
-                        oneTimeTime: schedulePattern === "one_time" ? oneTimeTime : undefined,
-                        slotMode,
-                        slotIntervalMinutes: slotIntervalMinutes ? Number(slotIntervalMinutes) : undefined,
-                        slotDefinitions: slotMode === "shared_capacity" ? undefined : slotPayload,
+                        recurrenceEndMode: undefined,
+                        recurrenceCount: undefined,
+                        weeklyEntries: undefined,
+                        oneTimeDate: oneTimeDate,
+                        oneTimeTime: oneTimeTime,
+                        slotMode: undefined,
+                        slotIntervalMinutes: undefined,
+                        slotDefinitions: undefined,
                         isActive: serviceIsActive,
                       };
                       if (active === "new-service") {

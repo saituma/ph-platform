@@ -136,7 +136,7 @@ export function EventList({
           </Text>
           <Pressable className="mt-4 rounded-full bg-accent px-5 py-2" onPress={onRequestForDay}>
             <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
-              Request for this day
+              Book a session
             </Text>
           </Pressable>
           {eventsError ? (

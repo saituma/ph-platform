@@ -20,6 +20,19 @@ const ADULT_AUDIENCE_PREFIX = "adult::";
 const TEAM_AUDIENCE_PREFIX = "team::";
 const DEFAULT_ADULT_PROGRAM_TIER: (typeof ProgramType.enumValues)[number] = "PHP";
 
+const PROGRAM_TIER_ORDER: (typeof ProgramType.enumValues)[number][] = [
+  "PHP",
+  "PHP_Premium",
+  "PHP_Premium_Plus",
+  "PHP_Pro",
+];
+
+function tiersAbove(tier: (typeof ProgramType.enumValues)[number]) {
+  const idx = PROGRAM_TIER_ORDER.indexOf(tier);
+  if (idx < 0) return [];
+  return PROGRAM_TIER_ORDER.slice(idx + 1);
+}
+
 function hasTeam(team: string | null | undefined) {
   return Boolean(team && team.trim().length > 0);
 }
@@ -86,6 +99,22 @@ export async function getTrainingContentMobileWorkspace(input: {
         .where(eq(athleteTrainingSessionCompletionTable.athleteId, input.athleteId))
     : [];
   const completionSet = new Set(completionRows.map((row) => row.sessionId));
+
+  const moduleIdToOrder = new Map<number, number | null>();
+  for (const m of workspace.modules) {
+    moduleIdToOrder.set(m.id, m.order ?? null);
+  }
+
+  const moduleTierLockStartOrderByTier = new Map<
+    (typeof ProgramType.enumValues)[number],
+    number
+  >();
+  for (const lock of workspace.moduleLocks) {
+    const startOrder = moduleIdToOrder.get(lock.startModuleId) ?? null;
+    if (startOrder == null) continue;
+    moduleTierLockStartOrderByTier.set(lock.programTier, startOrder);
+  }
+
   const tierLockStartModuleId = effectiveTier
     ? workspace.moduleLocks.find((lock) => lock.programTier === effectiveTier)?.startModuleId ?? null
     : null;
@@ -96,6 +125,17 @@ export async function getTrainingContentMobileWorkspace(input: {
   let priorModuleComplete = true;
   const modules = workspace.modules.map((module) => {
     const tierLocked = tierLockStartOrder != null && module.order >= tierLockStartOrder;
+
+    const moduleUnlockTiers =
+      effectiveTier && tierLocked
+        ? tiersAbove(effectiveTier)
+            .filter((tier) => {
+              const startOrder = moduleTierLockStartOrderByTier.get(tier) ?? null;
+              return startOrder == null || module.order < startOrder;
+            })
+            .map((tier) => ({ tier, label: PROGRAM_TIER_LABELS[tier] }))
+        : [];
+
     const sessionLockStartOrderByTier = new Map<(typeof ProgramType.enumValues)[number], number>();
     for (const session of module.sessions) {
       for (const tier of (session as any).lockedForTiers ?? []) {
@@ -108,7 +148,25 @@ export async function getTrainingContentMobileWorkspace(input: {
     const sessions = module.sessions.map((session) => {
       const completed = completionSet.has(session.id);
       const sessionTierLocked = sessionTierLockStartOrder != null && session.order! >= sessionTierLockStartOrder;
-      const locked = tierLocked || sessionTierLocked || !priorModuleComplete || !priorSessionComplete;
+      const sequenceLocked = !priorModuleComplete || !priorSessionComplete;
+      const tierLockedAny = tierLocked || sessionTierLocked;
+      const locked = tierLockedAny || sequenceLocked;
+
+      const sessionUnlockTiers =
+        effectiveTier && tierLockedAny
+          ? tiersAbove(effectiveTier)
+              .filter((tier) => {
+                const moduleStartOrder = moduleTierLockStartOrderByTier.get(tier) ?? null;
+                const moduleTierLockedForCandidate = moduleStartOrder != null && module.order >= moduleStartOrder;
+                if (moduleTierLockedForCandidate) return false;
+
+                const sessionStartOrder = sessionLockStartOrderByTier.get(tier) ?? null;
+                const sessionTierLockedForCandidate = sessionStartOrder != null && session.order! >= sessionStartOrder;
+                return !sessionTierLockedForCandidate;
+              })
+              .map((tier) => ({ tier, label: PROGRAM_TIER_LABELS[tier] }))
+          : [];
+
       if (!completed) {
         priorSessionComplete = false;
       }
@@ -119,6 +177,8 @@ export async function getTrainingContentMobileWorkspace(input: {
         order: session.order,
         completed,
         locked,
+        lockedReason: locked ? (tierLockedAny ? "tier" : "sequence") : null,
+        unlockTiers: locked && tierLockedAny ? sessionUnlockTiers : [],
         // Do not deliver session items while locked (prevents clients from "peeking" ahead).
         items: locked ? [] : sortItemsByBlockThenOrder(session.items as any[]).map((item) => ({ ...item })),
       };
@@ -135,6 +195,8 @@ export async function getTrainingContentMobileWorkspace(input: {
       totalDayLength: module.totalDayLength,
       completed,
       locked,
+      lockedReason: locked ? (tierLocked ? "tier" : "sequence") : null,
+      unlockTiers: locked && tierLocked ? moduleUnlockTiers : [],
       sessions,
     };
   });

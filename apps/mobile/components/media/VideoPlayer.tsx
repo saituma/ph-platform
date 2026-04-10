@@ -19,6 +19,7 @@ import {
 import { VideoView } from "expo-video";
 import { useIsFocused } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useVideoCache } from "@/hooks/useVideoCache";
@@ -31,17 +32,12 @@ import {
   normalizeUrl,
   YouTubeEmbedHandle,
 } from "./video/YouTubeEmbed";
-
-export {
-  YouTubeEmbed,
-  isYoutubeUrl,
-  normalizeUrl,
-  YouTubeEmbedHandle,
-};
 import { VideoPoster } from "./video/VideoPoster";
 import { VideoLoadingOverlay } from "./video/VideoLoadingOverlay";
 import { VideoControls } from "./video/VideoControls";
 import { useVideoPlayerEngine } from "../../hooks/media/useVideoPlayerEngine";
+
+export { YouTubeEmbed, isYoutubeUrl, normalizeUrl, YouTubeEmbedHandle };
 
 interface VideoPlayerProps {
   uri: string;
@@ -115,7 +111,9 @@ export function VideoPlayer({
   const [youtubeIsPlaying, setYoutubeIsPlaying] = useState(false);
   const [youtubeResumeTime, setYoutubeResumeTime] = useState(0);
 
-  const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  const [appActive, setAppActive] = useState(
+    AppState.currentState === "active",
+  );
 
   const effectiveShouldPlay =
     propShouldPlay &&
@@ -125,12 +123,24 @@ export function VideoPlayer({
 
   const normalizedUri = normalizeUrl(uri);
   const isYoutube = isYoutubeUrl(normalizedUri);
+  const isYoutubeShorts =
+    isYoutube && /youtube\.com\/shorts\//i.test(normalizedUri);
+  const isLoom = /loom\.com/i.test(normalizedUri);
+  const loomEmbedUrl = useMemo(() => {
+    if (!isLoom) return null;
+    const match = normalizedUri.match(
+      /loom\.com\/(share|embed)\/([A-Za-z0-9]+)/i,
+    );
+    const id = match?.[2] ?? null;
+    return id ? `https://www.loom.com/embed/${id}` : normalizedUri;
+  }, [isLoom, normalizedUri]);
   const { cachedUri } = useVideoCache(
-    disableCache || isYoutube ? null : normalizedUri,
+    disableCache || isYoutube || isLoom ? null : normalizedUri,
     cacheKey,
   );
   const finalUri = disableCache ? normalizedUri : cachedUri || normalizedUri;
-  const sourceForPlayer = (finalUri && typeof finalUri === "string" ? finalUri : normalizedUri) || "";
+  const sourceForPlayer =
+    (finalUri && typeof finalUri === "string" ? finalUri : normalizedUri) || "";
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -182,14 +192,29 @@ export function VideoPlayer({
       safePause();
     } else if (autoPlay) {
       if (pauseOthers) pauseOthers();
-      if (playbackController && controllerKey) playbackController.pauseOthers(controllerKey);
+      if (playbackController && controllerKey)
+        playbackController.pauseOthers(controllerKey);
       safePlay();
     }
-  }, [ignoreTabFocus, effectiveShouldPlay, isVisible, autoPlay, pauseOthers, safePause, safePlay, playbackController, controllerKey]);
+  }, [
+    ignoreTabFocus,
+    effectiveShouldPlay,
+    isVisible,
+    autoPlay,
+    pauseOthers,
+    safePause,
+    safePlay,
+    playbackController,
+    controllerKey,
+  ]);
 
   useEffect(() => {
     if (posterUri && !aspectRatio) {
-      Image.getSize(posterUri, (w, h) => {}, () => {});
+      Image.getSize(
+        posterUri,
+        (w, h) => {},
+        () => {},
+      );
     }
   }, [posterUri, aspectRatio]);
 
@@ -201,22 +226,36 @@ export function VideoPlayer({
     if (isPlaying) safePause();
     else {
       if (pauseOthers) pauseOthers();
-      if (playbackController && controllerKey) playbackController.pauseOthers(controllerKey);
+      if (playbackController && controllerKey)
+        playbackController.pauseOthers(controllerKey);
       safePlay();
     }
   };
 
   const progress = duration > 0 ? Math.min(1, position / duration) : 0;
   const fitMode = contentFitOverride ?? "contain";
-  const effectiveAspectRatio = aspectRatio ?? initialAspectRatio ?? 16 / 9;
+  const youtubeDetectedAspectRatio = isYoutubeShorts ? 9 / 16 : null;
+  const effectiveAspectRatio =
+    aspectRatio ?? youtubeDetectedAspectRatio ?? initialAspectRatio ?? 16 / 9;
+  const effectiveMaxHeightRatio =
+    effectiveAspectRatio > 0 && effectiveAspectRatio < 1
+      ? Math.max(maxHeightRatio, 0.9)
+      : maxHeightRatio;
 
   const containerSize = useMemo(() => {
     const ratio = effectiveAspectRatio > 0 ? effectiveAspectRatio : 16 / 9;
     const w = containerWidth ?? screenWidth;
     const naturalH = w / ratio;
-    const maxH = screenHeight * Math.max(0.5, Math.min(1, maxHeightRatio));
+    const maxH =
+      screenHeight * Math.max(0.5, Math.min(1, effectiveMaxHeightRatio));
     return { width: w, height: Math.min(naturalH, maxH) };
-  }, [containerWidth, effectiveAspectRatio, maxHeightRatio, screenHeight, screenWidth]);
+  }, [
+    containerWidth,
+    effectiveAspectRatio,
+    effectiveMaxHeightRatio,
+    screenHeight,
+    screenWidth,
+  ]);
 
   const resolvedHeight = useVideoResolution ? containerSize.height : height;
 
@@ -239,7 +278,8 @@ export function VideoPlayer({
       const t = await inlineYouTubeRef.current?.getCurrentTime();
       setYoutubeResumeTime(typeof t === "number" ? t : 0);
       if (pauseOthers) pauseOthers();
-      if (playbackController && controllerKey) playbackController.pauseOthers(controllerKey);
+      if (playbackController && controllerKey)
+        playbackController.pauseOthers(controllerKey);
       setFullscreenOpen(true);
     })();
   }, [controllerKey, finalUri, isYoutube, pauseOthers, playbackController]);
@@ -255,14 +295,24 @@ export function VideoPlayer({
     })();
   }, []);
 
-  if (error && !isYoutube) {
+  if (error && !isYoutube && !isLoom) {
     return (
       <Pressable
         onPress={() => Linking.openURL(finalUri)}
-        style={{ flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}
+        style={{
+          flex: 1,
+          backgroundColor: "#000",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
       >
         <Text style={{ color: "white" }}>{error}</Text>
-        <Feather name="external-link" size={24} color="white" style={{ marginTop: 12 }} />
+        <Feather
+          name="external-link"
+          size={24}
+          color="white"
+          style={{ marginTop: 12 }}
+        />
       </Pressable>
     );
   }
@@ -284,13 +334,26 @@ export function VideoPlayer({
         <YouTubeEmbed
           ref={inlineYouTubeRef as any}
           url={uri}
-          shouldPlay={!fullscreenOpen && effectiveShouldPlay && youtubeIsPlaying}
+          shouldPlay={
+            !fullscreenOpen && effectiveShouldPlay && youtubeIsPlaying
+          }
           initialMuted={initialMuted}
           onPlayerStateChange={(state: string) => {
             if (fullscreenOpen) return;
             if (state === "playing") setYoutubeIsPlaying(true);
-            if (state === "paused" || state === "ended") setYoutubeIsPlaying(false);
+            if (state === "paused" || state === "ended")
+              setYoutubeIsPlaying(false);
           }}
+        />
+      ) : isLoom ? (
+        <WebView
+          source={loomEmbedUrl ? { uri: loomEmbedUrl } : { uri: normalizedUri }}
+          style={{ flex: 1, backgroundColor: "#000" }}
+          allowsFullscreenVideo
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction
+          scrollEnabled={false}
+          originWhitelist={["https://*", "http://*"]}
         />
       ) : (
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
@@ -301,7 +364,9 @@ export function VideoPlayer({
             contentFit={fitMode}
             nativeControls={ignoreTabFocus}
             allowsPictureInPicture
-            {...(Platform.OS === "android" ? { surfaceType: "textureView" } : {})}
+            {...(Platform.OS === "android"
+              ? { surfaceType: "textureView" }
+              : {})}
           />
         </Animated.View>
       )}
@@ -419,7 +484,9 @@ export function VideoPlayer({
             <Feather name="x" size={22} color="#fff" />
           </Pressable>
 
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <View
+            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          >
             <View
               style={{
                 width: fullscreenWidth,
@@ -440,7 +507,8 @@ export function VideoPlayer({
                 onPlayerStateChange={(state: string) => {
                   if (!fullscreenOpen) return;
                   if (state === "playing") setYoutubeIsPlaying(true);
-                  if (state === "paused" || state === "ended") setYoutubeIsPlaying(false);
+                  if (state === "paused" || state === "ended")
+                    setYoutubeIsPlaying(false);
                 }}
               />
             </View>
