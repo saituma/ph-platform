@@ -2,8 +2,8 @@ import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
 import { Pressable, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
 import { Text } from "@/components/ScaledText";
+import { Button } from "@/components/ui/Button";
 
 interface ActionButtonProps {
   icon: any;
@@ -24,31 +24,18 @@ export function ActionButton({
   disabled = false,
   fullWidth = false,
 }: ActionButtonProps) {
-  const { isDark } = useAppTheme();
-
   if (fullWidth) {
     return (
-      <Pressable
+      <Button
+        label={label}
         onPress={onPress}
         disabled={disabled}
-        // UI polish: fixed 56px target, softer edges, and subtle border for clearer button hierarchy.
-        className={`w-full h-14 flex-row items-center justify-center px-5 rounded-2xl border border-app/10 ${color} ${disabled ? "opacity-55" : ""}`}
-        style={({ pressed }) => ({
-          transform: [{ scale: pressed ? 0.98 : 1 }],
-          opacity: pressed ? 0.95 : 1,
-          ...(isDark || disabled ? Shadows.none : Shadows.md),
-        })}
-      >
-        <Feather
-          name={icon}
-          size={20}
-          color={iconColor.startsWith("#") ? iconColor : undefined}
-          className={!iconColor.startsWith("#") ? iconColor : undefined}
-        />
-        <Text className="ml-3 text-base font-bold font-clash text-white">
-          {label}
-        </Text>
-      </Pressable>
+        icon={icon}
+        variant="none"
+        className={`h-14 border border-app/10 ${color}`}
+        textStyle={{ color: "white", fontFamily: "ClashDisplay-Bold" }}
+        iconSize={20}
+      />
     );
   }
 
@@ -63,7 +50,6 @@ export function ActionButton({
       })}
     >
       <View
-        // UI polish: preserve 44+ tap target and avoid hard-edged icon tiles.
         className={`w-14 h-14 ${color} rounded-2xl border border-app/10 items-center justify-center`}
       >
         <Feather

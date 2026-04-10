@@ -721,10 +721,14 @@ export default function TeamDetailPage() {
                             effectiveLockedTiersByModuleId.get(module.id) ?? []
                           }
                           onLock={(current) => {
+                            const effectiveLockedForTiers =
+                              effectiveLockedTiersByModuleId.get(current.id) ??
+                              current.lockedForTiers ??
+                              [];
                             setLockForm({
                               moduleId: current.id,
                               moduleTitle: current.title,
-                              programTiers: current.lockedForTiers,
+                              programTiers: effectiveLockedForTiers,
                             });
                             setLockModalOpen(true);
                           }}
