@@ -18,6 +18,7 @@ type AppTheme = {
 };
 
 export const AppThemeContext = createContext<AppTheme | null>(null);
+let warnedMissingThemeProvider = false;
 const persistTheme = async (key: string, value: string) => {
   try {
     await AsyncStorage.setItem(key, value);
@@ -29,7 +30,17 @@ export function useAppTheme() {
   const context = useContext(AppThemeContext);
 
   if (context === null) {
-    throw new Error("useAppTheme must be used within an AppThemeProvider");
+    if (!warnedMissingThemeProvider) {
+      console.warn("useAppTheme must be used within an AppThemeProvider");
+      warnedMissingThemeProvider = true;
+    }
+    return {
+      colorScheme: "light" as ColorSchemeName,
+      colors: Colors.light,
+      toggleColorScheme: () => {},
+      isSwitching: false,
+      isDark: false,
+    };
   }
   return context;
 }
