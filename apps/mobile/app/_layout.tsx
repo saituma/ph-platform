@@ -90,15 +90,51 @@ export default function RootLayout() {
               gestureEnabled: false,
             })}
           />
-          <Stack.Screen
-            name="messages/[id]"
-            options={({ route }: any) => ({
-              ...Transition.Presets.SharedAppleMusic({
-                sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
-              }),
-              gestureEnabled: false,
-            })}
-          />
+        <Stack.Screen
+          name="messages/[id]"
+          options={({ route }: any) => ({
+            ...Transition.Presets.SharedAppleMusic({
+              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+            }),
+            gestureEnabled: false,
+          })}
+        />
+        <Stack.Screen
+          name="team/messages/[id]"
+          options={({ route }: any) => ({
+            ...Transition.Presets.SharedAppleMusic({
+              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+            }),
+            gestureEnabled: false,
+          })}
+        />
+        <Stack.Screen
+          name="adult/messages/[id]"
+          options={({ route }: any) => ({
+            ...Transition.Presets.SharedAppleMusic({
+              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+            }),
+            gestureEnabled: false,
+          })}
+        />
+        <Stack.Screen
+          name="youth/messages/[id]"
+          options={({ route }: any) => ({
+            ...Transition.Presets.SharedAppleMusic({
+              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+            }),
+            gestureEnabled: false,
+          })}
+        />
+        <Stack.Screen
+          name="admin/messages/[id]"
+          options={({ route }: any) => ({
+            ...Transition.Presets.SharedAppleMusic({
+              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+            }),
+            gestureEnabled: false,
+          })}
+        />
           <Stack.Screen
             name="schedule/event"
             options={({ route }: any) => ({
