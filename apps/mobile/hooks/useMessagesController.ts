@@ -15,6 +15,11 @@ import { useChatActingUser } from "./messages/useChatActingUser";
 import { useChatState } from "./messages/useChatState";
 import { useChatAttachments } from "./messages/useChatAttachments";
 import { useChatActions } from "./messages/useChatActions";
+import {
+  getMessagesRolePrefix,
+  messagesTabHref,
+  messagesThreadHref,
+} from "@/lib/messages/roleMessageRoutes";
 
 export function useMessagesController() {
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
@@ -26,8 +31,14 @@ export function useMessagesController() {
   }>();
   const threadId = thread || id;
 
-  const { token, profile, programTier } = useAppSelector((state) => state.user);
+  const { token, profile, programTier, appRole, apiUserRole } = useAppSelector(
+    (state) => state.user,
+  );
   const { socket, setActiveThreadId } = useSocket();
+  const rolePrefix = useMemo(
+    () => getMessagesRolePrefix({ appRole, apiUserRole }),
+    [apiUserRole, appRole],
+  );
 
   const {
     actingUserId,
@@ -138,7 +149,7 @@ export function useMessagesController() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/(tabs)/messages");
+      router.replace(messagesTabHref);
     }
     setSelectedThread(null);
     setOpeningThreadId(null);
@@ -155,11 +166,11 @@ export function useMessagesController() {
       setOpeningThreadId(thread.id);
       setSelectedThread(thread);
       router.push({
-        pathname: "/messages/[id]",
+        pathname: `/${rolePrefix}/messages/[id]`,
         params: { id: thread.id, sharedBoundTag, sharedAvatarTag },
       } as any);
     },
-    [openingThreadId, router, threadId, setSelectedThread],
+    [openingThreadId, rolePrefix, router, threadId, setSelectedThread],
   );
 
   const resetOpeningThread = useCallback(() => {
@@ -583,7 +594,7 @@ export function useMessagesController() {
             openThread(thread);
             return;
           }
-          router.push(`/messages/${threadId}`);
+          router.push(messagesThreadHref(rolePrefix, threadId));
         },
       );
     });
@@ -597,6 +608,7 @@ export function useMessagesController() {
     router,
     sendReplyToThread,
     threads,
+    rolePrefix,
   ]);
 
   useEffect(() => {
