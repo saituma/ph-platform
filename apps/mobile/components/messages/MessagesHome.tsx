@@ -437,6 +437,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
         onRefresh={loadMessages}
         onOpenThread={openThread}
         variant={mode === "team" ? "team" : "default"}
+        showEmptySections={mode === "team"}
       />
     </SafeAreaView>
   );

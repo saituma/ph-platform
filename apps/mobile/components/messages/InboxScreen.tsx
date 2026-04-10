@@ -20,6 +20,7 @@ type InboxScreenProps = {
     avatarTag?: string,
   ) => void;
   variant?: "default" | "team";
+  showEmptySections?: boolean;
 };
 
 function getInitials(name?: string | null) {
@@ -195,6 +196,7 @@ function InboxScreenBase({
   onRefresh,
   onOpenThread,
   variant = "default",
+  showEmptySections = false,
 }: InboxScreenProps) {
   const { colors, isDark } = useAppTheme();
 
@@ -224,7 +226,7 @@ function InboxScreenBase({
                 shimmerColor={colors.backgroundSecondary}
               />
             ))
-          ) : threads.length > 0 || variant === "team" ? (
+          ) : threads.length > 0 || showEmptySections || variant === "team" ? (
             groupedSections.map((section) => (
               <View key={section.key} className="gap-3">
                 <View className="px-1 pt-1">
