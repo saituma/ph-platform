@@ -369,9 +369,9 @@ export default function HomeScreen() {
             <QuickLink
               index={0}
               icon="edit-3"
-              label="Submit Diary"
-              sublabel="Log your fuel"
-              onPress={() => router.push("/food-diary")}
+              label="Nutrition"
+              sublabel="Daily tracking"
+              onPress={() => router.push("/nutrition")}
               colors={colors}
               isDark={isDark}
             />

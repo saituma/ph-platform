@@ -14,7 +14,7 @@ import {
   deleteTrainingModuleSession,
   deleteTrainingOtherContent,
   deleteTrainingSessionItem,
-  finishTrainingModuleSession,
+  finishTrainingModuleSessionWithLog,
   getTrainingContentMobileWorkspace,
   listTrainingAudiences,
   listTrainingContentAdminWorkspace,
@@ -155,6 +155,14 @@ const updateOtherSettingSchema = z.object({
 const mobileAgeQuerySchema = z.object({
   age: z.coerce.number().int().min(1).max(100),
 });
+
+const finishTrainingSessionBodySchema = z
+  .object({
+    weightsUsed: z.string().max(2000).optional().nullable(),
+    repsCompleted: z.string().max(2000).optional().nullable(),
+    rpe: z.coerce.number().int().min(1).max(10).optional().nullable(),
+  })
+  .strict();
 
 export async function listTrainingAudiencesHandler(_req: Request, res: Response) {
   const items = await listTrainingAudiences();
@@ -395,6 +403,7 @@ export async function finishTrainingSessionHandler(req: Request, res: Response) 
     age,
     athleteId: athlete.id,
     programTier: athlete.currentProgramTier ?? null,
+    team: athlete.team ?? null,
   });
   const foundSession = workspace.modules
     .flatMap((module) => module.sessions)
@@ -405,9 +414,33 @@ export async function finishTrainingSessionHandler(req: Request, res: Response) 
   if (foundSession.locked) {
     return res.status(403).json({ error: "Session locked" });
   }
-  const item = await finishTrainingModuleSession({
+
+  const parsedBody = finishTrainingSessionBodySchema.safeParse(req.body ?? {});
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: "Invalid workout log" });
+  }
+
+  const weightsUsed =
+    typeof parsedBody.data.weightsUsed === "string"
+      ? parsedBody.data.weightsUsed.trim()
+      : "";
+  const repsCompleted =
+    typeof parsedBody.data.repsCompleted === "string"
+      ? parsedBody.data.repsCompleted.trim()
+      : "";
+  const rpe = typeof parsedBody.data.rpe === "number" ? parsedBody.data.rpe : null;
+
+  const hasWorkoutLog = Boolean(weightsUsed) || Boolean(repsCompleted) || rpe != null;
+  const item = await finishTrainingModuleSessionWithLog({
     athleteId: athlete.id,
     sessionId,
+    workoutLog: hasWorkoutLog
+      ? {
+          weightsUsed: weightsUsed ? weightsUsed : null,
+          repsCompleted: repsCompleted ? repsCompleted : null,
+          rpe,
+        }
+      : null,
   });
   return res.status(201).json({ item });
 }

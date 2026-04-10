@@ -1,5 +1,5 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
-import { FoodDiaryPanel } from "@/components/programs/panels/FoodDiaryPanel";
+import { NutritionPanel } from "@/components/programs/panels/NutritionPanel";
 import { canAccessTier } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
@@ -9,19 +9,23 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
-export default function FoodDiaryScreen() {
+export default function NutritionScreen() {
   const router = useRouter();
   const programTier = useAppSelector((state) => state.user.programTier);
+  const appRole = useAppSelector((state) => state.user.appRole);
   const { colors, isDark } = useAppTheme();
-  const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Premium_Plus");
+  
+  // Youths in team or PHP generally get standard access, Adult is Premium Plus restricted unless stated otherwise, but let's just make it universally accessible for now as part of "Nutrition Tracking".
+  // The system relies on Coach setting targets anyway.
+  const canAccessNutrition = true;
 
-  if (!canAccessFoodDiary) {
+  if (!canAccessNutrition) {
     return (
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <MoreStackHeader title="Food Diary" subtitle="Submit food diaries for coach feedback." />
+        <MoreStackHeader title="Nutrition" subtitle="Track wellness and intake." />
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-base font-outfit text-secondary text-center">
-            Food diary is available on PHP Premium Plus and Premium plans.
+            Nutrition and Wellness is available on Premium plans.
           </Text>
         </View>
       </SafeAreaView>
@@ -31,8 +35,8 @@ export default function FoodDiaryScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <MoreStackHeader
-        title="Food Diary"
-        subtitle="Log meals and submit for coach feedback."
+        title="Nutrition & Wellness"
+        subtitle="Log your daily data and metrics."
       />
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -40,7 +44,7 @@ export default function FoodDiaryScreen() {
         style={{ flex: 1 }}
       >
         <View className="px-4 pt-2">
-          <FoodDiaryPanel />
+          <NutritionPanel appRole={appRole} />
         </View>
       </ScrollView>
     </SafeAreaView>

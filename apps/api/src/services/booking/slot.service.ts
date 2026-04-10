@@ -7,13 +7,7 @@ import {
 } from "../../db/schema";
 
 export type ProgramTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
-export type ServiceTypeKind =
-  | "call"
-  | "group_call"
-  | "individual_call"
-  | "lift_lab_1on1"
-  | "role_model"
-  | "one_on_one";
+export type ServiceTypeKind = "one_to_one" | "semi_private" | "in_person";
 export type WeeklyEntry = { weekday: number; time: string };
 export type SlotDefinition = { time: string; capacity?: number | null };
 export type ServiceTypeRecord = typeof serviceTypeTable.$inferSelect;
@@ -24,7 +18,6 @@ export function normalizeEligiblePlans(service: Pick<ServiceTypeRecord, "eligibl
       value === "PHP" || value === "PHP_Premium" || value === "PHP_Premium_Plus" || value === "PHP_Pro",
     );
   }
-  if (service.type === "role_model") return ["PHP_Premium"];
   if (service.programTier) return [service.programTier as ProgramTier];
   return [];
 }

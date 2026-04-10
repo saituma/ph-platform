@@ -447,6 +447,28 @@ export const athleteTrainingSessionCompletionTable = pgTable(
   })
 );
 
+export const athleteTrainingSessionWorkoutLogTable = pgTable(
+  "athlete_training_session_workout_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer().notNull().references(() => athleteTable.id),
+    sessionId: integer().notNull().references(() => trainingModuleSessionTable.id),
+    weightsUsed: text(),
+    repsCompleted: text(),
+    rpe: integer(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("athlete_training_session_workout_logs_athlete_idx").on(table.athleteId),
+    sessionIdx: index("athlete_training_session_workout_logs_session_idx").on(table.sessionId),
+    athleteSessionUnique: uniqueIndex("athlete_training_session_workout_logs_unique").on(
+      table.athleteId,
+      table.sessionId,
+    ),
+  })
+);
+
 export const programSectionContentTable = pgTable("program_section_contents", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   sectionType: sessionType().notNull(),
@@ -971,3 +993,49 @@ export const runLogTable = pgTable(
     dateIdx: index("run_logs_date_idx").on(table.date),
   })
 );
+
+export const nutritionTargetsTable = pgTable("nutrition_targets", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }),
+  calories: integer(),
+  protein: integer(),
+  carbs: integer(),
+  fats: integer(),
+  micronutrientsGuidance: text(),
+  updatedBy: integer().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+}, (table) => ({
+  userIdUnique: uniqueIndex("nutrition_targets_user_unique").on(table.userId),
+}));
+
+export const nutritionLogsTable = pgTable("nutrition_logs", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }),
+  dateKey: varchar({ length: 10 }).notNull(), // 'YYYY-MM-DD'
+  athleteType: varchar({ length: 20 }).notNull().default("youth"), // 'youth' | 'adult'
+  
+  // Youth specific
+  breakfast: text(),
+  snacks: text(),
+  lunch: text(),
+  dinner: text(),
+  waterIntake: integer().default(0), // instances/ounces/mL
+  mood: integer(), // 1-5
+  energy: integer(), // 1-5
+  pain: integer(), // 1-5
+  
+  // Adult specific
+  foodDiary: text(),
+  
+  // Coach feedback
+  coachFeedback: text(),
+  coachId: integer().references(() => userTable.id),
+
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+}, (table) => ({
+  userDateUnique: uniqueIndex("nutrition_logs_user_date_unique").on(table.userId, table.dateKey),
+  userIdx: index("nutrition_logs_user_idx").on(table.userId),
+  dateIdx: index("nutrition_logs_date_idx").on(table.dateKey),
+}));

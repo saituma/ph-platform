@@ -28,3 +28,21 @@ export async function fetchSectionContent(token: string, type: string, tier: str
     { token, forceRefresh }
   );
 }
+
+export type FinishTrainingSessionWorkoutLog = {
+  weightsUsed?: string;
+  repsCompleted?: string;
+  rpe?: number;
+};
+
+export async function finishTrainingContentV2Session(
+  token: string,
+  sessionId: number,
+  workoutLog?: FinishTrainingSessionWorkoutLog | null,
+) {
+  const body = workoutLog && Object.keys(workoutLog).length ? workoutLog : undefined;
+  return apiRequest<{ item: any }>(
+    `/training-content-v2/mobile/sessions/${encodeURIComponent(String(sessionId))}/finish`,
+    { token, method: "POST", ...(body ? { body } : {}) },
+  );
+}

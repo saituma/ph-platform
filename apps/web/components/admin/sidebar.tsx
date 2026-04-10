@@ -195,7 +195,7 @@ export function AdminSidebarContent({
       description: "Bookings, food diary, referrals",
       items: [
         { label: "Schedule", href: "/bookings", icon: CalendarDays },
-        { label: "Food Diary", href: "/food-diary", icon: ClipboardCheck },
+        { label: "Nutrition & Wellness", href: "/nutrition", icon: ClipboardCheck },
         { label: "Referrals", href: "/physio-referrals", icon: Stethoscope },
       ],
     },

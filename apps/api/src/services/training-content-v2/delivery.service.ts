@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
 import {
   ProgramType,
   athleteTable,
   athleteTrainingSessionCompletionTable,
+  athleteTrainingSessionWorkoutLogTable,
 } from "../../db/schema";
 import {
   audienceScore,
@@ -245,18 +246,85 @@ export async function getTrainingContentMobileWorkspace(input: {
 }
 
 export async function finishTrainingModuleSession(input: { athleteId: number; sessionId: number }) {
-  const existing = await db
-    .select()
-    .from(athleteTrainingSessionCompletionTable)
-    .where(eq(athleteTrainingSessionCompletionTable.athleteId, input.athleteId));
-  const found = existing.find((row) => row.sessionId === input.sessionId);
-  if (found) return found;
-  const [row] = await db
-    .insert(athleteTrainingSessionCompletionTable)
-    .values({
-      athleteId: input.athleteId,
-      sessionId: input.sessionId,
-    })
-    .returning();
-  return row;
+  return finishTrainingModuleSessionWithLog({
+    athleteId: input.athleteId,
+    sessionId: input.sessionId,
+    workoutLog: null,
+  });
+}
+
+export async function finishTrainingModuleSessionWithLog(input: {
+  athleteId: number;
+  sessionId: number;
+  workoutLog: null | {
+    weightsUsed: string | null;
+    repsCompleted: string | null;
+    rpe: number | null;
+  };
+}) {
+  const now = new Date();
+
+  return db.transaction(async (tx) => {
+    if (input.workoutLog) {
+      await tx
+        .insert(athleteTrainingSessionWorkoutLogTable)
+        .values({
+          athleteId: input.athleteId,
+          sessionId: input.sessionId,
+          weightsUsed: input.workoutLog.weightsUsed,
+          repsCompleted: input.workoutLog.repsCompleted,
+          rpe: input.workoutLog.rpe,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [
+            athleteTrainingSessionWorkoutLogTable.athleteId,
+            athleteTrainingSessionWorkoutLogTable.sessionId,
+          ],
+          set: {
+            weightsUsed: input.workoutLog.weightsUsed,
+            repsCompleted: input.workoutLog.repsCompleted,
+            rpe: input.workoutLog.rpe,
+            updatedAt: now,
+          },
+        });
+    }
+
+    const [inserted] = await tx
+      .insert(athleteTrainingSessionCompletionTable)
+      .values({
+        athleteId: input.athleteId,
+        sessionId: input.sessionId,
+        completedAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({
+        target: [
+          athleteTrainingSessionCompletionTable.athleteId,
+          athleteTrainingSessionCompletionTable.sessionId,
+        ],
+      })
+      .returning();
+
+    if (inserted) return inserted;
+
+    const [existing] = await tx
+      .select()
+      .from(athleteTrainingSessionCompletionTable)
+      .where(
+        and(
+          eq(
+            athleteTrainingSessionCompletionTable.athleteId,
+            input.athleteId,
+          ),
+          eq(
+            athleteTrainingSessionCompletionTable.sessionId,
+            input.sessionId,
+          ),
+        ),
+      )
+      .limit(1);
+
+    return existing ?? null;
+  });
 }

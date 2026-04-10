@@ -51,14 +51,17 @@ export function useSessionData(token: string | null, age: number | null) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (force = false) => {
-    if (!token) return;
+    if (!token) return null;
     setIsLoading(true);
     try {
       const ageQ = age !== null ? `?age=${age}` : "";
       const response = await apiRequest<TrainingContentV2Workspace>(`/training-content-v2/mobile${ageQ}`, { token, forceRefresh: force });
       setWorkspace(response);
+      setError(null);
+      return response;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load session details.");
+      return null;
     } finally {
       setIsLoading(false);
     }
