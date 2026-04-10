@@ -56,7 +56,7 @@ export default function ProgramsScreen() {
   const tiers = useMemo<ProgramTierUI[]>(() => 
     PROGRAM_TIERS.map(t => ({
       ...t,
-      icon: t.id === "php" ? "pulse" : t.id === "plus" ? "layers" : "star",
+      icon: t.id === "php" ? "activity" : t.id === "plus" ? "layers" : "star",
       popular: t.id === "plus",
     })) as ProgramTierUI[], 
   []);
