@@ -31,6 +31,9 @@ import {
 } from "../../../../../../../../components/admin/training-content-v2/api";
 import { useCreateMediaUploadUrlMutation } from "../../../../../../../../lib/apiSlice";
 
+const TEAM_SESSION_BLOCK_TYPE = "main";
+const TEAM_SESSION_LEGACY_BLOCK_TYPES = new Set(["warmup", "main", "cooldown"]);
+
 export default function SessionDetailPage() {
   const params = useParams<{
     teamName: string;
@@ -60,7 +63,7 @@ export default function SessionDetailPage() {
   const [createUploadUrl] = useCreateMediaUploadUrlMutation();
   const [itemForm, setItemForm] = useState({
     id: null as number | null,
-    blockType: "warmup",
+    blockType: TEAM_SESSION_BLOCK_TYPE,
     title: "",
     body: "",
     videoUrl: "",
@@ -78,6 +81,30 @@ export default function SessionDetailPage() {
     equipment: "",
   });
 
+  const teamModule =
+    workspace?.modules.find((item) => item.id === moduleId) ?? null;
+  const session =
+    teamModule?.sessions.find((item) => item.id === sessionId) ?? null;
+
+  const mainBlockLabel = useMemo(() => {
+    return (
+      BLOCK_TYPES.find((block) => block.value === TEAM_SESSION_BLOCK_TYPE)
+        ?.label ?? "Main session"
+    );
+  }, []);
+
+  const sessionItemsForDisplay = useMemo(() => {
+    if (!session?.items?.length) return [];
+    return [...session.items]
+      .filter((item) => TEAM_SESSION_LEGACY_BLOCK_TYPES.has(item.blockType))
+      .sort((a, b) => {
+        const orderA = typeof a.order === "number" ? a.order : 0;
+        const orderB = typeof b.order === "number" ? b.order : 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.id - b.id;
+      });
+  }, [session?.items]);
+
   const loadWorkspace = async () => {
     try {
       setError(null);
@@ -93,11 +120,6 @@ export default function SessionDetailPage() {
   useEffect(() => {
     void loadWorkspace();
   }, [storageAudienceLabel]);
-
-  const module =
-    workspace?.modules.find((item) => item.id === moduleId) ?? null;
-  const session =
-    module?.sessions.find((item) => item.id === sessionId) ?? null;
 
   const uploadLocalVideo = async (file: File) => {
     const maxSizeMb = 250;
@@ -158,7 +180,7 @@ export default function SessionDetailPage() {
     try {
       const payload = {
         sessionId: session.id,
-        blockType: itemForm.blockType,
+        blockType: TEAM_SESSION_BLOCK_TYPE,
         title: itemForm.title,
         body: itemForm.body,
         videoUrl: itemForm.videoUrl.trim() || null,
@@ -179,7 +201,7 @@ export default function SessionDetailPage() {
       }
       setItemForm({
         id: null,
-        blockType: "warmup",
+        blockType: TEAM_SESSION_BLOCK_TYPE,
         title: "",
         body: "",
         videoUrl: "",
@@ -235,7 +257,7 @@ export default function SessionDetailPage() {
             onClick={() => {
               setItemForm({
                 id: null,
-                blockType: "warmup",
+                blockType: TEAM_SESSION_BLOCK_TYPE,
                 title: "",
                 body: "",
                 videoUrl: "",
@@ -267,97 +289,84 @@ export default function SessionDetailPage() {
           <CardHeader>
             <SectionHeader
               title={session ? session.title : "Session blocks"}
-              description="Manage the required warmup, main session, and cool down blocks. Add or edit items with the modal form."
+              description="Manage session items. Add or edit items with the modal form."
             />
           </CardHeader>
           <CardContent className="space-y-4">
-            {BLOCK_TYPES.map((block) => {
-              const items =
-                session?.items.filter(
-                  (item) => item.blockType === block.value,
-                ) ?? [];
-              return (
-                <div
-                  key={block.value}
-                  className="rounded-2xl border border-border p-4"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {block.label}
-                  </p>
-                  <div className="mt-3 space-y-3">
-                    {items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-xl border border-border bg-secondary/20 p-3"
+            <div className="rounded-2xl border border-border p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {mainBlockLabel}
+              </p>
+              <div className="mt-3 space-y-3">
+                {sessionItemsForDisplay.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-border bg-secondary/20 p-3"
+                  >
+                    <p className="font-semibold text-foreground">
+                      {item.order}. {item.title}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {item.body}
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setItemForm({
+                            id: item.id,
+                            blockType: TEAM_SESSION_BLOCK_TYPE,
+                            title: item.title,
+                            body: item.body,
+                            videoUrl: item.videoUrl ?? "",
+                            allowVideoUpload: Boolean(item.allowVideoUpload),
+                            order: String(item.order),
+                            sets:
+                              item.metadata?.sets != null
+                                ? String(item.metadata.sets)
+                                : "",
+                            reps:
+                              item.metadata?.reps != null
+                                ? String(item.metadata.reps)
+                                : "",
+                            duration:
+                              item.metadata?.duration != null
+                                ? String(item.metadata.duration)
+                                : "",
+                            restSeconds:
+                              item.metadata?.restSeconds != null
+                                ? String(item.metadata.restSeconds)
+                                : "",
+                            steps: item.metadata?.steps ?? "",
+                            cues: item.metadata?.cues ?? "",
+                            progression: item.metadata?.progression ?? "",
+                            regression: item.metadata?.regression ?? "",
+                            category: item.metadata?.category ?? "",
+                            equipment: item.metadata?.equipment ?? "",
+                          });
+                          setModalOpen(true);
+                        }}
                       >
-                        <p className="font-semibold text-foreground">
-                          {item.order}. {item.title}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {item.body}
-                        </p>
-                        <div className="mt-3 flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setItemForm({
-                                id: item.id,
-                                blockType: item.blockType,
-                                title: item.title,
-                                body: item.body,
-                                videoUrl: item.videoUrl ?? "",
-                                allowVideoUpload: Boolean(
-                                  item.allowVideoUpload,
-                                ),
-                                order: String(item.order),
-                                sets:
-                                  item.metadata?.sets != null
-                                    ? String(item.metadata.sets)
-                                    : "",
-                                reps:
-                                  item.metadata?.reps != null
-                                    ? String(item.metadata.reps)
-                                    : "",
-                                duration:
-                                  item.metadata?.duration != null
-                                    ? String(item.metadata.duration)
-                                    : "",
-                                restSeconds:
-                                  item.metadata?.restSeconds != null
-                                    ? String(item.metadata.restSeconds)
-                                    : "",
-                                steps: item.metadata?.steps ?? "",
-                                cues: item.metadata?.cues ?? "",
-                                progression: item.metadata?.progression ?? "",
-                                regression: item.metadata?.regression ?? "",
-                                category: item.metadata?.category ?? "",
-                                equipment: item.metadata?.equipment ?? "",
-                              });
-                              setModalOpen(true);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => void deleteItem(item.id)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    {!items.length ? (
-                      <p className="text-sm text-muted-foreground">
-                        No items added yet.
-                      </p>
-                    ) : null}
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void deleteItem(item.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                ))}
+                {!sessionItemsForDisplay.length ? (
+                  <p className="text-sm text-muted-foreground">
+                    No items added yet.
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -368,27 +377,10 @@ export default function SessionDetailPage() {
               {itemForm.id ? "Edit session item" : "Add session item"}
             </DialogTitle>
             <DialogDescription>
-              Add content to warmup, main session, or cool down for{" "}
-              {session?.title ?? "this session"}.
+              Add content for {session?.title ?? "this session"}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={itemForm.blockType}
-              onChange={(event) =>
-                setItemForm((current) => ({
-                  ...current,
-                  blockType: event.target.value,
-                }))
-              }
-            >
-              {BLOCK_TYPES.map((block) => (
-                <option key={block.value} value={block.value}>
-                  {block.label}
-                </option>
-              ))}
-            </select>
             <div className="flex gap-2">
               <Input
                 placeholder="Title"

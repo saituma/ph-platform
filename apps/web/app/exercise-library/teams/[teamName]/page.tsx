@@ -636,6 +636,28 @@ export default function TeamDetailPage() {
           <Link href={`/exercise-library?mode=team`}>
             <Button variant="outline">Back to teams</Button>
           </Link>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
+            <Link
+              href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}`}
+            >
+              <Button
+                size="sm"
+                variant={activeView === "modules" ? "secondary" : "ghost"}
+              >
+                Modules
+              </Button>
+            </Link>
+            <Link
+              href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}?view=others`}
+            >
+              <Button
+                size="sm"
+                variant={activeView === "others" ? "secondary" : "ghost"}
+              >
+                Others
+              </Button>
+            </Link>
+          </div>
           <div className="ml-auto flex flex-wrap gap-2">
             {activeView === "modules" ? (
               <>
