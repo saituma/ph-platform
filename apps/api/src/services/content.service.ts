@@ -12,6 +12,13 @@ import {
 } from "../db/schema";
 import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 
+const ADMIN_ROLES = new Set(["admin", "superadmin", "coach"]);
+
+function isAdminRole(role?: string | null) {
+  if (!role) return false;
+  return ADMIN_ROLES.has(role.toLowerCase());
+}
+
 const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
   PHP: 1,
   PHP_Premium: 2,
@@ -130,7 +137,7 @@ export async function getAnnouncements(userId?: number, role?: string) {
     .where(eq(contentTable.surface, "announcements"))
     .orderBy(desc(contentTable.updatedAt));
 
-  if (!userId || (role && ADMIN_ROLES.has(role))) {
+  if (!userId || isAdminRole(role)) {
     return items;
   }
 
@@ -236,10 +243,10 @@ export async function getLegalContentForUser() {
 }
 
 export async function getParentPlatformContent(userId: number, role?: string) {
-  if (role && !ADMIN_ROLES.has(role) && role !== "athlete") {
+  if (role && !isAdminRole(role) && role !== "athlete") {
     return [] as typeof contentTable.$inferSelect[];
   }
-  if (role && ADMIN_ROLES.has(role)) {
+  if (isAdminRole(role)) {
     return db.select().from(contentTable).where(eq(contentTable.surface, "parent_platform"));
   }
   const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
@@ -387,10 +394,10 @@ export async function getContentAiInsight(contentId: number, ageGroup?: string |
 
   if (!contentText) return null;
 
-  return generateContentSummary(item[0].title, contentText, ageGroup ?? undefined);
-}
+  return await generateContentSummary(item[0].title, contentText, ageGroup ?? undefined);
+  }
 
-type ParentCourseModule = {
+  type ParentCourseModule = {
   id: string;
   title: string;
   type: "article" | "video" | "pdf" | "faq";
@@ -398,11 +405,9 @@ type ParentCourseModule = {
   mediaUrl?: string | null;
   order: number;
   preview?: boolean | null;
-};
+  };
 
-const ADMIN_ROLES = new Set(["admin", "superAdmin", "coach"]);
-
-function normalizeModules(modules: ParentCourseModule[] | null | undefined) {
+  function normalizeModules(modules: ParentCourseModule[] | null | undefined) {
   if (!Array.isArray(modules)) return [] as ParentCourseModule[];
   return modules
     .map((module, index) => ({
@@ -442,7 +447,7 @@ function applyTierAccess(
 
 export async function listParentCourses(userId: number, role?: string) {
   const items = await db.select().from(parentCourseTable);
-  if (role && ADMIN_ROLES.has(role)) {
+  if (isAdminRole(role)) {
     return items.map((item) => ({ ...item, modules: normalizeModules(item.modules as any), isPreview: false }));
   }
   const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);

@@ -291,108 +291,103 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
       edges={["top"]}
       style={{ backgroundColor: colors.background }}
     >
-      <View className="px-6 pt-8 pb-5">
-        <View
-          className="rounded-[28px] border px-5 py-5"
-          style={{
-            backgroundColor: colors.card,
-            borderColor: colors.borderSubtle,
-          }}
-        >
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text
-                className="text-4xl font-telma-bold font-bold tracking-tight"
-                style={{ color: colors.text }}
-              >
-                Messages
-              </Text>
-              <Text
-                className="mt-2 text-base font-outfit"
-                style={{ color: colors.textSecondary }}
-              >
-                {heroSubtitle}
-              </Text>
-            </View>
-            <View
-              className="h-12 w-12 rounded-2xl items-center justify-center"
-              style={{ backgroundColor: colors.backgroundSecondary }}
+      <View className="px-6 pt-10 pb-6">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-4">
+            <Text
+              className="text-5xl font-telma-bold font-bold tracking-tight"
+              style={{ color: colors.text }}
             >
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={24}
-                color={colors.accent}
-              />
-            </View>
+              Messages
+            </Text>
+            <Text
+              className="mt-2.5 text-base font-outfit leading-relaxed"
+              style={{ color: colors.textSecondary }}
+            >
+              {heroSubtitle}
+            </Text>
           </View>
-          <View className="mt-4 flex-row flex-wrap gap-2">
-            <View
-              className="rounded-full px-3 py-2"
-              style={{ backgroundColor: colors.backgroundSecondary }}
-            >
-              <Text
-                className="text-[11px] font-outfit font-semibold"
-                style={{ color: colors.text }}
-              >
-                {sortedThreads.length} thread
-                {sortedThreads.length === 1 ? "" : "s"}
-              </Text>
-            </View>
-            <View
-              className="rounded-full px-3 py-2"
-              style={{ backgroundColor: colors.backgroundSecondary }}
-            >
-              <Text
-                className="text-[11px] font-outfit font-semibold"
-                style={{ color: colors.text }}
-              >
-                {unreadCount} unread
-              </Text>
-            </View>
-            <View
-              className="rounded-full px-3 py-2"
-              style={{ backgroundColor: colors.backgroundSecondary }}
-            >
-              <Text
-                className="text-[11px] font-outfit font-semibold"
-                style={{ color: colors.text }}
-              >
-                {isYouthAthleteRole ? "Coach support" : "Media sharing"}
-              </Text>
-            </View>
+          <View
+            className="h-16 w-16 rounded-[24px] items-center justify-center border"
+            style={{
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: colors.borderSubtle,
+            }}
+          >
+            <Ionicons
+              name="chatbubble-ellipses"
+              size={32}
+              color={colors.accent}
+            />
           </View>
-          {isYouthAthleteRole && sortedThreads[0] ? (
-            <Pressable
-              onPress={() => openThread(sortedThreads[0]!)}
-              className="mt-4 rounded-full py-3 items-center"
-              style={{ backgroundColor: colors.accent }}
+        </View>
+
+        <View className="mt-8 flex-row items-center gap-3">
+          <View
+            className="rounded-full px-4 py-2 border"
+            style={{
+              backgroundColor: "rgba(200, 241, 53, 0.08)",
+              borderColor: "rgba(200, 241, 53, 0.15)",
+            }}
+          >
+            <Text
+              className="text-[12px] font-outfit-bold font-bold uppercase tracking-wider"
+              style={{ color: colors.accent }}
             >
-              <Text className="text-sm font-outfit font-bold text-white">
-                Open latest thread
+              {sortedThreads.length} Thread{sortedThreads.length === 1 ? "" : "s"}
+            </Text>
+          </View>
+          {unreadCount > 0 && (
+            <View
+              className="rounded-full px-4 py-2"
+              style={{ backgroundColor: colors.danger }}
+            >
+              <Text className="text-[12px] font-outfit-bold font-bold text-white uppercase tracking-wider">
+                {unreadCount} New
               </Text>
-            </Pressable>
-          ) : null}
+            </View>
+          )}
+          <View
+            className="rounded-full px-4 py-2 border"
+            style={{
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: colors.borderSubtle,
+            }}
+          >
+            <Text
+              className="text-[12px] font-outfit font-semibold"
+              style={{ color: colors.textSecondary }}
+            >
+              {isYouthAthleteRole ? "Coach Support" : "Media Sharing"}
+            </Text>
+          </View>
         </View>
       </View>
 
-      <View className="px-6 pb-4">
+      <View className="px-6 pb-8">
         <Pressable
           onPress={() => router.push("/announcements" as any)}
-          className="rounded-[24px] border px-5 py-4"
+          className="rounded-[32px] border p-6 active:opacity-90"
           style={{
-            backgroundColor: colors.backgroundSecondary,
+            backgroundColor: colors.card,
             borderColor: colors.borderSubtle,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
           }}
         >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              <Ionicons
-                name="megaphone-outline"
-                size={18}
-                color={colors.accent}
-              />
+          <View className="flex-row items-center justify-between mb-5">
+            <View className="flex-row items-center gap-3">
+              <View
+                className="w-10 h-10 rounded-2xl items-center justify-center"
+                style={{ backgroundColor: "rgba(200, 241, 53, 0.12)" }}
+              >
+                <Ionicons
+                  name="megaphone"
+                  size={20}
+                  color={colors.accent}
+                />
+              </View>
               <Text
-                className="text-[12px] font-outfit font-bold uppercase tracking-[1.4px]"
+                className="text-[13px] font-outfit-bold font-bold uppercase tracking-[2px]"
                 style={{ color: colors.accent }}
               >
                 Announcements
@@ -400,62 +395,59 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
             </View>
             {announcementsMeta?.count ? (
               <View
-                className="rounded-full px-3 py-1"
-                style={{ backgroundColor: "rgba(34,197,94,0.12)" }}
+                className="h-8 w-8 rounded-full items-center justify-center"
+                style={{ backgroundColor: colors.accent }}
               >
-                <Text
-                  className="text-[11px] font-outfit font-bold"
-                  style={{ color: colors.accent }}
-                >
+                <Text className="text-[13px] font-outfit-bold font-bold text-black">
                   {announcementsMeta.count}
+                </Text>
+              </View>
+            ) : (
+              <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
+            )}
+          </View>
+
+          <View>
+            <Text
+              className="text-xl font-clash-bold font-bold"
+              style={{ color: colors.text }}
+              numberOfLines={1}
+            >
+              {announcementsMeta?.title || "No announcements yet"}
+            </Text>
+            <Text
+              className="mt-2 text-[14px] font-outfit leading-6"
+              style={{ color: colors.textSecondary }}
+              numberOfLines={2}
+            >
+              {announcementsMeta?.snippet ||
+                "Broadcast updates from your coach will appear here."}
+            </Text>
+            {announcementsMeta?.when ? (
+              <View className="mt-4 pt-4 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                <Text
+                  className="text-[12px] font-outfit-medium font-medium"
+                  style={{ color: colors.textDim }}
+                >
+                  Updated {announcementsMeta.when}
                 </Text>
               </View>
             ) : null}
           </View>
-          <Text
-            className="mt-2 text-base font-outfit font-semibold"
-            style={{ color: colors.text }}
-            numberOfLines={1}
-          >
-            {announcementsMeta?.title || "No announcements yet"}
-          </Text>
-          {announcementsMeta?.when ? (
-            <Text
-              className="mt-1 text-[12px] font-outfit"
-              style={{ color: colors.textSecondary }}
-            >
-              {announcementsMeta.when}
-            </Text>
-          ) : null}
-          <Text
-            className="mt-2 text-[13px] font-outfit leading-5"
-            style={{ color: colors.textSecondary }}
-            numberOfLines={2}
-          >
-            {announcementsMeta?.snippet ||
-              "Broadcast updates from your coach will appear here."}
-          </Text>
         </Pressable>
       </View>
 
-      {__DEV__ && mode === "team" ? (
-        <View className="px-6 pb-2">
-          <View
-            className="rounded-[18px] px-4 py-2 border"
-            style={{
-              backgroundColor: colors.backgroundSecondary,
-              borderColor: colors.borderSubtle,
-            }}
-          >
-            <Text
-              className="text-[11px] font-outfit font-semibold"
-              style={{ color: colors.text }}
-            >
-              Team mode debug — Team: {channelCounts.team}, Coach groups: {channelCounts.coach}, Direct: {channelCounts.direct}
-            </Text>
-          </View>
-        </View>
-      ) : null}
+      <View className="px-6 mb-4 flex-row items-center justify-between">
+        <Text className="text-[11px] font-outfit-bold font-bold uppercase tracking-[1.5px]" style={{ color: colors.textDim }}>
+          Your Inbox
+        </Text>
+        <Pressable className="flex-row items-center gap-1.5 active:opacity-70">
+          <Ionicons name="add-circle" size={18} color={colors.accent} />
+          <Text className="text-[13px] font-outfit-bold font-bold" style={{ color: colors.accent }}>
+            New Message
+          </Text>
+        </Pressable>
+      </View>
 
       <InboxScreen
         threads={inboxThreads}

@@ -1,10 +1,10 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { and, eq, inArray, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 
 import { db } from "../db";
 import { nutritionTargetsTable, nutritionLogsTable, userTable, notificationTable } from "../db/schema";
-import { env } from "../config/env";
+import { sendPushNotification } from "../services/push.service";
 
 const targetSchema = z.object({
   calories: z.number().int().min(0).optional().nullable(),
@@ -29,6 +29,8 @@ const logSchema = z.object({
 
 const feedbackSchema = z.object({
   feedback: z.string().max(2000),
+  mediaUrl: z.string().url().optional().nullable(),
+  mediaType: z.enum(["video", "image"]).optional().nullable(),
 });
 
 export async function getTargets(req: Request, res: Response) {
@@ -158,12 +160,17 @@ export async function provideFeedback(req: Request, res: Response) {
   const [existingLog] = await db.select().from(nutritionLogsTable).where(eq(nutritionLogsTable.id, logId)).limit(1);
   if (!existingLog) return res.status(404).json({ error: "Log not found" });
 
-  const [updatedLog] = await db.update(nutritionLogsTable)
-    .set({
-      coachFeedback: input.feedback,
-      coachId: req.user.id,
-      updatedAt: new Date()
-    })
+  const setUpdate: Record<string, any> = {
+    coachFeedback: input.feedback,
+    coachId: req.user.id,
+    updatedAt: new Date(),
+  };
+  if (input.mediaUrl !== undefined) setUpdate.coachFeedbackMediaUrl = input.mediaUrl;
+  if (input.mediaType !== undefined) setUpdate.coachFeedbackMediaType = input.mediaType;
+
+  const [updatedLog] = await db
+    .update(nutritionLogsTable)
+    .set(setUpdate)
     .where(eq(nutritionLogsTable.id, logId))
     .returning();
 
@@ -174,6 +181,13 @@ export async function provideFeedback(req: Request, res: Response) {
     content: "Coach responded to your nutrition tracking log.",
     link: "/programs"
   });
+
+  void sendPushNotification(
+    existingLog.userId,
+    "Nutrition response",
+    "Coach responded to your nutrition log.",
+    { type: "nutrition_feedback", url: "/programs" },
+  );
 
   return res.status(200).json({ log: updatedLog });
 }

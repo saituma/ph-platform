@@ -1030,6 +1030,8 @@ export const nutritionLogsTable = pgTable("nutrition_logs", {
   
   // Coach feedback
   coachFeedback: text(),
+  coachFeedbackMediaUrl: text(),
+  coachFeedbackMediaType: varchar({ length: 20 }),
   coachId: integer().references(() => userTable.id),
 
   createdAt: timestamp().notNull().defaultNow(),

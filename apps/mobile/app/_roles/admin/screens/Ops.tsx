@@ -7,6 +7,7 @@ import { useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated from "react-native-reanimated";
 
 import { OpsSection } from "@/types/admin";
 import { useAdminServices } from "@/hooks/admin/useAdminServices";
@@ -63,76 +64,87 @@ export default function AdminOpsScreen() {
         onRefresh={() => {
           if (section === "services") return servicesHook.loadServices(true);
         }}
+        contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <View className="pt-6 mb-4">
-          <View className="flex-row items-center gap-3 overflow-hidden">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <View className="flex-1">
-              <Text
-                className="text-4xl font-telma-bold text-app tracking-tight"
-                numberOfLines={1}
-              >
-                Ops
-              </Text>
-              <Text
-                className="text-[12px] font-outfit text-secondary"
-                numberOfLines={1}
-              >
-                {subtitle}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View className="flex-row gap-2 mb-4">
-          {(["bookings", "availability", "teams", "services"] as OpsSection[]).map((s) => (
-            <Chip
-              key={s}
-              label={s.charAt(0).toUpperCase() + s.slice(1)}
-              selected={section === s}
-              onPress={() => {
-                setSection(s);
-                setInitialAction(null);
-              }}
-            />
-          ))}
-        </View>
-
-        <View
-          className="rounded-[28px] border p-5"
-          style={{
-            backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.md),
-          }}
-        >
-          {!canLoad ? (
-            <Text selectable className="text-sm font-outfit text-secondary">
-              Admin tools will load after auth bootstrap.
+        <View className="pt-10 mb-8 px-6">
+          <View className="flex-row items-center gap-3 mb-2">
+            <View className="h-8 w-1.5 rounded-full bg-accent" />
+            <Text
+              className="text-5xl font-telma-bold text-app tracking-tight"
+              numberOfLines={1}
+            >
+              Ops
             </Text>
-          ) : (
-            <>
-              {section === "bookings" && (
-                <AdminBookingsSection
-                  token={token}
-                  canLoad={canLoad}
-                  services={servicesHook.services}
-                  initialAction={initialAction}
-                />
-              )}
-              {section === "availability" && (
-                <AdminAvailabilitySection
-                  token={token}
-                  canLoad={canLoad}
-                  services={servicesHook.services}
-                />
-              )}
-              {section === "services" && (
-                <AdminServicesSection token={token} canLoad={canLoad} />
-              )}
-              {section === "teams" && <AdminTeamsSection />}
-            </>
-          )}
+          </View>
+          <Text
+            className="text-base font-outfit text-secondary leading-relaxed"
+            numberOfLines={1}
+          >
+            {subtitle}
+          </Text>
+        </View>
+
+        <View className="mb-6">
+          <Animated.ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
+          >
+            {(
+              ["bookings", "availability", "teams", "services"] as OpsSection[]
+            ).map((s) => (
+              <Chip
+                key={s}
+                label={s.charAt(0).toUpperCase() + s.slice(1)}
+                selected={section === s}
+                onPress={() => {
+                  setSection(s);
+                  setInitialAction(null);
+                }}
+              />
+            ))}
+          </Animated.ScrollView>
+        </View>
+
+        <View className="px-6">
+          <View
+            className="rounded-[32px] border p-6"
+            style={{
+              backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+              borderColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(15,23,42,0.06)",
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            {!canLoad ? (
+              <Text selectable className="text-sm font-outfit text-secondary text-center py-8">
+                Admin tools will load after auth bootstrap.
+              </Text>
+            ) : (
+              <>
+                {section === "bookings" && (
+                  <AdminBookingsSection
+                    token={token}
+                    canLoad={canLoad}
+                    services={servicesHook.services}
+                    initialAction={initialAction}
+                  />
+                )}
+                {section === "availability" && (
+                  <AdminAvailabilitySection
+                    token={token}
+                    canLoad={canLoad}
+                    services={servicesHook.services}
+                  />
+                )}
+                {section === "services" && (
+                  <AdminServicesSection token={token} canLoad={canLoad} />
+                )}
+                {section === "teams" && <AdminTeamsSection />}
+              </>
+            )}
+          </View>
         </View>
       </ThemedScrollView>
     </View>

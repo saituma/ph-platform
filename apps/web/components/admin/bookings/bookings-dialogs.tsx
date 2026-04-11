@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../ui/dialog";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -23,9 +29,18 @@ export type BookingsDialog =
 
 function getRtkErrorMessage(err: unknown, fallback: string): string {
   if (typeof err === "object" && err !== null && "data" in err) {
-    const data = (err as { data?: { error?: string; issues?: { path: string[]; message: string }[] } }).data;
+    const data = (
+      err as {
+        data?: {
+          error?: string;
+          issues?: { path: string[]; message: string }[];
+        };
+      }
+    ).data;
     if (data?.error === "Invalid request" && Array.isArray(data.issues)) {
-      return data.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(" | ");
+      return data.issues
+        .map((i) => `${i.path.join(".")}: ${i.message}`)
+        .join(" | ");
     }
     if (typeof data?.error === "string") return data.error;
   }
@@ -84,7 +99,13 @@ type BookingsDialogsProps = {
     endTime?: string | null;
   } | null;
   services?: ServiceType[];
-  users?: { id: number; name?: string | null; email?: string | null; role?: string | null; athleteName?: string | null }[];
+  users?: {
+    id: number;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    athleteName?: string | null;
+  }[];
   selectedService?: ServiceType | null;
   onRefresh?: () => void;
   onApproveBooking?: (bookingId: number) => Promise<void>;
@@ -128,7 +149,10 @@ const formatDate = (date: Date) =>
 const formatTime = (date: Date) =>
   date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-function getEndTimeHint(startTime: string, durationMinutes: string): string | null {
+function getEndTimeHint(
+  startTime: string,
+  durationMinutes: string,
+): string | null {
   const duration = Number(durationMinutes);
   if (!startTime || !Number.isFinite(duration) || duration <= 0) return null;
   const match = /^(\d{2}):(\d{2})$/.exec(startTime);
@@ -139,7 +163,7 @@ function getEndTimeHint(startTime: string, durationMinutes: string): string | nu
   const startTotal = startHours * 60 + startMins;
   const endTotal = startTotal + duration;
   const dayOffset = Math.floor(endTotal / (24 * 60));
-  const endInDay = ((endTotal % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const endInDay = ((endTotal % (24 * 60)) + 24 * 60) % (24 * 60);
   const endHours = Math.floor(endInDay / 60);
   const endMins = endInDay % 60;
   const label = `${pad(endHours)}:${pad(endMins)}${dayOffset > 0 ? ` (+${dayOffset}d)` : ""}`;
@@ -183,9 +207,12 @@ export function BookingsDialogs({
   const [bookingLocation, setBookingLocation] = useState("");
   const [bookingMeetingLink, setBookingMeetingLink] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [createService, { isLoading: isCreatingService }] = useCreateServiceMutation();
-  const [updateService, { isLoading: isUpdatingService }] = useUpdateServiceMutation();
-  const [createAdminBooking, { isLoading: isCreatingBooking }] = useCreateAdminBookingMutation();
+  const [createService, { isLoading: isCreatingService }] =
+    useCreateServiceMutation();
+  const [updateService, { isLoading: isUpdatingService }] =
+    useUpdateServiceMutation();
+  const [createAdminBooking, { isLoading: isCreatingBooking }] =
+    useCreateAdminBookingMutation();
 
   useEffect(() => {
     if (active === "new-service") {
@@ -224,9 +251,14 @@ export function BookingsDialogs({
       setServiceName(selectedService.name ?? "");
       setServiceType(selectedService.type ?? "group_call");
       setDurationMinutes(String(selectedService.durationMinutes ?? 30));
-      setCapacity(selectedService.capacity ? String(selectedService.capacity) : "");
+      setCapacity(
+        selectedService.capacity ? String(selectedService.capacity) : "",
+      );
       setProgramTier(selectedService.programTier ?? "");
-      setEligiblePlans(selectedService.eligiblePlans ?? (selectedService.programTier ? [selectedService.programTier] : []));
+      setEligiblePlans(
+        selectedService.eligiblePlans ??
+          (selectedService.programTier ? [selectedService.programTier] : []),
+      );
       setSchedulePattern(selectedService.schedulePattern ?? "temporary");
       setOneTimeDate(selectedService.oneTimeDate ?? "");
       setOneTimeTime(selectedService.oneTimeTime ?? "");
@@ -245,7 +277,9 @@ export function BookingsDialogs({
       const name = user.name?.toLowerCase() ?? "";
       const email = user.email?.toLowerCase() ?? "";
       const athlete = user.athleteName?.toLowerCase() ?? "";
-      return name.includes(query) || email.includes(query) || athlete.includes(query);
+      return (
+        name.includes(query) || email.includes(query) || athlete.includes(query)
+      );
     });
   }, [guardianSearch, users]);
 
@@ -362,11 +396,14 @@ export function BookingsDialogs({
                   }}
                 />
                 <div className="text-xs text-muted-foreground">
-                  Capacity is used for shared-capacity services and can also backfill exact slots.
+                  Capacity is used for shared-capacity services and can also
+                  backfill exact slots.
                 </div>
               </div>
               <div className="space-y-2 rounded-2xl border border-border bg-secondary/20 p-4">
-                <p className="text-sm font-semibold text-foreground">Eligible plans</p>
+                <p className="text-sm font-semibold text-foreground">
+                  Eligible plans
+                </p>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {[
                     { value: "PHP", label: "PHP" },
@@ -374,15 +411,22 @@ export function BookingsDialogs({
                     { value: "PHP_Premium", label: "PHP Premium" },
                     { value: "PHP_Pro", label: "PHP Pro" },
                   ].map((plan) => (
-                    <label key={plan.value} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <label
+                      key={plan.value}
+                      className="flex items-center gap-2 text-sm text-muted-foreground"
+                    >
                       <input
                         type="checkbox"
                         checked={eligiblePlans.includes(plan.value)}
                         onChange={(event) => {
                           if (event.target.checked) {
-                            setEligiblePlans((current) => [...new Set([...current, plan.value])]);
+                            setEligiblePlans((current) => [
+                              ...new Set([...current, plan.value]),
+                            ]);
                           } else {
-                            setEligiblePlans((current) => current.filter((item) => item !== plan.value));
+                            setEligiblePlans((current) =>
+                              current.filter((item) => item !== plan.value),
+                            );
                           }
                         }}
                       />
@@ -392,8 +436,14 @@ export function BookingsDialogs({
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="service-schedule-pattern">Schedule pattern</Label>
-                <Select id="service-schedule-pattern" value={schedulePattern} onChange={(e) => setSchedulePattern(e.target.value)}>
+                <Label htmlFor="service-schedule-pattern">
+                  Schedule pattern
+                </Label>
+                <Select
+                  id="service-schedule-pattern"
+                  value={schedulePattern}
+                  onChange={(e) => setSchedulePattern(e.target.value)}
+                >
                   <option value="temporary">Temporary (one-time)</option>
                   <option value="permanent">Permanent</option>
                 </Select>
@@ -417,7 +467,9 @@ export function BookingsDialogs({
                     onChange={(e) => setOneTimeTime(e.target.value)}
                   />
                   {getEndTimeHint(oneTimeTime, durationMinutes) ? (
-                    <div className="text-xs text-muted-foreground">{getEndTimeHint(oneTimeTime, durationMinutes)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {getEndTimeHint(oneTimeTime, durationMinutes)}
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -439,7 +491,9 @@ export function BookingsDialogs({
                 Service is active (shown to clients while capacity remains)
               </label>
               <div className="space-y-1">
-                <Label htmlFor="service-default-location">Default location (optional)</Label>
+                <Label htmlFor="service-default-location">
+                  Default location (optional)
+                </Label>
                 <Input
                   id="service-default-location"
                   placeholder="Lift Lab — main floor"
@@ -473,15 +527,6 @@ export function BookingsDialogs({
                         serviceType === "role_model"
                           ? ["PHP_Premium"]
                           : eligiblePlans;
-                      const weeklyPayload = weeklyEntries
-                        .filter((entry) => entry.time)
-                        .map((entry) => ({ weekday: Number(entry.weekday), time: entry.time }));
-                      const slotPayload = slotDefinitions
-                        .filter((slot) => slot.time)
-                        .map((slot) => ({
-                          time: slot.time,
-                          capacity: slot.capacity ? Number(slot.capacity) : undefined,
-                        }));
                       const payload = {
                         name: serviceName,
                         type: serviceType,
@@ -490,7 +535,10 @@ export function BookingsDialogs({
                         attendeeVisibility,
                         defaultLocation: defaultLocation || undefined,
                         defaultMeetingLink: undefined,
-                        programTier: serviceType === "role_model" ? "PHP_Premium" : programTier || undefined,
+                        programTier:
+                          serviceType === "role_model"
+                            ? "PHP_Premium"
+                            : programTier || undefined,
                         eligiblePlans: normalizedEligiblePlans,
                         schedulePattern,
                         recurrenceEndMode: undefined,
@@ -515,7 +563,9 @@ export function BookingsDialogs({
                       onClose();
                     } catch (err: unknown) {
                       console.error("Service save error:", err);
-                      setError(getRtkErrorMessage(err, "Failed to save service."));
+                      setError(
+                        getRtkErrorMessage(err, "Failed to save service."),
+                      );
                     }
                   }}
                   disabled={isCreatingService || isUpdatingService}
@@ -555,12 +605,17 @@ export function BookingsDialogs({
                         {user.name ?? user.email ?? `User #${user.id}`}
                         {user.athleteName ? ` • ${user.athleteName}` : ""}
                       </span>
-                      <span className="text-xs text-muted-foreground">Select</span>
+                      <span className="text-xs text-muted-foreground">
+                        Select
+                      </span>
                     </button>
                   ))}
                 </div>
               ) : null}
-              <Select value={bookingUserId} onChange={(e) => setBookingUserId(e.target.value)}>
+              <Select
+                value={bookingUserId}
+                onChange={(e) => setBookingUserId(e.target.value)}
+              >
                 <option value="">Select guardian</option>
                 {filteredGuardians.map((user) => (
                   <option key={user.id} value={String(user.id)}>
@@ -569,7 +624,10 @@ export function BookingsDialogs({
                   </option>
                 ))}
               </Select>
-              <Select value={bookingServiceId} onChange={(e) => setBookingServiceId(e.target.value)}>
+              <Select
+                value={bookingServiceId}
+                onChange={(e) => setBookingServiceId(e.target.value)}
+              >
                 <option value="">Service type</option>
                 {services.map((service) => (
                   <option key={service.id} value={String(service.id)}>
@@ -578,7 +636,12 @@ export function BookingsDialogs({
                 ))}
               </Select>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Input type="date" placeholder="Date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
+                <Input
+                  type="date"
+                  placeholder="Date"
+                  value={bookingDate}
+                  onChange={(e) => setBookingDate(e.target.value)}
+                />
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -598,7 +661,10 @@ export function BookingsDialogs({
                   />
                 </div>
               </div>
-              <Select value={bookingStatus} onChange={(e) => setBookingStatus(e.target.value)}>
+              <Select
+                value={bookingStatus}
+                onChange={(e) => setBookingStatus(e.target.value)}
+              >
                 <option value="confirmed">Confirmed</option>
                 <option value="pending">Pending</option>
                 <option value="declined">Declined</option>
@@ -631,18 +697,24 @@ export function BookingsDialogs({
                       return;
                     }
                     const pad = (value: string) => value.padStart(2, "0");
-                    const startsAt = new Date(`${bookingDate}T${pad(bookingHour)}:${pad(bookingMinute)}:00`);
+                    const startsAt = new Date(
+                      `${bookingDate}T${pad(bookingHour)}:${pad(bookingMinute)}:00`,
+                    );
                     if (Number.isNaN(startsAt.getTime())) {
                       setError("Invalid date or time.");
                       return;
                     }
-                    const service = services.find((item) => String(item.id) === bookingServiceId);
+                    const service = services.find(
+                      (item) => String(item.id) === bookingServiceId,
+                    );
                     const duration = service?.durationMinutes ?? 0;
                     if (!duration) {
                       setError("Selected service has no duration.");
                       return;
                     }
-                    const endsAt = new Date(startsAt.getTime() + duration * 60000);
+                    const endsAt = new Date(
+                      startsAt.getTime() + duration * 60000,
+                    );
                     try {
                       await createAdminBooking({
                         userId: Number(bookingUserId),
@@ -656,7 +728,9 @@ export function BookingsDialogs({
                       onRefresh?.();
                       onClose();
                     } catch (err: unknown) {
-                      setError(getRtkErrorMessage(err, "Failed to create booking"));
+                      setError(
+                        getRtkErrorMessage(err, "Failed to create booking"),
+                      );
                     }
                   }}
                   disabled={isCreatingBooking}
@@ -670,12 +744,18 @@ export function BookingsDialogs({
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/40 px-4 py-3 text-sm">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Next 7 days</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    Next 7 days
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    {totalWeekBookings} booking{totalWeekBookings === 1 ? "" : "s"} scheduled.
+                    {totalWeekBookings} booking
+                    {totalWeekBookings === 1 ? "" : "s"} scheduled.
                   </p>
                 </div>
-                <Badge variant="outline" className="border-border text-muted-foreground">
+                <Badge
+                  variant="outline"
+                  className="border-border text-muted-foreground"
+                >
                   {formatDate(new Date())}
                 </Badge>
               </div>
@@ -687,8 +767,12 @@ export function BookingsDialogs({
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold text-foreground">{formatDay(day.date)}</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(day.date)}</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {formatDay(day.date)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(day.date)}
+                        </p>
                       </div>
                       <Badge variant="accent">{day.items.length}</Badge>
                     </div>
@@ -699,7 +783,9 @@ export function BookingsDialogs({
                         </div>
                       ) : (
                         day.items.map((booking) => {
-                          const startsAt = booking.startsAt ? new Date(booking.startsAt) : null;
+                          const startsAt = booking.startsAt
+                            ? new Date(booking.startsAt)
+                            : null;
                           const statusKey = booking.status ?? "confirmed";
                           return (
                             <div
@@ -708,19 +794,27 @@ export function BookingsDialogs({
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <span className="font-semibold text-foreground">
-                                  {startsAt ? formatTime(startsAt) : booking.time}
+                                  {startsAt
+                                    ? formatTime(startsAt)
+                                    : booking.time}
                                 </span>
                                 <Badge
                                   variant="outline"
-                                  className={STATUS_STYLES[statusKey] ?? "border-border text-muted-foreground"}
+                                  className={
+                                    STATUS_STYLES[statusKey] ??
+                                    "border-border text-muted-foreground"
+                                  }
                                 >
                                   {STATUS_LABELS[statusKey] ?? "Scheduled"}
                                 </Badge>
                               </div>
                               <p className="mt-1 text-[13px] text-foreground">
-                                {BOOKING_TYPE_LABELS[booking.type] ?? booking.name}
+                                {BOOKING_TYPE_LABELS[booking.type] ??
+                                  booking.name}
                               </p>
-                              <p className="text-muted-foreground">{booking.athlete}</p>
+                              <p className="text-muted-foreground">
+                                {booking.athlete}
+                              </p>
                             </div>
                           );
                         })
@@ -731,7 +825,8 @@ export function BookingsDialogs({
               </div>
               {bookings.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-secondary/30 p-4 text-center text-xs text-muted-foreground">
-                  No bookings found yet. Create a booking to populate the calendar.
+                  No bookings found yet. Create a booking to populate the
+                  calendar.
                 </div>
               ) : null}
             </div>
@@ -739,9 +834,12 @@ export function BookingsDialogs({
           {active === "booking-details" && selectedBooking ? (
             <>
               <div className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm">
-                <p className="font-semibold text-foreground">{selectedBooking.name}</p>
+                <p className="font-semibold text-foreground">
+                  {selectedBooking.name}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedBooking.athlete} • {selectedBooking.time} • {selectedBooking.type}
+                  {selectedBooking.athlete} • {selectedBooking.time} •{" "}
+                  {selectedBooking.type}
                 </p>
               </div>
               <div className="rounded-2xl border border-border bg-secondary/40 p-4 text-sm space-y-2">
@@ -775,7 +873,11 @@ export function BookingsDialogs({
                         try {
                           await onDeclineBooking(selectedBooking.id);
                         } catch (err: unknown) {
-                          setError(err instanceof Error ? err.message : "Failed to decline booking");
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "Failed to decline booking",
+                          );
                         }
                       }}
                       disabled={isApproving}
@@ -789,7 +891,11 @@ export function BookingsDialogs({
                         try {
                           await onApproveBooking(selectedBooking.id);
                         } catch (err: unknown) {
-                          setError(err instanceof Error ? err.message : "Failed to approve booking");
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "Failed to approve booking",
+                          );
                         }
                       }}
                       disabled={isApproving}

@@ -43,23 +43,25 @@ export function ActionButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className={`flex-1 items-center gap-2 ${disabled ? "opacity-55" : ""}`}
+      className={`flex-1 items-center gap-3 ${disabled ? "opacity-40" : ""}`}
       style={({ pressed }) => ({
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-        opacity: pressed ? 0.95 : 1,
+        transform: [{ scale: pressed ? 0.96 : 1 }],
       })}
     >
       <View
-        className={`w-14 h-14 ${color} rounded-2xl border border-app/10 items-center justify-center`}
+        className={`w-16 h-16 ${color} rounded-[22px] border border-white/10 items-center justify-center`}
+        style={{
+          boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+        }}
       >
         <Feather
           name={icon}
-          size={24}
+          size={28}
           color={iconColor.startsWith("#") ? iconColor : undefined}
           className={!iconColor.startsWith("#") ? iconColor : undefined}
         />
       </View>
-      <Text className="text-xs font-medium font-outfit text-secondary text-center">
+      <Text className="text-[13px] font-outfit-bold font-bold text-app text-center tracking-tight">
         {label}
       </Text>
     </Pressable>

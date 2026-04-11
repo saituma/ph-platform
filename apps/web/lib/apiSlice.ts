@@ -769,6 +769,33 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["FoodDiary"],
     }),
+    getFoodDiary: builder.query<
+      { items: any[] },
+      { q?: string; limit?: number } | void
+    >({
+      query: (params) => {
+        if (!params) return "/admin/food-diary";
+        const query = new URLSearchParams();
+        if (params.q) query.set("q", params.q);
+        if (params.limit) query.set("limit", String(params.limit));
+        const queryString = query.toString();
+        return queryString
+          ? `/admin/food-diary?${queryString}`
+          : "/admin/food-diary";
+      },
+      providesTags: ["FoodDiary"],
+    }),
+    reviewFoodDiary: builder.mutation<
+      { item: any },
+      { entryId: number; feedback?: string | null }
+    >({
+      query: ({ entryId, feedback }) => ({
+        url: `/admin/food-diary/${entryId}/review`,
+        method: "POST",
+        body: feedback === undefined ? {} : { feedback },
+      }),
+      invalidatesTags: ["FoodDiary"],
+    }),
     getPhysioReferrals: builder.query<
       { items: any[] },
       { q?: string; limit?: number } | void
@@ -1450,6 +1477,10 @@ export const {
   useMarkChatGroupReadMutation,
   useRejectTestimonialSubmissionMutation,
   useGetParentCoursesQuery,
+  useGetNutritionTargetsQuery,
+  useUpdateNutritionTargetsMutation,
+  useGetNutritionLogsQuery,
+  useReviewNutritionLogMutation,
   useGetFoodDiaryQuery,
   useReviewFoodDiaryMutation,
   useGetPhysioReferralsQuery,

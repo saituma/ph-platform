@@ -9,8 +9,9 @@ import { setAdminMessagesNavTarget } from "@/lib/admin/adminMessagesNav";
 import { useAppSelector } from "@/store/hooks";
 import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
 import type { PendingAttachment } from "@/types/admin-messages";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Linking, Modal, Platform, Pressable, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 
@@ -191,16 +192,6 @@ export default function AdminVideosScreen() {
     return lastSlash >= 0 ? uri.slice(lastSlash + 1) : uri;
   }, [responseVideoAttachment]);
 
-  const openVideoUrl = useCallback(async () => {
-    const url = selectedVideo?.videoUrl;
-    if (!url) return;
-    try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert("Unable to open link", url);
-    }
-  }, [selectedVideo?.videoUrl]);
-
   const replyInMessages = useCallback(() => {
     const userId =
       selectedVideo?.athleteUserId == null
@@ -293,6 +284,7 @@ export default function AdminVideosScreen() {
         source === "camera"
           ? await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              cameraType: ImagePicker.CameraType.front,
               quality: 1,
             })
           : await ImagePicker.launchImageLibraryAsync({
@@ -633,12 +625,22 @@ export default function AdminVideosScreen() {
                 ) : null}
                 {selectedVideo?.videoUrl ? (
                   <View className="mt-3">
-                    <SmallAction
-                      label="Open video"
-                      tone="neutral"
-                      onPress={openVideoUrl}
-                      disabled={false}
-                    />
+                    <View
+                      className="overflow-hidden rounded-3xl border"
+                      style={{
+                        borderColor: isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(15,23,42,0.08)",
+                      }}
+                    >
+                      <VideoPlayer
+                        uri={String(selectedVideo.videoUrl)}
+                        height={220}
+                        autoPlay={false}
+                        initialMuted={false}
+                        isLooping={false}
+                      />
+                    </View>
                   </View>
                 ) : null}
 
@@ -711,12 +713,30 @@ export default function AdminVideosScreen() {
                 </Text>
 
                 {responseVideoAttachment ? (
-                  <Text
-                    className="text-[12px] font-outfit text-secondary mb-3"
-                    numberOfLines={2}
-                  >
-                    Selected: {responseVideoLabel}
-                  </Text>
+                  <View className="gap-2 mb-3">
+                    <Text
+                      className="text-[12px] font-outfit text-secondary"
+                      numberOfLines={2}
+                    >
+                      Selected: {responseVideoLabel}
+                    </Text>
+                    <View
+                      className="overflow-hidden rounded-3xl border"
+                      style={{
+                        borderColor: isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(15,23,42,0.08)",
+                      }}
+                    >
+                      <VideoPlayer
+                        uri={responseVideoAttachment.uri}
+                        height={200}
+                        autoPlay={false}
+                        initialMuted={false}
+                        isLooping={false}
+                      />
+                    </View>
+                  </View>
                 ) : (
                   <Text className="text-[12px] font-outfit text-secondary mb-3">
                     Choose or record a video to send to the athlete.
