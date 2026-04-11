@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 import { env } from "../config/env";
 
-type ActionType = "approve" | "decline";
+export type BookingActionType = "approve" | "decline" | "review";
 
 const VERSION = "v1";
 const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -21,7 +21,7 @@ function signPayload(payload: string) {
 
 export function createBookingActionToken(input: {
   bookingId: number;
-  action: ActionType;
+  action: BookingActionType;
   expiresAt?: Date;
 }) {
   const exp = (input.expiresAt ?? new Date(Date.now() + DEFAULT_TTL_MS)).getTime();
@@ -41,8 +41,8 @@ export function verifyBookingActionToken(token: string) {
   if (version !== VERSION) return null;
   const bookingId = Number(bookingIdRaw);
   if (!Number.isFinite(bookingId) || bookingId <= 0) return null;
-  if (actionRaw !== "approve" && actionRaw !== "decline") return null;
+  if (actionRaw !== "approve" && actionRaw !== "decline" && actionRaw !== "review") return null;
   const exp = Number(expRaw);
   if (!Number.isFinite(exp) || Date.now() > exp) return null;
-  return { bookingId, action: actionRaw as ActionType, expiresAt: new Date(exp) };
+  return { bookingId, action: actionRaw as BookingActionType, expiresAt: new Date(exp) };
 }

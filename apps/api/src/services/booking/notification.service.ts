@@ -19,12 +19,9 @@ export async function notifyBookingRequested(input: {
   location?: string | null;
   meetingLink?: string | null;
 }) {
-  const publicApiBase = env.publicApiBaseUrl ? env.publicApiBaseUrl.replace(/\/$/, "") : "";
   const adminWebBase = env.adminWebUrl ? env.adminWebUrl.replace(/\/$/, "") : "";
-  const approveToken = createBookingActionToken({ bookingId: input.bookingId, action: "approve" });
-  const declineToken = createBookingActionToken({ bookingId: input.bookingId, action: "decline" });
-  const approveUrl = publicApiBase && approveToken ? `${publicApiBase}/api/public/booking-action?token=${approveToken}` : undefined;
-  const declineUrl = publicApiBase && declineToken ? `${publicApiBase}/api/public/booking-action?token=${declineToken}` : undefined;
+  const reviewToken = createBookingActionToken({ bookingId: input.bookingId, action: "review" });
+  const reviewUrl = adminWebBase && reviewToken ? `${adminWebBase}/booking-action?token=${reviewToken}` : undefined;
   const adminUrl = adminWebBase ? `${adminWebBase}/bookings/${input.bookingId}` : undefined;
 
   const [guardian] = await db
@@ -65,8 +62,7 @@ export async function notifyBookingRequested(input: {
         athleteName: athlete?.name ?? undefined,
         location: input.location ?? undefined,
         meetingLink: input.meetingLink ?? undefined,
-        approveUrl,
-        declineUrl,
+        reviewUrl,
         adminUrl,
       });
     } catch (error) {
@@ -76,7 +72,7 @@ export async function notifyBookingRequested(input: {
 
   await db.insert(notificationTable).values({
     userId: guardian.userId,
-    type: "booking_confirmed",
+    type: "booking_requested",
     content: `Booking requested for ${input.serviceName} at ${input.startsAt.toISOString()}`,
     link: "/schedule",
   });
