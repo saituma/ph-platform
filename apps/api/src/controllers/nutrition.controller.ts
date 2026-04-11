@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, gte, lte } from "drizzle-orm";
 
 import { db } from "../db";
 import { nutritionTargetsTable, nutritionLogsTable, userTable, notificationTable } from "../db/schema";
@@ -96,9 +96,18 @@ export async function listLogs(req: Request, res: Response) {
   }
 
   const limitRaw = req.query.limit ? Number(req.query.limit) : 50;
+  const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+  const from = typeof req.query.from === "string" ? req.query.from : undefined;
+  const to = typeof req.query.to === "string" ? req.query.to : undefined;
+  const fromKey = from ? dateKeySchema.parse(from) : null;
+  const toKey = to ? dateKeySchema.parse(to) : null;
+
+  const whereClauses = [eq(nutritionLogsTable.userId, targetUserId)];
+  if (fromKey) whereClauses.push(gte(nutritionLogsTable.dateKey, fromKey));
+  if (toKey) whereClauses.push(lte(nutritionLogsTable.dateKey, toKey));
 
   const logs = await db.select().from(nutritionLogsTable)
-    .where(eq(nutritionLogsTable.userId, targetUserId))
+    .where(and(...whereClauses))
     .orderBy(desc(nutritionLogsTable.dateKey))
     .limit(limitRaw);
 
