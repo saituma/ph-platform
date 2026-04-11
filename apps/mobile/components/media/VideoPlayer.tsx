@@ -39,6 +39,26 @@ import { useVideoPlayerEngine } from "../../hooks/media/useVideoPlayerEngine";
 
 export { YouTubeEmbed, isYoutubeUrl, normalizeUrl, YouTubeEmbedHandle };
 
+function isYoutubeShortsUrl(url: string): boolean {
+  const raw = normalizeUrl(url);
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.toLowerCase();
+    // Shorts are only reliably identifiable by the pathname, not by query params like `feature=shorts`.
+    const isYoutubeHost =
+      host === "youtube.com" ||
+      host === "www.youtube.com" ||
+      host === "m.youtube.com" ||
+      host.endsWith(".youtube.com");
+    if (!isYoutubeHost) return false;
+    return u.pathname.toLowerCase().startsWith("/shorts/");
+  } catch {
+    // Fallback: only match actual path segment, not `feature=shorts` etc.
+    return /(^|\/)shorts\/[A-Za-z0-9_-]{6,}/i.test(raw);
+  }
+}
+
 interface VideoPlayerProps {
   uri: string;
   height?: number;
@@ -123,8 +143,11 @@ export function VideoPlayer({
 
   const normalizedUri = normalizeUrl(uri);
   const isYoutube = isYoutubeUrl(normalizedUri);
+  const enableYoutubeShortsAspect =
+    process.env.EXPO_PUBLIC_ENABLE_YOUTUBE_SHORTS_ASPECT === "1" ||
+    process.env.EXPO_PUBLIC_ENABLE_YOUTUBE_SHORTS_ASPECT === "true";
   const isYoutubeShorts =
-    isYoutube && /youtube\.com\/shorts\//i.test(normalizedUri);
+    enableYoutubeShortsAspect && isYoutube && isYoutubeShortsUrl(normalizedUri);
   const isLoom = /loom\.com/i.test(normalizedUri);
   const loomEmbedUrl = useMemo(() => {
     if (!isLoom) return null;
@@ -339,6 +362,8 @@ export function VideoPlayer({
         <YouTubeEmbed
           ref={inlineYouTubeRef as any}
           url={uri}
+          width={containerSize.width}
+          height={resolvedHeight}
           shouldPlay={
             !fullscreenOpen && effectiveShouldPlay && youtubeIsPlaying
           }
@@ -504,6 +529,9 @@ export function VideoPlayer({
                 url={uri}
                 shouldPlay={youtubeIsPlaying}
                 initialMuted={initialMuted}
+                // Fullscreen sizing is explicit; keep the player locked to the rotated container.
+                width={fullscreenWidth}
+                height={fullscreenHeight}
                 onPlayerReady={() => {
                   if (youtubeResumeTime > 0) {
                     modalYouTubeRef.current?.seekTo(youtubeResumeTime);

@@ -7,7 +7,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
-import { VideoPlayer, isYoutubeUrl, YouTubeEmbed } from "@/components/media/VideoPlayer";
+import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -110,7 +110,11 @@ const ExternalLinkButton = React.memo(function ExternalLinkButton({ url, label }
 
 const MediaSection = React.memo(function MediaSection({ url, title }: { url: string; title?: string }) {
   if (isYoutubeUrl(url)) {
-    return <YouTubeEmbed url={url} />;
+    return (
+      <View className="rounded-3xl overflow-hidden bg-white/5">
+        <VideoPlayer uri={url} title={title} ignoreTabFocus />
+      </View>
+    );
   }
 
   if (isGoogleDriveUrl(url)) {

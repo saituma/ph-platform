@@ -9,6 +9,8 @@ import {
   updateAthleteProfilePicture,
   listGuardianAthletesWithUsers,
   setActiveGuardianAthlete,
+  getGuardianAthleteOnboardingData,
+  updateGuardianAthleteOnboardingData,
 } from "../services/onboarding.service";
 import { AthleteType, ProgramType } from "../db/schema";
 import { calculateAge, clampYouthAge, parseISODate } from "../lib/age";
@@ -43,6 +45,25 @@ const onboardingSchema = z.object({
 const athletePhotoSchema = z.object({
   profilePicture: z.string().url().nullable(),
 });
+
+const athleteOnboardingPatchSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    birthDate: z.string().optional(),
+    team: z.string().optional().nullable(),
+    trainingPerWeek: z.number().int().min(0).optional(),
+    injuries: z.unknown().optional(),
+    growthNotes: z.string().optional().nullable(),
+    performanceGoals: z.string().optional().nullable(),
+    equipmentAccess: z.string().optional().nullable(),
+    extraResponses: z.record(z.string(), z.any()).optional(),
+
+    // Backward-compatible fields used by older mobile builds
+    height: z.string().optional().nullable(),
+    weight: z.string().optional().nullable(),
+    position: z.string().optional().nullable(),
+  })
+  .strict();
 
 export async function submitOnboarding(req: Request, res: Response) {
   const parsed = onboardingSchema.safeParse(req.body);
@@ -141,4 +162,61 @@ export async function selectActiveAthlete(req: Request, res: Response) {
     return res.status(404).json({ error: "Athlete not found" });
   }
   return res.status(200).json({ guardian: { id: updated.id, activeAthleteId: updated.activeAthleteId ?? null } });
+}
+
+export async function getGuardianAthlete(req: Request, res: Response) {
+  const athleteId = Number(req.params.athleteId);
+  if (!Number.isFinite(athleteId) || athleteId <= 0) {
+    return res.status(400).json({ error: "Invalid athlete id" });
+  }
+
+  const athlete = await getGuardianAthleteOnboardingData({
+    userId: req.user!.id,
+    athleteId,
+  });
+
+  if (!athlete) {
+    return res.status(404).json({ error: "Athlete not found" });
+  }
+
+  return res.status(200).json({ athlete });
+}
+
+export async function updateGuardianAthlete(req: Request, res: Response) {
+  const athleteId = Number(req.params.athleteId);
+  if (!Number.isFinite(athleteId) || athleteId <= 0) {
+    return res.status(400).json({ error: "Invalid athlete id" });
+  }
+
+  const parsed = athleteOnboardingPatchSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+
+  try {
+    const updated = await updateGuardianAthleteOnboardingData({
+      userId: req.user!.id,
+      athleteId,
+      name: parsed.data.name,
+      birthDate: parsed.data.birthDate,
+      team: parsed.data.team,
+      trainingPerWeek: parsed.data.trainingPerWeek,
+      injuries: parsed.data.injuries,
+      growthNotes: parsed.data.growthNotes,
+      performanceGoals: parsed.data.performanceGoals,
+      equipmentAccess: parsed.data.equipmentAccess,
+      extraResponses: parsed.data.extraResponses,
+      height: parsed.data.height,
+      weight: parsed.data.weight,
+      position: parsed.data.position,
+    });
+
+    if (!updated) {
+      return res.status(404).json({ error: "Athlete not found" });
+    }
+
+    return res.status(200).json({ ok: true });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message ?? "Invalid request" });
+  }
 }

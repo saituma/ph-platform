@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import {
   listBookingsAdmin,
   getBookingByIdAdmin,
+  updateBookingDetailsAdmin,
   updateBookingStatusAdmin,
   listAvailabilityAdmin,
 } from "../../services/admin/booking.service";
@@ -24,6 +25,7 @@ const adminBookingSchema = z.object({
   endsAt: z.string().datetime(),
   location: z.string().optional().nullable(),
   meetingLink: z.string().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
   status: z.enum(["pending", "confirmed", "declined", "cancelled"]).optional(),
 });
 
@@ -68,6 +70,7 @@ export async function createBookingAdmin(req: Request, res: Response) {
     createdBy: req.user!.id,
     location: input.location ?? undefined,
     meetingLink: input.meetingLink ?? undefined,
+    notes: input.notes ?? null,
     bypassAvailability: true,
   });
 
@@ -84,8 +87,31 @@ export async function updateBookingStatus(req: Request, res: Response) {
   const body = z
     .object({
       status: z.enum(["pending", "confirmed", "declined", "cancelled"]),
+      startsAt: z.string().datetime().optional(),
+      endTime: z.string().datetime().optional().nullable(),
+      location: z.string().optional().nullable(),
+      meetingLink: z.string().optional().nullable(),
     })
     .parse(req.body);
+
+  if (
+    body.startsAt !== undefined ||
+    body.endTime !== undefined ||
+    body.location !== undefined ||
+    body.meetingLink !== undefined
+  ) {
+    const updated = await updateBookingDetailsAdmin({
+      bookingId,
+      startsAt: body.startsAt !== undefined ? new Date(body.startsAt) : undefined,
+      endTime: body.endTime !== undefined ? (body.endTime ? new Date(body.endTime) : null) : undefined,
+      location: body.location,
+      meetingLink: body.meetingLink,
+    });
+    if (!updated) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+  }
+
   const booking = await updateBookingStatusAdmin({ bookingId, status: body.status });
   if (!booking) {
     return res.status(404).json({ error: "Booking not found" });

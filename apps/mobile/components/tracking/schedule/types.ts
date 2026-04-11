@@ -19,9 +19,13 @@ export type ScheduleEvent = {
 export type ServiceType = {
   id: number;
   name: string;
+  description?: string | null;
   type: string;
   durationMinutes: number;
   capacity?: number | null;
+  eligiblePlans?: string[] | null;
+  isLocked?: boolean;
+  lockReason?: string | null;
   oneTimeDate?: string | null;
   oneTimeTime?: string | null;
   attendeeVisibility?: boolean | null;

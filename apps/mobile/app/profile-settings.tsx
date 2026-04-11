@@ -16,6 +16,7 @@ import { useProfileSettings } from "@/components/more/profile/hooks/useProfileSe
 import { AvatarSection } from "@/components/more/profile/AvatarSection";
 import { ManagedAthletesSection } from "@/components/more/profile/ManagedAthletesSection";
 import { DebugPushSection } from "@/components/more/profile/DebugPushSection";
+import { AthleteOnboardingSection } from "@/components/more/profile/AthleteOnboardingSection";
 
 export default function ProfileSettingsScreen() {
   const { isSectionHidden } = useAgeExperience();
@@ -27,10 +28,36 @@ export default function ProfileSettingsScreen() {
     pushRegistration,
     managedAthletes,
     managedAthleteCount,
+    activeAthleteId,
+    hasLoadedAthleteDetails,
     name,
     setName,
     email,
     pushToken,
+    height,
+    setHeight,
+    weight,
+    setWeight,
+    position,
+    setPosition,
+    athleteName,
+    setAthleteName,
+    athleteBirthDate,
+    setAthleteBirthDate,
+    athleteTeam,
+    setAthleteTeam,
+    athleteTrainingPerWeek,
+    setAthleteTrainingPerWeek,
+    athleteInjuries,
+    setAthleteInjuries,
+    athleteGrowthNotes,
+    setAthleteGrowthNotes,
+    athletePerformanceGoals,
+    setAthletePerformanceGoals,
+    athleteEquipmentAccess,
+    setAthleteEquipmentAccess,
+    athleteExtraResponses,
+    setExtraResponseField,
     isUploadingAvatar,
     pendingAvatarUri,
     setPendingAvatarUri,
@@ -43,7 +70,12 @@ export default function ProfileSettingsScreen() {
   } = useProfileSettings();
 
   if (isSectionHidden("settings")) {
-    return <AgeGate title="Settings locked" message="Settings are restricted for this age." />;
+    return (
+      <AgeGate
+        title="Settings locked"
+        message="Settings are restricted for this age."
+      />
+    );
   }
 
   const handleRefresh = async () => {
@@ -87,6 +119,35 @@ export default function ProfileSettingsScreen() {
               managedAthleteCount={managedAthleteCount}
             />
 
+            {activeAthleteId && hasLoadedAthleteDetails ? (
+              <AthleteOnboardingSection
+                athleteName={athleteName}
+                setAthleteName={setAthleteName}
+                athleteBirthDate={athleteBirthDate}
+                setAthleteBirthDate={setAthleteBirthDate}
+                athleteTeam={athleteTeam}
+                setAthleteTeam={setAthleteTeam}
+                athleteTrainingPerWeek={athleteTrainingPerWeek}
+                setAthleteTrainingPerWeek={setAthleteTrainingPerWeek}
+                athleteInjuries={athleteInjuries}
+                setAthleteInjuries={setAthleteInjuries}
+                athleteGrowthNotes={athleteGrowthNotes}
+                setAthleteGrowthNotes={setAthleteGrowthNotes}
+                athletePerformanceGoals={athletePerformanceGoals}
+                setAthletePerformanceGoals={setAthletePerformanceGoals}
+                athleteEquipmentAccess={athleteEquipmentAccess}
+                setAthleteEquipmentAccess={setAthleteEquipmentAccess}
+                height={height}
+                setHeight={setHeight}
+                weight={weight}
+                setWeight={setWeight}
+                position={position}
+                setPosition={setPosition}
+                athleteExtraResponses={athleteExtraResponses}
+                setExtraResponseField={setExtraResponseField}
+              />
+            ) : null}
+
             <ActionButton
               label={isSaving ? "Saving..." : "Save Changes"}
               icon="check"
@@ -94,6 +155,7 @@ export default function ProfileSettingsScreen() {
               iconColor="text-white"
               onPress={handleSave}
               fullWidth={true}
+              size="xl"
             />
 
             <DebugPushSection

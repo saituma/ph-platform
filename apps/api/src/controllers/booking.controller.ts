@@ -84,6 +84,7 @@ const bookingSchema = z.object({
   slotKey: z.string().datetime().optional(),
   location: z.string().optional(),
   meetingLink: z.string().optional(),
+  notes: z.string().max(2000).optional(),
   timezoneOffsetMinutes: z.number().int().optional(),
 }).refine((input) => Boolean(input.occurrenceKey || (input.startsAt && input.endsAt)), {
   message: "Either occurrenceKey or startsAt/endsAt is required",
@@ -105,8 +106,13 @@ export async function listServices(req: Request, res: Response) {
   const includeInactive =
     req.query.includeInactive === "true" &&
     ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "");
+  const includeLocked = req.query.includeLocked === "true";
   const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
-  const items = await listServiceTypes({ includeInactive, viewerProgramTier: athlete?.currentProgramTier as any });
+  const items = await listServiceTypes({
+    includeInactive,
+    includeLocked,
+    viewerProgramTier: athlete?.currentProgramTier as any,
+  });
   if (includeInactive || ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "")) {
     return res.status(200).json({ items });
   }
@@ -238,6 +244,7 @@ export async function createBookingForUser(req: Request, res: Response) {
       slotKey: input.slotKey ?? null,
       createdBy: req.user!.id,
       viewerProgramTier: athlete.currentProgramTier as any,
+      notes: input.notes ?? null,
       timezoneOffsetMinutes: input.timezoneOffsetMinutes,
     });
 

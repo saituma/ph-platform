@@ -8,7 +8,10 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { BookingServicesPanel } from "../../components/admin/bookings/booking-services-panel";
-import { BookingsDialogs, type BookingsDialog } from "../../components/admin/bookings/bookings-dialogs";
+import {
+  BookingsDialogs,
+  type BookingsDialog,
+} from "../../components/admin/bookings/bookings-dialogs";
 import { BookingsFilters } from "../../components/admin/bookings/bookings-filters";
 import { BookingsList } from "../../components/admin/bookings/bookings-list";
 import {
@@ -20,6 +23,7 @@ import {
 
 type BookingItem = {
   id: number;
+  serviceTypeId?: number | null;
   name: string;
   athlete: string;
   time: string;
@@ -47,6 +51,7 @@ type ServiceType = {
 
 type RawBooking = {
   id: number;
+  serviceTypeId?: number | null;
   serviceName?: string | null;
   athleteName?: string | null;
   startsAt?: string | null;
@@ -59,26 +64,44 @@ type RawBooking = {
 
 export default function BookingsPage() {
   const [activeDialog, setActiveDialog] = useState<BookingsDialog>(null);
-  const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
-  const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(
+    null,
+  );
+  const [selectedService, setSelectedService] = useState<ServiceType | null>(
+    null,
+  );
   const [activeChip, setActiveChip] = useState<string>("All");
 
   const chips = ["All", "Group", "Individual", "Lift Lab", "Premium"];
-  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useGetBookingsQuery();
-  const { data: servicesData, isLoading: servicesLoading, refetch: refetchServices } = useGetServicesQuery();
+  const {
+    data: bookingsData,
+    isLoading: bookingsLoading,
+    refetch: refetchBookings,
+  } = useGetBookingsQuery();
+  const {
+    data: servicesData,
+    isLoading: servicesLoading,
+    refetch: refetchServices,
+  } = useGetServicesQuery();
   const { data: usersData } = useGetUsersQuery();
-  const [updateBookingStatus, { isLoading: isUpdatingBooking }] = useUpdateBookingStatusMutation();
+  const [updateBookingStatus, { isLoading: isUpdatingBooking }] =
+    useUpdateBookingStatusMutation();
   const isLoading = bookingsLoading || servicesLoading;
 
-
   const bookings = useMemo<BookingItem[]>(() => {
-    const items: RawBooking[] = Array.isArray(bookingsData?.bookings) ? bookingsData.bookings : [];
+    const items: RawBooking[] = Array.isArray(bookingsData?.bookings)
+      ? bookingsData.bookings
+      : [];
     return items.map((item) => ({
       id: item.id,
+      serviceTypeId: item.serviceTypeId ?? null,
       name: item.serviceName ?? item.type ?? "Session",
       athlete: item.athleteName ?? "Unknown athlete",
       time: item.startsAt
-        ? new Date(item.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        ? new Date(item.startsAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
         : "--",
       type: item.type ?? "Session",
       status: item.status ?? null,
@@ -89,18 +112,24 @@ export default function BookingsPage() {
     }));
   }, [bookingsData]);
 
-  const services = useMemo<ServiceType[]>(() => servicesData?.items ?? [], [servicesData]);
+  const services = useMemo<ServiceType[]>(
+    () => servicesData?.items ?? [],
+    [servicesData],
+  );
   const filteredBookings = useMemo(() => {
     if (activeChip === "All") return bookings;
-    if (activeChip === "Group") return bookings.filter((booking) => booking.type === "group_call");
+    if (activeChip === "Group")
+      return bookings.filter((booking) => booking.type === "group_call");
     if (activeChip === "Individual")
-      return bookings.filter((booking) => ["individual_call", "one_on_one"].includes(booking.type));
-    if (activeChip === "Lift Lab") return bookings.filter((booking) => booking.type === "lift_lab_1on1");
-    if (activeChip === "Premium") return bookings.filter((booking) => booking.type === "role_model");
+      return bookings.filter((booking) =>
+        ["individual_call", "one_on_one"].includes(booking.type),
+      );
+    if (activeChip === "Lift Lab")
+      return bookings.filter((booking) => booking.type === "lift_lab_1on1");
+    if (activeChip === "Premium")
+      return bookings.filter((booking) => booking.type === "role_model");
     return bookings;
   }, [activeChip, bookings]);
-
-
 
   const now = new Date();
   const upcomingBookings = filteredBookings.filter((booking) => {
@@ -117,7 +146,6 @@ export default function BookingsPage() {
       title="Bookings"
       subtitle="Manage bookable services, capacities, and client bookings."
     >
-
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="lg:col-span-2 w-full min-w-0">
           <CardHeader>
@@ -144,10 +172,16 @@ export default function BookingsPage() {
         </Card>
         <Card className="lg:col-start-2">
           <CardHeader>
-            <SectionHeader title="Book for a client" description="Place a booking as admin (bypasses availability if needed)." />
+            <SectionHeader
+              title="Book for a client"
+              description="Place a booking as admin (bypasses availability if needed)."
+            />
           </CardHeader>
           <CardContent>
-            <Button variant="outline" onClick={() => setActiveDialog("new-booking")}>
+            <Button
+              variant="outline"
+              onClick={() => setActiveDialog("new-booking")}
+            >
               Create booking
             </Button>
           </CardContent>
@@ -209,7 +243,9 @@ export default function BookingsPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{booking.name}</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {booking.name}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {booking.athlete} • {booking.time}
                       </p>
@@ -246,8 +282,19 @@ export default function BookingsPage() {
         users={usersData?.users ?? []}
         selectedService={selectedService}
         isApproving={isUpdatingBooking}
-        onApproveBooking={async (bookingId) => {
-          await updateBookingStatus({ bookingId, status: "confirmed" }).unwrap();
+        onApproveBooking={async ({
+          bookingId,
+          startsAt,
+          endTime,
+          meetingLink,
+        }) => {
+          await updateBookingStatus({
+            bookingId,
+            status: "confirmed",
+            startsAt,
+            endTime: endTime ?? undefined,
+            meetingLink: meetingLink ?? undefined,
+          }).unwrap();
           refetchBookings();
           setActiveDialog(null);
         }}

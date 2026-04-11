@@ -78,6 +78,7 @@ type BookingsDialogsProps = {
   onClose: () => void;
   bookings?: {
     id: number;
+    serviceTypeId?: number | null;
     name: string;
     athlete: string;
     time: string;
@@ -90,6 +91,7 @@ type BookingsDialogsProps = {
   }[];
   selectedBooking?: {
     id: number;
+    serviceTypeId?: number | null;
     name: string;
     athlete: string;
     time: string;
@@ -110,7 +112,12 @@ type BookingsDialogsProps = {
   }[];
   selectedService?: ServiceType | null;
   onRefresh?: () => void;
-  onApproveBooking?: (bookingId: number) => Promise<void>;
+  onApproveBooking?: (input: {
+    bookingId: number;
+    startsAt: string;
+    endTime?: string;
+    meetingLink?: string | null;
+  }) => Promise<void>;
   onDeclineBooking?: (bookingId: number) => Promise<void>;
   isApproving?: boolean;
 };
@@ -205,6 +212,12 @@ export function BookingsDialogs({
   const [bookingStatus, setBookingStatus] = useState("confirmed");
   const [bookingLocation, setBookingLocation] = useState("");
   const [bookingMeetingLink, setBookingMeetingLink] = useState("");
+  const [isApprovePromptOpen, setIsApprovePromptOpen] = useState(false);
+  const [approveDate, setApproveDate] = useState("");
+  const [approveHour, setApproveHour] = useState("");
+  const [approveMinute, setApproveMinute] = useState("");
+  const [approveMeetingLink, setApproveMeetingLink] = useState("");
+  const [approveError, setApproveError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createService, { isLoading: isCreatingService }] =
     useCreateServiceMutation();
@@ -212,6 +225,35 @@ export function BookingsDialogs({
     useUpdateServiceMutation();
   const [createAdminBooking, { isLoading: isCreatingBooking }] =
     useCreateAdminBookingMutation();
+
+  useEffect(() => {
+    if (!isApprovePromptOpen) return;
+    setApproveError(null);
+
+    const startsAt = selectedBooking?.startsAt
+      ? new Date(selectedBooking.startsAt)
+      : null;
+
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 1);
+    defaultDate.setHours(12, 0, 0, 0);
+
+    const resolved =
+      startsAt && !Number.isNaN(startsAt.getTime()) ? startsAt : defaultDate;
+    const yyyyMmDd = `${resolved.getFullYear()}-${pad(resolved.getMonth() + 1)}-${pad(resolved.getDate())}`;
+    setApproveDate(yyyyMmDd);
+    setApproveHour(String(resolved.getHours()));
+    setApproveMinute(String(resolved.getMinutes()));
+
+    const service =
+      selectedBooking?.serviceTypeId != null
+        ? services.find((item) => item.id === selectedBooking.serviceTypeId)
+        : undefined;
+
+    setApproveMeetingLink(
+      selectedBooking?.meetingLink ?? service?.defaultMeetingLink ?? "",
+    );
+  }, [isApprovePromptOpen, selectedBooking, services]);
 
   useEffect(() => {
     if (active === "new-service") {
@@ -740,15 +782,7 @@ export function BookingsDialogs({
                       onClick={async () => {
                         setError(null);
                         if (!onApproveBooking) return;
-                        try {
-                          await onApproveBooking(selectedBooking.id);
-                        } catch (err: unknown) {
-                          setError(
-                            err instanceof Error
-                              ? err.message
-                              : "Failed to approve booking",
-                          );
-                        }
+                        setIsApprovePromptOpen(true);
                       }}
                       disabled={isApproving}
                     >
@@ -757,6 +791,141 @@ export function BookingsDialogs({
                   </>
                 ) : null}
               </div>
+              <Dialog
+                open={isApprovePromptOpen}
+                onOpenChange={(open) => {
+                  if (!open) setApproveError(null);
+                  setIsApprovePromptOpen(open);
+                }}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Approve booking</DialogTitle>
+                    <DialogDescription>
+                      Set the date/time and meeting link before confirming.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>Date</Label>
+                        <Input
+                          type="date"
+                          value={approveDate}
+                          onChange={(e) => setApproveDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Time</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={23}
+                            placeholder="Hour"
+                            value={approveHour}
+                            onChange={(e) => setApproveHour(e.target.value)}
+                          />
+                          <Input
+                            type="number"
+                            min={0}
+                            max={59}
+                            placeholder="Min"
+                            value={approveMinute}
+                            onChange={(e) => setApproveMinute(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Meeting link</Label>
+                      <Input
+                        placeholder="https://..."
+                        value={approveMeetingLink}
+                        onChange={(e) => setApproveMeetingLink(e.target.value)}
+                      />
+                    </div>
+                    {approveError ? (
+                      <div className="text-sm text-red-500">{approveError}</div>
+                    ) : null}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsApprovePromptOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={isApproving}
+                        onClick={async () => {
+                          setApproveError(null);
+                          if (!onApproveBooking) return;
+
+                          if (
+                            !approveDate ||
+                            approveHour === "" ||
+                            approveMinute === ""
+                          ) {
+                            setApproveError("Select a date and time.");
+                            return;
+                          }
+
+                          const startsAt = new Date(
+                            `${approveDate}T${String(approveHour).padStart(2, "0")}:${String(approveMinute).padStart(2, "0")}:00`,
+                          );
+
+                          if (Number.isNaN(startsAt.getTime())) {
+                            setApproveError("Invalid date or time.");
+                            return;
+                          }
+
+                          const service =
+                            selectedBooking.serviceTypeId != null
+                              ? services.find(
+                                  (item) =>
+                                    item.id === selectedBooking.serviceTypeId,
+                                )
+                              : undefined;
+
+                          const duration = service?.durationMinutes ?? 0;
+                          if (!duration) {
+                            setApproveError(
+                              "Selected booking has no service duration.",
+                            );
+                            return;
+                          }
+
+                          const endTime = new Date(
+                            startsAt.getTime() + duration * 60000,
+                          );
+
+                          try {
+                            await onApproveBooking({
+                              bookingId: selectedBooking.id,
+                              startsAt: startsAt.toISOString(),
+                              endTime: endTime.toISOString(),
+                              meetingLink: approveMeetingLink.trim()
+                                ? approveMeetingLink.trim()
+                                : null,
+                            });
+                            setIsApprovePromptOpen(false);
+                          } catch (err: unknown) {
+                            setApproveError(
+                              err instanceof Error
+                                ? err.message
+                                : "Failed to approve booking",
+                            );
+                          }
+                        }}
+                      >
+                        Confirm approval
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
               {error ? (
                 <div className="text-sm text-red-500">{error}</div>
               ) : null}

@@ -16,11 +16,14 @@ export function useScheduleData(token: string | null, isFocused: boolean) {
   const servicesQuery = useQuery({
     queryKey: ["booking-services"],
     queryFn: async () => {
-      const data = await apiRequest<{ items: ServiceType[] }>("/bookings/services", {
+      const data = await apiRequest<{ items: ServiceType[] }>(
+        "/bookings/services?includeLocked=true",
+        {
         token,
         forceRefresh: true,
         timeoutMs: 6000,
-      });
+        },
+      );
       return data.items ?? [];
     },
     enabled: !!token,

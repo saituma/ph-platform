@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Pressable,
+  View,
   ViewStyle,
   TextStyle,
   ActivityIndicator,
@@ -18,6 +19,9 @@ export interface ButtonProps {
   icon?: React.ComponentProps<typeof Feather>["name"];
   iconPosition?: "left" | "right";
   iconSize?: number;
+  iconColor?: string;
+  iconGap?: number;
+  centerLabel?: boolean;
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle | ViewStyle[];
@@ -35,6 +39,9 @@ export function Button({
   icon,
   iconPosition = "left",
   iconSize,
+  iconColor,
+  iconGap = 8,
+  centerLabel = false,
   loading = false,
   disabled = false,
   style,
@@ -45,7 +52,11 @@ export function Button({
 }: ButtonProps) {
   const { colors, isDark } = useAppTheme();
 
-  const getVariantStyles = (): { button: ViewStyle; text: TextStyle; icon: string } => {
+  const getVariantStyles = (): {
+    button: ViewStyle;
+    text: TextStyle;
+    icon: string;
+  } => {
     switch (variant) {
       case "primary":
         return {
@@ -96,24 +107,49 @@ export function Button({
     }
   };
 
-  const getSizeStyles = (): { button: ViewStyle; text: TextStyle; iconSize: number } => {
+  const getSizeStyles = (): {
+    button: ViewStyle;
+    text: TextStyle;
+    iconSize: number;
+  } => {
     switch (size) {
       case "sm":
-        return { button: { height: 36, paddingHorizontal: 12 }, text: { fontSize: 13 }, iconSize: 14 };
+        return {
+          button: { height: 36, paddingHorizontal: 12 },
+          text: { fontSize: 13 },
+          iconSize: 14,
+        };
       case "md":
-        return { button: { height: 44, paddingHorizontal: 16 }, text: { fontSize: 14 }, iconSize: 18 };
+        return {
+          button: { height: 44, paddingHorizontal: 16 },
+          text: { fontSize: 14 },
+          iconSize: 18,
+        };
       case "lg":
-        return { button: { height: 56, paddingHorizontal: 20 }, text: { fontSize: 16 }, iconSize: 20 };
+        return {
+          button: { height: 56, paddingHorizontal: 20 },
+          text: { fontSize: 16 },
+          iconSize: 20,
+        };
       case "xl":
-        return { button: { height: 64, paddingHorizontal: 24 }, text: { fontSize: 18 }, iconSize: 22 };
+        return {
+          button: { height: 64, paddingHorizontal: 24 },
+          text: { fontSize: 18 },
+          iconSize: 22,
+        };
       default:
-        return { button: { height: 44, paddingHorizontal: 16 }, text: { fontSize: 14 }, iconSize: 18 };
+        return {
+          button: { height: 44, paddingHorizontal: 16 },
+          text: { fontSize: 14 },
+          iconSize: 18,
+        };
     }
   };
 
   const variantStyles = getVariantStyles();
   const sizeStyles = getSizeStyles();
-  const resolvedRadius = typeof radius === "number" ? radius : radiusPresets[radius];
+  const resolvedRadius =
+    typeof radius === "number" ? radius : radiusPresets[radius];
 
   const baseButtonStyle: ViewStyle = {
     flexDirection: "row",
@@ -124,7 +160,12 @@ export function Button({
     opacity: disabled || loading ? 0.6 : 1,
     ...variantStyles.button,
     ...sizeStyles.button,
-    ...(isDark || variant === "ghost" || variant === "outline" || variant === "none" ? Shadows.none : Shadows.md),
+    ...(isDark ||
+    variant === "ghost" ||
+    variant === "outline" ||
+    variant === "none"
+      ? Shadows.none
+      : Shadows.md),
   };
 
   const baseTextStyle: TextStyle = {
@@ -134,6 +175,10 @@ export function Button({
     ...sizeStyles.text,
     ...textStyle,
   };
+
+  const resolvedIconColor = iconColor ?? variantStyles.icon;
+  const resolvedIconSize = iconSize || sizeStyles.iconSize;
+  const iconReserveSpace = resolvedIconSize + iconGap;
 
   return (
     <Pressable
@@ -147,24 +192,56 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variantStyles.icon} />
+        <ActivityIndicator color={resolvedIconColor} />
+      ) : centerLabel && label && icon ? (
+        <View
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          {iconPosition === "left" && (
+            <Feather
+              name={icon}
+              size={resolvedIconSize}
+              color={resolvedIconColor}
+              style={{ position: "absolute", left: 0 }}
+            />
+          )}
+          <Text
+            style={[baseTextStyle, { paddingHorizontal: iconReserveSpace }]}
+          >
+            {label}
+          </Text>
+          {iconPosition === "right" && (
+            <Feather
+              name={icon}
+              size={resolvedIconSize}
+              color={resolvedIconColor}
+              style={{ position: "absolute", right: 0 }}
+            />
+          )}
+        </View>
       ) : (
         <>
           {icon && iconPosition === "left" && (
             <Feather
               name={icon}
-              size={iconSize || sizeStyles.iconSize}
-              color={variantStyles.icon}
-              style={{ marginRight: label ? 8 : 0 }}
+              size={resolvedIconSize}
+              color={resolvedIconColor}
+              style={{ marginRight: label ? iconGap : 0 }}
             />
           )}
           {label && <Text style={baseTextStyle}>{label}</Text>}
           {icon && iconPosition === "right" && (
             <Feather
               name={icon}
-              size={iconSize || sizeStyles.iconSize}
-              color={variantStyles.icon}
-              style={{ marginLeft: label ? 8 : 0 }}
+              size={resolvedIconSize}
+              color={resolvedIconColor}
+              style={{ marginLeft: label ? iconGap : 0 }}
             />
           )}
         </>

@@ -19,6 +19,18 @@ export function ManagedAthletesSection({
   const { colors, isDark } = useAppTheme();
   const [isVisible, setIsVisible] = useState(false);
 
+  const displayValue = (value: unknown) => {
+    if (value === null || value === undefined) return "—";
+    if (typeof value === "string") return value || "—";
+    if (typeof value === "number" || typeof value === "boolean")
+      return String(value);
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  };
+
   return (
     <View
       className="bg-input rounded-3xl p-6 shadow-sm border border-app"
@@ -59,23 +71,38 @@ export function ManagedAthletesSection({
           className="flex-1 bg-black/50 items-center justify-center px-6"
           onPress={() => setIsVisible(false)}
         >
-          <Pressable className="w-full rounded-3xl bg-app p-6 border border-app" onPress={(e) => e.stopPropagation()}>
-            <Text className="text-lg font-clash text-app mb-2">Managed Athletes</Text>
+          <Pressable
+            className="w-full rounded-3xl bg-app p-6 border border-app"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text className="text-lg font-clash text-app mb-2">
+              Managed Athletes
+            </Text>
             <Text className="text-sm font-outfit text-secondary mb-4">
               Review the athlete profiles managed by this account.
             </Text>
             {managedAthletes.length ? (
               <View className="gap-3">
                 {managedAthletes.map((athlete, index) => (
-                  <View key={athlete.id ?? athlete.name ?? `athlete-${index}`} className="gap-3">
+                  <View
+                    key={athlete.id ?? athlete.name ?? `athlete-${index}`}
+                    className="gap-3"
+                  >
                     <View className="flex-row items-center gap-3">
                       {athlete.profilePicture ? (
                         <View className="w-14 h-14 rounded-full overflow-hidden border-2 border-accent">
-                          <Image source={{ uri: athlete.profilePicture }} style={{ width: 56, height: 56 }} />
+                          <Image
+                            source={{ uri: athlete.profilePicture }}
+                            style={{ width: 56, height: 56 }}
+                          />
                         </View>
                       ) : (
                         <View className="w-14 h-14 rounded-full bg-secondary items-center justify-center border-2 border-accent">
-                          <Feather name="user" size={26} color={colors.textSecondary} />
+                          <Feather
+                            name="user"
+                            size={26}
+                            color={colors.textSecondary}
+                          />
                         </View>
                       )}
                       <View className="flex-1">
@@ -83,7 +110,8 @@ export function ManagedAthletesSection({
                           {athlete.name ?? "Athlete"}
                         </Text>
                         <Text className="text-xs font-outfit text-secondary">
-                          {athlete.team ?? "Team not set"} • {athlete.level ?? "Level not set"}
+                          {athlete.team ?? "Team not set"} •{" "}
+                          {athlete.level ?? "Level not set"}
                         </Text>
                       </View>
                     </View>
@@ -101,7 +129,7 @@ export function ManagedAthletesSection({
                         Equipment: {athlete.equipmentAccess ?? "—"}
                       </Text>
                       <Text className="text-sm font-outfit text-app">
-                        Injuries: {athlete.injuries ?? "—"}
+                        Injuries: {displayValue(athlete.injuries)}
                       </Text>
                     </View>
                     <View className="h-px bg-border/60" />

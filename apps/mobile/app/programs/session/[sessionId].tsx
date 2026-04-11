@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,6 +15,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
@@ -36,10 +38,11 @@ export default function ProgramSessionDetailScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { sessionId, programId, moduleId } = useLocalSearchParams<{
+  const { sessionId, programId, moduleId, backToModule } = useLocalSearchParams<{
     sessionId: string;
     programId: ProgramId;
     moduleId: string;
+    backToModule?: string;
   }>();
   const { token, programTier, athleteUserId, managedAthletes } = useAppSelector(
     (state) => state.user,
@@ -112,6 +115,14 @@ export default function ProgramSessionDetailScreen() {
   const isAdult = (activeAge ?? 0) >= 18;
   const sessionIdNum = Number(sessionId);
   const moduleIdNum = Number(moduleId);
+
+  const moduleHref = useMemo(() => {
+    if (!moduleId) return "/(tabs)/programs";
+    return `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(String(programId))}`;
+  }, [moduleId, programId]);
+
+  const shouldBackToModule =
+    backToModule === "1" || backToModule === "true";
 
   const computeNextPath = useCallback(
     (ws: any) => {
@@ -211,6 +222,10 @@ export default function ProgramSessionDetailScreen() {
   );
 
   const handleHeaderBack = useCallback(() => {
+    if (shouldBackToModule) {
+      router.replace(moduleHref as any);
+      return;
+    }
     const path = computePreviousPath(workspace);
     if (path) {
       router.replace(path as any);
@@ -221,7 +236,19 @@ export default function ProgramSessionDetailScreen() {
       return;
     }
     router.replace("/(tabs)/programs");
-  }, [computePreviousPath, router, workspace]);
+  }, [computePreviousPath, moduleHref, router, shouldBackToModule, workspace]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!shouldBackToModule) return;
+      if (Platform.OS !== "android") return;
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        router.replace(moduleHref as any);
+        return true;
+      });
+      return () => sub.remove();
+    }, [moduleHref, router, shouldBackToModule]),
+  );
 
   const handleUploadPress = useCallback((id: number, title: string) => {
     Alert.alert("Video Upload", "Choose an action", [
@@ -265,8 +292,12 @@ export default function ProgramSessionDetailScreen() {
         const updated = await load(true);
         const path = computeNextPath(updated);
         setWorkoutSheetOpen(false);
-        if (path) router.push(path as any);
-        else router.back();
+        if (path) {
+          const separator = path.includes("?") ? "&" : "?";
+          router.replace(`${path}${separator}backToModule=1` as any);
+        } else {
+          router.replace(moduleHref as any);
+        }
       } catch (e) {
         const message =
           e instanceof Error ? e.message : "Failed to complete session.";
@@ -276,7 +307,7 @@ export default function ProgramSessionDetailScreen() {
         setIsFinishing(false);
       }
     },
-    [computeNextPath, load, router, sessionIdNum, token],
+    [computeNextPath, load, moduleHref, router, sessionIdNum, token],
   );
 
   const handleCompleteSession = useCallback(async () => {

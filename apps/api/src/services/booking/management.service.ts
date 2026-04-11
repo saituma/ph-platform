@@ -28,7 +28,7 @@ function errorMentionsMissingColumn(error: unknown, columnName: string) {
   return message.toLowerCase().includes(`column`) && message.includes(columnName);
 }
 
-export async function listServiceTypes(options?: { includeInactive?: boolean; viewerProgramTier?: ProgramTier | null }) {
+export async function listServiceTypes(options?: { includeInactive?: boolean; includeLocked?: boolean; viewerProgramTier?: ProgramTier | null }) {
   const shouldTryEligiblePlans = cachedSupportsServiceEligiblePlans !== false;
 
   const selectAll = async () =>
@@ -115,6 +115,20 @@ export async function listServiceTypes(options?: { includeInactive?: boolean; vi
   }
 
   if (options?.includeInactive) return rows;
+
+  if (options?.includeLocked) {
+    return rows.map((service) => {
+      const eligiblePlans = normalizeEligiblePlans(service);
+      const allowed = serviceAllowsTier(service, options?.viewerProgramTier);
+      const isLocked = eligiblePlans.length > 0 && !allowed;
+      return {
+        ...service,
+        isLocked,
+        lockReason: isLocked ? `Requires one of: ${eligiblePlans.join(", ")}` : null,
+      };
+    });
+  }
+
   return rows.filter((service) => serviceAllowsTier(service, options?.viewerProgramTier));
 }
 
@@ -303,6 +317,7 @@ export async function createBooking(input: {
   viewerProgramTier?: ProgramTier | null;
   location?: string | null;
   meetingLink?: string | null;
+  notes?: string | null;
   timezoneOffsetMinutes?: number;
   bypassAvailability?: boolean;
 }) {
@@ -374,6 +389,7 @@ export async function createBooking(input: {
       endTime: endsAt,
       location: input.location ?? serviceType[0].defaultLocation ?? null,
       meetingLink: input.meetingLink ?? serviceType[0].defaultMeetingLink ?? null,
+      notes: input.notes ?? null,
       serviceTypeId: input.serviceTypeId,
       occurrenceKey,
       slotKey,

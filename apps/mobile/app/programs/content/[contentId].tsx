@@ -19,7 +19,6 @@ import { MarkdownText } from "@/components/ui/MarkdownText";
 import {
   VideoPlayer,
   isYoutubeUrl,
-  YouTubeEmbed,
 } from "@/components/media/VideoPlayer";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -88,7 +87,11 @@ const MediaSection = React.memo(function MediaSection({
   title?: string;
 }) {
   if (isYoutubeUrl(url)) {
-    return <YouTubeEmbed url={url} />;
+    return (
+      <View className="rounded-3xl overflow-hidden bg-white/5">
+        <VideoPlayer uri={url} title={title} ignoreTabFocus />
+      </View>
+    );
   }
   if (url.toLowerCase().includes("drive.google.com")) {
     return <ExternalLinkButton url={url} label="Open in Google Drive" />;
