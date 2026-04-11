@@ -127,6 +127,15 @@ export async function getTrainingSessionTierLocks(moduleIds: number[]) {
   return rows.filter((row) => allowedIds.has(row.moduleId));
 }
 
+export async function getTrainingSessionItemById(id: number) {
+  const [row] = await db
+    .select({ id: trainingSessionItemTable.id, allowVideoUpload: trainingSessionItemTable.allowVideoUpload })
+    .from(trainingSessionItemTable)
+    .where(eq(trainingSessionItemTable.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
   const normalizedAudienceLabel = normalizeAudienceLabel(audienceLabel);
   const [modules, sessions, items, others, otherSettings, moduleLocks] = await Promise.all([

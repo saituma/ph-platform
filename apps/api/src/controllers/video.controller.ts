@@ -6,6 +6,7 @@ import { env } from "../config/env";
 import { createVideoUpload, listVideoUploadsByAthlete, reviewVideoUpload } from "../services/video.service";
 import { getAthleteForUser } from "../services/user.service";
 import { getProgramSectionContentById } from "../services/program-section.service";
+import { getTrainingSessionItemById } from "../services/training-content-v2.service";
 import { MediaKey, MediaFolder } from "../lib/media-key";
 
 const presignSchema = z.object({
@@ -51,21 +52,35 @@ export async function createVideo(req: Request, res: Response) {
   if (!athlete) {
     return res.status(400).json({ error: "Onboarding incomplete" });
   }
-  if (athlete.currentProgramTier !== "PHP_Premium") {
-    return res.status(403).json({ error: "Video uploads are available for PHP Premium members only." });
+  const eligibleTiers = new Set(["PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
+  if (!athlete.currentProgramTier || !eligibleTiers.has(athlete.currentProgramTier)) {
+    return res.status(403).json({ error: "Video uploads are available for Premium members only." });
   }
   if (!input.programSectionContentId) {
     return res.status(400).json({ error: "Training section is required for video uploads." });
   }
-  const section = await getProgramSectionContentById(input.programSectionContentId);
-  if (!section || !section.allowVideoUpload) {
-    return res.status(403).json({ error: "Video uploads are disabled for this training section." });
+
+  const contentId = input.programSectionContentId;
+
+  // For training-content-v2 module sessions, the client sends the training session item id.
+  // For legacy plans, the client sends the program section content id.
+  const sessionItem = await getTrainingSessionItemById(contentId);
+  if (sessionItem) {
+    if (!sessionItem.allowVideoUpload) {
+      return res.status(403).json({ error: "Video uploads are disabled for this training section." });
+    }
+  } else {
+    const section = await getProgramSectionContentById(contentId);
+    if (!section || !section.allowVideoUpload) {
+      return res.status(403).json({ error: "Video uploads are disabled for this training section." });
+    }
   }
+
   const item = await createVideoUpload({
     athleteId: athlete.id,
     videoUrl: input.videoUrl,
     notes: input.notes,
-    programSectionContentId: input.programSectionContentId,
+    programSectionContentId: contentId,
   });
   return res.status(201).json({ item });
 }
