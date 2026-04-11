@@ -103,9 +103,18 @@ export function ProgramDetailPanel({
   const [uploadPickerOpen, setUploadPickerOpen] = useState(false);
 
   const tabs = useMemo(() => {
-    if (trainingContentV2?.tabs?.length) return trainingContentV2.tabs;
-    return ["Modules"];
-  }, [trainingContentV2]);
+    const rawTabs = trainingContentV2?.tabs?.length
+      ? trainingContentV2.tabs
+      : ["Modules"];
+
+    // Athlete-facing program detail should not show the legacy "Video Upload" tab.
+    // Video uploads are handled inside Session Detail.
+    if (appRole !== "coach") {
+      return rawTabs.filter((t) => t !== "Video Upload");
+    }
+
+    return rawTabs;
+  }, [appRole, trainingContentV2]);
 
   useEffect(() => {
     if (isFocused) {

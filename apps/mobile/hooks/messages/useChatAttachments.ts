@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 import { apiRequest } from "@/lib/api";
 
 export type PendingAttachment = {
@@ -30,7 +31,13 @@ export function useChatAttachments(
       if (!token) {
         throw new Error("Authentication required");
       }
-      const folder = input.isImage ? "messages/images" : "messages/files";
+      const mimeLower = input.mimeType.toLowerCase();
+      const isVideo = mimeLower.startsWith("video/");
+      const folder = input.isImage
+        ? "messages/images"
+        : isVideo
+          ? "messages/videos"
+          : "messages/files";
       const presign = await apiRequest<{
         uploadUrl: string;
         publicUrl: string;
@@ -47,16 +54,18 @@ export function useChatAttachments(
         },
       });
 
-      const fileResponse = await fetch(input.uri);
-      const blob = await fileResponse.blob();
-      const uploadResponse = await fetch(presign.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": input.mimeType,
+      const uploadResult = await FileSystem.uploadAsync(
+        presign.uploadUrl,
+        input.uri,
+        {
+          httpMethod: "PUT",
+          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          headers: {
+            "Content-Type": input.mimeType,
+          },
         },
-        body: blob,
-      });
-      if (!uploadResponse.ok) {
+      );
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
         throw new Error("Failed to upload attachment");
       }
 
@@ -79,7 +88,7 @@ export function useChatAttachments(
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.9,
         allowsEditing: false,
       });
@@ -87,11 +96,15 @@ export function useChatAttachments(
       const asset = result.assets[0];
       if (!asset.uri) return;
       const mimeType = asset.mimeType || "image/jpeg";
+
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const sizeBytes =
+        (info.exists ? (info.size ?? 0) : 0) || (asset.fileSize ?? 512000);
       setPendingAttachment({
         uri: asset.uri,
         fileName: asset.fileName || `photo-${Date.now()}.jpg`,
         mimeType,
-        sizeBytes: asset.fileSize ?? 512000,
+        sizeBytes,
         isImage: true,
       });
     } catch (error) {
@@ -108,7 +121,7 @@ export function useChatAttachments(
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["videos"],
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
         quality: 0.9,
         allowsEditing: false,
       });
@@ -116,11 +129,15 @@ export function useChatAttachments(
       const asset = result.assets[0];
       if (!asset.uri) return;
       const mimeType = asset.mimeType || "video/mp4";
+
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const sizeBytes =
+        (info.exists ? (info.size ?? 0) : 0) || (asset.fileSize ?? 2000000);
       setPendingAttachment({
         uri: asset.uri,
         fileName: asset.fileName || `video-${Date.now()}.mp4`,
         mimeType,
-        sizeBytes: asset.fileSize ?? 2000000,
+        sizeBytes,
         isImage: false,
       });
     } catch (error) {
@@ -136,7 +153,7 @@ export function useChatAttachments(
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.9,
         allowsEditing: false,
       });
@@ -144,11 +161,15 @@ export function useChatAttachments(
       const asset = result.assets[0];
       if (!asset.uri) return;
       const mimeType = asset.mimeType || "image/jpeg";
+
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const sizeBytes =
+        (info.exists ? (info.size ?? 0) : 0) || (asset.fileSize ?? 512000);
       setPendingAttachment({
         uri: asset.uri,
         fileName: asset.fileName || `photo-${Date.now()}.jpg`,
         mimeType,
-        sizeBytes: asset.fileSize ?? 512000,
+        sizeBytes,
         isImage: true,
       });
     } catch (error) {
@@ -164,7 +185,7 @@ export function useChatAttachments(
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["videos"],
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
         quality: 0.9,
         allowsEditing: false,
       });
@@ -172,11 +193,15 @@ export function useChatAttachments(
       const asset = result.assets[0];
       if (!asset.uri) return;
       const mimeType = asset.mimeType || "video/mp4";
+
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const sizeBytes =
+        (info.exists ? (info.size ?? 0) : 0) || (asset.fileSize ?? 2000000);
       setPendingAttachment({
         uri: asset.uri,
         fileName: asset.fileName || `video-${Date.now()}.mp4`,
         mimeType,
-        sizeBytes: asset.fileSize ?? 2000000,
+        sizeBytes,
         isImage: false,
       });
     } catch (error) {
@@ -198,15 +223,20 @@ export function useChatAttachments(
       const asset = result.assets[0];
       if (!asset.uri) return;
       const mimeType = asset.mimeType || "application/octet-stream";
+
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const sizeBytes =
+        (info.exists ? (info.size ?? 0) : 0) || (asset.size ?? 512000);
       setPendingAttachment({
         uri: asset.uri,
         fileName: asset.name || `file-${Date.now()}`,
         mimeType,
-        sizeBytes: asset.size ?? 512000,
+        sizeBytes,
         isImage: mimeType.startsWith("image/"),
       });
     } catch (error) {
       console.warn("Failed to attach file", error);
+    } finally {
       setComposerMenuOpen(false);
     }
   }, [isUploadingAttachment, token]);

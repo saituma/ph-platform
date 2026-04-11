@@ -25,7 +25,13 @@ export async function signMediaUrl(req: Request, res: Response) {
 
 export async function createMediaUploadUrl(req: Request, res: Response) {
   const input = uploadSchema.parse(req.body);
-  const limitMb = input.folder.toLowerCase().includes("video") ? env.videoMaxMb : env.mediaMaxMb;
+  const folderLower = input.folder.toLowerCase();
+  const contentTypeLower = input.contentType.toLowerCase();
+  const isVideo =
+    folderLower.includes("video") ||
+    contentTypeLower.startsWith("video/") ||
+    contentTypeLower.includes("video");
+  const limitMb = isVideo ? env.videoMaxMb : env.mediaMaxMb;
   const maxBytes = Math.max(1, limitMb) * 1024 * 1024;
   if (input.sizeBytes > maxBytes) {
     return res.status(413).json({ error: `File exceeds ${limitMb}MB limit.` });

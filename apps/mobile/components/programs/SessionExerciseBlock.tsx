@@ -1,10 +1,23 @@
 import React from "react";
-import { View, Pressable, Linking } from "react-native";
+import {
+  ActivityIndicator,
+  View,
+  Pressable,
+  Linking,
+  TextInput,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { SessionItem } from "@/hooks/programs/useSessionData";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
+
+type PendingSessionVideo = {
+  video: { uri: string };
+  notes: string;
+  progress: number | null;
+  error: string | null;
+};
 
 interface Props {
   title: string;
@@ -13,6 +26,13 @@ interface Props {
   hasUploaded: Record<number, boolean>;
   uploadsBySectionId: Record<number, any[]>;
   canUpload: boolean;
+  pendingBySectionId?: Record<number, PendingSessionVideo | undefined>;
+  activeUploadSectionId?: number | null;
+  isUploading?: boolean;
+  uploadStatus?: string | null;
+  onPendingRemove?: (sectionContentId: number) => void;
+  onPendingNotesChange?: (sectionContentId: number, notes: string) => void;
+  onPendingSend?: (sectionContentId: number) => void | Promise<void>;
   completionAnchorItemId?: number;
   onCompleteSession?: () => void;
   completeSessionLabel?: string;
@@ -25,12 +45,21 @@ export function SessionExerciseBlock({
   hasUploaded,
   uploadsBySectionId,
   canUpload,
+  pendingBySectionId,
+  activeUploadSectionId,
+  isUploading = false,
+  uploadStatus,
+  onPendingRemove,
+  onPendingNotesChange,
+  onPendingSend,
   completionAnchorItemId,
   onCompleteSession,
   completeSessionLabel = "Complete Session",
 }: Props) {
   const { colors, isDark } = useAppTheme();
   if (items.length === 0) return null;
+
+  const borderSoft = colors.borderSubtle ?? (isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)");
 
   const isDirectVideoUrl = (url: string) =>
     /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url) || /\.(m3u8)(\?.*)?$/i.test(url);
@@ -54,19 +83,34 @@ export function SessionExerciseBlock({
   };
 
   return (
-    <View className="mb-8">
-      <Text className="text-sm font-outfit-bold text-accent uppercase tracking-widest mb-4">
-        {title}
-      </Text>
+    <View className="mb-10">
+      <View className="mb-3 flex-row items-center justify-between">
+        <View
+          className="rounded-full px-3 py-1.5"
+          style={{ backgroundColor: colors.accentLight }}
+        >
+          <Text
+            className="text-[10px] font-outfit-bold uppercase tracking-[1.3px]"
+            style={{ color: colors.accent }}
+          >
+            {title}
+          </Text>
+        </View>
+        <Text
+          className="text-[11px] font-outfit font-semibold"
+          style={{ color: colors.textSecondary }}
+        >
+          {items.length} item{items.length === 1 ? "" : "s"}
+        </Text>
+      </View>
       <View className="gap-4">
         {items.map((item) => (
           <View
             key={item.id}
-            className="rounded-3xl border p-4 bg-card"
+            className="rounded-3xl border p-4"
             style={{
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(0,0,0,0.05)",
+              backgroundColor: colors.surface,
+              borderColor: borderSoft,
             }}
           >
             {item.videoUrl?.trim()
@@ -97,21 +141,29 @@ export function SessionExerciseBlock({
                       onPress={() =>
                         Linking.openURL(url).catch(() => undefined)
                       }
-                      className="rounded-2xl bg-white/10 px-5 py-4 flex-row items-center gap-3 mb-4"
+                      className="rounded-2xl px-5 py-4 flex-row items-center gap-3 mb-4 border"
+                      style={{
+                        backgroundColor: colors.surfaceHigh,
+                        borderColor: borderSoft,
+                      }}
                     >
-                      <Feather name="external-link" size={18} color="#FFFFFF" />
+                      <Feather name="external-link" size={18} color={colors.icon} />
                       <View className="flex-1">
-                        <Text className="text-sm font-outfit text-white font-semibold">
+                        <Text
+                          className="text-sm font-outfit font-semibold"
+                          style={{ color: colors.textPrimary }}
+                        >
                           {externalLabelFor(url)}
                         </Text>
                         <Text
-                          className="text-[11px] font-outfit text-white/80 mt-0.5"
+                          className="text-[11px] font-outfit mt-0.5"
+                          style={{ color: colors.textSecondary }}
                           numberOfLines={1}
                         >
                           {url}
                         </Text>
                       </View>
-                      <Feather name="chevron-right" size={16} color="#94A3B8" />
+                      <Feather name="chevron-right" size={16} color={colors.icon} />
                     </Pressable>
                   );
                 })()
@@ -149,10 +201,32 @@ export function SessionExerciseBlock({
                             />
                           </View>
                         ) : null}
-                        {typeof u.feedback === "string" && u.feedback.trim() ? (
-                          <View className="rounded-2xl bg-white/5 px-4 py-3">
+                        {typeof u.notes === "string" && u.notes.trim() ? (
+                          <View
+                            className="rounded-2xl px-4 py-3 border"
+                            style={{
+                              backgroundColor: colors.surfaceHigh,
+                              borderColor: borderSoft,
+                            }}
+                          >
                             <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
-                              Feedback
+                              Your notes
+                            </Text>
+                            <Text className="text-sm font-outfit text-secondary">
+                              {u.notes.trim()}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {typeof u.feedback === "string" && u.feedback.trim() ? (
+                          <View
+                            className="rounded-2xl px-4 py-3 border"
+                            style={{
+                              backgroundColor: colors.surfaceHigh,
+                              borderColor: borderSoft,
+                            }}
+                          >
+                            <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
+                              Coach response
                             </Text>
                             <Text className="text-sm font-outfit text-secondary">
                               {u.feedback.trim()}
@@ -162,6 +236,106 @@ export function SessionExerciseBlock({
                       </View>
                     ))}
                   </View>
+                ) : null}
+
+                {pendingBySectionId?.[item.id] ? (
+                  (() => {
+                    const pending = pendingBySectionId[item.id]!;
+                    const isSending =
+                      isUploading && activeUploadSectionId === item.id;
+                    const progressPct =
+                      isSending && typeof pending.progress === "number"
+                        ? Math.round(pending.progress * 100)
+                        : null;
+
+                    return (
+                      <View className="mt-4 gap-3">
+                        <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest">
+                          Preview (not sent yet)
+                        </Text>
+                        <View className="rounded-3xl overflow-hidden bg-black">
+                          <VideoPlayer
+                            uri={pending.video.uri}
+                            autoPlay={false}
+                            initialMuted
+                            isLooping={false}
+                            maxHeightRatio={0.55}
+                          />
+                        </View>
+
+                        <View
+                          className="rounded-2xl px-4 py-3 border"
+                          style={{
+                            backgroundColor: colors.surfaceHigh,
+                            borderColor: borderSoft,
+                          }}
+                        >
+                          <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-2">
+                            Notes to coach (optional)
+                          </Text>
+                          <TextInput
+                            value={pending.notes}
+                            onChangeText={(t) => onPendingNotesChange?.(item.id, t)}
+                            editable={!isSending}
+                            placeholder="What should your coach look for?"
+                            placeholderTextColor={colors.textSecondary}
+                            multiline
+                            style={{
+                              color: colors.textPrimary,
+                              minHeight: 60,
+                              textAlignVertical: "top",
+                            }}
+                          />
+                        </View>
+
+                        {pending.error ? (
+                          <Text className="text-xs font-outfit text-secondary">
+                            {pending.error}
+                          </Text>
+                        ) : null}
+
+                        {isSending && uploadStatus ? (
+                          <Text className="text-xs font-outfit text-secondary">
+                            {progressPct != null
+                              ? `${uploadStatus} (${progressPct}%)`
+                              : uploadStatus}
+                          </Text>
+                        ) : null}
+
+                        <View className="flex-row gap-3">
+                          <Pressable
+                            disabled={isSending}
+                            onPress={() => onPendingRemove?.(item.id)}
+                            className="flex-1 rounded-full py-3 items-center border"
+                            style={{
+                              backgroundColor: colors.surfaceHigh,
+                              borderColor: borderSoft,
+                            }}
+                          >
+                            <Text
+                              className="font-outfit-bold uppercase"
+                              style={{ color: colors.textPrimary }}
+                            >
+                              Remove
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            disabled={isSending}
+                            onPress={() => void onPendingSend?.(item.id)}
+                            className="flex-1 rounded-full py-3 items-center flex-row justify-center gap-2"
+                            style={{ backgroundColor: colors.accent }}
+                          >
+                            {isSending ? (
+                              <ActivityIndicator color="#fff" />
+                            ) : null}
+                            <Text className="text-white font-outfit-bold uppercase">
+                              Send to coach
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    );
+                  })()
                 ) : null}
 
                 {item.metadata ? (
@@ -263,7 +437,11 @@ export function SessionExerciseBlock({
                 </Text>
                 <Pressable
                   onPress={() => onUploadPress(item.id, item.title)}
-                  className="h-10 w-10 rounded-full bg-accent/10 items-center justify-center"
+                  className="h-10 w-10 rounded-full items-center justify-center border"
+                  style={{
+                    backgroundColor: colors.accentLight,
+                    borderColor: borderSoft,
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel="Upload video"
                 >
