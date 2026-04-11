@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { useDeleteServiceMutation, useUpdateServiceMutation } from "../../../lib/apiSlice";
+import {
+  useDeleteServiceMutation,
+  useUpdateServiceMutation,
+} from "@/lib/apiSlice";
 import { BOOKING_TYPE_LABELS } from "./bookings-dialogs";
 
 function deleteServiceErrorMessage(err: unknown): string {
@@ -53,7 +56,10 @@ export function BookingServicesPanel({
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const sorted = useMemo(
-    () => [...services].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
+    () =>
+      [...services].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      ),
     [services],
   );
 
@@ -90,8 +96,8 @@ export function BookingServicesPanel({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
-          Bookable session types families see under Schedule. Add a service, set its capacity, and turn it on when it
-          should be available.
+          Bookable session types families see under Schedule. Add a service, set
+          its capacity, and turn it on when it should be available.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={onAddService}>
@@ -131,17 +137,23 @@ export function BookingServicesPanel({
             <tbody>
               {sorted.map((row) => {
                 const active = row.isActive ?? true;
-                const tier = row.programTier ? TIER_LABELS[row.programTier] ?? row.programTier : "—";
+                const tier = row.programTier
+                  ? (TIER_LABELS[row.programTier] ?? row.programTier)
+                  : "—";
                 return (
                   <tr
                     key={row.id}
                     className={`border-b border-border last:border-0 ${active ? "" : "bg-muted/30 opacity-90"}`}
                   >
-                    <td className="px-4 py-3 font-medium text-foreground">{row.name}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {row.name}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {BOOKING_TYPE_LABELS[row.type] ?? row.type}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.durationMinutes} min</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {row.durationMinutes} min
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {row.capacity != null ? row.capacity : "∞"}
                     </td>
@@ -155,14 +167,22 @@ export function BookingServicesPanel({
                           disabled={togglingId === row.id}
                           onChange={() => onToggleActive(row)}
                         />
-                        <Badge variant={active ? "default" : "outline"} className="font-normal">
+                        <Badge
+                          variant={active ? "default" : "outline"}
+                          className="font-normal"
+                        >
                           {active ? "On" : "Off"}
                         </Badge>
                       </label>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex flex-wrap justify-end gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => onEditService(row)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onEditService(row)}
+                        >
                           Edit
                         </Button>
                         <Button

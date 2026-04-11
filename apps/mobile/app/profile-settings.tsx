@@ -15,7 +15,6 @@ import { AgeGate } from "@/components/AgeGate";
 import { useProfileSettings } from "@/components/more/profile/hooks/useProfileSettings";
 import { AvatarSection } from "@/components/more/profile/AvatarSection";
 import { ManagedAthletesSection } from "@/components/more/profile/ManagedAthletesSection";
-import { DebugPushSection } from "@/components/more/profile/DebugPushSection";
 import { AthleteOnboardingSection } from "@/components/more/profile/AthleteOnboardingSection";
 
 export default function ProfileSettingsScreen() {
@@ -25,7 +24,6 @@ export default function ProfileSettingsScreen() {
 
   const {
     profile,
-    pushRegistration,
     managedAthletes,
     managedAthleteCount,
     activeAthleteId,
@@ -33,7 +31,6 @@ export default function ProfileSettingsScreen() {
     name,
     setName,
     email,
-    pushToken,
     height,
     setHeight,
     weight,
@@ -61,12 +58,10 @@ export default function ProfileSettingsScreen() {
     isUploadingAvatar,
     pendingAvatarUri,
     setPendingAvatarUri,
-    isSendingTestPush,
     isSaving,
     handlePickAvatar,
     handleConfirmAvatar,
     handleSave,
-    handleTestPush,
   } = useProfileSettings();
 
   if (isSectionHidden("settings")) {
@@ -156,13 +151,6 @@ export default function ProfileSettingsScreen() {
               onPress={handleSave}
               fullWidth={true}
               size="xl"
-            />
-
-            <DebugPushSection
-              pushRegistration={pushRegistration}
-              pushToken={pushToken}
-              isSendingTestPush={isSendingTestPush}
-              onTestPush={handleTestPush}
             />
           </View>
         )}

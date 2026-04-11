@@ -215,13 +215,6 @@ export default function AdminProfileScreen() {
           {/* ── Account settings ── */}
           <SectionGroup label="Account">
             <MenuItem
-              icon="bell"
-              label="Notifications"
-              isLast={false}
-              onPress={() => router.navigate("/notifications")}
-              accentColor={colors.accent}
-            />
-            <MenuItem
               icon="lock"
               label="Privacy & Security"
               isLast={false}
