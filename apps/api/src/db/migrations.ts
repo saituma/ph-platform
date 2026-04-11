@@ -212,6 +212,41 @@ async function normalizeRunLogsSchema(db: ReturnType<typeof drizzle>) {
   }
 }
 
+async function normalizeLegacyBookingTypes(db: ReturnType<typeof drizzle>) {
+  const hasBookings = await tableExists(db, "bookings");
+  const hasServiceTypes = await tableExists(db, "service_types");
+
+  const normalizeTable = async (tableName: "bookings" | "service_types") => {
+    const hasType = await columnExists(db, tableName, "type");
+    if (!hasType) return;
+
+    // Make updates robust regardless of prior enum shape.
+    await db.execute(
+      sql.raw(
+        `ALTER TABLE "${tableName}" ALTER COLUMN "type" SET DATA TYPE text USING "type"::text`,
+      ),
+    );
+
+    await db.execute(sql.raw(`
+      UPDATE "${tableName}"
+      SET "type" = CASE
+        WHEN "type" IN ('one_on_one', 'call', 'individual_call', 'lift_lab_1on1') THEN 'one_to_one'
+        WHEN "type" = 'group_call' THEN 'semi_private'
+        WHEN "type" = 'role_model' THEN 'in_person'
+        ELSE "type"
+      END
+      WHERE "type" IN ('one_on_one', 'call', 'individual_call', 'lift_lab_1on1', 'group_call', 'role_model')
+    `));
+  };
+
+  if (hasBookings) {
+    await normalizeTable("bookings");
+  }
+  if (hasServiceTypes) {
+    await normalizeTable("service_types");
+  }
+}
+
 async function assertTrainingContentV2Schema(db: ReturnType<typeof drizzle>) {
   const [
     hasModules,
@@ -273,6 +308,9 @@ export async function runMigrations(options?: {
       // Compatibility shim: older DBs may have snake_case run_logs columns.
       // Newer migrations expect camelCase columns (e.g. "userId").
       await normalizeRunLogsSchema(db);
+      // Compatibility shim: older booking/service type values (group_call, one_on_one, etc.)
+      // must be normalized before enum-cast migrations run.
+      await normalizeLegacyBookingTypes(db);
 
     const migrationsFolder =
       options?.migrationsFolder ??
