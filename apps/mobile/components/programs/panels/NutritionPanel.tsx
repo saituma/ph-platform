@@ -77,12 +77,28 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const [coachFilterPreset, setCoachFilterPreset] = useState<
     "1d" | "7d" | "30d" | "custom"
   >("30d");
+
+  const toUtcDay = useCallback((d: Date) => {
+    return new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+    );
+  }, []);
+
   const [coachFromDate, setCoachFromDate] = useState<Date>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 29);
-    return d;
+    const end = new Date();
+    const endUtcDay = new Date(
+      Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()),
+    );
+    const start = new Date(endUtcDay);
+    start.setUTCDate(start.getUTCDate() - 29);
+    return start;
   });
-  const [coachToDate, setCoachToDate] = useState<Date>(() => new Date());
+  const [coachToDate, setCoachToDate] = useState<Date>(() => {
+    const end = new Date();
+    return new Date(
+      Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()),
+    );
+  });
   const [coachFromPickerOpen, setCoachFromPickerOpen] = useState(false);
   const [coachToPickerOpen, setCoachToPickerOpen] = useState(false);
 
@@ -210,15 +226,18 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     [],
   );
 
-  const applyPresetToDates = useCallback((preset: "1d" | "7d" | "30d") => {
-    const end = new Date();
-    const start = new Date(end);
-    if (preset === "1d") start.setDate(start.getDate());
-    if (preset === "7d") start.setDate(start.getDate() - 6);
-    if (preset === "30d") start.setDate(start.getDate() - 29);
-    setCoachFromDate(start);
-    setCoachToDate(end);
-  }, []);
+  const applyPresetToDates = useCallback(
+    (preset: "1d" | "7d" | "30d") => {
+      const endUtcDay = toUtcDay(new Date());
+      const start = new Date(endUtcDay);
+      if (preset === "1d") start.setUTCDate(start.getUTCDate());
+      if (preset === "7d") start.setUTCDate(start.getUTCDate() - 6);
+      if (preset === "30d") start.setUTCDate(start.getUTCDate() - 29);
+      setCoachFromDate(start);
+      setCoachToDate(endUtcDay);
+    },
+    [toUtcDay],
+  );
 
   const fetchCoachLogs = useCallback(async () => {
     if (!token) return;

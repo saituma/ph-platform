@@ -12,10 +12,20 @@ jest.mock("../../src/services/user.service", () => ({
   getAthleteForUser: jest.fn(),
 }));
 
+jest.mock("../../src/services/program-section.service", () => ({
+  getProgramSectionContentById: jest.fn(),
+}));
+
+jest.mock("../../src/services/training-content-v2.service", () => ({
+  getTrainingSessionItemById: jest.fn(),
+}));
+
 import { createUploadUrl, createVideo, listVideos, reviewVideo } from "../../src/controllers/video.controller";
 import { getPresignedUploadUrl } from "../../src/services/s3.service";
 import { createVideoUpload, listVideoUploadsByAthlete, reviewVideoUpload } from "../../src/services/video.service";
 import { getAthleteForUser } from "../../src/services/user.service";
+import { getProgramSectionContentById } from "../../src/services/program-section.service";
+import { getTrainingSessionItemById } from "../../src/services/training-content-v2.service";
 
 function createRes() {
   const res: any = {};
@@ -69,6 +79,68 @@ describe("video controller", () => {
     expect(listVideoUploadsByAthlete).toHaveBeenCalledWith(8, { programSectionContentId: null });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ items: [{ id: 1 }] });
+  });
+
+  it("creates video for training-content-v2 session item when allowed", async () => {
+    (getAthleteForUser as jest.Mock).mockResolvedValue({ id: 8, currentProgramTier: "PHP_Pro" });
+    (getTrainingSessionItemById as jest.Mock).mockResolvedValue({ id: 123, allowVideoUpload: true });
+    (getProgramSectionContentById as jest.Mock).mockResolvedValue(null);
+    (createVideoUpload as jest.Mock).mockResolvedValue({ id: 99 });
+
+    const req = {
+      user: { id: 1 },
+      body: { videoUrl: "https://example.com/video.mp4", programSectionContentId: 123 },
+    } as any;
+    const res = createRes();
+
+    await createVideo(req, res);
+
+    expect(getTrainingSessionItemById).toHaveBeenCalledWith(123);
+    expect(getProgramSectionContentById).not.toHaveBeenCalled();
+    expect(createVideoUpload).toHaveBeenCalledWith({
+      athleteId: 8,
+      videoUrl: "https://example.com/video.mp4",
+      notes: undefined,
+      programSectionContentId: 123,
+    });
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ item: { id: 99 } });
+  });
+
+  it("returns 403 when session item has uploads disabled", async () => {
+    (getAthleteForUser as jest.Mock).mockResolvedValue({ id: 8, currentProgramTier: "PHP_Premium" });
+    (getTrainingSessionItemById as jest.Mock).mockResolvedValue({ id: 123, allowVideoUpload: false });
+    const req = {
+      user: { id: 1 },
+      body: { videoUrl: "https://example.com/video.mp4", programSectionContentId: 123 },
+    } as any;
+    const res = createRes();
+
+    await createVideo(req, res);
+
+    expect(createVideoUpload).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: "Video uploads are disabled for this training section." });
+  });
+
+  it("falls back to legacy program section content when session item not found", async () => {
+    (getAthleteForUser as jest.Mock).mockResolvedValue({ id: 8, currentProgramTier: "PHP_Premium_Plus" });
+    (getTrainingSessionItemById as jest.Mock).mockResolvedValue(null);
+    (getProgramSectionContentById as jest.Mock).mockResolvedValue({ id: 456, allowVideoUpload: true });
+    (createVideoUpload as jest.Mock).mockResolvedValue({ id: 100 });
+
+    const req = {
+      user: { id: 1 },
+      body: { videoUrl: "https://example.com/video.mp4", programSectionContentId: 456 },
+    } as any;
+    const res = createRes();
+
+    await createVideo(req, res);
+
+    expect(getTrainingSessionItemById).toHaveBeenCalledWith(456);
+    expect(getProgramSectionContentById).toHaveBeenCalledWith(456);
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ item: { id: 100 } });
   });
 
   it("returns 404 when review not found", async () => {
