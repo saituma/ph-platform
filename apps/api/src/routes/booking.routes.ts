@@ -4,6 +4,7 @@ import { requireAuth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/roles";
 import {
   bookingAction,
+  bookingActionPost,
   createAvailability,
   createBookingForUser,
   createService,
@@ -18,6 +19,7 @@ import {
 const router = Router();
 
 router.get("/public/booking-action", bookingAction);
+router.post("/public/booking-action", bookingActionPost);
 router.get("/bookings/services", requireAuth, listServices);
 router.post("/bookings/services", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createService);
 router.patch("/bookings/services/:id", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateService);

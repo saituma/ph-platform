@@ -105,6 +105,28 @@ export async function getBookingByIdAdmin(bookingId: number) {
   };
 }
 
+export async function updateBookingDetailsAdmin(input: {
+  bookingId: number;
+  startsAt?: Date;
+  endTime?: Date | null;
+  location?: string | null;
+  meetingLink?: string | null;
+}) {
+  const patch: Record<string, any> = { updatedAt: new Date() };
+  if (input.startsAt !== undefined) patch.startsAt = input.startsAt;
+  if (input.endTime !== undefined) patch.endTime = input.endTime;
+  if (input.location !== undefined) patch.location = input.location;
+  if (input.meetingLink !== undefined) patch.meetingLink = input.meetingLink;
+
+  const updated = await db
+    .update(bookingTable)
+    .set(patch)
+    .where(eq(bookingTable.id, input.bookingId))
+    .returning();
+
+  return updated[0] ?? null;
+}
+
 export async function updateBookingStatusAdmin(input: {
   bookingId: number;
   status: "pending" | "confirmed" | "declined" | "cancelled";

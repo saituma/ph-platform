@@ -1,5 +1,7 @@
 import { deliverEmail, emailLayout, escapeHtml, escapeAttr, textP, labelRow, E } from "./base.mailer";
 
+const TBD = "TBD (coach will confirm)";
+
 export async function sendBookingConfirmationEmail(input: {
   to: string;
   name: string;
@@ -20,19 +22,19 @@ export async function sendBookingConfirmationEmail(input: {
   const whenIso = escapeHtml(input.startsAt.toISOString());
   const name = escapeHtml(input.name);
   const service = escapeHtml(input.serviceName);
-  const loc = input.location ? escapeHtml(input.location) : "";
-  const meet = input.meetingLink
-    ? `<a href="${escapeAttr(input.meetingLink)}" style="color:${E.accent};font-weight:600;text-decoration:underline;">Join link</a>`
-    : "";
+  const loc = escapeHtml(input.location?.trim() ? input.location : TBD);
+  const meet = input.meetingLink?.trim()
+    ? `<a href="${escapeAttr(input.meetingLink)}" style="color:${E.accent};font-weight:600;text-decoration:underline;word-break:break-all;">Join link</a>`
+    : escapeHtml(TBD);
   const rows = [
     labelRow("Service", service),
     labelRow("When", `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`),
-    ...(input.location ? [labelRow("Location", loc)] : []),
-    ...(input.meetingLink ? [labelRow("Meeting", meet)] : []),
+    labelRow("Location", loc),
+    labelRow("Meeting", meet),
   ].join("");
   const bodyHtml = `
 ${textP(`Hi ${name},`)}
-${textP(`Thanks for your request — we’ve received it and will confirm your session as soon as possible. Here’s a summary:`)}
+${textP(`Thanks for your request — we’ve received it and it’s <strong>pending coach approval</strong>. Here’s a summary:`)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">${rows}</table>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;">
   <tr>
@@ -72,15 +74,15 @@ export async function sendBookingApprovedEmail(input: {
   const whenIso = escapeHtml(input.startsAt.toISOString());
   const name = escapeHtml(input.name);
   const service = escapeHtml(input.serviceName);
-  const loc = input.location ? escapeHtml(input.location) : "";
-  const meet = input.meetingLink
-    ? `<a href="${escapeAttr(input.meetingLink)}" style="color:${E.accent};font-weight:600;text-decoration:underline;">Open meeting link</a>`
-    : "";
+  const loc = escapeHtml(input.location?.trim() ? input.location : TBD);
+  const meet = input.meetingLink?.trim()
+    ? `<a href="${escapeAttr(input.meetingLink)}" style="color:${E.accent};font-weight:600;text-decoration:underline;word-break:break-all;">Open meeting link</a>`
+    : escapeHtml(TBD);
   const rows = [
     labelRow("Service", service),
     labelRow("When", `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`),
-    ...(input.location ? [labelRow("Location", loc)] : []),
-    ...(input.meetingLink ? [labelRow("Meeting", meet)] : []),
+    labelRow("Location", loc),
+    labelRow("Meeting", meet),
   ].join("");
   const bodyHtml = `
 ${textP(`Hi ${name},`)}
@@ -117,11 +119,15 @@ export async function sendBookingDeclinedEmail(input: {
   const whenIso = escapeHtml(input.startsAt.toISOString());
   const name = escapeHtml(input.name);
   const service = escapeHtml(input.serviceName);
-  const loc = input.location ? escapeHtml(input.location) : "";
+  const loc = escapeHtml(input.location?.trim() ? input.location : TBD);
+  const meet = input.meetingLink?.trim()
+    ? `<a href="${escapeAttr(input.meetingLink)}" style="color:${E.accent};font-weight:600;text-decoration:underline;word-break:break-all;">Meeting link</a>`
+    : escapeHtml(TBD);
   const rows = [
     labelRow("Service", service),
     labelRow("Requested time", `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`),
-    ...(input.location ? [labelRow("Location", loc)] : []),
+    labelRow("Location", loc),
+    labelRow("Meeting", meet),
   ].join("");
   const bodyHtml = `
 ${textP(`Hi ${name},`)}
@@ -155,6 +161,7 @@ export async function sendBookingRequestAdminEmail(input: {
   athleteName?: string;
   location?: string;
   meetingLink?: string;
+  reviewUrl?: string;
   approveUrl?: string;
   declineUrl?: string;
   adminUrl?: string;
@@ -171,6 +178,10 @@ export async function sendBookingRequestAdminEmail(input: {
   });
   const service = escapeHtml(input.serviceName);
   const bid = escapeHtml(String(input.bookingId));
+  const loc = escapeHtml(input.location?.trim() ? input.location : TBD);
+  const meet = input.meetingLink?.trim()
+    ? `<a href="${escapeAttr(input.meetingLink)}" style="color:${E.accent};font-weight:600;text-decoration:underline;word-break:break-all;">Link</a>`
+    : escapeHtml(TBD);
   const rows = [
     labelRow("Booking ID", `#${bid}`),
     labelRow("Service", service),
@@ -181,15 +192,8 @@ export async function sendBookingRequestAdminEmail(input: {
     ...(input.athleteName ? [labelRow("Athlete", escapeHtml(input.athleteName))] : []),
     ...(input.guardianName ? [labelRow("Guardian", escapeHtml(input.guardianName))] : []),
     ...(input.guardianEmail ? [labelRow("Email", escapeHtml(input.guardianEmail))] : []),
-    ...(input.location ? [labelRow("Location", escapeHtml(input.location))] : []),
-    ...(input.meetingLink
-      ? [
-          labelRow(
-            "Meeting",
-            `<a href="${escapeAttr(input.meetingLink)}" style="color:${E.accent};font-weight:600;text-decoration:underline;word-break:break-all;">Link</a>`,
-          ),
-        ]
-      : []),
+    labelRow("Location", loc),
+    labelRow("Meeting", meet),
   ].join("");
   const btn = (href: string, label: string, bg: string) =>
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="display:inline-block;margin:6px 8px 6px 0;vertical-align:middle;">
@@ -201,12 +205,13 @@ export async function sendBookingRequestAdminEmail(input: {
 </table>`;
   const secondary = "#27272a";
   const actions = [
-    input.approveUrl ? btn(input.approveUrl, "Approve", E.accent) : "",
-    input.declineUrl ? btn(input.declineUrl, "Decline", secondary) : "",
+    input.reviewUrl ? btn(input.reviewUrl, "Review & respond", E.accent) : "",
+    !input.reviewUrl && input.approveUrl ? btn(input.approveUrl, "Approve", E.accent) : "",
+    !input.reviewUrl && input.declineUrl ? btn(input.declineUrl, "Decline", secondary) : "",
     input.adminUrl ? btn(input.adminUrl, "Open admin", secondary) : "",
   ].join("");
   const bodyHtml = `
-${textP(`Someone requested a session — review the details below and choose an action.`)}
+${textP(`Someone requested a session — you can edit the time, location, and meeting link before approving or declining.`)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;">${rows}</table>
 ${actions ? `<div style="margin:18px 0 16px;text-align:left;">${actions}</div>` : ""}
 ${textP(`<span style="color:${E.muted};font-size:14px;">Buttons use secure links tied to this request. If you did not expect this email, please contact support.</span>`, "0")}`;

@@ -19,7 +19,10 @@ import { assertUserCanCreateBooking } from "../services/booking-eligibility.serv
 import { getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
 import { ProgramType } from "../db/schema";
 import { verifyBookingActionToken } from "../lib/booking-actions";
-import { updateBookingStatusAdmin } from "../services/admin/booking.service";
+import { db } from "../db";
+import { athleteTable, bookingTable, serviceTypeTable } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { updateBookingDetailsAdmin, updateBookingStatusAdmin } from "../services/admin/booking.service";
 
 const planEnum = z.enum(ProgramType.enumValues);
 const weeklyEntrySchema = z.object({
@@ -224,8 +227,6 @@ export async function createBookingForUser(req: Request, res: Response) {
       slotKey: input.slotKey ?? null,
       createdBy: req.user!.id,
       viewerProgramTier: athlete.currentProgramTier as any,
-      location: input.location,
-      meetingLink: input.meetingLink,
       timezoneOffsetMinutes: input.timezoneOffsetMinutes,
     });
 
@@ -259,18 +260,146 @@ export async function listBookings(req: Request, res: Response) {
 
 export async function bookingAction(req: Request, res: Response) {
   const parsed = z.string().min(1).safeParse(req.query.token);
-  if (!parsed.success) {
-    return res.status(400).send("Missing booking action token.");
-  }
+  if (!parsed.success) return res.status(400).send("Missing booking action token.");
+
   const token = parsed.data;
   const verified = verifyBookingActionToken(token);
-  if (!verified) {
-    return res.status(400).send("Invalid or expired booking action.");
+  if (!verified) return res.status(400).send("Invalid or expired booking action.");
+
+  const [row] = await db
+    .select({
+      id: bookingTable.id,
+      status: bookingTable.status,
+      startsAt: bookingTable.startsAt,
+      endTime: bookingTable.endTime,
+      location: bookingTable.location,
+      meetingLink: bookingTable.meetingLink,
+      serviceName: serviceTypeTable.name,
+      athleteName: athleteTable.name,
+    })
+    .from(bookingTable)
+    .leftJoin(serviceTypeTable, eq(bookingTable.serviceTypeId, serviceTypeTable.id))
+    .leftJoin(athleteTable, eq(bookingTable.athleteId, athleteTable.id))
+    .where(eq(bookingTable.id, verified.bookingId))
+    .limit(1);
+
+  if (!row) return res.status(404).send("Booking not found.");
+
+  if (row.status !== "pending") {
+    if (verified.action === "review") {
+      return res.status(409).json({
+        ok: false,
+        error: `Booking already processed (${row.status}).`,
+        booking: { id: row.id, status: row.status },
+      });
+    }
+    return res.status(409).send(`Booking already processed (${row.status}).`);
   }
+
+  if (verified.action === "review") {
+    return res.status(200).json({
+      ok: true,
+      booking: {
+        id: row.id,
+        status: row.status,
+        serviceName: row.serviceName ?? "Session",
+        athleteName: row.athleteName ?? "",
+        startsAt: row.startsAt?.toISOString?.() ?? null,
+        endTime: row.endTime?.toISOString?.() ?? null,
+        location: row.location ?? null,
+        meetingLink: row.meetingLink ?? null,
+      },
+    });
+  }
+
   const status = verified.action === "approve" ? "confirmed" : "declined";
   const updated = await updateBookingStatusAdmin({ bookingId: verified.bookingId, status });
-  if (!updated) {
-    return res.status(404).send("Booking not found.");
-  }
+  if (!updated) return res.status(404).send("Booking not found.");
   return res.status(200).send(`Booking ${status}.`);
+}
+
+const bookingActionPostSchema = z.object({
+  token: z.string().min(1),
+  action: z.enum(["approve", "decline"]),
+  updates: z
+    .object({
+      startsAt: z.string().datetime().optional(),
+      endTime: z.union([z.string().datetime(), z.null()]).optional(),
+      location: z.union([z.string(), z.null()]).optional(),
+      meetingLink: z.union([z.string(), z.null()]).optional(),
+    })
+    .optional(),
+});
+
+function normalizeOptionalString(input: unknown, maxLen: number) {
+  if (input === null) return null;
+  if (typeof input !== "string") return undefined;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  return trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
+}
+
+export async function bookingActionPost(req: Request, res: Response) {
+  const body = bookingActionPostSchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ ok: false, error: "Invalid request body." });
+  }
+
+  const verified = verifyBookingActionToken(body.data.token);
+  if (!verified) {
+    return res.status(400).json({ ok: false, error: "Invalid or expired booking action." });
+  }
+  if (verified.action !== "review") {
+    return res.status(400).json({ ok: false, error: "This token cannot be used for review actions." });
+  }
+
+  const [existing] = await db
+    .select({
+      id: bookingTable.id,
+      status: bookingTable.status,
+      startsAt: bookingTable.startsAt,
+      endTime: bookingTable.endTime,
+    })
+    .from(bookingTable)
+    .where(eq(bookingTable.id, verified.bookingId))
+    .limit(1);
+
+  if (!existing) return res.status(404).json({ ok: false, error: "Booking not found." });
+
+  if (existing.status !== "pending") {
+    return res.status(409).json({ ok: false, error: `Booking already processed (${existing.status}).` });
+  }
+
+  if (body.data.action === "decline") {
+    await updateBookingStatusAdmin({ bookingId: verified.bookingId, status: "declined" });
+    return res.status(200).json({ ok: true, message: "Booking declined." });
+  }
+
+  const updates = body.data.updates ?? {};
+  const nextStartsAt = updates.startsAt ? new Date(updates.startsAt) : existing.startsAt;
+  const nextEndTime = updates.endTime === undefined ? existing.endTime : updates.endTime === null ? null : new Date(updates.endTime);
+
+  if (!nextStartsAt || !Number.isFinite(nextStartsAt.getTime())) {
+    return res.status(400).json({ ok: false, error: "startsAt must be a valid timestamp." });
+  }
+  if (nextStartsAt.getTime() <= Date.now()) {
+    return res.status(400).json({ ok: false, error: "startsAt must be in the future." });
+  }
+  if (nextEndTime && nextEndTime.getTime() <= nextStartsAt.getTime()) {
+    return res.status(400).json({ ok: false, error: "endTime must be after startsAt." });
+  }
+
+  const location = normalizeOptionalString(updates.location, 500);
+  const meetingLink = normalizeOptionalString(updates.meetingLink, 500);
+
+  await updateBookingDetailsAdmin({
+    bookingId: verified.bookingId,
+    startsAt: updates.startsAt ? nextStartsAt : undefined,
+    endTime: updates.endTime === undefined ? undefined : nextEndTime,
+    location,
+    meetingLink,
+  });
+
+  await updateBookingStatusAdmin({ bookingId: verified.bookingId, status: "confirmed" });
+  return res.status(200).json({ ok: true, message: "Booking confirmed." });
 }
