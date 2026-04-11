@@ -9,6 +9,14 @@ export const defaultOnboardingConfig = {
   version: 1,
   fields: [
     { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
+    {
+      id: "athleteType",
+      label: "Athlete type",
+      type: "dropdown",
+      required: true,
+      visible: true,
+      options: ["youth", "adult"],
+    },
     { id: "birthDate", label: "Birth Date", type: "date", required: true, visible: true },
     {
       id: "team",

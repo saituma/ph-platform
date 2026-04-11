@@ -2,16 +2,45 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@expo/vector-icons";
 import { Redirect, router } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
+import { useEffect, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { Shadows } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import { isAdminRole } from "@/lib/isAdminRole";
+import { apiRequest } from "@/lib/api";
+
+type OnboardingPublicConfig = {
+  welcomeMessage?: string | null;
+  coachMessage?: string | null;
+  approvalWorkflow?: "manual" | "auto" | null;
+};
 
 export default function OnboardingScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
+  const [config, setConfig] = useState<OnboardingPublicConfig | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      try {
+        const response = await apiRequest<{ config?: OnboardingPublicConfig }>("/onboarding/config", {
+          method: "GET",
+        });
+        if (!active) return;
+        setConfig(response?.config ?? null);
+      } catch {
+        if (!active) return;
+        setConfig(null);
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (isAdminRole(apiUserRole)) {
     return <Redirect href="/(tabs)" />;
@@ -70,15 +99,15 @@ export default function OnboardingScreen() {
             selectable
             style={{ fontSize: 36, lineHeight: 40, letterSpacing: -0.8 }}
           >
-            Let&apos;s build the right plan for your athlete.
+            {config?.welcomeMessage?.trim() || "Let's build the right plan for your athlete."}
           </Text>
           <Text
             className="font-outfit text-secondary"
             selectable
             style={{ fontSize: 16, lineHeight: 24, maxWidth: 340 }}
           >
-            Share a few details about age, training rhythm, and goals so we can
-            personalize coaching from the start.
+            {config?.coachMessage?.trim() ||
+              "Share a few details about age, training rhythm, and goals so we can personalize coaching from the start."}
           </Text>
         </View>
 
@@ -175,6 +204,9 @@ export default function OnboardingScreen() {
           >
             This only takes a few minutes, and you can update athlete details
             later.
+          </Text>
+          <Text className="font-outfit text-secondary" style={{ fontSize: 12 }}>
+            Approval: {config?.approvalWorkflow === "auto" ? "Auto" : "Manual (coach review)"}
           </Text>
         </View>
 

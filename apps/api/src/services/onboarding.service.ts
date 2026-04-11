@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import {
+  AthleteType,
   athleteTable,
   enrollmentTable,
   guardianTable,
@@ -21,6 +22,14 @@ const defaultPublicConfig = {
   version: 1,
   fields: [
     { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
+    {
+      id: "athleteType",
+      label: "Athlete type",
+      type: "dropdown",
+      required: true,
+      visible: true,
+      options: ["youth", "adult"],
+    },
     { id: "birthDate", label: "Birth Date", type: "date", required: true, visible: true },
     {
       id: "team",
@@ -173,7 +182,8 @@ export async function submitOnboarding(input: {
   athleteName: string;
   birthDate?: string | null;
   age?: number | null;
-  team: string;
+  athleteType?: (typeof AthleteType.enumValues)[number];
+  team?: string | null;
   trainingPerWeek: number;
   injuries?: unknown;
   growthNotes?: string | null;
@@ -192,12 +202,22 @@ export async function submitOnboarding(input: {
 }) {
   const now = new Date();
   const parsedBirthDate = input.birthDate ? parseISODate(input.birthDate) : null;
-  const derivedAge = parsedBirthDate ? clampYouthAge(calculateAge(parsedBirthDate, now), "youth") : null;
-  const resolvedAge = clampYouthAge(derivedAge ?? input.age ?? null, "youth");
+  const computedAge = parsedBirthDate ? calculateAge(parsedBirthDate, now) : null;
+  const baseAge = computedAge ?? input.age ?? null;
+  const inferredAthleteType: (typeof AthleteType.enumValues)[number] =
+    input.athleteType ?? ((baseAge ?? 0) >= 18 ? "adult" : "youth");
+  const resolvedAge = clampYouthAge(baseAge, inferredAthleteType);
   if (!resolvedAge) {
     throw new Error("Birth date is required.");
   }
+  if (inferredAthleteType === "adult" && resolvedAge < 18) {
+    throw new Error("Adult athletes must be 18 or older.");
+  }
+  if (inferredAthleteType === "youth" && resolvedAge >= 18) {
+    throw new Error("Youth athletes must be under 18.");
+  }
   const birthDateValue = input.birthDate ?? null;
+  const resolvedTeam = input.team?.trim() || "";
   const desiredTier =
     input.desiredProgramType ??
     ("PHP" as (typeof ProgramType.enumValues)[number]);
@@ -240,10 +260,11 @@ export async function submitOnboarding(input: {
     const updated = await db
       .update(athleteTable)
       .set({
+        athleteType: inferredAthleteType,
         name: input.athleteName,
         age: resolvedAge,
         birthDate: birthDateValue,
-        team: input.team,
+        team: resolvedTeam,
         trainingPerWeek: input.trainingPerWeek,
         injuries: input.injuries ?? null,
         growthNotes: input.growthNotes ?? null,
@@ -285,10 +306,11 @@ export async function submitOnboarding(input: {
       .values({
         userId: input.userId,
         guardianId,
+        athleteType: inferredAthleteType,
         name: input.athleteName,
         age: resolvedAge,
         birthDate: birthDateValue,
-        team: input.team,
+        team: resolvedTeam,
         trainingPerWeek: input.trainingPerWeek,
         injuries: input.injuries ?? null,
         growthNotes: input.growthNotes ?? null,
@@ -479,7 +501,7 @@ const LEGACY_ONBOARDING_FIELD_IDS = new Set(["relationToAthlete", "desiredProgra
 function normalizeConfigFields(fields: any[] | null | undefined) {
   if (!Array.isArray(fields)) return [];
   const hasBirthDate = fields.some((field) => field?.id === "birthDate");
-  return fields
+  const normalized = fields
     .filter((field) => field?.id && !LEGACY_ONBOARDING_FIELD_IDS.has(String(field.id)))
     .map((field) => {
       if (field?.id === "age" && !hasBirthDate) {
@@ -490,6 +512,12 @@ function normalizeConfigFields(fields: any[] | null | undefined) {
       }
       return field;
     });
+  const hasAthleteType = normalized.some((field) => field?.id === "athleteType");
+  if (hasAthleteType) return normalized;
+  return [
+    { id: "athleteType", label: "Athlete type", type: "dropdown", required: true, visible: true, options: ["youth", "adult"] },
+    ...normalized,
+  ];
 }
 
 export async function getPublicOnboardingConfig() {
