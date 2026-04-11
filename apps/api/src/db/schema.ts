@@ -857,6 +857,7 @@ export const videoUploadTable = pgTable("video_uploads", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   athleteId: integer().notNull().references(() => athleteTable.id),
   programSectionContentId: integer().references(() => programSectionContentTable.id),
+  trainingSessionItemId: integer().references(() => trainingSessionItemTable.id),
   videoUrl: varchar({ length: 500 }).notNull(),
   notes: varchar({ length: 500 }),
   reviewedByCoach: integer().references(() => userTable.id),

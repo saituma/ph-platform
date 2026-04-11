@@ -11,6 +11,7 @@ import {
 } from "../../db/schema";
 import { env } from "../../config/env";
 import { sendBookingApprovedEmail, sendBookingDeclinedEmail } from "../../lib/mailer";
+import { sendPushNotification } from "../push.service";
 
 export async function listBookingsAdmin(options?: { q?: string; limit?: number }) {
   const q = options?.q?.trim() ?? "";
@@ -178,6 +179,13 @@ export async function updateBookingStatusAdmin(input: {
         link: "/schedule",
       });
 
+      void sendPushNotification(
+        detail.guardianUserId,
+        "Booking confirmed",
+        `${detail.serviceName ?? "Session"} confirmed`,
+        { type: "booking", screen: "schedule", url: "/schedule" },
+      );
+
       if (detail.guardianEmail) {
         try {
           await sendBookingApprovedEmail({
@@ -237,6 +245,13 @@ export async function updateBookingStatusAdmin(input: {
         content: `Booking declined for ${detail.serviceName ?? "session"} at ${detail.startsAt?.toISOString?.() ?? ""}`,
         link: "/schedule",
       });
+
+      void sendPushNotification(
+        detail.guardianUserId,
+        "Booking declined",
+        `${detail.serviceName ?? "Session"} declined`,
+        { type: "booking", screen: "schedule", url: "/schedule" },
+      );
 
       if (detail.guardianEmail) {
         try {

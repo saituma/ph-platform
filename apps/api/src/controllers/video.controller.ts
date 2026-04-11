@@ -80,7 +80,8 @@ export async function createVideo(req: Request, res: Response) {
     athleteId: athlete.id,
     videoUrl: input.videoUrl,
     notes: input.notes,
-    programSectionContentId: contentId,
+    programSectionContentId: sessionItem ? null : contentId,
+    trainingSessionItemId: sessionItem ? contentId : null,
   });
   return res.status(201).json({ item });
 }
@@ -92,9 +93,7 @@ export async function listVideos(req: Request, res: Response) {
   }
   const sectionContentId = req.query.sectionContentId ? Number(req.query.sectionContentId) : null;
   const items = await listVideoUploadsByAthlete(athlete.id, {
-    programSectionContentId: Number.isFinite(sectionContentId ?? NaN)
-      ? (sectionContentId as number)
-      : null,
+    contentId: Number.isFinite(sectionContentId ?? NaN) ? (sectionContentId as number) : null,
   });
   return res.status(200).json({ items });
 }

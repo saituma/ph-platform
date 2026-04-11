@@ -55,6 +55,7 @@ export function LiveMap({
           backgroundColor={colors.surfaceHigh}
           isDark={isDark}
           destination={destination}
+          activeRegion={activeRegion}
         />
       ) : (
         <MapView
@@ -63,7 +64,8 @@ export function LiveMap({
           initialRegion={activeRegion}
           customMapStyle={isDark ? (MapNightStyle as any) : []}
           provider={Platform.OS === "android" ? "google" : undefined}
-          mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
+          mapType="standard"
+          showsBuildings={false}
           userInterfaceStyle={isDark ? "dark" : "light"}
           showsUserLocation={true}
           showsMyLocationButton={false}

@@ -15,6 +15,7 @@ type OsmMapViewProps = {
   backgroundColor: string;
   isDark?: boolean;
   destination?: Coordinate | null;
+  activeRegion?: { latitude: number; longitude: number } | null;
 };
 
 const buildHtml = (
@@ -24,7 +25,8 @@ const buildHtml = (
   endColor: string,
   backgroundColor: string,
   isDark: boolean,
-  destination: Coordinate | null
+  destination: Coordinate | null,
+  activeRegion: { latitude: number; longitude: number } | null
 ) => {
   const coordsJson = JSON.stringify(coordinates);
   const destinationJson = JSON.stringify(destination);
@@ -91,6 +93,9 @@ const buildHtml = (
       } else if (destination) {
         map.setView([destination.latitude, destination.longitude], 15);
         L.circleMarker([destination.latitude, destination.longitude], { radius: 5, color: "${endColor}", fillColor: "${endColor}", fillOpacity: 1 }).addTo(map);
+      } else if (activeRegion) {
+        map.setView([activeRegion.latitude, activeRegion.longitude], 15);
+        L.circleMarker([activeRegion.latitude, activeRegion.longitude], { radius: 5, color: "${startColor}", fillColor: "${startColor}", fillOpacity: 1 }).addTo(map);
       } else {
         map.setView([0, 0], 2);
       }
@@ -107,10 +112,11 @@ export function OsmMapView({
   backgroundColor,
   isDark = false,
   destination = null,
+  activeRegion = null,
 }: OsmMapViewProps) {
   const html = useMemo(
-    () => buildHtml(coordinates, routeColor, startColor, endColor, backgroundColor, isDark, destination),
-    [coordinates, routeColor, startColor, endColor, backgroundColor, isDark, destination]
+    () => buildHtml(coordinates, routeColor, startColor, endColor, backgroundColor, isDark, destination, activeRegion),
+    [coordinates, routeColor, startColor, endColor, backgroundColor, isDark, destination, activeRegion]
   );
 
   return (

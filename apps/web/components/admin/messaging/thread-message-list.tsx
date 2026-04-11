@@ -3,7 +3,7 @@
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
 import { ArrowDown, CornerUpLeft, Plus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ScrollArea } from "../../ui/scroll-area";
 import type { ChatMessage, ChatReaction } from "./types";
@@ -45,7 +45,6 @@ export function ThreadMessageList({
   resolveUserName,
   mode = "direct",
   directPeerUserId = null,
-  directPeerName = null,
   showSenderName = false,
   emptyLabel,
 }: ThreadMessageListProps) {
@@ -53,7 +52,10 @@ export function ThreadMessageList({
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     number | null
   >(null);
-  const [newIncomingCount, setNewIncomingCount] = useState(0);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [lastSeenMessageId, setLastSeenMessageId] = useState<string | null>(
+    null,
+  );
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isNearBottomRef = useRef(true);
   const lastMessageIdRef = useRef<string | null>(null);
@@ -72,19 +74,22 @@ export function ThreadMessageList({
     };
   }, []);
 
-  const getViewport = () => {
+  const getViewport = useCallback(() => {
     const root = scrollContainerRef.current;
     if (!root) return null;
     return root.querySelector(
       "[data-radix-scroll-area-viewport]",
     ) as HTMLDivElement | null;
-  };
+  }, []);
 
-  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    const viewport = getViewport();
-    if (!viewport) return;
-    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
-  };
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const viewport = getViewport();
+      if (!viewport) return;
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+    },
+    [getViewport],
+  );
 
   useEffect(() => {
     const viewport = getViewport();
@@ -93,20 +98,23 @@ export function ThreadMessageList({
       const threshold = 90;
       const distanceToBottom =
         viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-      isNearBottomRef.current = distanceToBottom < threshold;
-      if (isNearBottomRef.current) {
-        setNewIncomingCount(0);
+      const nextIsNearBottom = distanceToBottom < threshold;
+      isNearBottomRef.current = nextIsNearBottom;
+      setIsNearBottom(nextIsNearBottom);
+      if (nextIsNearBottom) {
+        // When the user is at (or near) the bottom, consider the latest message "seen".
+        setLastSeenMessageId(lastMessageIdRef.current);
       }
     };
     viewport.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => viewport.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [getViewport]);
 
   useEffect(() => {
     if (!messages.length) {
       lastMessageIdRef.current = null;
-      setNewIncomingCount(0);
+      queueMicrotask(() => setLastSeenMessageId(null));
       return;
     }
     const latest = messages[messages.length - 1];
@@ -116,7 +124,10 @@ export function ThreadMessageList({
     if (!prevId) {
       lastMessageIdRef.current = latestId;
       // initial mount should pin to bottom
-      requestAnimationFrame(() => scrollToBottom("auto"));
+      requestAnimationFrame(() => {
+        scrollToBottom("auto");
+        setLastSeenMessageId(latestId);
+      });
       return;
     }
     if (prevId === latestId) return;
@@ -130,14 +141,39 @@ export function ThreadMessageList({
     const incoming = !mine;
 
     if (mine || isNearBottomRef.current) {
-      requestAnimationFrame(() => scrollToBottom("smooth"));
-      setNewIncomingCount(0);
+      requestAnimationFrame(() => {
+        scrollToBottom("smooth");
+        setLastSeenMessageId(latestId);
+      });
       return;
     }
-    if (incoming) {
-      setNewIncomingCount((count) => Math.min(count + 1, 99));
+    void incoming;
+  }, [currentUserId, messages, scrollToBottom]);
+
+  const newIncomingCount = useMemo(() => {
+    if (!messages.length) return 0;
+    if (isNearBottom) return 0;
+
+    if (!lastSeenMessageId) return 0;
+
+    const lastSeenIdx = messages.findIndex(
+      (m) => String(m.id ?? "") === lastSeenMessageId,
+    );
+    const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : 0;
+    const unseen = messages.slice(startIdx);
+
+    let count = 0;
+    for (const msg of unseen) {
+      const senderId = Number(msg?.senderId ?? NaN);
+      const mine =
+        currentUserId != null && Number.isFinite(senderId)
+          ? senderId === currentUserId
+          : false;
+      if (!mine) count += 1;
     }
-  }, [currentUserId, messages]);
+
+    return Math.min(count, 99);
+  }, [currentUserId, isNearBottom, lastSeenMessageId, messages]);
 
   const handlePickReaction = async (message: ChatMessage, emoji: EmojiPick) => {
     if (!emoji.native) return;
@@ -249,7 +285,7 @@ export function ThreadMessageList({
 
   return (
     <div ref={scrollContainerRef} className="relative">
-      <ScrollArea className="h-[420px] rounded-xl border border-border p-3">
+      <ScrollArea className="h-105 rounded-xl border border-border p-3">
         <div className="space-y-3">
           {messages.map((message) => {
             const senderId = Number(message?.senderId ?? NaN);
@@ -363,7 +399,7 @@ export function ThreadMessageList({
                 <div
                   className={`flex max-w-[88%] items-end gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
                 >
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary text-[10px] font-semibold text-foreground">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary text-[10px] font-semibold text-foreground">
                     {avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -438,14 +474,14 @@ export function ThreadMessageList({
                       <img
                         src={message.mediaUrl ?? ""}
                         alt="Message media"
-                        className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
+                        className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
                       />
                     ) : null}
                     {hasVideo ? (
                       <video
                         src={message.mediaUrl ?? ""}
                         controls
-                        className={`rounded-lg ${mediaOnly ? "max-h-[420px] w-auto max-w-full" : "max-h-64 w-full"}`}
+                        className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full" : "max-h-64 w-full"}`}
                       />
                     ) : null}
                     {showText ? (
@@ -590,7 +626,8 @@ export function ThreadMessageList({
           onClick={() => {
             scrollToBottom("smooth");
             isNearBottomRef.current = true;
-            setNewIncomingCount(0);
+            setIsNearBottom(true);
+            setLastSeenMessageId(lastMessageIdRef.current);
           }}
           className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-lg hover:bg-emerald-700"
           aria-label="Scroll to newest message"

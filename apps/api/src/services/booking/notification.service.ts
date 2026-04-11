@@ -9,6 +9,7 @@ import {
 import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
 import { createBookingActionToken } from "../../lib/booking-actions";
+import { sendPushNotification } from "../push.service";
 
 export async function notifyBookingRequested(input: {
   bookingId: number;
@@ -76,6 +77,13 @@ export async function notifyBookingRequested(input: {
     content: `Booking requested for ${input.serviceName} at ${input.startsAt.toISOString()}`,
     link: "/schedule",
   });
+
+  void sendPushNotification(
+    guardian.userId,
+    "Booking requested",
+    `${input.serviceName} request submitted`,
+    { type: "booking", screen: "schedule", url: "/schedule" },
+  );
 
   if (user?.email) {
     try {
