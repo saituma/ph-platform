@@ -72,15 +72,17 @@ export default function ProgramModuleDetailScreen() {
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const { colors, isDark } = useAppTheme();
 
-  const activeAthleteAge = useMemo(() => {
+  const activeAthlete = useMemo(() => {
     if (!managedAthletes.length) return null;
-    const selected =
+    return (
       managedAthletes.find(
         (athlete) =>
           athlete.id === athleteUserId || athlete.userId === athleteUserId,
-      ) ?? managedAthletes[0];
-    return selected?.age ?? null;
+      ) ?? managedAthletes[0]
+    );
   }, [managedAthletes, athleteUserId]);
+  const activeAthleteAge = activeAthlete?.age ?? null;
+  const isTeamMode = Boolean(activeAthlete?.team?.trim());
 
   const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
     null,
@@ -135,7 +137,7 @@ export default function ProgramModuleDetailScreen() {
 
   const loadWorkspace = useCallback(
     async (options?: { force?: boolean }) => {
-      if (!token) {
+      if (!token || !isTeamMode) {
         setWorkspace(null);
         return;
       }
@@ -160,7 +162,7 @@ export default function ProgramModuleDetailScreen() {
         setIsLoading(false);
       }
     },
-    [activeAthleteAge, token],
+    [activeAthleteAge, isTeamMode, token],
   );
 
   useEffect(() => {
@@ -299,7 +301,24 @@ export default function ProgramModuleDetailScreen() {
               </View>
             ) : null}
 
-            {!isLoading && !error && moduleIdValue == null ? (
+            {!isLoading && !error && !isTeamMode ? (
+              <View
+                className="rounded-[24px] border px-5 py-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: borderSoft,
+                }}
+              >
+                <Text
+                  className="text-sm font-outfit"
+                  style={{ color: colors.textSecondary }}
+                >
+                  Module sessions are available only for athletes assigned to a team.
+                </Text>
+              </View>
+            ) : null}
+
+            {!isLoading && !error && isTeamMode && moduleIdValue == null ? (
               <View
                 className="rounded-[24px] border px-5 py-5"
                 style={{
@@ -316,7 +335,11 @@ export default function ProgramModuleDetailScreen() {
               </View>
             ) : null}
 
-            {!isLoading && !error && moduleIdValue != null && !module ? (
+            {!isLoading &&
+            !error &&
+            isTeamMode &&
+            moduleIdValue != null &&
+            !module ? (
               <View
                 className="rounded-[24px] border px-5 py-5"
                 style={{
@@ -333,7 +356,7 @@ export default function ProgramModuleDetailScreen() {
               </View>
             ) : null}
 
-            {!isLoading && !error && module ? (
+            {!isLoading && !error && isTeamMode && module ? (
               <View className="gap-4">
                 {module.locked ? (
                   <View
