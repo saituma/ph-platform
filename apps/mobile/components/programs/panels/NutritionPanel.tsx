@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { apiRequest } from "@/lib/api";
@@ -19,6 +19,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
 
   const isAdult =
     appRole === "adult_athlete" || appRole === "adult_athlete_team";
+
+  const [activeTab, setActiveTab] = useState<"log" | "coach">("log");
 
   const [dateObj, setDateObj] = useState<Date>(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -67,6 +69,21 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     message: string;
   } | null>(null);
 
+  const [coachLogs, setCoachLogs] = useState<any[]>([]);
+  const [coachLogsLoading, setCoachLogsLoading] = useState(false);
+  const [coachFilterOpen, setCoachFilterOpen] = useState(false);
+  const [coachFilterPreset, setCoachFilterPreset] = useState<
+    "1d" | "7d" | "30d" | "custom"
+  >("30d");
+  const [coachFromDate, setCoachFromDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 29);
+    return d;
+  });
+  const [coachToDate, setCoachToDate] = useState<Date>(() => new Date());
+  const [coachFromPickerOpen, setCoachFromPickerOpen] = useState(false);
+  const [coachToPickerOpen, setCoachToPickerOpen] = useState(false);
+
   const parseSlot = useCallback((value: unknown) => {
     const raw = typeof value === "string" ? value.trim() : "";
     if (!raw) return { checked: false, details: "" };
@@ -87,7 +104,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
 
       // Fetch Log
       const logData = await apiRequest<{ logs: any[] }>(
-        `/nutrition/logs?userId=${athleteUserId || "me"}`,
+        `/nutrition/logs?userId=${athleteUserId || "me"}&from=${encodeURIComponent(
+          dateKey,
+        )}&to=${encodeURIComponent(dateKey)}&limit=5`,
         { token, suppressLog: true },
       );
       const currentLog = logData.logs.find((l) => l.dateKey === dateKey);
@@ -183,6 +202,47 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
+
+  const formatDateKey = useCallback((d: Date) => d.toISOString().slice(0, 10), []);
+
+  const applyPresetToDates = useCallback((preset: "1d" | "7d" | "30d") => {
+    const end = new Date();
+    const start = new Date(end);
+    if (preset === "1d") start.setDate(start.getDate());
+    if (preset === "7d") start.setDate(start.getDate() - 6);
+    if (preset === "30d") start.setDate(start.getDate() - 29);
+    setCoachFromDate(start);
+    setCoachToDate(end);
+  }, []);
+
+  const fetchCoachLogs = useCallback(async () => {
+    if (!token) return;
+    try {
+      setCoachLogsLoading(true);
+      const fromKey = formatDateKey(coachFromDate);
+      const toKey = formatDateKey(coachToDate);
+      const qs = new URLSearchParams();
+      qs.set("userId", String(athleteUserId || "me"));
+      qs.set("from", fromKey);
+      qs.set("to", toKey);
+      qs.set("limit", "500");
+      const data = await apiRequest<{ logs: any[] }>(
+        `/nutrition/logs?${qs.toString()}`,
+        { token, suppressLog: true },
+      );
+      setCoachLogs(Array.isArray(data.logs) ? data.logs : []);
+    } catch (e) {
+      console.warn("[NutritionPanel] Failed to fetch coach logs", e);
+      setCoachLogs([]);
+    } finally {
+      setCoachLogsLoading(false);
+    }
+  }, [athleteUserId, coachFromDate, coachToDate, formatDateKey, token]);
+
+  useEffect(() => {
+    if (activeTab !== "coach") return;
+    void fetchCoachLogs();
+  }, [activeTab, fetchCoachLogs]);
 
   const handleSave = async () => {
     if (!token) return;
@@ -320,13 +380,83 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
         ) : null}
       </View>
 
-      {loading ? (
-        <View className="items-center py-10">
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      ) : (
-        <View className="gap-4">
-          {isAdult && targets && (
+      {/* Header Tabs */}
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          onPress={() => setActiveTab("log")}
+          className="flex-1 rounded-2xl border px-4 py-3 items-center"
+          style={{
+            backgroundColor: activeTab === "log" ? colors.accent : colors.card,
+            borderColor:
+              activeTab === "log"
+                ? colors.accent
+                : isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(15,23,42,0.06)",
+          }}
+        >
+          <Text
+            className={`text-[12px] font-outfit font-bold uppercase tracking-[1.2px] ${
+              activeTab === "log" ? "text-white" : "text-app"
+            }`}
+          >
+            Log
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab("coach");
+            if (coachFilterPreset !== "custom") {
+              // Re-anchor presets to "today" when switching to Coach Response.
+              applyPresetToDates(coachFilterPreset);
+            }
+          }}
+          className="flex-1 rounded-2xl border px-4 py-3 items-center"
+          style={{
+            backgroundColor:
+              activeTab === "coach" ? colors.accent : colors.card,
+            borderColor:
+              activeTab === "coach"
+                ? colors.accent
+                : isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(15,23,42,0.06)",
+          }}
+        >
+          <Text
+            className={`text-[12px] font-outfit font-bold uppercase tracking-[1.2px] ${
+              activeTab === "coach" ? "text-white" : "text-app"
+            }`}
+          >
+            Coach Response
+          </Text>
+        </TouchableOpacity>
+
+        {activeTab === "coach" ? (
+          <TouchableOpacity
+            onPress={() => setCoachFilterOpen(true)}
+            className="h-12 w-12 items-center justify-center rounded-2xl border"
+            style={{
+              backgroundColor: colors.card,
+              borderColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(15,23,42,0.06)",
+            }}
+          >
+            <Feather name="sliders" size={18} color={colors.accent} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {activeTab === "log" ? (
+        loading ? (
+          <View className="items-center py-10">
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <View className="gap-4">
+            {isAdult && targets && (
             <View
               className="rounded-3xl border p-5"
               style={{
@@ -655,7 +785,362 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             </Text>
           )}
         </View>
+        )
+      ) : (
+        <View className="gap-4">
+          <View
+            className="rounded-3xl border px-5 py-4"
+            style={{
+              backgroundColor: colors.card,
+              borderColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(15,23,42,0.06)",
+            }}
+          >
+            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+              Range
+            </Text>
+            <Text className="mt-1 text-sm font-outfit text-app">
+              {formatDateKey(coachFromDate)} to {formatDateKey(coachToDate)}
+            </Text>
+          </View>
+
+          {coachLogsLoading ? (
+            <View className="items-center py-10">
+              <ActivityIndicator size="large" color={colors.accent} />
+            </View>
+          ) : coachLogs.length === 0 ? (
+            <View
+              className="rounded-3xl border px-5 py-5"
+              style={{
+                backgroundColor: colors.card,
+                borderColor: isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(15,23,42,0.06)",
+              }}
+            >
+              <Text className="text-sm font-outfit text-secondary">
+                No logs found for this range.
+              </Text>
+            </View>
+          ) : (
+            <View className="gap-4">
+              {coachLogs.map((log) => {
+                const dateLabel =
+                  typeof log?.dateKey === "string" ? log.dateKey : "";
+
+                const lines: string[] = [];
+                if (isAdult) {
+                  const diary =
+                    typeof log?.foodDiary === "string" ? log.foodDiary.trim() : "";
+                  if (diary) lines.push(`Food diary: ${diary}`);
+                } else {
+                  const b = parseSlot(log?.breakfast);
+                  const l = parseSlot(log?.lunch);
+                  const d = parseSlot(log?.dinner);
+                  const sm = parseSlot(log?.snacksMorning);
+                  const sa = parseSlot(log?.snacksAfternoon);
+                  const se = parseSlot(log?.snacksEvening);
+                  const legacySnacksRaw =
+                    typeof log?.snacks === "string" ? log.snacks.trim() : "";
+
+                  if (b.checked) lines.push(`Breakfast: ${b.details || "Logged"}`);
+                  if (l.checked) lines.push(`Lunch: ${l.details || "Logged"}`);
+                  if (d.checked) lines.push(`Dinner: ${d.details || "Logged"}`);
+
+                  const anyNewSnack =
+                    sm.checked || sa.checked || se.checked;
+                  if (!anyNewSnack && legacySnacksRaw) {
+                    const legacy = parseSlot(legacySnacksRaw);
+                    if (legacy.checked)
+                      lines.push(`Snack (legacy): ${legacy.details || "Logged"}`);
+                  } else {
+                    if (sm.checked)
+                      lines.push(`Morning snack: ${sm.details || "Logged"}`);
+                    if (sa.checked)
+                      lines.push(`Afternoon snack: ${sa.details || "Logged"}`);
+                    if (se.checked)
+                      lines.push(`Evening snack: ${se.details || "Logged"}`);
+                  }
+
+                  const w =
+                    typeof log?.waterIntake === "number" ? log.waterIntake : 0;
+                  if (w > 0) lines.push(`Water: ${w}`);
+                  if (typeof log?.mood === "number") lines.push(`Mood: ${log.mood}/5`);
+                  if (typeof log?.energy === "number") lines.push(`Energy: ${log.energy}/5`);
+                  if (typeof log?.pain === "number") lines.push(`Pain: ${log.pain}/5`);
+                }
+
+                const coachText =
+                  typeof log?.coachFeedback === "string"
+                    ? log.coachFeedback.trim()
+                    : "";
+                const coachMedia =
+                  typeof log?.coachFeedbackMediaUrl === "string"
+                    ? log.coachFeedbackMediaUrl.trim()
+                    : "";
+
+                return (
+                  <View
+                    key={String(log?.id ?? dateLabel)}
+                    className="rounded-3xl border p-5 gap-3"
+                    style={{
+                      backgroundColor: colors.card,
+                      borderColor: isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-sm font-outfit font-bold text-app">
+                        {dateLabel || "Log"}
+                      </Text>
+                      <View
+                        className="rounded-full px-3 py-1.5"
+                        style={{ backgroundColor: "rgba(34,197,94,0.10)" }}
+                      >
+                        <Text
+                          className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                          style={{ color: colors.accent }}
+                        >
+                          Coach
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View className="gap-1">
+                      <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                        Your log
+                      </Text>
+                      {lines.length ? (
+                        lines.map((t) => (
+                          <Text
+                            key={t}
+                            className="text-sm font-outfit text-app"
+                          >
+                            {t}
+                          </Text>
+                        ))
+                      ) : (
+                        <Text className="text-sm font-outfit text-secondary">
+                          No details logged.
+                        </Text>
+                      )}
+                    </View>
+
+                    <View className="gap-2">
+                      <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                        Coach response
+                      </Text>
+                      {coachText ? (
+                        <Text className="text-sm font-outfit text-app leading-6">
+                          {coachText}
+                        </Text>
+                      ) : (
+                        <Text className="text-sm font-outfit text-secondary">
+                          No coach response yet.
+                        </Text>
+                      )}
+                      {coachMedia ? (
+                        <View className="rounded-3xl overflow-hidden bg-black">
+                          <VideoPlayer
+                            uri={coachMedia}
+                            height={200}
+                            useVideoResolution
+                          />
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
       )}
+
+      {/* Coach filter modal */}
+      <Modal
+        visible={coachFilterOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCoachFilterOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50 p-5">
+          <View
+            className="rounded-[28px] border p-5 gap-4"
+            style={{
+              backgroundColor: colors.card,
+              borderColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(15,23,42,0.06)",
+            }}
+          >
+            <View className="flex-row items-center justify-between">
+              <Text className="text-lg font-clash font-bold text-app">
+                Filter
+              </Text>
+              <TouchableOpacity onPress={() => setCoachFilterOpen(false)}>
+                <Feather name="x" size={22} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-row gap-3">
+              {[
+                { key: "1d" as const, label: "1 day" },
+                { key: "7d" as const, label: "7 days" },
+                { key: "30d" as const, label: "30 days" },
+              ].map((p) => (
+                <TouchableOpacity
+                  key={p.key}
+                  onPress={() => {
+                    setCoachFilterPreset(p.key);
+                    applyPresetToDates(p.key);
+                  }}
+                  className="flex-1 rounded-2xl border px-3 py-3 items-center"
+                  style={{
+                    backgroundColor:
+                      coachFilterPreset === p.key ? colors.accent : colors.card,
+                    borderColor:
+                      coachFilterPreset === p.key
+                        ? colors.accent
+                        : isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <Text
+                    className={`text-[11px] font-outfit font-bold uppercase tracking-[1.1px] ${
+                      coachFilterPreset === p.key ? "text-white" : "text-app"
+                    }`}
+                  >
+                    {p.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setCoachFilterPreset("custom")}
+              className="rounded-2xl border px-4 py-3"
+              style={{
+                backgroundColor:
+                  coachFilterPreset === "custom" ? colors.accent : colors.card,
+                borderColor:
+                  coachFilterPreset === "custom"
+                    ? colors.accent
+                    : isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(15,23,42,0.06)",
+              }}
+            >
+              <Text
+                className={`text-[12px] font-outfit font-bold uppercase tracking-[1.2px] ${
+                  coachFilterPreset === "custom" ? "text-white" : "text-app"
+                }`}
+              >
+                Custom dates
+              </Text>
+            </TouchableOpacity>
+
+            {coachFilterPreset === "custom" ? (
+              <View className="gap-3">
+                <TouchableOpacity
+                  onPress={() => setCoachFromPickerOpen(true)}
+                  className="rounded-2xl border px-4 py-3"
+                  style={{
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.04)"
+                      : "rgba(15,23,42,0.03)",
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                    From
+                  </Text>
+                  <Text className="mt-1 text-sm font-outfit text-app">
+                    {coachFromDate.toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setCoachToPickerOpen(true)}
+                  className="rounded-2xl border px-4 py-3"
+                  style={{
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.04)"
+                      : "rgba(15,23,42,0.03)",
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                    To
+                  </Text>
+                  <Text className="mt-1 text-sm font-outfit text-app">
+                    {coachToDate.toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {coachFromPickerOpen ? (
+              <DateTimePicker
+                value={coachFromDate}
+                mode="date"
+                display="default"
+                onChange={(_, selected) => {
+                  setCoachFromPickerOpen(false);
+                  if (selected) setCoachFromDate(selected);
+                }}
+              />
+            ) : null}
+            {coachToPickerOpen ? (
+              <DateTimePicker
+                value={coachToDate}
+                mode="date"
+                display="default"
+                onChange={(_, selected) => {
+                  setCoachToPickerOpen(false);
+                  if (selected) setCoachToDate(selected);
+                }}
+              />
+            ) : null}
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => setCoachFilterOpen(false)}
+                className="flex-1 rounded-2xl border px-4 py-4 items-center"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                }}
+              >
+                <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px] text-app">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setCoachFilterOpen(false);
+                  void fetchCoachLogs();
+                }}
+                className="flex-1 rounded-2xl px-4 py-4 items-center"
+                style={{ backgroundColor: colors.accent }}
+              >
+                <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px] text-white">
+                  Apply
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
