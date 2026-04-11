@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Filter, Loader2, MessageSquareText } from "lucide-react";
 
@@ -9,12 +9,24 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
+import { Textarea } from "../../components/ui/textarea";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../../components/ui/tabs";
 import {
   useGetNutritionLogsQuery,
+  useGetNutritionTargetsQuery,
   useGetUsersQuery,
   useReviewNutritionLogMutation,
+  useUpdateNutritionTargetsMutation,
 } from "../../lib/apiSlice";
 
 type UserRow = {
@@ -22,6 +34,7 @@ type UserRow = {
   name?: string | null;
   email?: string | null;
   role?: string | null;
+  athleteType?: "youth" | "adult" | null;
 };
 
 type NutritionLog = {
@@ -56,6 +69,17 @@ function addDays(d: Date, deltaDays: number) {
   const x = new Date(d);
   x.setDate(x.getDate() + deltaDays);
   return x;
+}
+
+function isYouthUser(user: UserRow): boolean {
+  if (!user) return false;
+  if (user.role === "guardian") return true;
+  if (user.athleteType === "youth") return true;
+  if (user.athleteType === "adult") return false;
+  // Fallback for older API responses that may not include athleteType.
+  const email = String(user.email ?? "");
+  if (user.role === "athlete" && email.endsWith("@athlete.local")) return true;
+  return false;
 }
 
 function parseSlot(value: unknown) {
@@ -103,18 +127,35 @@ function logSummaryLines(log: NutritionLog): string[] {
   return out;
 }
 
-function NutritionDetails({ userId }: { userId: number }) {
+function NutritionDetails({
+  userId,
+  isAdultAthlete,
+}: {
+  userId: number;
+  isAdultAthlete: boolean;
+}) {
   const router = useRouter();
   const [reviewLog] = useReviewNutritionLogMutation();
+  const [updateTargets, updateTargetsState] =
+    useUpdateNutritionTargetsMutation();
 
   const [activeTab, setActiveTab] = useState<"logs" | "coach">("logs");
   const [preset, setPreset] = useState<"1d" | "7d" | "30d" | "custom">("30d");
 
   const todayKey = useMemo(() => toDateKey(new Date()), []);
-  const [fromKey, setFromKey] = useState<string>(() => toDateKey(addDays(new Date(), -29)));
+  const [fromKey, setFromKey] = useState<string>(() =>
+    toDateKey(addDays(new Date(), -29)),
+  );
   const [toKey, setToKey] = useState<string>(() => todayKey);
 
-  const effectiveFrom = preset === "custom" ? fromKey : preset === "1d" ? todayKey : preset === "7d" ? toDateKey(addDays(new Date(), -6)) : toDateKey(addDays(new Date(), -29));
+  const effectiveFrom =
+    preset === "custom"
+      ? fromKey
+      : preset === "1d"
+        ? todayKey
+        : preset === "7d"
+          ? toDateKey(addDays(new Date(), -6))
+          : toDateKey(addDays(new Date(), -29));
   const effectiveTo = preset === "custom" ? toKey : todayKey;
 
   const { data: logsData, isLoading } = useGetNutritionLogsQuery({
@@ -124,13 +165,123 @@ function NutritionDetails({ userId }: { userId: number }) {
     to: effectiveTo,
   });
 
+  const {
+    data: targetsData,
+    isLoading: targetsLoading,
+    error: targetsError,
+  } = useGetNutritionTargetsQuery(userId, { skip: !isAdultAthlete });
+
+  const [targetsDraft, setTargetsDraft] = useState<{
+    calories: string;
+    protein: string;
+    carbs: string;
+    fats: string;
+    micronutrientsGuidance: string;
+  }>(() => ({
+    calories: "",
+    protein: "",
+    carbs: "",
+    fats: "",
+    micronutrientsGuidance: "",
+  }));
+
+  const [targetsHydratedFor, setTargetsHydratedFor] = useState<number | null>(
+    null,
+  );
+
+  const [targetsStatus, setTargetsStatus] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setTargetsHydratedFor(null);
+    setTargetsStatus(null);
+    setTargetsDraft({
+      calories: "",
+      protein: "",
+      carbs: "",
+      fats: "",
+      micronutrientsGuidance: "",
+    });
+  }, [userId]);
+
+  useEffect(() => {
+    if (!isAdultAthlete) return;
+    if (targetsLoading) return;
+    if (targetsHydratedFor === userId) return;
+
+    const t = (targetsData?.targets ?? {}) as any;
+    setTargetsDraft({
+      calories: t?.calories != null ? String(t.calories) : "",
+      protein: t?.protein != null ? String(t.protein) : "",
+      carbs: t?.carbs != null ? String(t.carbs) : "",
+      fats: t?.fats != null ? String(t.fats) : "",
+      micronutrientsGuidance:
+        typeof t?.micronutrientsGuidance === "string"
+          ? t.micronutrientsGuidance
+          : "",
+    });
+    setTargetsHydratedFor(userId);
+  }, [
+    isAdultAthlete,
+    targetsData?.targets,
+    targetsHydratedFor,
+    targetsLoading,
+    userId,
+  ]);
+
+  const parseOptionalNumber = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed)
+      return { ok: true as const, value: undefined as number | undefined };
+    const n = Number(trimmed);
+    if (!Number.isFinite(n)) return { ok: false as const, value: undefined };
+    return { ok: true as const, value: n };
+  };
+
+  const saveTargets = async () => {
+    setTargetsStatus(null);
+
+    const calories = parseOptionalNumber(targetsDraft.calories);
+    const protein = parseOptionalNumber(targetsDraft.protein);
+    const carbs = parseOptionalNumber(targetsDraft.carbs);
+    const fats = parseOptionalNumber(targetsDraft.fats);
+
+    if (!calories.ok || !protein.ok || !carbs.ok || !fats.ok) {
+      setTargetsStatus({
+        tone: "error",
+        message: "Targets must be numbers (or blank).",
+      });
+      return;
+    }
+
+    const micronutrientsGuidance = targetsDraft.micronutrientsGuidance.trim();
+
+    try {
+      await updateTargets({
+        userId,
+        calories: calories.value,
+        protein: protein.value,
+        carbs: carbs.value,
+        fats: fats.value,
+        micronutrientsGuidance: micronutrientsGuidance || undefined,
+      }).unwrap();
+
+      setTargetsStatus({ tone: "success", message: "Targets saved." });
+    } catch (e) {
+      setTargetsStatus({ tone: "error", message: "Failed to save targets." });
+    }
+  };
+
   const [feedbackInputs, setFeedbackInputs] = useState<Record<number, string>>(
     {},
   );
 
   const logs = ((logsData?.logs ?? []) as NutritionLog[]).slice();
   const coachLogs = logs.filter((l) => {
-    const text = typeof l.coachFeedback === "string" ? l.coachFeedback.trim() : "";
+    const text =
+      typeof l.coachFeedback === "string" ? l.coachFeedback.trim() : "";
     const media =
       typeof l.coachFeedbackMediaUrl === "string"
         ? l.coachFeedbackMediaUrl.trim()
@@ -148,7 +299,9 @@ function NutritionDetails({ userId }: { userId: number }) {
   const openDetail = (log: NutritionLog) => {
     const dk = typeof log.dateKey === "string" ? log.dateKey : "";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dk)) return;
-    router.push(`/nutrition/log/${encodeURIComponent(dk)}?userId=${encodeURIComponent(String(userId))}`);
+    router.push(
+      `/nutrition/log/${encodeURIComponent(dk)}?userId=${encodeURIComponent(String(userId))}`,
+    );
   };
 
   if (isLoading) {
@@ -161,6 +314,135 @@ function NutritionDetails({ userId }: { userId: number }) {
 
   return (
     <div className="space-y-6">
+      {isAdultAthlete ? (
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              title="Nutrition Targets"
+              description="Set suggested calories, macros, and micronutrient guidance for this adult athlete."
+            />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {targetsLoading ? (
+              <div className="py-6 flex justify-center">
+                <Loader2 className="animate-spin text-muted-foreground" />
+              </div>
+            ) : targetsError ? (
+              <div className="text-sm text-destructive">
+                Error loading targets.
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Calories
+                    </div>
+                    <Input
+                      inputMode="numeric"
+                      placeholder="e.g. 2600"
+                      value={targetsDraft.calories}
+                      onChange={(e) =>
+                        setTargetsDraft((prev) => ({
+                          ...prev,
+                          calories: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Protein (g)
+                    </div>
+                    <Input
+                      inputMode="numeric"
+                      placeholder="e.g. 180"
+                      value={targetsDraft.protein}
+                      onChange={(e) =>
+                        setTargetsDraft((prev) => ({
+                          ...prev,
+                          protein: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Carbs (g)
+                    </div>
+                    <Input
+                      inputMode="numeric"
+                      placeholder="e.g. 280"
+                      value={targetsDraft.carbs}
+                      onChange={(e) =>
+                        setTargetsDraft((prev) => ({
+                          ...prev,
+                          carbs: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Fats (g)
+                    </div>
+                    <Input
+                      inputMode="numeric"
+                      placeholder="e.g. 80"
+                      value={targetsDraft.fats}
+                      onChange={(e) =>
+                        setTargetsDraft((prev) => ({
+                          ...prev,
+                          fats: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Micronutrient Guidance
+                  </div>
+                  <Textarea
+                    placeholder="e.g. Prioritize iron + vitamin C, omega-3s, magnesium..."
+                    value={targetsDraft.micronutrientsGuidance}
+                    onChange={(e) =>
+                      setTargetsDraft((prev) => ({
+                        ...prev,
+                        micronutrientsGuidance: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={saveTargets}
+                    disabled={updateTargetsState.isLoading}
+                  >
+                    {updateTargetsState.isLoading
+                      ? "Saving..."
+                      : "Save Targets"}
+                  </Button>
+                  {targetsStatus ? (
+                    <div
+                      className={
+                        targetsStatus.tone === "success"
+                          ? "text-sm text-emerald-600"
+                          : "text-sm text-destructive"
+                      }
+                    >
+                      {targetsStatus.message}
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
@@ -236,143 +518,145 @@ function NutritionDetails({ userId }: { userId: number }) {
         </div>
 
         <TabsContent value="logs">
-        {logs.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No logs found for this athlete in the selected date range.
-          </p>
-        ) : (
-          <div className="grid gap-4">
-            {logs.map((log) => {
-              const lines = logSummaryLines(log);
-              const coachText =
-                typeof log.coachFeedback === "string"
-                  ? log.coachFeedback.trim()
-                  : "";
-              return (
-                <Card key={log.id} className="overflow-hidden">
-                  <CardHeader className="flex flex-row items-center justify-between gap-3">
-                    <button
-                      className="text-left"
-                      onClick={() => openDetail(log)}
-                      title="Open details"
-                    >
-                      <div className="text-lg font-semibold text-foreground">
-                        {log.dateKey}
+          {logs.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No logs found for this athlete in the selected date range.
+            </p>
+          ) : (
+            <div className="grid gap-4">
+              {logs.map((log) => {
+                const lines = logSummaryLines(log);
+                const coachText =
+                  typeof log.coachFeedback === "string"
+                    ? log.coachFeedback.trim()
+                    : "";
+                return (
+                  <Card key={log.id} className="overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between gap-3">
+                      <button
+                        className="text-left"
+                        onClick={() => openDetail(log)}
+                        title="Open details"
+                      >
+                        <div className="text-lg font-semibold text-foreground">
+                          {log.dateKey}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Click to view details
+                        </div>
+                      </button>
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-accent bg-accent/10 px-3 py-1.5 rounded-full">
+                        {String(log.athleteType ?? "athlete")} athlete
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Click to view details
-                      </div>
-                    </button>
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-accent bg-accent/10 px-3 py-1.5 rounded-full">
-                      {String(log.athleteType ?? "athlete")} athlete
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                        Athlete log
-                      </div>
-                      {lines.length ? (
-                        <ul className="list-disc pl-5 text-sm text-foreground">
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                          Athlete log
+                        </div>
+                        {lines.length ? (
+                          <ul className="list-disc pl-5 text-sm text-foreground">
                             {lines.slice(0, 8).map((t) => (
                               <li key={t}>{t}</li>
                             ))}
                           </ul>
                         ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No details logged.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="rounded-2xl border border-input bg-secondary/10 p-4 space-y-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                          <MessageSquareText className="h-4 w-4" />
-                          Coach response
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openDetail(log)}
-                        >
-                          View
-                        </Button>
+                          <p className="text-sm text-muted-foreground">
+                            No details logged.
+                          </p>
+                        )}
                       </div>
 
+                      <div className="rounded-2xl border border-input bg-secondary/10 p-4 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                            <MessageSquareText className="h-4 w-4" />
+                            Coach response
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openDetail(log)}
+                          >
+                            View
+                          </Button>
+                        </div>
+
+                        {coachText ? (
+                          <p className="text-sm text-foreground whitespace-pre-wrap">
+                            {coachText}
+                          </p>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              placeholder="Leave quick feedback on this log..."
+                              value={feedbackInputs[log.id] || ""}
+                              onChange={(e) =>
+                                setFeedbackInputs((prev) => ({
+                                  ...prev,
+                                  [log.id]: e.target.value,
+                                }))
+                              }
+                            />
+                            <Button
+                              onClick={() => handleSubmitFeedback(log.id)}
+                            >
+                              Post
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="coach">
+          {coachLogs.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No coach responses in the selected date range.
+            </p>
+          ) : (
+            <div className="grid gap-4">
+              {coachLogs.map((log) => {
+                const coachText =
+                  typeof log.coachFeedback === "string"
+                    ? log.coachFeedback.trim()
+                    : "";
+                return (
+                  <Card key={log.id}>
+                    <CardHeader className="flex flex-row items-center justify-between gap-3">
+                      <div>
+                        <div className="text-lg font-semibold text-foreground">
+                          {log.dateKey}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Coach response
+                        </div>
+                      </div>
+                      <Button variant="outline" onClick={() => openDetail(log)}>
+                        View details
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
                       {coachText ? (
                         <p className="text-sm text-foreground whitespace-pre-wrap">
                           {coachText}
                         </p>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            placeholder="Leave quick feedback on this log..."
-                            value={feedbackInputs[log.id] || ""}
-                            onChange={(e) =>
-                              setFeedbackInputs((prev) => ({
-                                ...prev,
-                                [log.id]: e.target.value,
-                              }))
-                            }
-                          />
-                          <Button onClick={() => handleSubmitFeedback(log.id)}>
-                            Post
-                          </Button>
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Coach responded with media only.
+                        </p>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-        </TabsContent>
-
-        <TabsContent value="coach">
-        {coachLogs.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No coach responses in the selected date range.
-          </p>
-        ) : (
-          <div className="grid gap-4">
-            {coachLogs.map((log) => {
-              const coachText =
-                typeof log.coachFeedback === "string"
-                  ? log.coachFeedback.trim()
-                  : "";
-              return (
-                <Card key={log.id}>
-                  <CardHeader className="flex flex-row items-center justify-between gap-3">
-                    <div>
-                      <div className="text-lg font-semibold text-foreground">
-                        {log.dateKey}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Coach response
-                      </div>
-                    </div>
-                    <Button variant="outline" onClick={() => openDetail(log)}>
-                      View details
-                    </Button>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {coachText ? (
-                      <p className="text-sm text-foreground whitespace-pre-wrap">
-                        {coachText}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Coach responded with media only.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
@@ -383,19 +667,44 @@ export default function NutritionAdminPage() {
   const { data, isLoading, error } = useGetUsersQuery();
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [athleteQuery, setAthleteQuery] = useState("");
+  const [showAdult, setShowAdult] = useState(true);
+  const [showYouth, setShowYouth] = useState(true);
 
-  const users = ((data as { users?: UserRow[] } | undefined)?.users ?? []) as UserRow[];
+  const users = ((data as { users?: UserRow[] } | undefined)?.users ??
+    []) as UserRow[];
+  const selectedUser = useMemo(
+    () => users.find((u) => u.id === selectedUserId) ?? null,
+    [selectedUserId, users],
+  );
+  const selectedIsAdult = selectedUser ? !isYouthUser(selectedUser) : false;
+
   const filteredAthletes = useMemo(() => {
     const q = athleteQuery.trim().toLowerCase();
-    const pool = users.filter((u) => u.role === "athlete" || u.role === "guardian");
-    if (!q) return pool;
-    return pool.filter((u) => {
+    const pool = users.filter(
+      (u) => u.role === "athlete" || u.role === "guardian",
+    );
+
+    const filteredByType =
+      showAdult && showYouth
+        ? pool
+        : !showAdult && !showYouth
+          ? pool
+          : pool.filter((u) => {
+              const youth = isYouthUser(u);
+              if (showAdult && !showYouth) return !youth;
+              if (!showAdult && showYouth) return youth;
+              return true;
+            });
+
+    if (!q) return filteredByType;
+
+    return filteredByType.filter((u) => {
       const name = String(u.name ?? "").toLowerCase();
       const email = String(u.email ?? "").toLowerCase();
       const id = String(u.id ?? "").toLowerCase();
       return name.includes(q) || email.includes(q) || id.includes(q);
     });
-  }, [athleteQuery, users]);
+  }, [athleteQuery, showAdult, showYouth, users]);
 
   return (
     <AdminShell
@@ -417,12 +726,33 @@ export default function NutritionAdminPage() {
               onChange={(e) => setAthleteQuery(e.target.value)}
             />
 
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={showAdult ? "default" : "outline"}
+                onClick={() => setShowAdult((v) => !v)}
+              >
+                Adult
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={showYouth ? "default" : "outline"}
+                onClick={() => setShowYouth((v) => !v)}
+              >
+                Youth
+              </Button>
+            </div>
+
             {isLoading ? (
               <div className="py-10 flex justify-center">
                 <Loader2 className="animate-spin text-muted-foreground" />
               </div>
             ) : error ? (
-              <div className="text-sm text-destructive">Error loading users.</div>
+              <div className="text-sm text-destructive">
+                Error loading users.
+              </div>
             ) : (
               <div className="flex flex-col gap-2 max-h-[70vh] overflow-y-auto pr-1">
                 {filteredAthletes.map((user) => (
@@ -467,6 +797,7 @@ export default function NutritionAdminPage() {
             {selectedUserId ? (
               <NutritionDetails
                 userId={selectedUserId}
+                isAdultAthlete={selectedIsAdult}
                 key={`profile-${selectedUserId}`}
               />
             ) : (
