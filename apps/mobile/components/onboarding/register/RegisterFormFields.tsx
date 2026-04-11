@@ -30,6 +30,7 @@ type RegisterFormFieldsProps = {
   teamValue: string;
   getValue: (name: string) => string;
   customFields: ConfigField[];
+  requiredDocuments: Array<{ id: string; label: string; required?: boolean }>;
   setValue: UseFormSetValue<AthleteRegisterFormData>;
   teamTriggerRef: React.RefObject<View | null>;
   levelTriggerRef: React.RefObject<View | null>;
@@ -61,6 +62,7 @@ export function RegisterFormFields({
   teamValue,
   getValue,
   customFields,
+  requiredDocuments,
   setValue,
   teamTriggerRef,
   levelTriggerRef,
@@ -98,6 +100,11 @@ export function RegisterFormFields({
     if (normalized.includes("php")) return "PHP";
     return null;
   };
+  const athleteTypeOptions = useMemo(() => {
+    const configured = optionsFor("athleteType").map((value) => value.trim().toLowerCase()).filter(Boolean);
+    if (configured.length) return configured;
+    return ["youth", "adult"];
+  }, [optionsFor]);
 
   const formatBirthDate = (date: Date) => {
     const year = date.getUTCFullYear();
@@ -190,6 +197,36 @@ export function RegisterFormFields({
             }}
           />
           <ErrorText text={errors.birthDate?.message} />
+        </View>
+      ) : null}
+
+      {isAthleteStep && isVisible("athleteType") ? (
+        <View>
+          <Text className="text-secondary text-sm font-outfit mb-2 ml-1">
+            {labelFor("athleteType", "Athlete type")}
+          </Text>
+          <Controller
+            control={control}
+            name="athleteType"
+            render={({ field: { onChange, value } }) => (
+              <View className="flex-row gap-2">
+                {athleteTypeOptions.map((option) => {
+                  const selected = (value ?? "youth") === option;
+                  const label = option === "adult" ? "Adult athlete" : "Youth athlete";
+                  return (
+                    <Pressable
+                      key={`athlete-type-${option}`}
+                      onPress={() => onChange(option)}
+                      className={`flex-1 rounded-xl border px-4 py-3 ${selected ? "border-accent bg-accent/10" : "border-app bg-input"}`}
+                    >
+                      <Text className="text-app font-outfit-semibold text-sm">{label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          />
+          <ErrorText text={errors.athleteType?.message} />
         </View>
       ) : null}
 
@@ -481,6 +518,17 @@ export function RegisterFormFields({
           )}
         </View>
       )) : null}
+
+      {isGuardianStep && requiredDocuments.length ? (
+        <View className="rounded-xl border border-app bg-input px-4 py-3 gap-2">
+          <Text className="text-app font-outfit-semibold text-sm">Required documents</Text>
+          {requiredDocuments.map((doc) => (
+            <Text key={doc.id} className="text-secondary font-outfit text-xs">
+              • {doc.label || doc.id}
+            </Text>
+          ))}
+        </View>
+      ) : null}
 
       {isGuardianStep ? (
         <Controller

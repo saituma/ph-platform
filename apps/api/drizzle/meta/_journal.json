@@ -484,6 +484,13 @@
       "when": 1775950000000,
       "tag": "0068_training_session_workout_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1775951000000,
+      "tag": "0069_nutrition_feedback_media",
+      "breakpoints": true
     }
   ]
 }

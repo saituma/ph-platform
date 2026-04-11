@@ -62,6 +62,7 @@ export default function RegisterScreen() {
     teamValue,
     getValue,
     customFields,
+    config,
     showTerms,
     showPrivacy,
     setShowTerms,
@@ -202,6 +203,7 @@ export default function RegisterScreen() {
                 teamValue={teamValue}
                 getValue={getValue}
                 customFields={customFields}
+                requiredDocuments={Array.isArray(config?.requiredDocuments) ? config.requiredDocuments : []}
                 setValue={setValue}
                 teamTriggerRef={teamTriggerRef}
                 levelTriggerRef={levelTriggerRef}
