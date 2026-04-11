@@ -108,10 +108,9 @@ export default function AddUserPage() {
       trainingPerWeek.trim().length > 0;
 
     if (!hasCore) return false;
-    if (formType === "youth" && team.trim().length === 0) return false;
     if (formType === "youth") return guardianDisplayName.trim().length > 0;
     return true;
-  }, [formType, email, guardianDisplayName, athleteName, birthDate, team, trainingPerWeek]);
+  }, [formType, email, guardianDisplayName, athleteName, birthDate, trainingPerWeek]);
 
   const resetForm = () => {
     setEmail("");
@@ -206,7 +205,7 @@ export default function AddUserPage() {
             guardianDisplayName: guardianDisplayName.trim(),
             athleteName: athleteName.trim(),
             birthDate: birthDate.trim(),
-            team: team.trim(),
+            team: team.trim() || null,
             trainingPerWeek: n,
             injuries: cleanedInjuries.length ? cleanedInjuries : undefined,
             growthNotes: cleanedGrowthNotes.length ? cleanedGrowthNotes.join("\n") : null,
@@ -438,8 +437,13 @@ export default function AddUserPage() {
               </div>
               {formType === "youth" ? (
                 <div className="space-y-2">
-                  <Label htmlFor="team">Team</Label>
-                  <Input id="team" required value={team} onChange={(ev) => setTeam(ev.target.value)} />
+                  <Label htmlFor="team">Assign to team (optional)</Label>
+                  <Input
+                    id="team"
+                    value={team}
+                    onChange={(ev) => setTeam(ev.target.value)}
+                    placeholder="Leave blank if no team"
+                  />
                 </div>
               ) : null}
               <div className="space-y-2">

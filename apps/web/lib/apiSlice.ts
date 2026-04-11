@@ -461,7 +461,7 @@ export const apiSlice = createApi({
         guardianDisplayName: string;
         athleteName: string;
         birthDate: string;
-        team: string;
+        team?: string | null;
         trainingPerWeek: number;
         injuries?: unknown;
         growthNotes?: string | null;
