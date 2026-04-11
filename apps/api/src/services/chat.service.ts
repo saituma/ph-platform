@@ -383,13 +383,11 @@ export async function createGroupMessage(input: {
     const body = safeContent;
 
     for (const member of members) {
-      if (member.expoPushToken) {
-        await sendPushNotification(member.id, title, body, {
-          type: "group-message",
-          threadId: `group:${input.groupId}`,
-          url: `/messages/group:${input.groupId}`,
-        });
-      }
+      await sendPushNotification(member.id, title, body, {
+        type: "group-message",
+        threadId: `group:${input.groupId}`,
+        url: `/messages/group:${input.groupId}`,
+      });
     }
   } catch (error) {
     console.error("[Push] Group notification error:", error);

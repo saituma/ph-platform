@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -20,6 +20,7 @@ export async function notifyCoachResponseVideo(input: { videoUploadId: number })
         id: videoUploadTable.id,
         athleteId: videoUploadTable.athleteId,
         programSectionContentId: videoUploadTable.programSectionContentId,
+        trainingSessionItemId: videoUploadTable.trainingSessionItemId,
       })
       .from(videoUploadTable)
       .where(eq(videoUploadTable.id, input.videoUploadId))
@@ -42,16 +43,14 @@ export async function notifyCoachResponseVideo(input: { videoUploadId: number })
     if (athlete?.guardianUserId) recipients.add(athlete.guardianUserId);
     if (!recipients.size) return;
 
-    const contentId = upload.programSectionContentId;
-
     let resolvedSessionId: number | null = null;
     let resolvedSessionTitle: string | null = null;
 
-    if (contentId != null) {
+    if (upload.trainingSessionItemId != null) {
       const [item] = await db
         .select({ sessionId: trainingSessionItemTable.sessionId })
         .from(trainingSessionItemTable)
-        .where(eq(trainingSessionItemTable.id, contentId))
+        .where(eq(trainingSessionItemTable.id, upload.trainingSessionItemId))
         .limit(1);
 
       resolvedSessionId = item?.sessionId ?? null;
@@ -64,19 +63,18 @@ export async function notifyCoachResponseVideo(input: { videoUploadId: number })
           .limit(1);
         resolvedSessionTitle = session?.title ?? null;
       }
-
-      if (!resolvedSessionTitle) {
-        const [legacy] = await db
-          .select({ title: programSectionContentTable.title })
-          .from(programSectionContentTable)
-          .where(eq(programSectionContentTable.id, contentId))
-          .limit(1);
-        resolvedSessionTitle = legacy?.title ?? null;
-      }
+    } else if (upload.programSectionContentId != null) {
+      const [legacy] = await db
+        .select({ title: programSectionContentTable.title })
+        .from(programSectionContentTable)
+        .where(eq(programSectionContentTable.id, upload.programSectionContentId))
+        .limit(1);
+      resolvedSessionTitle = legacy?.title ?? null;
     }
 
     const sessionTitle = (resolvedSessionTitle ?? "").trim() || "your session";
     const messageBody = `Coach sent a response to ${sessionTitle}`;
+    const contentId = upload.trainingSessionItemId ?? upload.programSectionContentId;
     const deepLinkUrl =
       resolvedSessionId != null
         ? `/programs/session/${resolvedSessionId}`
@@ -114,12 +112,14 @@ export async function createVideoUpload(input: {
   videoUrl: string;
   notes?: string | null;
   programSectionContentId?: number | null;
+  trainingSessionItemId?: number | null;
 }) {
   const result = await db
     .insert(videoUploadTable)
     .values({
       athleteId: input.athleteId,
       programSectionContentId: input.programSectionContentId ?? null,
+      trainingSessionItemId: input.trainingSessionItemId ?? null,
       videoUrl: input.videoUrl,
       notes: input.notes ?? null,
     })
@@ -163,11 +163,15 @@ export async function createVideoUpload(input: {
 
 export async function listVideoUploadsByAthlete(
   athleteId: number,
-  options?: { programSectionContentId?: number | null },
+  options?: { contentId?: number | null },
 ) {
   const filters = [eq(videoUploadTable.athleteId, athleteId)];
-  if (options?.programSectionContentId) {
-    filters.push(eq(videoUploadTable.programSectionContentId, options.programSectionContentId));
+  if (options?.contentId) {
+    const contentFilter = or(
+      eq(videoUploadTable.programSectionContentId, options.contentId),
+      eq(videoUploadTable.trainingSessionItemId, options.contentId),
+    );
+    if (contentFilter) filters.push(contentFilter);
   }
   return db
     .select()
@@ -205,12 +209,11 @@ export async function reviewVideoUpload(input: {
       const recipients = new Set<number>();
       if (athlete.athleteUserId) recipients.add(athlete.athleteUserId);
       if (athlete.guardianUserId) recipients.add(athlete.guardianUserId);
+      const contentId = upload.trainingSessionItemId ?? upload.programSectionContentId;
       const payload = {
         type: "video_reviewed",
         videoUploadId: upload.id,
-        url: upload.programSectionContentId
-          ? `/video-upload?sectionContentId=${upload.programSectionContentId}`
-          : "/video-upload",
+        url: contentId ? `/video-upload?sectionContentId=${contentId}` : "/video-upload",
       };
 
       for (const userId of recipients) {

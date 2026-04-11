@@ -526,6 +526,13 @@
       "when": 1775956000000,
       "tag": "0074_nutrition_snack_slots",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1775957000000,
+      "tag": "0075_video_upload_training_session_item_id",
+      "breakpoints": true
     }
   ]
 }

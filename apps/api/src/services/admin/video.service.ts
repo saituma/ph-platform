@@ -3,6 +3,8 @@ import { db } from "../../db";
 import {
   athleteTable,
   programSectionContentTable,
+  trainingModuleSessionTable,
+  trainingSessionItemTable,
   videoUploadTable,
 } from "../../db/schema";
 
@@ -38,12 +40,17 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
       reviewedAt: videoUploadTable.reviewedAt,
       createdAt: videoUploadTable.createdAt,
       programSectionContentId: videoUploadTable.programSectionContentId,
+      trainingSessionItemId: videoUploadTable.trainingSessionItemId,
       programSectionTitle: programSectionContentTable.title,
       programSectionType: programSectionContentTable.sectionType,
+      trainingSessionTitle: trainingModuleSessionTable.title,
+      sectionTitle: sql<string | null>`COALESCE(${trainingModuleSessionTable.title}, ${programSectionContentTable.title})`,
     })
     .from(videoUploadTable)
     .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))
     .leftJoin(programSectionContentTable, eq(videoUploadTable.programSectionContentId, programSectionContentTable.id))
+    .leftJoin(trainingSessionItemTable, eq(videoUploadTable.trainingSessionItemId, trainingSessionItemTable.id))
+    .leftJoin(trainingModuleSessionTable, eq(trainingSessionItemTable.sessionId, trainingModuleSessionTable.id))
     .where(filters.length ? and(...filters) : undefined)
     .orderBy(desc(videoUploadTable.createdAt))
     .limit(limit);

@@ -3,6 +3,7 @@ import { and, eq, ne, or } from "drizzle-orm";
 import { env } from "../config/env";
 import { db } from "../db";
 import { athleteTable, subscriptionPlanTable, subscriptionRequestTable, userTable } from "../db/schema";
+import { sendPushNotification } from "./push.service";
 import {
   sendSubscriptionApprovedUserEmail,
   sendSubscriptionPendingStaffEmail,
@@ -45,6 +46,13 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
     planName: row.planName,
     planTier: row.planTier,
   });
+
+  void sendPushNotification(
+    row.userId,
+    "Subscription pending",
+    `Your ${row.planName} subscription is being reviewed.`,
+    { type: "payment", url: "/plans" },
+  );
 
   const staff = await db
     .select({ email: userTable.email, name: userTable.name })
@@ -92,4 +100,11 @@ export async function notifySubscriptionPlanApproved(userId: number, planTier: s
     name: u.name || "there",
     planTier,
   });
+
+  void sendPushNotification(
+    userId,
+    "Plan approved",
+    `Your ${planTier} plan has been approved! You now have full access.`,
+    { type: "plan_approved", screen: "plans", url: "/plans" },
+  );
 }

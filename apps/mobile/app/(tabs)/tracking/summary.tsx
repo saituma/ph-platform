@@ -53,7 +53,7 @@ export default function RunSummaryScreen() {
     longitudeDelta: 0.05,
   } : undefined;
 
-  const useOsmMap = Platform.OS === "android";
+  const useOsmMap = false; // User explicitly requested realistic map (native MapView)
 
   const animatedScreenStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -179,7 +179,8 @@ export default function RunSummaryScreen() {
                    scrollEnabled={false} 
                    zoomEnabled={false}
                    provider={Platform.OS === "android" ? "google" : undefined}
-                   mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
+                   mapType="standard"
+                   showsBuildings={false}
                    customMapStyle={isDark ? (MapNightStyle as any) : ([] as any)} 
                  >
                    <Polyline 

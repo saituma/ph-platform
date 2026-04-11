@@ -58,7 +58,7 @@ export default function ActiveRunScreen() {
     lastCoordinate,
   } = useRunTrackingEngine(toastTranslateY, insets.top);
 
-  const useOsmMap = Platform.OS === "android";
+  const useOsmMap = false; // User explicitly requested realistic map (native MapView)
   const bottomBarHeight = 88;
   const overlayGap = 16;
 
