@@ -336,7 +336,7 @@ export type CreateGuardianWithOnboardingAdminInput = {
   guardianDisplayName: string;
   athleteName: string;
   birthDate: string;
-  team: string;
+  team?: string | null;
   trainingPerWeek: number;
   injuries?: unknown;
   growthNotes?: string | null;
@@ -382,6 +382,8 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
   if (existing) {
     throw { status: 409, message: "An account with this email already exists." };
   }
+
+  const resolvedTeam = input.team?.trim() || "";
 
   const tempPassword = resolveProvisionPassword(input.initialPassword);
   let userId: number | null = null;
@@ -471,7 +473,7 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
       userId: userId!,
       athleteName: input.athleteName.trim(),
       birthDate: input.birthDate,
-      team: input.team.trim(),
+      team: resolvedTeam,
       trainingPerWeek: input.trainingPerWeek,
       injuries: input.injuries,
       growthNotes: input.growthNotes ?? null,
