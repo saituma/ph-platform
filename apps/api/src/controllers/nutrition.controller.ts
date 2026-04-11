@@ -88,7 +88,16 @@ export async function updateTargets(req: Request, res: Response) {
 export async function listLogs(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  const targetUserId = req.query.userId ? Number(req.query.userId) : req.user.id;
+  const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : null;
+  const targetUserId =
+    userIdRaw === "me"
+      ? req.user.id
+      : userIdRaw
+        ? Number(userIdRaw)
+        : req.user.id;
+  if (!Number.isFinite(targetUserId)) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
   
   if (targetUserId !== req.user.id && !["coach", "admin", "superAdmin"].includes(req.user.role)) {
     // Only coaches can fetch other users' logs directly
