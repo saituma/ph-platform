@@ -730,15 +730,19 @@ export function BookingsDialogs({
                 <div>Status: {selectedBooking.status ?? "unknown"}</div>
                 <div>
                   Starts:{" "}
-                  {selectedBooking.startsAt
-                    ? new Date(selectedBooking.startsAt).toLocaleString()
-                    : "--"}
+                  {selectedBooking.status === "pending"
+                    ? "--"
+                    : selectedBooking.startsAt
+                      ? new Date(selectedBooking.startsAt).toLocaleString()
+                      : "--"}
                 </div>
                 <div>
                   Ends:{" "}
-                  {selectedBooking.endTime
-                    ? new Date(selectedBooking.endTime).toLocaleString()
-                    : "--"}
+                  {selectedBooking.status === "pending"
+                    ? "--"
+                    : selectedBooking.endTime
+                      ? new Date(selectedBooking.endTime).toLocaleString()
+                      : "--"}
                 </div>
                 <div>Location: {selectedBooking.location ?? "None"}</div>
                 <div>Meeting link: {selectedBooking.meetingLink ?? "None"}</div>
