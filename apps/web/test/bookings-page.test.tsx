@@ -117,10 +117,12 @@ describe("bookings page", () => {
 
   it("filters bookings by chip and renders list", () => {
     const baseDate = new Date();
+    const tomorrow = new Date(baseDate);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     const noonLocal = new Date(
-      baseDate.getFullYear(),
-      baseDate.getMonth(),
-      baseDate.getDate(),
+      tomorrow.getFullYear(),
+      tomorrow.getMonth(),
+      tomorrow.getDate(),
       12,
       0,
       0,
