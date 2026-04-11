@@ -24,7 +24,7 @@ if (!globalThis.WritableStream) {
 }
 
 // Load undici after streams and TextEncoder are available.
-const { Headers, Request, Response } = require("undici");
+const { Headers, Request, Response, fetch } = require("undici");
 
 if (!globalThis.Headers) {
   // @ts-ignore - assign to global in test env
@@ -37,6 +37,11 @@ if (!globalThis.Request) {
 if (!globalThis.Response) {
   // @ts-ignore - assign to global in test env
   globalThis.Response = Response;
+}
+
+if (!globalThis.fetch) {
+  // @ts-ignore - assign to global in test env
+  globalThis.fetch = fetch;
 }
 
 if (!globalThis.crypto) {

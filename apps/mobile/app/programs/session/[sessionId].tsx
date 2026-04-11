@@ -16,23 +16,36 @@ import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { canAccessTier } from "@/lib/planAccess";
-import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
 import { ProgramId } from "@/constants/program-details";
 
 import { useSessionData } from "@/hooks/programs/useSessionData";
 import { useSessionUploads } from "@/hooks/programs/useSessionUploads";
 import { SessionExerciseBlock } from "@/components/programs/SessionExerciseBlock";
+import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import {
   finishTrainingContentV2Session,
   FinishTrainingSessionWorkoutLog,
 } from "@/services/programs/programsService";
 import { radius, spacing, fonts } from "@/constants/theme";
+import type { SelectedVideo } from "@/types/video-upload";
+
+const VIDEO_MAX_MB = 200;
+const VIDEO_MAX_BYTES = VIDEO_MAX_MB * 1024 * 1024;
+
+type PendingSessionVideo = {
+  video: SelectedVideo;
+  notes: string;
+  progress: number | null;
+  error: string | null;
+};
 
 export default function ProgramSessionDetailScreen() {
   const router = useRouter();
@@ -67,6 +80,12 @@ export default function ProgramSessionDetailScreen() {
   );
   const { uploadsBySectionId, hasUploadedBySectionId, loadUploadsForSection } =
     useSessionUploads(token, athleteUserId);
+  const {
+    uploadVideo,
+    isUploading,
+    status: uploadStatus,
+    setStatus: setUploadStatus,
+  } = useVideoUploadLogic(token, athleteUserId);
 
   const [workoutSheetOpen, setWorkoutSheetOpen] = useState(false);
   const [weightsUsed, setWeightsUsed] = useState("");
@@ -75,11 +94,12 @@ export default function ProgramSessionDetailScreen() {
   const [finishError, setFinishError] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  const [uploadTarget, setUploadTarget] = useState<{
-    sectionContentId: number;
-    sectionTitle: string;
-    autoPickSource?: "camera" | "library";
-  } | null>(null);
+  const [pendingBySectionId, setPendingBySectionId] = useState<
+    Record<number, PendingSessionVideo | undefined>
+  >({});
+  const [activeUploadSectionId, setActiveUploadSectionId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     load();
@@ -91,6 +111,43 @@ export default function ProgramSessionDetailScreen() {
       .filter((i) => i.allowVideoUpload)
       .forEach((i) => loadUploadsForSection(i.id));
   }, [session, loadUploadsForSection]);
+
+  const pickVideo = useCallback(async (source: "library" | "camera") => {
+    const permission =
+      source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) return null;
+
+    const result =
+      source === "camera"
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+            quality: 0.9,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+            quality: 0.9,
+          });
+
+    if (result.canceled || !result.assets?.[0]) return null;
+
+    const asset = result.assets[0];
+    const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+    const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
+
+    if (fileInfo.exists && sizeBytes > VIDEO_MAX_BYTES) {
+      throw new Error(`Video exceeds ${VIDEO_MAX_MB}MB limit.`);
+    }
+
+    return {
+      uri: asset.uri,
+      fileName: asset.uri.split("/").pop() ?? "video.mp4",
+      contentType: asset.mimeType || "video/mp4",
+      sizeBytes,
+    } satisfies SelectedVideo;
+  }, []);
 
   const warmupItems = useMemo(
     () => session?.items.filter((i) => i.blockType === "warmup") ?? [],
@@ -250,29 +307,129 @@ export default function ProgramSessionDetailScreen() {
     }, [moduleHref, router, shouldBackToModule]),
   );
 
-  const handleUploadPress = useCallback((id: number, title: string) => {
+  const handleUploadPress = useCallback((id: number, _title: string) => {
     Alert.alert("Video Upload", "Choose an action", [
       {
         text: "Record",
-        onPress: () =>
-          setUploadTarget({
-            sectionContentId: id,
-            sectionTitle: title,
-            autoPickSource: "camera",
-          }),
+        onPress: () => {
+          void (async () => {
+            try {
+              setUploadStatus(null);
+              const selected = await pickVideo("camera");
+              if (!selected) return;
+              setPendingBySectionId((prev) => ({
+                ...prev,
+                [id]: { video: selected, notes: "", progress: null, error: null },
+              }));
+            } catch (e) {
+              const message =
+                e instanceof Error ? e.message : "Failed to pick video.";
+              Alert.alert("Couldn't pick video", message);
+            }
+          })();
+        },
       },
       {
         text: "Library",
-        onPress: () =>
-          setUploadTarget({
-            sectionContentId: id,
-            sectionTitle: title,
-            autoPickSource: "library",
-          }),
+        onPress: () => {
+          void (async () => {
+            try {
+              setUploadStatus(null);
+              const selected = await pickVideo("library");
+              if (!selected) return;
+              setPendingBySectionId((prev) => ({
+                ...prev,
+                [id]: { video: selected, notes: "", progress: null, error: null },
+              }));
+            } catch (e) {
+              const message =
+                e instanceof Error ? e.message : "Failed to pick video.";
+              Alert.alert("Couldn't pick video", message);
+            }
+          })();
+        },
       },
       { text: "Cancel", style: "cancel" },
     ]);
-  }, []);
+  }, [pickVideo, setUploadStatus]);
+
+  const handlePendingRemove = useCallback(
+    (sectionContentId: number) => {
+      if (activeUploadSectionId === sectionContentId && isUploading) return;
+      setPendingBySectionId((prev) => {
+        const next = { ...prev };
+        delete next[sectionContentId];
+        return next;
+      });
+    },
+    [activeUploadSectionId, isUploading],
+  );
+
+  const handlePendingNotesChange = useCallback(
+    (sectionContentId: number, notes: string) => {
+      setPendingBySectionId((prev) => {
+        const current = prev[sectionContentId];
+        if (!current) return prev;
+        return { ...prev, [sectionContentId]: { ...current, notes } };
+      });
+    },
+    [],
+  );
+
+  const handlePendingSend = useCallback(
+    async (sectionContentId: number) => {
+      const pending = pendingBySectionId[sectionContentId];
+      if (!pending) return;
+      if (isUploading) return;
+
+      setActiveUploadSectionId(sectionContentId);
+      setPendingBySectionId((prev) => ({
+        ...prev,
+        [sectionContentId]: { ...pending, progress: 0, error: null },
+      }));
+
+      try {
+        await uploadVideo({
+          video: pending.video,
+          notes: pending.notes.trim() || undefined,
+          sectionContentId,
+          onProgress: (p) => {
+            setPendingBySectionId((prev) => {
+              const current = prev[sectionContentId];
+              if (!current) return prev;
+              return { ...prev, [sectionContentId]: { ...current, progress: p } };
+            });
+          },
+        });
+
+        setPendingBySectionId((prev) => {
+          const next = { ...prev };
+          delete next[sectionContentId];
+          return next;
+        });
+
+        await Promise.all([
+          loadUploadsForSection(sectionContentId, true),
+          load(true),
+        ]);
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : "Failed to upload video.";
+        setPendingBySectionId((prev) => {
+          const current = prev[sectionContentId];
+          if (!current) return prev;
+          return {
+            ...prev,
+            [sectionContentId]: { ...current, error: message, progress: null },
+          };
+        });
+        Alert.alert("Couldn't upload", message);
+      } finally {
+        setActiveUploadSectionId(null);
+      }
+    },
+    [isUploading, load, loadUploadsForSection, pendingBySectionId, uploadVideo],
+  );
 
   const finishAndNavigate = useCallback(
     async (workoutLog: FinishTrainingSessionWorkoutLog | null) => {
@@ -347,20 +504,83 @@ export default function ProgramSessionDetailScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         <View className="px-6 pt-4">
-          <View className="flex-row items-center gap-3 mb-6">
-            <Pressable
-              onPress={handleHeaderBack}
-              className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
+          <View
+            className="mb-6 rounded-[30px] border px-5 py-5"
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.borderSubtle,
+            }}
+          >
+            <View className="flex-row items-center justify-between">
+              <Pressable
+                onPress={handleHeaderBack}
+                className="h-11 w-11 items-center justify-center rounded-[18px]"
+                style={{ backgroundColor: colors.surfaceHigh }}
+              >
+                <Feather name="arrow-left" size={20} color={colors.accent} />
+              </Pressable>
+              <View
+                className="rounded-full px-3 py-1.5"
+                style={{ backgroundColor: colors.accentLight }}
+              >
+                <Text
+                  className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
+                  style={{ color: colors.accent }}
+                >
+                  Session detail
+                </Text>
+              </View>
+            </View>
+
+            <Text
+              className="mt-4 text-[26px] font-telma-bold font-bold"
+              style={{ color: colors.textPrimary }}
             >
-              <Feather name="chevron-left" size={24} color="white" />
-            </Pressable>
-            <View>
-              <Text className="text-2xl font-clash font-bold text-white">
-                {session?.title ?? "Training Session"}
+              {session?.title ?? "Training Session"}
+            </Text>
+            {module?.title ? (
+              <Text
+                className="mt-1 text-xs font-outfit uppercase tracking-widest"
+                style={{ color: colors.textSecondary }}
+              >
+                {module.title}
               </Text>
-              <Text className="text-xs font-outfit text-white/60 uppercase tracking-widest">
-                {module?.title}
-              </Text>
+            ) : null}
+
+            <View className="mt-4 flex-row flex-wrap gap-2">
+              <View
+                className="rounded-full px-3 py-2"
+                style={{ backgroundColor: colors.surfaceHigh }}
+              >
+                <Text
+                  className="text-[11px] font-outfit font-semibold"
+                  style={{ color: colors.text }}
+                >
+                  Warmup: {warmupItems.length}
+                </Text>
+              </View>
+              <View
+                className="rounded-full px-3 py-2"
+                style={{ backgroundColor: colors.surfaceHigh }}
+              >
+                <Text
+                  className="text-[11px] font-outfit font-semibold"
+                  style={{ color: colors.text }}
+                >
+                  Main: {mainItems.length}
+                </Text>
+              </View>
+              <View
+                className="rounded-full px-3 py-2"
+                style={{ backgroundColor: colors.surfaceHigh }}
+              >
+                <Text
+                  className="text-[11px] font-outfit font-semibold"
+                  style={{ color: colors.text }}
+                >
+                  Cooldown: {cooldownItems.length}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -371,6 +591,13 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             canUpload={canAccessTier(programTier, "PHP_Premium")}
+            pendingBySectionId={pendingBySectionId}
+            activeUploadSectionId={activeUploadSectionId}
+            isUploading={isUploading}
+            uploadStatus={uploadStatus}
+            onPendingRemove={handlePendingRemove}
+            onPendingNotesChange={handlePendingNotesChange}
+            onPendingSend={handlePendingSend}
             completionAnchorItemId={completionAnchorItemId}
             onCompleteSession={handleCompleteSession}
           />
@@ -381,6 +608,13 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             canUpload={canAccessTier(programTier, "PHP_Premium")}
+            pendingBySectionId={pendingBySectionId}
+            activeUploadSectionId={activeUploadSectionId}
+            isUploading={isUploading}
+            uploadStatus={uploadStatus}
+            onPendingRemove={handlePendingRemove}
+            onPendingNotesChange={handlePendingNotesChange}
+            onPendingSend={handlePendingSend}
             completionAnchorItemId={completionAnchorItemId}
             onCompleteSession={handleCompleteSession}
           />
@@ -391,40 +625,18 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             canUpload={canAccessTier(programTier, "PHP_Premium")}
+            pendingBySectionId={pendingBySectionId}
+            activeUploadSectionId={activeUploadSectionId}
+            isUploading={isUploading}
+            uploadStatus={uploadStatus}
+            onPendingRemove={handlePendingRemove}
+            onPendingNotesChange={handlePendingNotesChange}
+            onPendingSend={handlePendingSend}
             completionAnchorItemId={completionAnchorItemId}
             onCompleteSession={handleCompleteSession}
           />
         </View>
       </ThemedScrollView>
-
-      {uploadTarget && (
-        <Modal visible animationType="slide">
-          <SafeAreaView className="flex-1 bg-app">
-            <View className="flex-row justify-between p-4 items-center">
-              <Text className="text-lg font-clash font-bold text-white">
-                Upload Video
-              </Text>
-              <Pressable
-                onPress={() => {
-                  setUploadTarget(null);
-                  load(true);
-                }}
-              >
-                <Feather name="x" size={24} color="white" />
-              </Pressable>
-            </View>
-            <VideoUploadPanel
-              {...uploadTarget}
-              onUploaded={() => {
-                const sectionContentId = uploadTarget.sectionContentId;
-                setUploadTarget(null);
-                loadUploadsForSection(sectionContentId, true);
-                load(true);
-              }}
-            />
-          </SafeAreaView>
-        </Modal>
-      )}
 
       <Modal
         visible={workoutSheetOpen}
