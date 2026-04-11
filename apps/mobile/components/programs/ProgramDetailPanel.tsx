@@ -28,6 +28,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { Image as ExpoImage } from "expo-image";
+import { hasAssignedTeam } from "@/lib/teamMembership";
 
 import {
   ProgramDetailPanelProps,
@@ -80,7 +81,7 @@ export function ProgramDetailPanel({
       managedAthletes.find(
         (a) => a.id === athleteUserId || a.userId === athleteUserId,
       ) ?? managedAthletes[0];
-    return Boolean(selected?.team?.trim());
+    return hasAssignedTeam(selected?.team);
   }, [managedAthletes, athleteUserId]);
 
   const {

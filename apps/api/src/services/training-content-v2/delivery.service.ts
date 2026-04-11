@@ -35,7 +35,9 @@ function tiersAbove(tier: (typeof ProgramType.enumValues)[number]) {
 }
 
 function hasTeam(team: string | null | undefined) {
-  return Boolean(team && team.trim().length > 0);
+  const normalized = String(team ?? "").trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized !== "unknown";
 }
 
 function formatTeamAudienceLabel(team: string) {

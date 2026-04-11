@@ -1,3 +1,5 @@
+import { hasAssignedTeam } from "@/lib/teamMembership";
+
 export type AppRole =
   | "coach"
   | "adult_athlete"
@@ -18,7 +20,7 @@ type ResolveAppRoleInput = {
 };
 
 function hasTeam(team: string | null | undefined) {
-  return Boolean(team && team.trim().length > 0);
+  return hasAssignedTeam(team);
 }
 
 export function resolveAppRole(input: ResolveAppRoleInput): AppRole {
@@ -52,4 +54,3 @@ export function resolveAppRole(input: ResolveAppRoleInput): AppRole {
 
   return "youth_athlete_guardian_only";
 }
-

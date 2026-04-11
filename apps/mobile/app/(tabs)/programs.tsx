@@ -17,6 +17,7 @@ import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 import { ProgramTierCard } from "@/components/programs/ProgramTierCard";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
 import { ProgramTierUI } from "@/types/billing";
+import { hasAssignedTeam } from "@/lib/teamMembership";
 
 export default function ProgramsScreen() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function ProgramsScreen() {
     return managedAthletes.find(a => a.id === athleteUserId || a.userId === athleteUserId) ?? managedAthletes[0] ?? null;
   }, [athleteUserId, managedAthletes]);
 
-  const isTeamMode = Boolean(activeAthlete?.team?.trim());
+  const isTeamMode = hasAssignedTeam(activeAthlete?.team);
   
   const { refreshStatus, processPayment, isProcessing } = useBillingManager(token);
   const { plansByTier, pricingByTier, loadPlans, isLoading: plansLoading } = useProgramPlans();
