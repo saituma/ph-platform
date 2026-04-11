@@ -776,6 +776,7 @@ export const bookingTable = pgTable("bookings", {
   endTime: timestamp(),
   location: varchar({ length: 500 }),
   meetingLink: varchar({ length: 500 }),
+  notes: text(),
   serviceTypeId: integer(),
   occurrenceKey: varchar({ length: 255 }),
   slotKey: varchar({ length: 255 }),
@@ -1019,6 +1020,9 @@ export const nutritionLogsTable = pgTable("nutrition_logs", {
   // Youth specific
   breakfast: text(),
   snacks: text(),
+  snacksMorning: text(),
+  snacksAfternoon: text(),
+  snacksEvening: text(),
   lunch: text(),
   dinner: text(),
   waterIntake: integer().default(0), // instances/ounces/mL
