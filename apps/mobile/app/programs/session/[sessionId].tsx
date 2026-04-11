@@ -45,16 +45,18 @@ export default function ProgramSessionDetailScreen() {
     (state) => state.user,
   );
 
-  const activeAge = useMemo(() => {
-    const selected =
+  const activeAthlete = useMemo(() => {
+    return (
       managedAthletes.find(
         (a) => a.id === athleteUserId || a.userId === athleteUserId,
-      ) ?? managedAthletes[0];
-    return selected?.age ?? null;
+      ) ?? managedAthletes[0] ?? null
+    );
   }, [managedAthletes, athleteUserId]);
+  const activeAge = activeAthlete?.age ?? null;
+  const isTeamMode = Boolean(activeAthlete?.team?.trim());
 
   const { workspace, isLoading, load, findModuleAndSession } = useSessionData(
-    token,
+    isTeamMode ? token : null,
     activeAge,
   );
   const { module, session } = findModuleAndSession(
@@ -78,8 +80,9 @@ export default function ProgramSessionDetailScreen() {
   } | null>(null);
 
   useEffect(() => {
+    if (!isTeamMode) return;
     load();
-  }, [load]);
+  }, [isTeamMode, load]);
 
   useEffect(() => {
     if (!session?.items) return;
@@ -238,6 +241,29 @@ export default function ProgramSessionDetailScreen() {
         <ActivityIndicator color={colors.accent} />
       </View>
     );
+
+  if (!isTeamMode) {
+    return (
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <View className="flex-1 px-6 pt-4">
+          <View className="flex-row items-center gap-3 mb-6">
+            <Pressable
+              onPress={() => router.back()}
+              className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
+            >
+              <Feather name="chevron-left" size={24} color="white" />
+            </Pressable>
+            <Text className="text-2xl font-clash font-bold text-white">
+              Session access
+            </Text>
+          </View>
+          <Text className="text-sm font-outfit text-white/80">
+            Session details are available only for athletes assigned to a team.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>

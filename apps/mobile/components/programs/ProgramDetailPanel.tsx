@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   View,
   SafeAreaView,
   Pressable,
@@ -72,6 +73,14 @@ export function ProgramDetailPanel({
         (a) => a.id === athleteUserId || a.userId === athleteUserId,
       ) ?? managedAthletes[0];
     return selected?.age ?? null;
+  }, [managedAthletes, athleteUserId]);
+  const isTeamMode = useMemo(() => {
+    if (!managedAthletes.length) return false;
+    const selected =
+      managedAthletes.find(
+        (a) => a.id === athleteUserId || a.userId === athleteUserId,
+      ) ?? managedAthletes[0];
+    return Boolean(selected?.team?.trim());
   }, [managedAthletes, athleteUserId]);
 
   const {
@@ -288,6 +297,13 @@ export function ProgramDetailPanel({
               workspace={trainingContentV2 as any}
               activeTab={activeTab}
               onOpenModule={(moduleId) => {
+                if (!isTeamMode) {
+                  Alert.alert(
+                    "Team access required",
+                    "Module sessions are available only for athletes assigned to a team.",
+                  );
+                  return;
+                }
                 onNavigate?.(
                   `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(programId)}`,
                 );
