@@ -35,8 +35,20 @@ function ratioFromTrack(
 ): number | null {
   if (!(width > 0) || !(height > 0)) return null;
   const r = normalizeRotation(rotation);
-  const swap = r === 90 || r === 270;
-  return swap ? height / width : width / height;
+  const base = width / height;
+  const swapped = height / width;
+  const rotationSuggestsSwap = r === 90 || r === 270;
+
+  // expo-video can report:
+  // 1) raw encoded size + rotation metadata (needs swap when rotation is 90/270)
+  // 2) already-rotated size + rotation metadata (must NOT swap, or you'll invert)
+  //
+  // Simple rule that covers both:
+  // - if rotation suggests swap AND the reported size is portrait (w<h), apply swap
+  // - otherwise, use base ratio
+  const chosen = rotationSuggestsSwap && width < height ? swapped : base;
+  if (!(chosen > 0.2 && chosen < 5)) return null;
+  return chosen;
 }
 
 export function useVideoPlayerEngine({
