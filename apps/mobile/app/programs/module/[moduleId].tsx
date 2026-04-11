@@ -19,7 +19,6 @@ import { Shadows } from "@/constants/theme";
 import { ProgramId } from "@/constants/program-details";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
-import { hasAssignedTeam } from "@/lib/teamMembership";
 
 type ModuleSession = {
   id: number;
@@ -83,7 +82,6 @@ export default function ProgramModuleDetailScreen() {
     );
   }, [managedAthletes, athleteUserId]);
   const activeAthleteAge = activeAthlete?.age ?? null;
-  const isTeamMode = hasAssignedTeam(activeAthlete?.team);
 
   const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
     null,
@@ -138,7 +136,7 @@ export default function ProgramModuleDetailScreen() {
 
   const loadWorkspace = useCallback(
     async (options?: { force?: boolean }) => {
-      if (!token || !isTeamMode) {
+      if (!token) {
         setWorkspace(null);
         return;
       }
@@ -163,7 +161,7 @@ export default function ProgramModuleDetailScreen() {
         setIsLoading(false);
       }
     },
-    [activeAthleteAge, isTeamMode, token],
+    [activeAthleteAge, token],
   );
 
   useEffect(() => {
@@ -302,24 +300,7 @@ export default function ProgramModuleDetailScreen() {
               </View>
             ) : null}
 
-            {!isLoading && !error && !isTeamMode ? (
-              <View
-                className="rounded-[24px] border px-5 py-5"
-                style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
-                }}
-              >
-                <Text
-                  className="text-sm font-outfit"
-                  style={{ color: colors.textSecondary }}
-                >
-                  Module sessions are available only for athletes assigned to a team.
-                </Text>
-              </View>
-            ) : null}
-
-            {!isLoading && !error && isTeamMode && moduleIdValue == null ? (
+            {!isLoading && !error && moduleIdValue == null ? (
               <View
                 className="rounded-[24px] border px-5 py-5"
                 style={{
@@ -336,11 +317,7 @@ export default function ProgramModuleDetailScreen() {
               </View>
             ) : null}
 
-            {!isLoading &&
-            !error &&
-            isTeamMode &&
-            moduleIdValue != null &&
-            !module ? (
+            {!isLoading && !error && moduleIdValue != null && !module ? (
               <View
                 className="rounded-[24px] border px-5 py-5"
                 style={{
@@ -357,7 +334,7 @@ export default function ProgramModuleDetailScreen() {
               </View>
             ) : null}
 
-            {!isLoading && !error && isTeamMode && module ? (
+            {!isLoading && !error && module ? (
               <View className="gap-4">
                 {module.locked ? (
                   <View

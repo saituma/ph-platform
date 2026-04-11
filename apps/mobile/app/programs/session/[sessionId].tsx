@@ -31,7 +31,6 @@ import {
   FinishTrainingSessionWorkoutLog,
 } from "@/services/programs/programsService";
 import { radius, spacing, fonts } from "@/constants/theme";
-import { hasAssignedTeam } from "@/lib/teamMembership";
 
 export default function ProgramSessionDetailScreen() {
   const router = useRouter();
@@ -54,10 +53,9 @@ export default function ProgramSessionDetailScreen() {
     );
   }, [managedAthletes, athleteUserId]);
   const activeAge = activeAthlete?.age ?? null;
-  const isTeamMode = hasAssignedTeam(activeAthlete?.team);
 
   const { workspace, isLoading, load, findModuleAndSession } = useSessionData(
-    isTeamMode ? token : null,
+    token,
     activeAge,
   );
   const { module, session } = findModuleAndSession(
@@ -81,9 +79,8 @@ export default function ProgramSessionDetailScreen() {
   } | null>(null);
 
   useEffect(() => {
-    if (!isTeamMode) return;
     load();
-  }, [isTeamMode, load]);
+  }, [load]);
 
   useEffect(() => {
     if (!session?.items) return;
@@ -158,6 +155,73 @@ export default function ProgramSessionDetailScreen() {
     },
     [moduleIdNum, programId, sessionIdNum],
   );
+
+  const computePreviousPath = useCallback(
+    (ws: any) => {
+      const modules = Array.isArray(ws?.modules) ? (ws.modules as any[]) : [];
+      if (!modules.length) return null;
+
+      const sortedModules = [...modules].sort(
+        (a, b) => Number(a?.order ?? 0) - Number(b?.order ?? 0),
+      );
+
+      const effectiveModule =
+        Number.isFinite(moduleIdNum) && moduleIdNum > 0
+          ? sortedModules.find((m) => m.id === moduleIdNum)
+          : sortedModules.find((m) =>
+              (m.sessions ?? []).some((s: any) => s.id === sessionIdNum),
+            );
+      if (!effectiveModule) return null;
+
+      const mIdx = sortedModules.findIndex((m) => m.id === effectiveModule.id);
+      if (mIdx < 0) return null;
+
+      const sortedSessions = [...(effectiveModule.sessions ?? [])].sort(
+        (a: any, b: any) => Number(a?.order ?? 0) - Number(b?.order ?? 0),
+      );
+      const sIdx = sortedSessions.findIndex((s: any) => s.id === sessionIdNum);
+
+      if (sIdx > 0) {
+        for (let i = sIdx - 1; i >= 0; i--) {
+          const prevSession = sortedSessions[i];
+          if (prevSession && !prevSession.locked) {
+            return `/programs/session/${prevSession.id}?programId=${programId}&moduleId=${effectiveModule.id}`;
+          }
+        }
+      }
+
+      for (let i = mIdx - 1; i >= 0; i--) {
+        const prevModule = sortedModules[i];
+        if (!prevModule || prevModule.locked) continue;
+        const prevSessions = [...(prevModule.sessions ?? [])].sort(
+          (a: any, b: any) => Number(a?.order ?? 0) - Number(b?.order ?? 0),
+        );
+        for (let j = prevSessions.length - 1; j >= 0; j--) {
+          const candidate = prevSessions[j];
+          if (candidate && !candidate.locked) {
+            return `/programs/session/${candidate.id}?programId=${programId}&moduleId=${prevModule.id}`;
+          }
+        }
+        return `/programs/module/${prevModule.id}?programId=${programId}`;
+      }
+
+      return `/programs/module/${effectiveModule.id}?programId=${programId}`;
+    },
+    [moduleIdNum, programId, sessionIdNum],
+  );
+
+  const handleHeaderBack = useCallback(() => {
+    const path = computePreviousPath(workspace);
+    if (path) {
+      router.replace(path as any);
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/programs");
+  }, [computePreviousPath, router, workspace]);
 
   const handleUploadPress = useCallback((id: number, title: string) => {
     Alert.alert("Video Upload", "Choose an action", [
@@ -243,29 +307,6 @@ export default function ProgramSessionDetailScreen() {
       </View>
     );
 
-  if (!isTeamMode) {
-    return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <View className="flex-1 px-6 pt-4">
-          <View className="flex-row items-center gap-3 mb-6">
-            <Pressable
-              onPress={() => router.back()}
-              className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
-            >
-              <Feather name="chevron-left" size={24} color="white" />
-            </Pressable>
-            <Text className="text-2xl font-clash font-bold text-white">
-              Session access
-            </Text>
-          </View>
-          <Text className="text-sm font-outfit text-white/80">
-            Session details are available only for athletes assigned to a team.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <ThemedScrollView
@@ -277,7 +318,7 @@ export default function ProgramSessionDetailScreen() {
         <View className="px-6 pt-4">
           <View className="flex-row items-center gap-3 mb-6">
             <Pressable
-              onPress={() => router.back()}
+              onPress={handleHeaderBack}
               className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
             >
               <Feather name="chevron-left" size={24} color="white" />

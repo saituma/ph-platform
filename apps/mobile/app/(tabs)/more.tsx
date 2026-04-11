@@ -33,7 +33,10 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-function formatExperienceLabel(cfg: { title?: string | null; uiPreset?: string | null }) {
+function formatExperienceLabel(cfg: {
+  title?: string | null;
+  uiPreset?: string | null;
+}) {
   const t = cfg.title?.trim();
   if (t) return t;
   const p = cfg.uiPreset;
@@ -44,7 +47,11 @@ function formatExperienceLabel(cfg: { title?: string | null; uiPreset?: string |
 
 const isUnauthorizedError = (error: unknown) => {
   const message =
-    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
   return message.startsWith("401 ") || message.startsWith("403 ");
 };
 
@@ -52,13 +59,24 @@ export default function MoreScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated, programTier, token } = useAppSelector((state) => state.user);
-  const { config: ageConfig, isLoading: ageExperienceLoading, refreshExperience } = useAgeExperience();
+  const { profile, isAuthenticated, programTier, token } = useAppSelector(
+    (state) => state.user,
+  );
+  const {
+    config: ageConfig,
+    isLoading: ageExperienceLoading,
+    refreshExperience,
+  } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
-  const showParentPlatform = Boolean(isAuthenticated && hasPaidProgramTier(programTier));
+  const showParentPlatform = Boolean(
+    isAuthenticated && hasPaidProgramTier(programTier),
+  );
   const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
-  const canAccessFoodDiary = canAccessTier(programTier ?? null, "PHP_Premium_Plus");
+  const canAccessFoodDiary = canAccessTier(
+    programTier ?? null,
+    "PHP_Premium_Plus",
+  );
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -76,7 +94,10 @@ export default function MoreScreen() {
     opacity: transition.value,
     transform: [{ translateY: (1 - transition.value) * 10 }],
   }));
-  const experienceLabel = useMemo(() => formatExperienceLabel(ageConfig), [ageConfig]);
+  const experienceLabel = useMemo(
+    () => formatExperienceLabel(ageConfig),
+    [ageConfig],
+  );
 
   const handleRefresh = useCallback(async () => {
     if (!token) {
@@ -87,15 +108,24 @@ export default function MoreScreen() {
       (async () => {
         try {
           const me = await apiRequest<{
-            user?: { name?: string | null; email?: string | null; profilePicture?: string | null };
-          }>("/auth/me", { token, suppressStatusCodes: [401, 403], skipCache: true, forceRefresh: true });
+            user?: {
+              name?: string | null;
+              email?: string | null;
+              profilePicture?: string | null;
+            };
+          }>("/auth/me", {
+            token,
+            suppressStatusCodes: [401, 403],
+            skipCache: true,
+            forceRefresh: true,
+          });
           if (me.user) {
             dispatch(
               updateProfile({
                 name: me.user.name ?? null,
                 email: me.user.email ?? null,
                 avatar: me.user.profilePicture ?? null,
-              })
+              }),
             );
           }
         } catch {
@@ -122,14 +152,16 @@ export default function MoreScreen() {
           const nextRequestStatus = status?.latestRequest?.status ?? null;
           const nextTier =
             status?.currentProgramTier ??
-            (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
+            (nextRequestStatus === "approved"
+              ? (status?.latestRequest?.planTier ?? null)
+              : null);
           dispatch(setProgramTier(nextTier));
           dispatch(
             setMessagingAccessTiers(
               Array.isArray(status?.messagingAccessTiers)
                 ? status!.messagingAccessTiers!
-                : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]
-            )
+                : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
+            ),
           );
           dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
         } catch {
@@ -138,10 +170,14 @@ export default function MoreScreen() {
       })(),
       (async () => {
         try {
-          const onboarding = await apiRequest<{ athlete: { onboardingCompleted?: boolean; userId?: number } | null }>(
-            "/onboarding",
-            { token, suppressStatusCodes: [401, 403, 500], skipCache: true, forceRefresh: true }
-          );
+          const onboarding = await apiRequest<{
+            athlete: { onboardingCompleted?: boolean; userId?: number } | null;
+          }>("/onboarding", {
+            token,
+            suppressStatusCodes: [401, 403, 500],
+            skipCache: true,
+            forceRefresh: true,
+          });
           if (onboarding.athlete == null) {
             return;
           }
@@ -161,27 +197,41 @@ export default function MoreScreen() {
 
   const versionLine = useMemo(() => {
     const appVersion = Constants.expoConfig?.version ?? "—";
-    const expoCfg = Constants.expoConfig as { ios?: { buildNumber?: string }; android?: { versionCode?: string } } | undefined;
+    const expoCfg = Constants.expoConfig as
+      | { ios?: { buildNumber?: string }; android?: { versionCode?: string } }
+      | undefined;
     const build =
       Constants.nativeBuildVersion ??
       expoCfg?.ios?.buildNumber ??
-      (expoCfg?.android?.versionCode != null ? String(expoCfg.android.versionCode) : "");
-    return build ? `Version ${appVersion} (Build ${build})` : `Version ${appVersion}`;
+      (expoCfg?.android?.versionCode != null
+        ? String(expoCfg.android.versionCode)
+        : "");
+    return build
+      ? `Version ${appVersion} (Build ${build})`
+      : `Version ${appVersion}`;
   }, []);
 
   const insets = useSafeAreaInsets();
+  const logoutFooterPaddingBottom = Math.max(insets.bottom, 12);
 
   return (
-    <View className="flex-1" style={{ paddingTop: insets.top }}>
+    <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <ThemedScrollView
         onRefresh={handleRefresh}
-        // UI polish: extra safe bottom spacing prevents cramped last actions near tab bar.
-        contentContainerStyle={{ paddingBottom: 56 }}
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: insets.top,
+          paddingBottom: 16,
+        }}
       >
         <View className="px-6 pt-6 mb-4 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3 flex-1 mr-4 overflow-hidden">
             <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-4xl font-telma-bold text-app tracking-tight" numberOfLines={1}>
+            <Text
+              className="text-4xl font-telma-bold text-app tracking-tight"
+              numberOfLines={1}
+            >
               More
             </Text>
           </View>
@@ -195,13 +245,19 @@ export default function MoreScreen() {
             className="overflow-hidden rounded-[32px] border px-5 py-5"
             style={{
               backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              borderColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(15,23,42,0.06)",
               ...(isDark ? Shadows.none : Shadows.md),
             }}
           >
             <View
               className="absolute -right-8 -top-8 h-28 w-28 rounded-full"
-              style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.10)" }}
+              style={{
+                backgroundColor: isDark
+                  ? "rgba(34,197,94,0.14)"
+                  : "rgba(34,197,94,0.10)",
+              }}
             />
 
             {isLoading ? (
@@ -216,19 +272,51 @@ export default function MoreScreen() {
               <>
                 <View className="flex-row items-center gap-5 mb-6">
                   {profile.avatar ? (
-                    <View className="h-16 w-16 rounded-[22px] overflow-hidden relative border" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)", ...(isDark ? Shadows.none : Shadows.sm) }}>
-                      <Image source={{ uri: profile.avatar }} style={{ width: 64, height: 64 }} />
+                    <View
+                      className="h-16 w-16 rounded-[22px] overflow-hidden relative border"
+                      style={{
+                        borderColor: isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(15,23,42,0.06)",
+                        ...(isDark ? Shadows.none : Shadows.sm),
+                      }}
+                    >
+                      <Image
+                        source={{ uri: profile.avatar }}
+                        style={{ width: 64, height: 64 }}
+                      />
                       <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full" />
                     </View>
                   ) : (
-                    <View className="h-16 w-16 rounded-[22px] items-center justify-center relative border" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)", borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)", ...(isDark ? Shadows.none : Shadows.sm) }}>
+                    <View
+                      className="h-16 w-16 rounded-[22px] items-center justify-center relative border"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.05)"
+                          : "rgba(255,255,255,0.84)",
+                        borderColor: isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(15,23,42,0.06)",
+                        ...(isDark ? Shadows.none : Shadows.sm),
+                      }}
+                    >
                       <Feather name="user" size={28} color={colors.accent} />
                       <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full" />
                     </View>
                   )}
                   <View className="flex-1">
-                    <View className="self-start rounded-full px-3 py-1.5 mb-2" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.82)" }}>
-                      <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+                    <View
+                      className="self-start rounded-full px-3 py-1.5 mb-2"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.06)"
+                          : "rgba(255,255,255,0.82)",
+                      }}
+                    >
+                      <Text
+                        className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]"
+                        style={{ color: colors.accent }}
+                      >
                         Account overview
                       </Text>
                     </View>
@@ -236,13 +324,23 @@ export default function MoreScreen() {
                       {profile.name || "Profile"}
                     </Text>
                     <Text className="text-secondary font-outfit text-sm mt-0.5">
-                      {profile.email || (isAuthenticated ? "Email unavailable" : "Not signed in")}
+                      {profile.email ||
+                        (isAuthenticated
+                          ? "Email unavailable"
+                          : "Not signed in")}
                     </Text>
                   </View>
                 </View>
 
                 <View className="flex-row gap-3">
-                  <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
+                  <View
+                    className="flex-1 rounded-[22px] px-4 py-4"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.05)"
+                        : "rgba(255,255,255,0.84)",
+                    }}
+                  >
                     <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px] text-secondary">
                       Access
                     </Text>
@@ -250,12 +348,21 @@ export default function MoreScreen() {
                       {programTier ?? "Free"}
                     </Text>
                   </View>
-                  <View className="flex-1 rounded-[22px] px-4 py-4" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)" }}>
+                  <View
+                    className="flex-1 rounded-[22px] px-4 py-4"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.05)"
+                        : "rgba(255,255,255,0.84)",
+                    }}
+                  >
                     <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px] text-secondary">
                       Experience
                     </Text>
                     <Text className="mt-2 text-lg font-clash text-app">
-                      {isAuthenticated && ageExperienceLoading ? "…" : experienceLabel}
+                      {isAuthenticated && ageExperienceLoading
+                        ? "…"
+                        : experienceLabel}
                     </Text>
                   </View>
                 </View>
@@ -291,7 +398,10 @@ export default function MoreScreen() {
                     Account
                   </Text>
                 </View>
-                <View className="bg-card rounded-3xl overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
+                <View
+                  className="bg-card rounded-3xl overflow-hidden"
+                  style={isDark ? Shadows.none : Shadows.sm}
+                >
                   <MenuItem
                     icon="user"
                     label="Profile Information"
@@ -366,7 +476,10 @@ export default function MoreScreen() {
                     Support & About
                   </Text>
                 </View>
-                <View className="bg-card rounded-3xl overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
+                <View
+                  className="bg-card rounded-3xl overflow-hidden"
+                  style={isDark ? Shadows.none : Shadows.sm}
+                >
                   <MenuItem
                     icon="star"
                     label="Submit Testimonial"
@@ -405,8 +518,6 @@ export default function MoreScreen() {
                 </View>
               </View>
 
-
-
               <View>
                 <View className="flex-row items-center gap-3 mb-3 ml-2">
                   <View className="h-4 w-1 rounded-full bg-accent" />
@@ -414,7 +525,10 @@ export default function MoreScreen() {
                     Legal
                   </Text>
                 </View>
-                <View className="bg-card rounded-3xl overflow-hidden" style={isDark ? Shadows.none : Shadows.sm}>
+                <View
+                  className="bg-card rounded-3xl overflow-hidden"
+                  style={isDark ? Shadows.none : Shadows.sm}
+                >
                   <MenuItem
                     icon="file-text"
                     label="Terms of Service"
@@ -433,26 +547,32 @@ export default function MoreScreen() {
               </View>
             </>
           )}
-          <View>
-            <ActionButton
-              label="Logout"
-              icon="log-out"
-              color="bg-red-600"
-              // UI polish: keep destructive action icon high-contrast on dark red.
-              iconColor="text-white"
-              onPress={() => {
-                dispatch(logout());
-                router.replace("/(auth)/login");
-              }}
-              fullWidth={true}
-            />
-          </View>
 
           <Text className="text-center text-muted font-outfit text-xs mt-2 mb-6">
             {versionLine}
           </Text>
         </Animated.View>
       </ThemedScrollView>
+
+      <View
+        className="px-6 pt-4 border-t border-separator"
+        style={{
+          paddingBottom: logoutFooterPaddingBottom,
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActionButton
+          label="Logout"
+          icon="log-out"
+          color="bg-red-600"
+          iconColor="text-white"
+          onPress={() => {
+            dispatch(logout());
+            router.replace("/(auth)/login");
+          }}
+          fullWidth={true}
+        />
+      </View>
     </View>
   );
 }
@@ -475,13 +595,19 @@ function MenuItem({
       onPress={onPress}
       className={`flex-row items-center px-5 py-5 active:opacity-90 ${!isLast ? "border-b border-separator" : ""}`}
     >
-      <View className="w-12 h-12 items-center justify-center rounded-2xl mr-4" style={{ backgroundColor: `${accentColor}18` }}>
+      <View
+        className="w-12 h-12 items-center justify-center rounded-2xl mr-4"
+        style={{ backgroundColor: `${accentColor}18` }}
+      >
         <Feather name={icon} size={22} color={accentColor} />
       </View>
       <Text className="flex-1 font-outfit text-app text-[1.1875rem] font-medium">
         {label}
       </Text>
-      <View className="h-9 w-9 rounded-2xl items-center justify-center" style={{ backgroundColor: `${accentColor}12` }}>
+      <View
+        className="h-9 w-9 rounded-2xl items-center justify-center"
+        style={{ backgroundColor: `${accentColor}12` }}
+      >
         <Feather name="chevron-right" size={18} color={accentColor} />
       </View>
     </TouchableOpacity>

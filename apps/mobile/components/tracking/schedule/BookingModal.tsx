@@ -143,6 +143,7 @@ export function BookingModal({
         );
       } else {
         startsAt = new Date();
+        startsAt.setDate(startsAt.getDate() + 1);
         startsAt.setHours(12, 0, 0, 0);
       }
       const endsAt = new Date(

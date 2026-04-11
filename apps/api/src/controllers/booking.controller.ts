@@ -36,9 +36,19 @@ const slotDefinitionSchema = z.object({
 
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
+  description: z.string().max(2000).optional().nullable(),
   type: z.enum(["one_to_one", "semi_private", "in_person"]),
   durationMinutes: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)),
-  capacity: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional(),
+  capacity: z
+    .preprocess(
+      (val) => {
+        if (val === "") return undefined;
+        if (val === null) return null;
+        return Number(val);
+      },
+      z.number().int().min(1).nullable(),
+    )
+    .optional(),
   attendeeVisibility: z.boolean().optional(),
   defaultLocation: z.string().optional().nullable(),
   defaultMeetingLink: z.string().optional().nullable(),
@@ -108,6 +118,7 @@ export async function createService(req: Request, res: Response) {
   const input = serviceTypeSchema.parse(req.body);
   const item = await createServiceType({
     name: input.name,
+    description: input.description ?? null,
     type: input.type,
     durationMinutes: input.durationMinutes,
     capacity: input.capacity,

@@ -87,7 +87,6 @@ export function SessionExerciseBlock({
                           initialMuted
                           isLooping={false}
                           maxHeightRatio={0.55}
-                          initialAspectRatio={16 / 9}
                         />
                       </View>
                     );
@@ -147,7 +146,6 @@ export function SessionExerciseBlock({
                               initialMuted
                               isLooping={false}
                               maxHeightRatio={0.55}
-                              initialAspectRatio={16 / 9}
                             />
                           </View>
                         ) : null}

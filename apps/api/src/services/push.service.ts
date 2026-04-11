@@ -19,9 +19,9 @@ function warnMissingExpoAccessTokenOnce() {
   if (!hasExpoToken) {
     const suffix =
       env.nodeEnv === "production"
-        ? " Push notifications WILL FAIL. Set EXPO_ACCESS_TOKEN (Expo Dashboard → Access Tokens)."
-        : " Push notifications may fail. Set EXPO_ACCESS_TOKEN for reliable delivery.";
-    console.error(`[Push Service] EXPO_ACCESS_TOKEN is empty or missing.${suffix}`);
+        ? " Push delivery depends on whether Expo enhanced push security is enabled. If pushes fail with UNAUTHORIZED, set EXPO_ACCESS_TOKEN (Expo Dashboard → Access Tokens)."
+        : " Set EXPO_ACCESS_TOKEN if your Expo project has enhanced push security enabled.";
+    console.warn(`[Push Service] EXPO_ACCESS_TOKEN is empty or missing.${suffix}`);
   }
 }
 

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   View,
   SafeAreaView,
   Pressable,
@@ -28,7 +27,6 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { Image as ExpoImage } from "expo-image";
-import { hasAssignedTeam } from "@/lib/teamMembership";
 
 import {
   ProgramDetailPanelProps,
@@ -75,15 +73,6 @@ export function ProgramDetailPanel({
       ) ?? managedAthletes[0];
     return selected?.age ?? null;
   }, [managedAthletes, athleteUserId]);
-  const isTeamMode = useMemo(() => {
-    if (!managedAthletes.length) return false;
-    const selected =
-      managedAthletes.find(
-        (a) => a.id === athleteUserId || a.userId === athleteUserId,
-      ) ?? managedAthletes[0];
-    return hasAssignedTeam(selected?.team);
-  }, [managedAthletes, athleteUserId]);
-
   const {
     hasAccess,
     isPendingApproval,
@@ -298,13 +287,6 @@ export function ProgramDetailPanel({
               workspace={trainingContentV2 as any}
               activeTab={activeTab}
               onOpenModule={(moduleId) => {
-                if (!isTeamMode) {
-                  Alert.alert(
-                    "Team access required",
-                    "Module sessions are available only for athletes assigned to a team.",
-                  );
-                  return;
-                }
                 onNavigate?.(
                   `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(programId)}`,
                 );

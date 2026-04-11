@@ -13,6 +13,7 @@ import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import { Select } from "../../ui/select";
+import { Textarea } from "../../ui/textarea";
 import {
   useCreateServiceMutation,
   useUpdateServiceMutation,
@@ -51,6 +52,7 @@ function getRtkErrorMessage(err: unknown, fallback: string): string {
 type ServiceType = {
   id: number;
   name: string;
+  description?: string | null;
   type: string;
   durationMinutes: number;
   capacity?: number | null;
@@ -149,6 +151,12 @@ const formatDate = (date: Date) =>
 const formatTime = (date: Date) =>
   date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+const DEFAULT_SERVICE_DURATION_MINUTES: Record<string, number> = {
+  one_to_one: 60,
+  semi_private: 75,
+  in_person: 60,
+};
+
 function getEndTimeHint(
   startTime: string,
   durationMinutes: string,
@@ -184,18 +192,9 @@ export function BookingsDialogs({
   isApproving = false,
 }: BookingsDialogsProps) {
   const [serviceName, setServiceName] = useState("");
-  const [serviceType, setServiceType] = useState("group_call");
+  const [serviceDescription, setServiceDescription] = useState("");
+  const [serviceType, setServiceType] = useState("one_to_one");
   const [durationMinutes, setDurationMinutes] = useState("");
-  const [capacity, setCapacity] = useState("");
-  const [programTier, setProgramTier] = useState("");
-  const [eligiblePlans, setEligiblePlans] = useState<string[]>([]);
-  const [schedulePattern, setSchedulePattern] = useState("temporary");
-  const [oneTimeDate, setOneTimeDate] = useState("");
-  const [oneTimeTime, setOneTimeTime] = useState("");
-  const [attendeeVisibility, setAttendeeVisibility] = useState(true);
-  const [defaultLocation, setDefaultLocation] = useState("");
-  const [defaultVideoLink, setDefaultVideoLink] = useState("");
-  const [serviceIsActive, setServiceIsActive] = useState(true);
   const [bookingUserId, setBookingUserId] = useState("");
   const [bookingServiceId, setBookingServiceId] = useState("");
   const [guardianSearch, setGuardianSearch] = useState("");
@@ -217,18 +216,10 @@ export function BookingsDialogs({
   useEffect(() => {
     if (active === "new-service") {
       setServiceName("");
-      setServiceType("group_call");
-      setDurationMinutes("");
-      setCapacity("");
-      setProgramTier("");
-      setEligiblePlans([]);
-      setSchedulePattern("temporary");
-      setOneTimeDate("");
-      setOneTimeTime("");
-      setAttendeeVisibility(true);
-      setDefaultLocation("");
-      setDefaultVideoLink("");
-      setServiceIsActive(true);
+      setServiceDescription("");
+      setServiceType("one_to_one");
+      setDurationMinutes(String(DEFAULT_SERVICE_DURATION_MINUTES.one_to_one));
+      setError(null);
       return;
     }
 
@@ -249,23 +240,10 @@ export function BookingsDialogs({
 
     if (active === "edit-service" && selectedService) {
       setServiceName(selectedService.name ?? "");
-      setServiceType(selectedService.type ?? "group_call");
+      setServiceDescription(selectedService.description ?? "");
+      setServiceType(selectedService.type ?? "one_to_one");
       setDurationMinutes(String(selectedService.durationMinutes ?? 30));
-      setCapacity(
-        selectedService.capacity ? String(selectedService.capacity) : "",
-      );
-      setProgramTier(selectedService.programTier ?? "");
-      setEligiblePlans(
-        selectedService.eligiblePlans ??
-          (selectedService.programTier ? [selectedService.programTier] : []),
-      );
-      setSchedulePattern(selectedService.schedulePattern ?? "temporary");
-      setOneTimeDate(selectedService.oneTimeDate ?? "");
-      setOneTimeTime(selectedService.oneTimeTime ?? "");
-      setAttendeeVisibility(selectedService.attendeeVisibility ?? true);
-      setDefaultLocation(selectedService.defaultLocation ?? "");
-      setDefaultVideoLink("");
-      setServiceIsActive(selectedService.isActive ?? true);
+      setError(null);
     }
   }, [active, selectedService]);
 
@@ -357,12 +335,33 @@ export function BookingsDialogs({
                 />
               </div>
               <div className="space-y-1">
+                <Label htmlFor="service-description">Description</Label>
+                <Textarea
+                  id="service-description"
+                  placeholder="What is this service for?"
+                  value={serviceDescription}
+                  onChange={(e) => {
+                    setServiceDescription(e.target.value);
+                    setError(null);
+                  }}
+                />
+              </div>
+              <div className="space-y-1">
                 <Label htmlFor="service-type">Type</Label>
                 <Select
                   id="service-type"
                   value={serviceType}
                   onChange={(e) => {
-                    setServiceType(e.target.value);
+                    const nextType = e.target.value;
+                    setServiceType(nextType);
+                    if (active === "new-service") {
+                      setDurationMinutes(
+                        String(
+                          DEFAULT_SERVICE_DURATION_MINUTES[nextType] ??
+                            DEFAULT_SERVICE_DURATION_MINUTES.one_to_one,
+                        ),
+                      );
+                    }
                     setError(null);
                   }}
                 >
@@ -371,137 +370,6 @@ export function BookingsDialogs({
                   <option value="in_person">In-person session</option>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="service-duration">Duration (mins)</Label>
-                <Input
-                  id="service-duration"
-                  placeholder="60"
-                  inputMode="numeric"
-                  value={durationMinutes}
-                  onChange={(e) => {
-                    setDurationMinutes(e.target.value);
-                    setError(null);
-                  }}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="service-capacity">Capacity</Label>
-                <Input
-                  id="service-capacity"
-                  placeholder="Slots available"
-                  value={capacity}
-                  onChange={(e) => {
-                    setCapacity(e.target.value);
-                    setError(null);
-                  }}
-                />
-                <div className="text-xs text-muted-foreground">
-                  Capacity is used for shared-capacity services and can also
-                  backfill exact slots.
-                </div>
-              </div>
-              <div className="space-y-2 rounded-2xl border border-border bg-secondary/20 p-4">
-                <p className="text-sm font-semibold text-foreground">
-                  Eligible plans
-                </p>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {[
-                    { value: "PHP", label: "PHP" },
-                    { value: "PHP_Premium_Plus", label: "PHP Premium Plus" },
-                    { value: "PHP_Premium", label: "PHP Premium" },
-                    { value: "PHP_Pro", label: "PHP Pro" },
-                  ].map((plan) => (
-                    <label
-                      key={plan.value}
-                      className="flex items-center gap-2 text-sm text-muted-foreground"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={eligiblePlans.includes(plan.value)}
-                        onChange={(event) => {
-                          if (event.target.checked) {
-                            setEligiblePlans((current) => [
-                              ...new Set([...current, plan.value]),
-                            ]);
-                          } else {
-                            setEligiblePlans((current) =>
-                              current.filter((item) => item !== plan.value),
-                            );
-                          }
-                        }}
-                      />
-                      {plan.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="service-schedule-pattern">
-                  Schedule pattern
-                </Label>
-                <Select
-                  id="service-schedule-pattern"
-                  value={schedulePattern}
-                  onChange={(e) => setSchedulePattern(e.target.value)}
-                >
-                  <option value="temporary">Temporary (one-time)</option>
-                  <option value="permanent">Permanent</option>
-                </Select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="service-one-time-date">Date</Label>
-                  <Input
-                    id="service-one-time-date"
-                    type="date"
-                    value={oneTimeDate}
-                    onChange={(e) => setOneTimeDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="service-one-time-time">Start time</Label>
-                  <Input
-                    id="service-one-time-time"
-                    type="time"
-                    value={oneTimeTime}
-                    onChange={(e) => setOneTimeTime(e.target.value)}
-                  />
-                  {getEndTimeHint(oneTimeTime, durationMinutes) ? (
-                    <div className="text-xs text-muted-foreground">
-                      {getEndTimeHint(oneTimeTime, durationMinutes)}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={attendeeVisibility}
-                  onChange={(e) => setAttendeeVisibility(e.target.checked)}
-                />
-                Show attendee list for group calls
-              </label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  className="accent-primary"
-                  checked={serviceIsActive}
-                  onChange={(e) => setServiceIsActive(e.target.checked)}
-                />
-                Service is active (shown to clients while capacity remains)
-              </label>
-              <div className="space-y-1">
-                <Label htmlFor="service-default-location">
-                  Default location (optional)
-                </Label>
-                <Input
-                  id="service-default-location"
-                  placeholder="Lift Lab — main floor"
-                  value={defaultLocation}
-                  onChange={(e) => setDefaultLocation(e.target.value)}
-                />
-              </div>
-              {/* Default video link removed */}
               {error ? <p className="text-sm text-red-500">{error}</p> : null}
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>
@@ -514,42 +382,26 @@ export function BookingsDialogs({
                       setError("Service name is required.");
                       return;
                     }
-                    if (!durationMinutes) {
-                      setError("Duration is required.");
-                      return;
-                    }
-                    if (!oneTimeDate || !oneTimeTime) {
-                      setError("Set the date and time.");
-                      return;
-                    }
                     try {
-                      const normalizedEligiblePlans =
-                        serviceType === "role_model"
-                          ? ["PHP_Premium"]
-                          : eligiblePlans;
+                      const duration = Number(durationMinutes);
+                      const fallbackDuration =
+                        DEFAULT_SERVICE_DURATION_MINUTES[serviceType] ??
+                        DEFAULT_SERVICE_DURATION_MINUTES.one_to_one;
                       const payload = {
-                        name: serviceName,
+                        name: serviceName.trim(),
+                        description: serviceDescription.trim() || null,
                         type: serviceType,
-                        durationMinutes: Number(durationMinutes),
-                        capacity: capacity ? Number(capacity) : undefined,
-                        attendeeVisibility,
-                        defaultLocation: defaultLocation || undefined,
-                        defaultMeetingLink: undefined,
-                        programTier:
-                          serviceType === "role_model"
-                            ? "PHP_Premium"
-                            : programTier || undefined,
-                        eligiblePlans: normalizedEligiblePlans,
-                        schedulePattern,
-                        recurrenceEndMode: undefined,
-                        recurrenceCount: undefined,
-                        weeklyEntries: undefined,
-                        oneTimeDate: oneTimeDate,
-                        oneTimeTime: oneTimeTime,
-                        slotMode: undefined,
-                        slotIntervalMinutes: undefined,
-                        slotDefinitions: undefined,
-                        isActive: serviceIsActive,
+                        durationMinutes:
+                          Number.isFinite(duration) && duration > 0
+                            ? duration
+                            : fallbackDuration,
+                        capacity: null,
+                        eligiblePlans: [],
+                        schedulePattern: "weekly_recurring",
+                        weeklyEntries: [],
+                        oneTimeDate: null,
+                        oneTimeTime: null,
+                        isActive: true,
                       };
                       if (active === "new-service") {
                         await createService(payload).unwrap();
