@@ -42,6 +42,7 @@ export async function listServiceTypes(options?: { includeInactive?: boolean; vi
           .select({
             id: serviceTypeTable.id,
             name: serviceTypeTable.name,
+            description: serviceTypeTable.description,
             type: serviceTypeTable.type,
             durationMinutes: serviceTypeTable.durationMinutes,
             capacity: serviceTypeTable.capacity,
@@ -69,6 +70,7 @@ export async function listServiceTypes(options?: { includeInactive?: boolean; vi
           .select({
             id: serviceTypeTable.id,
             name: serviceTypeTable.name,
+            description: serviceTypeTable.description,
             type: serviceTypeTable.type,
             durationMinutes: serviceTypeTable.durationMinutes,
             capacity: serviceTypeTable.capacity,
@@ -123,6 +125,7 @@ export async function getServiceTypeById(id: number) {
 
 export async function createServiceType(input: {
   name: string;
+  description?: string | null;
   type: ServiceTypeKind;
   durationMinutes: number;
   capacity?: number | null;
@@ -151,6 +154,7 @@ export async function createServiceType(input: {
     .insert(serviceTypeTable)
     .values({
       name: input.name,
+      description: input.description ?? null,
       type: input.type,
       durationMinutes: input.durationMinutes,
       capacity: input.capacity ?? null,
@@ -181,6 +185,7 @@ export async function updateServiceType(
   id: number,
   input: {
     name?: string | null;
+    description?: string | null;
     type?: ServiceTypeKind | null;
     durationMinutes?: number | null;
     capacity?: number | null;
@@ -219,23 +224,39 @@ export async function updateServiceType(
     .update(serviceTypeTable)
     .set({
       name: input.name ?? existing[0].name,
+      description:
+        input.description !== undefined
+          ? input.description
+          : existing[0].description ?? null,
       type: nextType,
       durationMinutes: input.durationMinutes ?? existing[0].durationMinutes,
-      capacity: input.capacity ?? existing[0].capacity ?? null,
+      capacity:
+        input.capacity !== undefined ? input.capacity : existing[0].capacity ?? null,
       fixedStartTime: null,
       attendeeVisibility: input.attendeeVisibility ?? existing[0].attendeeVisibility ?? true,
-      defaultLocation: input.defaultLocation ?? existing[0].defaultLocation ?? null,
-      defaultMeetingLink: input.defaultMeetingLink ?? existing[0].defaultMeetingLink ?? null,
+      defaultLocation:
+        input.defaultLocation !== undefined
+          ? input.defaultLocation
+          : existing[0].defaultLocation ?? null,
+      defaultMeetingLink:
+        input.defaultMeetingLink !== undefined
+          ? input.defaultMeetingLink
+          : existing[0].defaultMeetingLink ?? null,
       programTier,
       eligiblePlans,
       schedulePattern: input.schedulePattern ?? existing[0].schedulePattern ?? "one_time",
       recurrenceEndMode: input.recurrenceEndMode ?? existing[0].recurrenceEndMode ?? null,
       recurrenceCount: input.recurrenceCount ?? existing[0].recurrenceCount ?? null,
       weeklyEntries: input.weeklyEntries ?? existing[0].weeklyEntries ?? [],
-      oneTimeDate: input.oneTimeDate ?? existing[0].oneTimeDate ?? null,
-      oneTimeTime: input.oneTimeTime ?? existing[0].oneTimeTime ?? null,
+      oneTimeDate:
+        input.oneTimeDate !== undefined ? input.oneTimeDate : existing[0].oneTimeDate ?? null,
+      oneTimeTime:
+        input.oneTimeTime !== undefined ? input.oneTimeTime : existing[0].oneTimeTime ?? null,
       slotMode: input.slotMode ?? existing[0].slotMode ?? "shared_capacity",
-      slotIntervalMinutes: input.slotIntervalMinutes ?? existing[0].slotIntervalMinutes ?? null,
+      slotIntervalMinutes:
+        input.slotIntervalMinutes !== undefined
+          ? input.slotIntervalMinutes
+          : existing[0].slotIntervalMinutes ?? null,
       slotDefinitions: input.slotDefinitions ?? existing[0].slotDefinitions ?? [],
       isActive: input.isActive ?? existing[0].isActive ?? true,
       updatedAt: new Date(),

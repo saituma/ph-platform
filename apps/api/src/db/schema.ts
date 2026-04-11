@@ -897,6 +897,7 @@ export const physioRefferalsTable = pgTable("physio_refferals", {
 export const serviceTypeTable = pgTable("service_types", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 255 }).notNull(),
+  description: varchar({ length: 2000 }),
   type: bookingType(),
   durationMinutes: integer().notNull(),
   capacity: integer(),

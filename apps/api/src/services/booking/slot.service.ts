@@ -131,7 +131,7 @@ export function buildExactSlots(
       const slotStart = toUtcDate(toDateKey(start), definition.time);
       const slotEnd = new Date(slotStart.getTime() + Math.max(1, service.durationMinutes) * 60 * 1000);
       const slotKey = slotStart.toISOString();
-      const capacity = definition.capacity ?? service.capacity ?? 1;
+      const capacity = definition.capacity ?? service.capacity ?? null;
       const used = slotCounts.get(slotKey) ?? 0;
       slots.push({
         slotKey,
@@ -157,7 +157,7 @@ export function buildExactSlots(
     const slotEnd = new Date(cursor.getTime() + durationMs);
     if (slotEnd.getTime() > occurrenceEnd.getTime()) break;
     const slotKey = cursor.toISOString();
-    const capacity = service.capacity ?? 1;
+    const capacity = service.capacity ?? null;
     const used = slotCounts.get(slotKey) ?? 0;
     slots.push({
       slotKey,
@@ -172,14 +172,15 @@ export function buildExactSlots(
 
   const fallbackSlotKey = start.toISOString();
   const used = occurrenceCounts.get(fallbackSlotKey) ?? 0;
+  const capacity = service.capacity ?? null;
   return [
     {
       slotKey: fallbackSlotKey,
       startsAt: start.toISOString(),
       endsAt: occurrenceEnd.toISOString(),
-      capacity: service.capacity ?? 1,
+      capacity,
       remainingCapacity:
-        service.capacity == null ? null : Math.max(0, (service.capacity ?? 1) - used),
+        capacity == null ? null : Math.max(0, capacity - used),
     },
   ];
 }

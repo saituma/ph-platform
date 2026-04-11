@@ -21,6 +21,24 @@ interface VideoPlayerEngineParams {
   fadeAnim: Animated.Value;
 }
 
+function normalizeRotation(value: unknown) {
+  const raw = Number(value ?? 0);
+  if (!Number.isFinite(raw)) return 0;
+  const n = ((Math.trunc(raw) % 360) + 360) % 360;
+  return n;
+}
+
+function ratioFromTrack(
+  width: number,
+  height: number,
+  rotation: unknown,
+): number | null {
+  if (!(width > 0) || !(height > 0)) return null;
+  const r = normalizeRotation(rotation);
+  const swap = r === 90 || r === 270;
+  return swap ? height / width : width / height;
+}
+
 export function useVideoPlayerEngine({
   sourceUri,
   autoPlay,
@@ -74,13 +92,35 @@ export function useVideoPlayerEngine({
   useEventListener(player, "videoTrackChange", (e) => {
     const w = e.videoTrack?.size?.width ?? 0;
     const h = e.videoTrack?.size?.height ?? 0;
-    if (w > 0 && h > 0) {
+    const rotation =
+      (e.videoTrack as any)?.rotationDegrees ??
+      (e.videoTrack as any)?.rotation ??
+      0;
+    const nextRatio = ratioFromTrack(w, h, rotation);
+    if (w > 0 && h > 0 && nextRatio) {
       setResolution({ width: w, height: h });
-      setAspectRatio(w / h);
+      setAspectRatio(nextRatio);
     }
   });
 
   useEventListener(player, "sourceLoad", (payload) => {
+    const maybeWidth =
+      Number((payload as any)?.videoSource?.size?.width) ||
+      Number((payload as any)?.videoSource?.width) ||
+      0;
+    const maybeHeight =
+      Number((payload as any)?.videoSource?.size?.height) ||
+      Number((payload as any)?.videoSource?.height) ||
+      0;
+    const maybeRotation =
+      (payload as any)?.videoSource?.rotationDegrees ??
+      (payload as any)?.videoSource?.rotation ??
+      0;
+    const sourceRatio = ratioFromTrack(maybeWidth, maybeHeight, maybeRotation);
+    if (maybeWidth > 0 && maybeHeight > 0 && sourceRatio) {
+      setResolution((prev) => prev ?? { width: maybeWidth, height: maybeHeight });
+      setAspectRatio((prev) => prev ?? sourceRatio);
+    }
     if (payload.duration > 0) {
       setIsLoading(false);
       Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();

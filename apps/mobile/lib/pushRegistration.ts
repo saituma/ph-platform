@@ -70,32 +70,22 @@ export async function registerDevicePushToken({
     ).catch(() => false);
 
     if (isExpoGo) {
-      const expoPushToken = "ExponentPushToken[expo_go_mock_token]";
-      let synced = false;
-      let error: string | null = null;
-      if (!skipBackendSync) {
-        try {
-          await apiRequest("/users/push-token", {
-            method: "POST",
-            body: { token: expoPushToken },
-            token,
-            suppressStatusCodes: [401, 403],
-          });
-          synced = true;
-        } catch (syncError) {
-          error = syncError instanceof Error ? syncError.message : "Failed to sync mock Expo push token with backend.";
-        }
-      }
-      
+      // Expo Go cannot receive remote pushes. Don't generate/sync a fake token,
+      // otherwise the backend will try to send pushes that can never deliver.
       const result: RegisterPushTokenResult = {
         support: "expo_go",
-        permissionStatus: "granted",
-        expoPushToken,
-        projectId: "mock-project-id",
-        synced,
-        error,
+        permissionStatus: "undetermined",
+        expoPushToken: null,
+        projectId: await getProjectId().catch(() => null),
+        synced: false,
+        error: "Expo Go does not support remote push notifications. Use an EAS dev build or a store build to test.",
       };
-      syncPushState(dispatch, { ...result, lastAttemptAt: attemptedAt, lastSyncedAt: synced ? attemptedAt : null, lastError: error });
+      syncPushState(dispatch, {
+        ...result,
+        lastAttemptAt: attemptedAt,
+        lastSyncedAt: null,
+        lastError: result.error,
+      });
       return result;
     }
 
