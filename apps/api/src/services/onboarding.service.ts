@@ -116,15 +116,22 @@ export async function getOnboardingByUser(userId: number) {
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0];
   if (!guardian) return null;
-  const athletes = await db
-    .select()
-    .from(athleteTable)
-    .where(eq(athleteTable.guardianId, guardian.id))
-    .orderBy(
-      sql`CASE WHEN ${guardian.activeAthleteId} IS NOT NULL AND ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`,
-      desc(athleteTable.createdAt),
-    )
-    .limit(1);
+  const athletes = guardian.activeAthleteId
+    ? await db
+        .select()
+        .from(athleteTable)
+        .where(eq(athleteTable.guardianId, guardian.id))
+        .orderBy(
+          sql`CASE WHEN ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`,
+          desc(athleteTable.createdAt),
+        )
+        .limit(1)
+    : await db
+        .select()
+        .from(athleteTable)
+        .where(eq(athleteTable.guardianId, guardian.id))
+        .orderBy(desc(athleteTable.createdAt))
+        .limit(1);
   const athlete = athletes[0] ?? null;
   if (!athlete) return null;
   let ensured = athlete;
@@ -417,6 +424,212 @@ export async function listGuardianAthletesWithUsers(userId: number) {
 
 export async function setActiveGuardianAthlete(input: { userId: number; athleteId: number }) {
   return setActiveAthleteForGuardian(input);
+}
+
+export async function getGuardianAthleteProfileFields(input: {
+  userId: number;
+  athleteId: number;
+}) {
+  const { guardian } = await getGuardianAndAthlete(input.userId);
+  if (!guardian) return null;
+
+  const [athlete] = await db
+    .select({ extraResponses: athleteTable.extraResponses })
+    .from(athleteTable)
+    .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+    .limit(1);
+
+  if (!athlete) return null;
+  const extra = athlete.extraResponses;
+  const extraObj = typeof extra === "object" && extra !== null ? (extra as Record<string, unknown>) : {};
+
+  const normalizeField = (value: unknown) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    return null;
+  };
+
+  return {
+    height: normalizeField(extraObj.height),
+    weight: normalizeField(extraObj.weight),
+    position: normalizeField(extraObj.position),
+  };
+}
+
+export async function updateGuardianAthleteProfileFields(input: {
+  userId: number;
+  athleteId: number;
+  height?: string | null;
+  weight?: string | null;
+  position?: string | null;
+}) {
+  const { guardian } = await getGuardianAndAthlete(input.userId);
+  if (!guardian) return null;
+
+  const [existing] = await db
+    .select({ extraResponses: athleteTable.extraResponses })
+    .from(athleteTable)
+    .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+    .limit(1);
+
+  if (!existing) return null;
+  const currentExtra =
+    typeof existing.extraResponses === "object" && existing.extraResponses !== null
+      ? (existing.extraResponses as Record<string, unknown>)
+      : {};
+
+  const nextExtra: Record<string, unknown> = {
+    ...currentExtra,
+    ...(input.height !== undefined ? { height: input.height } : {}),
+    ...(input.weight !== undefined ? { weight: input.weight } : {}),
+    ...(input.position !== undefined ? { position: input.position } : {}),
+  };
+
+  const [updated] = await db
+    .update(athleteTable)
+    .set({ extraResponses: nextExtra, updatedAt: new Date() })
+    .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+    .returning({ id: athleteTable.id });
+
+  return updated ?? null;
+}
+
+export async function getGuardianAthleteOnboardingData(input: {
+  userId: number;
+  athleteId: number;
+}) {
+  const { guardian } = await getGuardianAndAthlete(input.userId);
+  if (!guardian) return null;
+
+  const [athlete] = await db
+    .select({
+      id: athleteTable.id,
+      athleteType: athleteTable.athleteType,
+      name: athleteTable.name,
+      age: athleteTable.age,
+      birthDate: athleteTable.birthDate,
+      team: athleteTable.team,
+      trainingPerWeek: athleteTable.trainingPerWeek,
+      injuries: athleteTable.injuries,
+      growthNotes: athleteTable.growthNotes,
+      performanceGoals: athleteTable.performanceGoals,
+      equipmentAccess: athleteTable.equipmentAccess,
+      extraResponses: athleteTable.extraResponses,
+    })
+    .from(athleteTable)
+    .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+    .limit(1);
+
+  if (!athlete) return null;
+  const extra = athlete.extraResponses;
+  const extraObj = typeof extra === "object" && extra !== null ? (extra as Record<string, unknown>) : {};
+
+  const birthDateValue = athlete.birthDate as unknown;
+  const birthDate =
+    typeof birthDateValue === "string"
+      ? birthDateValue
+      : birthDateValue instanceof Date
+        ? `${birthDateValue.getFullYear()}-${String(birthDateValue.getMonth() + 1).padStart(2, "0")}-${String(
+            birthDateValue.getDate(),
+          ).padStart(2, "0")}`
+        : null;
+
+  return {
+    id: athlete.id,
+    athleteType: athlete.athleteType,
+    name: athlete.name,
+    age: athlete.age,
+    birthDate,
+    team: athlete.team,
+    trainingPerWeek: athlete.trainingPerWeek,
+    injuries: athlete.injuries ?? null,
+    growthNotes: athlete.growthNotes ?? null,
+    performanceGoals: athlete.performanceGoals ?? null,
+    equipmentAccess: athlete.equipmentAccess ?? null,
+    extraResponses: extraObj,
+  };
+}
+
+export async function updateGuardianAthleteOnboardingData(input: {
+  userId: number;
+  athleteId: number;
+  name?: string;
+  birthDate?: string;
+  team?: string | null;
+  trainingPerWeek?: number;
+  injuries?: unknown;
+  growthNotes?: string | null;
+  performanceGoals?: string | null;
+  equipmentAccess?: string | null;
+  extraResponses?: Record<string, unknown>;
+  height?: string | null;
+  weight?: string | null;
+  position?: string | null;
+}) {
+  const { guardian } = await getGuardianAndAthlete(input.userId);
+  if (!guardian) return null;
+
+  const [existing] = await db
+    .select({
+      athleteType: athleteTable.athleteType,
+      extraResponses: athleteTable.extraResponses,
+      birthDate: athleteTable.birthDate,
+      age: athleteTable.age,
+    })
+    .from(athleteTable)
+    .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+    .limit(1);
+
+  if (!existing) return null;
+  const currentExtra =
+    typeof existing.extraResponses === "object" && existing.extraResponses !== null
+      ? (existing.extraResponses as Record<string, unknown>)
+      : {};
+
+  const patchExtra: Record<string, unknown> = {
+    ...(input.extraResponses ?? {}),
+    ...(input.height !== undefined ? { height: input.height } : {}),
+    ...(input.weight !== undefined ? { weight: input.weight } : {}),
+    ...(input.position !== undefined ? { position: input.position } : {}),
+  };
+
+  const nextExtra = Object.keys(patchExtra).length ? { ...currentExtra, ...patchExtra } : currentExtra;
+
+  const updatePayload: Partial<typeof athleteTable.$inferInsert> & { updatedAt: Date } = {
+    updatedAt: new Date(),
+    ...(input.name !== undefined ? { name: input.name } : {}),
+    ...(input.team !== undefined ? { team: (input.team ?? "").trim() } : {}),
+    ...(input.trainingPerWeek !== undefined ? { trainingPerWeek: input.trainingPerWeek } : {}),
+    ...(input.injuries !== undefined ? { injuries: input.injuries ?? null } : {}),
+    ...(input.growthNotes !== undefined ? { growthNotes: input.growthNotes } : {}),
+    ...(input.performanceGoals !== undefined ? { performanceGoals: input.performanceGoals } : {}),
+    ...(input.equipmentAccess !== undefined ? { equipmentAccess: input.equipmentAccess } : {}),
+    ...(nextExtra !== currentExtra ? { extraResponses: nextExtra } : {}),
+  };
+
+  if (input.birthDate !== undefined) {
+    const parsedBirthDate = parseISODate(input.birthDate);
+    if (!parsedBirthDate) {
+      throw new Error("Birth date must be in YYYY-MM-DD format.");
+    }
+    const computedAge = calculateAge(parsedBirthDate, new Date());
+    const resolvedAge = clampYouthAge(computedAge, existing.athleteType) ?? computedAge;
+    if (!resolvedAge) {
+      throw new Error("Birth date is invalid.");
+    }
+
+    (updatePayload as any).birthDate = input.birthDate;
+    (updatePayload as any).age = resolvedAge;
+  }
+
+  const [updated] = await db
+    .update(athleteTable)
+    .set(updatePayload)
+    .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+    .returning({ id: athleteTable.id });
+
+  return updated ?? null;
 }
 
 function decorateAthlete(athlete: typeof athleteTable.$inferSelect | null) {

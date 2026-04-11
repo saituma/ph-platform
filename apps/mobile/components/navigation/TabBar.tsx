@@ -3,9 +3,8 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
-  interpolateColor,
-  SharedValue,
   useAnimatedStyle,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -28,7 +27,6 @@ interface TabBarProps {
   tabs: TabConfig[];
   activeIndex: number;
   onTabPress: (index: number) => void;
-  scrollOffset?: SharedValue<number>;
 }
 
 interface TabLayoutConfig {
@@ -43,7 +41,6 @@ const TabItem = React.memo(
     index,
     activeIndex,
     onTabPress,
-    scrollOffset,
     colors,
     isDark,
     layout,
@@ -52,52 +49,27 @@ const TabItem = React.memo(
     index: number;
     activeIndex: number;
     onTabPress: (index: number) => void;
-    scrollOffset?: SharedValue<number>;
     colors: any;
     isDark: boolean;
     layout: TabLayoutConfig;
   }) => {
-    const activeIconColor = colors.tint;
-    const inactiveIconColor = colors.textDim;
-    const activeBgColor = isDark ? colors.surfaceHigher : colors.limeGlow;
+    const activeIconColor = colors.accent ?? colors.tint;
+    const inactiveIconColor = colors.icon ?? colors.textDim;
+    const activeBgColor = colors.accentLight ?? (isDark ? colors.surfaceHigher : colors.limeGlow);
 
     const iconName =
       activeIndex === index ? tab.icon : (tab.iconOutline ?? tab.icon);
 
-    const getDistance = () => {
-      "worklet";
-      if (scrollOffset) {
-        return Math.min(Math.abs(scrollOffset.value - index), 1);
-      }
-      return index === activeIndex ? 0 : 1;
-    };
-
     const pillStyle = useAnimatedStyle(() => {
-      const distance = getDistance();
-      const scale = 1 - distance * 0.15;
-      const opacity = Math.max(0, 1 - distance);
+      const isActive = activeIndex === index;
+      const scale = withTiming(isActive ? 1 : 0.88, { duration: 180 });
+      const opacity = withTiming(isActive ? 1 : 0, { duration: 160 });
 
       return {
         backgroundColor: activeBgColor,
         transform: [{ scale }],
         opacity,
       };
-    });
-
-    const iconColorStyle = useAnimatedStyle(() => {
-      const distance = getDistance();
-      const color = interpolateColor(
-        distance,
-        [0, 1],
-        [activeIconColor, inactiveIconColor],
-      );
-      return { color };
-    });
-
-    const iconContainerStyle = useAnimatedStyle(() => {
-      const distance = getDistance();
-      const translateY = distance * 6 - 6;
-      return { transform: [{ translateY }] };
     });
 
     const handlePress = () => {
@@ -121,7 +93,6 @@ const TabItem = React.memo(
         <Animated.View
           style={[
             { alignItems: "center", justifyContent: "center" },
-            iconContainerStyle,
           ]}
         >
           <Animated.View
@@ -139,7 +110,8 @@ const TabItem = React.memo(
           <AnimatedIcon
             name={iconName}
             size={layout.iconSize}
-            style={[iconColorStyle, { zIndex: 2 }]}
+            color={activeIndex === index ? activeIconColor : inactiveIconColor}
+            style={{ zIndex: 2 }}
           />
 
           {tab.badgeCount && tab.badgeCount > 0 ? (
@@ -147,6 +119,8 @@ const TabItem = React.memo(
               style={[
                 styles.badgeContainer,
                 { backgroundColor: colors.danger },
+                // Ensure badge ring matches the bar surface in both themes.
+                { borderColor: isDark ? colors.cardElevated : colors.card },
               ]}
             />
           ) : null}
@@ -161,7 +135,6 @@ export function TabBar({
   tabs,
   activeIndex,
   onTabPress,
-  scrollOffset,
 }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -239,7 +212,6 @@ export function TabBar({
                 index={index}
                 activeIndex={activeIndex}
                 onTabPress={onTabPress}
-                scrollOffset={scrollOffset}
                 colors={colors}
                 isDark={isDark}
                 layout={layoutConfig}

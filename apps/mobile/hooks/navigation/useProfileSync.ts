@@ -14,7 +14,7 @@ export function useProfileSync(token: string | null, enabled: boolean, hasMessag
     const task = InteractionManager.runAfterInteractions(() => {
       prefetchApi("/content/home", { token });
       prefetchApi("/bookings", { token });
-      prefetchApi("/bookings/services", { token });
+      prefetchApi("/bookings/services?includeLocked=true", { token });
       prefetchApi("/public/plans");
       if (hasMessaging) {
         prefetchApi("/messages", { token });

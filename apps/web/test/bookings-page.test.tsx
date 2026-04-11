@@ -30,7 +30,9 @@ jest.mock("../components/admin/section-header", () => ({
 }));
 
 jest.mock("../components/ui/button", () => ({
-  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+  Button: ({ children, ...props }: any) => (
+    <button {...props}>{children}</button>
+  ),
 }));
 
 jest.mock("../components/ui/card", () => ({
@@ -75,10 +77,18 @@ jest.mock("../lib/apiSlice", () => ({
   useGetServicesQuery: jest.fn(),
   useGetUsersQuery: jest.fn(),
   useUpdateBookingStatusMutation: jest.fn(),
+  useUpdateServiceMutation: jest.fn(),
+  useDeleteServiceMutation: jest.fn(),
 }));
 
-const { useGetBookingsQuery, useGetServicesQuery, useGetUsersQuery, useUpdateBookingStatusMutation } =
-  jest.requireMock("../lib/apiSlice");
+const {
+  useGetBookingsQuery,
+  useGetServicesQuery,
+  useGetUsersQuery,
+  useUpdateBookingStatusMutation,
+  useUpdateServiceMutation,
+  useDeleteServiceMutation,
+} = jest.requireMock("../lib/apiSlice");
 
 describe("bookings page", () => {
   beforeEach(() => {
@@ -86,10 +96,19 @@ describe("bookings page", () => {
   });
 
   it("shows loading state when data is loading", () => {
-    useGetBookingsQuery.mockReturnValue({ data: undefined, isLoading: true, refetch: jest.fn() });
+    useGetBookingsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      refetch: jest.fn(),
+    });
     useGetServicesQuery.mockReturnValue({ data: undefined, isLoading: true });
     useGetUsersQuery.mockReturnValue({ data: { users: [] } });
-    useUpdateBookingStatusMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
+    useUpdateBookingStatusMutation.mockReturnValue([
+      jest.fn(),
+      { isLoading: false },
+    ]);
+    useUpdateServiceMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
+    useDeleteServiceMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
 
     render(<BookingsPage />);
 
@@ -98,22 +117,47 @@ describe("bookings page", () => {
 
   it("filters bookings by chip and renders list", () => {
     const baseDate = new Date();
-    const noonLocal = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 12, 0, 0);
+    const noonLocal = new Date(
+      baseDate.getFullYear(),
+      baseDate.getMonth(),
+      baseDate.getDate(),
+      12,
+      0,
+      0,
+    );
     const laterLocal = new Date(noonLocal.getTime() + 60 * 60 * 1000);
 
     useGetBookingsQuery.mockReturnValue({
       data: {
         bookings: [
-          { serviceName: "Group Session", athleteName: "Sam", startsAt: noonLocal.toISOString(), type: "group_call" },
-          { serviceName: "Lift Lab", athleteName: "Lee", startsAt: laterLocal.toISOString(), type: "lift_lab_1on1" },
+          {
+            serviceName: "Group Session",
+            athleteName: "Sam",
+            startsAt: noonLocal.toISOString(),
+            type: "group_call",
+          },
+          {
+            serviceName: "Lift Lab",
+            athleteName: "Lee",
+            startsAt: laterLocal.toISOString(),
+            type: "lift_lab_1on1",
+          },
         ],
       },
       isLoading: false,
       refetch: jest.fn(),
     });
-    useGetServicesQuery.mockReturnValue({ data: { items: [] }, isLoading: false });
+    useGetServicesQuery.mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+    });
     useGetUsersQuery.mockReturnValue({ data: { users: [] } });
-    useUpdateBookingStatusMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
+    useUpdateBookingStatusMutation.mockReturnValue([
+      jest.fn(),
+      { isLoading: false },
+    ]);
+    useUpdateServiceMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
+    useDeleteServiceMutation.mockReturnValue([jest.fn(), { isLoading: false }]);
 
     render(<BookingsPage />);
 

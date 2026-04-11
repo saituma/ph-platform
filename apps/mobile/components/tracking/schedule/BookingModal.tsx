@@ -5,6 +5,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   View,
 } from "react-native";
 import { Feather } from "@/components/ui/theme-icons";
@@ -47,6 +48,7 @@ export function BookingModal({
   const [confirmedStartsAt, setConfirmedStartsAt] = useState<Date | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notes, setNotes] = useState("");
 
   const hasUserSelectedService = useRef(false);
 
@@ -74,6 +76,7 @@ export function BookingModal({
       setBookingConfirmed(false);
       setBookingError(null);
       setConfirmedStartsAt(null);
+      setNotes("");
       hasUserSelectedService.current = false;
       return;
     }
@@ -133,6 +136,13 @@ export function BookingModal({
       setBookingError("Pick a session type first.");
       return;
     }
+    if (selectedService.isLocked) {
+      setBookingError(
+        selectedService.lockReason ||
+          "This session type is locked for your plan.",
+      );
+      return;
+    }
     setBookingError(null);
     setIsSubmitting(true);
     try {
@@ -157,6 +167,7 @@ export function BookingModal({
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
           timezoneOffsetMinutes: startsAt.getTimezoneOffset(),
+          notes: notes.trim() ? notes.trim() : undefined,
         },
         suppressStatusCodes: [400, 403],
       });
@@ -313,6 +324,7 @@ export function BookingModal({
                   <View className="mt-4 flex-row flex-wrap gap-2">
                     {activeServices.map((item) => {
                       const active = selectedServiceId === item.id;
+                      const locked = item.isLocked === true;
                       return (
                         <Pressable
                           key={item.id}
@@ -328,6 +340,7 @@ export function BookingModal({
                               ? colors.accent
                               : mutedSurface,
                             borderColor: active ? colors.accent : borderSoft,
+                            opacity: locked && !active ? 0.6 : 1,
                           }}
                         >
                           <Text
@@ -336,7 +349,7 @@ export function BookingModal({
                             }`}
                           >
                             {item.name}
-                            {item.capacity ? ` (${item.capacity} max)` : ""}
+                            {locked ? " · LOCKED" : ""}
                           </Text>
                         </Pressable>
                       );
@@ -344,11 +357,40 @@ export function BookingModal({
                   </View>
                 )}
 
-                {selectedService && (
-                  <Text className="text-xs font-outfit text-secondary mt-3">
-                    Capacity: {selectedService.capacity ?? "Unlimited"} total
+                {selectedService?.isLocked ? (
+                  <View
+                    className="mt-4 rounded-[22px] border px-4 py-3 gap-2"
+                    style={{
+                      borderColor: borderSoft,
+                      backgroundColor: accentSurface,
+                    }}
+                  >
+                    <Text className="text-xs font-outfit text-app leading-5">
+                      {selectedService.lockReason ||
+                        "This session type is locked for your current plan."}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        onClose();
+                        router.push("/(tabs)/programs");
+                      }}
+                      className="self-start"
+                    >
+                      <Text
+                        className="text-xs font-outfit font-semibold"
+                        style={{ color: colors.accent }}
+                      >
+                        View programs & plans →
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                {selectedService?.description?.trim() ? (
+                  <Text className="text-sm font-outfit text-secondary mt-3">
+                    {selectedService.description.trim()}
                   </Text>
-                )}
+                ) : null}
                 {selectedService && selectedService.oneTimeDate ? (
                   <View
                     className="mt-4 rounded-2xl border px-3 py-3"
@@ -418,13 +460,59 @@ export function BookingModal({
                   </View>
                 </View>
 
+                <View
+                  className="mt-4 rounded-[22px] border p-4"
+                  style={{
+                    backgroundColor: mutedSurface,
+                    borderColor: borderSoft,
+                  }}
+                >
+                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                    Notes (optional)
+                  </Text>
+                  <View
+                    className="mt-3 rounded-2xl border px-3 py-2"
+                    style={{
+                      backgroundColor: surfaceColor,
+                      borderColor: borderSoft,
+                    }}
+                  >
+                    <TextInput
+                      value={notes}
+                      onChangeText={setNotes}
+                      placeholder="Anything you'd like your coach to know?"
+                      placeholderTextColor={
+                        isDark
+                          ? "rgba(255,255,255,0.35)"
+                          : "rgba(15,23,42,0.35)"
+                      }
+                      multiline
+                      textAlignVertical="top"
+                      style={{
+                        minHeight: 72,
+                        color: isDark ? "#FFFFFF" : "#0F172A",
+                        fontFamily: Platform.select({
+                          ios: "System",
+                          android: "sans-serif",
+                        }),
+                        fontSize: 14,
+                      }}
+                    />
+                  </View>
+                </View>
+
                 <Pressable
                   onPress={handleSubmit}
                   disabled={
-                    !selectedService || isSubmitting || !canCreateBookings
+                    !selectedService ||
+                    isSubmitting ||
+                    !canCreateBookings ||
+                    selectedService?.isLocked === true
                   }
                   className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
-                    selectedService && canCreateBookings
+                    selectedService &&
+                    canCreateBookings &&
+                    !selectedService?.isLocked
                       ? "bg-accent"
                       : "bg-secondary/20"
                   }`}
@@ -441,9 +529,11 @@ export function BookingModal({
                   >
                     {isSubmitting
                       ? "Sending..."
-                      : !canCreateBookings
-                        ? "Plan required to book"
-                        : "Send request"}
+                      : selectedService?.isLocked
+                        ? "Locked"
+                        : !canCreateBookings
+                          ? "Plan required to book"
+                          : "Send request"}
                   </Text>
                 </Pressable>
                 {bookingError && (

@@ -1,4 +1,3 @@
-import { ActionButton } from "@/components/dashboard/ActionButton";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -12,7 +11,7 @@ import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
-import { Image, TouchableOpacity, View } from "react-native";
+import { Image, Pressable, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
@@ -558,24 +557,35 @@ export default function MoreScreen() {
       </ThemedScrollView>
 
       <View
-        className="px-6 pt-4 border-t border-separator"
+        className="px-6 pt-3 pb-4 border-t border-separator"
         style={{
           marginBottom: tabBarOverlayHeightEstimate,
           paddingBottom: logoutFooterPaddingBottom,
           backgroundColor: colors.background,
         }}
       >
-        <ActionButton
-          label="Logout"
-          icon="log-out"
-          color="bg-red-600"
-          iconColor="text-white"
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Logout"
           onPress={() => {
             dispatch(logout());
             router.replace("/(auth)/login");
           }}
-          fullWidth={true}
-        />
+          className="h-14 w-full flex-row items-center justify-center rounded-3xl bg-red-600 border border-white/10"
+          style={({ pressed }) => [
+            {
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            },
+          ]}
+        >
+          <Feather name="log-out" size={20} color="#FFFFFF" />
+          <Text
+            className="text-white"
+            style={{ marginLeft: 10, fontFamily: "ClashDisplay-Bold" }}
+          >
+            Logout
+          </Text>
+        </Pressable>
       </View>
     </View>
   );

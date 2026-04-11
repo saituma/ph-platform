@@ -145,7 +145,10 @@ export default function AdminProfileScreen() {
                       : "rgba(139,92,246,0.2)",
                   }}
                 >
-                  <Text className="text-2xl font-clash font-bold" style={{ color: colors.accent }}>
+                  <Text
+                    className="text-2xl font-clash font-bold"
+                    style={{ color: colors.accent }}
+                  >
                     {(profile.name?.charAt(0) ?? "A").toUpperCase()}
                   </Text>
                 </View>
@@ -203,6 +206,7 @@ export default function AdminProfileScreen() {
                   iconColor="text-white"
                   onPress={handleSave}
                   fullWidth
+                  size="xl"
                 />
               </View>
             </View>

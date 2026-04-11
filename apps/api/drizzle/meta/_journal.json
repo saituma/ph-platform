@@ -512,6 +512,20 @@
       "when": 1775954000000,
       "tag": "0072_service_types_remove_capacity_and_one_time",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1775955000000,
+      "tag": "0073_bookings_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1775956000000,
+      "tag": "0074_nutrition_snack_slots",
+      "breakpoints": true
     }
   ]
 }

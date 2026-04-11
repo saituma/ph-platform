@@ -13,6 +13,7 @@ interface ActionButtonProps {
   onPress?: () => void;
   disabled?: boolean;
   fullWidth?: boolean;
+  size?: "sm" | "md" | "lg" | "xl";
 }
 
 export function ActionButton({
@@ -23,16 +24,23 @@ export function ActionButton({
   onPress,
   disabled = false,
   fullWidth = false,
+  size = "lg",
 }: ActionButtonProps) {
   if (fullWidth) {
+    const resolvedIconColor = iconColor.startsWith("#") ? iconColor : "#FFFFFF";
+
     return (
       <Button
         label={label}
         onPress={onPress}
         disabled={disabled}
         icon={icon}
+        size={size}
         variant="none"
-        className={`h-14 border border-app/10 ${color}`}
+        centerLabel
+        iconColor={resolvedIconColor}
+        iconGap={10}
+        className={`border border-app/10 ${color}`}
         textStyle={{ color: "white", fontFamily: "ClashDisplay-Bold" }}
         iconSize={20}
       />

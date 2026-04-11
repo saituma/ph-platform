@@ -30,6 +30,7 @@ export type AdminBooking = {
   status?: "pending" | "confirmed" | "declined" | "cancelled" | string | null;
   location?: string | null;
   meetingLink?: string | null;
+  notes?: string | null;
   serviceName?: string | null;
   athleteName?: string | null;
 };
@@ -42,6 +43,7 @@ export type AdminBookingDetail = {
   status?: "pending" | "confirmed" | "declined" | "cancelled" | string | null;
   location?: string | null;
   meetingLink?: string | null;
+  notes?: string | null;
   serviceTypeId?: number | null;
   serviceName?: string | null;
   serviceCapacity?: number | null;

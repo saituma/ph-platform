@@ -558,12 +558,25 @@ export const apiSlice = createApi({
     }),
     updateBookingStatus: builder.mutation<
       { booking?: BookingRecord; status?: BookingStatus },
-      { bookingId: number; status: string }
+      {
+        bookingId: number;
+        status: string;
+        startsAt?: string;
+        endTime?: string | null;
+        location?: string | null;
+        meetingLink?: string | null;
+      }
     >({
-      query: ({ bookingId, status }) => ({
+      query: ({ bookingId, status, startsAt, endTime, location, meetingLink }) => ({
         url: `/admin/bookings/${bookingId}`,
         method: "PATCH",
-        body: { status },
+        body: {
+          status,
+          ...(startsAt !== undefined ? { startsAt } : {}),
+          ...(endTime !== undefined ? { endTime } : {}),
+          ...(location !== undefined ? { location } : {}),
+          ...(meetingLink !== undefined ? { meetingLink } : {}),
+        },
       }),
       invalidatesTags: ["Bookings"],
     }),

@@ -44,13 +44,24 @@ export function BookingDetailModal({
       presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insetsTop }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          paddingTop: insetsTop,
+        }}
+      >
         <View className="px-4 pb-3 flex-row items-center justify-between gap-3">
           <View style={{ flex: 1 }}>
-            <Text className="text-[18px] font-clash font-bold text-app" numberOfLines={1}>
+            <Text
+              className="text-[18px] font-clash font-bold text-app"
+              numberOfLines={1}
+            >
               Booking #{booking?.id ?? ""}
             </Text>
-            <Text className="text-[12px] font-outfit text-secondary">Details and actions</Text>
+            <Text className="text-[12px] font-outfit text-secondary">
+              Details and actions
+            </Text>
           </View>
           <SmallAction label="Done" tone="neutral" onPress={onClose} />
         </View>
@@ -67,15 +78,22 @@ export function BookingDetailModal({
             >
               <View className="gap-1">
                 <View className="flex-row items-center justify-between gap-3">
-                  <Text className="text-[14px] font-clash font-bold text-app" numberOfLines={1}>
+                  <Text
+                    className="text-[14px] font-clash font-bold text-app"
+                    numberOfLines={1}
+                  >
                     {booking?.serviceName ?? "(service)"}
                   </Text>
                   <Text className="text-[12px] font-outfit text-secondary">
                     {detail?.status ?? booking?.status ?? "—"}
                   </Text>
                 </View>
-                <Text className="text-[12px] font-outfit text-secondary" numberOfLines={2}>
-                  {booking?.athleteName ?? "(athlete)"} • {formatIsoShort(booking?.startsAt)}
+                <Text
+                  className="text-[12px] font-outfit text-secondary"
+                  numberOfLines={2}
+                >
+                  {booking?.athleteName ?? "(athlete)"} •{" "}
+                  {formatIsoShort(booking?.startsAt)}
                 </Text>
               </View>
 
@@ -83,19 +101,25 @@ export function BookingDetailModal({
                 <SmallAction
                   label="Confirm"
                   tone="success"
-                  onPress={() => booking && onUpdateStatus(booking.id, "confirmed")}
+                  onPress={() =>
+                    booking && onUpdateStatus(booking.id, "confirmed")
+                  }
                   disabled={isMutating}
                 />
                 <SmallAction
                   label="Decline"
                   tone="danger"
-                  onPress={() => booking && onUpdateStatus(booking.id, "declined")}
+                  onPress={() =>
+                    booking && onUpdateStatus(booking.id, "declined")
+                  }
                   disabled={isMutating}
                 />
                 <SmallAction
                   label="Cancel"
                   tone="neutral"
-                  onPress={() => booking && onUpdateStatus(booking.id, "cancelled")}
+                  onPress={() =>
+                    booking && onUpdateStatus(booking.id, "cancelled")
+                  }
                   disabled={isMutating}
                 />
               </View>
@@ -113,35 +137,65 @@ export function BookingDetailModal({
                 </View>
               ) : detail ? (
                 <View className="gap-2">
-                  <Text selectable className="text-[12px] font-outfit text-secondary">
-                    Guardian: {detail.guardianName ?? "—"} • {detail.guardianEmail ?? "—"}
+                  <Text
+                    selectable
+                    className="text-[12px] font-outfit text-secondary"
+                  >
+                    Guardian: {detail.guardianName ?? "—"} •{" "}
+                    {detail.guardianEmail ?? "—"}
                   </Text>
-                  <Text selectable className="text-[12px] font-outfit text-secondary">
-                    Window: {formatIsoShort(detail.startsAt)} → {formatIsoShort(detail.endTime)}
+                  <Text
+                    selectable
+                    className="text-[12px] font-outfit text-secondary"
+                  >
+                    Window: {formatIsoShort(detail.startsAt)} →{" "}
+                    {formatIsoShort(detail.endTime)}
                   </Text>
                   {detail.slotsTotal != null && (
-                    <Text selectable className="text-[12px] font-outfit text-secondary">
+                    <Text
+                      selectable
+                      className="text-[12px] font-outfit text-secondary"
+                    >
                       Capacity: {detail.slotsUsed ?? 0}/{detail.slotsTotal}
                     </Text>
                   )}
                   {detail.location && (
-                    <Text selectable className="text-[12px] font-outfit text-secondary">
+                    <Text
+                      selectable
+                      className="text-[12px] font-outfit text-secondary"
+                    >
                       Location: {detail.location}
                     </Text>
                   )}
                   {detail.meetingLink && (
-                    <Text selectable className="text-[12px] font-outfit text-secondary">
+                    <Text
+                      selectable
+                      className="text-[12px] font-outfit text-secondary"
+                    >
                       Meeting: {detail.meetingLink}
                     </Text>
                   )}
+                  {detail.notes && (
+                    <Text
+                      selectable
+                      className="text-[12px] font-outfit text-secondary"
+                    >
+                      Notes: {detail.notes}
+                    </Text>
+                  )}
                   {detail.createdAt && (
-                    <Text selectable className="text-[11px] font-outfit text-secondary">
+                    <Text
+                      selectable
+                      className="text-[11px] font-outfit text-secondary"
+                    >
                       Created {formatIsoShort(detail.createdAt)}
                     </Text>
                   )}
                 </View>
               ) : (
-                <Text className="text-[12px] font-outfit text-secondary">No detail loaded.</Text>
+                <Text className="text-[12px] font-outfit text-secondary">
+                  No detail loaded.
+                </Text>
               )}
             </View>
           </View>

@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Image, Linking, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
+import { isYoutubeUrl, VideoPlayer } from "@/components/media/VideoPlayer";
 import * as WebBrowser from "expo-web-browser";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -275,7 +275,9 @@ export default function ParentCourseDetail() {
                       module.mediaUrl ? (
                         <View className="mt-3">
                           {isYoutubeUrl(module.mediaUrl) ? (
-                            <YouTubeEmbed url={module.mediaUrl} />
+                            <View className="rounded-3xl overflow-hidden bg-white/5">
+                              <VideoPlayer uri={module.mediaUrl} ignoreTabFocus />
+                            </View>
                           ) : isImageDataUrl(module.mediaUrl) ? (
                             <View className="rounded-2xl border border-app/10 bg-input px-4 py-4">
                               <Text className="text-sm font-outfit text-secondary">

@@ -52,12 +52,14 @@ type YouTubeEmbedProps = {
   immersive?: boolean;
   shouldPlay?: boolean;
   initialMuted?: boolean;
+  width?: number;
+  height?: number;
   onPlayerReady?: () => void;
   onPlayerStateChange?: (state: string) => void;
 };
 
 export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedProps>(function YouTubeEmbed(
-  { url, shouldPlay = true, initialMuted = false, onPlayerReady, onPlayerStateChange },
+  { url, shouldPlay = true, initialMuted = false, width, height, onPlayerReady, onPlayerStateChange },
   ref,
 ) {
   const { colors } = useAppTheme();
@@ -105,8 +107,21 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
     );
   }
 
+  const effectiveWidth = typeof width === "number" && width > 0 ? width : layout.width;
+  const effectiveHeight = typeof height === "number" && height > 0 ? height : layout.height;
+  const playerKey =
+    videoId && effectiveWidth > 0 && effectiveHeight > 0
+      ? `${videoId}:${Math.round(effectiveWidth)}x${Math.round(effectiveHeight)}`
+      : videoId ?? "youtube";
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#000" }} onLayout={(e) => setLayout(e.nativeEvent.layout)}>
+    <View
+      style={{ flex: 1, backgroundColor: "#000" }}
+      onLayout={(e) => {
+        if (typeof width === "number" && width > 0 && typeof height === "number" && height > 0) return;
+        setLayout(e.nativeEvent.layout);
+      }}
+    >
       {!isReady && posterUrl ? (
         <Image
           source={{ uri: posterUrl }}
@@ -129,11 +144,12 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
         </View>
       ) : null}
       {!hasEmbedError ? (
-        layout.width > 0 && layout.height > 0 ? (
+        effectiveWidth > 0 && effectiveHeight > 0 ? (
           <YoutubePlayer
+            key={playerKey}
             ref={playerRef as any}
-            height={layout.height}
-            width={layout.width}
+            height={effectiveHeight}
+            width={effectiveWidth}
             videoId={videoId}
             play={shouldPlay}
             mute={initialMuted}

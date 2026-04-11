@@ -71,6 +71,7 @@ export function SwipeableTabLayout({
     lastNotifiedIndex.current = initialIndex;
 
     pagerRef.current?.setPageWithoutAnimation(initialIndex);
+    scrollOffset.value = initialIndex;
   }, [initialIndex, activeIndex]);
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export function SwipeableTabLayout({
       const index = e.nativeEvent.position;
       lastSelectedIndex.current = index;
       setActiveIndex(index);
+      scrollOffset.value = index;
 
       if (lastNotifiedIndex.current !== index) {
         lastNotifiedIndex.current = index;
@@ -140,6 +142,7 @@ export function SwipeableTabLayout({
     lastChangeSourceRef.current = "press";
     pagerRef.current?.setPage(index);
     setActiveIndex(index);
+    scrollOffset.value = index;
     lastSelectedIndex.current = index;
 
     setGlobalActiveTab(index);
@@ -202,7 +205,6 @@ export function SwipeableTabLayout({
           tabs={tabs}
           activeIndex={activeIndex}
           onTabPress={handleTabPress}
-          scrollOffset={scrollOffset}
         />
       </View>
     </View>

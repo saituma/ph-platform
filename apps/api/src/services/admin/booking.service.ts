@@ -36,12 +36,14 @@ export async function listBookingsAdmin(options?: { q?: string; limit?: number }
   const rows = await db
     .select({
       id: bookingTable.id,
+      serviceTypeId: bookingTable.serviceTypeId,
       startsAt: bookingTable.startsAt,
       endTime: bookingTable.endTime,
       type: bookingTable.type,
       status: bookingTable.status,
       location: bookingTable.location,
       meetingLink: bookingTable.meetingLink,
+      notes: bookingTable.notes,
       serviceName: serviceTypeTable.name,
       athleteName: athleteTable.name,
     })
@@ -65,6 +67,7 @@ export async function getBookingByIdAdmin(bookingId: number) {
       status: bookingTable.status,
       location: bookingTable.location,
       meetingLink: bookingTable.meetingLink,
+      notes: bookingTable.notes,
       serviceTypeId: bookingTable.serviceTypeId,
       serviceName: serviceTypeTable.name,
       serviceCapacity: serviceTypeTable.capacity,
