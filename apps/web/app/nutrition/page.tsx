@@ -59,15 +59,13 @@ type NutritionLog = {
 };
 
 function toDateKey(d: Date) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  // Use UTC date keys to match mobile + backend storage.
+  return d.toISOString().slice(0, 10);
 }
 
 function addDays(d: Date, deltaDays: number) {
   const x = new Date(d);
-  x.setDate(x.getDate() + deltaDays);
+  x.setUTCDate(x.getUTCDate() + deltaDays);
   return x;
 }
 
@@ -158,12 +156,18 @@ function NutritionDetails({
           : toDateKey(addDays(new Date(), -29));
   const effectiveTo = preset === "custom" ? toKey : todayKey;
 
-  const { data: logsData, isLoading } = useGetNutritionLogsQuery({
-    userId,
-    limit: 90,
-    from: effectiveFrom,
-    to: effectiveTo,
-  });
+  const { data: logsData, isLoading } = useGetNutritionLogsQuery(
+    {
+      userId,
+      limit: 90,
+      from: effectiveFrom,
+      to: effectiveTo,
+    },
+    {
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    },
+  );
 
   const {
     data: targetsData,
@@ -279,15 +283,8 @@ function NutritionDetails({
   );
 
   const logs = ((logsData?.logs ?? []) as NutritionLog[]).slice();
-  const coachLogs = logs.filter((l) => {
-    const text =
-      typeof l.coachFeedback === "string" ? l.coachFeedback.trim() : "";
-    const media =
-      typeof l.coachFeedbackMediaUrl === "string"
-        ? l.coachFeedbackMediaUrl.trim()
-        : "";
-    return Boolean(text || media);
-  });
+  // Coach Response should include all logs, even if coach hasn't replied yet.
+  const coachLogs = logs;
 
   const handleSubmitFeedback = async (logId: number) => {
     const feedback = feedbackInputs[logId]?.trim();
@@ -617,7 +614,7 @@ function NutritionDetails({
         <TabsContent value="coach">
           {coachLogs.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              No coach responses in the selected date range.
+              No logs found for this athlete in the selected date range.
             </p>
           ) : (
             <div className="grid gap-4">
@@ -625,6 +622,10 @@ function NutritionDetails({
                 const coachText =
                   typeof log.coachFeedback === "string"
                     ? log.coachFeedback.trim()
+                    : "";
+                const coachMedia =
+                  typeof log.coachFeedbackMediaUrl === "string"
+                    ? log.coachFeedbackMediaUrl.trim()
                     : "";
                 return (
                   <Card key={log.id}>
@@ -647,10 +648,35 @@ function NutritionDetails({
                           {coachText}
                         </p>
                       ) : (
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            No coach response yet.
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              placeholder="Leave quick feedback on this log..."
+                              value={feedbackInputs[log.id] || ""}
+                              onChange={(e) =>
+                                setFeedbackInputs((prev) => ({
+                                  ...prev,
+                                  [log.id]: e.target.value,
+                                }))
+                              }
+                            />
+                            <Button
+                              onClick={() => handleSubmitFeedback(log.id)}
+                            >
+                              Post
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {!coachText && coachMedia ? (
                         <p className="text-sm text-muted-foreground">
                           Coach responded with media only.
                         </p>
-                      )}
+                      ) : null}
                     </CardContent>
                   </Card>
                 );
@@ -680,9 +706,8 @@ export default function NutritionAdminPage() {
 
   const filteredAthletes = useMemo(() => {
     const q = athleteQuery.trim().toLowerCase();
-    const pool = users.filter(
-      (u) => u.role === "athlete" || u.role === "guardian",
-    );
+    // Only show actual athletes here (guardians don't own nutrition logs).
+    const pool = users.filter((u) => u.role === "athlete");
 
     const filteredByType =
       showAdult && showYouth

@@ -205,7 +205,10 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     void fetchData();
   }, [fetchData]);
 
-  const formatDateKey = useCallback((d: Date) => d.toISOString().slice(0, 10), []);
+  const formatDateKey = useCallback(
+    (d: Date) => d.toISOString().slice(0, 10),
+    [],
+  );
 
   const applyPresetToDates = useCallback((preset: "1d" | "7d" | "30d") => {
     const end = new Date();
@@ -232,7 +235,16 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
         `/nutrition/logs?${qs.toString()}`,
         { token, suppressLog: true },
       );
-      setCoachLogs(Array.isArray(data.logs) ? data.logs : []);
+      const nextLogs = Array.isArray(data.logs) ? data.logs.slice() : [];
+      nextLogs.sort((a, b) => {
+        const aKey = typeof a?.dateKey === "string" ? a.dateKey : "";
+        const bKey = typeof b?.dateKey === "string" ? b.dateKey : "";
+        if (aKey !== bKey) return bKey.localeCompare(aKey);
+        const aId = typeof a?.id === "number" ? a.id : 0;
+        const bId = typeof b?.id === "number" ? b.id : 0;
+        return bId - aId;
+      });
+      setCoachLogs(nextLogs);
     } catch (e) {
       console.warn("[NutritionPanel] Failed to fetch coach logs", e);
       setCoachLogs([]);
@@ -261,7 +273,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           breakfast: !isAdult
             ? serializeSlot(breakfastChecked, breakfastDetails)
             : undefined,
-          lunch: !isAdult ? serializeSlot(lunchChecked, lunchDetails) : undefined,
+          lunch: !isAdult
+            ? serializeSlot(lunchChecked, lunchDetails)
+            : undefined,
           dinner: !isAdult
             ? serializeSlot(dinnerChecked, dinnerDetails)
             : undefined,
@@ -282,6 +296,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       });
       setStatus({ tone: "success", message: "Saved successfully!" });
       setTimeout(() => setStatus(null), 3000);
+      // Keep Coach Response tab in sync even if user switches immediately.
+      void fetchCoachLogs();
     } catch (err: any) {
       setStatus({ tone: "error", message: err.message || "Failed to save." });
     } finally {
@@ -459,334 +475,338 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
         ) : (
           <View className="gap-4">
             {isAdult && targets && (
-            <View
-              className="rounded-3xl border p-5"
-              style={{
-                backgroundColor: colors.card,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
-              }}
-            >
-              <Text className="text-xs font-outfit font-bold uppercase tracking-[1.2px] text-secondary mb-3">
-                Coach Targets
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
-                <View className="w-[48%] rounded-xl bg-app/5 p-3">
-                  <Text className="text-xs text-secondary mb-1">Calories</Text>
-                  <Text className="text-lg font-clash font-bold">
-                    {targets.calories || "N/A"}
-                  </Text>
-                </View>
-                <View className="w-[48%] rounded-xl bg-app/5 p-3">
-                  <Text className="text-xs text-secondary mb-1">Protein</Text>
-                  <Text className="text-lg font-clash font-bold">
-                    {targets.protein ? `${targets.protein}g` : "N/A"}
-                  </Text>
-                </View>
-                <View className="w-[48%] rounded-xl bg-app/5 p-3">
-                  <Text className="text-xs text-secondary mb-1">Carbs</Text>
-                  <Text className="text-lg font-clash font-bold">
-                    {targets.carbs ? `${targets.carbs}g` : "N/A"}
-                  </Text>
-                </View>
-                <View className="w-[48%] rounded-xl bg-app/5 p-3">
-                  <Text className="text-xs text-secondary mb-1">Fats</Text>
-                  <Text className="text-lg font-clash font-bold">
-                    {targets.fats ? `${targets.fats}g` : "N/A"}
-                  </Text>
-                </View>
-              </View>
-              {targets.micronutrientsGuidance ? (
-                <View className="mt-3 bg-app/5 p-3 rounded-xl">
-                  <Text className="text-xs text-secondary mb-1">
-                    Micronutrients Guidance
-                  </Text>
-                  <Text className="text-sm">
-                    {targets.micronutrientsGuidance}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-
-          {isAdult ? (
-            <View
-              className="rounded-3xl border p-5"
-              style={{
-                backgroundColor: colors.card,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
-              }}
-            >
-              <Text className="text-sm font-bold font-outfit text-app mb-3">
-                Food Diary
-              </Text>
-              <TextInput
-                value={foodDiary}
-                onChangeText={setFoodDiary}
-                placeholder="Log your meals, macros hit, and notes here..."
-                placeholderTextColor={colors.placeholder}
-                multiline
-                className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+              <View
+                className="rounded-3xl border p-5"
                 style={{
-                  minHeight: 150,
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.04)"
-                    : "rgba(15,23,42,0.03)",
+                  backgroundColor: colors.card,
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
                 }}
-              />
-            </View>
-          ) : (
-            <View
-              className="rounded-3xl border p-5"
-              style={{
-                backgroundColor: colors.card,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
-              }}
-            >
-              <Text className="text-sm font-bold font-outfit text-app mb-3">
-                Meal Checklist
-              </Text>
-              <View className="gap-4 mb-6">
-                {/* Meals */}
-                <View className="gap-3">
-                  {[
-                    {
-                      label: "Breakfast",
-                      checked: breakfastChecked,
-                      setChecked: setBreakfastChecked,
-                      details: breakfastDetails,
-                      setDetails: setBreakfastDetails,
-                    },
-                    {
-                      label: "Lunch",
-                      checked: lunchChecked,
-                      setChecked: setLunchChecked,
-                      details: lunchDetails,
-                      setDetails: setLunchDetails,
-                    },
-                    {
-                      label: "Dinner",
-                      checked: dinnerChecked,
-                      setChecked: setDinnerChecked,
-                      details: dinnerDetails,
-                      setDetails: setDinnerDetails,
-                    },
-                  ].map((meal) => (
-                    <View key={meal.label} className="gap-2">
-                      <TouchableOpacity
-                        onPress={() => meal.setChecked(!meal.checked)}
-                        className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
-                        style={{
-                          backgroundColor: meal.checked
-                            ? colors.accent
-                            : colors.card,
-                          borderColor: meal.checked
-                            ? colors.accent
-                            : isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
-                        }}
-                      >
-                        <Text
-                          className={`font-bold ${meal.checked ? "text-white" : "text-app"}`}
-                        >
-                          {meal.label}
-                        </Text>
-                        {meal.checked && <Feather name="check" color="white" />}
-                      </TouchableOpacity>
+              >
+                <Text className="text-xs font-outfit font-bold uppercase tracking-[1.2px] text-secondary mb-3">
+                  Coach Targets
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  <View className="w-[48%] rounded-xl bg-app/5 p-3">
+                    <Text className="text-xs text-secondary mb-1">
+                      Calories
+                    </Text>
+                    <Text className="text-lg font-clash font-bold">
+                      {targets.calories || "N/A"}
+                    </Text>
+                  </View>
+                  <View className="w-[48%] rounded-xl bg-app/5 p-3">
+                    <Text className="text-xs text-secondary mb-1">Protein</Text>
+                    <Text className="text-lg font-clash font-bold">
+                      {targets.protein ? `${targets.protein}g` : "N/A"}
+                    </Text>
+                  </View>
+                  <View className="w-[48%] rounded-xl bg-app/5 p-3">
+                    <Text className="text-xs text-secondary mb-1">Carbs</Text>
+                    <Text className="text-lg font-clash font-bold">
+                      {targets.carbs ? `${targets.carbs}g` : "N/A"}
+                    </Text>
+                  </View>
+                  <View className="w-[48%] rounded-xl bg-app/5 p-3">
+                    <Text className="text-xs text-secondary mb-1">Fats</Text>
+                    <Text className="text-lg font-clash font-bold">
+                      {targets.fats ? `${targets.fats}g` : "N/A"}
+                    </Text>
+                  </View>
+                </View>
+                {targets.micronutrientsGuidance ? (
+                  <View className="mt-3 bg-app/5 p-3 rounded-xl">
+                    <Text className="text-xs text-secondary mb-1">
+                      Micronutrients Guidance
+                    </Text>
+                    <Text className="text-sm">
+                      {targets.micronutrientsGuidance}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
 
-                      {meal.checked ? (
-                        <View
-                          className="rounded-2xl border px-4 py-3"
+            {isAdult ? (
+              <View
+                className="rounded-3xl border p-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                }}
+              >
+                <Text className="text-sm font-bold font-outfit text-app mb-3">
+                  Food Diary
+                </Text>
+                <TextInput
+                  value={foodDiary}
+                  onChangeText={setFoodDiary}
+                  placeholder="Log your meals, macros hit, and notes here..."
+                  placeholderTextColor={colors.placeholder}
+                  multiline
+                  className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+                  style={{
+                    minHeight: 150,
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.04)"
+                      : "rgba(15,23,42,0.03)",
+                  }}
+                />
+              </View>
+            ) : (
+              <View
+                className="rounded-3xl border p-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                }}
+              >
+                <Text className="text-sm font-bold font-outfit text-app mb-3">
+                  Meal Checklist
+                </Text>
+                <View className="gap-4 mb-6">
+                  {/* Meals */}
+                  <View className="gap-3">
+                    {[
+                      {
+                        label: "Breakfast",
+                        checked: breakfastChecked,
+                        setChecked: setBreakfastChecked,
+                        details: breakfastDetails,
+                        setDetails: setBreakfastDetails,
+                      },
+                      {
+                        label: "Lunch",
+                        checked: lunchChecked,
+                        setChecked: setLunchChecked,
+                        details: lunchDetails,
+                        setDetails: setLunchDetails,
+                      },
+                      {
+                        label: "Dinner",
+                        checked: dinnerChecked,
+                        setChecked: setDinnerChecked,
+                        details: dinnerDetails,
+                        setDetails: setDinnerDetails,
+                      },
+                    ].map((meal) => (
+                      <View key={meal.label} className="gap-2">
+                        <TouchableOpacity
+                          onPress={() => meal.setChecked(!meal.checked)}
+                          className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
                           style={{
-                            backgroundColor: isDark
-                              ? "rgba(255,255,255,0.04)"
-                              : "rgba(15,23,42,0.03)",
-                            borderColor: isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
+                            backgroundColor: meal.checked
+                              ? colors.accent
+                              : colors.card,
+                            borderColor: meal.checked
+                              ? colors.accent
+                              : isDark
+                                ? "rgba(255,255,255,0.08)"
+                                : "rgba(15,23,42,0.06)",
                           }}
                         >
-                          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
-                            What did you eat?
+                          <Text
+                            className={`font-bold ${meal.checked ? "text-white" : "text-app"}`}
+                          >
+                            {meal.label}
                           </Text>
-                          <TextInput
-                            value={meal.details}
-                            onChangeText={meal.setDetails}
-                            placeholder="e.g., eggs, bread, fruit"
-                            placeholderTextColor={colors.placeholder}
-                            multiline
-                            className="text-sm font-outfit text-app"
+                          {meal.checked && (
+                            <Feather name="check" color="white" />
+                          )}
+                        </TouchableOpacity>
+
+                        {meal.checked ? (
+                          <View
+                            className="rounded-2xl border px-4 py-3"
                             style={{
-                              minHeight: 48,
-                              textAlignVertical: "top",
+                              backgroundColor: isDark
+                                ? "rgba(255,255,255,0.04)"
+                                : "rgba(15,23,42,0.03)",
+                              borderColor: isDark
+                                ? "rgba(255,255,255,0.08)"
+                                : "rgba(15,23,42,0.06)",
                             }}
-                          />
-                        </View>
-                      ) : null}
-                    </View>
-                  ))}
+                          >
+                            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
+                              What did you eat?
+                            </Text>
+                            <TextInput
+                              value={meal.details}
+                              onChangeText={meal.setDetails}
+                              placeholder="e.g., eggs, bread, fruit"
+                              placeholderTextColor={colors.placeholder}
+                              multiline
+                              className="text-sm font-outfit text-app"
+                              style={{
+                                minHeight: 48,
+                                textAlignVertical: "top",
+                              }}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Snacks */}
+                  <View className="gap-3">
+                    <Text className="text-sm font-bold font-outfit text-app">
+                      Snacks
+                    </Text>
+
+                    {[
+                      {
+                        label: "Morning snack",
+                        checked: snackMorningChecked,
+                        setChecked: setSnackMorningChecked,
+                        details: snackMorningDetails,
+                        setDetails: setSnackMorningDetails,
+                      },
+                      {
+                        label: "Afternoon snack",
+                        checked: snackAfternoonChecked,
+                        setChecked: setSnackAfternoonChecked,
+                        details: snackAfternoonDetails,
+                        setDetails: setSnackAfternoonDetails,
+                      },
+                      {
+                        label: "Evening snack",
+                        checked: snackEveningChecked,
+                        setChecked: setSnackEveningChecked,
+                        details: snackEveningDetails,
+                        setDetails: setSnackEveningDetails,
+                      },
+                    ].map((slot) => (
+                      <View key={slot.label} className="gap-2">
+                        <TouchableOpacity
+                          onPress={() => slot.setChecked(!slot.checked)}
+                          className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
+                          style={{
+                            backgroundColor: slot.checked
+                              ? colors.accent
+                              : colors.card,
+                            borderColor: slot.checked
+                              ? colors.accent
+                              : isDark
+                                ? "rgba(255,255,255,0.08)"
+                                : "rgba(15,23,42,0.06)",
+                          }}
+                        >
+                          <Text
+                            className={`font-bold ${slot.checked ? "text-white" : "text-app"}`}
+                          >
+                            {slot.label}
+                          </Text>
+                          {slot.checked && (
+                            <Feather name="check" color="white" />
+                          )}
+                        </TouchableOpacity>
+
+                        {slot.checked ? (
+                          <View
+                            className="rounded-2xl border px-4 py-3"
+                            style={{
+                              backgroundColor: isDark
+                                ? "rgba(255,255,255,0.04)"
+                                : "rgba(15,23,42,0.03)",
+                              borderColor: isDark
+                                ? "rgba(255,255,255,0.08)"
+                                : "rgba(15,23,42,0.06)",
+                            }}
+                          >
+                            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
+                              What did you eat?
+                            </Text>
+                            <TextInput
+                              value={slot.details}
+                              onChangeText={slot.setDetails}
+                              placeholder="e.g., banana, nuts, yogurt"
+                              placeholderTextColor={colors.placeholder}
+                              multiline
+                              className="text-sm font-outfit text-app"
+                              style={{
+                                minHeight: 48,
+                                textAlignVertical: "top",
+                              }}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
                 </View>
 
-                {/* Snacks */}
-                <View className="gap-3">
-                  <Text className="text-sm font-bold font-outfit text-app">
-                    Snacks
+                <Text className="text-sm font-bold font-outfit text-app mb-3">
+                  Water Intake (Glasses)
+                </Text>
+                <View className="flex-row items-center gap-4 mb-6">
+                  <TouchableOpacity
+                    onPress={() => setWaterIntake(Math.max(0, waterIntake - 1))}
+                    className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
+                  >
+                    <Feather name="minus" size={20} color={colors.accent} />
+                  </TouchableOpacity>
+                  <Text className="text-3xl font-clash font-bold flex-1 text-center">
+                    {waterIntake}
                   </Text>
-
-                  {[
-                    {
-                      label: "Morning snack",
-                      checked: snackMorningChecked,
-                      setChecked: setSnackMorningChecked,
-                      details: snackMorningDetails,
-                      setDetails: setSnackMorningDetails,
-                    },
-                    {
-                      label: "Afternoon snack",
-                      checked: snackAfternoonChecked,
-                      setChecked: setSnackAfternoonChecked,
-                      details: snackAfternoonDetails,
-                      setDetails: setSnackAfternoonDetails,
-                    },
-                    {
-                      label: "Evening snack",
-                      checked: snackEveningChecked,
-                      setChecked: setSnackEveningChecked,
-                      details: snackEveningDetails,
-                      setDetails: setSnackEveningDetails,
-                    },
-                  ].map((slot) => (
-                    <View key={slot.label} className="gap-2">
-                      <TouchableOpacity
-                        onPress={() => slot.setChecked(!slot.checked)}
-                        className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
-                        style={{
-                          backgroundColor: slot.checked
-                            ? colors.accent
-                            : colors.card,
-                          borderColor: slot.checked
-                            ? colors.accent
-                            : isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
-                        }}
-                      >
-                        <Text
-                          className={`font-bold ${slot.checked ? "text-white" : "text-app"}`}
-                        >
-                          {slot.label}
-                        </Text>
-                        {slot.checked && (
-                          <Feather name="check" color="white" />
-                        )}
-                      </TouchableOpacity>
-
-                      {slot.checked ? (
-                        <View
-                          className="rounded-2xl border px-4 py-3"
-                          style={{
-                            backgroundColor: isDark
-                              ? "rgba(255,255,255,0.04)"
-                              : "rgba(15,23,42,0.03)",
-                            borderColor: isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
-                          }}
-                        >
-                          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
-                            What did you eat?
-                          </Text>
-                          <TextInput
-                            value={slot.details}
-                            onChangeText={slot.setDetails}
-                            placeholder="e.g., banana, nuts, yogurt"
-                            placeholderTextColor={colors.placeholder}
-                            multiline
-                            className="text-sm font-outfit text-app"
-                            style={{
-                              minHeight: 48,
-                              textAlignVertical: "top",
-                            }}
-                          />
-                        </View>
-                      ) : null}
-                    </View>
-                  ))}
+                  <TouchableOpacity
+                    onPress={() => setWaterIntake(waterIntake + 1)}
+                    className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
+                  >
+                    <Feather name="plus" size={20} color={colors.accent} />
+                  </TouchableOpacity>
                 </View>
+
+                {renderMetricScale("Mood Tracker", mood, setMood)}
+                {renderMetricScale("Energy Levels", energy, setEnergy)}
+                {renderMetricScale("Pain Levels", pain, setPain)}
               </View>
+            )}
 
-              <Text className="text-sm font-bold font-outfit text-app mb-3">
-                Water Intake (Glasses)
-              </Text>
-              <View className="flex-row items-center gap-4 mb-6">
-                <TouchableOpacity
-                  onPress={() => setWaterIntake(Math.max(0, waterIntake - 1))}
-                  className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
-                >
-                  <Feather name="minus" size={20} color={colors.accent} />
-                </TouchableOpacity>
-                <Text className="text-3xl font-clash font-bold flex-1 text-center">
-                  {waterIntake}
+            {(coachFeedback || coachFeedbackMediaUrl) && (
+              <View className="rounded-3xl border p-5 bg-emerald-500/10 border-emerald-400/30">
+                <Text className="text-[10px] font-outfit font-bold uppercase text-emerald-600 dark:text-emerald-300 mb-2">
+                  Coach Feedback
                 </Text>
-                <TouchableOpacity
-                  onPress={() => setWaterIntake(waterIntake + 1)}
-                  className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
-                >
-                  <Feather name="plus" size={20} color={colors.accent} />
-                </TouchableOpacity>
+                {coachFeedback ? (
+                  <Text className="text-sm font-outfit text-app leading-6">
+                    {coachFeedback}
+                  </Text>
+                ) : null}
+                {coachFeedbackMediaUrl ? (
+                  <View className={coachFeedback ? "mt-3" : ""}>
+                    <VideoPlayer
+                      uri={coachFeedbackMediaUrl}
+                      height={200}
+                      useVideoResolution
+                    />
+                  </View>
+                ) : null}
               </View>
+            )}
 
-              {renderMetricScale("Mood Tracker", mood, setMood)}
-              {renderMetricScale("Energy Levels", energy, setEnergy)}
-              {renderMetricScale("Pain Levels", pain, setPain)}
-            </View>
-          )}
-
-          {(coachFeedback || coachFeedbackMediaUrl) && (
-            <View className="rounded-3xl border p-5 bg-emerald-500/10 border-emerald-400/30">
-              <Text className="text-[10px] font-outfit font-bold uppercase text-emerald-600 dark:text-emerald-300 mb-2">
-                Coach Feedback
-              </Text>
-              {coachFeedback ? (
-                <Text className="text-sm font-outfit text-app leading-6">
-                  {coachFeedback}
-                </Text>
-              ) : null}
-              {coachFeedbackMediaUrl ? (
-                <View className={coachFeedback ? "mt-3" : ""}>
-                  <VideoPlayer
-                    uri={coachFeedbackMediaUrl}
-                    height={200}
-                    useVideoResolution
-                  />
-                </View>
-              ) : null}
-            </View>
-          )}
-
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={saving}
-            className={`rounded-[24px] items-center py-4 ${saving ? "bg-accent/40" : "bg-accent"}`}
-          >
-            <Text className="text-white font-bold">
-              {saving ? "Saving..." : "Save Daily Log"}
-            </Text>
-          </TouchableOpacity>
-          {status && (
-            <Text
-              className={`text-center font-bold ${status.tone === "error" ? "text-red-500" : "text-emerald-500"}`}
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={saving}
+              className={`rounded-[24px] items-center py-4 ${saving ? "bg-accent/40" : "bg-accent"}`}
             >
-              {status.message}
-            </Text>
-          )}
-        </View>
+              <Text className="text-white font-bold">
+                {saving ? "Saving..." : "Save Daily Log"}
+              </Text>
+            </TouchableOpacity>
+            {status && (
+              <Text
+                className={`text-center font-bold ${status.tone === "error" ? "text-red-500" : "text-emerald-500"}`}
+              >
+                {status.message}
+              </Text>
+            )}
+          </View>
         )
       ) : (
         <View className="gap-4">
@@ -834,7 +854,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 const lines: string[] = [];
                 if (isAdult) {
                   const diary =
-                    typeof log?.foodDiary === "string" ? log.foodDiary.trim() : "";
+                    typeof log?.foodDiary === "string"
+                      ? log.foodDiary.trim()
+                      : "";
                   if (diary) lines.push(`Food diary: ${diary}`);
                 } else {
                   const b = parseSlot(log?.breakfast);
@@ -846,16 +868,18 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   const legacySnacksRaw =
                     typeof log?.snacks === "string" ? log.snacks.trim() : "";
 
-                  if (b.checked) lines.push(`Breakfast: ${b.details || "Logged"}`);
+                  if (b.checked)
+                    lines.push(`Breakfast: ${b.details || "Logged"}`);
                   if (l.checked) lines.push(`Lunch: ${l.details || "Logged"}`);
                   if (d.checked) lines.push(`Dinner: ${d.details || "Logged"}`);
 
-                  const anyNewSnack =
-                    sm.checked || sa.checked || se.checked;
+                  const anyNewSnack = sm.checked || sa.checked || se.checked;
                   if (!anyNewSnack && legacySnacksRaw) {
                     const legacy = parseSlot(legacySnacksRaw);
                     if (legacy.checked)
-                      lines.push(`Snack (legacy): ${legacy.details || "Logged"}`);
+                      lines.push(
+                        `Snack (legacy): ${legacy.details || "Logged"}`,
+                      );
                   } else {
                     if (sm.checked)
                       lines.push(`Morning snack: ${sm.details || "Logged"}`);
@@ -868,9 +892,12 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   const w =
                     typeof log?.waterIntake === "number" ? log.waterIntake : 0;
                   if (w > 0) lines.push(`Water: ${w}`);
-                  if (typeof log?.mood === "number") lines.push(`Mood: ${log.mood}/5`);
-                  if (typeof log?.energy === "number") lines.push(`Energy: ${log.energy}/5`);
-                  if (typeof log?.pain === "number") lines.push(`Pain: ${log.pain}/5`);
+                  if (typeof log?.mood === "number")
+                    lines.push(`Mood: ${log.mood}/5`);
+                  if (typeof log?.energy === "number")
+                    lines.push(`Energy: ${log.energy}/5`);
+                  if (typeof log?.pain === "number")
+                    lines.push(`Pain: ${log.pain}/5`);
                 }
 
                 const coachText =
