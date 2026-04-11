@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { View, Modal, Platform, TextInput, Alert } from "react-native";
+import { View, Modal, Platform, TextInput, Alert, ScrollView } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { AdminUser, UserOnboardingPayload } from "@/types/admin";
@@ -32,17 +31,19 @@ export function AdminUserDetailModal({
 }: Props) {
   const { colors, isDark } = useAppTheme();
   const [tierDraft, setTierDraft] = useState("");
-  const [onboarding, setOnboarding] = useState<UserOnboardingPayload | null>(null);
+  const [passwordDraft, setPasswordDraft] = useState("");
+  
+  const [onboarding, setOnboarding] = useState<any>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
+    if (user && visible) {
       setTierDraft(user.programTier ?? "");
-      setOnboarding(null);
-      setError(null);
+      setPasswordDraft("");
+      loadOnboarding();
     }
-  }, [user?.id]);
+  }, [user?.id, visible]);
 
   const loadOnboarding = async () => {
     if (!token || !user?.id) return;
@@ -52,7 +53,7 @@ export function AdminUserDetailModal({
       const res = await apiRequest<UserOnboardingPayload>(`/admin/users/${user.id}/onboarding`, { token, skipCache: true });
       setOnboarding(res);
     } catch (e) {
-      setError("Failed to load onboarding.");
+      setError("Failed to load onboarding athlete context.");
     } finally {
       setOnboardingLoading(false);
     }
@@ -66,6 +67,29 @@ export function AdminUserDetailModal({
     ]);
   };
 
+  const handleResetPassword = async () => {
+    if (!token || !user?.id) return;
+    try {
+      setError(null);
+      await apiRequest(`/admin/users/${user.id}/reset-password`, {
+        method: "POST",
+        token,
+        body: { temporaryPassword: passwordDraft.trim() || undefined }
+      });
+      Alert.alert("Password Reset", "Temporary password has been emailed to the user.");
+      setPasswordDraft("");
+    } catch (e: any) {
+      setError(e.message || "Failed to reset password");
+    }
+  };
+
+  const CardStyle = {
+    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+  };
+
+  const athlete = onboarding?.athlete;
+
   return (
     <Modal
       visible={visible}
@@ -74,66 +98,123 @@ export function AdminUserDetailModal({
       onRequestClose={onClose}
     >
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <ThemedScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-          <View className="flex-row justify-between items-center mb-6">
-            <View className="flex-1">
-              <Text className="text-2xl font-clash font-bold text-app">{user?.name ?? "User"}</Text>
-              <Text className="text-xs font-outfit text-secondary">ID: {user?.id ?? "—"}</Text>
+        <View className="flex-row justify-between items-center px-6 pt-8 pb-4 border-b" style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }}>
+          <View className="flex-1">
+            <Text className="text-2xl font-telma-bold text-app">{user?.name ?? "User"}</Text>
+            <Text className="text-xs font-outfit text-secondary">User ID {user?.id ?? "—"} • {user?.programTier ?? "No Tier"}</Text>
+          </View>
+          <SmallAction label="Close" tone="neutral" onPress={onClose} />
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+          {error && (
+            <View className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl mb-4">
+              <Text className="text-sm font-outfit text-red-500">{error}</Text>
             </View>
-            <SmallAction label="Close" tone="neutral" onPress={onClose} />
+          )}
+
+          {/* Account Card */}
+          <Text className="text-lg font-clash-semibold text-app mb-2">Account Context</Text>
+          <View className="rounded-[28px] border p-5 mb-6" style={CardStyle}>
+            <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Role</Text><Text className="text-sm font-clash-medium text-app">{user?.role ?? "—"}</Text></View>
+            <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Email</Text><Text className="text-sm font-outfit text-app">{user?.email ?? "—"}</Text></View>
+            <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Status</Text><Text className={`text-sm font-clash-medium ${user?.isBlocked ? "text-red-400" : "text-[#10B981]"}`}>{user?.isBlocked ? "Blocked" : "Active"}</Text></View>
+            <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Created At</Text><Text className="text-sm font-outfit text-app">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}</Text></View>
+            <View className="flex-row justify-between"><Text className="text-sm font-outfit text-secondary">Cognito</Text><Text className="text-xs font-outfit text-accent max-w-[60%]">{user?.cognitoSub ?? "—"}</Text></View>
           </View>
 
-          <View className="rounded-[28px] border p-5 mb-4 bg-card" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" }}>
-            {error && <Text className="text-sm font-outfit text-red-400 mb-2">{error}</Text>}
-            <Text className="text-sm font-outfit text-secondary">Email: {user?.email ?? "—"}</Text>
-            <Text className="text-sm font-outfit text-secondary">Role: {user?.role ?? "—"}</Text>
-            <Text className="text-sm font-outfit text-secondary">Status: {user?.isBlocked ? "Blocked" : "Active"}</Text>
-            <Text className="text-sm font-outfit text-secondary">Tier: {user?.programTier ?? "—"}</Text>
-            <Text className="text-sm font-outfit text-secondary">Athlete: {user?.athleteName ?? "—"}</Text>
+          {/* Athlete Profile Card */}
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-lg font-clash-semibold text-app">Athlete Data</Text>
+            {athlete?.profilePicture && (
+              <View className="h-10 w-10 rounded-full border border-accent overflow-hidden">
+                <View className="flex-1 bg-accent/20 items-center justify-center">
+                   <Text className="text-[10px] font-telma-bold text-accent">PHOTO</Text>
+                </View>
+              </View>
+            )}
+          </View>
+          <View className="rounded-[28px] border p-5 mb-6" style={CardStyle}>
+            {onboardingLoading ? (
+              <View className="gap-3"><Skeleton width="100%" height={20} /><Skeleton width="100%" height={20} /><Skeleton width="100%" height={20} /></View>
+            ) : athlete ? (
+              <>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Athlete ID</Text><Text className="text-sm font-outfit text-app">{athlete.id ?? "—"}</Text></View>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Birth Date</Text><Text className="text-sm font-outfit text-app">{athlete.birthDate ?? "—"}</Text></View>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Team</Text><Text className="text-sm font-clash-medium text-app">{athlete.team ?? "None"}</Text></View>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Training / Week</Text><Text className="text-sm font-outfit text-app">{athlete.trainingPerWeek ?? "—"} days</Text></View>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Onboarding Done</Text><Text className="text-sm font-outfit text-app">{athlete.onboardingCompletedAt ? new Date(athlete.onboardingCompletedAt).toLocaleDateString() : (athlete.onboardingCompleted ? "Yes" : "No")}</Text></View>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Created At</Text><Text className="text-sm font-outfit text-app">{athlete.createdAt ? new Date(athlete.createdAt).toLocaleDateString() : "—"}</Text></View>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Payment Term</Text><Text className="text-sm font-clash-medium text-app capitalize">{athlete.planPaymentType ?? "—"}</Text></View>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Commitment</Text><Text className="text-sm font-outfit text-app">{athlete.planCommitmentMonths ? `${athlete.planCommitmentMonths} Months` : "—"}</Text></View>
+                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Expiry</Text><Text className="text-sm font-outfit text-app">{athlete.planExpiresAt ? new Date(athlete.planExpiresAt).toLocaleDateString() : "—"}</Text></View>
+                {!!athlete.injuries && athlete.injuries !== "None" && athlete.injuries !== "" && (
+                   <View className="mt-2 bg-red-500/10 rounded-xl p-3 border border-red-500/20">
+                     <Text className="text-[11px] font-outfit-bold text-red-500 uppercase tracking-widest mb-1">Reported Injuries</Text>
+                     <Text className="text-sm font-outfit text-app">{String(athlete.injuries)}</Text>
+                   </View>
+                )}
+              </>
+            ) : (
+              <Text className="text-sm font-outfit text-secondary italic">No dedicated athlete profile associated with this account.</Text>
+            )}
           </View>
 
-          <View className="rounded-[28px] border p-5 mb-4 bg-card" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" }}>
-            <Text className="text-lg font-clash font-bold text-app mb-4">Actions</Text>
-            <View className="flex-row flex-wrap gap-2 mb-6">
-              <SmallAction 
-                label={user?.isBlocked ? "Unblock" : "Block"} 
-                tone={user?.isBlocked ? "success" : "danger"} 
-                onPress={() => user?.id && onToggleBlock(user.id, !user.isBlocked)} 
-                disabled={isBusy} 
-              />
-              <SmallAction label="Delete" tone="danger" onPress={handleDelete} disabled={isBusy} />
-              <SmallAction label="Load Onboarding" tone="neutral" onPress={loadOnboarding} disabled={onboardingLoading} />
-            </View>
-
-            <Text className="text-xs font-outfit text-secondary mb-2 uppercase">Update Program Tier</Text>
-            <View className="flex-row gap-2">
-              <TextInput
-                value={tierDraft}
-                onChangeText={setTierDraft}
-                placeholder="e.g. PHP_Premium"
-                className="flex-1 rounded-2xl border px-4 py-2 text-app bg-background"
-                style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }}
-              />
-              <SmallAction 
-                label="Save" 
-                tone="success" 
-                onPress={() => user?.athleteId && user?.id && onSaveTier(user.athleteId, user.id, tierDraft)} 
-                disabled={isBusy} 
-              />
+          {/* Password Settings */}
+          <Text className="text-lg font-clash-semibold text-app mb-2">Password Manager</Text>
+          <View className="rounded-[28px] border p-5 mb-6" style={CardStyle}>
+            <Text className="text-[12px] font-outfit text-secondary leading-5 mb-3">
+              Resetting generates a temporary password and invalidates existing user sessions automatically. You may assign a specific password or leave blank for a secure random hash.
+            </Text>
+            <View className="flex-row gap-2 items-center">
+               <TextInput
+                 value={passwordDraft}
+                 onChangeText={setPasswordDraft}
+                 placeholder="Auto-generate secure hash"
+                 placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"}
+                 className="flex-1 rounded-2xl border px-4 py-3 text-app font-outfit bg-background"
+                 style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }}
+                 autoCapitalize="none"
+                 secureTextEntry
+               />
+               <SmallAction label="Reset" tone="danger" onPress={handleResetPassword} disabled={isBusy} />
             </View>
           </View>
 
-          {onboardingLoading ? (
-            <Skeleton width="100%" height={100} />
-          ) : onboarding ? (
-            <View className="rounded-[28px] border p-5 bg-card" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" }}>
-              <Text className="font-clash font-bold text-app mb-2">Onboarding Data</Text>
-              <Text className="text-xs font-outfit text-secondary" style={{ fontVariant: ["tabular-nums"] }}>
-                {JSON.stringify(onboarding, null, 2)}
-              </Text>
-            </View>
-          ) : null}
-        </ThemedScrollView>
+          {/* Admin Controls */}
+          <Text className="text-lg font-clash-semibold text-app mb-2">Admin Modifiers</Text>
+          <View className="rounded-[28px] border p-5 bg-card" style={CardStyle}>
+             <Text className="text-[11px] font-outfit-semibold text-secondary mb-2 uppercase tracking-widest">Swap Program Tier</Text>
+             <View className="flex-row gap-2 mb-6">
+                <TextInput
+                  value={tierDraft}
+                  onChangeText={setTierDraft}
+                  placeholder="e.g. PHP_Pro"
+                  placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"}
+                  className="flex-1 rounded-2xl border px-4 py-3 text-app bg-background font-outfit"
+                  style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }}
+                />
+                <SmallAction 
+                  label="Enforce" 
+                  tone="success" 
+                  onPress={() => user?.athleteId && user?.id && onSaveTier(user.athleteId, user.id, tierDraft)} 
+                  disabled={isBusy} 
+                />
+             </View>
+
+             <Text className="text-[11px] font-outfit-semibold text-secondary mb-2 uppercase tracking-widest">Network Rules</Text>
+             <View className="flex-row flex-wrap gap-2">
+                <SmallAction 
+                  label={user?.isBlocked ? "Restore Access" : "Block User"} 
+                  tone={user?.isBlocked ? "success" : "danger"} 
+                  onPress={() => user?.id && onToggleBlock(user.id, !user.isBlocked)} 
+                  disabled={isBusy} 
+                />
+                <SmallAction label="Purge Account" tone="danger" onPress={handleDelete} disabled={isBusy} />
+             </View>
+          </View>
+
+        </ScrollView>
       </View>
     </Modal>
   );
