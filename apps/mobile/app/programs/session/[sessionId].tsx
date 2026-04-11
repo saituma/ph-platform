@@ -31,6 +31,7 @@ import {
   FinishTrainingSessionWorkoutLog,
 } from "@/services/programs/programsService";
 import { radius, spacing, fonts } from "@/constants/theme";
+import { hasAssignedTeam } from "@/lib/teamMembership";
 
 export default function ProgramSessionDetailScreen() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function ProgramSessionDetailScreen() {
     );
   }, [managedAthletes, athleteUserId]);
   const activeAge = activeAthlete?.age ?? null;
-  const isTeamMode = Boolean(activeAthlete?.team?.trim());
+  const isTeamMode = hasAssignedTeam(activeAthlete?.team);
 
   const { workspace, isLoading, load, findModuleAndSession } = useSessionData(
     isTeamMode ? token : null,

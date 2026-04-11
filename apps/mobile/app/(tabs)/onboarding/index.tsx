@@ -3,6 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import { Redirect, router } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
 import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { Shadows } from "@/constants/theme";
@@ -19,8 +20,37 @@ type OnboardingPublicConfig = {
 export default function OnboardingScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
+  const { apiUserRole, profile } = useAppSelector((state) => state.user);
   const [config, setConfig] = useState<OnboardingPublicConfig | null>(null);
+  const [showWelcomeMessage, setShowWelcomeMessage] = useState(true);
+
+  useEffect(() => {
+    const identity = String(profile.id ?? profile.email ?? "").trim().toLowerCase();
+    if (!identity) {
+      setShowWelcomeMessage(true);
+      return;
+    }
+    const key = `ph:onboarding-welcome-seen:${identity}`;
+    let active = true;
+    const run = async () => {
+      try {
+        const seen = await AsyncStorage.getItem(key);
+        if (!active) return;
+        const shouldShow = seen !== "1";
+        setShowWelcomeMessage(shouldShow);
+        if (shouldShow) {
+          await AsyncStorage.setItem(key, "1");
+        }
+      } catch {
+        if (!active) return;
+        setShowWelcomeMessage(true);
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [profile.email, profile.id]);
 
   useEffect(() => {
     let active = true;
@@ -94,21 +124,25 @@ export default function OnboardingScreen() {
           >
             Welcome to the football coaching app
           </Text>
-          <Text
-            className="font-outfit-semibold text-app"
-            selectable
-            style={{ fontSize: 36, lineHeight: 40, letterSpacing: -0.8 }}
-          >
-            {config?.welcomeMessage?.trim() || "Let's build the right plan for your athlete."}
-          </Text>
-          <Text
-            className="font-outfit text-secondary"
-            selectable
-            style={{ fontSize: 16, lineHeight: 24, maxWidth: 340 }}
-          >
-            {config?.coachMessage?.trim() ||
-              "Share a few details about age, training rhythm, and goals so we can personalize coaching from the start."}
-          </Text>
+          {showWelcomeMessage ? (
+            <>
+              <Text
+                className="font-outfit-semibold text-app"
+                selectable
+                style={{ fontSize: 36, lineHeight: 40, letterSpacing: -0.8 }}
+              >
+                {config?.welcomeMessage?.trim() || "Let's build the right plan for your athlete."}
+              </Text>
+              <Text
+                className="font-outfit text-secondary"
+                selectable
+                style={{ fontSize: 16, lineHeight: 24, maxWidth: 340 }}
+              >
+                {config?.coachMessage?.trim() ||
+                  "Share a few details about age, training rhythm, and goals so we can personalize coaching from the start."}
+              </Text>
+            </>
+          ) : null}
         </View>
 
         <View style={{ gap: 12 }}>

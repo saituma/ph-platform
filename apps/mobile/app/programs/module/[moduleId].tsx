@@ -19,6 +19,7 @@ import { Shadows } from "@/constants/theme";
 import { ProgramId } from "@/constants/program-details";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
+import { hasAssignedTeam } from "@/lib/teamMembership";
 
 type ModuleSession = {
   id: number;
@@ -82,7 +83,7 @@ export default function ProgramModuleDetailScreen() {
     );
   }, [managedAthletes, athleteUserId]);
   const activeAthleteAge = activeAthlete?.age ?? null;
-  const isTeamMode = Boolean(activeAthlete?.team?.trim());
+  const isTeamMode = hasAssignedTeam(activeAthlete?.team);
 
   const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
     null,
