@@ -67,7 +67,7 @@ import {
   useToggleChatGroupMessageReactionMutation,
   useToggleMessageReactionMutation,
   useUpdateContentMutation,
-} from "../../lib/apiSlice";
+} from "@/lib/apiSlice";
 import { toast } from "../../lib/toast";
 
 type ThreadListItem = {
@@ -306,7 +306,10 @@ export default function MessagingPage() {
   const refetchGroupMessagesRef = useRef(refetchGroupMessages);
   const currentUserIdRef = useRef<number | null>(null);
   const isWindowFocusedRef = useRef(true);
-  const lastNotifiedRef = useRef<{ kind: "direct" | "group"; id: string } | null>(null);
+  const lastNotifiedRef = useRef<{
+    kind: "direct" | "group";
+    id: string;
+  } | null>(null);
 
   useEffect(() => {
     refetchGroupsRef.current = refetchGroups;
@@ -387,7 +390,10 @@ export default function MessagingPage() {
       if (!canShowBrowserNotification()) return;
       const prev = lastNotifiedRef.current;
       if (prev && prev.id === params.tag) return;
-      lastNotifiedRef.current = { kind: params.tag.startsWith("group:") ? "group" : "direct", id: params.tag };
+      lastNotifiedRef.current = {
+        kind: params.tag.startsWith("group:") ? "group" : "direct",
+        id: params.tag,
+      };
       try {
         const notif = new Notification(params.title, {
           body: params.body,
@@ -414,7 +420,11 @@ export default function MessagingPage() {
       const receiverId = Number(payload?.receiverId ?? NaN);
       const me = currentUserIdRef.current;
       if (me != null && Number.isFinite(senderId) && senderId === me) return;
-      const threadUserId = Number.isFinite(senderId) ? senderId : Number.isFinite(receiverId) ? receiverId : null;
+      const threadUserId = Number.isFinite(senderId)
+        ? senderId
+        : Number.isFinite(receiverId)
+          ? receiverId
+          : null;
       if (!threadUserId) return;
       const title = payload?.senderName
         ? `New message from ${String(payload.senderName)}`
@@ -466,7 +476,7 @@ export default function MessagingPage() {
       socket.disconnect();
       socketRef.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

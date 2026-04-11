@@ -37,13 +37,19 @@ export const extractErrorMessage = (text: string, payload: any) => {
     lower.includes("<head") ||
     lower.includes("<body");
   if (looksLikeHtml) {
+    const cannotMatch = rawText.match(
+      /Cannot\s+(GET|POST|PUT|PATCH|DELETE)\s+([^\s<]+)/i,
+    );
+    if (cannotMatch) {
+      return `${cannotMatch[1].toUpperCase()} ${cannotMatch[2]} not found`;
+    }
     if (lower.includes("bad gateway")) return "Bad Gateway";
     if (lower.includes("service unavailable")) return "Service unavailable";
     if (lower.includes("gateway timeout")) return "Gateway timeout";
     return "Server returned an HTML error response";
   }
 
-  const cannotMatch = text.match(
+  const cannotMatch = rawText.match(
     /Cannot\s+(GET|POST|PUT|PATCH|DELETE)\s+([^\s<]+)/i,
   );
   if (cannotMatch) {

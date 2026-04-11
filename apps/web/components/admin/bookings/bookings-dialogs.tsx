@@ -18,7 +18,7 @@ import {
   useCreateServiceMutation,
   useUpdateServiceMutation,
   useCreateAdminBookingMutation,
-} from "../../../lib/apiSlice";
+} from "@/lib/apiSlice";
 
 export type BookingsDialog =
   | null
@@ -230,20 +230,10 @@ export function BookingsDialogs({
     if (!isApprovePromptOpen) return;
     setApproveError(null);
 
-    const startsAt = selectedBooking?.startsAt
-      ? new Date(selectedBooking.startsAt)
-      : null;
-
-    const defaultDate = new Date();
-    defaultDate.setDate(defaultDate.getDate() + 1);
-    defaultDate.setHours(12, 0, 0, 0);
-
-    const resolved =
-      startsAt && !Number.isNaN(startsAt.getTime()) ? startsAt : defaultDate;
-    const yyyyMmDd = `${resolved.getFullYear()}-${pad(resolved.getMonth() + 1)}-${pad(resolved.getDate())}`;
-    setApproveDate(yyyyMmDd);
-    setApproveHour(String(resolved.getHours()));
-    setApproveMinute(String(resolved.getMinutes()));
+    // Do not default date/time for approvals; only show once admin sets it.
+    setApproveDate("");
+    setApproveHour("");
+    setApproveMinute("");
 
     const service =
       selectedBooking?.serviceTypeId != null

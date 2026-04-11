@@ -8,12 +8,14 @@ import { Text, TextInput } from "@/components/ScaledText";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useProgramPanel } from "./shared/useProgramPanel";
 import { AppRole } from "@/lib/appRole";
+import { useRouter } from "expo-router";
 
 type NutritionPanelProps = {
   appRole: AppRole | null;
 };
 
 export function NutritionPanel({ appRole }: NutritionPanelProps) {
+  const router = useRouter();
   const { token, athleteUserId } = useAppSelector((state) => state.user);
   const { isDark, colors, shadows } = useProgramPanel();
 
@@ -880,15 +882,28 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     ? log.coachFeedbackMediaUrl.trim()
                     : "";
 
+                const canOpenDetail = Boolean(dateLabel);
+                const handleOpenDetail = () => {
+                  if (!canOpenDetail) return;
+                  const uid = athleteUserId || "me";
+                  router.push(
+                    `/nutrition/log/${encodeURIComponent(String(dateLabel))}?userId=${encodeURIComponent(String(uid))}` as any,
+                  );
+                };
+
                 return (
-                  <View
+                  <TouchableOpacity
                     key={String(log?.id ?? dateLabel)}
+                    activeOpacity={0.9}
+                    onPress={handleOpenDetail}
+                    disabled={!canOpenDetail}
                     className="rounded-3xl border p-5 gap-3"
                     style={{
                       backgroundColor: colors.card,
                       borderColor: isDark
                         ? "rgba(255,255,255,0.08)"
                         : "rgba(15,23,42,0.06)",
+                      opacity: canOpenDetail ? 1 : 0.8,
                     }}
                   >
                     <View className="flex-row items-center justify-between">
@@ -951,7 +966,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         </View>
                       ) : null}
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>

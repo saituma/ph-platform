@@ -19,7 +19,7 @@ import {
   useGetServicesQuery,
   useGetUsersQuery,
   useUpdateBookingStatusMutation,
-} from "../../lib/apiSlice";
+} from "@/lib/apiSlice";
 
 type BookingItem = {
   id: number;

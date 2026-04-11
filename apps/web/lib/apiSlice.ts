@@ -765,11 +765,16 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["FoodDiary"],
     }),
-    getNutritionLogs: builder.query<{ logs: any[] }, { userId: number; limit?: number }>({
+    getNutritionLogs: builder.query<
+      { logs: any[] },
+      { userId: number; limit?: number; from?: string; to?: string }
+    >({
       query: (params) => {
         const query = new URLSearchParams();
         query.set("userId", String(params.userId));
         if (params.limit) query.set("limit", String(params.limit));
+        if (params.from) query.set("from", String(params.from));
+        if (params.to) query.set("to", String(params.to));
         return `/nutrition/logs?${query.toString()}`;
       },
       providesTags: ["FoodDiary"],

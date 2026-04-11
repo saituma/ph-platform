@@ -72,7 +72,7 @@ jest.mock("../components/admin/bookings/bookings-dialogs", () => ({
   BookingsDialogs: () => null,
 }));
 
-jest.mock("../lib/apiSlice", () => ({
+jest.mock("@/lib/apiSlice", () => ({
   useGetBookingsQuery: jest.fn(),
   useGetServicesQuery: jest.fn(),
   useGetUsersQuery: jest.fn(),
@@ -88,7 +88,7 @@ const {
   useUpdateBookingStatusMutation,
   useUpdateServiceMutation,
   useDeleteServiceMutation,
-} = jest.requireMock("../lib/apiSlice");
+} = jest.requireMock("@/lib/apiSlice");
 
 describe("bookings page", () => {
   beforeEach(() => {

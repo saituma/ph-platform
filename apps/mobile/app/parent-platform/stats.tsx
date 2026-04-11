@@ -6,21 +6,32 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setAthleteUserId, setManagedAthletes } from "@/store/slices/userSlice";
 import { apiRequest } from "@/lib/api";
 import { tierRank } from "@/lib/planAccess";
+import { formatPlanList, getUnlockingPlanNames } from "@/lib/unlockPlans";
 import { Feather } from "@expo/vector-icons";
 
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, InteractionManager, ScrollView, TouchableOpacity, View } from "react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Image,
+  InteractionManager,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AthleteStatsScreen() {
-
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isSectionHidden } = useAgeExperience();
-  const { token, programTier, managedAthletes, athleteUserId, profile } = useAppSelector(
-    (state) => state.user
-  );
+  const { token, programTier, managedAthletes, athleteUserId, profile } =
+    useAppSelector((state) => state.user);
   const athleteUserIdRef = useRef<number | null>(athleteUserId);
   const [isLoading, setIsLoading] = useState(true);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
@@ -76,15 +87,19 @@ export default function AthleteStatsScreen() {
       const hasSelection = athleteList.some(
         (athlete) =>
           athlete.id === athleteUserIdRef.current ||
-          athlete.userId === athleteUserIdRef.current
+          athlete.userId === athleteUserIdRef.current,
       );
       if (!athleteUserIdRef.current || !hasSelection) {
         const activeAthlete =
-          athleteList.find((item) => item.id === data.guardian?.activeAthleteId) ??
+          athleteList.find(
+            (item) => item.id === data.guardian?.activeAthleteId,
+          ) ??
           athleteList[0] ??
           null;
         if (activeAthlete?.userId || activeAthlete?.id) {
-          dispatch(setAthleteUserId(activeAthlete.userId ?? activeAthlete.id ?? null));
+          dispatch(
+            setAthleteUserId(activeAthlete.userId ?? activeAthlete.id ?? null),
+          );
         }
       }
     } catch {
@@ -98,18 +113,20 @@ export default function AthleteStatsScreen() {
     athleteUserIdRef.current = athleteUserId;
   }, [athleteUserId]);
 
-
-
-
-
   const selectedAthlete =
     managedAthletes.find(
-      (athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId
-    ) ?? managedAthletes[0] ?? null;
+      (athlete) =>
+        athlete.id === athleteUserId || athlete.userId === athleteUserId,
+    ) ??
+    managedAthletes[0] ??
+    null;
 
   const summaryStats = useMemo(() => {
     return [
-      { label: "Training Days", value: selectedAthlete?.trainingPerWeek ?? "—" },
+      {
+        label: "Training Days",
+        value: selectedAthlete?.trainingPerWeek ?? "—",
+      },
       { label: "Sessions Completed", value: stats.summary.sessionsCompleted },
       { label: "Coach Feedback", value: stats.summary.coachFeedback },
       { label: "Videos Reviewed", value: stats.summary.videosReviewed },
@@ -165,7 +182,9 @@ export default function AthleteStatsScreen() {
       const [bookingsData, videosData, messagesData] = await Promise.all([
         apiRequest<{ items: any[] }>("/bookings", { token }),
         apiRequest<{ items: any[] }>("/videos", { token }),
-        apiRequest<{ messages: any[]; coach?: { id?: number } }>("/messages", { token }),
+        apiRequest<{ messages: any[]; coach?: { id?: number } }>("/messages", {
+          token,
+        }),
       ]);
 
       const bookings = bookingsData.items ?? [];
@@ -182,13 +201,17 @@ export default function AthleteStatsScreen() {
         return startsAt ? startsAt.getTime() <= now.getTime() : false;
       });
 
-      const reviewedVideos = videos.filter((item) => Boolean(item.feedback)).length;
+      const reviewedVideos = videos.filter((item) =>
+        Boolean(item.feedback),
+      ).length;
       const totalVideos = videos.length;
 
       const guardianUserId = Number(profile.id);
       const hasGuardianId = Number.isFinite(guardianUserId);
       const coachMessages = hasGuardianId
-        ? messages.filter((msg) => msg.senderId && msg.senderId !== guardianUserId).length
+        ? messages.filter(
+            (msg) => msg.senderId && msg.senderId !== guardianUserId,
+          ).length
         : coachId
           ? messages.filter((msg) => msg.senderId === coachId).length
           : messages.filter((msg) => Boolean(msg.senderId)).length;
@@ -222,12 +245,12 @@ export default function AthleteStatsScreen() {
 
       const expectedPerWeek = Math.max(1, selectedAthlete.trainingPerWeek ?? 0);
       const weeklyLoad = weeklyLoadCounts.map((count) =>
-        Math.min(100, Math.round((count / expectedPerWeek) * 100))
+        Math.min(100, Math.round((count / expectedPerWeek) * 100)),
       );
 
       const maxProgress = Math.max(1, ...progressCounts);
       const progressTrend = progressCounts.map((count) =>
-        Math.min(100, Math.round((count / maxProgress) * 100))
+        Math.min(100, Math.round((count / maxProgress) * 100)),
       );
 
       setStats({
@@ -239,8 +262,12 @@ export default function AthleteStatsScreen() {
         weeklyLoad,
         progressTrend,
         feedback: {
-          videoFeedbackRate: totalVideos ? Math.round((reviewedVideos / totalVideos) * 100) : 0,
-          coachReplyRate: totalMessages ? Math.round((coachMessages / totalMessages) * 100) : 0,
+          videoFeedbackRate: totalVideos
+            ? Math.round((reviewedVideos / totalVideos) * 100)
+            : 0,
+          coachReplyRate: totalMessages
+            ? Math.round((coachMessages / totalMessages) * 100)
+            : 0,
           sessionCompletionRate: totalBookings
             ? Math.round((completedBookings.length / totalBookings) * 100)
             : 0,
@@ -286,16 +313,23 @@ export default function AthleteStatsScreen() {
     );
   }
 
-
-
   if (!hasPremiumAccess) {
+    const unlockingPlans = getUnlockingPlanNames("PHP_Premium");
     return (
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <ThemedScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}>
+        <ThemedScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: 40,
+          }}
+        >
           <View className="mb-6">
-            <Text className="text-3xl font-telma-bold text-app mb-2">Athlete Stats</Text>
+            <Text className="text-3xl font-telma-bold text-app mb-2">
+              Athlete Stats
+            </Text>
             <Text className="text-base font-outfit text-secondary leading-relaxed">
-              Upgrade to PHP Premium to unlock the analytics dashboard.
+              This dashboard is locked for your current plan.
             </Text>
           </View>
           <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
@@ -309,24 +343,25 @@ export default function AthleteStatsScreen() {
               Unlock athlete analytics
             </Text>
             <Text className="text-base font-outfit text-secondary leading-relaxed">
-              Performance charts, progress tracking, and feedback summaries are available on PHP Premium.
+              {unlockingPlans.length
+                ? `To unlock it, purchase ${formatPlanList(unlockingPlans)}.`
+                : "To unlock it, purchase an eligible plan."}
             </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/plans")}
-              className="mt-4 rounded-full bg-accent px-4 py-3"
-            >
-              <Text className="text-white text-sm font-outfit text-center">View Plans</Text>
-            </TouchableOpacity>
           </View>
         </ThemedScrollView>
       </SafeAreaView>
     );
   }
 
-
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThemedScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}>
+      <ThemedScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          paddingBottom: 40,
+        }}
+      >
         <View className="flex-row items-center justify-between mb-6">
           <TouchableOpacity
             onPress={() => router.replace("/parent-platform")}
@@ -334,14 +369,19 @@ export default function AthleteStatsScreen() {
           >
             <Feather name="arrow-left" size={20} className="text-secondary" />
           </TouchableOpacity>
-          <Text className="text-2xl font-clash text-app font-bold">Athlete Stats</Text>
+          <Text className="text-2xl font-clash text-app font-bold">
+            Athlete Stats
+          </Text>
           <View className="w-10" />
         </View>
 
         {isLoading ? (
           <View className="gap-3">
             {[1, 2, 3].map((row) => (
-              <View key={row} className="rounded-3xl border border-app/10 bg-input px-4 py-3">
+              <View
+                key={row}
+                className="rounded-3xl border border-app/10 bg-input px-4 py-3"
+              >
                 <View className="h-4 w-32 rounded-full bg-secondary/20" />
                 <View className="h-3 w-full rounded-full bg-secondary/20 mt-2" />
               </View>
@@ -369,7 +409,8 @@ export default function AthleteStatsScreen() {
                     {selectedAthlete?.name ?? "Athlete"}
                   </Text>
                   <Text className="text-sm font-outfit text-secondary">
-                    {selectedAthlete?.team ?? "Team not set"} • {selectedAthlete?.age ?? "—"} yrs
+                    {selectedAthlete?.team ?? "Team not set"} •{" "}
+                    {selectedAthlete?.age ?? "—"} yrs
                   </Text>
                 </View>
               </View>
@@ -386,7 +427,11 @@ export default function AthleteStatsScreen() {
                         key={athlete.id ?? athlete.name ?? Math.random()}
                         onPress={async () => {
                           if (athlete.userId || athlete.id) {
-                            dispatch(setAthleteUserId(athlete.userId ?? athlete.id ?? null));
+                            dispatch(
+                              setAthleteUserId(
+                                athlete.userId ?? athlete.id ?? null,
+                              ),
+                            );
                             try {
                               await apiRequest("/onboarding/select-athlete", {
                                 token,
@@ -403,9 +448,11 @@ export default function AthleteStatsScreen() {
                             : "bg-secondary/5 border-app/10"
                         }`}
                       >
-                        <Text className={`text-xs font-outfit ${
-                          isActive ? "text-[#2F8F57]" : "text-secondary"
-                        }`}>
+                        <Text
+                          className={`text-xs font-outfit ${
+                            isActive ? "text-[#2F8F57]" : "text-secondary"
+                          }`}
+                        >
                           {athlete.name ?? "Athlete"}
                         </Text>
                       </TouchableOpacity>
@@ -439,7 +486,10 @@ export default function AthleteStatsScreen() {
             {isStatsLoading ? (
               <View className="gap-3 mb-6">
                 {[1, 2].map((row) => (
-                  <View key={`stat-skel-${row}`} className="rounded-3xl border border-app/10 bg-input px-4 py-3">
+                  <View
+                    key={`stat-skel-${row}`}
+                    className="rounded-3xl border border-app/10 bg-input px-4 py-3"
+                  >
                     <View className="h-4 w-32 rounded-full bg-secondary/20" />
                     <View className="h-3 w-full rounded-full bg-secondary/20 mt-2" />
                   </View>
@@ -447,7 +497,9 @@ export default function AthleteStatsScreen() {
               </View>
             ) : statsError ? (
               <View className="rounded-3xl border border-app/10 bg-secondary/10 p-4 mb-6">
-                <Text className="text-sm font-outfit text-secondary">{statsError}</Text>
+                <Text className="text-sm font-outfit text-secondary">
+                  {statsError}
+                </Text>
               </View>
             ) : null}
 
@@ -455,7 +507,10 @@ export default function AthleteStatsScreen() {
               <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px] mb-3">
                 Weekly Load
               </Text>
-              {(stats.weeklyLoad.length ? stats.weeklyLoad : [0, 0, 0, 0, 0]).map((value, index) => (
+              {(stats.weeklyLoad.length
+                ? stats.weeklyLoad
+                : [0, 0, 0, 0, 0]
+              ).map((value, index) => (
                 <View key={`bar-${index}`} className="mb-3">
                   <View className="flex-row items-center justify-between mb-1">
                     <Text className="text-xs font-outfit text-secondary">
@@ -480,7 +535,10 @@ export default function AthleteStatsScreen() {
                 Progress Trend
               </Text>
               <View className="flex-row items-end justify-between h-24">
-                {(stats.progressTrend.length ? stats.progressTrend : [0, 0, 0, 0, 0, 0]).map((value, index) => (
+                {(stats.progressTrend.length
+                  ? stats.progressTrend
+                  : [0, 0, 0, 0, 0, 0]
+                ).map((value, index) => (
                   <View key={`trend-${index}`} className="items-center flex-1">
                     <View className="h-20 w-2 rounded-full bg-secondary/15 overflow-hidden">
                       <View
@@ -493,7 +551,10 @@ export default function AthleteStatsScreen() {
               </View>
               <View className="flex-row justify-between mt-2">
                 {["W1", "W2", "W3", "W4", "W5", "W6"].map((label) => (
-                  <Text key={label} className="text-[10px] font-outfit text-secondary">
+                  <Text
+                    key={label}
+                    className="text-[10px] font-outfit text-secondary"
+                  >
                     {label}
                   </Text>
                 ))}
@@ -506,12 +567,26 @@ export default function AthleteStatsScreen() {
               </Text>
               <View className="gap-2">
                 {[
-                  { label: "Video Feedback Rate", value: stats.feedback.videoFeedbackRate },
-                  { label: "Coach Reply Rate", value: stats.feedback.coachReplyRate },
-                  { label: "Session Completion", value: stats.feedback.sessionCompletionRate },
+                  {
+                    label: "Video Feedback Rate",
+                    value: stats.feedback.videoFeedbackRate,
+                  },
+                  {
+                    label: "Coach Reply Rate",
+                    value: stats.feedback.coachReplyRate,
+                  },
+                  {
+                    label: "Session Completion",
+                    value: stats.feedback.sessionCompletionRate,
+                  },
                 ].map((item) => (
-                  <View key={item.label} className="flex-row items-center justify-between">
-                    <Text className="text-sm font-outfit text-app">{item.label}</Text>
+                  <View
+                    key={item.label}
+                    className="flex-row items-center justify-between"
+                  >
+                    <Text className="text-sm font-outfit text-app">
+                      {item.label}
+                    </Text>
                     <View className="flex-row items-center gap-2">
                       <View className="h-2 w-24 rounded-full bg-secondary/15 overflow-hidden">
                         <View
