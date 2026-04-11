@@ -498,6 +498,20 @@
       "when": 1775952000000,
       "tag": "0070_unknown_team_to_empty",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1775953000000,
+      "tag": "0071_service_types_description",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1775954000000,
+      "tag": "0072_service_types_remove_capacity_and_one_time",
+      "breakpoints": true
     }
   ]
 }

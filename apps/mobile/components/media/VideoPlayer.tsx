@@ -235,8 +235,13 @@ export function VideoPlayer({
   const progress = duration > 0 ? Math.min(1, position / duration) : 0;
   const fitMode = contentFitOverride ?? "contain";
   const youtubeDetectedAspectRatio = isYoutubeShorts ? 9 / 16 : null;
+  // For YouTube/Loom we don't control the media pipeline (iframe/webview).
+  // expo-video metadata can be missing or misleading for those URLs, so don't let it
+  // drive the container sizing.
   const effectiveAspectRatio =
-    aspectRatio ?? youtubeDetectedAspectRatio ?? initialAspectRatio ?? 16 / 9;
+    isYoutube || isLoom
+      ? youtubeDetectedAspectRatio ?? initialAspectRatio ?? 16 / 9
+      : aspectRatio ?? initialAspectRatio ?? 16 / 9;
   const effectiveMaxHeightRatio =
     effectiveAspectRatio > 0 && effectiveAspectRatio < 1
       ? Math.max(maxHeightRatio, 0.9)
@@ -416,7 +421,7 @@ export function VideoPlayer({
             zIndex: 30,
           }}
         >
-          {resolution && (
+          {resolution && !isYoutube && !isLoom && (
             <View
               style={{
                 backgroundColor: "rgba(0,0,0,0.6)",

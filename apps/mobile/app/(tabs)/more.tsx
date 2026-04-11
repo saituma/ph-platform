@@ -212,7 +212,10 @@ export default function MoreScreen() {
   }, []);
 
   const insets = useSafeAreaInsets();
-  const logoutFooterPaddingBottom = Math.max(insets.bottom, 12);
+  // This app uses a custom, absolutely-positioned tab bar (see `components/navigation/TabBar.tsx`).
+  // To keep the Logout button visible, reserve space above the tab bar overlay.
+  const tabBarOverlayHeightEstimate = 86 + Math.max(insets.bottom, 12);
+  const logoutFooterPaddingBottom = 12;
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -557,6 +560,7 @@ export default function MoreScreen() {
       <View
         className="px-6 pt-4 border-t border-separator"
         style={{
+          marginBottom: tabBarOverlayHeightEstimate,
           paddingBottom: logoutFooterPaddingBottom,
           backgroundColor: colors.background,
         }}
