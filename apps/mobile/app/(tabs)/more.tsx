@@ -427,15 +427,6 @@ export default function MoreScreen() {
                       accentColor={colors.accent}
                     />
                   ) : null}
-                  {canUploadVideo ? (
-                    <MenuItem
-                      icon="video"
-                      label="Upload Training Video"
-                      isLast={false}
-                      onPress={() => router.navigate("/video-upload")}
-                      accentColor={colors.accent}
-                    />
-                  ) : null}
                   {canAccessFoodDiary ? (
                     <MenuItem
                       icon="clipboard"

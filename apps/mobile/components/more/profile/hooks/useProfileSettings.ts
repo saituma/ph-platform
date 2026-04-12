@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as Crypto from "expo-crypto";
+import * as FileSystem from "expo-file-system/legacy";
 import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { updateProfile } from "@/store/slices/userSlice";
@@ -60,7 +62,16 @@ export function useProfileSettings() {
   const pushRegistration = useAppSelector((state) => state.app.pushRegistration);
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [pendingAvatarUri, setPendingAvatarUri] = useState<string | null>(null);
+  const [pendingAvatarUri, setPendingAvatarUriRaw] = useState<string | null>(null);
+  const [pendingAvatarSizeBytes, setPendingAvatarSizeBytes] = useState<number | null>(null);
+  const [pendingAvatarMimeType, setPendingAvatarMimeType] = useState<string | null>(null);
+  const setPendingAvatarUri = useCallback((next: string | null) => {
+    setPendingAvatarUriRaw(next);
+    if (!next) {
+      setPendingAvatarSizeBytes(null);
+      setPendingAvatarMimeType(null);
+    }
+  }, []);
   const [managedAthletes, setManagedAthletes] = useState<ManagedAthlete[]>([]);
   const [managedAthleteCount, setManagedAthleteCount] = useState(0);
   const [activeAthleteId, setActiveAthleteId] = useState<number | null>(null);
@@ -186,24 +197,78 @@ export function useProfileSettings() {
       aspect: [1, 1],
     });
     if (result.canceled || !result.assets?.[0]?.uri) return;
-    setPendingAvatarUri(result.assets[0].uri);
+
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType || "image/jpeg";
+    let sizeBytes = asset.fileSize ?? 0;
+    try {
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const fsSize = info.exists ? (info.size ?? 0) : 0;
+      sizeBytes = fsSize || sizeBytes;
+    } catch {
+      // ignore
+    }
+    if (!sizeBytes || !Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+      // Safe fallback; server will still enforce upper bounds.
+      sizeBytes = 512000;
+    }
+
+    setPendingAvatarMimeType(mimeType);
+    setPendingAvatarSizeBytes(Math.trunc(sizeBytes));
+    setPendingAvatarUri(asset.uri);
   };
 
-  const uploadAvatar = async (uri: string) => {
+  const uploadAvatar = async (uri: string, input: { sizeBytes: number; contentType: string }) => {
     if (!token) throw new Error("Authentication required");
-    const fileName = uri.split("/").pop() ?? `avatar-${Date.now()}.jpg`;
-    const contentType = "image/jpeg";
-    const blob = await (await fetch(uri)).blob();
+    // Always generate a unique filename so the resulting public URL changes.
+    // This avoids stale avatar images due to device/CDN caching when a key is overwritten.
+    const ext = (() => {
+      const ct = input.contentType.toLowerCase();
+      if (ct.includes("png")) return "png";
+      if (ct.includes("webp")) return "webp";
+      if (ct.includes("heic")) return "heic";
+      return "jpg";
+    })();
+    const fileName = `avatar-${Date.now()}-${Crypto.randomUUID()}.${ext}`;
+
     const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
       method: "POST",
       token,
-      body: { folder: "profile-photos", fileName, contentType, sizeBytes: blob.size },
+      body: { folder: "profile-photos", fileName, contentType: input.contentType, sizeBytes: input.sizeBytes },
     });
-    await fetch(presign.uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": contentType },
-      body: blob,
-    });
+
+    let uploaded = false;
+    try {
+      const result = await FileSystem.uploadAsync(presign.uploadUrl, uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { "Content-Type": input.contentType },
+      });
+      if (result.status < 200 || result.status >= 300) {
+        throw new Error(`Upload failed (${result.status}).`);
+      }
+      uploaded = true;
+    } catch (err) {
+      // Fallback to fetch+blob PUT if FileSystem upload can't handle this URI.
+      try {
+        const blob = await (await fetch(uri)).blob();
+        const res = await fetch(presign.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": input.contentType },
+          body: blob,
+        });
+        if (!res.ok) {
+          throw new Error(`Upload failed (${res.status}).`);
+        }
+        uploaded = true;
+      } catch {
+        throw err instanceof Error ? err : new Error("Upload failed.");
+      }
+    }
+
+    if (!uploaded) {
+      throw new Error("Upload failed.");
+    }
     return presign.publicUrl;
   };
 
@@ -211,7 +276,9 @@ export function useProfileSettings() {
     if (!pendingAvatarUri || !token || isUploadingAvatar) return;
     setIsUploadingAvatar(true);
     try {
-      const publicUrl = await uploadAvatar(pendingAvatarUri);
+      const sizeBytes = pendingAvatarSizeBytes ?? 512000;
+      const contentType = pendingAvatarMimeType ?? "image/jpeg";
+      const publicUrl = await uploadAvatar(pendingAvatarUri, { sizeBytes, contentType });
       const response = await apiRequest<{ user: { profilePicture?: string | null } }>("/auth/me", {
         method: "PATCH",
         token,
@@ -221,6 +288,8 @@ export function useProfileSettings() {
       setPendingAvatarUri(null);
     } catch (error) {
       console.warn("Failed to update avatar", error);
+      const message = error instanceof Error ? error.message : "Upload failed.";
+      Alert.alert("Upload Failed", message);
     } finally {
       setIsUploadingAvatar(false);
     }

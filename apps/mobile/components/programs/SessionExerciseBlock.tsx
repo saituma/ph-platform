@@ -13,6 +13,7 @@ import { SessionItem } from "@/hooks/programs/useSessionData";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { ProgramMetricGrid } from "@/components/programs/metrics/ProgramMetricGrid";
+import type { CoachResponse } from "@/types/video-upload";
 
 type PendingSessionVideo = {
   video: { uri: string };
@@ -27,6 +28,7 @@ interface Props {
   onUploadPress: (id: number, title: string) => void;
   hasUploaded: Record<number, boolean>;
   uploadsBySectionId: Record<number, any[]>;
+  coachResponsesByUploadId?: Map<string, CoachResponse[]>;
   canUpload: boolean;
   pendingBySectionId?: Record<number, PendingSessionVideo | undefined>;
   activeUploadSectionId?: number | null;
@@ -46,6 +48,7 @@ export function SessionExerciseBlock({
   onUploadPress,
   hasUploaded,
   uploadsBySectionId,
+  coachResponsesByUploadId,
   canUpload,
   pendingBySectionId,
   activeUploadSectionId,
@@ -290,6 +293,40 @@ export function SessionExerciseBlock({
                             </Text>
                           </View>
                         ) : null}
+
+                        {(coachResponsesByUploadId?.get(String(u.id)) ?? []).map(
+                          (res) => (
+                            <View key={res.id} className="gap-2">
+                              <View
+                                className="rounded-2xl px-4 py-3 border"
+                                style={{
+                                  backgroundColor: colors.surfaceHigh,
+                                  borderColor: borderSoft,
+                                }}
+                              >
+                                <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
+                                  Coach response video
+                                </Text>
+                                {res.text ? (
+                                  <Text className="text-sm font-outfit text-secondary">
+                                    {res.text}
+                                  </Text>
+                                ) : null}
+                              </View>
+                              {res.mediaUrl ? (
+                                <View className="rounded-3xl overflow-hidden bg-black">
+                                  <VideoPlayer
+                                    uri={String(res.mediaUrl)}
+                                    autoPlay={false}
+                                    initialMuted
+                                    isLooping={false}
+                                    maxHeightRatio={0.5}
+                                  />
+                                </View>
+                              ) : null}
+                            </View>
+                          ),
+                        )}
                       </View>
                     ))}
                   </View>
