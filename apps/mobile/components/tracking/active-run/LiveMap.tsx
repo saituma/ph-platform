@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { View, Platform, Pressable } from "react-native";
+import { View, Pressable } from "react-native";
 import MapView, { Marker, Polyline, Region } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
@@ -73,7 +73,6 @@ export function LiveMap({
           style={{ flex: 1 }}
           initialRegion={activeRegion}
           customMapStyle={isDark ? (MapNightStyle as any) : []}
-          provider={Platform.OS === "android" ? "google" : undefined}
           mapType="standard"
           showsBuildings={false}
           userInterfaceStyle={isDark ? "dark" : "light"}

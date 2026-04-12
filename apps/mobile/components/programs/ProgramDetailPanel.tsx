@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  View,
-  SafeAreaView,
-  Pressable,
-  Modal,
-  TouchableOpacity,
-} from "react-native";
+import { View, Pressable, Modal, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";

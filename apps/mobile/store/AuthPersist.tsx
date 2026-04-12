@@ -2,7 +2,11 @@ import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
-import { setBootstrapReady } from "./slices/appSlice";
+import {
+  selectBootstrapReady,
+  selectPushRegistration,
+  setBootstrapReady,
+} from "./slices/appSlice";
 import {
   setCredentials,
   logout,
@@ -54,6 +58,8 @@ export function AuthPersist() {
     (state) => state.user.onboardingCompleted,
   );
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+  const bootstrapReady = useAppSelector(selectBootstrapReady);
+  const pushRegistration = useAppSelector(selectPushRegistration);
   const isAuthRoute = false;
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
@@ -286,7 +292,6 @@ export function AuthPersist() {
             avatar: me.user.profilePicture ?? null,
           }),
         );
-        syncResolvedAppRole();
       } catch {
         if (!active) return;
       }
@@ -309,7 +314,6 @@ export function AuthPersist() {
         });
         if (!active) return;
         latestOnboardingAthlete = onboarding.athlete ?? null;
-        syncResolvedAppRole();
         if (onboarding.athlete == null) {
           if (__DEV__) {
             console.log(
@@ -330,7 +334,6 @@ export function AuthPersist() {
           latestOnboardingAthlete = null;
           dispatch(setOnboardingCompleted(null));
           dispatch(setAthleteUserId(null));
-          syncResolvedAppRole();
         }
       }
     };
@@ -435,6 +438,9 @@ export function AuthPersist() {
       syncPushToken(),
     ]).then(() => {
       if (!active) return;
+      // One dispatch after profile + onboarding refs are both updated — avoids
+      // swapping tab layouts twice (home "reloading") when parallel syncs finish out of order.
+      syncResolvedAppRole();
       dispatch(setBootstrapReady(true));
       initialized = true;
     });
@@ -457,6 +463,34 @@ export function AuthPersist() {
       appStateSub.remove();
     };
   }, [dispatch, hydrated, isAuthenticated, token]);
+
+  /** Until the API stores a push token, remote notifications cannot be sent (see Render `no_expo_token_for_user`). */
+  useEffect(() => {
+    if (!hydrated || !isAuthenticated || !token || !bootstrapReady) return;
+    if (pushRegistration.lastSyncedAt) return;
+    if (pushRegistration.support !== "supported") return;
+
+    const delayed = setTimeout(() => {
+      void registerDevicePushToken({ token, dispatch });
+    }, 2500);
+
+    const interval = setInterval(() => {
+      void registerDevicePushToken({ token, dispatch });
+    }, 90_000);
+
+    return () => {
+      clearTimeout(delayed);
+      clearInterval(interval);
+    };
+  }, [
+    hydrated,
+    isAuthenticated,
+    token,
+    bootstrapReady,
+    dispatch,
+    pushRegistration.lastSyncedAt,
+    pushRegistration.support,
+  ]);
 
   useEffect(() => {
     if (!hydrated) return;

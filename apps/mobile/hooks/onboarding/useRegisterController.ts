@@ -1,7 +1,12 @@
 
 import { apiRequest, clearApiCache } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setAthleteUserId, setOnboardingCompleted } from "@/store/slices/userSlice";
+import {
+  setAthleteUserId,
+  setAppRole,
+  setOnboardingCompleted,
+} from "@/store/slices/userSlice";
+import { resolveAppRole } from "@/lib/appRole";
 import { zodResolver } from "@hookform/resolvers/zod";
 type RouterLike = { replace: (path: string) => void };
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -70,7 +75,7 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
   const createNewAthlete = mode === "add";
 
   const dispatch = useAppDispatch();
-  const { token, profile } = useAppSelector((state) => state.user);
+  const { token, profile, apiUserRole } = useAppSelector((state) => state.user);
 
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -378,12 +383,32 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
         if (response?.athleteUserId) {
           dispatch(setAthleteUserId(response.athleteUserId));
         }
+        dispatch(
+          setAppRole(
+            resolveAppRole({
+              userRole: apiUserRole,
+              athlete: {
+                athleteType: athleteTypeValue,
+                team: teamValueForSubmit || null,
+              },
+            }),
+          ),
+        );
         clearApiCache();
 
         if (__DEV__) {
           console.log("[Register] Onboarding submitted; navigating to tabs", {
             athleteUserId: response?.athleteUserId,
           });
+          if (
+            process.env.EXPO_PUBLIC_ONBOARDING_DEBUG === "1" ||
+            process.env.EXPO_PUBLIC_ONBOARDING_DEBUG === "true"
+          ) {
+            console.log("[OnboardingDebug][Register] submit success", {
+              athleteUserId: response?.athleteUserId,
+              timestamp: Date.now(),
+            });
+          }
         }
         router?.replace("/(tabs)");
       } catch (error) {
@@ -394,7 +419,16 @@ export function useRegisterController(options?: { router?: RouterLike; mode?: st
         setIsSubmitting(false);
       }
     },
-    [config, createNewAthlete, dispatch, normalizeFieldKey, profile.email, router, token]
+    [
+      apiUserRole,
+      config,
+      createNewAthlete,
+      dispatch,
+      normalizeFieldKey,
+      profile.email,
+      router,
+      token,
+    ]
   );
 
   const validateStep = useCallback(

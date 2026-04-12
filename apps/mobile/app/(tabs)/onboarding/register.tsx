@@ -21,6 +21,7 @@ import { RegisterFormFields } from "@/components/onboarding/register/RegisterFor
 import { RegisterOverlays } from "@/components/onboarding/register/RegisterOverlays";
 import { OnboardingActionButton } from "@/components/onboarding/OnboardingActionButton";
 import { Text } from "@/components/ScaledText";
+import { fonts } from "@/constants/theme";
 
 const STEPS = [
   {
@@ -151,7 +152,7 @@ export default function RegisterScreen() {
           contentContainerStyle={{
             flexGrow: 1,
             paddingHorizontal: 20,
-            paddingBottom: currentStep === STEPS.length - 1 ? (keyboardVisible ? 140 : 150) : (keyboardVisible ? 180 : 190),
+            paddingBottom: currentStep === STEPS.length - 1 ? (keyboardVisible ? 148 : 158) : (keyboardVisible ? 188 : 198),
           }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -243,30 +244,94 @@ export default function RegisterScreen() {
             bottom: 0,
             left: 0,
             right: 0,
-            paddingHorizontal: 20,
-            paddingBottom: Math.max(insets.bottom, 20),
-            paddingTop: 20,
-            backgroundColor: colors.bg,
+            paddingHorizontal: 16,
+            paddingTop: 14,
+            paddingBottom: Math.max(insets.bottom, 14),
+            backgroundColor: colors.surface,
             borderTopWidth: 1,
-            borderTopColor: colors.border,
+            borderTopColor: colors.borderSubtle,
           }}
         >
-          <View className="flex-row gap-3">
-            {currentStep > 0 && (
-              <View style={{ flex: 1 }}>
+          {/* Step progress */}
+          <View style={{ marginBottom: 14 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 10,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.labelCaps,
+                  fontSize: 10,
+                  letterSpacing: 1.25,
+                  color: colors.textSecondary,
+                }}
+              >
+                Step {currentStep + 1} of {STEPS.length}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: fonts.bodyMedium,
+                  fontSize: 12,
+                  color: colors.textDim,
+                  maxWidth: "58%",
+                  textAlign: "right",
+                }}
+              >
+                {STEPS[currentStep].title}
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {STEPS.map((_, i) => {
+                const done = i < currentStep;
+                const active = i === currentStep;
+                return (
+                  <View
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor:
+                        active || done ? colors.accent : colors.borderMid,
+                      opacity: active ? 1 : done ? 0.55 : 0.35,
+                    }}
+                  />
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "stretch", gap: 10 }}>
+            {currentStep > 0 ? (
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <OnboardingActionButton
                   label="Back"
+                  variant="outline"
+                  icon="chevron-left"
+                  iconPosition="left"
                   onPress={handleBack}
                   disabled={isSubmitting || isPaying}
                 />
               </View>
-            )}
-            <View style={{ flex: 2 }}>
+            ) : null}
+            <View style={{ flex: currentStep > 0 ? 1.35 : 1, minWidth: 0 }}>
               <OnboardingActionButton
-                label={currentStep === STEPS.length - 1 ? "Submit & Finish" : "Continue"}
-                onPress={currentStep === STEPS.length - 1 ? onSubmit : handleNext}
+                label={
+                  currentStep === STEPS.length - 1 ? "Submit & finish" : "Continue"
+                }
+                onPress={
+                  currentStep === STEPS.length - 1 ? onSubmit : handleNext
+                }
                 disabled={isSubmitting || isPaying}
-                icon={currentStep === STEPS.length - 1 ? "check" : "arrow-right"}
+                icon={
+                  currentStep === STEPS.length - 1 ? "check" : "arrow-right"
+                }
+                iconPosition="right"
               />
             </View>
           </View>

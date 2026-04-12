@@ -86,6 +86,7 @@ export async function registerDevicePushToken({
         lastSyncedAt: null,
         lastError: result.error,
       });
+      console.warn("[PushRegistration]", result.error);
       return result;
     }
 
@@ -98,6 +99,7 @@ export async function registerDevicePushToken({
       error: "Push notifications require a native build.",
     };
     syncPushState(dispatch, { ...result, lastAttemptAt: attemptedAt, lastError: result.error });
+    console.warn("[PushRegistration]", result.error);
     return result;
   }
 
@@ -121,6 +123,7 @@ export async function registerDevicePushToken({
         error: "Notification permission not granted.",
       };
       syncPushState(dispatch, { ...result, lastAttemptAt: attemptedAt, lastError: result.error });
+      console.warn("[PushRegistration]", result.error);
       return result;
     }
 
@@ -135,6 +138,7 @@ export async function registerDevicePushToken({
         error: "Missing Expo project ID for push token registration.",
       };
       syncPushState(dispatch, { ...result, lastAttemptAt: attemptedAt, lastError: result.error });
+      console.warn("[PushRegistration]", result.error);
       return result;
     }
 
@@ -156,19 +160,26 @@ export async function registerDevicePushToken({
     let synced = false;
     let error: string | null = null;
     if (!skipBackendSync) {
-      try {
-        await apiRequest("/users/push-token", {
-          method: "POST",
-          body: { token: expoPushToken },
-          token,
-          suppressStatusCodes: [401, 403],
-        });
-        synced = true;
-      } catch (syncError) {
-        error =
-          syncError instanceof Error
-            ? syncError.message
-            : "Failed to sync Expo push token with backend.";
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await apiRequest("/users/push-token", {
+            method: "POST",
+            body: { token: expoPushToken },
+            token,
+            suppressStatusCodes: [401, 403],
+          });
+          synced = true;
+          break;
+        } catch (syncError) {
+          error =
+            syncError instanceof Error
+              ? syncError.message
+              : "Failed to sync Expo push token with backend.";
+          if (attempt < maxAttempts) {
+            await new Promise((r) => setTimeout(r, 400 * attempt));
+          }
+        }
       }
     }
 
@@ -186,6 +197,9 @@ export async function registerDevicePushToken({
       lastSyncedAt: synced ? attemptedAt : null,
       lastError: error,
     });
+    if (!skipBackendSync && expoPushToken && !synced && error) {
+      console.warn("[PushRegistration] Expo token not saved to API:", error);
+    }
     return result;
   } catch (error) {
     const projectId = await getProjectId().catch(() => null);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Platform, Text, View, Pressable } from "react-native";
+import { Text, View, Pressable } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -28,6 +28,7 @@ import { RunActionButtons } from "../../../components/tracking/active-run/RunAct
 import { RunBottomBar } from "../../../components/tracking/active-run/RunBottomBar";
 import { RunStopSheet } from "../../../components/tracking/active-run/RunStopSheet";
 import { RunToast } from "../../../components/tracking/active-run/RunToast";
+import { shouldUseOsmMap } from "@/lib/mapsConfig";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
@@ -64,7 +65,8 @@ export default function ActiveRunScreen() {
     lastCoordinate,
   } = useRunTrackingEngine(toastTranslateY, insets.top);
 
-  const useOsmMap = false; // User explicitly requested realistic map (native MapView)
+  const useOsmMap = shouldUseOsmMap();
+
   const bottomBarHeight = 88;
   const overlayGap = 16;
 

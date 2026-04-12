@@ -16,6 +16,8 @@ import { Text } from "@/components/ScaledText";
 import { fonts, radius, spacing, icons } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { OsmTapPickMap } from "./OsmTapPickMap";
+import { shouldUseOsmMap } from "@/lib/mapsConfig";
 
 type Destination = { latitude: number; longitude: number };
 
@@ -30,7 +32,7 @@ export function RunGoalSheet({
   onClose,
   onConfirm,
 }: RunGoalSheetProps) {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView | null>(null);
   const [step, setStep] = useState<"destination" | "distance">("destination");
@@ -240,16 +242,28 @@ export function RunGoalSheet({
                       marginTop: spacing.md,
                     }}
                   >
-                    <MapView
-                      ref={mapRef}
-                      style={{ flex: 1 }}
-                      initialRegion={region}
-                      onPress={(e) => {
-                        setDestination(e.nativeEvent.coordinate);
-                      }}
-                    >
-                      {destination ? <Marker coordinate={destination} /> : null}
-                    </MapView>
+                    {shouldUseOsmMap() ? (
+                      <OsmTapPickMap
+                        region={region}
+                        destination={destination}
+                        isDark={isDark}
+                        backgroundColor={colors.surfaceHigh}
+                        onPick={setDestination}
+                      />
+                    ) : (
+                      <MapView
+                        ref={mapRef}
+                        style={{ flex: 1 }}
+                        initialRegion={region}
+                        onPress={(e) => {
+                          setDestination(e.nativeEvent.coordinate);
+                        }}
+                      >
+                        {destination ? (
+                          <Marker coordinate={destination} />
+                        ) : null}
+                      </MapView>
+                    )}
                   </View>
                   <View style={{ marginTop: spacing.lg, gap: 10 }}>
                     <Pressable

@@ -92,6 +92,11 @@ const userSlice = createSlice({
       state.apiUserRole = action.payload;
     },
     setOnboardingCompleted: (state, action: PayloadAction<boolean | null>) => {
+      // Onboarding completion is monotonic for a user session: ignore stale false writes
+      // that can arrive from slower background sync calls after a successful completion.
+      if (state.onboardingCompleted === true && action.payload === false) {
+        return;
+      }
       state.onboardingCompleted = action.payload;
     },
     setAthleteUserId: (state, action: PayloadAction<number | null>) => {

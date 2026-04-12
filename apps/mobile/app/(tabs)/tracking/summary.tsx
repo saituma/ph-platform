@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Pressable, Platform } from "react-native";
+import { View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Polyline, Marker } from "react-native-maps";
 
@@ -26,6 +26,7 @@ import {
 } from "../../../lib/tracking/runUtils";
 import { TrackingMetricTile } from "../../../components/tracking/TrackingMetricTile";
 import { OsmMapView } from "../../../components/tracking/OsmMapView";
+import { shouldUseOsmMap } from "@/lib/mapsConfig";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -69,7 +70,7 @@ export default function RunSummaryScreen() {
         }
       : undefined;
 
-  const useOsmMap = false; // User explicitly requested realistic map (native MapView)
+  const useOsmMap = shouldUseOsmMap();
 
   const animatedScreenStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -297,7 +298,6 @@ export default function RunSummaryScreen() {
                   userInterfaceStyle={isDark ? "dark" : "light"}
                   scrollEnabled={false}
                   zoomEnabled={false}
-                  provider={Platform.OS === "android" ? "google" : undefined}
                   mapType="standard"
                   showsBuildings={false}
                   customMapStyle={isDark ? (MapNightStyle as any) : ([] as any)}
