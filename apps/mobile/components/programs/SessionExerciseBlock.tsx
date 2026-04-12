@@ -11,6 +11,8 @@ import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { SessionItem } from "@/hooks/programs/useSessionData";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
+import { MarkdownText } from "@/components/ui/MarkdownText";
+import { ProgramMetricGrid } from "@/components/programs/metrics/ProgramMetricGrid";
 
 type PendingSessionVideo = {
   video: { uri: string };
@@ -60,6 +62,61 @@ export function SessionExerciseBlock({
   if (items.length === 0) return null;
 
   const borderSoft = colors.borderSubtle ?? (isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)");
+
+  const MetaSectionCard = ({
+    icon,
+    title,
+    body,
+  }: {
+    icon: React.ComponentProps<typeof Feather>["name"];
+    title: string;
+    body: string;
+  }) => (
+    <View
+      className="rounded-[22px] border px-4 py-4 gap-3"
+      style={{
+        backgroundColor: colors.surfaceHigh,
+        borderColor: borderSoft,
+      }}
+    >
+      <View className="flex-row items-center gap-3">
+        <View
+          className="h-9 w-9 rounded-full items-center justify-center"
+          style={{ backgroundColor: colors.accentLight }}
+        >
+          <Feather name={icon} size={16} color={colors.accent} />
+        </View>
+        <Text
+          className="text-[11px] font-outfit-bold uppercase tracking-[1.6px]"
+          style={{ color: colors.textSecondary }}
+        >
+          {title}
+        </Text>
+      </View>
+      <MarkdownText
+        text={body}
+        baseStyle={{
+          fontSize: 15,
+          lineHeight: 24,
+          color: colors.text,
+          fontWeight: "500",
+        }}
+        headingStyle={{
+          fontSize: 16,
+          lineHeight: 24,
+          color: colors.text,
+          fontWeight: "700",
+        }}
+        subheadingStyle={{
+          fontSize: 15,
+          lineHeight: 22,
+          color: colors.text,
+          fontWeight: "700",
+        }}
+        listItemStyle={{ paddingLeft: 6 }}
+      />
+    </View>
+  );
 
   const isDirectVideoUrl = (url: string) =>
     /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url) || /\.(m3u8)(\?.*)?$/i.test(url);
@@ -339,91 +396,90 @@ export function SessionExerciseBlock({
                 ) : null}
 
                 {item.metadata ? (
-                  <View className="gap-2 mt-2">
-                    <View className="flex-row flex-wrap gap-2">
-                      {item.metadata.category?.trim() ? (
-                        <Text className="text-xs font-outfit text-secondary">
-                          {item.metadata.category.trim()}
-                        </Text>
-                      ) : null}
-                      {item.metadata.equipment?.trim() ? (
-                        <Text className="text-xs font-outfit text-secondary">
-                          {item.metadata.equipment.trim()}
-                        </Text>
-                      ) : null}
-                      {typeof item.metadata.sets === "number" ? (
-                        <Text className="text-xs font-outfit text-secondary">
-                          {item.metadata.sets} sets
-                        </Text>
-                      ) : null}
-                      {typeof item.metadata.reps === "number" ? (
-                        <Text className="text-xs font-outfit text-secondary">
-                          {item.metadata.reps} reps
-                        </Text>
-                      ) : null}
-                      {typeof item.metadata.duration === "number" ? (
-                        <Text className="text-xs font-outfit text-secondary">
-                          {item.metadata.duration}s
-                        </Text>
-                      ) : null}
-                      {typeof item.metadata.restSeconds === "number" ? (
-                        <Text className="text-xs font-outfit text-secondary">
-                          Rest {item.metadata.restSeconds}s
-                        </Text>
-                      ) : null}
-                    </View>
+                  <View className="mt-4 gap-4">
+                    <ProgramMetricGrid
+                      items={[
+                        item.metadata.sets != null
+                          ? {
+                              key: `sets-${item.id}`,
+                              label: "Sets",
+                              value: String(item.metadata.sets),
+                              icon: "hash",
+                              accent: true,
+                            }
+                          : null,
+                        item.metadata.reps != null
+                          ? {
+                              key: `reps-${item.id}`,
+                              label: "Reps",
+                              value: String(item.metadata.reps),
+                              icon: "repeat",
+                            }
+                          : null,
+                        item.metadata.duration != null
+                          ? {
+                              key: `duration-${item.id}`,
+                              label: "Duration",
+                              value: String(item.metadata.duration),
+                              unit: "s",
+                              icon: "clock",
+                            }
+                          : null,
+                        item.metadata.restSeconds != null
+                          ? {
+                              key: `rest-${item.id}`,
+                              label: "Rest",
+                              value: String(item.metadata.restSeconds),
+                              unit: "s",
+                              icon: "pause-circle",
+                            }
+                          : null,
+                        item.metadata.category?.trim()
+                          ? {
+                              key: `category-${item.id}`,
+                              label: "Category",
+                              value: item.metadata.category.trim(),
+                              icon: "tag",
+                            }
+                          : null,
+                        item.metadata.equipment?.trim()
+                          ? {
+                              key: `equipment-${item.id}`,
+                              label: "Equipment",
+                              value: item.metadata.equipment.trim(),
+                              icon: "tool",
+                            }
+                          : null,
+                      ].filter(Boolean) as any}
+                    />
 
                     {item.metadata.steps?.trim() ? (
-                      <View className="gap-1">
-                        <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest">
-                          Steps
-                        </Text>
-                        <Text
-                          className="text-sm font-outfit text-secondary"
-                          numberOfLines={20}
-                        >
-                          {item.metadata.steps.trim()}
-                        </Text>
-                      </View>
+                      <MetaSectionCard
+                        icon="list"
+                        title="Steps"
+                        body={item.metadata.steps.trim()}
+                      />
                     ) : null}
                     {item.metadata.cues?.trim() ? (
-                      <View className="gap-1">
-                        <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest">
-                          Cues
-                        </Text>
-                        <Text
-                          className="text-sm font-outfit text-secondary"
-                          numberOfLines={20}
-                        >
-                          {item.metadata.cues.trim()}
-                        </Text>
-                      </View>
+                      <MetaSectionCard
+                        icon="message-circle"
+                        title="Cues"
+                        body={item.metadata.cues.trim()}
+                      />
                     ) : null}
                     {item.metadata.progression?.trim() ? (
-                      <View className="gap-1">
-                        <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest">
-                          Progression
-                        </Text>
-                        <Text
-                          className="text-sm font-outfit text-secondary"
-                          numberOfLines={20}
-                        >
-                          {item.metadata.progression.trim()}
-                        </Text>
-                      </View>
+                      <MetaSectionCard
+                        icon="trending-up"
+                        title="Progression"
+                        body={item.metadata.progression.trim()}
+                      />
                     ) : null}
                     {item.metadata.regression?.trim() ? (
-                      <View className="gap-1">
-                        <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest">
-                          Regression
-                        </Text>
-                        <Text
-                          className="text-sm font-outfit text-secondary"
-                          numberOfLines={20}
-                        >
-                          {item.metadata.regression.trim()}
-                        </Text>
-                      </View>
+                      <MetaSectionCard
+                        icon="trending-down"
+                        title="Regression"
+                        body={item.metadata.regression.trim()}
+                      />
                     ) : null}
                   </View>
                 ) : null}
