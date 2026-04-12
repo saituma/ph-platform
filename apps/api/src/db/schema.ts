@@ -96,11 +96,11 @@ export const userTable = pgTable("users", {
   tokenVersion: integer().notNull().default(0),
   expoPushToken: varchar({ length: 255 }),
 
-  nutritionReminderEnabled: boolean().notNull().default(false),
-  nutritionReminderTimeLocal: varchar({ length: 5 }), // 'HH:MM'
-  nutritionReminderTimezone: varchar({ length: 100 }),
-  lastNutritionReminderDateKey: varchar({ length: 10 }), // 'YYYY-MM-DD'
-  lastNutritionReminderSentAt: timestamp(),
+  nutritionReminderEnabled: boolean("nutrition_reminder_enabled").notNull().default(false),
+  nutritionReminderTimeLocal: varchar("nutrition_reminder_time_local", { length: 5 }), // 'HH:MM'
+  nutritionReminderTimezone: varchar("nutrition_reminder_timezone", { length: 100 }),
+  lastNutritionReminderDateKey: varchar("last_nutrition_reminder_date_key", { length: 10 }), // 'YYYY-MM-DD'
+  lastNutritionReminderSentAt: timestamp("last_nutrition_reminder_sent_at"),
 
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
