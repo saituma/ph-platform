@@ -533,6 +533,13 @@
       "when": 1775957000000,
       "tag": "0075_video_upload_training_session_item_id",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1775958000000,
+      "tag": "0076_nutrition_daily_habits_steps_sleep",
+      "breakpoints": true
     }
   ]
 }
