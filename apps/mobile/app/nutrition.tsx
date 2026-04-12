@@ -1,19 +1,15 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { NutritionPanel } from "@/components/programs/panels/NutritionPanel";
-import { canAccessTier } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
-import { useRouter } from "expo-router";
 import React from "react";
-import { ScrollView, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Platform, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 export default function NutritionScreen() {
-  const router = useRouter();
-  const programTier = useAppSelector((state) => state.user.programTier);
+  const insets = useSafeAreaInsets();
   const appRole = useAppSelector((state) => state.user.appRole);
-  const { colors, isDark } = useAppTheme();
   
   // Youths in team or PHP generally get standard access, Adult is Premium Plus restricted unless stated otherwise, but let's just make it universally accessible for now as part of "Nutrition Tracking".
   // The system relies on Coach setting targets anyway.
@@ -38,15 +34,22 @@ export default function NutritionScreen() {
         title="Nutrition & Wellness"
         subtitle="Log your daily data and metrics."
       />
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAwareScrollView
         style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom, 12) + 32,
+        }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraHeight={Platform.OS === "ios" ? 120 : 160}
+        extraScrollHeight={Platform.OS === "ios" ? 40 : 96}
+        keyboardDismissMode="on-drag"
       >
         <View className="px-4 pt-2">
           <NutritionPanel appRole={appRole} />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

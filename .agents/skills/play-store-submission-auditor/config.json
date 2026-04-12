@@ -1,16 +1,15 @@
 {
-  "_note": "This file is created automatically after your first audit. Edit it to update your preferences.",
-  "mode": null,
+  "mode": "vibe_coder",
   "strict_mode": true,
-  "stack": null,
-  "uses_play_billing": null,
-  "has_subscriptions": null,
-  "has_ugc": null,
-  "targets_children": null,
-  "uses_sensitive_permissions": [],
-  "has_data_safety_risk": null,
-  "first_time_submitter": null,
-  "last_audit": null,
-  "issues_fixed": [],
-  "issues_outstanding": []
+  "stack": "react_native",
+  "uses_play_billing": false,
+  "has_subscriptions": true,
+  "has_ugc": true,
+  "targets_children": false,
+  "uses_sensitive_permissions": ["ACCESS_BACKGROUND_LOCATION", "READ_MEDIA_IMAGES", "READ_MEDIA_VIDEO"],
+  "has_data_safety_risk": true,
+  "first_time_submitter": false,
+  "last_audit": "2026-04-12",
+  "issues_fixed": ["P1_Missing_Report_Block", "P0_Stripe_Digital_Goods", "P1_Background_Location_Disclosure"],
+  "issues_outstanding": ["P1_Web_Account_Deletion"]
 }

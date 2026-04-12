@@ -75,14 +75,34 @@ export function ProgramTierCard({
         </View>
 
         <View className="flex-row gap-3">
-          <Pressable
-            onPress={() => onOpen(tier.id)}
-            className="flex-1 rounded-full py-4 items-center border"
-            style={{ borderColor: borderSoft }}
-          >
-            <Text className="font-outfit-bold text-app uppercase">Details</Text>
-          </Pressable>
-          
+          {isCurrent ? (
+            <Pressable
+              onPress={() => onOpen(tier.id)}
+              className="flex-1 rounded-full py-4 items-center border"
+              style={{ borderColor: borderSoft }}
+            >
+              <Text className="font-outfit-bold text-app uppercase">Details</Text>
+            </Pressable>
+          ) : (
+            <View
+              className="flex-1 flex-row rounded-full py-4 items-center justify-center gap-2 border"
+              style={{
+                borderColor: borderSoft,
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+              }}
+              accessibilityRole="text"
+              accessibilityLabel="Locked plan"
+            >
+              <Feather name="lock" size={16} color={colors.textSecondary} />
+              <Text
+                className="font-outfit-bold uppercase"
+                style={{ color: colors.textSecondary }}
+              >
+                Locked
+              </Text>
+            </View>
+          )}
+
           {!isCurrent && (
             <Pressable
               onPress={() => onApply(tier.id)}
