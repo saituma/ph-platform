@@ -38,6 +38,65 @@ const feedbackSchema = z.object({
   mediaType: z.enum(["video", "image"]).optional().nullable(),
 });
 
+const reminderSettingsSchema = z
+  .object({
+    enabled: z.boolean(),
+    timeLocal: z
+      .string()
+      .regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM")
+      .optional()
+      .nullable(),
+    timezone: z.string().max(100).optional().nullable(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.enabled && !val.timeLocal) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["timeLocal"],
+        message: "timeLocal is required when enabled=true",
+      });
+    }
+  });
+
+export async function getReminderSettings(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const [user] = await db
+    .select({
+      enabled: userTable.nutritionReminderEnabled,
+      timeLocal: userTable.nutritionReminderTimeLocal,
+      timezone: userTable.nutritionReminderTimezone,
+    })
+    .from(userTable)
+    .where(eq(userTable.id, req.user.id))
+    .limit(1);
+
+  return res.status(200).json({ settings: user ?? null });
+}
+
+export async function updateReminderSettings(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const input = reminderSettingsSchema.parse(req.body);
+
+  const [updated] = await db
+    .update(userTable)
+    .set({
+      nutritionReminderEnabled: input.enabled,
+      nutritionReminderTimeLocal: input.timeLocal ?? null,
+      nutritionReminderTimezone: input.timezone ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, req.user.id))
+    .returning({
+      enabled: userTable.nutritionReminderEnabled,
+      timeLocal: userTable.nutritionReminderTimeLocal,
+      timezone: userTable.nutritionReminderTimezone,
+    });
+
+  return res.status(200).json({ settings: updated ?? null });
+}
+
 export async function getTargets(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   

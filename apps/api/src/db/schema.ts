@@ -96,6 +96,12 @@ export const userTable = pgTable("users", {
   tokenVersion: integer().notNull().default(0),
   expoPushToken: varchar({ length: 255 }),
 
+  nutritionReminderEnabled: boolean().notNull().default(false),
+  nutritionReminderTimeLocal: varchar({ length: 5 }), // 'HH:MM'
+  nutritionReminderTimezone: varchar({ length: 100 }),
+  lastNutritionReminderDateKey: varchar({ length: 10 }), // 'YYYY-MM-DD'
+  lastNutritionReminderSentAt: timestamp(),
+
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 

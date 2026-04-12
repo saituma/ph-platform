@@ -25,6 +25,8 @@ type NutritionLog = {
   lunch?: string | null;
   dinner?: string | null;
   waterIntake?: number | null;
+  steps?: number | null;
+  sleepHours?: number | null;
   mood?: number | null;
   energy?: number | null;
   pain?: number | null;

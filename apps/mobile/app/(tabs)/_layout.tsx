@@ -19,8 +19,6 @@ import { YouthLayout } from "@/roles/youth/YouthLayout";
 import { usePushNotificationResponses } from "@/hooks/navigation/usePushNotificationResponses";
 import { useProfileSync } from "@/hooks/navigation/useProfileSync";
 
-import { FirstLoginWalkthrough } from "@/components/onboarding/FirstLoginWalkthrough";
-
 export default function TabLayout() {
   const {
     hydrated,
@@ -114,7 +112,6 @@ export default function TabLayout() {
   return (
     <View style={containerStyle}>
       {renderRoleLayout()}
-      <FirstLoginWalkthrough />
     </View>
   );
 }
