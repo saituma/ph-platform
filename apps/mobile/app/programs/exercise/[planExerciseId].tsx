@@ -1,7 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, TouchableOpacity, View } from "react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter, type RelativePathString } from "expo-router";
+import {
+  useLocalSearchParams,
+  useRouter,
+  type RelativePathString,
+} from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
@@ -90,7 +106,13 @@ function isGoogleDriveUrl(url: string): boolean {
   return url.toLowerCase().includes("drive.google.com");
 }
 
-const ExternalLinkButton = React.memo(function ExternalLinkButton({ url, label }: { url: string; label: string }) {
+const ExternalLinkButton = React.memo(function ExternalLinkButton({
+  url,
+  label,
+}: {
+  url: string;
+  label: string;
+}) {
   const { isDark } = useAppTheme();
   return (
     <TouchableOpacity
@@ -100,15 +122,28 @@ const ExternalLinkButton = React.memo(function ExternalLinkButton({ url, label }
     >
       <Feather name="external-link" size={18} color="#FFFFFF" />
       <View className="flex-1">
-        <Text className="text-sm font-outfit text-white font-semibold">{label}</Text>
-        <Text className="text-[11px] font-outfit text-white/80 mt-0.5" numberOfLines={1}>{url}</Text>
+        <Text className="text-sm font-outfit text-white font-semibold">
+          {label}
+        </Text>
+        <Text
+          className="text-[11px] font-outfit text-white/80 mt-0.5"
+          numberOfLines={1}
+        >
+          {url}
+        </Text>
       </View>
       <Feather name="chevron-right" size={16} color="#94A3B8" />
     </TouchableOpacity>
   );
 });
 
-const MediaSection = React.memo(function MediaSection({ url, title }: { url: string; title?: string }) {
+const MediaSection = React.memo(function MediaSection({
+  url,
+  title,
+}: {
+  url: string;
+  title?: string;
+}) {
   if (isYoutubeUrl(url)) {
     return (
       <View className="rounded-3xl overflow-hidden bg-white/5">
@@ -139,7 +174,9 @@ export default function PremiumExerciseDetailScreen() {
     index?: string;
   }>();
   const router = useRouter();
-  const { token, managedAthletes, athleteUserId, programTier } = useAppSelector((state) => state.user);
+  const { token, managedAthletes, athleteUserId, programTier } = useAppSelector(
+    (state) => state.user,
+  );
 
   const { isDark, colors } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
@@ -149,36 +186,42 @@ export default function PremiumExerciseDetailScreen() {
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
   const lastLoadedRef = useRef<string | null>(null);
 
-  const load = useCallback(async (force = false) => {
-    if (!token || !planExerciseId) {
-      setIsLoading(false);
-      setError("Exercise not available.");
-      return;
-    }
-    const key = `${token}:${planExerciseId}`;
-    if (!force && lastLoadedRef.current === key) return;
-    try {
-      setIsLoading(true);
-      const data = await apiRequest<{ item?: PremiumExerciseDetail }>(`/premium-plan/exercises/${planExerciseId}`, {
-        token,
-        forceRefresh: force,
-        skipCache: true,
-      });
-      if (!data.item) {
-        setError("Exercise not found.");
-        setItem(null);
+  const load = useCallback(
+    async (force = false) => {
+      if (!token || !planExerciseId) {
+        setIsLoading(false);
+        setError("Exercise not available.");
         return;
       }
-      setItem(data.item);
-      setError(null);
-      lastLoadedRef.current = key;
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to load exercise.");
-      setItem(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [planExerciseId, token]);
+      const key = `${token}:${planExerciseId}`;
+      if (!force && lastLoadedRef.current === key) return;
+      try {
+        setIsLoading(true);
+        const data = await apiRequest<{ item?: PremiumExerciseDetail }>(
+          `/premium-plan/exercises/${planExerciseId}`,
+          {
+            token,
+            forceRefresh: force,
+            skipCache: true,
+          },
+        );
+        if (!data.item) {
+          setError("Exercise not found.");
+          setItem(null);
+          return;
+        }
+        setItem(data.item);
+        setError(null);
+        lastLoadedRef.current = key;
+      } catch (err: any) {
+        setError(err?.message ?? "Failed to load exercise.");
+        setItem(null);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [planExerciseId, token],
+  );
 
   useEffect(() => {
     void load();
@@ -186,15 +229,27 @@ export default function PremiumExerciseDetailScreen() {
 
   const activeAthlete = useMemo(() => {
     if (!managedAthletes.length) return null;
-    return managedAthletes.find((athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId) ?? managedAthletes[0];
+    return (
+      managedAthletes.find(
+        (athlete) =>
+          athlete.id === athleteUserId || athlete.userId === athleteUserId,
+      ) ?? managedAthletes[0]
+    );
   }, [athleteUserId, managedAthletes]);
 
   const linkedContent = item?.linkedProgramSectionContent ?? null;
   const meta = (linkedContent?.metadata ?? {}) as ExerciseMetadata;
   const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
-  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
+  const mutedSurface = isDark
+    ? "rgba(255,255,255,0.06)"
+    : "rgba(255,255,255,0.84)";
+  const accentSurface = isDark
+    ? "rgba(34,197,94,0.16)"
+    : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const mutedSurfaceSoft = isDark
+    ? "rgba(255,255,255,0.06)"
+    : "rgba(15,23,42,0.04)";
   const canUploadVideos =
     canAccessTier(programTier ?? null, "PHP_Premium") &&
     !isSectionHidden("videoFeedback");
@@ -204,14 +259,27 @@ export default function PremiumExerciseDetailScreen() {
     Number.isFinite(Number(item?.linkedProgramSectionContentId));
   const title = item?.exercise?.name ?? linkedContent?.title ?? "Exercise";
   const mediaUrl = linkedContent?.videoUrl ?? item?.exercise?.videoUrl ?? null;
-  const bodyText = linkedContent?.body ?? item?.exercise?.howTo ?? item?.exercise?.notes ?? item?.coachingNotes ?? "";
+  const bodyText =
+    linkedContent?.body ??
+    item?.exercise?.howTo ??
+    item?.exercise?.notes ??
+    item?.coachingNotes ??
+    "";
   const displaySets = item?.sets ?? null;
   const displayReps = item?.reps ?? null;
   const displayDuration = item?.duration ?? null;
   const displayRest = item?.restSeconds ?? null;
   const cues = meta.cues ?? item?.exercise?.cues ?? null;
-  const progression = item?.progressionNotes ?? meta.progression ?? item?.exercise?.progression ?? null;
-  const regression = item?.regressionNotes ?? meta.regression ?? item?.exercise?.regression ?? null;
+  const progression =
+    item?.progressionNotes ??
+    meta.progression ??
+    item?.exercise?.progression ??
+    null;
+  const regression =
+    item?.regressionNotes ??
+    meta.regression ??
+    item?.exercise?.regression ??
+    null;
   const sessionExerciseIds = useMemo(
     () =>
       String(sessionIds ?? "")
@@ -226,10 +294,13 @@ export default function PremiumExerciseDetailScreen() {
     return parsed;
   }, [index]);
   const hasSessionNavigation = sessionExerciseIds.length > 1;
-  const previousExerciseId = hasSessionNavigation && sessionIndex > 0 ? sessionExerciseIds[sessionIndex - 1] ?? null : null;
+  const previousExerciseId =
+    hasSessionNavigation && sessionIndex > 0
+      ? (sessionExerciseIds[sessionIndex - 1] ?? null)
+      : null;
   const nextExerciseId =
     hasSessionNavigation && sessionIndex < sessionExerciseIds.length - 1
-      ? sessionExerciseIds[sessionIndex + 1] ?? null
+      ? (sessionExerciseIds[sessionIndex + 1] ?? null)
       : null;
   const buildExercisePath = useCallback(
     (targetId: string, targetIndex: number) =>
@@ -239,6 +310,93 @@ export default function PremiumExerciseDetailScreen() {
   const contentContainerStyle = useMemo(
     () => ({ paddingBottom: hasSessionNavigation ? 136 : 40 }),
     [hasSessionNavigation],
+  );
+
+  const DetailCard = useCallback(
+    ({
+      icon,
+      title,
+      body,
+    }: {
+      icon: React.ComponentProps<typeof Feather>["name"];
+      title: string;
+      body: string;
+    }) => (
+      <View
+        className="rounded-[28px] border px-6 py-5 gap-3"
+        style={{
+          backgroundColor: surfaceColor,
+          borderColor: borderSoft,
+          ...(isDark ? Shadows.none : Shadows.sm),
+        }}
+      >
+        <View className="flex-row items-center gap-3">
+          <View
+            className="h-9 w-9 rounded-full items-center justify-center"
+            style={{ backgroundColor: mutedSurfaceSoft }}
+          >
+            <Feather name={icon} size={16} color={colors.accent} />
+          </View>
+          <Text
+            className="text-[12px] font-outfit uppercase tracking-[1.6px] font-bold"
+            style={{ color: colors.textSecondary }}
+          >
+            {title}
+          </Text>
+        </View>
+
+        <MarkdownText
+          text={body}
+          baseStyle={{ fontSize: 15, lineHeight: 24, color: colors.text }}
+          headingStyle={{
+            fontSize: 16,
+            lineHeight: 24,
+            color: colors.text,
+            fontWeight: "700",
+          }}
+          subheadingStyle={{
+            fontSize: 15,
+            lineHeight: 22,
+            color: colors.text,
+            fontWeight: "700",
+          }}
+          listItemStyle={{ paddingLeft: 6 }}
+        />
+      </View>
+    ),
+    [
+      borderSoft,
+      colors.accent,
+      colors.text,
+      colors.textSecondary,
+      isDark,
+      mutedSurfaceSoft,
+      surfaceColor,
+    ],
+  );
+
+  const Metric = useCallback(
+    ({ label, value }: { label: string; value: string }) => (
+      <View
+        className="rounded-full border px-4 py-3 flex-row items-center gap-3"
+        style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}
+      >
+        <Text
+          className="text-[11px] font-outfit uppercase tracking-[1.2px] font-bold"
+          style={{ color: colors.textSecondary }}
+        >
+          {label}
+        </Text>
+        <View className="flex-1" />
+        <Text
+          className="text-[14px] font-clash font-bold"
+          style={{ color: colors.text }}
+        >
+          {value}
+        </Text>
+      </View>
+    ),
+    [borderSoft, colors.text, colors.textSecondary, mutedSurface],
   );
 
   const handleBack = useCallback(() => {
@@ -269,13 +427,23 @@ export default function PremiumExerciseDetailScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <SafeMaskedView style={{ flex: 1 }}>
-        <ThemedScrollView onRefresh={() => load(true)} contentContainerStyle={contentContainerStyle}>
+        <ThemedScrollView
+          onRefresh={() => load(true)}
+          contentContainerStyle={contentContainerStyle}
+        >
           <View className="px-6 pt-6">
             <View
               className="overflow-hidden rounded-[30px] border px-5 py-5 mb-6"
-              style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.md) }}
+              style={{
+                backgroundColor: surfaceColor,
+                borderColor: borderSoft,
+                ...(isDark ? Shadows.none : Shadows.md),
+              }}
             >
-              <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: accentSurface }} />
+              <View
+                className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
+                style={{ backgroundColor: accentSurface }}
+              />
               <View className="flex-row items-center justify-between mb-4">
                 <Pressable
                   onPress={handleBack}
@@ -284,32 +452,58 @@ export default function PremiumExerciseDetailScreen() {
                 >
                   <Feather name="arrow-left" size={20} color={colors.accent} />
                 </Pressable>
-                <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+                <View
+                  className="rounded-full px-3 py-1.5"
+                  style={{ backgroundColor: mutedSurface }}
+                >
+                  <Text
+                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
+                    style={{ color: colors.accent }}
+                  >
                     Exercise detail
                   </Text>
                 </View>
               </View>
 
-              <Text className="text-3xl font-telma-bold text-app font-bold">{title}</Text>
+              <Text className="text-3xl font-telma-bold text-app font-bold">
+                {title}
+              </Text>
               <View className="mt-4 flex-row flex-wrap gap-2">
                 {activeAthlete?.name ? (
-                  <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
-                    <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+                  <View
+                    className="rounded-full px-3 py-2"
+                    style={{ backgroundColor: accentSurface }}
+                  >
+                    <Text
+                      className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]"
+                      style={{ color: colors.accent }}
+                    >
                       Athlete: {activeAthlete.name}
                     </Text>
                   </View>
                 ) : null}
                 {item?.session?.weekNumber != null ? (
-                  <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
-                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                  <View
+                    className="rounded-full px-3 py-2"
+                    style={{ backgroundColor: mutedSurface }}
+                  >
+                    <Text
+                      className="text-[11px] font-outfit font-semibold"
+                      style={{ color: colors.text }}
+                    >
                       Week {item.session.weekNumber}
                     </Text>
                   </View>
                 ) : null}
                 {item?.session?.sessionNumber != null ? (
-                  <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
-                    <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+                  <View
+                    className="rounded-full px-3 py-2"
+                    style={{ backgroundColor: mutedSurface }}
+                  >
+                    <Text
+                      className="text-[11px] font-outfit font-semibold"
+                      style={{ color: colors.text }}
+                    >
                       Session {item.session.sessionNumber}
                     </Text>
                   </View>
@@ -318,45 +512,77 @@ export default function PremiumExerciseDetailScreen() {
             </View>
 
             {isLoading ? (
-              <View className="rounded-3xl bg-[#2F8F57] px-6 py-6 items-center" style={isDark ? Shadows.none : Shadows.sm}>
+              <View
+                className="rounded-3xl bg-[#2F8F57] px-6 py-6 items-center"
+                style={isDark ? Shadows.none : Shadows.sm}
+              >
                 <ActivityIndicator color="#FFFFFF" />
-                <Text className="text-sm font-outfit text-white mt-2">Loading exercise...</Text>
+                <Text className="text-sm font-outfit text-white mt-2">
+                  Loading exercise...
+                </Text>
               </View>
             ) : error ? (
-              <View className="rounded-3xl bg-[#2F8F57] px-6 py-6" style={isDark ? Shadows.none : Shadows.sm}>
-                <Text className="text-sm font-outfit text-white text-center">{error}</Text>
+              <View
+                className="rounded-3xl bg-[#2F8F57] px-6 py-6"
+                style={isDark ? Shadows.none : Shadows.sm}
+              >
+                <Text className="text-sm font-outfit text-white text-center">
+                  {error}
+                </Text>
               </View>
             ) : item ? (
               <View className="gap-4">
-                <View className="rounded-[28px] px-6 py-6 gap-4" style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}>
-                  <Text className="text-2xl font-clash text-app font-bold">Exercise overview</Text>
+                <View
+                  className="rounded-[28px] px-6 py-6 gap-4"
+                  style={{
+                    backgroundColor: surfaceColor,
+                    ...(isDark ? Shadows.none : Shadows.sm),
+                  }}
+                >
+                  <Text className="text-2xl font-clash text-app font-bold">
+                    Exercise overview
+                  </Text>
 
-                  <View className="flex-row flex-wrap gap-2">
+                  <View className="flex-row flex-wrap gap-3">
                     {displaySets != null ? (
-                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-                        <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>{displaySets} sets</Text>
+                      <View style={{ flexBasis: "48%" }}>
+                        <Metric label="Sets" value={String(displaySets)} />
                       </View>
                     ) : null}
                     {displayReps != null ? (
-                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-                        <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>{displayReps} reps</Text>
+                      <View style={{ flexBasis: "48%" }}>
+                        <Metric label="Reps" value={String(displayReps)} />
                       </View>
                     ) : null}
                     {displayDuration != null ? (
-                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-                        <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>{displayDuration}s duration</Text>
+                      <View style={{ flexBasis: "48%" }}>
+                        <Metric
+                          label="Duration"
+                          value={`${displayDuration}s`}
+                        />
                       </View>
                     ) : null}
                     {displayRest != null ? (
-                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: accentSurface }}>
-                        <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>{displayRest}s rest</Text>
+                      <View style={{ flexBasis: "48%" }}>
+                        <Metric label="Rest" value={`${displayRest}s`} />
                       </View>
                     ) : null}
                     {(meta.category ?? item.exercise?.category) ? (
-                      <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-                        <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
-                          {meta.category ?? item.exercise?.category}
-                        </Text>
+                      <View style={{ flexBasis: "48%" }}>
+                        <Metric
+                          label="Category"
+                          value={String(
+                            meta.category ?? item.exercise?.category,
+                          )}
+                        />
+                      </View>
+                    ) : null}
+                    {meta.equipment ? (
+                      <View style={{ flexBasis: "48%" }}>
+                        <Metric
+                          label="Equipment"
+                          value={String(meta.equipment)}
+                        />
                       </View>
                     ) : null}
                   </View>
@@ -364,9 +590,23 @@ export default function PremiumExerciseDetailScreen() {
                   {bodyText ? (
                     <MarkdownText
                       text={bodyText}
-                      baseStyle={{ fontSize: 15, lineHeight: 24, color: colors.text }}
-                      headingStyle={{ fontSize: 18, lineHeight: 26, color: colors.text, fontWeight: "700" }}
-                      subheadingStyle={{ fontSize: 16, lineHeight: 24, color: colors.text, fontWeight: "700" }}
+                      baseStyle={{
+                        fontSize: 15,
+                        lineHeight: 24,
+                        color: colors.text,
+                      }}
+                      headingStyle={{
+                        fontSize: 18,
+                        lineHeight: 26,
+                        color: colors.text,
+                        fontWeight: "700",
+                      }}
+                      subheadingStyle={{
+                        fontSize: 16,
+                        lineHeight: 24,
+                        color: colors.text,
+                        fontWeight: "700",
+                      }}
                       listItemStyle={{ paddingLeft: 6 }}
                     />
                   ) : null}
@@ -376,75 +616,56 @@ export default function PremiumExerciseDetailScreen() {
                       void toggleComplete();
                     }}
                     className="mt-4 rounded-2xl px-4 py-4 flex-row items-center justify-center gap-2"
-                    style={{ backgroundColor: item.completed ? colors.text : colors.accent }}
+                    style={{
+                      backgroundColor: item.completed
+                        ? colors.text
+                        : colors.accent,
+                    }}
                   >
-                    <Feather name={item.completed ? "rotate-ccw" : "check-circle"} size={18} color="#ffffff" />
+                    <Feather
+                      name={item.completed ? "rotate-ccw" : "check-circle"}
+                      size={18}
+                      color="#ffffff"
+                    />
                     <Text className="text-white font-outfit font-bold text-sm uppercase tracking-[1.3px]">
-                      {item.completed ? "Mark incomplete" : "Mark exercise complete"}
+                      {item.completed
+                        ? "Mark incomplete"
+                        : "Mark exercise complete"}
                     </Text>
                   </Pressable>
                 </View>
 
                 {cues ? (
-                  <View className="rounded-3xl bg-[#2F8F57] px-6 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
-                    <View className="flex-row items-center gap-2">
-                      <View className="h-8 w-8 rounded-full bg-white/20 items-center justify-center">
-                        <Feather name="message-circle" size={14} color="#FFFFFF" />
-                      </View>
-                      <Text className="text-[12px] font-outfit text-white uppercase tracking-[2px] font-bold">
-                        Coaching Cues
-                      </Text>
-                    </View>
-                    <Text className="text-[15px] font-outfit text-white leading-[24px]">{cues}</Text>
-                  </View>
+                  <DetailCard
+                    icon="message-circle"
+                    title="Coaching cues"
+                    body={cues}
+                  />
                 ) : null}
 
                 {meta.steps ? (
-                  <View className="rounded-3xl bg-[#0F766E] px-6 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
-                    <View className="flex-row items-center gap-2">
-                      <View className="h-8 w-8 rounded-full bg-white/20 items-center justify-center">
-                        <Feather name="list" size={14} color="#FFFFFF" />
-                      </View>
-                      <Text className="text-[12px] font-outfit text-white uppercase tracking-[2px] font-bold">
-                        Steps
-                      </Text>
-                    </View>
-                    <Text className="text-[15px] font-outfit text-white leading-[24px]">{meta.steps}</Text>
-                  </View>
+                  <DetailCard icon="list" title="Steps" body={meta.steps} />
                 ) : null}
 
-                {(progression || regression) ? (
-                  <View className="flex-row gap-4">
-                    {progression ? (
-                      <View className="flex-1 rounded-3xl bg-[#22C55E] px-5 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
-                        <View className="flex-row items-center gap-2">
-                          <View className="h-8 w-8 rounded-full bg-white/30 items-center justify-center">
-                            <Feather name="trending-up" size={14} color="#FFFFFF" />
-                          </View>
-                          <Text className="text-[11px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
-                            Progression
-                          </Text>
-                        </View>
-                        <Text className="text-[14px] font-outfit text-white leading-relaxed">{progression}</Text>
-                      </View>
-                    ) : null}
-                    {regression ? (
-                      <View className="flex-1 rounded-3xl bg-[#F97316] px-5 py-5 gap-3" style={isDark ? Shadows.none : Shadows.sm}>
-                        <View className="flex-row items-center gap-2">
-                          <View className="h-8 w-8 rounded-full bg-white/30 items-center justify-center">
-                            <Feather name="trending-down" size={14} color="#FFFFFF" />
-                          </View>
-                          <Text className="text-[11px] font-outfit text-white uppercase tracking-[1.5px] font-bold">
-                            Regression
-                          </Text>
-                        </View>
-                        <Text className="text-[14px] font-outfit text-white leading-relaxed">{regression}</Text>
-                      </View>
-                    ) : null}
-                  </View>
+                {progression ? (
+                  <DetailCard
+                    icon="trending-up"
+                    title="Progression"
+                    body={progression}
+                  />
                 ) : null}
 
-                {mediaUrl ? <MediaSection url={mediaUrl} title={title} /> : null}
+                {regression ? (
+                  <DetailCard
+                    icon="trending-down"
+                    title="Regression"
+                    body={regression}
+                  />
+                ) : null}
+
+                {mediaUrl ? (
+                  <MediaSection url={mediaUrl} title={title} />
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -463,20 +684,27 @@ export default function PremiumExerciseDetailScreen() {
             <Pressable
               onPress={() => {
                 if (!previousExerciseId) return;
-                router.replace(buildExercisePath(previousExerciseId, sessionIndex - 1));
+                router.replace(
+                  buildExercisePath(previousExerciseId, sessionIndex - 1),
+                );
               }}
               disabled={!previousExerciseId}
               className={`flex-1 rounded-2xl px-4 py-4 items-center justify-center ${previousExerciseId ? "" : "opacity-50"}`}
               style={{ backgroundColor: mutedSurface }}
             >
-              <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px]" style={{ color: colors.text }}>
+              <Text
+                className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px]"
+                style={{ color: colors.text }}
+              >
                 Previous
               </Text>
             </Pressable>
             <Pressable
               onPress={() => {
                 if (nextExerciseId) {
-                  router.replace(buildExercisePath(nextExerciseId, sessionIndex + 1));
+                  router.replace(
+                    buildExercisePath(nextExerciseId, sessionIndex + 1),
+                  );
                   return;
                 }
                 if (router.canGoBack()) {

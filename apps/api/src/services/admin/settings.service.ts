@@ -16,6 +16,7 @@ import {
   exerciseTable,
   programSectionContentTable,
 } from "../../db/schema";
+import { normalizeStoredMediaUrl } from "../s3.service";
 
 async function getOrCreateAdminSettings(userId: number) {
   const existing = await db
@@ -39,7 +40,13 @@ export async function getAdminProfile(userId: number) {
   const user = users[0];
   if (!user) return null;
   const settings = await getOrCreateAdminSettings(userId);
-  return { user, settings };
+  return {
+    user: {
+      ...user,
+      profilePicture: normalizeStoredMediaUrl(user.profilePicture ?? null),
+    },
+    settings,
+  };
 }
 
 export async function updateAdminProfile(

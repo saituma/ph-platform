@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { View, Pressable, Platform, TextInput, Alert } from "react-native";
+import React, { useEffect } from "react";
+import { View, Pressable, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Polyline, Marker } from "react-native-maps";
 
@@ -32,17 +32,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default function RunSummaryScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
-  const {
-    distanceMeters,
-    distanceOverrideMeters,
-    setDistanceOverrideMeters,
-    elapsedSeconds,
-    coordinates,
-    resetRun,
-  } = useRunStore();
-
-  const [isEditingDistance, setIsEditingDistance] = useState(false);
-  const [distanceKmText, setDistanceKmText] = useState("");
+  const { distanceMeters, elapsedSeconds, coordinates, resetRun } =
+    useRunStore();
 
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
@@ -64,38 +55,9 @@ export default function RunSummaryScreen() {
     router.replace("/(tabs)/tracking/feedback" as any);
   };
 
-  const finalDistanceMeters = useMemo(
-    () =>
-      typeof distanceOverrideMeters === "number"
-        ? distanceOverrideMeters
-        : distanceMeters,
-    [distanceOverrideMeters, distanceMeters],
-  );
-
-  const onStartEditDistance = () => {
-    setDistanceKmText((finalDistanceMeters / 1000).toFixed(2));
-    setIsEditingDistance(true);
-  };
-
-  const onApplyDistanceEdit = () => {
-    const normalized = distanceKmText.replace(",", ".").trim();
-    const km = Number(normalized);
-    if (!Number.isFinite(km) || km < 0) {
-      Alert.alert("Invalid distance", "Enter a valid distance in kilometers.");
-      return;
-    }
-    setDistanceOverrideMeters(km === 0 ? null : Math.round(km * 1000));
-    setIsEditingDistance(false);
-  };
-
-  const onCancelDistanceEdit = () => {
-    setIsEditingDistance(false);
-    setDistanceKmText("");
-  };
-
   const { paceMinPerKm: currentPace, speedKmH: currentSpeed } =
-    calculatePaceAndSpeed(finalDistanceMeters, elapsedSeconds);
-  const calories = estimateCalories(finalDistanceMeters);
+    calculatePaceAndSpeed(distanceMeters, elapsedSeconds);
+  const calories = estimateCalories(distanceMeters);
 
   const initialRegion =
     coordinates.length > 0
@@ -221,9 +183,9 @@ export default function RunSummaryScreen() {
               fontVariant: ["tabular-nums"],
             }}
           >
-            {finalDistanceMeters === 0 && elapsedSeconds < 2
+            {distanceMeters === 0 && elapsedSeconds < 2
               ? "--"
-              : formatDistanceKm(finalDistanceMeters, 2)}
+              : formatDistanceKm(distanceMeters, 2)}
           </Text>
           <Text
             style={{
@@ -235,149 +197,6 @@ export default function RunSummaryScreen() {
           >
             KILOMETERS
           </Text>
-
-          {/* Manual distance override */}
-          <View style={{ width: "100%", marginTop: 14 }}>
-            {!isEditingDistance ? (
-              <Pressable
-                onPress={onStartEditDistance}
-                style={{
-                  height: 42,
-                  borderRadius: radius.lg,
-                  borderColor: colors.border,
-                  borderWidth: 1,
-                  backgroundColor: colors.inputBackground,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-              >
-                <Ionicons
-                  name={themeIcons.edit.name as any}
-                  size={16}
-                  color={colors.textSecondary}
-                />
-                <Text
-                  style={{
-                    fontFamily: fonts.bodyMedium,
-                    fontSize: 13,
-                    color: colors.textSecondary,
-                  }}
-                >
-                  Edit distance
-                </Text>
-              </Pressable>
-            ) : (
-              <View
-                style={{ flexDirection: "row", gap: 10, alignItems: "center" }}
-              >
-                <TextInput
-                  value={distanceKmText}
-                  onChangeText={setDistanceKmText}
-                  placeholder="Distance (km)"
-                  placeholderTextColor={colors.textDim}
-                  keyboardType={
-                    Platform.OS === "ios" ? "decimal-pad" : "numeric"
-                  }
-                  style={{
-                    flex: 1,
-                    height: 42,
-                    borderRadius: radius.lg,
-                    borderColor: colors.accent,
-                    borderWidth: 1,
-                    paddingHorizontal: 12,
-                    fontFamily: fonts.bodyMedium,
-                    fontSize: 14,
-                    color: colors.text,
-                    backgroundColor: colors.inputBackground,
-                  }}
-                />
-                <Pressable
-                  onPress={onApplyDistanceEdit}
-                  style={{
-                    height: 42,
-                    paddingHorizontal: 14,
-                    borderRadius: radius.lg,
-                    backgroundColor: colors.accent,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.heading3,
-                      fontSize: 14,
-                      color: colors.textInverse,
-                      marginTop: 3,
-                    }}
-                  >
-                    Done
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={onCancelDistanceEdit}
-                  style={{
-                    height: 42,
-                    paddingHorizontal: 14,
-                    borderRadius: radius.lg,
-                    borderColor: colors.border,
-                    borderWidth: 1,
-                    backgroundColor: "transparent",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.heading3,
-                      fontSize: 14,
-                      color: colors.textSecondary,
-                      marginTop: 3,
-                    }}
-                  >
-                    Cancel
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-
-            {typeof distanceOverrideMeters === "number" &&
-            !isEditingDistance ? (
-              <View style={{ marginTop: 10, alignItems: "center" }}>
-                <Pressable
-                  onPress={() => setDistanceOverrideMeters(null)}
-                  style={{
-                    height: 34,
-                    paddingHorizontal: 12,
-                    borderRadius: radius.pill,
-                    borderColor: colors.border,
-                    borderWidth: 1,
-                    backgroundColor: "transparent",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "row",
-                    gap: 6,
-                  }}
-                >
-                  <Ionicons
-                    name={themeIcons.gpsActive.name as any}
-                    size={14}
-                    color={colors.textSecondary}
-                  />
-                  <Text
-                    style={{
-                      fontFamily: fonts.bodyMedium,
-                      fontSize: 12,
-                      color: colors.textSecondary,
-                    }}
-                  >
-                    Use GPS distance
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
         </View>
 
         {/* Stats Grid 2x2 */}
