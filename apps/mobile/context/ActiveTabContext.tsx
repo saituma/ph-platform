@@ -30,13 +30,14 @@ export function setGlobalTabRoutes(keys: string[]) {
 }
 
 export function setGlobalActiveTab(index: number) {
-  if (_activeIndex !== index) {
-    if (__DEV__)
-      console.log(
-        `[ActiveTabContext] setGlobalActiveTab called with index: ${index}. Notifying ${_listeners.size} listeners.`,
-      );
-  }
+  if (!Number.isFinite(index)) return;
+  if (_activeIndex === index) return;
+
   _activeIndex = index;
+  if (__DEV__)
+    console.log(
+      `[ActiveTabContext] setGlobalActiveTab called with index: ${index}. Notifying ${_listeners.size} listeners.`,
+    );
   _listeners.forEach((fn) => fn(index));
 }
 

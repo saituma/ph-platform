@@ -33,6 +33,7 @@ export function useVideoHistory(token: string | null, athleteUserId: number | st
       const data = await apiRequest<{ messages: any[] }>("/messages", {
         token,
         headers,
+        skipCache: true,
         forceRefresh,
       });
       const items = (data.messages ?? [])
