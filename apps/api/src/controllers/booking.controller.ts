@@ -16,7 +16,7 @@ import {
   deleteServiceType,
 } from "../services/booking.service";
 import { assertUserCanCreateBooking } from "../services/booking-eligibility.service";
-import { getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
+import { ensureGuardianForUser, getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
 import { ProgramType } from "../db/schema";
 import { verifyBookingActionToken } from "../lib/booking-actions";
 import { db } from "../db";
@@ -227,8 +227,14 @@ export async function listGeneratedAvailabilityForUser(req: Request, res: Respon
 
 export async function createBookingForUser(req: Request, res: Response) {
   const input = bookingSchema.parse(req.body);
-  const { guardian, athlete } = await getGuardianAndAthlete(req.user!.id);
-  if (!guardian || !athlete) {
+  const athlete = await getAthleteForUser(req.user!.id);
+  if (!athlete) {
+    return res.status(400).json({ error: "Onboarding incomplete" });
+  }
+
+  const { guardian: existingGuardian } = await getGuardianAndAthlete(req.user!.id);
+  const guardian = existingGuardian ?? (await ensureGuardianForUser(req.user!.id));
+  if (!guardian) {
     return res.status(400).json({ error: "Onboarding incomplete" });
   }
 

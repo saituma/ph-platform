@@ -263,8 +263,8 @@ export function VideoPlayer({
   // drive the container sizing.
   const effectiveAspectRatio =
     isYoutube || isLoom
-      ? youtubeDetectedAspectRatio ?? initialAspectRatio ?? 16 / 9
-      : aspectRatio ?? initialAspectRatio ?? 16 / 9;
+      ? (youtubeDetectedAspectRatio ?? initialAspectRatio ?? 16 / 9)
+      : (aspectRatio ?? initialAspectRatio ?? 16 / 9);
   const effectiveMaxHeightRatio =
     effectiveAspectRatio > 0 && effectiveAspectRatio < 1
       ? Math.max(maxHeightRatio, 0.9)
@@ -383,7 +383,7 @@ export function VideoPlayer({
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction
           scrollEnabled={false}
-          originWhitelist={["https://*", "http://*"]}
+          originWhitelist={["https://*"]}
         />
       ) : (
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>

@@ -211,12 +211,12 @@ export default function AdminNutritionScreen() {
       const result =
         source === "camera"
           ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              mediaTypes: "videos",
               cameraType: ImagePicker.CameraType.front,
               quality: 1,
             })
           : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              mediaTypes: "videos",
               quality: 1,
             });
 

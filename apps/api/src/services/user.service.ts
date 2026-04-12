@@ -190,3 +190,25 @@ export async function setActiveAthleteForGuardian(input: { userId: number; athle
     .returning();
   return updated ?? null;
 }
+
+export async function ensureGuardianForUser(userId: number) {
+  const guardians = await db
+    .select()
+    .from(guardianTable)
+    .where(eq(guardianTable.userId, userId))
+    .limit(1);
+  if (guardians[0]) return guardians[0];
+
+  const user = await getUserById(userId);
+  const inserted = (await db
+    .insert(guardianTable)
+    .values({
+      userId,
+      email: user?.email ?? null,
+      relationToAthlete: "Self",
+      activeAthleteId: null,
+    })
+    .returning()) as (typeof guardianTable.$inferSelect)[];
+
+  return inserted[0] ?? null;
+}

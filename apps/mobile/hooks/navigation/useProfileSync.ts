@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { InteractionManager } from "react-native";
 import { prefetchApi } from "@/lib/api";
+import { runWhenIdle } from "@/lib/scheduling/idle";
 
 export function useProfileSync(token: string | null, enabled: boolean, hasMessaging: boolean) {
   const lastPrefetchAt = useRef(0);
@@ -11,7 +11,7 @@ export function useProfileSync(token: string | null, enabled: boolean, hasMessag
     if (now - lastPrefetchAt.current < 60_000) return;
     lastPrefetchAt.current = now;
 
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = runWhenIdle(() => {
       prefetchApi("/content/home", { token });
       prefetchApi("/bookings", { token });
       prefetchApi("/bookings/services?includeLocked=true", { token });

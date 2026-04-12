@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { InteractionManager } from "react-native";
 import { apiRequest } from "@/lib/api";
+import { runWhenIdle } from "@/lib/scheduling/idle";
 
 export function useCoachUnreadMessaging(token: string | null, enabled: boolean) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -47,7 +47,7 @@ export function useCoachUnreadMessaging(token: string | null, enabled: boolean) 
     }
 
     let active = true;
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = runWhenIdle(() => {
       if (active) syncAdminUnread();
     });
     const timer = setInterval(() => {

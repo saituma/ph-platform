@@ -1,6 +1,25 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
-import { AppState, AppStateStatus, Platform, Pressable, View } from "react-native";
-import Animated, { FadeInDown, FadeOutUp, Layout } from "react-native-reanimated";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
+import {
+  AppState,
+  AppStateStatus,
+  Platform,
+  Pressable,
+  View,
+} from "react-native";
+import Animated, {
+  FadeInDown,
+  FadeOutUp,
+  Layout,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -42,11 +61,13 @@ type InAppNotificationsContextValue = {
   isForeground: boolean;
 };
 
-const InAppNotificationsContext = createContext<InAppNotificationsContextValue>({
-  notify: () => {},
-  dismiss: () => {},
-  isForeground: true,
-});
+const InAppNotificationsContext = createContext<InAppNotificationsContextValue>(
+  {
+    notify: () => {},
+    dismiss: () => {},
+    isForeground: true,
+  },
+);
 
 const AUTO_DISMISS_MS = 5200;
 const GROUP_WINDOW_MS = 3 * 60 * 1000;
@@ -61,9 +82,23 @@ export function InAppNotificationsProvider({
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const [items, setItems] = useState<InAppNotificationItem[]>([]);
-  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
-  const timersRef = useRef(new Map<string, { timeout: NodeJS.Timeout; updatedAt: number }>());
+  const [appState, setAppState] = useState<AppStateStatus>(
+    AppState.currentState,
+  );
+  const timersRef = useRef(
+    new Map<string, { timeout: NodeJS.Timeout; updatedAt: number }>(),
+  );
   const handlerConfiguredRef = useRef(false);
+
+  const isSafeInternalPath = (value: unknown): value is string => {
+    if (typeof value !== "string") return false;
+    const url = value.trim();
+    if (!url.startsWith("/")) return false;
+    if (url.startsWith("//")) return false;
+    if (url.includes("://")) return false;
+    if (url.includes("..")) return false;
+    return true;
+  };
 
   const isForeground = appState === "active";
 
@@ -85,11 +120,14 @@ export function InAppNotificationsProvider({
     (payload: InAppNotificationPayload) => {
       if (!isForeground) return;
       const now = payload.timestamp ?? Date.now();
-      const groupKey = payload.groupKey ?? payload.type ?? payload.title ?? "general";
+      const groupKey =
+        payload.groupKey ?? payload.type ?? payload.title ?? "general";
 
       setItems((prev) => {
         const existingIndex = prev.findIndex(
-          (item) => item.groupKey === groupKey && now - item.updatedAt < GROUP_WINDOW_MS,
+          (item) =>
+            item.groupKey === groupKey &&
+            now - item.updatedAt < GROUP_WINDOW_MS,
         );
         if (existingIndex >= 0) {
           const next = [...prev];
@@ -128,7 +166,9 @@ export function InAppNotificationsProvider({
       if (Platform.OS !== "web") {
         import("expo-haptics")
           .then((Haptics) => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success,
+            ).catch(() => {});
           })
           .catch(() => {});
       }
@@ -139,7 +179,9 @@ export function InAppNotificationsProvider({
   // Keep a stable ref so the notification listener effect doesn't re-subscribe
   // every time the app toggles between foreground and background.
   const notifyRef = useRef(notify);
-  useEffect(() => { notifyRef.current = notify; }, [notify]);
+  useEffect(() => {
+    notifyRef.current = notify;
+  }, [notify]);
 
   useEffect(() => {
     items.forEach((item) => {
@@ -148,7 +190,10 @@ export function InAppNotificationsProvider({
       if (existingTimer) {
         clearTimeout(existingTimer.timeout);
       }
-      const timeout = setTimeout(() => dismiss(item.id), AUTO_DISMISS_MS + (item.count - 1) * 600);
+      const timeout = setTimeout(
+        () => dismiss(item.id),
+        AUTO_DISMISS_MS + (item.count - 1) * 600,
+      );
       timersRef.current.set(item.id, { timeout, updatedAt: item.updatedAt });
     });
 
@@ -165,7 +210,10 @@ export function InAppNotificationsProvider({
     setupNotificationChannels();
     getNotifications().then((Notifications) => {
       if (!Notifications) return;
-      if (!handlerConfiguredRef.current && typeof Notifications.setNotificationHandler === "function") {
+      if (
+        !handlerConfiguredRef.current &&
+        typeof Notifications.setNotificationHandler === "function"
+      ) {
         handlerConfiguredRef.current = true;
         Notifications.setNotificationHandler({
           handleNotification: async () => ({
@@ -181,36 +229,42 @@ export function InAppNotificationsProvider({
       }
 
       if (typeof Notifications.addNotificationReceivedListener === "function") {
-        sub = Notifications.addNotificationReceivedListener((notification: any) => {
-          const content = notification?.request?.content;
-          if (!content) return;
-          const data = (content.data ?? {}) as Record<string, any>;
-          if (data?.suppressInApp) return;
-          const category = inferNotificationCategory(data?.type, content?.body);
-          const meta = getNotificationMeta(category);
-          const url = data?.url as string | undefined;
-          notifyRef.current({
-            title: content?.title ?? meta.label,
-            message: content?.body ?? "",
-            type: data?.type ?? category,
-            groupKey:
-              data?.threadId
+        sub = Notifications.addNotificationReceivedListener(
+          (notification: any) => {
+            const content = notification?.request?.content;
+            if (!content) return;
+            const data = (content.data ?? {}) as Record<string, any>;
+            if (data?.suppressInApp) return;
+            const category = inferNotificationCategory(
+              data?.type,
+              content?.body,
+            );
+            const meta = getNotificationMeta(category);
+            const url = isSafeInternalPath(data?.url)
+              ? data.url.trim()
+              : undefined;
+            notifyRef.current({
+              title: content?.title ?? meta.label,
+              message: content?.body ?? "",
+              type: data?.type ?? category,
+              groupKey: data?.threadId
                 ? `thread:${data.threadId}`
                 : data?.groupId
-                ? `group:${data.groupId}`
-                : data?.type
-                ? `type:${data.type}`
-                : content?.title ?? "general",
-            onPress: url ? () => router.push(url as any) : undefined,
-          });
-        });
+                  ? `group:${data.groupId}`
+                  : data?.type
+                    ? `type:${data.type}`
+                    : (content?.title ?? "general"),
+              onPress: url ? () => router.push(url as any) : undefined,
+            });
+          },
+        );
       }
     });
 
     return () => {
       sub?.remove?.();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = useMemo(
@@ -244,22 +298,22 @@ export function InAppNotificationsProvider({
             category === "schedule"
               ? colors.warning
               : category === "payment"
-              ? colors.danger
-              : category === "account"
-              ? colors.tint
-              : category === "progress"
-              ? colors.success
-              : category === "system"
-              ? colors.warning
-              : colors.accent;
+                ? colors.danger
+                : category === "account"
+                  ? colors.tint
+                  : category === "progress"
+                    ? colors.success
+                    : category === "system"
+                      ? colors.warning
+                      : colors.accent;
           const accentSoft =
             category === "payment"
               ? colors.dangerSoft
               : category === "schedule"
-              ? colors.warningSoft
-              : category === "progress"
-              ? colors.successSoft
-              : colors.accentLight;
+                ? colors.warningSoft
+                : category === "progress"
+                  ? colors.successSoft
+                  : colors.accentLight;
 
           return (
             <Animated.View
@@ -297,7 +351,9 @@ export function InAppNotificationsProvider({
                     overflow: "hidden",
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                  <View
+                    style={{ flexDirection: "row", alignItems: "flex-start" }}
+                  >
                     <View
                       style={{
                         width: 44,
@@ -312,8 +368,18 @@ export function InAppNotificationsProvider({
                       <Ionicons name={meta.icon} size={22} color={accent} />
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-                        <Text className="text-sm font-outfit-semibold text-app" numberOfLines={1}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: 6,
+                        }}
+                      >
+                        <Text
+                          className="text-sm font-outfit-semibold text-app"
+                          numberOfLines={1}
+                        >
                           {title}
                         </Text>
                         {item.count > 1 ? (

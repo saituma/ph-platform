@@ -141,7 +141,10 @@ export function OsmMapView({
   return (
     <View style={styles.container}>
       <WebView
-        originWhitelist={["*.openstreetmap.org", "*.cartocdn.com"]}
+        originWhitelist={[
+          "https://*.openstreetmap.org",
+          "https://*.cartocdn.com",
+        ]}
         source={{ html }}
         javaScriptEnabled
         domStorageEnabled

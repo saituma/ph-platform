@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { InteractionManager } from "react-native";
 import { apiRequest } from "@/lib/api";
+import { runWhenIdle } from "@/lib/scheduling/idle";
 
 export function useUnreadMessaging(token: string | null, enabled: boolean, userId: string | null) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -33,7 +33,7 @@ export function useUnreadMessaging(token: string | null, enabled: boolean, userI
     }
 
     let active = true;
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = runWhenIdle(() => {
       if (active) syncUnread();
     });
     const timer = setInterval(() => {

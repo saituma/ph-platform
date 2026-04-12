@@ -1,11 +1,18 @@
 import React, { useCallback, useState } from "react";
-import { InteractionManager, Modal, Pressable, View } from "react-native";
-import Animated, { Easing, FadeIn, FadeOut, SlideInRight, SlideOutLeft } from "react-native-reanimated";
+import { Modal, Pressable, View } from "react-native";
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  SlideInRight,
+  SlideOutLeft,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { runWhenIdle } from "@/lib/scheduling/idle";
 
 const WALKTHROUGH_KEY = "ph-app:walkthrough-seen";
 
@@ -56,7 +63,7 @@ export function FirstLoginWalkthrough() {
   const [step, setStep] = useState(0);
 
   React.useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = runWhenIdle(() => {
       void (async () => {
         const seen = await AsyncStorage.getItem(WALKTHROUGH_KEY);
         if (!seen) setVisible(true);
@@ -108,7 +115,9 @@ export function FirstLoginWalkthrough() {
           className="flex-1 rounded-[28px] overflow-hidden border"
           style={{
             backgroundColor: colors.card,
-            borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+            borderColor: isDark
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(15,23,42,0.08)",
           }}
         >
           <View className="flex-1 items-center justify-center px-7 pt-6 pb-4">
@@ -116,7 +125,11 @@ export function FirstLoginWalkthrough() {
               className="h-[88px] w-[88px] rounded-[30px] items-center justify-center mb-7"
               style={{ backgroundColor: `${current.iconColor}18` }}
             >
-              <Ionicons name={current.icon} size={42} color={current.iconColor} />
+              <Ionicons
+                name={current.icon}
+                size={42}
+                color={current.iconColor}
+              />
             </View>
 
             <Text className="text-3xl font-clash font-bold text-app text-center mb-4 px-1">
@@ -135,14 +148,21 @@ export function FirstLoginWalkthrough() {
                     width: i === step ? 28 : 9,
                     height: 9,
                     backgroundColor:
-                      i === step ? colors.accent : isDark ? "rgba(255,255,255,0.15)" : "rgba(15,23,42,0.12)",
+                      i === step
+                        ? colors.accent
+                        : isDark
+                          ? "rgba(255,255,255,0.15)"
+                          : "rgba(15,23,42,0.12)",
                   }}
                 />
               ))}
             </View>
           </View>
 
-          <View className="gap-3 px-5 pt-2" style={{ paddingBottom: footerPad }}>
+          <View
+            className="gap-3 px-5 pt-2"
+            style={{ paddingBottom: footerPad }}
+          >
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Skip walkthrough"
@@ -151,15 +171,23 @@ export function FirstLoginWalkthrough() {
               style={{
                 minHeight: 56,
                 paddingVertical: 16,
-                borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(15,23,42,0.12)",
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+                borderColor: isDark
+                  ? "rgba(255,255,255,0.18)"
+                  : "rgba(15,23,42,0.12)",
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.04)"
+                  : "rgba(15,23,42,0.03)",
               }}
             >
-              <Text className="text-lg font-outfit font-semibold text-secondary">Skip</Text>
+              <Text className="text-lg font-outfit font-semibold text-secondary">
+                Skip
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={step === STEPS.length - 1 ? "Get started" : "Next step"}
+              accessibilityLabel={
+                step === STEPS.length - 1 ? "Get started" : "Next step"
+              }
               onPress={next}
               className="w-full rounded-2xl items-center justify-center active:opacity-90"
               style={{

@@ -10,6 +10,16 @@ export function usePushNotificationResponses(enabled: boolean) {
   const { appRole, apiUserRole } = useAppSelector((state) => state.user);
   const rolePrefix = getMessagesRolePrefix({ appRole, apiUserRole });
 
+  const isSafeInternalPath = (value: unknown): value is string => {
+    if (typeof value !== "string") return false;
+    const url = value.trim();
+    if (!url.startsWith("/")) return false;
+    if (url.startsWith("//")) return false;
+    if (url.includes("://")) return false;
+    if (url.includes("..")) return false;
+    return true;
+  };
+
   useEffect(() => {
     if (!enabled) return;
     let sub: { remove: () => void } | null = null;
@@ -32,7 +42,8 @@ export function usePushNotificationResponses(enabled: boolean) {
         | undefined;
 
       if (data?.url) {
-        const url = String(data.url);
+        if (!isSafeInternalPath(data.url)) return;
+        const url = data.url.trim();
         if (url.startsWith("/messages/")) {
           const thread = url.replace("/messages/", "");
           router.push(messagesThreadHref(rolePrefix, thread));

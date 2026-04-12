@@ -21,6 +21,7 @@ interface RunStore {
   pauseStart: number | null;
   totalPausedMs: number;
   distanceMeters: number;
+  distanceOverrideMeters: number | null;
   coordinates: Coordinate[];
   elapsedSeconds: number;
   goalKm: number | null;
@@ -35,6 +36,7 @@ interface RunStore {
   resetRun: () => void;
   addCoordinate: (coord: Coordinate) => void;
   tick: () => void;
+  setDistanceOverrideMeters: (meters: number | null) => void;
   setGoalKm: (km: number | null) => void;
   setDestination: (dest: Destination | null) => void;
   markGoalReached: () => void;
@@ -47,6 +49,7 @@ export const useRunStore = create<RunStore>((set) => ({
   pauseStart: null,
   totalPausedMs: 0,
   distanceMeters: 0,
+  distanceOverrideMeters: null,
   coordinates: [],
   elapsedSeconds: 0,
   goalKm: null,
@@ -61,6 +64,7 @@ export const useRunStore = create<RunStore>((set) => ({
       pauseStart: null,
       totalPausedMs: 0,
       distanceMeters: 0,
+      distanceOverrideMeters: null,
       coordinates: [],
       elapsedSeconds: 0,
     });
@@ -96,6 +100,7 @@ export const useRunStore = create<RunStore>((set) => ({
       pauseStart: null,
       totalPausedMs: 0,
       distanceMeters: 0,
+      distanceOverrideMeters: null,
       coordinates: [],
       elapsedSeconds: 0,
       goalKm: null,
@@ -103,6 +108,10 @@ export const useRunStore = create<RunStore>((set) => ({
       goalReached: false,
       destinationReached: false,
     });
+  },
+
+  setDistanceOverrideMeters: (meters) => {
+    set({ distanceOverrideMeters: meters });
   },
 
   addCoordinate: (coord: Coordinate) => {

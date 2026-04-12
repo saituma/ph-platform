@@ -7,26 +7,32 @@ import { normalizeProgramTier, tierRank } from "@/lib/planAccess";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, InteractionManager, TouchableOpacity, View } from "react-native";
+import { Alert, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { setLatestSubscriptionRequest, setProgramTier } from "../store/slices/userSlice";
-import { initPaymentSheet, presentPaymentSheet } from "@stripe/stripe-react-native";
+import {
+  setLatestSubscriptionRequest,
+  setProgramTier,
+} from "../store/slices/userSlice";
+import {
+  initPaymentSheet,
+  presentPaymentSheet,
+} from "@stripe/stripe-react-native";
 import { Text } from "@/components/ScaledText";
+import { waitForIdle } from "@/lib/scheduling/idle";
 
 export default function PlansScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { token, programTier, latestSubscriptionRequest } = useAppSelector((state) => state.user);
+  const { token, programTier, latestSubscriptionRequest } = useAppSelector(
+    (state) => state.user,
+  );
   const [plans, setPlans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  const waitForInteractions = useCallback(
-    () => new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve())),
-    [],
-  );
+  const waitForInteractions = useCallback(() => waitForIdle(), []);
 
   const tierMap = useMemo(() => {
     return new Map<string, ProgramTier>(
@@ -36,21 +42,28 @@ export default function PlansScreen() {
             ? "PHP"
             : tier.id === "pro"
               ? "PHP_Pro"
-            : tier.id === "plus"
-              ? "PHP_Premium_Plus"
-              : "PHP_Premium";
+              : tier.id === "plus"
+                ? "PHP_Premium_Plus"
+                : "PHP_Premium";
         return [key, tier];
-      })
+      }),
     );
   }, []);
   const resolvedTier = useMemo(() => {
     const normalized = normalizeProgramTier(programTier);
     if (normalized) return normalized;
-    if (latestSubscriptionRequest?.status === "approved" && latestSubscriptionRequest?.planTier) {
+    if (
+      latestSubscriptionRequest?.status === "approved" &&
+      latestSubscriptionRequest?.planTier
+    ) {
       return String(latestSubscriptionRequest.planTier);
     }
     return null;
-  }, [latestSubscriptionRequest?.planTier, latestSubscriptionRequest?.status, programTier]);
+  }, [
+    latestSubscriptionRequest?.planTier,
+    latestSubscriptionRequest?.status,
+    programTier,
+  ]);
 
   const mergedPlans = useMemo(() => {
     const map = new Map<string, any>();
@@ -78,7 +91,9 @@ export default function PlansScreen() {
     setIsLoading(true);
     setActionError(null);
     try {
-      const data = await apiRequest<{ plans: any[] }>("/public/plans", { forceRefresh: true });
+      const data = await apiRequest<{ plans: any[] }>("/public/plans", {
+        forceRefresh: true,
+      });
       setPlans(data.plans ?? []);
     } catch (error: any) {
       setActionError(error?.message || "Failed to load plans.");
@@ -106,7 +121,9 @@ export default function PlansScreen() {
       const nextRequestStatus = status?.latestRequest?.status ?? null;
       const nextTier =
         status?.currentProgramTier ??
-        (nextRequestStatus === "approved" ? status?.latestRequest?.planTier ?? null : null);
+        (nextRequestStatus === "approved"
+          ? (status?.latestRequest?.planTier ?? null)
+          : null);
       dispatch(setProgramTier(nextTier ?? null));
       dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
     } catch {
@@ -130,7 +147,10 @@ export default function PlansScreen() {
       setActionError(null);
       try {
         if (!token) {
-          Alert.alert("Login required", "Please log in as a guardian to purchase a plan.");
+          Alert.alert(
+            "Login required",
+            "Please log in as a guardian to purchase a plan.",
+          );
           router.replace("/(auth)/login");
           return;
         }
@@ -164,27 +184,33 @@ export default function PlansScreen() {
           throw new Error(result.error.message);
         }
 
-        const confirm = await apiRequest<{ paymentStatus?: string; request?: any }>(
-          "/billing/payment-sheet/confirm",
-          {
-            method: "POST",
-            body: { paymentIntentId: data.paymentIntentId },
-            token,
-          }
-        );
+        const confirm = await apiRequest<{
+          paymentStatus?: string;
+          request?: any;
+        }>("/billing/payment-sheet/confirm", {
+          method: "POST",
+          body: { paymentIntentId: data.paymentIntentId },
+          token,
+        });
 
-        dispatch(setLatestSubscriptionRequest(confirm.request ?? data.request ?? null));
+        dispatch(
+          setLatestSubscriptionRequest(confirm.request ?? data.request ?? null),
+        );
 
         Alert.alert(
           "Payment status",
-          confirm.paymentStatus === "succeeded" || confirm.paymentStatus === "processing"
+          confirm.paymentStatus === "succeeded" ||
+            confirm.paymentStatus === "processing"
             ? "Payment received. Awaiting admin approval."
-            : "Payment pending. We will update your plan once confirmed."
+            : "Payment pending. We will update your plan once confirmed.",
         );
       } catch (error: any) {
         const message = error?.message || "Failed to start checkout.";
         if (typeof message === "string" && message.includes("403")) {
-          Alert.alert("Guardian only", "Only guardian accounts can purchase plans.");
+          Alert.alert(
+            "Guardian only",
+            "Only guardian accounts can purchase plans.",
+          );
           return;
         }
         setActionError(message);
@@ -192,7 +218,7 @@ export default function PlansScreen() {
         setIsProcessingPayment(false);
       }
     },
-    [dispatch, isProcessingPayment, router, token, waitForInteractions]
+    [dispatch, isProcessingPayment, router, token, waitForInteractions],
   );
 
   const handleDowngrade = useCallback(
@@ -217,7 +243,7 @@ export default function PlansScreen() {
         setActionError(message);
       }
     },
-    [token, router, dispatch]
+    [token, router, dispatch],
   );
 
   return (
@@ -253,8 +279,8 @@ export default function PlansScreen() {
             </Text>
           </View>
           <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Select the best coaching tier for your athlete&apos;s development and
-            goals.
+            Select the best coaching tier for your athlete&apos;s development
+            and goals.
           </Text>
           {resolvedTier ? (
             <View className="mt-4 rounded-2xl border border-app/10 bg-secondary/10 px-4 py-3">
@@ -266,7 +292,7 @@ export default function PlansScreen() {
               </Text>
               {latestSubscriptionRequest?.status &&
               ["pending_payment", "pending_approval"].includes(
-                String(latestSubscriptionRequest.status)
+                String(latestSubscriptionRequest.status),
               ) ? (
                 <Text className="text-xs font-outfit text-secondary mt-1">
                   Upgrade request pending approval.
@@ -317,15 +343,17 @@ export default function PlansScreen() {
               !isCurrentPlan &&
               latestSubscriptionRequest?.planTier === plan.tier &&
               ["pending_payment", "pending_approval"].includes(
-                String(latestSubscriptionRequest?.status ?? "")
+                String(latestSubscriptionRequest?.status ?? ""),
               );
             const currentRank = tierRank(normalizedTier);
             const targetRank = tierRank(plan.tier);
-            const isDowngrade = currentRank >= 0 && targetRank >= 0 && targetRank < currentRank;
+            const isDowngrade =
+              currentRank >= 0 && targetRank >= 0 && targetRank < currentRank;
             const tier: ProgramTier = {
               ...(baseTier ?? PROGRAM_TIERS[0]),
               name: plan.name,
-              description: baseTier?.description ?? PROGRAM_TIERS[0].description,
+              description:
+                baseTier?.description ?? PROGRAM_TIERS[0].description,
               features: baseTier?.features ?? PROGRAM_TIERS[0].features,
               priceBadge: pricing.badge,
               priceLines: pricing.lines,
@@ -341,7 +369,10 @@ export default function PlansScreen() {
             };
             const handleSelect = () => {
               if (isInactive) {
-                Alert.alert("Plan locked", "This plan is currently inactive and unavailable in the app.");
+                Alert.alert(
+                  "Plan locked",
+                  "This plan is currently inactive and unavailable in the app.",
+                );
                 return;
               }
               if (plan.isPlaceholder) {
@@ -350,9 +381,12 @@ export default function PlansScreen() {
                     "Downgrade to PHP Program",
                     "Your plan will change immediately. No payment required.",
                     [
-                      { text: "Confirm", onPress: () => handleDowngrade("PHP") },
+                      {
+                        text: "Confirm",
+                        onPress: () => handleDowngrade("PHP"),
+                      },
                       { text: "Cancel", style: "cancel" },
-                    ]
+                    ],
                   );
                   return;
                 }
@@ -360,9 +394,12 @@ export default function PlansScreen() {
                   "PHP Program",
                   "This plan is included after onboarding. No payment required.",
                   [
-                    { text: "Go to Programs", onPress: () => router.push("/(tabs)/programs") },
+                    {
+                      text: "Go to Programs",
+                      onPress: () => router.push("/(tabs)/programs"),
+                    },
                     { text: "OK", style: "cancel" },
-                  ]
+                  ],
                 );
                 return;
               }
@@ -371,7 +408,10 @@ export default function PlansScreen() {
                 return;
               }
               if (isPendingRequest) {
-                Alert.alert("Pending approval", "Your request is awaiting coach approval.");
+                Alert.alert(
+                  "Pending approval",
+                  "Your request is awaiting coach approval.",
+                );
                 return;
               }
               if (isDowngrade) {
@@ -379,9 +419,12 @@ export default function PlansScreen() {
                   "Downgrade plan",
                   "Your plan will change immediately. No payment required.",
                   [
-                    { text: "Confirm", onPress: () => handleDowngrade(plan.tier) },
+                    {
+                      text: "Confirm",
+                      onPress: () => handleDowngrade(plan.tier),
+                    },
                     { text: "Cancel", style: "cancel" },
-                  ]
+                  ],
                 );
                 return;
               }
@@ -390,11 +433,14 @@ export default function PlansScreen() {
                   "Change plan",
                   "Changing plans will start a new payment and require coach approval.",
                   [
-                    { text: "Continue", onPress: () => {
-                      handleCheckout(plan.id);
-                    }},
+                    {
+                      text: "Continue",
+                      onPress: () => {
+                        handleCheckout(plan.id);
+                      },
+                    },
                     { text: "Cancel", style: "cancel" },
-                  ]
+                  ],
                 );
                 return;
               }
@@ -406,7 +452,11 @@ export default function PlansScreen() {
                 tier={tier}
                 index={index}
                 primaryLabel={isInactive ? "Locked" : undefined}
-                helperNote={isInactive ? "This plan is inactive in admin billing and cannot be selected." : undefined}
+                helperNote={
+                  isInactive
+                    ? "This plan is inactive in admin billing and cannot be selected."
+                    : undefined
+                }
                 onPress={handleSelect}
               />
             );

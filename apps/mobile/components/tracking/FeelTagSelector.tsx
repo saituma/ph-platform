@@ -1,13 +1,13 @@
-import React, { useEffect } from 'react';
-import { View, Text, Pressable } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
+import React, { useEffect } from "react";
+import { View, Text, Pressable } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
   withSequence,
-  withSpring 
-} from 'react-native-reanimated';
-import { fonts, radius, icons as themeIcons } from '@/constants/theme';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+  withSpring,
+} from "react-native-reanimated";
+import { fonts, radius, icons as themeIcons } from "@/constants/theme";
+import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 export interface FeelTag {
@@ -17,14 +17,14 @@ export interface FeelTag {
 }
 
 export const FEEL_TAGS: FeelTag[] = [
-  { id: '1', label: 'Energized', icon: themeIcons.feelEnergized },
-  { id: '2', label: 'Tired', icon: themeIcons.feelTired },
-  { id: '3', label: 'Heavy Legs', icon: themeIcons.feelHeavyLegs },
-  { id: '4', label: 'Breathless', icon: themeIcons.feelBreathless },
-  { id: '5', label: 'Strong', icon: themeIcons.feelStrong },
-  { id: '6', label: 'Struggled', icon: themeIcons.feelStruggled },
-  { id: '7', label: 'In The Zone', icon: themeIcons.feelInZone },
-  { id: '8', label: 'Pain/Discomfort', icon: themeIcons.feelDiscomfort },
+  { id: "1", label: "Easy", icon: themeIcons.effortEasy },
+  { id: "2", label: "Recovery", icon: themeIcons.heart },
+  { id: "3", label: "Long Run", icon: themeIcons.route },
+  { id: "4", label: "Tempo", icon: themeIcons.pace },
+  { id: "5", label: "Intervals", icon: themeIcons.timer },
+  { id: "6", label: "Hills", icon: themeIcons.gpsActive },
+  { id: "7", label: "Race", icon: themeIcons.trophy },
+  { id: "8", label: "Treadmill", icon: themeIcons.run },
 ];
 
 interface FeelTagSelectorProps {
@@ -34,7 +34,15 @@ interface FeelTagSelectorProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const TagPill = ({ tag, isSelected, onPress }: { tag: FeelTag, isSelected: boolean, onPress: () => void }) => {
+const TagPill = ({
+  tag,
+  isSelected,
+  onPress,
+}: {
+  tag: FeelTag;
+  isSelected: boolean;
+  onPress: () => void;
+}) => {
   const { colors, isDark } = useAppTheme();
   const scale = useSharedValue(1);
 
@@ -43,7 +51,7 @@ const TagPill = ({ tag, isSelected, onPress }: { tag: FeelTag, isSelected: boole
       scale.value = withSequence(
         withSpring(0.92, { damping: 8, stiffness: 400 }),
         withSpring(1.04, { damping: 10, stiffness: 350 }),
-        withSpring(1.0, { damping: 12, stiffness: 300 })
+        withSpring(1.0, { damping: 12, stiffness: 300 }),
       );
     }
   }, [isSelected]);
@@ -52,7 +60,8 @@ const TagPill = ({ tag, isSelected, onPress }: { tag: FeelTag, isSelected: boole
     transform: [{ scale: scale.value }],
   }));
 
-  const IconComponent = tag.icon.lib === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
+  const IconComponent =
+    tag.icon.lib === "Ionicons" ? Ionicons : MaterialCommunityIcons;
 
   return (
     <AnimatedPressable
@@ -60,8 +69,8 @@ const TagPill = ({ tag, isSelected, onPress }: { tag: FeelTag, isSelected: boole
       style={[
         animatedStyle,
         {
-          flexDirection: 'row',
-          alignItems: 'center',
+          flexDirection: "row",
+          alignItems: "center",
           backgroundColor: isSelected ? colors.accent : colors.cardElevated,
           borderWidth: 1,
           borderColor: isSelected ? colors.accent : colors.border,
@@ -70,17 +79,22 @@ const TagPill = ({ tag, isSelected, onPress }: { tag: FeelTag, isSelected: boole
           paddingVertical: 9,
           ...(isDark || !isSelected
             ? {}
-            : { shadowColor: colors.accent, shadowOpacity: 0.14, shadowRadius: 12, elevation: 3 }),
-        }
+            : {
+                shadowColor: colors.accent,
+                shadowOpacity: 0.14,
+                shadowRadius: 12,
+                elevation: 3,
+              }),
+        },
       ]}
     >
-      <IconComponent 
-        name={tag.icon.name as any} 
-        size={14} 
-        color={isSelected ? colors.textInverse : colors.textSecondary} 
-        style={{ marginRight: 6 }} 
+      <IconComponent
+        name={tag.icon.name as any}
+        size={14}
+        color={isSelected ? colors.textInverse : colors.textSecondary}
+        style={{ marginRight: 6 }}
       />
-      <Text 
+      <Text
         style={{
           fontFamily: fonts.accent, // ClashDisplay-Semibold
           fontSize: 13,
@@ -93,11 +107,14 @@ const TagPill = ({ tag, isSelected, onPress }: { tag: FeelTag, isSelected: boole
   );
 };
 
-export const FeelTagSelector = ({ selectedKeys, onToggle }: FeelTagSelectorProps) => {
+export const FeelTagSelector = ({
+  selectedKeys,
+  onToggle,
+}: FeelTagSelectorProps) => {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
       {FEEL_TAGS.map((tag) => (
-        <TagPill 
+        <TagPill
           key={tag.id}
           tag={tag}
           isSelected={selectedKeys.includes(tag.id)}

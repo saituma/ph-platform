@@ -8,7 +8,13 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSelector } from "@/store/hooks";
 
@@ -18,7 +24,11 @@ export default function SubmitTestimonialScreen() {
   const { token } = useAppSelector((state) => state.user);
   const [quote, setQuote] = useState("");
   const [rating, setRating] = useState(5);
-  const [photoMeta, setPhotoMeta] = useState<{ uri: string; fileName: string; mimeType: string } | null>(null);
+  const [photoMeta, setPhotoMeta] = useState<{
+    uri: string;
+    fileName: string;
+    mimeType: string;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -35,21 +45,31 @@ export default function SubmitTestimonialScreen() {
     return () => clearTimeout(timer);
   }, [isSubmitted, router]);
 
-  const uploadPhoto = async (payload: { uri: string; fileName: string; mimeType: string }) => {
+  const uploadPhoto = async (payload: {
+    uri: string;
+    fileName: string;
+    mimeType: string;
+  }) => {
     if (!token) throw new Error("Authentication required");
-    const fileName = payload.fileName || payload.uri.split("/").pop() || `testimonial-${Date.now()}.jpg`;
+    const fileName =
+      payload.fileName ||
+      payload.uri.split("/").pop() ||
+      `testimonial-${Date.now()}.jpg`;
     const contentType = payload.mimeType || "image/jpeg";
     const blob = await (await fetch(payload.uri)).blob();
-    const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>("/media/presign", {
-      method: "POST",
-      token,
-      body: {
-        folder: "testimonials",
-        fileName,
-        contentType,
-        sizeBytes: blob.size,
+    const presign = await apiRequest<{ uploadUrl: string; publicUrl: string }>(
+      "/media/presign",
+      {
+        method: "POST",
+        token,
+        body: {
+          folder: "testimonials",
+          fileName,
+          contentType,
+          sizeBytes: blob.size,
+        },
       },
-    });
+    );
     await fetch(presign.uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": contentType },
@@ -61,12 +81,8 @@ export default function SubmitTestimonialScreen() {
   const handlePickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
-    const mediaTypes =
-      (ImagePicker as any).MediaType?.Images
-        ? [(ImagePicker as any).MediaType.Images]
-        : (ImagePicker as any).MediaTypeOptions?.Images;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes,
+      mediaTypes: "images",
       quality: 0.9,
       allowsEditing: true,
       aspect: [3, 4],
@@ -74,7 +90,8 @@ export default function SubmitTestimonialScreen() {
     if (result.canceled || !result.assets?.[0]?.uri) return;
     const asset = result.assets[0];
     const uri = asset.uri;
-    const fileName = asset.fileName || uri.split("/").pop() || `testimonial-${Date.now()}.jpg`;
+    const fileName =
+      asset.fileName || uri.split("/").pop() || `testimonial-${Date.now()}.jpg`;
     const mimeType = asset.mimeType || "image/jpeg";
     setPhotoMeta({ uri, fileName, mimeType });
   };
@@ -150,7 +167,8 @@ export default function SubmitTestimonialScreen() {
                 Share your experience
               </Text>
               <Text className="text-base font-outfit text-secondary leading-relaxed mb-6">
-                Submit a quick testimonial and we&apos;ll review it for the homepage.
+                Submit a quick testimonial and we&apos;ll review it for the
+                homepage.
               </Text>
 
               <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
@@ -173,7 +191,11 @@ export default function SubmitTestimonialScreen() {
               </Text>
               <View className="bg-input border border-app rounded-2xl p-4 mb-6 flex-row items-center gap-1">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <TouchableOpacity key={i} onPress={() => setRating(i)} className="p-1">
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => setRating(i)}
+                    className="p-1"
+                  >
                     <Ionicons
                       name={i <= rating ? "star" : "star-outline"}
                       size={28}
@@ -199,14 +221,19 @@ export default function SubmitTestimonialScreen() {
                 </TouchableOpacity>
                 {photoMeta ? (
                   <View className="mt-4 w-40 aspect-[3/4] rounded-2xl overflow-hidden border border-app">
-                    <Image source={{ uri: photoMeta.uri }} style={{ width: "100%", height: "100%" }} />
+                    <Image
+                      source={{ uri: photoMeta.uri }}
+                      style={{ width: "100%", height: "100%" }}
+                    />
                   </View>
                 ) : null}
               </View>
 
               {error ? (
                 <View className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
-                  <Text className="text-sm font-outfit text-red-400">{error}</Text>
+                  <Text className="text-sm font-outfit text-red-400">
+                    {error}
+                  </Text>
                 </View>
               ) : null}
 

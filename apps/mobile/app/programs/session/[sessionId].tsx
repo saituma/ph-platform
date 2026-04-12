@@ -51,12 +51,13 @@ export default function ProgramSessionDetailScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { sessionId, programId, moduleId, backToModule } = useLocalSearchParams<{
-    sessionId: string;
-    programId: ProgramId;
-    moduleId: string;
-    backToModule?: string;
-  }>();
+  const { sessionId, programId, moduleId, backToModule } =
+    useLocalSearchParams<{
+      sessionId: string;
+      programId: ProgramId;
+      moduleId: string;
+      backToModule?: string;
+    }>();
   const { token, programTier, athleteUserId, managedAthletes } = useAppSelector(
     (state) => state.user,
   );
@@ -65,7 +66,9 @@ export default function ProgramSessionDetailScreen() {
     return (
       managedAthletes.find(
         (a) => a.id === athleteUserId || a.userId === athleteUserId,
-      ) ?? managedAthletes[0] ?? null
+      ) ??
+      managedAthletes[0] ??
+      null
     );
   }, [managedAthletes, athleteUserId]);
   const activeAge = activeAthlete?.age ?? null;
@@ -123,11 +126,11 @@ export default function ProgramSessionDetailScreen() {
     const result =
       source === "camera"
         ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+            mediaTypes: "videos",
             quality: 0.9,
           })
         : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+            mediaTypes: "videos",
             quality: 0.9,
           });
 
@@ -178,8 +181,7 @@ export default function ProgramSessionDetailScreen() {
     return `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(String(programId))}`;
   }, [moduleId, programId]);
 
-  const shouldBackToModule =
-    backToModule === "1" || backToModule === "true";
+  const shouldBackToModule = backToModule === "1" || backToModule === "true";
 
   const computeNextPath = useCallback(
     (ws: any) => {
@@ -307,51 +309,64 @@ export default function ProgramSessionDetailScreen() {
     }, [moduleHref, router, shouldBackToModule]),
   );
 
-  const handleUploadPress = useCallback((id: number, _title: string) => {
-    Alert.alert("Video Upload", "Choose an action", [
-      {
-        text: "Record",
-        onPress: () => {
-          void (async () => {
-            try {
-              setUploadStatus(null);
-              const selected = await pickVideo("camera");
-              if (!selected) return;
-              setPendingBySectionId((prev) => ({
-                ...prev,
-                [id]: { video: selected, notes: "", progress: null, error: null },
-              }));
-            } catch (e) {
-              const message =
-                e instanceof Error ? e.message : "Failed to pick video.";
-              Alert.alert("Couldn't pick video", message);
-            }
-          })();
+  const handleUploadPress = useCallback(
+    (id: number, _title: string) => {
+      Alert.alert("Video Upload", "Choose an action", [
+        {
+          text: "Record",
+          onPress: () => {
+            void (async () => {
+              try {
+                setUploadStatus(null);
+                const selected = await pickVideo("camera");
+                if (!selected) return;
+                setPendingBySectionId((prev) => ({
+                  ...prev,
+                  [id]: {
+                    video: selected,
+                    notes: "",
+                    progress: null,
+                    error: null,
+                  },
+                }));
+              } catch (e) {
+                const message =
+                  e instanceof Error ? e.message : "Failed to pick video.";
+                Alert.alert("Couldn't pick video", message);
+              }
+            })();
+          },
         },
-      },
-      {
-        text: "Library",
-        onPress: () => {
-          void (async () => {
-            try {
-              setUploadStatus(null);
-              const selected = await pickVideo("library");
-              if (!selected) return;
-              setPendingBySectionId((prev) => ({
-                ...prev,
-                [id]: { video: selected, notes: "", progress: null, error: null },
-              }));
-            } catch (e) {
-              const message =
-                e instanceof Error ? e.message : "Failed to pick video.";
-              Alert.alert("Couldn't pick video", message);
-            }
-          })();
+        {
+          text: "Library",
+          onPress: () => {
+            void (async () => {
+              try {
+                setUploadStatus(null);
+                const selected = await pickVideo("library");
+                if (!selected) return;
+                setPendingBySectionId((prev) => ({
+                  ...prev,
+                  [id]: {
+                    video: selected,
+                    notes: "",
+                    progress: null,
+                    error: null,
+                  },
+                }));
+              } catch (e) {
+                const message =
+                  e instanceof Error ? e.message : "Failed to pick video.";
+                Alert.alert("Couldn't pick video", message);
+              }
+            })();
+          },
         },
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }, [pickVideo, setUploadStatus]);
+        { text: "Cancel", style: "cancel" },
+      ]);
+    },
+    [pickVideo, setUploadStatus],
+  );
 
   const handlePendingRemove = useCallback(
     (sectionContentId: number) => {
@@ -397,7 +412,10 @@ export default function ProgramSessionDetailScreen() {
             setPendingBySectionId((prev) => {
               const current = prev[sectionContentId];
               if (!current) return prev;
-              return { ...prev, [sectionContentId]: { ...current, progress: p } };
+              return {
+                ...prev,
+                [sectionContentId]: { ...current, progress: p },
+              };
             });
           },
         });

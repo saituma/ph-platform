@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { InteractionManager } from "react-native";
 import { fetchHomeContent, HomeContentPayload } from "@/services/home/homeService";
+import { runWhenIdle } from "@/lib/scheduling/idle";
 
 export type WelcomeHeroState = "loading" | "ready" | "fallback" | "error";
 
@@ -35,7 +35,7 @@ export function useHomeContent(token: string | null, bootstrapReady: boolean) {
   useEffect(() => {
     isMountedRef.current = true;
     if (bootstrapReady && token && !hasLoadedRef.current) {
-      const task = InteractionManager.runAfterInteractions(() => {
+      const task = runWhenIdle(() => {
         void load();
       });
       return () => {

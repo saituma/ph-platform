@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { apiRequest } from "@/lib/api";
 
 export type PendingAttachment = {
@@ -88,7 +88,7 @@ export function useChatAttachments(
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: "images",
         quality: 0.9,
         allowsEditing: false,
       });
@@ -121,7 +121,7 @@ export function useChatAttachments(
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        mediaTypes: "videos",
         quality: 0.9,
         allowsEditing: false,
       });
@@ -153,7 +153,7 @@ export function useChatAttachments(
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: "images",
         quality: 0.9,
         allowsEditing: false,
       });
@@ -185,7 +185,7 @@ export function useChatAttachments(
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) return;
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        mediaTypes: "videos",
         quality: 0.9,
         allowsEditing: false,
       });
