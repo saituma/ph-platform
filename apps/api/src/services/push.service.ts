@@ -1,5 +1,3 @@
-import { appendFile } from "node:fs/promises";
-
 import { Expo, type ExpoPushMessage, type ExpoPushTicket } from "expo-server-sdk";
 import { eq } from "drizzle-orm";
 
@@ -38,27 +36,11 @@ function getChannelId(type?: string) {
   return "default";
 }
 
-const DEBUG_PUSH_LOG = "/home/dave/expo/PH-App/.cursor/debug-7dd67a.log";
-
+/** Structured logs for push delivery debugging; grep host logs for `PH_PUSH_DEBUG`. */
 function logDebugPush(payload: Record<string, unknown>) {
-  const line =
-    JSON.stringify({
-      sessionId: "7dd67a",
-      timestamp: Date.now(),
-      ...payload,
-    }) + "\n";
-  // Deployed APIs (e.g. Render) cannot write the dev machine log path or reach localhost ingest.
-  // Grep Render/host logs for `PH_PUSH_DEBUG` to analyze push delivery.
-  console.info(`[PH_PUSH_DEBUG] ${line.trimEnd()}`);
-  void appendFile(DEBUG_PUSH_LOG, line).catch(() => {});
-  void fetch("http://127.0.0.1:7392/ingest/3e8b9f8d-6d0f-4ca7-943c-7327a18df494", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "7dd67a",
-    },
-    body: line.trimEnd(),
-  }).catch(() => {});
+  console.info(
+    `[PH_PUSH_DEBUG] ${JSON.stringify({ timestamp: Date.now(), ...payload })}`,
+  );
 }
 
 /** Expo/FCM expect string values in `data`; non-strings can break Android delivery. */
@@ -79,14 +61,11 @@ async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
   for (const ticket of tickets) {
     if (ticket.status === "ok") {
       console.log(`[Push Service] Expo accepted push for user ${userId} (receipt ${ticket.id})`);
-      // #region agent log
       logDebugPush({
-        hypothesisId: "A",
         location: "push.service.ts:applyPushTickets",
         message: "expo_ticket_ok",
         data: { userId, receiptId: ticket.id },
       });
-      // #endregion
       continue;
     }
 
@@ -95,9 +74,7 @@ async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
       `[Push Service] Expo push ticket error for user ${userId}: ${ticket.message}`,
       code ? { error: code } : ticket.details,
     );
-    // #region agent log
     logDebugPush({
-      hypothesisId: "A",
       location: "push.service.ts:applyPushTickets",
       message: "expo_ticket_error",
       data: {
@@ -107,7 +84,6 @@ async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
         details: ticket.details ?? null,
       },
     });
-    // #endregion
 
     if (code === "DeviceNotRegistered") {
       await db
@@ -123,14 +99,12 @@ export async function sendPushNotification(userId: number, title: string, body: 
   try {
     warnMissingExpoAccessTokenOnce();
 
-    // #region agent log
     const dataType = data?.type != null ? String(data.type) : "";
     const nonStringDataKeys =
       data &&
       Object.entries(data)
         .filter(([, v]) => v != null && typeof v !== "string" && typeof v !== "boolean")
         .map(([k]) => k);
-    // #endregion
 
     if (env.pushWebhookUrl) {
       await fetch(env.pushWebhookUrl, {
@@ -154,27 +128,21 @@ export async function sendPushNotification(userId: number, title: string, body: 
     const token = user?.expoPushToken;
     if (!token) {
       console.warn(`[Push Service] No Expo push token saved for user ${userId}`);
-      // #region agent log
       logDebugPush({
-        hypothesisId: "B",
         location: "push.service.ts:sendPushNotification",
         message: "no_expo_token_for_user",
         data: { userId, dataType, titleLen: title.length, bodyLen: body.length },
       });
-      // #endregion
       return;
     }
 
     if (!Expo.isExpoPushToken(token)) {
       console.warn(`[Push Service] Invalid Expo push token for user ${userId}`);
-      // #region agent log
       logDebugPush({
-        hypothesisId: "C",
         location: "push.service.ts:sendPushNotification",
         message: "invalid_expo_token",
         data: { userId, dataType },
       });
-      // #endregion
       await db
         .update(userTable)
         .set({ expoPushToken: null, updatedAt: new Date() })
@@ -184,9 +152,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
 
     const channelId = getChannelId(data?.type);
     const dataForDevice = stringifyPushData(data);
-    // #region agent log
     logDebugPush({
-      hypothesisId: "D",
       location: "push.service.ts:sendPushNotification",
       message: "push_send_attempt",
       data: {
@@ -199,7 +165,6 @@ export async function sendPushNotification(userId: number, title: string, body: 
         tokenPrefix: `${token.slice(0, 12)}…`,
       },
     });
-    // #endregion
     const message: ExpoPushMessage = {
       to: token,
       title,
@@ -214,9 +179,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
     await applyPushTickets(userId, tickets);
   } catch (err) {
     console.error(`[Push Service] Failed to send push to user ${userId}:`, err);
-    // #region agent log
     logDebugPush({
-      hypothesisId: "A",
       location: "push.service.ts:sendPushNotification",
       message: "sendPushNotificationsAsync_threw",
       data: {
@@ -224,6 +187,5 @@ export async function sendPushNotification(userId: number, title: string, body: 
         err: err instanceof Error ? err.message : String(err),
       },
     });
-    // #endregion
   }
 }
