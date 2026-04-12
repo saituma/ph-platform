@@ -16,7 +16,9 @@ type NutritionPanelProps = {
 
 export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const router = useRouter();
-  const { token, athleteUserId } = useAppSelector((state) => state.user);
+  const { token, athleteUserId, apiUserRole } = useAppSelector(
+    (state) => state.user,
+  );
   const { isDark, colors, shadows } = useProgramPanel();
 
   const isAdult =
@@ -33,13 +35,30 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const [saving, setSaving] = useState(false);
   const [logId, setLogId] = useState<number | null>(null);
 
-  // Targets (Adult only)
-  const [targets, setTargets] = useState<{
-    calories?: number;
-    protein?: number;
-    carbs?: number;
-    fats?: number;
-    micronutrientsGuidance?: string;
+  const canEditTargets =
+    isAdult &&
+    ["coach", "admin", "superAdmin"].includes(apiUserRole ?? "") &&
+    typeof athleteUserId === "number" &&
+    Number.isFinite(athleteUserId);
+
+  const [targetsDraft, setTargetsDraft] = useState<{
+    calories: string;
+    protein: string;
+    carbs: string;
+    fats: string;
+    micronutrientsGuidance: string;
+  }>({
+    calories: "",
+    protein: "",
+    carbs: "",
+    fats: "",
+    micronutrientsGuidance: "",
+  });
+
+  const [targetsSaving, setTargetsSaving] = useState(false);
+  const [targetsStatus, setTargetsStatus] = useState<{
+    tone: "error" | "success" | "info";
+    message: string;
   } | null>(null);
 
   // Log States
@@ -208,7 +227,33 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           `/nutrition/targets/${athleteUserId || "me"}`,
           { token, suppressLog: true },
         );
-        setTargets(targetData.targets);
+        const nextTargets = targetData.targets ?? null;
+        setTargetsDraft({
+          calories:
+            typeof nextTargets?.calories === "number" &&
+            Number.isFinite(nextTargets.calories)
+              ? String(nextTargets.calories)
+              : "",
+          protein:
+            typeof nextTargets?.protein === "number" &&
+            Number.isFinite(nextTargets.protein)
+              ? String(nextTargets.protein)
+              : "",
+          carbs:
+            typeof nextTargets?.carbs === "number" &&
+            Number.isFinite(nextTargets.carbs)
+              ? String(nextTargets.carbs)
+              : "",
+          fats:
+            typeof nextTargets?.fats === "number" &&
+            Number.isFinite(nextTargets.fats)
+              ? String(nextTargets.fats)
+              : "",
+          micronutrientsGuidance:
+            typeof nextTargets?.micronutrientsGuidance === "string"
+              ? nextTargets.micronutrientsGuidance
+              : "",
+        });
       }
     } catch (err: any) {
       console.warn("Failed to fetch nutrition data", err);
@@ -216,6 +261,65 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       setLoading(false);
     }
   }, [token, dateKey, athleteUserId, isAdult, parseSlot]);
+
+  const parseTargetNumber = useCallback((raw: string) => {
+    const cleaned = raw.trim();
+    if (!cleaned.length) return null;
+    const n = Number(cleaned);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.trunc(n));
+  }, []);
+
+  const handleSaveTargets = useCallback(async () => {
+    if (!token) return;
+    if (!canEditTargets) return;
+    if (typeof athleteUserId !== "number" || !Number.isFinite(athleteUserId)) {
+      setTargetsStatus({
+        tone: "error",
+        message: "Select an athlete before saving targets.",
+      });
+      return;
+    }
+
+    setTargetsSaving(true);
+    setTargetsStatus(null);
+    try {
+      const body = {
+        calories: parseTargetNumber(targetsDraft.calories),
+        protein: parseTargetNumber(targetsDraft.protein),
+        carbs: parseTargetNumber(targetsDraft.carbs),
+        fats: parseTargetNumber(targetsDraft.fats),
+        micronutrientsGuidance: targetsDraft.micronutrientsGuidance.trim()
+          .length
+          ? targetsDraft.micronutrientsGuidance.trim()
+          : null,
+      };
+
+      await apiRequest(`/nutrition/targets/${athleteUserId}`, {
+        method: "PUT",
+        token,
+        body,
+      });
+
+      setTargetsStatus({ tone: "success", message: "Targets saved." });
+      setTimeout(() => setTargetsStatus(null), 3000);
+      void fetchData();
+    } catch (err: any) {
+      setTargetsStatus({
+        tone: "error",
+        message: err?.message ?? "Failed to save targets.",
+      });
+    } finally {
+      setTargetsSaving(false);
+    }
+  }, [
+    athleteUserId,
+    canEditTargets,
+    fetchData,
+    parseTargetNumber,
+    targetsDraft,
+    token,
+  ]);
 
   useEffect(() => {
     void fetchData();
@@ -288,29 +392,27 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
         body: {
           athleteId: athleteUserId || undefined,
           dateKey,
-          foodDiary: isAdult ? foodDiary : undefined,
-          breakfast: !isAdult
-            ? serializeSlot(breakfastChecked, breakfastDetails)
-            : undefined,
-          lunch: !isAdult
-            ? serializeSlot(lunchChecked, lunchDetails)
-            : undefined,
-          dinner: !isAdult
-            ? serializeSlot(dinnerChecked, dinnerDetails)
-            : undefined,
-          snacksMorning: !isAdult
-            ? serializeSlot(snackMorningChecked, snackMorningDetails)
-            : undefined,
-          snacksAfternoon: !isAdult
-            ? serializeSlot(snackAfternoonChecked, snackAfternoonDetails)
-            : undefined,
-          snacksEvening: !isAdult
-            ? serializeSlot(snackEveningChecked, snackEveningDetails)
-            : undefined,
-          waterIntake: !isAdult ? waterIntake : undefined,
-          mood: !isAdult ? mood : undefined,
-          energy: !isAdult ? energy : undefined,
-          pain: !isAdult ? pain : undefined,
+          // Keep supporting legacy adult entries that were saved as freeform.
+          foodDiary: foodDiary.trim().length ? foodDiary : undefined,
+          breakfast: serializeSlot(breakfastChecked, breakfastDetails),
+          lunch: serializeSlot(lunchChecked, lunchDetails),
+          dinner: serializeSlot(dinnerChecked, dinnerDetails),
+          snacksMorning: serializeSlot(
+            snackMorningChecked,
+            snackMorningDetails,
+          ),
+          snacksAfternoon: serializeSlot(
+            snackAfternoonChecked,
+            snackAfternoonDetails,
+          ),
+          snacksEvening: serializeSlot(
+            snackEveningChecked,
+            snackEveningDetails,
+          ),
+          waterIntake,
+          mood,
+          energy,
+          pain,
         },
       });
       setStatus({ tone: "success", message: "Saved successfully!" });
@@ -374,11 +476,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
         }}
       >
         <Text className="text-2xl font-clash text-app font-bold">
-          {isAdult ? "Food Diary" : "Daily Tracking"}
+          Daily Tracking
         </Text>
         <Text className="mt-2 text-sm font-outfit text-secondary leading-6">
           {isAdult
-            ? "Log your nutrition relative to your targets."
+            ? "Check off your meals and rate your metrics relative to your targets."
             : "Check off your daily checklist and rate your metrics."}
         </Text>
 
@@ -493,60 +595,6 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           </View>
         ) : (
           <View className="gap-4">
-            {isAdult && targets && (
-              <View
-                className="rounded-3xl border p-5"
-                style={{
-                  backgroundColor: colors.card,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.06)",
-                }}
-              >
-                <Text className="text-xs font-outfit font-bold uppercase tracking-[1.2px] text-secondary mb-3">
-                  Coach Targets
-                </Text>
-                <View className="flex-row flex-wrap gap-2">
-                  <View className="w-[48%] rounded-xl bg-app/5 p-3">
-                    <Text className="text-xs text-secondary mb-1">
-                      Calories
-                    </Text>
-                    <Text className="text-lg font-clash font-bold">
-                      {targets.calories || "N/A"}
-                    </Text>
-                  </View>
-                  <View className="w-[48%] rounded-xl bg-app/5 p-3">
-                    <Text className="text-xs text-secondary mb-1">Protein</Text>
-                    <Text className="text-lg font-clash font-bold">
-                      {targets.protein ? `${targets.protein}g` : "N/A"}
-                    </Text>
-                  </View>
-                  <View className="w-[48%] rounded-xl bg-app/5 p-3">
-                    <Text className="text-xs text-secondary mb-1">Carbs</Text>
-                    <Text className="text-lg font-clash font-bold">
-                      {targets.carbs ? `${targets.carbs}g` : "N/A"}
-                    </Text>
-                  </View>
-                  <View className="w-[48%] rounded-xl bg-app/5 p-3">
-                    <Text className="text-xs text-secondary mb-1">Fats</Text>
-                    <Text className="text-lg font-clash font-bold">
-                      {targets.fats ? `${targets.fats}g` : "N/A"}
-                    </Text>
-                  </View>
-                </View>
-                {targets.micronutrientsGuidance ? (
-                  <View className="mt-3 bg-app/5 p-3 rounded-xl">
-                    <Text className="text-xs text-secondary mb-1">
-                      Micronutrients Guidance
-                    </Text>
-                    <Text className="text-sm">
-                      {targets.micronutrientsGuidance}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
-
             {isAdult ? (
               <View
                 className="rounded-3xl border p-5"
@@ -557,235 +605,370 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     : "rgba(15,23,42,0.06)",
                 }}
               >
-                <Text className="text-sm font-bold font-outfit text-app mb-3">
-                  Food Diary
+                <Text className="text-xs font-outfit font-bold uppercase tracking-[1.2px] text-secondary">
+                  Nutrition Targets
                 </Text>
-                <TextInput
-                  value={foodDiary}
-                  onChangeText={setFoodDiary}
-                  placeholder="Log your meals, macros hit, and notes here..."
-                  placeholderTextColor={colors.placeholder}
-                  multiline
-                  className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
-                  style={{
-                    minHeight: 150,
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.04)"
-                      : "rgba(15,23,42,0.03)",
-                  }}
-                />
-              </View>
-            ) : (
-              <View
-                className="rounded-3xl border p-5"
-                style={{
-                  backgroundColor: colors.card,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.06)",
-                }}
-              >
-                <Text className="text-sm font-bold font-outfit text-app mb-3">
-                  Meal Checklist
+                <Text className="mt-2 text-sm font-outfit text-secondary leading-6">
+                  Set suggested calories, macros, and micronutrient guidance for
+                  this adult athlete.
                 </Text>
-                <View className="gap-4 mb-6">
-                  {/* Meals */}
-                  <View className="gap-3">
-                    {[
-                      {
-                        label: "Breakfast",
-                        checked: breakfastChecked,
-                        setChecked: setBreakfastChecked,
-                        details: breakfastDetails,
-                        setDetails: setBreakfastDetails,
-                      },
-                      {
-                        label: "Lunch",
-                        checked: lunchChecked,
-                        setChecked: setLunchChecked,
-                        details: lunchDetails,
-                        setDetails: setLunchDetails,
-                      },
-                      {
-                        label: "Dinner",
-                        checked: dinnerChecked,
-                        setChecked: setDinnerChecked,
-                        details: dinnerDetails,
-                        setDetails: setDinnerDetails,
-                      },
-                    ].map((meal) => (
-                      <View key={meal.label} className="gap-2">
-                        <TouchableOpacity
-                          onPress={() => meal.setChecked(!meal.checked)}
-                          className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
-                          style={{
-                            backgroundColor: meal.checked
-                              ? colors.accent
-                              : colors.card,
-                            borderColor: meal.checked
-                              ? colors.accent
-                              : isDark
-                                ? "rgba(255,255,255,0.08)"
-                                : "rgba(15,23,42,0.06)",
-                          }}
-                        >
-                          <Text
-                            className={`font-bold ${meal.checked ? "text-white" : "text-app"}`}
-                          >
-                            {meal.label}
-                          </Text>
-                          {meal.checked && (
-                            <Feather name="check" color="white" />
-                          )}
-                        </TouchableOpacity>
 
-                        {meal.checked ? (
-                          <View
-                            className="rounded-2xl border px-4 py-3"
-                            style={{
-                              backgroundColor: isDark
-                                ? "rgba(255,255,255,0.04)"
-                                : "rgba(15,23,42,0.03)",
-                              borderColor: isDark
-                                ? "rgba(255,255,255,0.08)"
-                                : "rgba(15,23,42,0.06)",
-                            }}
-                          >
-                            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
-                              What did you eat?
-                            </Text>
-                            <TextInput
-                              value={meal.details}
-                              onChangeText={meal.setDetails}
-                              placeholder="e.g., eggs, bread, fruit"
-                              placeholderTextColor={colors.placeholder}
-                              multiline
-                              className="text-sm font-outfit text-app"
-                              style={{
-                                minHeight: 48,
-                                textAlignVertical: "top",
-                              }}
-                            />
-                          </View>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Snacks */}
-                  <View className="gap-3">
+                <View className="mt-4 gap-4">
+                  <View className="gap-2">
                     <Text className="text-sm font-bold font-outfit text-app">
-                      Snacks
+                      Calories
                     </Text>
+                    <TextInput
+                      value={targetsDraft.calories}
+                      onChangeText={(v) =>
+                        setTargetsDraft((s) => ({
+                          ...s,
+                          calories: v.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                      placeholder="e.g. 2600"
+                      placeholderTextColor={colors.placeholder}
+                      editable={canEditTargets}
+                      keyboardType="number-pad"
+                      className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.03)",
+                      }}
+                    />
+                  </View>
 
-                    {[
-                      {
-                        label: "Morning snack",
-                        checked: snackMorningChecked,
-                        setChecked: setSnackMorningChecked,
-                        details: snackMorningDetails,
-                        setDetails: setSnackMorningDetails,
-                      },
-                      {
-                        label: "Afternoon snack",
-                        checked: snackAfternoonChecked,
-                        setChecked: setSnackAfternoonChecked,
-                        details: snackAfternoonDetails,
-                        setDetails: setSnackAfternoonDetails,
-                      },
-                      {
-                        label: "Evening snack",
-                        checked: snackEveningChecked,
-                        setChecked: setSnackEveningChecked,
-                        details: snackEveningDetails,
-                        setDetails: setSnackEveningDetails,
-                      },
-                    ].map((slot) => (
-                      <View key={slot.label} className="gap-2">
-                        <TouchableOpacity
-                          onPress={() => slot.setChecked(!slot.checked)}
-                          className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
+                  <View className="gap-2">
+                    <Text className="text-sm font-bold font-outfit text-app">
+                      Protein (g)
+                    </Text>
+                    <TextInput
+                      value={targetsDraft.protein}
+                      onChangeText={(v) =>
+                        setTargetsDraft((s) => ({
+                          ...s,
+                          protein: v.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                      placeholder="e.g. 180"
+                      placeholderTextColor={colors.placeholder}
+                      editable={canEditTargets}
+                      keyboardType="number-pad"
+                      className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.03)",
+                      }}
+                    />
+                  </View>
+
+                  <View className="gap-2">
+                    <Text className="text-sm font-bold font-outfit text-app">
+                      Carbs (g)
+                    </Text>
+                    <TextInput
+                      value={targetsDraft.carbs}
+                      onChangeText={(v) =>
+                        setTargetsDraft((s) => ({
+                          ...s,
+                          carbs: v.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                      placeholder="e.g. 280"
+                      placeholderTextColor={colors.placeholder}
+                      editable={canEditTargets}
+                      keyboardType="number-pad"
+                      className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.03)",
+                      }}
+                    />
+                  </View>
+
+                  <View className="gap-2">
+                    <Text className="text-sm font-bold font-outfit text-app">
+                      Fats (g)
+                    </Text>
+                    <TextInput
+                      value={targetsDraft.fats}
+                      onChangeText={(v) =>
+                        setTargetsDraft((s) => ({
+                          ...s,
+                          fats: v.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                      placeholder="e.g. 80"
+                      placeholderTextColor={colors.placeholder}
+                      editable={canEditTargets}
+                      keyboardType="number-pad"
+                      className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.03)",
+                      }}
+                    />
+                  </View>
+
+                  <View className="gap-2">
+                    <Text className="text-sm font-bold font-outfit text-app">
+                      Micronutrient Guidance
+                    </Text>
+                    <TextInput
+                      value={targetsDraft.micronutrientsGuidance}
+                      onChangeText={(v) =>
+                        setTargetsDraft((s) => ({
+                          ...s,
+                          micronutrientsGuidance: v,
+                        }))
+                      }
+                      placeholder="e.g. Prioritize iron + vitamin C, omega-3s, magnesium..."
+                      placeholderTextColor={colors.placeholder}
+                      editable={canEditTargets}
+                      multiline
+                      className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
+                      style={{
+                        minHeight: 96,
+                        textAlignVertical: "top",
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.03)",
+                      }}
+                    />
+                  </View>
+
+                  {canEditTargets ? (
+                    <TouchableOpacity
+                      onPress={handleSaveTargets}
+                      disabled={targetsSaving}
+                      className={`rounded-[24px] items-center py-4 ${targetsSaving ? "bg-accent/40" : "bg-accent"}`}
+                    >
+                      <Text className="text-white font-bold">
+                        {targetsSaving ? "Saving..." : "Save Targets"}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {targetsStatus ? (
+                    <Text
+                      className={`text-center font-bold ${targetsStatus.tone === "error" ? "text-red-500" : "text-emerald-500"}`}
+                    >
+                      {targetsStatus.message}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+
+            <View
+              className="rounded-3xl border p-5"
+              style={{
+                backgroundColor: colors.card,
+                borderColor: isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(15,23,42,0.06)",
+              }}
+            >
+              <Text className="text-sm font-bold font-outfit text-app mb-3">
+                Meal Checklist
+              </Text>
+              <View className="gap-4 mb-6">
+                {/* Meals */}
+                <View className="gap-3">
+                  {[
+                    {
+                      label: "Breakfast",
+                      checked: breakfastChecked,
+                      setChecked: setBreakfastChecked,
+                      details: breakfastDetails,
+                      setDetails: setBreakfastDetails,
+                    },
+                    {
+                      label: "Lunch",
+                      checked: lunchChecked,
+                      setChecked: setLunchChecked,
+                      details: lunchDetails,
+                      setDetails: setLunchDetails,
+                    },
+                    {
+                      label: "Dinner",
+                      checked: dinnerChecked,
+                      setChecked: setDinnerChecked,
+                      details: dinnerDetails,
+                      setDetails: setDinnerDetails,
+                    },
+                  ].map((meal) => (
+                    <View key={meal.label} className="gap-2">
+                      <TouchableOpacity
+                        onPress={() => meal.setChecked(!meal.checked)}
+                        className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
+                        style={{
+                          backgroundColor: meal.checked
+                            ? colors.accent
+                            : colors.card,
+                          borderColor: meal.checked
+                            ? colors.accent
+                            : isDark
+                              ? "rgba(255,255,255,0.08)"
+                              : "rgba(15,23,42,0.06)",
+                        }}
+                      >
+                        <Text
+                          className={`font-bold ${meal.checked ? "text-white" : "text-app"}`}
+                        >
+                          {meal.label}
+                        </Text>
+                        {meal.checked && <Feather name="check" color="white" />}
+                      </TouchableOpacity>
+
+                      {meal.checked ? (
+                        <View
+                          className="rounded-2xl border px-4 py-3"
                           style={{
-                            backgroundColor: slot.checked
-                              ? colors.accent
-                              : colors.card,
-                            borderColor: slot.checked
-                              ? colors.accent
-                              : isDark
-                                ? "rgba(255,255,255,0.08)"
-                                : "rgba(15,23,42,0.06)",
+                            backgroundColor: isDark
+                              ? "rgba(255,255,255,0.04)"
+                              : "rgba(15,23,42,0.03)",
+                            borderColor: isDark
+                              ? "rgba(255,255,255,0.08)"
+                              : "rgba(15,23,42,0.06)",
                           }}
                         >
-                          <Text
-                            className={`font-bold ${slot.checked ? "text-white" : "text-app"}`}
-                          >
-                            {slot.label}
+                          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
+                            What did you eat?
                           </Text>
-                          {slot.checked && (
-                            <Feather name="check" color="white" />
-                          )}
-                        </TouchableOpacity>
-
-                        {slot.checked ? (
-                          <View
-                            className="rounded-2xl border px-4 py-3"
+                          <TextInput
+                            value={meal.details}
+                            onChangeText={meal.setDetails}
+                            placeholder="e.g., eggs, bread, fruit"
+                            placeholderTextColor={colors.placeholder}
+                            multiline
+                            className="text-sm font-outfit text-app"
                             style={{
-                              backgroundColor: isDark
-                                ? "rgba(255,255,255,0.04)"
-                                : "rgba(15,23,42,0.03)",
-                              borderColor: isDark
-                                ? "rgba(255,255,255,0.08)"
-                                : "rgba(15,23,42,0.06)",
+                              minHeight: 48,
+                              textAlignVertical: "top",
                             }}
-                          >
-                            <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
-                              What did you eat?
-                            </Text>
-                            <TextInput
-                              value={slot.details}
-                              onChangeText={slot.setDetails}
-                              placeholder="e.g., banana, nuts, yogurt"
-                              placeholderTextColor={colors.placeholder}
-                              multiline
-                              className="text-sm font-outfit text-app"
-                              style={{
-                                minHeight: 48,
-                                textAlignVertical: "top",
-                              }}
-                            />
-                          </View>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
+                          />
+                        </View>
+                      ) : null}
+                    </View>
+                  ))}
                 </View>
 
-                <Text className="text-sm font-bold font-outfit text-app mb-3">
-                  Water Intake (Glasses)
-                </Text>
-                <View className="flex-row items-center gap-4 mb-6">
-                  <TouchableOpacity
-                    onPress={() => setWaterIntake(Math.max(0, waterIntake - 1))}
-                    className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
-                  >
-                    <Feather name="minus" size={20} color={colors.accent} />
-                  </TouchableOpacity>
-                  <Text className="text-3xl font-clash font-bold flex-1 text-center">
-                    {waterIntake}
+                {/* Snacks */}
+                <View className="gap-3">
+                  <Text className="text-sm font-bold font-outfit text-app">
+                    Snacks
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => setWaterIntake(waterIntake + 1)}
-                    className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
-                  >
-                    <Feather name="plus" size={20} color={colors.accent} />
-                  </TouchableOpacity>
-                </View>
 
-                {renderMetricScale("Mood Tracker", mood, setMood)}
-                {renderMetricScale("Energy Levels", energy, setEnergy)}
-                {renderMetricScale("Pain Levels", pain, setPain)}
+                  {[
+                    {
+                      label: "Morning snack",
+                      checked: snackMorningChecked,
+                      setChecked: setSnackMorningChecked,
+                      details: snackMorningDetails,
+                      setDetails: setSnackMorningDetails,
+                    },
+                    {
+                      label: "Afternoon snack",
+                      checked: snackAfternoonChecked,
+                      setChecked: setSnackAfternoonChecked,
+                      details: snackAfternoonDetails,
+                      setDetails: setSnackAfternoonDetails,
+                    },
+                    {
+                      label: "Evening snack",
+                      checked: snackEveningChecked,
+                      setChecked: setSnackEveningChecked,
+                      details: snackEveningDetails,
+                      setDetails: setSnackEveningDetails,
+                    },
+                  ].map((slot) => (
+                    <View key={slot.label} className="gap-2">
+                      <TouchableOpacity
+                        onPress={() => slot.setChecked(!slot.checked)}
+                        className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
+                        style={{
+                          backgroundColor: slot.checked
+                            ? colors.accent
+                            : colors.card,
+                          borderColor: slot.checked
+                            ? colors.accent
+                            : isDark
+                              ? "rgba(255,255,255,0.08)"
+                              : "rgba(15,23,42,0.06)",
+                        }}
+                      >
+                        <Text
+                          className={`font-bold ${slot.checked ? "text-white" : "text-app"}`}
+                        >
+                          {slot.label}
+                        </Text>
+                        {slot.checked && <Feather name="check" color="white" />}
+                      </TouchableOpacity>
+
+                      {slot.checked ? (
+                        <View
+                          className="rounded-2xl border px-4 py-3"
+                          style={{
+                            backgroundColor: isDark
+                              ? "rgba(255,255,255,0.04)"
+                              : "rgba(15,23,42,0.03)",
+                            borderColor: isDark
+                              ? "rgba(255,255,255,0.08)"
+                              : "rgba(15,23,42,0.06)",
+                          }}
+                        >
+                          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
+                            What did you eat?
+                          </Text>
+                          <TextInput
+                            value={slot.details}
+                            onChangeText={slot.setDetails}
+                            placeholder="e.g., banana, nuts, yogurt"
+                            placeholderTextColor={colors.placeholder}
+                            multiline
+                            className="text-sm font-outfit text-app"
+                            style={{
+                              minHeight: 48,
+                              textAlignVertical: "top",
+                            }}
+                          />
+                        </View>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
               </View>
-            )}
+
+              <Text className="text-sm font-bold font-outfit text-app mb-3">
+                Water Intake (Glasses)
+              </Text>
+              <View className="flex-row items-center gap-4 mb-6">
+                <TouchableOpacity
+                  onPress={() => setWaterIntake(Math.max(0, waterIntake - 1))}
+                  className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
+                >
+                  <Feather name="minus" size={20} color={colors.accent} />
+                </TouchableOpacity>
+                <Text className="text-3xl font-clash font-bold flex-1 text-center">
+                  {waterIntake}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setWaterIntake(waterIntake + 1)}
+                  className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
+                >
+                  <Feather name="plus" size={20} color={colors.accent} />
+                </TouchableOpacity>
+              </View>
+
+              {renderMetricScale("Mood Tracker", mood, setMood)}
+              {renderMetricScale("Energy Levels", energy, setEnergy)}
+              {renderMetricScale("Pain Levels", pain, setPain)}
+            </View>
 
             {(coachFeedback || coachFeedbackMediaUrl) && (
               <View className="rounded-3xl border p-5 bg-emerald-500/10 border-emerald-400/30">
@@ -871,53 +1054,49 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   typeof log?.dateKey === "string" ? log.dateKey : "";
 
                 const lines: string[] = [];
-                if (isAdult) {
-                  const diary =
-                    typeof log?.foodDiary === "string"
-                      ? log.foodDiary.trim()
-                      : "";
-                  if (diary) lines.push(`Food diary: ${diary}`);
+                const b = parseSlot(log?.breakfast);
+                const l = parseSlot(log?.lunch);
+                const d = parseSlot(log?.dinner);
+                const sm = parseSlot(log?.snacksMorning);
+                const sa = parseSlot(log?.snacksAfternoon);
+                const se = parseSlot(log?.snacksEvening);
+                const legacySnacksRaw =
+                  typeof log?.snacks === "string" ? log.snacks.trim() : "";
+
+                if (b.checked)
+                  lines.push(`Breakfast: ${b.details || "Logged"}`);
+                if (l.checked) lines.push(`Lunch: ${l.details || "Logged"}`);
+                if (d.checked) lines.push(`Dinner: ${d.details || "Logged"}`);
+
+                const anyNewSnack = sm.checked || sa.checked || se.checked;
+                if (!anyNewSnack && legacySnacksRaw) {
+                  const legacy = parseSlot(legacySnacksRaw);
+                  if (legacy.checked)
+                    lines.push(`Snack (legacy): ${legacy.details || "Logged"}`);
                 } else {
-                  const b = parseSlot(log?.breakfast);
-                  const l = parseSlot(log?.lunch);
-                  const d = parseSlot(log?.dinner);
-                  const sm = parseSlot(log?.snacksMorning);
-                  const sa = parseSlot(log?.snacksAfternoon);
-                  const se = parseSlot(log?.snacksEvening);
-                  const legacySnacksRaw =
-                    typeof log?.snacks === "string" ? log.snacks.trim() : "";
-
-                  if (b.checked)
-                    lines.push(`Breakfast: ${b.details || "Logged"}`);
-                  if (l.checked) lines.push(`Lunch: ${l.details || "Logged"}`);
-                  if (d.checked) lines.push(`Dinner: ${d.details || "Logged"}`);
-
-                  const anyNewSnack = sm.checked || sa.checked || se.checked;
-                  if (!anyNewSnack && legacySnacksRaw) {
-                    const legacy = parseSlot(legacySnacksRaw);
-                    if (legacy.checked)
-                      lines.push(
-                        `Snack (legacy): ${legacy.details || "Logged"}`,
-                      );
-                  } else {
-                    if (sm.checked)
-                      lines.push(`Morning snack: ${sm.details || "Logged"}`);
-                    if (sa.checked)
-                      lines.push(`Afternoon snack: ${sa.details || "Logged"}`);
-                    if (se.checked)
-                      lines.push(`Evening snack: ${se.details || "Logged"}`);
-                  }
-
-                  const w =
-                    typeof log?.waterIntake === "number" ? log.waterIntake : 0;
-                  if (w > 0) lines.push(`Water: ${w}`);
-                  if (typeof log?.mood === "number")
-                    lines.push(`Mood: ${log.mood}/5`);
-                  if (typeof log?.energy === "number")
-                    lines.push(`Energy: ${log.energy}/5`);
-                  if (typeof log?.pain === "number")
-                    lines.push(`Pain: ${log.pain}/5`);
+                  if (sm.checked)
+                    lines.push(`Morning snack: ${sm.details || "Logged"}`);
+                  if (sa.checked)
+                    lines.push(`Afternoon snack: ${sa.details || "Logged"}`);
+                  if (se.checked)
+                    lines.push(`Evening snack: ${se.details || "Logged"}`);
                 }
+
+                const w =
+                  typeof log?.waterIntake === "number" ? log.waterIntake : 0;
+                if (w > 0) lines.push(`Water: ${w}`);
+                if (typeof log?.mood === "number")
+                  lines.push(`Mood: ${log.mood}/5`);
+                if (typeof log?.energy === "number")
+                  lines.push(`Energy: ${log.energy}/5`);
+                if (typeof log?.pain === "number")
+                  lines.push(`Pain: ${log.pain}/5`);
+
+                const diary =
+                  typeof log?.foodDiary === "string"
+                    ? log.foodDiary.trim()
+                    : "";
+                if (diary) lines.push(`Food diary: ${diary}`);
 
                 const coachText =
                   typeof log?.coachFeedback === "string"

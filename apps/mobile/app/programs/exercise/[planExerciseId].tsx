@@ -251,13 +251,6 @@ export default function PremiumExerciseDetailScreen() {
   const mutedSurfaceSoft = isDark
     ? "rgba(255,255,255,0.06)"
     : "rgba(15,23,42,0.04)";
-  const canUploadVideos =
-    canAccessTier(programTier ?? null, "PHP_Premium") &&
-    !isSectionHidden("videoFeedback");
-  const showUploadFab =
-    Boolean(linkedContent?.allowVideoUpload) &&
-    canUploadVideos &&
-    Number.isFinite(Number(item?.linkedProgramSectionContentId));
   const title = item?.exercise?.name ?? linkedContent?.title ?? "Exercise";
   const mediaUrl = linkedContent?.videoUrl ?? item?.exercise?.videoUrl ?? null;
   const bodyText =
@@ -712,31 +705,7 @@ export default function PremiumExerciseDetailScreen() {
           </View>
         ) : null}
 
-        {showUploadFab ? (
-          <Pressable
-            onPress={() => {
-              const params = new URLSearchParams();
-              if (item?.linkedProgramSectionContentId != null) {
-                params.set(
-                  "sectionContentId",
-                  String(item.linkedProgramSectionContentId),
-                );
-              }
-              if (title) {
-                params.set("sectionTitle", title);
-              }
-              router.push(`/video-upload?${params.toString()}` as any);
-            }}
-            className="absolute bottom-6 right-6 h-14 w-14 rounded-full items-center justify-center"
-            style={{
-              bottom: hasSessionNavigation ? 96 : 24,
-              backgroundColor: colors.accent,
-              ...(isDark ? Shadows.none : Shadows.md),
-            }}
-          >
-            <Feather name="plus" size={24} color="#ffffff" />
-          </Pressable>
-        ) : null}
+        {/* Video upload is handled in the Session detail exercise cards to keep everything in one place. */}
       </SafeMaskedView>
     </SafeAreaView>
   );

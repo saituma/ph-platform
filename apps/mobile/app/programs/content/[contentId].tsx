@@ -153,11 +153,6 @@ export default function ProgramContentDetailScreen() {
     : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
-  const canUploadVideos =
-    canAccessTier(programTier ?? null, "PHP_Premium") &&
-    !isSectionHidden("videoFeedback");
-  const showUploadFab = Boolean(item?.allowVideoUpload) && canUploadVideos;
-
   const sessionExerciseIds = useMemo(
     () =>
       String(sessionIds ?? "")
@@ -331,26 +326,7 @@ export default function ProgramContentDetailScreen() {
           />
         )}
 
-        {showUploadFab && (
-          <Pressable
-            onPress={() => {
-              const params = new URLSearchParams();
-              if (Number.isFinite(Number(contentId))) {
-                params.set("sectionContentId", String(contentId));
-              }
-              if (item?.title) params.set("sectionTitle", item.title);
-              router.push(`/video-upload?${params.toString()}` as any);
-            }}
-            className="absolute bottom-6 right-6 h-14 w-14 rounded-full items-center justify-center"
-            style={{
-              bottom: hasSessionNavigation ? 96 : 24,
-              backgroundColor: colors.accent,
-              ...(isDark ? Shadows.none : Shadows.md),
-            }}
-          >
-            <Feather name="plus" size={24} color="#ffffff" />
-          </Pressable>
-        )}
+        {/* Video upload is handled in the Session detail exercise cards to keep everything in one place. */}
 
         <CheckinModal
           isVisible={showCompleteModal}

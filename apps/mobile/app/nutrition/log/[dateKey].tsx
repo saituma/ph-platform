@@ -26,13 +26,10 @@ export default function NutritionLogDetailScreen() {
   }>();
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const token = useAppSelector((s) => s.user.token);
-  const appRole = useAppSelector((s) => s.user.appRole);
-
-  const isAdult =
-    appRole === "adult_athlete" || appRole === "adult_athlete_team";
 
   const effectiveUserId = useMemo(() => {
-    if (typeof userId === "string" && userId.trim().length) return userId.trim();
+    if (typeof userId === "string" && userId.trim().length)
+      return userId.trim();
     return athleteUserId ? String(athleteUserId) : "me";
   }, [athleteUserId, userId]);
 
@@ -91,11 +88,8 @@ export default function NutritionLogDetailScreen() {
   const lines = useMemo(() => {
     if (!log) return [];
     const out: string[] = [];
-    if (isAdult) {
-      const diary = typeof log?.foodDiary === "string" ? log.foodDiary.trim() : "";
-      if (diary) out.push(`Food diary: ${diary}`);
-      return out;
-    }
+    const diary =
+      typeof log?.foodDiary === "string" ? log.foodDiary.trim() : "";
 
     const b = parseSlot(log?.breakfast);
     const l = parseSlot(log?.lunch);
@@ -113,7 +107,8 @@ export default function NutritionLogDetailScreen() {
     const anyNewSnack = sm.checked || sa.checked || se.checked;
     if (!anyNewSnack && legacySnacksRaw) {
       const legacy = parseSlot(legacySnacksRaw);
-      if (legacy.checked) out.push(`Snack (legacy): ${legacy.details || "Logged"}`);
+      if (legacy.checked)
+        out.push(`Snack (legacy): ${legacy.details || "Logged"}`);
     } else {
       if (sm.checked) out.push(`Morning snack: ${sm.details || "Logged"}`);
       if (sa.checked) out.push(`Afternoon snack: ${sa.details || "Logged"}`);
@@ -125,8 +120,10 @@ export default function NutritionLogDetailScreen() {
     if (typeof log?.mood === "number") out.push(`Mood: ${log.mood}/5`);
     if (typeof log?.energy === "number") out.push(`Energy: ${log.energy}/5`);
     if (typeof log?.pain === "number") out.push(`Pain: ${log.pain}/5`);
+
+    if (diary) out.push(`Food diary: ${diary}`);
     return out;
-  }, [isAdult, log]);
+  }, [log]);
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
@@ -213,7 +210,11 @@ export default function NutritionLogDetailScreen() {
               )}
               {coachMedia ? (
                 <View className="rounded-3xl overflow-hidden bg-black">
-                  <VideoPlayer uri={coachMedia} height={200} useVideoResolution />
+                  <VideoPlayer
+                    uri={coachMedia}
+                    height={200}
+                    useVideoResolution
+                  />
                 </View>
               ) : null}
             </View>
@@ -223,4 +224,3 @@ export default function NutritionLogDetailScreen() {
     </SafeAreaView>
   );
 }
-

@@ -106,6 +106,53 @@ export default function VideoUploadScreen() {
     );
   }
 
+  // This screen is used as a contextual upload surface (e.g. from a session/exercise),
+  // not as a global "inbox" of videos from the More tab.
+  if (sectionContentId == null) {
+    return (
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <MoreStackHeader
+          title="Video Upload"
+          subtitle="Upload videos directly from your session detail page."
+          badge="Premium"
+        />
+
+        <View className="flex-1 items-center justify-center px-6 pb-12">
+          <View
+            className="w-full max-w-[360px] overflow-hidden rounded-[32px] border px-6 py-8"
+            style={{
+              backgroundColor: colors.cardElevated,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            <View
+              className="mb-6 h-20 w-20 rounded-3xl bg-accent/10 items-center justify-center border border-accent/20 self-center"
+            >
+              <Feather name="video" size={28} color={colors.accent} />
+            </View>
+            <Text className="text-2xl font-telma-bold font-bold text-app text-center mb-3">
+              Upload from a session
+            </Text>
+            <Text className="text-[15px] font-outfit text-center text-secondary leading-relaxed mb-6">
+              Go to Programs → Modules → Session → Session detail, then tap the video icon on the exercise you want reviewed.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => router.replace("/(tabs)/programs")}
+              className="w-full bg-accent py-4 rounded-2xl active:opacity-90"
+              style={isDark ? Shadows.none : Shadows.md}
+            >
+              <Text className="text-white font-bold text-base text-center">
+                Go to Programs
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <MoreStackHeader

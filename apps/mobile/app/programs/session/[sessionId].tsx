@@ -30,6 +30,7 @@ import { useSessionData } from "@/hooks/programs/useSessionData";
 import { useSessionUploads } from "@/hooks/programs/useSessionUploads";
 import { SessionExerciseBlock } from "@/components/programs/SessionExerciseBlock";
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
+import { useVideoHistory } from "@/hooks/programs/useVideoHistory";
 import {
   finishTrainingContentV2Session,
   FinishTrainingSessionWorkoutLog,
@@ -83,6 +84,11 @@ export default function ProgramSessionDetailScreen() {
   );
   const { uploadsBySectionId, hasUploadedBySectionId, loadUploadsForSection } =
     useSessionUploads(token, athleteUserId);
+  const { coachResponses, loadCoachResponses } = useVideoHistory(
+    token,
+    athleteUserId,
+    null,
+  );
   const {
     uploadVideo,
     isUploading,
@@ -114,6 +120,23 @@ export default function ProgramSessionDetailScreen() {
       .filter((i) => i.allowVideoUpload)
       .forEach((i) => loadUploadsForSection(i.id));
   }, [session, loadUploadsForSection]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCoachResponses(true);
+    }, [loadCoachResponses]),
+  );
+
+  const coachResponsesByUploadId = useMemo(() => {
+    const map = new Map<string, any[]>();
+    coachResponses.forEach((res) => {
+      const key = String(res.videoUploadId);
+      const existing = map.get(key) ?? [];
+      existing.push(res);
+      map.set(key, existing);
+    });
+    return map;
+  }, [coachResponses]);
 
   const pickVideo = useCallback(async (source: "library" | "camera") => {
     const permission =
@@ -608,6 +631,7 @@ export default function ProgramSessionDetailScreen() {
             onUploadPress={handleUploadPress}
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
+            coachResponsesByUploadId={coachResponsesByUploadId}
             canUpload={canAccessTier(programTier, "PHP_Premium")}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
@@ -625,6 +649,7 @@ export default function ProgramSessionDetailScreen() {
             onUploadPress={handleUploadPress}
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
+            coachResponsesByUploadId={coachResponsesByUploadId}
             canUpload={canAccessTier(programTier, "PHP_Premium")}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
@@ -642,6 +667,7 @@ export default function ProgramSessionDetailScreen() {
             onUploadPress={handleUploadPress}
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
+            coachResponsesByUploadId={coachResponsesByUploadId}
             canUpload={canAccessTier(programTier, "PHP_Premium")}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
