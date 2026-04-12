@@ -47,6 +47,9 @@ function logDebugPush(payload: Record<string, unknown>) {
       timestamp: Date.now(),
       ...payload,
     }) + "\n";
+  // Deployed APIs (e.g. Render) cannot write the dev machine log path or reach localhost ingest.
+  // Grep Render/host logs for `PH_PUSH_DEBUG` to analyze push delivery.
+  console.info(`[PH_PUSH_DEBUG] ${line.trimEnd()}`);
   void appendFile(DEBUG_PUSH_LOG, line).catch(() => {});
   void fetch("http://127.0.0.1:7392/ingest/3e8b9f8d-6d0f-4ca7-943c-7327a18df494", {
     method: "POST",
