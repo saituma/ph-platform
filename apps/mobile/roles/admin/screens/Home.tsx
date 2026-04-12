@@ -374,7 +374,7 @@ export default function AdminHomeScreen() {
               </View>
             ) : (
               <View className="gap-3">
-                {data?.priorityQueue.map((item, idx) => (
+                {data?.priorityQueue?.map((item, idx) => (
                   <Pressable
                     key={idx}
                     onPress={() =>

@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Platform, SafeAreaView, Text, View, Pressable } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Platform, Text, View, Pressable } from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -13,7 +16,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { fonts, radius, icons as themeIcons } from "@/constants/theme";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRunStore } from "../../../store/useRunStore";
-import { stopLocationTracking, startLocationTracking } from "../../../lib/backgroundTask";
+import {
+  stopLocationTracking,
+  startLocationTracking,
+} from "../../../lib/backgroundTask";
 
 import { useRunTrackingEngine } from "../../../hooks/tracking/useRunTrackingEngine";
 import { LiveMap } from "../../../components/tracking/active-run/LiveMap";
@@ -142,14 +148,27 @@ export default function ActiveRunScreen() {
 
   if (!hasGps) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.bg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <Ionicons
           name={themeIcons.gpsSearching.name as any}
           size={48}
           color={colors.warning}
           style={{ marginBottom: 16 }}
         />
-        <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textSecondary }}>
+        <Text
+          style={{
+            fontFamily: fonts.heading2,
+            fontSize: 20,
+            color: colors.textSecondary,
+          }}
+        >
           {gpsError ?? "Acquiring GPS..."}
         </Text>
         {gpsError && (
@@ -165,7 +184,14 @@ export default function ActiveRunScreen() {
               borderColor: colors.borderSubtle,
             }}
           >
-            <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>Try again</Text>
+            <Text
+              style={{
+                fontFamily: fonts.bodyMedium,
+                color: colors.textPrimary,
+              }}
+            >
+              Try again
+            </Text>
           </Pressable>
         )}
       </View>
@@ -209,10 +235,21 @@ export default function ActiveRunScreen() {
               borderColor: colors.borderSubtle,
             }}
           >
-            <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
+            <Text
+              style={{
+                fontFamily: fonts.bodyMedium,
+                color: colors.textPrimary,
+              }}
+            >
               Waiting for GPS lock…
             </Text>
-            <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textSecondary, marginTop: 2 }}>
+            <Text
+              style={{
+                fontFamily: fonts.bodyRegular,
+                color: colors.textSecondary,
+                marginTop: 2,
+              }}
+            >
               Start moving to see your route.
             </Text>
           </View>
@@ -254,7 +291,11 @@ export default function ActiveRunScreen() {
           bottomBarHeight={bottomBarHeight}
         />
 
-        <RunToast message={toastMessage} toastStyle={toastStyle} colors={colors} />
+        <RunToast
+          message={toastMessage}
+          toastStyle={toastStyle}
+          colors={colors}
+        />
 
         <RunStopSheet
           isVisible={showStopSheet}

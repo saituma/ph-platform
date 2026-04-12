@@ -17,14 +17,9 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  Image,
-  InteractionManager,
-  ScrollView,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Image, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { runWhenIdle } from "@/lib/scheduling/idle";
 
 export default function AthleteStatsScreen() {
   const router = useRouter();
@@ -282,7 +277,7 @@ export default function AthleteStatsScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = runWhenIdle(() => {
       if (!mounted) return;
       void loadAthletes();
     });
@@ -294,7 +289,7 @@ export default function AthleteStatsScreen() {
 
   useEffect(() => {
     let active = true;
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = runWhenIdle(() => {
       if (!active) return;
       void loadStats();
     });

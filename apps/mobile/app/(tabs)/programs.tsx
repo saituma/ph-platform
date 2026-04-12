@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, SafeAreaView, ScrollView, RefreshControl } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, ScrollView, RefreshControl } from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRouter } from "expo-router";
@@ -24,17 +27,42 @@ export default function ProgramsScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
-  const { token, programTier, latestSubscriptionRequest, profile, athleteUserId, managedAthletes } = useAppSelector((state) => state.user);
+  const {
+    token,
+    programTier,
+    latestSubscriptionRequest,
+    profile,
+    athleteUserId,
+    managedAthletes,
+  } = useAppSelector((state) => state.user);
 
   const activeAthlete = useMemo(() => {
-    return managedAthletes.find(a => a.id === athleteUserId || a.userId === athleteUserId) ?? managedAthletes[0] ?? null;
+    return (
+      managedAthletes.find(
+        (a) => a.id === athleteUserId || a.userId === athleteUserId,
+      ) ??
+      managedAthletes[0] ??
+      null
+    );
   }, [athleteUserId, managedAthletes]);
 
   const isTeamMode = hasAssignedTeam(activeAthlete?.team);
-  
-  const { refreshStatus, processPayment, isProcessing } = useBillingManager(token);
-  const { plansByTier, pricingByTier, loadPlans, isLoading: plansLoading } = useProgramPlans();
-  const { workspace, activeTab, setActiveTab, load: loadTeam, isLoading: teamLoading } = useTeamWorkspace(token, activeAthlete?.age ?? null);
+
+  const { refreshStatus, processPayment, isProcessing } =
+    useBillingManager(token);
+  const {
+    plansByTier,
+    pricingByTier,
+    loadPlans,
+    isLoading: plansLoading,
+  } = useProgramPlans();
+  const {
+    workspace,
+    activeTab,
+    setActiveTab,
+    load: loadTeam,
+    isLoading: teamLoading,
+  } = useTeamWorkspace(token, activeAthlete?.age ?? null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -54,21 +82,31 @@ export default function ProgramsScreen() {
     setIsRefreshing(false);
   };
 
-  const tiers = useMemo<ProgramTierUI[]>(() => 
-    PROGRAM_TIERS.map(t => ({
-      ...t,
-      icon: t.id === "php" ? "activity" : t.id === "plus" ? "layers" : "star",
-      popular: t.id === "plus",
-    })) as ProgramTierUI[], 
-  []);
+  const tiers = useMemo<ProgramTierUI[]>(
+    () =>
+      PROGRAM_TIERS.map((t) => ({
+        ...t,
+        icon: t.id === "php" ? "activity" : t.id === "plus" ? "layers" : "star",
+        popular: t.id === "plus",
+      })) as ProgramTierUI[],
+    [],
+  );
 
   if (isSectionHidden("programs")) {
-    return <AgeGate title="Programs locked" message="Programs are restricted for this age." />;
+    return (
+      <AgeGate
+        title="Programs locked"
+        message="Programs are restricted for this age."
+      />
+    );
   }
 
   if (isTeamMode) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
+      <SafeAreaView
+        className="flex-1"
+        style={{ backgroundColor: colors.background }}
+      >
         <TeamProgramView
           workspace={workspace}
           activeTab={activeTab}
@@ -77,7 +115,12 @@ export default function ProgramsScreen() {
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           focusName={activeAthlete?.name || profile.name || "Athlete"}
-          focusInfo={[activeAthlete?.age ? `${activeAthlete.age} yrs` : null, activeAthlete?.team].filter(Boolean) as string[]}
+          focusInfo={
+            [
+              activeAthlete?.age ? `${activeAthlete.age} yrs` : null,
+              activeAthlete?.team,
+            ].filter(Boolean) as string[]
+          }
         />
       </SafeAreaView>
     );
@@ -86,19 +129,37 @@ export default function ProgramsScreen() {
   const currentTier = normalizeProgramTier(programTier);
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
+    <SafeAreaView
+      className="flex-1"
+      style={{ backgroundColor: colors.background }}
+    >
       <ScrollView
         contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+        }
       >
         <View className="mb-8">
-          <Text className="text-sm font-outfit text-accent font-bold uppercase tracking-widest">Available Plans</Text>
-          <Text className="text-4xl font-clash font-bold text-app mt-1">Our Programs</Text>
-          <Text className="text-sm font-outfit text-secondary mt-2">Professional coaching and performance tracking.</Text>
+          <Text className="text-sm font-outfit text-accent font-bold uppercase tracking-widest">
+            Available Plans
+          </Text>
+          <Text className="text-4xl font-clash font-bold text-app mt-1">
+            Our Programs
+          </Text>
+          <Text className="text-sm font-outfit text-secondary mt-2">
+            Professional coaching and performance tracking.
+          </Text>
         </View>
 
         {tiers.map((tier) => {
-          const required = tier.id === "pro" ? "PHP_Pro" : tier.id === "plus" ? "PHP_Premium_Plus" : tier.id === "premium" ? "PHP_Premium" : "PHP";
+          const required =
+            tier.id === "pro"
+              ? "PHP_Pro"
+              : tier.id === "plus"
+                ? "PHP_Premium_Plus"
+                : tier.id === "premium"
+                  ? "PHP_Premium"
+                  : "PHP";
           return (
             <ProgramTierCard
               key={tier.id}

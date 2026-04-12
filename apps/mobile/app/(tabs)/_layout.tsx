@@ -1,14 +1,20 @@
 import React, { useEffect } from "react";
 import { View } from "react-native";
-import { Redirect, Slot, useRouter, usePathname, useSegments } from "expo-router";
+import {
+  Redirect,
+  Slot,
+  useRouter,
+  usePathname,
+  useSegments,
+} from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { isAdminRole } from "@/lib/isAdminRole";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 
-import { AdminLayout } from "@/app/_roles/admin/AdminLayout";
-import { AdultLayout } from "@/app/_roles/adult/AdultLayout";
-import { TeamLayout } from "@/app/_roles/team/TeamLayout";
-import { YouthLayout } from "@/app/_roles/youth/YouthLayout";
+import { AdminLayout } from "@/roles/admin/AdminLayout";
+import { AdultLayout } from "@/roles/adult/AdultLayout";
+import { TeamLayout } from "@/roles/team/TeamLayout";
+import { YouthLayout } from "@/roles/youth/YouthLayout";
 
 import { usePushNotificationResponses } from "@/hooks/navigation/usePushNotificationResponses";
 import { useProfileSync } from "@/hooks/navigation/useProfileSync";
@@ -27,7 +33,7 @@ export default function TabLayout() {
     messagingAccessTiers,
     isAuthenticated,
   } = useAppSelector((state) => state.user);
-  
+
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const router = useRouter();
   const pathname = usePathname();
@@ -36,10 +42,14 @@ export default function TabLayout() {
   const forceLogout =
     process.env.EXPO_PUBLIC_FORCE_LOGOUT === "1" ||
     process.env.EXPO_PUBLIC_FORCE_LOGOUT === "true";
-  const effectiveAuth = forceLogout ? false : isAuthenticated && !!token && !!profile.id;
+  const effectiveAuth = forceLogout
+    ? false
+    : isAuthenticated && !!token && !!profile.id;
 
   const isAdmin = isAdminRole(apiUserRole);
-  const isOnboarding = segments.some((segment) => segment === "onboarding") || pathname.includes("/onboarding");
+  const isOnboarding =
+    segments.some((segment) => segment === "onboarding") ||
+    pathname.includes("/onboarding");
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
 
   // Shared Logic Hooks

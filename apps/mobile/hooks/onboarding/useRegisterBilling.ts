@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
-import { Alert, InteractionManager } from "react-native";
+import { Alert } from "react-native";
 import { apiRequest } from "@/lib/api";
+import { waitForIdle } from "@/lib/scheduling/idle";
 import {
   initPaymentSheet,
   presentPaymentSheet,
@@ -40,9 +41,7 @@ export function useRegisterBilling(token: string | null) {
         setIsPaying(true);
         setPayingTier(tierKey);
 
-        await new Promise<void>((resolve) =>
-          InteractionManager.runAfterInteractions(() => resolve()),
-        );
+        await waitForIdle();
 
         const data = await apiRequest<{
           customerId: string;

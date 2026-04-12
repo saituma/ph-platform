@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
 import { PendingAttachment } from "@/types/admin-messages";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
 export function useMediaUpload(token: string | null) {
   const uploadAttachment = useCallback(async (input: PendingAttachment) => {

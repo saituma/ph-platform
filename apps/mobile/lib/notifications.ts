@@ -1,5 +1,10 @@
 export async function getNotifications() {
   try {
+    const { Platform } = await import("react-native");
+    if (Platform.OS === "web") {
+      return null;
+    }
+
     const Constants = await import("expo-constants");
     const anyConstants = Constants as any;
     const ownership = anyConstants?.default?.appOwnership ?? anyConstants?.appOwnership;
@@ -12,7 +17,10 @@ export async function getNotifications() {
     const api = mod as any;
     if (
       typeof api?.scheduleNotificationAsync !== "function" ||
-      typeof api?.setNotificationHandler !== "function"
+      typeof api?.setNotificationHandler !== "function" ||
+      typeof api?.getPermissionsAsync !== "function" ||
+      typeof api?.requestPermissionsAsync !== "function" ||
+      typeof api?.getExpoPushTokenAsync !== "function"
     ) {
       return null;
     }
