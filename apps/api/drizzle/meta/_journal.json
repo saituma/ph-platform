@@ -540,6 +540,13 @@
       "when": 1775958000000,
       "tag": "0076_nutrition_daily_habits_steps_sleep",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1775959000000,
+      "tag": "0077_nutrition_log_reminders",
+      "breakpoints": true
     }
   ]
 }
