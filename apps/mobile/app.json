@@ -17,11 +17,6 @@
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-      "config": {
-        "googleMaps": {
-          "apiKey": ""
-        }
-      },
       "adaptiveIcon": {
         "backgroundColor": "#0a0a0b",
         "foregroundImage": "./assets/images/icon.png",
@@ -51,12 +46,7 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "react-native-maps",
-        {
-          "googleMapsApiKey": ""
-        }
-      ],
+      "react-native-maps",
       [
         "expo-notifications",
         {

@@ -49,14 +49,51 @@ export default function TabLayout() {
     segments.some((segment) => segment === "onboarding") ||
     pathname.includes("/onboarding");
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
+  const onboardingDebug =
+    process.env.EXPO_PUBLIC_ONBOARDING_DEBUG === "1" ||
+    process.env.EXPO_PUBLIC_ONBOARDING_DEBUG === "true";
 
   // Shared Logic Hooks
   usePushNotificationResponses(effectiveAuth && bootstrapReady);
   useProfileSync(token, effectiveAuth && bootstrapReady, hasMessaging);
 
   useEffect(() => {
+    if (!onboardingDebug || !effectiveAuth || !bootstrapReady) return;
+    console.log("[OnboardingDebug][TabLayout] state", {
+      pathname,
+      segments,
+      onboardingCompleted,
+      isOnboarding,
+      isAdmin,
+      appRole,
+      apiUserRole,
+    });
+  }, [
+    onboardingDebug,
+    effectiveAuth,
+    bootstrapReady,
+    pathname,
+    segments,
+    onboardingCompleted,
+    isOnboarding,
+    isAdmin,
+    appRole,
+    apiUserRole,
+  ]);
+
+  useEffect(() => {
     if (!effectiveAuth || !bootstrapReady) return;
     if (!isAdmin && onboardingCompleted === false && !isOnboarding) {
+      if (onboardingDebug) {
+        console.log(
+          "[OnboardingDebug][TabLayout] redirect -> /(tabs)/onboarding",
+          {
+            pathname,
+            onboardingCompleted,
+            isOnboarding,
+          },
+        );
+      }
       router.replace("/(tabs)/onboarding");
     }
   }, [
@@ -65,6 +102,8 @@ export default function TabLayout() {
     isAdmin,
     onboardingCompleted,
     isOnboarding,
+    onboardingDebug,
+    pathname,
     router,
   ]);
 
@@ -109,9 +148,5 @@ export default function TabLayout() {
     return <YouthLayout />;
   };
 
-  return (
-    <View style={containerStyle}>
-      {renderRoleLayout()}
-    </View>
-  );
+  return <View style={containerStyle}>{renderRoleLayout()}</View>;
 }
