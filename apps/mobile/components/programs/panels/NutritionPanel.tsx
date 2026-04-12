@@ -77,6 +77,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const [snackEveningChecked, setSnackEveningChecked] = useState(false);
   const [snackEveningDetails, setSnackEveningDetails] = useState("");
   const [waterIntake, setWaterIntake] = useState(0);
+  const [steps, setSteps] = useState(0);
+  const [sleepHours, setSleepHours] = useState(0);
   const [mood, setMood] = useState<number | null>(null);
   const [energy, setEnergy] = useState<number | null>(null);
   const [pain, setPain] = useState<number | null>(null);
@@ -194,6 +196,10 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
         }
 
         setWaterIntake(currentLog.waterIntake || 0);
+        setSteps(typeof currentLog.steps === "number" ? currentLog.steps : 0);
+        setSleepHours(
+          typeof currentLog.sleepHours === "number" ? currentLog.sleepHours : 0,
+        );
         setMood(currentLog.mood);
         setEnergy(currentLog.energy);
         setPain(currentLog.pain);
@@ -215,6 +221,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
         setSnackEveningChecked(false);
         setSnackEveningDetails("");
         setWaterIntake(0);
+        setSteps(0);
+        setSleepHours(0);
         setMood(null);
         setEnergy(null);
         setPain(null);
@@ -410,6 +418,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             snackEveningDetails,
           ),
           waterIntake,
+          steps,
+          sleepHours,
           mood,
           energy,
           pain,
@@ -609,8 +619,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   Nutrition Targets
                 </Text>
                 <Text className="mt-2 text-sm font-outfit text-secondary leading-6">
-                  Set suggested calories, macros, and micronutrient guidance for
-                  this adult athlete.
+                  {canEditTargets
+                    ? "Set targets for this athlete."
+                    : "Targets set by your coach."}
                 </Text>
 
                 <View className="mt-4 gap-4">
@@ -944,31 +955,200 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 </View>
               </View>
 
-              <Text className="text-sm font-bold font-outfit text-app mb-3">
-                Water Intake (Glasses)
-              </Text>
-              <View className="flex-row items-center gap-4 mb-6">
-                <TouchableOpacity
-                  onPress={() => setWaterIntake(Math.max(0, waterIntake - 1))}
-                  className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
-                >
-                  <Feather name="minus" size={20} color={colors.accent} />
-                </TouchableOpacity>
-                <Text className="text-3xl font-clash font-bold flex-1 text-center">
-                  {waterIntake}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setWaterIntake(waterIntake + 1)}
-                  className="w-12 h-12 bg-app/5 items-center justify-center rounded-2xl"
-                >
-                  <Feather name="plus" size={20} color={colors.accent} />
-                </TouchableOpacity>
-              </View>
-
               {renderMetricScale("Mood Tracker", mood, setMood)}
               {renderMetricScale("Energy Levels", energy, setEnergy)}
               {renderMetricScale("Pain Levels", pain, setPain)}
             </View>
+
+            {isAdult ? (
+              <View
+                className="rounded-3xl border p-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                }}
+              >
+                <Text className="text-sm font-bold font-outfit text-app mb-3">
+                  Daily Habits
+                </Text>
+
+                <View
+                  className="rounded-2xl border px-4 py-3 flex-row items-center"
+                  style={{
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <View
+                    className="w-6 h-6 rounded-full items-center justify-center mr-3"
+                    style={{
+                      backgroundColor:
+                        waterIntake > 0
+                          ? colors.accent
+                          : isDark
+                            ? "rgba(255,255,255,0.04)"
+                            : "rgba(15,23,42,0.04)",
+                      borderWidth: 1,
+                      borderColor:
+                        waterIntake > 0
+                          ? colors.accent
+                          : isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    {waterIntake > 0 ? (
+                      <Feather name="check" size={14} color="white" />
+                    ) : null}
+                  </View>
+
+                  <Text className="flex-1 text-sm font-outfit text-app">
+                    Water intake
+                  </Text>
+
+                  <View className="flex-row items-center gap-3">
+                    <TouchableOpacity
+                      onPress={() =>
+                        setWaterIntake(Math.max(0, waterIntake - 1))
+                      }
+                      className="w-10 h-10 items-center justify-center rounded-2xl"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.04)",
+                      }}
+                    >
+                      <Feather name="minus" size={18} color={colors.accent} />
+                    </TouchableOpacity>
+                    <Text className="text-base font-clash font-bold text-app min-w-[28px] text-center">
+                      {waterIntake}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setWaterIntake(waterIntake + 1)}
+                      className="w-10 h-10 items-center justify-center rounded-2xl"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.04)",
+                      }}
+                    >
+                      <Feather name="plus" size={18} color={colors.accent} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View
+                  className="mt-3 rounded-2xl border px-4 py-3 flex-row items-center"
+                  style={{
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <View
+                    className="w-6 h-6 rounded-full items-center justify-center mr-3"
+                    style={{
+                      backgroundColor:
+                        steps > 0
+                          ? colors.accent
+                          : isDark
+                            ? "rgba(255,255,255,0.04)"
+                            : "rgba(15,23,42,0.04)",
+                      borderWidth: 1,
+                      borderColor:
+                        steps > 0
+                          ? colors.accent
+                          : isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    {steps > 0 ? (
+                      <Feather name="check" size={14} color="white" />
+                    ) : null}
+                  </View>
+
+                  <Text className="flex-1 text-sm font-outfit text-app">
+                    Steps
+                  </Text>
+
+                  <TextInput
+                    value={String(steps)}
+                    onChangeText={(v) =>
+                      setSteps(
+                        Math.max(0, Number(v.replace(/[^0-9]/g, "")) || 0),
+                      )
+                    }
+                    placeholder="0"
+                    placeholderTextColor={colors.placeholder}
+                    keyboardType="number-pad"
+                    className="rounded-2xl px-3 py-2 text-sm font-outfit text-app min-w-[90px] text-right"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.04)"
+                        : "rgba(15,23,42,0.03)",
+                    }}
+                  />
+                </View>
+
+                <View
+                  className="mt-3 rounded-2xl border px-4 py-3 flex-row items-center"
+                  style={{
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <View
+                    className="w-6 h-6 rounded-full items-center justify-center mr-3"
+                    style={{
+                      backgroundColor:
+                        sleepHours > 0
+                          ? colors.accent
+                          : isDark
+                            ? "rgba(255,255,255,0.04)"
+                            : "rgba(15,23,42,0.04)",
+                      borderWidth: 1,
+                      borderColor:
+                        sleepHours > 0
+                          ? colors.accent
+                          : isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    {sleepHours > 0 ? (
+                      <Feather name="check" size={14} color="white" />
+                    ) : null}
+                  </View>
+
+                  <Text className="flex-1 text-sm font-outfit text-app">
+                    Sleep (hours)
+                  </Text>
+
+                  <TextInput
+                    value={String(sleepHours)}
+                    onChangeText={(v) =>
+                      setSleepHours(
+                        Math.max(0, Number(v.replace(/[^0-9]/g, "")) || 0),
+                      )
+                    }
+                    placeholder="0"
+                    placeholderTextColor={colors.placeholder}
+                    keyboardType="number-pad"
+                    className="rounded-2xl px-3 py-2 text-sm font-outfit text-app min-w-[90px] text-right"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.04)"
+                        : "rgba(15,23,42,0.03)",
+                    }}
+                  />
+                </View>
+              </View>
+            ) : null}
 
             {(coachFeedback || coachFeedbackMediaUrl) && (
               <View className="rounded-3xl border p-5 bg-emerald-500/10 border-emerald-400/30">
@@ -1085,6 +1265,13 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 const w =
                   typeof log?.waterIntake === "number" ? log.waterIntake : 0;
                 if (w > 0) lines.push(`Water: ${w}`);
+
+                const s = typeof log?.steps === "number" ? log.steps : 0;
+                if (s > 0) lines.push(`Steps: ${s}`);
+
+                const sh =
+                  typeof log?.sleepHours === "number" ? log.sleepHours : 0;
+                if (sh > 0) lines.push(`Sleep: ${sh}h`);
                 if (typeof log?.mood === "number")
                   lines.push(`Mood: ${log.mood}/5`);
                 if (typeof log?.energy === "number")

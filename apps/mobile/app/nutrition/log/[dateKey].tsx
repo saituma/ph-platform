@@ -117,6 +117,14 @@ export default function NutritionLogDetailScreen() {
 
     const w = typeof log?.waterIntake === "number" ? log.waterIntake : 0;
     if (w > 0) out.push(`Water: ${w}`);
+
+    if (log?.athleteType === "adult") {
+      const steps = typeof log?.steps === "number" ? log.steps : 0;
+      const sleepHours =
+        typeof log?.sleepHours === "number" ? log.sleepHours : 0;
+      out.push(`Steps: ${steps}`);
+      out.push(`Sleep: ${sleepHours}h`);
+    }
     if (typeof log?.mood === "number") out.push(`Mood: ${log.mood}/5`);
     if (typeof log?.energy === "number") out.push(`Energy: ${log.energy}/5`);
     if (typeof log?.pain === "number") out.push(`Pain: ${log.pain}/5`);

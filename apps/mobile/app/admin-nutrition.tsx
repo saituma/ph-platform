@@ -467,11 +467,33 @@ export default function AdminNutritionScreen() {
                       Log details
                     </Text>
                     {selectedLog.athleteType === "adult" ? (
-                      <Text className="text-sm font-outfit text-secondary">
-                        {selectedLog.foodDiary?.trim()
-                          ? selectedLog.foodDiary
-                          : "(no entry)"}
-                      </Text>
+                      <View className="gap-2">
+                        <Text className="text-sm font-outfit text-secondary">
+                          {selectedLog.foodDiary?.trim()
+                            ? selectedLog.foodDiary
+                            : "(no entry)"}
+                        </Text>
+                        <View className="gap-1">
+                          <Text className="text-xs font-outfit text-secondary">
+                            Water: {selectedLog.waterIntake ?? 0}
+                          </Text>
+                          <Text className="text-xs font-outfit text-secondary">
+                            Steps: {selectedLog.steps ?? 0}
+                          </Text>
+                          <Text className="text-xs font-outfit text-secondary">
+                            Sleep: {selectedLog.sleepHours ?? 0}h
+                          </Text>
+                          <Text className="text-xs font-outfit text-secondary">
+                            Mood: {selectedLog.mood ?? "—"}
+                          </Text>
+                          <Text className="text-xs font-outfit text-secondary">
+                            Energy: {selectedLog.energy ?? "—"}
+                          </Text>
+                          <Text className="text-xs font-outfit text-secondary">
+                            Pain: {selectedLog.pain ?? "—"}
+                          </Text>
+                        </View>
+                      </View>
                     ) : (
                       <View className="gap-1">
                         <Text className="text-xs font-outfit text-secondary">

@@ -24,6 +24,8 @@ const logSchema = z.object({
   lunch: z.string().optional().nullable(),
   dinner: z.string().optional().nullable(),
   waterIntake: z.number().int().min(0).optional().nullable(),
+  steps: z.number().int().min(0).optional().nullable(),
+  sleepHours: z.number().int().min(0).optional().nullable(),
   mood: z.number().int().min(1).max(5).optional().nullable(),
   energy: z.number().int().min(1).max(5).optional().nullable(),
   pain: z.number().int().min(1).max(5).optional().nullable(),
