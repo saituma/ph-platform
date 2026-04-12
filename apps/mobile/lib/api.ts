@@ -169,7 +169,18 @@ export async function apiRequest<T>(
 
   const method = options.method ?? "GET";
   const tokenKey = resolvedToken ? hashString(resolvedToken) : "anon";
-  const cacheKey = `${tokenKey}:${url}`;
+  const headerVariant = (() => {
+    const headers = options.headers;
+    if (!headers) return "";
+    const normalized = Object.entries(headers)
+      .filter(([k, v]) => typeof v === "string" && v.trim().length)
+      .map(([k, v]) => [k.trim().toLowerCase(), v.trim()] as const)
+      .sort((a, b) => a[0].localeCompare(b[0]));
+    if (!normalized.length) return "";
+    return `:h=${hashString(JSON.stringify(normalized))}`;
+  })();
+
+  const cacheKey = `${tokenKey}:${method}:${url}${headerVariant}`;
 
   const shouldReadCache =
     method === "GET" && !options.skipCache && !options.forceRefresh;

@@ -2,6 +2,7 @@ import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   athleteTable,
+  guardianTable,
   programSectionContentTable,
   trainingModuleSessionTable,
   trainingSessionItemTable,
@@ -33,6 +34,7 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
       id: videoUploadTable.id,
       athleteId: videoUploadTable.athleteId,
       athleteUserId: athleteTable.userId,
+      guardianUserId: guardianTable.userId,
       athleteName: athleteTable.name,
       videoUrl: videoUploadTable.videoUrl,
       notes: videoUploadTable.notes,
@@ -48,6 +50,7 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
     })
     .from(videoUploadTable)
     .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))
+    .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
     .leftJoin(programSectionContentTable, eq(videoUploadTable.programSectionContentId, programSectionContentTable.id))
     .leftJoin(trainingSessionItemTable, eq(videoUploadTable.trainingSessionItemId, trainingSessionItemTable.id))
     .leftJoin(trainingModuleSessionTable, eq(trainingSessionItemTable.sessionId, trainingModuleSessionTable.id))

@@ -30,6 +30,7 @@ type VideoItem = {
   id: number;
   athlete: string;
   athleteUserId: number | null;
+  guardianUserId: number | null;
   status: string;
   topic: string;
   sectionType: string;
@@ -44,6 +45,7 @@ type RawVideoUpload = {
   athleteId?: number | null;
   athleteName?: string | null;
   athleteUserId?: number | null;
+  guardianUserId?: number | null;
   reviewedAt?: string | null;
   createdAt?: string | null;
   programSectionType?: string | null;
@@ -81,6 +83,7 @@ export default function AthleteVideoHistoryPage() {
           id: item.id,
           athlete: item.athleteName ?? "Athlete",
           athleteUserId: item.athleteUserId ?? null,
+          guardianUserId: item.guardianUserId ?? null,
           status,
           topic,
           sectionType,
@@ -174,8 +177,12 @@ export default function AthleteVideoHistoryPage() {
           setActiveDialog(null);
           refetch();
         }}
-        onSendResponseVideo={async ({ athleteUserId, mediaUrl, uploadId }) => {
-          await sendMessage({ userId: athleteUserId, contentType: "video", mediaUrl, videoUploadId: uploadId }).unwrap();
+        onSendResponseVideo={async ({ recipientUserIds, mediaUrl, uploadId }) => {
+          await Promise.all(
+            recipientUserIds.map((userId) =>
+              sendMessage({ userId, contentType: "video", mediaUrl, videoUploadId: uploadId }).unwrap(),
+            ),
+          );
         }}
         isSendingResponse={isSendingResponse}
       />

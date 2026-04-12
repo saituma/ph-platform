@@ -42,6 +42,7 @@ type VideoDialogsProps = {
     videoUrl?: string | null;
     feedback?: string | null;
     athleteUserId?: number | null;
+    guardianUserId?: number | null;
   } | null;
   queueVideos?: {
     id: number;
@@ -57,7 +58,7 @@ type VideoDialogsProps = {
   }) => void;
   onSubmitReview?: (feedback: string) => void;
   onSendResponseVideo?: (payload: {
-    athleteUserId: number;
+    recipientUserIds: number[];
     mediaUrl: string;
     uploadId: number;
   }) => Promise<void> | void;
@@ -305,15 +306,19 @@ export function VideoDialogs({
       setResponseError("Add feedback or upload a response video.");
       return;
     }
-    if (hasResponse && !selectedVideo?.athleteUserId) {
-      setResponseError("Athlete profile not found for this upload.");
+
+    const recipientUserIds = new Set<number>();
+    if (selectedVideo?.athleteUserId) recipientUserIds.add(selectedVideo.athleteUserId);
+    if (selectedVideo?.guardianUserId) recipientUserIds.add(selectedVideo.guardianUserId);
+    if (hasResponse && recipientUserIds.size === 0) {
+      setResponseError("No recipient user account found for this upload.");
       return;
     }
     try {
       setResponseError(null);
       if (hasResponse) {
         await onSendResponseVideo?.({
-          athleteUserId: selectedVideo!.athleteUserId!,
+          recipientUserIds: Array.from(recipientUserIds),
           mediaUrl: responseUrl!,
           uploadId: selectedVideo!.id,
         });
