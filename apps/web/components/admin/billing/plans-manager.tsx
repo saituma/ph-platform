@@ -216,6 +216,11 @@ export function PlansManager() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
+              <div className="rounded-md bg-blue-50/50 p-3 text-sm text-blue-800 border border-blue-200">
+                <strong>Note:</strong> Mobile app subscription pricing is managed directly in Apple App Store Connect and Google Play Console via RevenueCat. The pricing below is read-only.
+              </div>
+            </div>
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="plan-name">Plan Name</Label>
               <Input
                 id="plan-name"
@@ -251,26 +256,28 @@ export function PlansManager() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Monthly Price</Label>
+              <Label>Monthly Price (Web Fallback)</Label>
               <Input
                 value={form.monthlyPrice}
                 onChange={(event) => setForm((prev) => ({ ...prev, monthlyPrice: event.target.value }))}
                 placeholder="$29"
+                disabled
               />
             </div>
             <div className="space-y-2">
               <Label>Discount Type</Label>
-              <Input value="Percent" readOnly />
+              <Input value="Percent" readOnly disabled />
             </div>
             <div className="space-y-2">
               <Label>Monthly Discount (%)</Label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground opacity-60">
                 <input
                   type="checkbox"
                   checked={form.monthlyDiscountEnabled}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, monthlyDiscountEnabled: event.target.checked }))
                   }
+                  disabled
                 />
                 <span>Enable monthly discount</span>
               </label>
@@ -278,12 +285,12 @@ export function PlansManager() {
                 value={form.monthlyDiscountValue}
                 onChange={(event) => setForm((prev) => ({ ...prev, monthlyDiscountValue: event.target.value }))}
                 placeholder="0"
-                disabled={!form.monthlyDiscountEnabled}
+                disabled
               />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Display Price Preview</Label>
-              <Input value={buildDisplayPrice(form)} readOnly />
+              <Input value={buildDisplayPrice(form)} readOnly disabled />
             </div>
           </div>
 

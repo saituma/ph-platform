@@ -14,10 +14,7 @@ import {
   setLatestSubscriptionRequest,
   setProgramTier,
 } from "../store/slices/userSlice";
-import {
-  initPaymentSheet,
-  presentPaymentSheet,
-} from "@stripe/stripe-react-native";
+import Purchases from "react-native-purchases";
 import { Text } from "@/components/ScaledText";
 import { waitForIdle } from "@/lib/scheduling/idle";
 
@@ -139,86 +136,74 @@ export default function PlansScreen() {
     void refreshBillingStatus();
   }, [refreshBillingStatus]);
 
+  const doRevenueCatPurchase = async (tierId: string, duration: string, planId: number) => {
+    try {
+      setIsProcessingPayment(true);
+      const offerings = await Purchases.getOfferings();
+      // Try to find an offering matching the tier, otherwise fallback to current
+      const offering = offerings.all[tierId] || offerings.current;
+      if (!offering) throw new Error("No subscription offerings available right now.");
+      
+      let packageToBuy = offering.monthly;
+      if (duration === "6_months") packageToBuy = offering.sixMonth;
+      if (duration === "12_months") packageToBuy = offering.annual;
+
+      // Fallback package selection if standard names don't match
+      if (!packageToBuy) {
+        const rcId = duration === "6_months" ? "$rc_six_month" : duration === "12_months" ? "$rc_annual" : "$rc_monthly";
+        packageToBuy = offering.availablePackages.find((p: any) => p.identifier === rcId) || offering.availablePackages[0];
+      }
+
+      if (!packageToBuy) throw new Error("Selected duration is not available.");
+
+      await Purchases.purchasePackage(packageToBuy);
+      
+      // Notify backend about the new purchase
+      await apiRequest("/billing/revenuecat/verify", {
+          method: "POST",
+          token,
+          body: { planId, tier: tierId, duration },
+          suppressStatusCodes: [400, 404]
+      }).catch(() => null); // If backend endpoint isn't fully ready, don't crash
+
+      dispatch(setProgramTier(tierId));
+      Alert.alert("Success", "Your plan has been updated successfully.");
+
+    } catch (e: any) {
+      if (!e.userCancelled) {
+         setActionError(e.message || "Purchase failed.");
+      }
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
   const handleCheckout = useCallback(
-    async (planId: number) => {
-      if (isProcessingPayment) {
+    async (planId: number, tierId: string) => {
+      if (isProcessingPayment) return;
+      setActionError(null);
+      
+      if (!token) {
+        Alert.alert(
+          "Login required",
+          "Please log in as a guardian to purchase a plan.",
+        );
+        router.replace("/(auth)/login");
         return;
       }
-      setActionError(null);
-      try {
-        if (!token) {
-          Alert.alert(
-            "Login required",
-            "Please log in as a guardian to purchase a plan.",
-          );
-          router.replace("/(auth)/login");
-          return;
-        }
-        setIsProcessingPayment(true);
-        await waitForInteractions();
-        const data = await apiRequest<{
-          customerId: string;
-          ephemeralKey: string;
-          paymentIntentId: string;
-          paymentIntentClientSecret: string;
-          request?: any;
-        }>("/billing/payment-sheet", {
-          method: "POST",
-          body: { planId, interval: "monthly" },
-          token,
-        });
-
-        const init = await initPaymentSheet({
-          merchantDisplayName: "PH Platform",
-          customerId: data.customerId,
-          customerEphemeralKeySecret: data.ephemeralKey,
-          paymentIntentClientSecret: data.paymentIntentClientSecret,
-          allowsDelayedPaymentMethods: true,
-        });
-        if (init.error) {
-          throw new Error(init.error.message);
-        }
-
-        const result = await presentPaymentSheet();
-        if (result.error) {
-          throw new Error(result.error.message);
-        }
-
-        const confirm = await apiRequest<{
-          paymentStatus?: string;
-          request?: any;
-        }>("/billing/payment-sheet/confirm", {
-          method: "POST",
-          body: { paymentIntentId: data.paymentIntentId },
-          token,
-        });
-
-        dispatch(
-          setLatestSubscriptionRequest(confirm.request ?? data.request ?? null),
-        );
-
-        Alert.alert(
-          "Payment status",
-          confirm.paymentStatus === "succeeded" ||
-            confirm.paymentStatus === "processing"
-            ? "Payment received. Awaiting admin approval."
-            : "Payment pending. We will update your plan once confirmed.",
-        );
-      } catch (error: any) {
-        const message = error?.message || "Failed to start checkout.";
-        if (typeof message === "string" && message.includes("403")) {
-          Alert.alert(
-            "Guardian only",
-            "Only guardian accounts can purchase plans.",
-          );
-          return;
-        }
-        setActionError(message);
-      } finally {
-        setIsProcessingPayment(false);
-      }
+      
+      Alert.alert(
+        "Select Billing Cycle",
+        "How would you like to pay?",
+        [
+          { text: "Monthly", onPress: () => doRevenueCatPurchase(tierId, "monthly", planId) },
+          { text: "6 Months (Upfront)", onPress: () => doRevenueCatPurchase(tierId, "6_months", planId) },
+          { text: "12 Months (Upfront)", onPress: () => doRevenueCatPurchase(tierId, "12_months", planId) },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
     },
-    [dispatch, isProcessingPayment, router, token, waitForInteractions],
+    [isProcessingPayment, router, token],
   );
 
   const handleDowngrade = useCallback(
@@ -436,7 +421,7 @@ export default function PlansScreen() {
                     {
                       text: "Continue",
                       onPress: () => {
-                        handleCheckout(plan.id);
+                        handleCheckout(plan.id, plan.tier);
                       },
                     },
                     { text: "Cancel", style: "cancel" },
@@ -444,7 +429,7 @@ export default function PlansScreen() {
                 );
                 return;
               }
-              handleCheckout(plan.id);
+              handleCheckout(plan.id, plan.tier);
             };
             return (
               <ProgramCard

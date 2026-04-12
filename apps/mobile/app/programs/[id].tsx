@@ -10,7 +10,7 @@ export default function ProgramDetailScreen() {
   const { id, sharedBoundTag } = useLocalSearchParams<{ id: ProgramId; sharedBoundTag?: string }>();
   const router = useRouter();
   const programId =
-    id && ["php", "plus", "premium"].includes(id) ? (id as ProgramId) : "php";
+    id && ["php", "plus", "premium", "pro"].includes(id) ? (id as ProgramId) : "php";
   useEffect(() => {
     if (router.canGoBack()) return;
     router.replace("/(tabs)");

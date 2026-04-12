@@ -4,10 +4,11 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@/components/ui/theme-icons";
 import { Text } from "@/components/ScaledText";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -39,6 +40,7 @@ export function BookingModal({
   onSuccess,
 }: BookingModalProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
 
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
@@ -201,9 +203,16 @@ export function BookingModal({
           className="rounded-t-[30px] p-6"
           style={{ backgroundColor: surfaceColor, maxHeight: "85%" }}
         >
-          <ScrollView
+          <KeyboardAwareScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 24 }}
+            enableOnAndroid
+            extraHeight={Platform.OS === "ios" ? 120 : 160}
+            extraScrollHeight={Platform.OS === "ios" ? 40 : 96}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{
+              paddingBottom: Math.max(insets.bottom, 12) + 24,
+            }}
           >
             <View className="flex-row items-center justify-between">
               <Text className="text-lg font-clash text-app">
@@ -546,7 +555,7 @@ export function BookingModal({
                 )}
               </>
             )}
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </Pressable>
       </Pressable>
     </Modal>

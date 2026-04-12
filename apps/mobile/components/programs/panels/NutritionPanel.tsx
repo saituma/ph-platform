@@ -18,6 +18,16 @@ type NutritionPanelProps = {
   appRole: AppRole | null;
 };
 
+function logHasCoachResponse(log: any): boolean {
+  const t =
+    typeof log?.coachFeedback === "string" ? log.coachFeedback.trim() : "";
+  const m =
+    typeof log?.coachFeedbackMediaUrl === "string"
+      ? log.coachFeedbackMediaUrl.trim()
+      : "";
+  return Boolean(t || m);
+}
+
 export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const router = useRouter();
   const { token, athleteUserId, apiUserRole } = useAppSelector(
@@ -28,7 +38,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const isAdult =
     appRole === "adult_athlete" || appRole === "adult_athlete_team";
 
-  const [activeTab, setActiveTab] = useState<"log" | "coach">("log");
+  const [activeTab, setActiveTab] = useState<"log" | "history" | "coach">(
+    "log",
+  );
 
   const [dateObj, setDateObj] = useState<Date>(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -155,6 +167,56 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     const d = details.trim();
     return d.length ? d : "yes";
   }, []);
+
+  const getNutritionSummaryLines = useCallback((log: any): string[] => {
+    const lines: string[] = [];
+    const b = parseSlot(log?.breakfast);
+    const l = parseSlot(log?.lunch);
+    const d = parseSlot(log?.dinner);
+    const sm = parseSlot(log?.snacksMorning);
+    const sa = parseSlot(log?.snacksAfternoon);
+    const se = parseSlot(log?.snacksEvening);
+    const legacySnacksRaw =
+      typeof log?.snacks === "string" ? log.snacks.trim() : "";
+
+    if (b.checked) lines.push(`Breakfast: ${b.details || "Logged"}`);
+    if (l.checked) lines.push(`Lunch: ${l.details || "Logged"}`);
+    if (d.checked) lines.push(`Dinner: ${d.details || "Logged"}`);
+
+    const anyNewSnack = sm.checked || sa.checked || se.checked;
+    if (!anyNewSnack && legacySnacksRaw) {
+      const legacy = parseSlot(legacySnacksRaw);
+      if (legacy.checked)
+        lines.push(`Snack (legacy): ${legacy.details || "Logged"}`);
+    } else {
+      if (sm.checked) lines.push(`Morning snack: ${sm.details || "Logged"}`);
+      if (sa.checked) lines.push(`Afternoon snack: ${sa.details || "Logged"}`);
+      if (se.checked) lines.push(`Evening snack: ${se.details || "Logged"}`);
+    }
+
+    const w = typeof log?.waterIntake === "number" ? log.waterIntake : 0;
+    if (w > 0) lines.push(`Water: ${w}`);
+
+    const s = typeof log?.steps === "number" ? log.steps : 0;
+    if (s > 0) lines.push(`Steps: ${s}`);
+
+    const sh = typeof log?.sleepHours === "number" ? log.sleepHours : 0;
+    if (sh > 0) lines.push(`Sleep: ${sh}h`);
+    if (typeof log?.mood === "number") lines.push(`Mood: ${log.mood}/5`);
+    if (typeof log?.energy === "number") lines.push(`Energy: ${log.energy}/5`);
+    if (typeof log?.pain === "number") lines.push(`Pain: ${log.pain}/5`);
+
+    const diary =
+      typeof log?.foodDiary === "string" ? log.foodDiary.trim() : "";
+    if (diary) lines.push(`Food diary: ${diary}`);
+
+    return lines;
+  }, [parseSlot]);
+
+  const logsWithCoachResponse = React.useMemo(
+    () => coachLogs.filter((log) => logHasCoachResponse(log)),
+    [coachLogs],
+  );
 
   const getTimeLocalString = useCallback((d: Date) => {
     const hh = String(d.getHours()).padStart(2, "0");
@@ -480,7 +542,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   }, [athleteUserId, coachFromDate, coachToDate, formatDateKey, token]);
 
   useEffect(() => {
-    if (activeTab !== "coach") return;
+    if (activeTab !== "history" && activeTab !== "coach") return;
     void fetchCoachLogs();
   }, [activeTab, fetchCoachLogs]);
 
@@ -714,10 +776,10 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       </View>
 
       {/* Header Tabs */}
-      <View className="flex-row items-center gap-3">
+      <View className="flex-row items-center gap-2">
         <TouchableOpacity
           onPress={() => setActiveTab("log")}
-          className="flex-1 rounded-2xl border px-4 py-3 items-center"
+          className="flex-1 min-w-0 rounded-2xl border px-2 py-2.5 items-center justify-center"
           style={{
             backgroundColor: activeTab === "log" ? colors.accent : colors.card,
             borderColor:
@@ -729,9 +791,10 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           }}
         >
           <Text
-            className={`text-[12px] font-outfit font-bold uppercase tracking-[1.2px] ${
+            className={`text-[10px] font-outfit font-bold uppercase tracking-[0.8px] ${
               activeTab === "log" ? "text-white" : "text-app"
             }`}
+            numberOfLines={1}
           >
             Log
           </Text>
@@ -739,13 +802,41 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
 
         <TouchableOpacity
           onPress={() => {
-            setActiveTab("coach");
+            setActiveTab("history");
             if (coachFilterPreset !== "custom") {
-              // Re-anchor presets to "today" when switching to Coach Response.
               applyPresetToDates(coachFilterPreset);
             }
           }}
-          className="flex-1 rounded-2xl border px-4 py-3 items-center"
+          className="flex-1 min-w-0 rounded-2xl border px-2 py-2.5 items-center justify-center"
+          style={{
+            backgroundColor:
+              activeTab === "history" ? colors.accent : colors.card,
+            borderColor:
+              activeTab === "history"
+                ? colors.accent
+                : isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(15,23,42,0.06)",
+          }}
+        >
+          <Text
+            className={`text-[10px] font-outfit font-bold uppercase tracking-[0.8px] text-center ${
+              activeTab === "history" ? "text-white" : "text-app"
+            }`}
+            numberOfLines={2}
+          >
+            Log history
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab("coach");
+            if (coachFilterPreset !== "custom") {
+              applyPresetToDates(coachFilterPreset);
+            }
+          }}
+          className="flex-1 min-w-0 rounded-2xl border px-2 py-2.5 items-center justify-center"
           style={{
             backgroundColor:
               activeTab === "coach" ? colors.accent : colors.card,
@@ -758,18 +849,19 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           }}
         >
           <Text
-            className={`text-[12px] font-outfit font-bold uppercase tracking-[1.2px] ${
+            className={`text-[10px] font-outfit font-bold uppercase tracking-[0.8px] text-center ${
               activeTab === "coach" ? "text-white" : "text-app"
             }`}
+            numberOfLines={2}
           >
-            Coach Response
+            Coach reply
           </Text>
         </TouchableOpacity>
 
-        {activeTab === "coach" ? (
+        {activeTab === "history" || activeTab === "coach" ? (
           <TouchableOpacity
             onPress={() => setCoachFilterOpen(true)}
-            className="h-12 w-12 items-center justify-center rounded-2xl border"
+            className="h-11 w-11 shrink-0 items-center justify-center rounded-2xl border"
             style={{
               backgroundColor: colors.card,
               borderColor: isDark
@@ -1537,7 +1629,140 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             <View className="items-center py-10">
               <ActivityIndicator size="large" color={colors.accent} />
             </View>
-          ) : coachLogs.length === 0 ? (
+          ) : activeTab === "history" ? (
+            coachLogs.length === 0 ? (
+              <View
+                className="rounded-3xl border px-5 py-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                }}
+              >
+                <Text className="text-sm font-outfit text-secondary">
+                  No logs in this date range yet.
+                </Text>
+              </View>
+            ) : (
+              <View className="gap-4">
+                {coachLogs.map((log) => {
+                  const dateLabel =
+                    typeof log?.dateKey === "string" ? log.dateKey : "";
+                  const lines = getNutritionSummaryLines(log);
+                  const coachText =
+                    typeof log?.coachFeedback === "string"
+                      ? log.coachFeedback.trim()
+                      : "";
+                  const coachMedia =
+                    typeof log?.coachFeedbackMediaUrl === "string"
+                      ? log.coachFeedbackMediaUrl.trim()
+                      : "";
+                  const hasCoach = logHasCoachResponse(log);
+                  const canOpenDetail = Boolean(dateLabel);
+                  const handleOpenDetail = () => {
+                    if (!canOpenDetail) return;
+                    const uid = athleteUserId || "me";
+                    router.push(
+                      `/nutrition/log/${encodeURIComponent(String(dateLabel))}?userId=${encodeURIComponent(String(uid))}` as any,
+                    );
+                  };
+
+                  return (
+                    <TouchableOpacity
+                      key={String(log?.id ?? dateLabel)}
+                      activeOpacity={0.9}
+                      onPress={handleOpenDetail}
+                      disabled={!canOpenDetail}
+                      className="rounded-3xl border p-5 gap-3"
+                      style={{
+                        backgroundColor: colors.card,
+                        borderColor: isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(15,23,42,0.06)",
+                        opacity: canOpenDetail ? 1 : 0.8,
+                      }}
+                    >
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-sm font-outfit font-bold text-app">
+                          {dateLabel || "Log"}
+                        </Text>
+                        <View
+                          className="rounded-full px-3 py-1.5"
+                          style={{
+                            backgroundColor: isDark
+                              ? "rgba(255,255,255,0.08)"
+                              : "rgba(15,23,42,0.06)",
+                          }}
+                        >
+                          <Text
+                            className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                            style={{ color: colors.accent }}
+                          >
+                            Entry
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View className="gap-1">
+                        <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                          Your log
+                        </Text>
+                        {lines.length ? (
+                          lines.map((t) => (
+                            <Text
+                              key={`${String(log?.id ?? dateLabel)}-${t}`}
+                              className="text-sm font-outfit text-app"
+                            >
+                              {t}
+                            </Text>
+                          ))
+                        ) : (
+                          <Text className="text-sm font-outfit text-secondary">
+                            No details logged.
+                          </Text>
+                        )}
+                      </View>
+
+                      <View
+                        className="gap-2 mt-1 pt-3 border-t"
+                        style={{
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(15,23,42,0.06)",
+                        }}
+                      >
+                        <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                          Coach
+                        </Text>
+                        {hasCoach ? (
+                          <View className="gap-2">
+                            {coachText ? (
+                              <Text
+                                className="text-sm font-outfit text-app leading-6"
+                                numberOfLines={6}
+                              >
+                                {coachText}
+                              </Text>
+                            ) : null}
+                            {coachMedia ? (
+                              <Text className="text-xs font-outfit text-secondary">
+                                Video from coach — tap to open full detail.
+                              </Text>
+                            ) : null}
+                          </View>
+                        ) : (
+                          <Text className="text-sm font-outfit text-secondary">
+                            No coach reply yet for this day.
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )
+          ) : logsWithCoachResponse.length === 0 ? (
             <View
               className="rounded-3xl border px-5 py-5"
               style={{
@@ -1548,67 +1773,16 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               }}
             >
               <Text className="text-sm font-outfit text-secondary">
-                No logs found for this range.
+                No coach replies in this date range yet. Your daily entries
+                (with or without coach feedback) are in Log history.
               </Text>
             </View>
           ) : (
             <View className="gap-4">
-              {coachLogs.map((log) => {
+              {logsWithCoachResponse.map((log) => {
                 const dateLabel =
                   typeof log?.dateKey === "string" ? log.dateKey : "";
-
-                const lines: string[] = [];
-                const b = parseSlot(log?.breakfast);
-                const l = parseSlot(log?.lunch);
-                const d = parseSlot(log?.dinner);
-                const sm = parseSlot(log?.snacksMorning);
-                const sa = parseSlot(log?.snacksAfternoon);
-                const se = parseSlot(log?.snacksEvening);
-                const legacySnacksRaw =
-                  typeof log?.snacks === "string" ? log.snacks.trim() : "";
-
-                if (b.checked)
-                  lines.push(`Breakfast: ${b.details || "Logged"}`);
-                if (l.checked) lines.push(`Lunch: ${l.details || "Logged"}`);
-                if (d.checked) lines.push(`Dinner: ${d.details || "Logged"}`);
-
-                const anyNewSnack = sm.checked || sa.checked || se.checked;
-                if (!anyNewSnack && legacySnacksRaw) {
-                  const legacy = parseSlot(legacySnacksRaw);
-                  if (legacy.checked)
-                    lines.push(`Snack (legacy): ${legacy.details || "Logged"}`);
-                } else {
-                  if (sm.checked)
-                    lines.push(`Morning snack: ${sm.details || "Logged"}`);
-                  if (sa.checked)
-                    lines.push(`Afternoon snack: ${sa.details || "Logged"}`);
-                  if (se.checked)
-                    lines.push(`Evening snack: ${se.details || "Logged"}`);
-                }
-
-                const w =
-                  typeof log?.waterIntake === "number" ? log.waterIntake : 0;
-                if (w > 0) lines.push(`Water: ${w}`);
-
-                const s = typeof log?.steps === "number" ? log.steps : 0;
-                if (s > 0) lines.push(`Steps: ${s}`);
-
-                const sh =
-                  typeof log?.sleepHours === "number" ? log.sleepHours : 0;
-                if (sh > 0) lines.push(`Sleep: ${sh}h`);
-                if (typeof log?.mood === "number")
-                  lines.push(`Mood: ${log.mood}/5`);
-                if (typeof log?.energy === "number")
-                  lines.push(`Energy: ${log.energy}/5`);
-                if (typeof log?.pain === "number")
-                  lines.push(`Pain: ${log.pain}/5`);
-
-                const diary =
-                  typeof log?.foodDiary === "string"
-                    ? log.foodDiary.trim()
-                    : "";
-                if (diary) lines.push(`Food diary: ${diary}`);
-
+                const lines = getNutritionSummaryLines(log);
                 const coachText =
                   typeof log?.coachFeedback === "string"
                     ? log.coachFeedback.trim()
@@ -1666,7 +1840,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       {lines.length ? (
                         lines.map((t) => (
                           <Text
-                            key={t}
+                            key={`${String(log?.id ?? dateLabel)}-${t}`}
                             className="text-sm font-outfit text-app"
                           >
                             {t}

@@ -9,33 +9,46 @@ import { HeroAppProvider } from "@/components/ui/hero";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
 import { StatusBar } from "expo-status-bar";
-import React, { PropsWithChildren, ReactElement } from "react";
-import { View } from "react-native";
+import React, { PropsWithChildren, ReactElement, useEffect } from "react";
+import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
 import AppThemeProvider from "./theme/AppThemeProvider";
-import { StripeProvider } from "@stripe/stripe-react-native";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { Compose } from "@/lib/compose";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import Purchases from "react-native-purchases";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 
 const GestureRoot = ({ children }: { children: ReactElement }) => (
   <GestureHandlerRootView style={{ flex: 1 }}>{children}</GestureHandlerRootView>
 );
-
-const StripeWrapper = ({ children }: { children: ReactElement }) => {
-  const publishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
-  return <StripeProvider publishableKey={publishableKey}>{children}</StripeProvider>;
-};
 
 const QueryWrapper = ({ children }: { children: ReactElement }) => (
   <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 );
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+      console.log("Running in Expo Go. Skipping RevenueCat configuration to prevent native errors.");
+      return;
+    }
+
+    try {
+      if (Platform.OS === "ios") {
+        Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_IOS_KEY || "" });
+      } else if (Platform.OS === "android") {
+        Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_ANDROID_KEY || "" });
+      }
+    } catch (e) {
+      console.warn("Failed to configure Purchases:", e);
+    }
+  }, []);
+
   return (
     <Compose
       providers={[
@@ -45,7 +58,6 @@ export default function RootLayout() {
         BottomSheetModalProvider,
         ReduxProvider,
         SafeAreaProvider,
-        StripeWrapper,
         AppThemeProvider,
         HeroAppProvider,
         FontScaleProvider,

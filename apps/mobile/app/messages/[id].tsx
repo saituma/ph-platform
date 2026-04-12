@@ -8,7 +8,7 @@ import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View, Alert } from "react-native";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { apiRequest } from "@/lib/api";
@@ -379,48 +379,96 @@ export default function ThreadScreen() {
           >
             Message actions
           </Text>
-          <View className="mt-5 flex-row gap-3">
-            <Pressable
-              onPress={() => {
-                const target = messageActionsTarget;
-                setMessageActionsTarget(null);
-                if (target) setReactionTarget(target);
-              }}
-              className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
-              style={{
-                borderColor: colors.borderSubtle,
-                backgroundColor: colors.backgroundSecondary,
-              }}
-            >
-              <Feather name="smile" size={18} color={colors.accent} />
-              <Text
-                className="font-outfit font-bold"
-                style={{ color: colors.text }}
+          <View className="mt-5 flex-col gap-3">
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={() => {
+                  const target = messageActionsTarget;
+                  setMessageActionsTarget(null);
+                  if (target) setReactionTarget(target);
+                }}
+                className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+                style={{
+                  borderColor: colors.borderSubtle,
+                  backgroundColor: colors.backgroundSecondary,
+                }}
               >
-                React
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                const target = messageActionsTarget;
-                setMessageActionsTarget(null);
-                if (target && target.from === "user")
-                  void handleDeleteMessage(target);
-              }}
-              className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
-              style={{
-                borderColor: "rgba(239,68,68,0.25)",
-                backgroundColor: "rgba(239,68,68,0.10)",
-              }}
-            >
-              <Feather name="trash-2" size={18} color="#EF4444" />
-              <Text
-                className="font-outfit font-bold"
-                style={{ color: "#EF4444" }}
+                <Feather name="smile" size={18} color={colors.accent} />
+                <Text
+                  className="font-outfit font-bold"
+                  style={{ color: colors.text }}
+                >
+                  React
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const target = messageActionsTarget;
+                  setMessageActionsTarget(null);
+                  if (target && target.from === "user")
+                    void handleDeleteMessage(target);
+                }}
+                className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+                style={{
+                  borderColor: "rgba(239,68,68,0.25)",
+                  backgroundColor: "rgba(239,68,68,0.10)",
+                }}
               >
-                Delete
-              </Text>
-            </Pressable>
+                <Feather name="trash-2" size={18} color="#EF4444" />
+                <Text
+                  className="font-outfit font-bold"
+                  style={{ color: "#EF4444" }}
+                >
+                  Delete
+                </Text>
+              </Pressable>
+            </View>
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={() => {
+                  setMessageActionsTarget(null);
+                  Alert.alert("Report Content", "Has this user sent inappropriate content?", [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Report User", style: "destructive", onPress: () => Alert.alert("User Reported", "Our moderation team will review this user and take appropriate action.") }
+                  ]);
+                }}
+                className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+                style={{
+                  borderColor: "rgba(245,158,11,0.25)",
+                  backgroundColor: "rgba(245,158,11,0.10)",
+                }}
+              >
+                <Feather name="flag" size={18} color="#F59E0B" />
+                <Text
+                  className="font-outfit font-bold"
+                  style={{ color: "#F59E0B" }}
+                >
+                  Report
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setMessageActionsTarget(null);
+                  Alert.alert("Block User", "Are you sure you want to block this user? You will no longer see their messages.", [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Block", style: "destructive", onPress: () => Alert.alert("User Blocked", "You will no longer receive messages from this user.") }
+                  ]);
+                }}
+                className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+                style={{
+                  borderColor: "rgba(239,68,68,0.25)",
+                  backgroundColor: "rgba(239,68,68,0.10)",
+                }}
+              >
+                <Feather name="slash" size={18} color="#EF4444" />
+                <Text
+                  className="font-outfit font-bold"
+                  style={{ color: "#EF4444" }}
+                >
+                  Block
+                </Text>
+              </Pressable>
+            </View>
           </View>
           <Pressable
             onPress={() => setMessageActionsTarget(null)}

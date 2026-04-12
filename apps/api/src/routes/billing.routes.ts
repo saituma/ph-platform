@@ -16,6 +16,7 @@ import {
   listRequestsAdmin,
   rejectRequestAdmin,
   updatePlanAdmin,
+  verifyRevenueCatPurchase,
 } from "../controllers/billing.controller";
 
 const router = Router();
@@ -26,6 +27,7 @@ router.get("/billing/status", requireAuth, getBillingStatus);
 router.post("/billing/checkout", requireAuth, createCheckout);
 router.post("/billing/payment-sheet", requireAuth, createPaymentSheet);
 router.post("/billing/payment-sheet/confirm", requireAuth, confirmPaymentSheet);
+router.post("/billing/revenuecat/verify", requireAuth, verifyRevenueCatPurchase);
 router.post("/billing/confirm", requireAuth, confirmCheckout);
 router.post("/billing/downgrade", requireAuth, downgradePlan);
 

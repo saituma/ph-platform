@@ -3,7 +3,10 @@ import { AgeGate } from "@/components/AgeGate";
 import { InboxScreen } from "@/components/messages/InboxScreen";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
-import { requestGlobalTabChange } from "@/context/ActiveTabContext";
+import {
+  requestGlobalTabChange,
+  useActiveTabIndex,
+} from "@/context/ActiveTabContext";
 import { apiRequest } from "@/lib/api";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
@@ -19,8 +22,18 @@ import { usePathname, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BASE_TEAM_TAB_ROUTES } from "@/roles/shared/tabs";
 
 export type MessagesHomeMode = "team" | "adult" | "youth";
+
+function pickLatestAnnouncement(items: unknown[]): any | null {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  return [...items].sort((a: any, b: any) => {
+    const tb = new Date(b?.updatedAt ?? b?.createdAt ?? 0).getTime();
+    const ta = new Date(a?.updatedAt ?? a?.createdAt ?? 0).getTime();
+    return tb - ta;
+  })[0];
+}
 
 export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   const { colors } = useAppTheme();
@@ -36,30 +49,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const { isSectionHidden } = useAgeExperience();
 
-  const actingUserId = React.useMemo(() => {
-    const raw = athleteUserId ? Number(athleteUserId) : NaN;
-    if (!Number.isFinite(raw) || raw <= 0) return null;
-
-    if (Array.isArray(managedAthletes) && managedAthletes.length > 0) {
-      const byUserId = managedAthletes.find(
-        (athlete) => String((athlete as any)?.userId) === String(raw),
-      );
-      if ((byUserId as any)?.userId) {
-        const userId = Number((byUserId as any).userId);
-        if (Number.isFinite(userId) && userId > 0) return userId;
-      }
-      const byAthleteId = managedAthletes.find(
-        (athlete) => String((athlete as any)?.id) === String(raw),
-      );
-      if ((byAthleteId as any)?.userId) {
-        const userId = Number((byAthleteId as any).userId);
-        if (Number.isFinite(userId) && userId > 0) return userId;
-      }
-    }
-
-    return raw;
-  }, [athleteUserId, managedAthletes]);
-
   const {
     sortedThreads,
     typingStatus,
@@ -69,8 +58,19 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
     loadMessages,
     resetOpeningThread,
   } = useMessagesController();
-  const pathname = usePathname();
   const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const activeTabIndex = useActiveTabIndex();
+  const messagesTabIndex = React.useMemo(
+    () => BASE_TEAM_TAB_ROUTES.findIndex((t) => t.key === "messages"),
+    [],
+  );
+  const isOnMessagesTab =
+    messagesTabIndex >= 0 && activeTabIndex === messagesTabIndex;
+  const isMessagesRoute =
+    pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
+  /** Pager swipe does not always update URL; pathname alone can miss the messages tab. */
+  const isMessagesSurface = isOnMessagesTab || isMessagesRoute;
   const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
   const paidPlan = hasPaidProgramTier(programTier);
   const isYouthAthleteRole =
@@ -100,15 +100,13 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
       ? "Team chat, groups, and announcements — in one place."
       : "Cleaner chat, faster replies, and a calmer mobile flow.";
 
+  const [announcementsLoading, setAnnouncementsLoading] = React.useState(true);
   const [announcementsMeta, setAnnouncementsMeta] = React.useState<{
     count: number;
     title: string;
     snippet: string;
     when: string;
   } | null>(null);
-
-  const isMessagesRoute =
-    pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
 
   const inboxThreads = React.useMemo(() => {
     if (mode === "team") return sortedThreads;
@@ -124,14 +122,20 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
     return { team, coach, direct };
   }, [inboxThreads]);
 
+  // Load whenever this screen is shown (MessagesHome only mounts after the Messages tab is visited).
+  // Do not gate on URL / active tab index — those can lag one frame and skip the fetch entirely.
   React.useEffect(() => {
-    if (!token) return;
-    if (!isMessagesRoute) return;
+    if (!token) {
+      setAnnouncementsLoading(false);
+      setAnnouncementsMeta(null);
+      return;
+    }
     let active = true;
     (async () => {
+      setAnnouncementsLoading(true);
       try {
-        const headers = actingUserId
-          ? { "X-Acting-User-Id": String(actingUserId) }
+        const headers = athleteUserId
+          ? { "X-Acting-User-Id": String(athleteUserId) }
           : undefined;
         const res = await apiRequest<{ items?: any[] }>(
           "/content/announcements",
@@ -139,11 +143,12 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
             token,
             headers,
             skipCache: true,
+            forceRefresh: true,
             suppressStatusCodes: [401, 403, 404],
           },
         );
         const items = Array.isArray(res.items) ? res.items : [];
-        const latest = items[0];
+        const latest = pickLatestAnnouncement(items);
         if (!active) return;
         if (!latest) {
           setAnnouncementsMeta(null);
@@ -173,12 +178,14 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
       } catch {
         if (!active) return;
         setAnnouncementsMeta(null);
+      } finally {
+        if (active) setAnnouncementsLoading(false);
       }
     })();
     return () => {
       active = false;
     };
-  }, [actingUserId, isMessagesRoute, token]);
+  }, [athleteUserId, token]);
 
   React.useEffect(() => {
     if (!token) return;
@@ -217,9 +224,9 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   }, [dispatch, token]);
 
   React.useEffect(() => {
-    if (!isMessagesRoute) return;
+    if (!isMessagesSurface) return;
     resetOpeningThread();
-  }, [isMessagesRoute, resetOpeningThread]);
+  }, [isMessagesSurface, resetOpeningThread]);
 
   if (isSectionHidden("messages")) {
     return (
@@ -393,7 +400,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
                 Announcements
               </Text>
             </View>
-            {announcementsMeta?.count ? (
+            {!announcementsLoading && announcementsMeta?.count ? (
               <View
                 className="h-8 w-8 rounded-full items-center justify-center"
                 style={{ backgroundColor: colors.accent }}
@@ -413,17 +420,21 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
               style={{ color: colors.text }}
               numberOfLines={1}
             >
-              {announcementsMeta?.title || "No announcements yet"}
+              {announcementsLoading
+                ? "Loading announcements…"
+                : announcementsMeta?.title || "No announcements yet"}
             </Text>
             <Text
               className="mt-2 text-[14px] font-outfit leading-6"
               style={{ color: colors.textSecondary }}
               numberOfLines={2}
             >
-              {announcementsMeta?.snippet ||
-                "Broadcast updates from your coach will appear here."}
+              {announcementsLoading
+                ? "Fetching the latest from your coach."
+                : announcementsMeta?.snippet ||
+                  "Broadcast updates from your coach will appear here."}
             </Text>
-            {announcementsMeta?.when ? (
+            {!announcementsLoading && announcementsMeta?.when ? (
               <View className="mt-4 pt-4 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                 <Text
                   className="text-[12px] font-outfit-medium font-medium"

@@ -1,6 +1,7 @@
 import * as TaskManager from "expo-task-manager";
 import * as Location from "expo-location";
 import { useRunStore } from "../store/useRunStore";
+import { Alert } from "react-native";
 
 export const BACKGROUND_LOCATION_TASK = "BACKGROUND_LOCATION_TASK";
 
@@ -25,10 +26,33 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 
 export async function startLocationTracking() {
   const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
-  const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+  if (fgStatus !== "granted") {
+    console.warn("Permission to access location in foreground was denied");
+    return;
+  }
 
-  if (fgStatus !== "granted" || bgStatus !== "granted") {
-    console.warn("Permission to access location was denied");
+  const bgStatusBefore = await Location.getBackgroundPermissionsAsync();
+  if (bgStatusBefore.status !== "granted") {
+    const userProceeds = await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        "Background Location Usage",
+        "PHP Performance collects location data to track your run distance and pace even when the app is closed or not in use.",
+        [
+          { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+          { text: "Continue", onPress: () => resolve(true) }
+        ]
+      );
+    });
+
+    if (!userProceeds) {
+       console.warn("User cancelled background permission request");
+       return;
+    }
+  }
+
+  const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+  if (bgStatus !== "granted") {
+    console.warn("Permission to access background location was denied");
     return;
   }
 
