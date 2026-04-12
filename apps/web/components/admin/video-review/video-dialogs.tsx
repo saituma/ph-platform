@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Textarea } from "../../ui/textarea";
 import { Badge } from "../../ui/badge";
@@ -43,9 +49,18 @@ type VideoDialogsProps = {
     topic: string;
     status: string;
   }[];
-  onSelectQueueVideo?: (video: { id: number; athlete: string; topic: string; status: string }) => void;
+  onSelectQueueVideo?: (video: {
+    id: number;
+    athlete: string;
+    topic: string;
+    status: string;
+  }) => void;
   onSubmitReview?: (feedback: string) => void;
-  onSendResponseVideo?: (payload: { athleteUserId: number; mediaUrl: string; uploadId: number }) => Promise<void> | void;
+  onSendResponseVideo?: (payload: {
+    athleteUserId: number;
+    mediaUrl: string;
+    uploadId: number;
+  }) => Promise<void> | void;
   isSubmitting?: boolean;
   isSendingResponse?: boolean;
 };
@@ -123,7 +138,12 @@ export function VideoDialogs({
 
   const getRecorderMimeType = () => {
     if (typeof MediaRecorder === "undefined") return "";
-    const candidates = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+    const candidates = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+      "video/mp4",
+    ];
     for (const candidate of candidates) {
       if (MediaRecorder.isTypeSupported(candidate)) {
         return candidate;
@@ -134,7 +154,10 @@ export function VideoDialogs({
 
   const handleStartRecording = async () => {
     setResponseError(null);
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
       setResponseError("Camera access is not supported in this browser.");
       return;
     }
@@ -143,7 +166,10 @@ export function VideoDialogs({
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
       streamRef.current = stream;
       if (livePreviewRef.current) {
         livePreviewRef.current.srcObject = stream;
@@ -151,7 +177,9 @@ export function VideoDialogs({
       }
       setHasLivePreview(true);
       const mimeType = getRecorderMimeType();
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -159,7 +187,9 @@ export function VideoDialogs({
         }
       };
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+        const blob = new Blob(chunks, {
+          type: recorder.mimeType || "video/webm",
+        });
         setRecordedBlob(blob);
         if (recordedPreview) {
           URL.revokeObjectURL(recordedPreview);
@@ -176,7 +206,9 @@ export function VideoDialogs({
   };
 
   const makeUniqueName = (originalName: string) => {
-    const uploadPart = selectedVideo?.id ? `upload-${selectedVideo.id}` : "upload";
+    const uploadPart = selectedVideo?.id
+      ? `upload-${selectedVideo.id}`
+      : "upload";
     const parts = originalName.split(".");
     const ext = parts.length > 1 ? parts.pop() : "mp4";
     const base = parts.join(".") || "coach-response";
@@ -221,7 +253,10 @@ export function VideoDialogs({
         };
         xhr.onerror = () => reject(new Error("Failed to upload video."));
         xhr.open("PUT", result.uploadUrl);
-        xhr.setRequestHeader("Content-Type", blob.type || "application/octet-stream");
+        xhr.setRequestHeader(
+          "Content-Type",
+          blob.type || "application/octet-stream",
+        );
         xhr.send(blob);
       });
       setResponseUrl(result.publicUrl);
@@ -238,7 +273,9 @@ export function VideoDialogs({
     inputRef.current?.click();
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setResponseError(null);
@@ -252,8 +289,13 @@ export function VideoDialogs({
     }
     const mimeType = recordedBlob.type || "video/webm";
     const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-    const uploadPart = selectedVideo?.id ? `upload-${selectedVideo.id}` : "upload";
-    await uploadBlob(recordedBlob, `coach-response-${uploadPart}-${Date.now()}.${ext}`);
+    const uploadPart = selectedVideo?.id
+      ? `upload-${selectedVideo.id}`
+      : "upload";
+    await uploadBlob(
+      recordedBlob,
+      `coach-response-${uploadPart}-${Date.now()}.${ext}`,
+    );
   };
 
   const handleMarkReviewed = async () => {
@@ -276,13 +318,17 @@ export function VideoDialogs({
           uploadId: selectedVideo!.id,
         });
       }
-      const fallbackFeedback = hasFeedback ? feedback.trim() : "Coach sent a response video.";
+      const fallbackFeedback = hasFeedback
+        ? feedback.trim()
+        : "Coach sent a response video.";
       if (onSubmitReview) {
         await onSubmitReview(fallbackFeedback);
       }
       toast.success(
         "Marked reviewed",
-        hasResponse ? "Response video sent to the athlete." : "Feedback submitted."
+        hasResponse
+          ? "Response video sent to the athlete."
+          : "Feedback submitted.",
       );
       setResponseUrl(null);
       setRecordedBlob(null);
@@ -300,18 +346,19 @@ export function VideoDialogs({
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
       <DialogContent
-        className={active === "review"
-          ? "max-h-[92vh] max-w-6xl overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-50"
-          : "max-h-[85vh] overflow-y-auto"
+        className={
+          active === "review"
+            ? "max-h-[92vh] max-w-6xl overflow-y-auto border-zinc-800 bg-zinc-950 p-0 text-zinc-50 lg:overflow-hidden"
+            : "max-h-[85vh] overflow-y-auto"
         }
       >
         {active !== "review" ? (
           <DialogHeader>
-            <DialogTitle>
-              {active === "queue" && "Review Queue"}
-            </DialogTitle>
+            <DialogTitle>{active === "queue" && "Review Queue"}</DialogTitle>
             <DialogDescription>
-              {selectedVideo ? `${selectedVideo.athlete} • ${selectedVideo.topic}` : "Review uploads in priority order."}
+              {selectedVideo
+                ? `${selectedVideo.athlete} • ${selectedVideo.topic}`
+                : "Review uploads in priority order."}
             </DialogDescription>
           </DialogHeader>
         ) : null}
@@ -336,7 +383,7 @@ export function VideoDialogs({
                   </DialogDescription>
                 </DialogHeader>
               </div>
-              <div className="grid max-h-[calc(92vh-88px)] gap-0 overflow-hidden lg:grid-cols-[minmax(0,1.2fr)_380px]">
+              <div className="grid gap-0 lg:h-[calc(92vh-88px)] lg:overflow-hidden lg:grid-cols-[minmax(0,1.2fr)_380px]">
                 <div className="flex min-h-0 items-center justify-center bg-black p-4 sm:p-6">
                   {selectedVideo.videoUrl ? (
                     <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl">
@@ -360,7 +407,9 @@ export function VideoDialogs({
                   <div className="space-y-4">
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3 text-sm">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="font-semibold text-zinc-100">Upload Details</span>
+                        <span className="font-semibold text-zinc-100">
+                          Upload Details
+                        </span>
                         <Badge
                           variant="outline"
                           className="border-zinc-700 bg-zinc-950 text-zinc-300"
@@ -369,13 +418,23 @@ export function VideoDialogs({
                         </Badge>
                       </div>
                       <div className="mt-3 space-y-2 text-zinc-300">
-                        <p>{selectedVideo.createdAt ? new Date(selectedVideo.createdAt).toLocaleString() : "Unknown time"}</p>
-                        <p>{selectedVideo.notes?.trim?.() ? selectedVideo.notes : "No notes provided."}</p>
+                        <p>
+                          {selectedVideo.createdAt
+                            ? new Date(selectedVideo.createdAt).toLocaleString()
+                            : "Unknown time"}
+                        </p>
+                        <p>
+                          {selectedVideo.notes?.trim?.()
+                            ? selectedVideo.notes
+                            : "No notes provided."}
+                        </p>
                       </div>
                     </div>
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-4 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-semibold text-zinc-100">Coach Feedback</span>
+                        <span className="font-semibold text-zinc-100">
+                          Coach Feedback
+                        </span>
                       </div>
                       <Textarea
                         placeholder="Write coach feedback..."
@@ -386,17 +445,33 @@ export function VideoDialogs({
                     </div>
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-4 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-semibold text-zinc-100">Coach Response Video</span>
+                        <span className="font-semibold text-zinc-100">
+                          Coach Response Video
+                        </span>
                         <div className="flex flex-wrap items-center gap-2">
-                          <Button size="sm" variant="outline" onClick={handlePick} disabled={isUploading || isRecording}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handlePick}
+                            disabled={isUploading || isRecording}
+                          >
                             Upload Video
                           </Button>
                           {isRecording ? (
-                            <Button size="sm" variant="destructive" onClick={stopRecording}>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={stopRecording}
+                            >
                               Stop Recording
                             </Button>
                           ) : (
-                            <Button size="sm" variant="outline" onClick={handleStartRecording} disabled={isUploading}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleStartRecording}
+                              disabled={isUploading}
+                            >
                               Record Video
                             </Button>
                           )}
@@ -410,14 +485,23 @@ export function VideoDialogs({
                         className="hidden"
                       />
                       <div className="mt-3 space-y-3">
-                        {responseError ? <p className="text-xs text-red-400">{responseError}</p> : null}
+                        {responseError ? (
+                          <p className="text-xs text-red-400">
+                            {responseError}
+                          </p>
+                        ) : null}
                         {isUploading ? (
                           <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-                            <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+                            <div
+                              className="h-full bg-primary transition-all"
+                              style={{ width: `${uploadProgress}%` }}
+                            />
                           </div>
                         ) : null}
                         <div className="space-y-2">
-                          <div className="text-xs text-zinc-500">Live Preview</div>
+                          <div className="text-xs text-zinc-500">
+                            Live Preview
+                          </div>
                           <div className="relative">
                             <video
                               ref={livePreviewRef}
@@ -442,7 +526,12 @@ export function VideoDialogs({
                               muted
                             />
                             <div className="flex flex-wrap items-center gap-2">
-                              <Button size="sm" variant="outline" onClick={handleUploadRecording} disabled={isUploading}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleUploadRecording}
+                                disabled={isUploading}
+                              >
                                 Upload Recording
                               </Button>
                               <Button
@@ -495,7 +584,11 @@ export function VideoDialogs({
                       </Button>
                       <Button
                         onClick={handleMarkReviewed}
-                        disabled={isSubmitting || isSendingResponse || (feedback.trim().length === 0 && !responseUrl)}
+                        disabled={
+                          isSubmitting ||
+                          isSendingResponse ||
+                          (feedback.trim().length === 0 && !responseUrl)
+                        }
                       >
                         Mark Reviewed
                       </Button>
@@ -520,10 +613,18 @@ export function VideoDialogs({
                     className="flex w-full items-center justify-between rounded-2xl border border-border bg-secondary/30 px-4 py-3 text-left text-sm transition hover:border-primary/40 hover:bg-secondary/50"
                   >
                     <div className="space-y-1">
-                      <p className="font-semibold text-foreground">{video.athlete}</p>
-                      <p className="text-xs text-muted-foreground">{video.topic}</p>
+                      <p className="font-semibold text-foreground">
+                        {video.athlete}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {video.topic}
+                      </p>
                     </div>
-                    <Badge variant={video.status === "Priority" ? "primary" : "outline"}>
+                    <Badge
+                      variant={
+                        video.status === "Priority" ? "primary" : "outline"
+                      }
+                    >
                       {video.status}
                     </Badge>
                   </button>

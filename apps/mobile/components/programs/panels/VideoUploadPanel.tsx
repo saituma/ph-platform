@@ -94,17 +94,48 @@ export function VideoUploadPanel({
 
   useEffect(() => {
     if (!socket) return;
-    socket.on("video:reviewed", (updated) => {
+    const handleReviewed = (updated: any) => {
       setVideoItems((prev) =>
         prev.map((item) =>
           item.id === updated.id ? { ...item, ...updated } : item,
         ),
       );
-    });
-    return () => {
-      socket.off("video:reviewed");
+
+      // Coach response videos are delivered via direct messages.
+      // When a review happens, refresh responses so the athlete sees the video (not just the text feedback).
+      loadCoachResponses(true);
     };
-  }, [socket]);
+
+    const handleMessageNew = (message: any) => {
+      if (
+        message?.contentType !== "video" ||
+        !message?.mediaUrl ||
+        !Number(message?.videoUploadId)
+      ) {
+        return;
+      }
+
+      const next = {
+        id: String(message.id),
+        mediaUrl: message.mediaUrl,
+        text: message.content,
+        createdAt: message.createdAt ?? null,
+        videoUploadId: Number(message.videoUploadId),
+      };
+
+      setCoachResponses((prev) => {
+        if (prev.some((item) => item.id === next.id)) return prev;
+        return [next, ...prev];
+      });
+    };
+
+    socket.on("video:reviewed", handleReviewed);
+    socket.on("message:new", handleMessageNew);
+    return () => {
+      socket.off("video:reviewed", handleReviewed);
+      socket.off("message:new", handleMessageNew);
+    };
+  }, [socket, loadCoachResponses]);
 
   const pickVideo = async (source: "library" | "camera") => {
     try {
