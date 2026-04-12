@@ -6,6 +6,7 @@ import React, {
   useRef,
 } from "react";
 import { View, Modal, TouchableOpacity, Dimensions } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -88,9 +89,18 @@ export function VideoUploadPanel({
   } | null>(null);
 
   useEffect(() => {
-    loadVideos();
-    loadCoachResponses();
-  }, [refreshToken]);
+    // Force refresh to avoid serving cached /messages when a coach has just
+    // sent a response video via the admin portal.
+    loadVideos(true);
+    loadCoachResponses(true);
+  }, [refreshToken, loadVideos, loadCoachResponses]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadVideos(true);
+      loadCoachResponses(true);
+    }, [loadVideos, loadCoachResponses]),
+  );
 
   useEffect(() => {
     if (!socket) return;

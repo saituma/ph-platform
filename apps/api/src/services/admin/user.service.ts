@@ -501,6 +501,13 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
       })
       .where(eq(athleteTable.id, onboardingResult.athleteId));
 
+    if (onboardingResult.athleteUserId) {
+      await db
+        .update(userTable)
+        .set({ profilePicture: input.athleteProfilePicture?.trim() || null, updatedAt: new Date() })
+        .where(eq(userTable.id, onboardingResult.athleteUserId));
+    }
+
     let emailSent = true;
     try {
       await sendAdminWelcomeCredentialsEmail({
@@ -665,6 +672,13 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
     const athlete = insertedAthlete[0];
     if (!athlete) {
       throw new Error("Athlete row insert failed.");
+    }
+
+    if (athlete.userId) {
+      await db
+        .update(userTable)
+        .set({ profilePicture: input.athleteProfilePicture?.trim() || null, updatedAt: new Date() })
+        .where(eq(userTable.id, athlete.userId));
     }
 
     await db.insert(legalAcceptanceTable).values({

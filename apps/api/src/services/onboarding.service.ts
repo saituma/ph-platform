@@ -17,6 +17,7 @@ import { calculateAge, clampYouthAge, isBirthday, normalizeDate, parseISODate } 
 import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
 import { sendPushNotification } from "./push.service";
 import { getActiveSubscriptionPlanByTier, isSubscriptionPlanFree } from "./billing.service";
+import { normalizeStoredMediaUrl } from "./s3.service";
 
 const defaultPublicConfig = {
   version: 1,
@@ -172,6 +173,7 @@ export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$infe
             email,
             role: "athlete",
             emailVerified: true,
+            profilePicture: athlete.profilePicture ?? null,
           })
           .returning()
       )[0];
@@ -383,14 +385,27 @@ export async function updateAthleteProfilePicture(input: {
 }) {
   const { athlete } = await getGuardianAndAthlete(input.userId);
   if (!athlete) return null;
+  let ensured = athlete;
+  try {
+    ensured = await ensureAthleteUserRecord(athlete);
+  } catch (error) {
+    console.warn("[Onboarding] Failed to ensure athlete user record during profile picture update", error);
+  }
   const [updated] = await db
     .update(athleteTable)
     .set({
       profilePicture: input.profilePicture,
       updatedAt: new Date(),
     })
-    .where(eq(athleteTable.id, athlete.id))
+    .where(eq(athleteTable.id, ensured.id))
     .returning();
+
+  if (ensured.userId) {
+    await db
+      .update(userTable)
+      .set({ profilePicture: input.profilePicture, updatedAt: new Date() })
+      .where(eq(userTable.id, ensured.userId));
+  }
   return updated ?? null;
 }
 
@@ -636,11 +651,12 @@ function decorateAthlete(athlete: typeof athleteTable.$inferSelect | null) {
   if (!athlete) return null;
   const birthDate = normalizeDate(athlete.birthDate as any);
   if (!birthDate) {
-    return { ...athlete, isBirthday: false };
+    return { ...athlete, profilePicture: normalizeStoredMediaUrl(athlete.profilePicture ?? null), isBirthday: false };
   }
   const now = new Date();
   return {
     ...athlete,
+    profilePicture: normalizeStoredMediaUrl(athlete.profilePicture ?? null),
     age: clampYouthAge(calculateAge(birthDate, now), athlete.athleteType) ?? athlete.age,
     isBirthday: isBirthday(birthDate, now),
   };
