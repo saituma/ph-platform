@@ -1,6 +1,7 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { View, Platform, Pressable } from "react-native";
 import MapView, { Marker, Polyline, Region } from "react-native-maps";
+import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { PulsingDot } from "../PulsingDot";
 import { OsmMapView } from "../OsmMapView";
@@ -33,6 +34,15 @@ export function LiveMap({
   onRecenter,
 }: LiveMapProps) {
   const mapRef = useRef<MapView | null>(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] =
+    useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermissionGranted(status === "granted");
+    })();
+  }, []);
 
   useEffect(() => {
     if (followUser && activeRegion && !useOsmMap) {
@@ -67,7 +77,7 @@ export function LiveMap({
           mapType="standard"
           showsBuildings={false}
           userInterfaceStyle={isDark ? "dark" : "light"}
-          showsUserLocation={true}
+          showsUserLocation={locationPermissionGranted}
           showsMyLocationButton={false}
           pitchEnabled={false}
           rotateEnabled={false}
@@ -83,7 +93,11 @@ export function LiveMap({
 
           {coordinates.length > 0 && (
             <>
-              <Marker coordinate={coordinates[0]} anchor={{ x: 0.5, y: 0.5 }}>
+              <Marker
+                coordinate={coordinates[0]}
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
+              >
                 <View
                   style={{
                     width: 10,
@@ -96,14 +110,22 @@ export function LiveMap({
                 />
               </Marker>
               {lastCoordinate && (
-                <Marker coordinate={lastCoordinate} anchor={{ x: 0.5, y: 0.5 }}>
+                <Marker
+                  coordinate={lastCoordinate}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false}
+                >
                   <PulsingDot size={8} color={colors.cyan} />
                 </Marker>
               )}
             </>
           )}
           {destination && (
-            <Marker coordinate={destination} anchor={{ x: 0.5, y: 1 }}>
+            <Marker
+              coordinate={destination}
+              anchor={{ x: 0.5, y: 1 }}
+              tracksViewChanges={false}
+            >
               <Ionicons name="flag" size={24} color={colors.coral} />
             </Marker>
           )}

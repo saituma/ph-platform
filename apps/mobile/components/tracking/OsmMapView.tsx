@@ -26,7 +26,7 @@ const buildHtml = (
   backgroundColor: string,
   isDark: boolean,
   destination: Coordinate | null,
-  activeRegion: { latitude: number; longitude: number } | null
+  activeRegion: { latitude: number; longitude: number } | null,
 ) => {
   const coordsJson = JSON.stringify(coordinates);
   const destinationJson = JSON.stringify(destination);
@@ -115,14 +115,33 @@ export function OsmMapView({
   activeRegion = null,
 }: OsmMapViewProps) {
   const html = useMemo(
-    () => buildHtml(coordinates, routeColor, startColor, endColor, backgroundColor, isDark, destination, activeRegion),
-    [coordinates, routeColor, startColor, endColor, backgroundColor, isDark, destination, activeRegion]
+    () =>
+      buildHtml(
+        coordinates,
+        routeColor,
+        startColor,
+        endColor,
+        backgroundColor,
+        isDark,
+        destination,
+        activeRegion,
+      ),
+    [
+      coordinates,
+      routeColor,
+      startColor,
+      endColor,
+      backgroundColor,
+      isDark,
+      destination,
+      activeRegion,
+    ],
   );
 
   return (
     <View style={styles.container}>
       <WebView
-        originWhitelist={["*"]}
+        originWhitelist={["*.openstreetmap.org", "*.cartocdn.com"]}
         source={{ html }}
         javaScriptEnabled
         domStorageEnabled
