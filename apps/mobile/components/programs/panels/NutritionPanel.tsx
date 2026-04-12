@@ -3,6 +3,10 @@ import { ActivityIndicator, Modal, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { apiRequest } from "@/lib/api";
+import {
+  cancelNutritionReminderLocal,
+  scheduleNutritionReminderLocal,
+} from "@/lib/nutritionReminder";
 import { useAppSelector } from "@/store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
@@ -87,6 +91,22 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const [coachFeedbackMediaUrl, setCoachFeedbackMediaUrl] = useState<
     string | null
   >(null);
+
+  const canManageReminders = apiUserRole === "athlete";
+  const [reminderLoading, setReminderLoading] = useState(false);
+  const [reminderSaving, setReminderSaving] = useState(false);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(20, 0, 0, 0);
+    return d;
+  });
+  const [reminderTimePickerOpen, setReminderTimePickerOpen] = useState(false);
+  const [reminderEnableAfterPick, setReminderEnableAfterPick] = useState(false);
+  const [reminderStatus, setReminderStatus] = useState<{
+    tone: "error" | "success" | "info";
+    message: string;
+  } | null>(null);
   const [status, setStatus] = useState<{
     tone: "error" | "success" | "info";
     message: string;
@@ -135,6 +155,77 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     const d = details.trim();
     return d.length ? d : "yes";
   }, []);
+
+  const getTimeLocalString = useCallback((d: Date) => {
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }, []);
+
+  const parseTimeLocalToDate = useCallback((timeLocal: string) => {
+    const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(timeLocal.trim());
+    if (!match) return null;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+    const d = new Date();
+    d.setHours(hour, minute, 0, 0);
+    return d;
+  }, []);
+
+  const getDeviceTimezone = useCallback(() => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return typeof tz === "string" && tz.trim().length ? tz : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const fetchReminderSettings = useCallback(async () => {
+    if (!token) return;
+    if (!canManageReminders) return;
+
+    setReminderLoading(true);
+    setReminderStatus(null);
+    try {
+      const data = await apiRequest<{
+        settings: {
+          enabled: boolean | null;
+          timeLocal: string | null;
+          timezone: string | null;
+        } | null;
+      }>("/nutrition/reminder-settings", { token, suppressLog: true });
+
+      const enabled = Boolean(data?.settings?.enabled);
+      setReminderEnabled(enabled);
+      const timeLocal =
+        typeof data?.settings?.timeLocal === "string"
+          ? data.settings.timeLocal
+          : null;
+      if (timeLocal) {
+        const parsed = parseTimeLocalToDate(timeLocal);
+        if (parsed) setReminderTime(parsed);
+      }
+
+      if (enabled && timeLocal) {
+        const parsed = parseTimeLocalToDate(timeLocal);
+        if (parsed) {
+          void scheduleNutritionReminderLocal({
+            hour: parsed.getHours(),
+            minute: parsed.getMinutes(),
+          });
+        }
+      }
+    } catch (e: any) {
+      setReminderStatus({
+        tone: "error",
+        message: e?.message ?? "Failed to load reminder settings.",
+      });
+    } finally {
+      setReminderLoading(false);
+    }
+  }, [canManageReminders, parseTimeLocalToDate, token]);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -333,6 +424,10 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     void fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    void fetchReminderSettings();
+  }, [fetchReminderSettings]);
+
   const formatDateKey = useCallback(
     (d: Date) => d.toISOString().slice(0, 10),
     [],
@@ -429,12 +524,101 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       setTimeout(() => setStatus(null), 3000);
       // Keep Coach Response tab in sync even if user switches immediately.
       void fetchCoachLogs();
+
+      const isMeaningful =
+        foodDiary.trim().length > 0 ||
+        breakfastChecked ||
+        lunchChecked ||
+        dinnerChecked ||
+        snackMorningChecked ||
+        snackAfternoonChecked ||
+        snackEveningChecked ||
+        waterIntake > 0 ||
+        steps > 0 ||
+        sleepHours > 0 ||
+        typeof mood === "number" ||
+        typeof energy === "number" ||
+        typeof pain === "number";
+
+      const todayKey = new Date().toISOString().slice(0, 10);
+      if (
+        canManageReminders &&
+        reminderEnabled &&
+        isMeaningful &&
+        dateKey === todayKey
+      ) {
+        void scheduleNutritionReminderLocal({
+          hour: reminderTime.getHours(),
+          minute: reminderTime.getMinutes(),
+          forceTomorrow: true,
+        });
+      }
     } catch (err: any) {
       setStatus({ tone: "error", message: err.message || "Failed to save." });
     } finally {
       setSaving(false);
     }
   };
+
+  const saveReminderSettings = useCallback(
+    async (next: { enabled: boolean; timeLocal?: string | null }) => {
+      if (!token) return;
+      if (!canManageReminders) return;
+
+      setReminderSaving(true);
+      setReminderStatus(null);
+      try {
+        await apiRequest("/nutrition/reminder-settings", {
+          method: "PUT",
+          token,
+          body: {
+            enabled: next.enabled,
+            timeLocal: next.enabled ? (next.timeLocal ?? null) : null,
+            timezone: getDeviceTimezone(),
+          },
+        });
+
+        if (!next.enabled) {
+          setReminderEnabled(false);
+          void cancelNutritionReminderLocal();
+          setReminderStatus({ tone: "success", message: "Reminder disabled." });
+          return;
+        }
+
+        if (next.timeLocal) {
+          const parsed = parseTimeLocalToDate(next.timeLocal);
+          if (parsed) {
+            setReminderEnabled(true);
+            setReminderTime(parsed);
+            void scheduleNutritionReminderLocal({
+              hour: parsed.getHours(),
+              minute: parsed.getMinutes(),
+            });
+            setReminderStatus({
+              tone: "success",
+              message: "Reminder enabled.",
+            });
+            return;
+          }
+        }
+
+        setReminderEnabled(true);
+        setReminderStatus({
+          tone: "info",
+          message: "Reminder enabled. Pick a time to schedule locally.",
+        });
+      } catch (e: any) {
+        setReminderStatus({
+          tone: "error",
+          message: e?.message ?? "Failed to update reminder settings.",
+        });
+        throw e;
+      } finally {
+        setReminderSaving(false);
+      }
+    },
+    [canManageReminders, getDeviceTimezone, parseTimeLocalToDate, token],
+  );
 
   const renderMetricScale = (
     label: string,
@@ -605,6 +789,146 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           </View>
         ) : (
           <View className="gap-4">
+            {canManageReminders ? (
+              <View
+                className="rounded-3xl border p-5"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(15,23,42,0.06)",
+                }}
+              >
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-sm font-bold font-outfit text-app">
+                      Daily Reminder
+                    </Text>
+                    <Text className="mt-1 text-sm font-outfit text-secondary leading-6">
+                      Get a reminder if you haven't logged today.
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={async () => {
+                      if (reminderSaving) return;
+                      if (!reminderEnabled) {
+                        setReminderEnableAfterPick(true);
+                        setReminderTimePickerOpen(true);
+                        return;
+                      }
+                      try {
+                        await saveReminderSettings({ enabled: false });
+                      } catch {
+                        // status already set
+                      }
+                    }}
+                    className="rounded-2xl border px-4 py-3 items-center justify-center"
+                    style={{
+                      backgroundColor: reminderEnabled
+                        ? colors.accent
+                        : isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.04)",
+                      borderColor: reminderEnabled
+                        ? colors.accent
+                        : isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(15,23,42,0.06)",
+                    }}
+                  >
+                    <Text
+                      className={`text-[12px] font-outfit font-bold uppercase tracking-[1.2px] ${
+                        reminderEnabled ? "text-white" : "text-app"
+                      }`}
+                    >
+                      {reminderEnabled ? "On" : "Off"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View className="mt-4">
+                  {reminderLoading ? (
+                    <View className="py-2">
+                      <ActivityIndicator size="small" color={colors.accent} />
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setReminderEnableAfterPick(false);
+                        setReminderTimePickerOpen(true);
+                      }}
+                      disabled={!reminderEnabled || reminderSaving}
+                      className="rounded-2xl border px-4 py-3"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(15,23,42,0.04)",
+                        borderColor: isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(15,23,42,0.06)",
+                        opacity: reminderEnabled ? 1 : 0.6,
+                      }}
+                    >
+                      <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                        Reminder time
+                      </Text>
+                      <Text className="mt-1 text-sm font-outfit text-app">
+                        {reminderTime.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {reminderTimePickerOpen ? (
+                  <DateTimePicker
+                    value={reminderTime}
+                    mode="time"
+                    display="default"
+                    onChange={async (_, selected) => {
+                      setReminderTimePickerOpen(false);
+                      if (!selected) {
+                        setReminderEnableAfterPick(false);
+                        return;
+                      }
+                      setReminderTime(selected);
+                      if (!reminderEnabled && !reminderEnableAfterPick) return;
+
+                      const timeLocal = getTimeLocalString(selected);
+                      try {
+                        await saveReminderSettings({
+                          enabled: true,
+                          timeLocal,
+                        });
+                        setReminderEnabled(true);
+                      } catch {
+                        // status already set
+                      } finally {
+                        setReminderEnableAfterPick(false);
+                      }
+                    }}
+                  />
+                ) : null}
+
+                {reminderStatus ? (
+                  <Text
+                    className={`mt-3 text-center font-bold ${
+                      reminderStatus.tone === "error"
+                        ? "text-red-500"
+                        : reminderStatus.tone === "success"
+                          ? "text-emerald-500"
+                          : "text-secondary"
+                    }`}
+                  >
+                    {reminderStatus.message}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
             {isAdult ? (
               <View
                 className="rounded-3xl border p-5"
