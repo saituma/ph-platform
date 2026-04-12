@@ -118,7 +118,22 @@ export async function updateUserProfile(
     })
     .where(and(eq(userTable.id, userId), eq(userTable.isDeleted, false)))
     .returning();
-  return result[0] ?? null;
+
+  const updated = result[0] ?? null;
+  if (!updated) return null;
+
+  if (input.profilePicture !== undefined && updated.role === "athlete") {
+    await syncAthleteProfilePictureForUser(updated.id, input.profilePicture);
+  }
+
+  return updated;
+}
+
+export async function syncAthleteProfilePictureForUser(userId: number, profilePicture: string | null) {
+  await db
+    .update(athleteTable)
+    .set({ profilePicture, updatedAt: new Date() })
+    .where(eq(athleteTable.userId, userId));
 }
 
 export async function getGuardianAndAthlete(userId: number) {

@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 
 import { verifyAccessToken } from "../lib/jwt";
 import { env } from "../config/env";
-import { createUserFromCognito, getUserByCognitoSub, getUserById } from "../services/user.service";
+import { createUserFromCognito, getAthleteForUser, getUserByCognitoSub, getUserById } from "../services/user.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -65,6 +65,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       profilePicture: normalizeStoredMediaUrl(user.profilePicture ?? null),
     };
 
+    if (req.user.role === "athlete" && !req.user.profilePicture) {
+      const athlete = await getAthleteForUser(req.user.id);
+      if (athlete?.profilePicture) {
+        req.user.profilePicture = normalizeStoredMediaUrl(athlete.profilePicture);
+      }
+    }
+
     const actingUserId = req.headers["x-acting-user-id"];
     if (actingUserId && user.role === "guardian") {
       const { listGuardianAthletes } = await import("../services/user.service");
@@ -72,6 +79,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       const managed = athletes.find((a) => String(a.userId) === String(actingUserId));
       if (managed && managed.userId) {
         req.user.id = Number(managed.userId);
+        req.user.profilePicture = normalizeStoredMediaUrl(managed.profilePicture ?? null);
         // We keep the original role (guardian) but change the ID so they access athlete data.
       }
     }
