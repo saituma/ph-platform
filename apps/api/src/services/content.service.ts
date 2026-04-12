@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -9,7 +9,9 @@ import {
   parentCourseTable,
   ProgramType,
   storyTable,
+  userTable,
 } from "../db/schema";
+import { sendPushNotification } from "./push.service";
 import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "coach"]);
@@ -152,6 +154,44 @@ export async function getAnnouncements(userId?: number, role?: string) {
     if (audience.type === "tier") return context.tiers.has(audience.tier);
     return context.ages.some((age) => matchesAgeRange(item, age));
   });
+}
+
+/** Same audience rules as `getAnnouncements` for a single row (used for push fan-out). */
+export async function userMatchesAnnouncementItem(
+  userId: number,
+  item: typeof contentTable.$inferSelect,
+  role: string | null | undefined,
+): Promise<boolean> {
+  if (item.surface !== "announcements") return false;
+  if (!isAnnouncementActive(item, new Date())) return false;
+  if (role && isAdminRole(role)) return true;
+  const context = await resolveAnnouncementAudienceContext(userId);
+  const audience = parseAnnouncementAudience(item);
+  if (audience.type === "all") return true;
+  if (audience.type === "team") return context.teams.has(audience.team);
+  if (audience.type === "group") return context.groupIds.has(audience.groupId);
+  if (audience.type === "athlete_type") return context.athleteTypes.has(audience.athleteType);
+  if (audience.type === "tier") return context.tiers.has(audience.tier);
+  return context.ages.some((age) => matchesAgeRange(item, age));
+}
+
+async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSelect) {
+  const users = await db
+    .select({ id: userTable.id, role: userTable.role })
+    .from(userTable)
+    .where(and(eq(userTable.isDeleted, false), eq(userTable.isBlocked, false), isNotNull(userTable.expoPushToken)));
+
+  const title = (item.title ?? "Announcement").trim().slice(0, 80) || "Announcement";
+  const body = (item.content ?? "").trim().slice(0, 178) || "New announcement";
+
+  for (const u of users) {
+    if (!(await userMatchesAnnouncementItem(u.id, item, u.role))) continue;
+    await sendPushNotification(u.id, title, body, {
+      type: "announcement",
+      url: "/announcements",
+      contentId: String(item.id),
+    });
+  }
 }
 
 export async function listStoriesForUser() {
@@ -308,7 +348,14 @@ export async function createContent(input: {
     })
     .returning();
 
-  return result[0];
+  const row = result[0];
+  if (row && input.surface === "announcements") {
+    void sendAnnouncementCreatedPushes(row).catch((err) =>
+      console.error("[Content] announcement push fan-out failed:", err),
+    );
+  }
+
+  return row;
 }
 
 export async function updateContent(input: {
