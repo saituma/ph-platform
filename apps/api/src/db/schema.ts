@@ -1027,6 +1027,8 @@ export const nutritionLogsTable = pgTable("nutrition_logs", {
   lunch: text(),
   dinner: text(),
   waterIntake: integer().default(0), // instances/ounces/mL
+  steps: integer().default(0),
+  sleepHours: integer().default(0),
   mood: integer(), // 1-5
   energy: integer(), // 1-5
   pain: integer(), // 1-5
