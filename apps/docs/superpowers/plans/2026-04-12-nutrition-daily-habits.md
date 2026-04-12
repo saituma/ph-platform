@@ -13,9 +13,11 @@
 ## Files to Touch
 
 **Create**
+
 - [ ] `api/drizzle/0076_nutrition_daily_habits_steps_sleep.sql`
 
 **Modify**
+
 - [ ] `api/src/db/schema.ts`
 - [ ] `api/src/controllers/nutrition.controller.ts`
 - [ ] `mobile/components/programs/panels/NutritionPanel.tsx`
@@ -27,6 +29,7 @@
 ### Task 1: Database migration (add Steps + Sleep)
 
 **Files:**
+
 - Create: `api/drizzle/0076_nutrition_daily_habits_steps_sleep.sql`
 
 - [ ] Step 1: Add migration SQL
@@ -39,9 +42,11 @@ ALTER TABLE "nutrition_logs" ADD COLUMN "sleepHours" integer DEFAULT 0;
 - [ ] Step 2: Run migrations locally (when a dev DB is available)
 
 Run:
+
 - `pnpm -C apps/api db:migrate`
 
 Expected:
+
 - Migration applies cleanly; no errors.
 
 ---
@@ -49,6 +54,7 @@ Expected:
 ### Task 2: Drizzle schema update
 
 **Files:**
+
 - Modify: `api/src/db/schema.ts`
 
 - [ ] Step 1: Add columns to `nutritionLogsTable`
@@ -63,9 +69,11 @@ sleepHours: integer().default(0),
 - [ ] Step 2: Typecheck API
 
 Run:
+
 - `pnpm -C apps/api typecheck`
 
 Expected:
+
 - PASS.
 
 ---
@@ -73,6 +81,7 @@ Expected:
 ### Task 3: API validation + persistence
 
 **Files:**
+
 - Modify: `api/src/controllers/nutrition.controller.ts`
 
 - [ ] Step 1: Extend `logSchema` to accept steps/sleepHours
@@ -85,14 +94,17 @@ sleepHours: z.number().int().min(0).optional().nullable(),
 - [ ] Step 2: Verify `upsertLog` persists new fields
 
 Notes:
+
 - Existing implementation spreads `...input` into insert/update, so once columns exist and Zod allows fields, persistence is automatic.
 
 - [ ] Step 3: (Optional) quick smoke via unit/integration test
 
 Run:
+
 - `pnpm -C apps/api test:types`
 
 Expected:
+
 - PASS.
 
 ---
@@ -100,6 +112,7 @@ Expected:
 ### Task 4: Mobile NutritionPanel — add Daily Habits UI + wire save/fetch
 
 **Files:**
+
 - Modify: `mobile/components/programs/panels/NutritionPanel.tsx`
 
 - [ ] Step 1: Add local state
@@ -115,7 +128,9 @@ When a log exists:
 
 ```ts
 setSteps(typeof currentLog.steps === "number" ? currentLog.steps : 0);
-setSleepHours(typeof currentLog.sleepHours === "number" ? currentLog.sleepHours : 0);
+setSleepHours(
+  typeof currentLog.sleepHours === "number" ? currentLog.sleepHours : 0,
+);
 ```
 
 When clearing/resetting state (no log):
@@ -135,6 +150,7 @@ sleepHours,
 - [ ] Step 4: Render “Daily Habits” card under the log
 
 Requirements:
+
 - Water uses existing `waterIntake` value (already numeric).
 - Steps/Sleep are numeric with `>= 0`.
 - Ticks are derived:
@@ -143,15 +159,18 @@ Requirements:
 - [ ] Step 5: Targets copy + read-only athlete UX
 
 Requirements:
+
 - Athlete: show targets read-only with copy “Targets set by your coach.”
 - Coach/admin: show editable fields with copy “Set targets for this athlete.”
 
 - [ ] Step 6: Mobile typecheck (best-effort)
 
 Run:
+
 - `pnpm -C apps/mobile typecheck`
 
 Expected:
+
 - PASS (or at least no new errors from touched files).
 
 ---
@@ -159,6 +178,7 @@ Expected:
 ### Task 5: Log detail views — display Steps/Sleep
 
 **Files:**
+
 - Modify: `mobile/app/nutrition/log/[dateKey].tsx`
 - Modify: `mobile/app/admin-nutrition.tsx`
 
