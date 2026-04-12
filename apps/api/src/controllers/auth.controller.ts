@@ -20,6 +20,7 @@ import {
 import { updateUserProfile } from "../services/user.service";
 import { deleteOwnAccount } from "../services/account-deletion.service";
 import { env } from "../config/env";
+import { normalizeStoredMediaUrl } from "../services/s3.service";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -209,7 +210,7 @@ export async function updateMe(req: Request, res: Response) {
       email: updated.email,
       name: updated.name,
       sub: updated.cognitoSub,
-      profilePicture: updated.profilePicture ?? null,
+      profilePicture: normalizeStoredMediaUrl(updated.profilePicture ?? null),
     },
   });
 }

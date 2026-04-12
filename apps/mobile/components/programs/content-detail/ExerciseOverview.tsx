@@ -32,6 +32,31 @@ export function ExerciseOverview({
   mutedSurface,
   accentSurface,
 }: ExerciseOverviewProps) {
+  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const Metric = ({ label, value }: { label: string; value: string }) => (
+    <View
+      className="rounded-full border px-4 py-3 flex-row items-center gap-3"
+      style={{
+        backgroundColor: mutedSurface,
+        borderColor: borderSoft,
+      }}
+    >
+      <Text
+        className="text-[11px] font-outfit uppercase tracking-[1.2px] font-bold"
+        style={{ color: colors.textSecondary }}
+      >
+        {label}
+      </Text>
+      <View className="flex-1" />
+      <Text
+        className="text-[14px] font-clash font-bold"
+        style={{ color: colors.text }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+
   return (
     <View
       className="rounded-[28px] px-6 py-6 gap-4"
@@ -45,73 +70,37 @@ export function ExerciseOverview({
       </Text>
 
       {hasExercise && (
-        <View className="flex-row flex-wrap gap-2">
-          {meta.sets != null && (
-            <View
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: accentSurface }}
-            >
-              <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>
-                {meta.sets} sets
-              </Text>
+        <View className="flex-row flex-wrap gap-3">
+          {meta.sets != null ? (
+            <View style={{ flexBasis: "48%" }}>
+              <Metric label="Sets" value={String(meta.sets)} />
             </View>
-          )}
-          {meta.reps != null && (
-            <View
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: accentSurface }}
-            >
-              <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>
-                {meta.reps} reps
-              </Text>
+          ) : null}
+          {meta.reps != null ? (
+            <View style={{ flexBasis: "48%" }}>
+              <Metric label="Reps" value={String(meta.reps)} />
             </View>
-          )}
-          {meta.duration != null && (
-            <View
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: accentSurface }}
-            >
-              <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>
-                {meta.duration}s duration
-              </Text>
+          ) : null}
+          {meta.duration != null ? (
+            <View style={{ flexBasis: "48%" }}>
+              <Metric label="Duration" value={`${meta.duration}s`} />
             </View>
-          )}
-          {meta.restSeconds != null && (
-            <View
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: accentSurface }}
-            >
-              <Text className="text-[11px] font-outfit" style={{ color: colors.accent }}>
-                {meta.restSeconds}s rest
-              </Text>
+          ) : null}
+          {meta.restSeconds != null ? (
+            <View style={{ flexBasis: "48%" }}>
+              <Metric label="Rest" value={`${meta.restSeconds}s`} />
             </View>
-          )}
-          {meta.category && (
-            <View
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: mutedSurface }}
-            >
-              <Text
-                className="text-[11px] font-outfit font-semibold"
-                style={{ color: colors.text }}
-              >
-                {meta.category}
-              </Text>
+          ) : null}
+          {meta.category ? (
+            <View style={{ flexBasis: "48%" }}>
+              <Metric label="Category" value={String(meta.category)} />
             </View>
-          )}
-          {meta.equipment && (
-            <View
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: mutedSurface }}
-            >
-              <Text
-                className="text-[11px] font-outfit"
-                style={{ color: colors.text }}
-              >
-                🏋️ {meta.equipment}
-              </Text>
+          ) : null}
+          {meta.equipment ? (
+            <View style={{ flexBasis: "48%" }}>
+              <Metric label="Equipment" value={String(meta.equipment)} />
             </View>
-          )}
+          ) : null}
         </View>
       )}
 

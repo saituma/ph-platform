@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useMemo } from "react";
+import { ActivityIndicator, Linking, View, Pressable } from "react-native";
 import {
-  ActivityIndicator,
-  Linking,
-  View,
-  Pressable,
-} from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import {
   useLocalSearchParams,
   useRouter,
@@ -16,10 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
-import {
-  VideoPlayer,
-  isYoutubeUrl,
-} from "@/components/media/VideoPlayer";
+import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
@@ -156,9 +151,7 @@ export default function ProgramContentDetailScreen() {
   const accentSurface = isDark
     ? "rgba(34,197,94,0.16)"
     : "rgba(34,197,94,0.10)";
-  const borderSoft = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
+  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
   const canUploadVideos =
     canAccessTier(programTier ?? null, "PHP_Premium") &&
@@ -182,11 +175,11 @@ export default function ProgramContentDetailScreen() {
     isExerciseDetail && sessionExerciseIds.length > 1;
   const previousExerciseId =
     hasSessionNavigation && sessionIndex > 0
-      ? sessionExerciseIds[sessionIndex - 1] ?? null
+      ? (sessionExerciseIds[sessionIndex - 1] ?? null)
       : null;
   const nextExerciseId =
     hasSessionNavigation && sessionIndex < sessionExerciseIds.length - 1
-      ? sessionExerciseIds[sessionIndex + 1] ?? null
+      ? (sessionExerciseIds[sessionIndex + 1] ?? null)
       : null;
 
   const handleBack = useCallback(() => {
@@ -239,7 +232,9 @@ export default function ProgramContentDetailScreen() {
       <SafeMaskedView style={{ flex: 1 }}>
         <ThemedScrollView
           onRefresh={() => load(true)}
-          contentContainerStyle={{ paddingBottom: hasSessionNavigation ? 136 : 40 }}
+          contentContainerStyle={{
+            paddingBottom: hasSessionNavigation ? 136 : 40,
+          }}
         >
           <View className="px-6 pt-6">
             <ContentHeader
@@ -300,7 +295,7 @@ export default function ProgramContentDetailScreen() {
                   accentSurface={accentSurface}
                 />
 
-                <CoachingSection meta={item.metadata ?? {}} isDark={isDark} />
+                <CoachingSection meta={item.metadata ?? {}} />
 
                 {mediaSection}
               </View>
@@ -321,7 +316,9 @@ export default function ProgramContentDetailScreen() {
             }}
             onNext={() => {
               if (nextExerciseId) {
-                router.replace(buildExercisePath(nextExerciseId, sessionIndex + 1));
+                router.replace(
+                  buildExercisePath(nextExerciseId, sessionIndex + 1),
+                );
               } else {
                 handleBack();
               }

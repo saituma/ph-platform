@@ -38,6 +38,7 @@ import { useProgramStats } from "@/hooks/programs/useProgramStats";
 import { AdminProgramTabs } from "./AdminProgramTabs";
 import { PremiumPlanPanel } from "./PremiumPlanPanel";
 import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
+import { Skeleton } from "@/components/Skeleton";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -200,6 +201,33 @@ export function ProgramDetailPanel({
     (item) => !!item.allowVideoUpload,
   );
 
+  const showTrainingSkeleton =
+    trainingIsLoading && !trainingContentV2 && !trainingError;
+
+  const renderTrainingSkeleton = () => {
+    return (
+      <View className="gap-4">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <View
+            key={`program-training-skeleton-${index}`}
+            className="rounded-[28px] border px-5 py-5"
+            style={{
+              backgroundColor: colors.card,
+              borderColor: borderSoft,
+              ...(isDark ? Shadows.none : Shadows.sm),
+            }}
+          >
+            <Skeleton width="70%" height={18} borderRadius={10} />
+            <View className="mt-3 gap-2">
+              <Skeleton width="45%" height={12} borderRadius={10} />
+              <Skeleton width="58%" height={12} borderRadius={10} />
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView
       className="flex-1"
@@ -258,22 +286,7 @@ export function ProgramDetailPanel({
           <View className="px-5">{renderLockedPlan()}</View>
         ) : (
           <View className="px-5 gap-5">
-            {trainingIsLoading ? (
-              <View
-                className="rounded-[24px] border px-5 py-5 items-center"
-                style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
-                }}
-              >
-                <Text
-                  className="text-sm font-outfit"
-                  style={{ color: colors.textSecondary }}
-                >
-                  Loading modules...
-                </Text>
-              </View>
-            ) : null}
+            {showTrainingSkeleton ? renderTrainingSkeleton() : null}
 
             {trainingError ? (
               <View
@@ -292,15 +305,17 @@ export function ProgramDetailPanel({
               </View>
             ) : null}
 
-            <AgeBasedTrainingPanel
-              workspace={trainingContentV2 as any}
-              activeTab={activeTab}
-              onOpenModule={(moduleId) => {
-                onNavigate?.(
-                  `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(programId)}`,
-                );
-              }}
-            />
+            {!showTrainingSkeleton ? (
+              <AgeBasedTrainingPanel
+                workspace={trainingContentV2 as any}
+                activeTab={activeTab}
+                onOpenModule={(moduleId) => {
+                  onNavigate?.(
+                    `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(programId)}`,
+                  );
+                }}
+              />
+            ) : null}
           </View>
         )}
       </ThemedScrollView>

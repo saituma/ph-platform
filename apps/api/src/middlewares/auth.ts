@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import { verifyAccessToken } from "../lib/jwt";
 import { env } from "../config/env";
 import { createUserFromCognito, getUserByCognitoSub, getUserById } from "../services/user.service";
+import { normalizeStoredMediaUrl } from "../services/s3.service";
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   // Public endpoints that should bypass auth even if guarded.
@@ -61,7 +62,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       email: user.email,
       name: user.name,
       sub: user.cognitoSub,
-      profilePicture: user.profilePicture ?? null,
+      profilePicture: normalizeStoredMediaUrl(user.profilePicture ?? null),
     };
 
     const actingUserId = req.headers["x-acting-user-id"];
