@@ -4,6 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { Shadows } from "@/constants/theme";
 import { ExerciseMetadata } from "../../../hooks/programs/useContentDetail";
+import { ProgramMetricGrid } from "@/components/programs/metrics/ProgramMetricGrid";
 
 interface ExerciseOverviewProps {
   isExerciseDetail: boolean;
@@ -33,29 +34,6 @@ export function ExerciseOverview({
   accentSurface,
 }: ExerciseOverviewProps) {
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const Metric = ({ label, value }: { label: string; value: string }) => (
-    <View
-      className="rounded-full border px-4 py-3 flex-row items-center gap-3"
-      style={{
-        backgroundColor: mutedSurface,
-        borderColor: borderSoft,
-      }}
-    >
-      <Text
-        className="text-[11px] font-outfit uppercase tracking-[1.2px] font-bold"
-        style={{ color: colors.textSecondary }}
-      >
-        {label}
-      </Text>
-      <View className="flex-1" />
-      <Text
-        className="text-[14px] font-clash font-bold"
-        style={{ color: colors.text }}
-      >
-        {value}
-      </Text>
-    </View>
-  );
 
   return (
     <View
@@ -70,38 +48,61 @@ export function ExerciseOverview({
       </Text>
 
       {hasExercise && (
-        <View className="flex-row flex-wrap gap-3">
-          {meta.sets != null ? (
-            <View style={{ flexBasis: "48%" }}>
-              <Metric label="Sets" value={String(meta.sets)} />
-            </View>
-          ) : null}
-          {meta.reps != null ? (
-            <View style={{ flexBasis: "48%" }}>
-              <Metric label="Reps" value={String(meta.reps)} />
-            </View>
-          ) : null}
-          {meta.duration != null ? (
-            <View style={{ flexBasis: "48%" }}>
-              <Metric label="Duration" value={`${meta.duration}s`} />
-            </View>
-          ) : null}
-          {meta.restSeconds != null ? (
-            <View style={{ flexBasis: "48%" }}>
-              <Metric label="Rest" value={`${meta.restSeconds}s`} />
-            </View>
-          ) : null}
-          {meta.category ? (
-            <View style={{ flexBasis: "48%" }}>
-              <Metric label="Category" value={String(meta.category)} />
-            </View>
-          ) : null}
-          {meta.equipment ? (
-            <View style={{ flexBasis: "48%" }}>
-              <Metric label="Equipment" value={String(meta.equipment)} />
-            </View>
-          ) : null}
-        </View>
+        <ProgramMetricGrid
+          items={[
+            meta.sets != null
+              ? {
+                  key: "sets",
+                  label: "Sets",
+                  value: String(meta.sets),
+                  icon: "hash",
+                  accent: true,
+                }
+              : null,
+            meta.reps != null
+              ? {
+                  key: "reps",
+                  label: "Reps",
+                  value: String(meta.reps),
+                  icon: "repeat",
+                }
+              : null,
+            meta.duration != null
+              ? {
+                  key: "duration",
+                  label: "Duration",
+                  value: String(meta.duration),
+                  unit: "s",
+                  icon: "clock",
+                }
+              : null,
+            meta.restSeconds != null
+              ? {
+                  key: "rest",
+                  label: "Rest",
+                  value: String(meta.restSeconds),
+                  unit: "s",
+                  icon: "pause-circle",
+                }
+              : null,
+            meta.category
+              ? {
+                  key: "category",
+                  label: "Category",
+                  value: String(meta.category),
+                  icon: "tag",
+                }
+              : null,
+            meta.equipment
+              ? {
+                  key: "equipment",
+                  label: "Equipment",
+                  value: String(meta.equipment),
+                  icon: "tool",
+                }
+              : null,
+          ].filter(Boolean) as any}
+        />
       )}
 
       {contentBody}

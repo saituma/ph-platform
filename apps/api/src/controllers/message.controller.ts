@@ -30,9 +30,18 @@ const reactionSchema = z.object({
   emoji: z.string().min(1).max(16),
 });
 
+const listMessagesQuerySchema = z.object({
+  includeVideoResponses: z
+    .union([z.literal("1"), z.literal("0"), z.literal("true"), z.literal("false")])
+    .optional(),
+});
+
 export async function listMessages(req: Request, res: Response) {
   const userId = req.user!.id;
-  const messages = await listThread(userId);
+  const { includeVideoResponses } = listMessagesQuerySchema.parse(req.query ?? {});
+  const messages = await listThread(userId, {
+    includeVideoResponses: includeVideoResponses === "1" || includeVideoResponses === "true",
+  });
   const lastCoach = await getLastAdminContact(userId);
   const coach = lastCoach ?? (await getCoachUser());
   

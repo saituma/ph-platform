@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, messageReactionTable, messageTable, userTable } from "../db/schema";
@@ -82,17 +82,26 @@ export async function getLastAdminContact(userId: number) {
   return getCoachUserById(otherId);
 }
 
-export async function listThread(userId: number) {
+export async function listThread(
+  userId: number,
+  options?: { includeVideoResponses?: boolean },
+) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
+  const includeVideoResponses = options?.includeVideoResponses === true;
   const messages = await db
     .select()
     .from(messageTable)
     .where(
-      or(
-        and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, [...adminIds, -1])),
-        and(inArray(messageTable.senderId, [...adminIds, -1]), eq(messageTable.receiverId, userId))
-      )
+      and(
+        or(
+          and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, [...adminIds, -1])),
+          and(inArray(messageTable.senderId, [...adminIds, -1]), eq(messageTable.receiverId, userId)),
+        ),
+        includeVideoResponses
+          ? undefined
+          : or(ne(messageTable.contentType, "video"), isNull(messageTable.videoUploadId)),
+      ),
     )
     .orderBy(messageTable.createdAt);
   return attachDirectMessageReactions(messages);

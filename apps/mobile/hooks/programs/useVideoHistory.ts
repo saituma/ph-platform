@@ -30,7 +30,7 @@ export function useVideoHistory(token: string | null, athleteUserId: number | st
     if (!token) return;
     try {
       const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
-      const data = await apiRequest<{ messages: any[] }>("/messages", {
+      const data = await apiRequest<{ messages: any[] }>("/messages?includeVideoResponses=1", {
         token,
         headers,
         skipCache: true,

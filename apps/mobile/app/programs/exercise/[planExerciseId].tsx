@@ -24,6 +24,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
+import { ProgramMetricGrid } from "@/components/programs/metrics/ProgramMetricGrid";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -375,30 +376,6 @@ export default function PremiumExerciseDetailScreen() {
     ],
   );
 
-  const Metric = useCallback(
-    ({ label, value }: { label: string; value: string }) => (
-      <View
-        className="rounded-full border px-4 py-3 flex-row items-center gap-3"
-        style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}
-      >
-        <Text
-          className="text-[11px] font-outfit uppercase tracking-[1.2px] font-bold"
-          style={{ color: colors.textSecondary }}
-        >
-          {label}
-        </Text>
-        <View className="flex-1" />
-        <Text
-          className="text-[14px] font-clash font-bold"
-          style={{ color: colors.text }}
-        >
-          {value}
-        </Text>
-      </View>
-    ),
-    [borderSoft, colors.text, colors.textSecondary, mutedSurface],
-  );
-
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
@@ -543,49 +520,61 @@ export default function PremiumExerciseDetailScreen() {
                     Exercise overview
                   </Text>
 
-                  <View className="flex-row flex-wrap gap-3">
-                    {displaySets != null ? (
-                      <View style={{ flexBasis: "48%" }}>
-                        <Metric label="Sets" value={String(displaySets)} />
-                      </View>
-                    ) : null}
-                    {displayReps != null ? (
-                      <View style={{ flexBasis: "48%" }}>
-                        <Metric label="Reps" value={String(displayReps)} />
-                      </View>
-                    ) : null}
-                    {displayDuration != null ? (
-                      <View style={{ flexBasis: "48%" }}>
-                        <Metric
-                          label="Duration"
-                          value={`${displayDuration}s`}
-                        />
-                      </View>
-                    ) : null}
-                    {displayRest != null ? (
-                      <View style={{ flexBasis: "48%" }}>
-                        <Metric label="Rest" value={`${displayRest}s`} />
-                      </View>
-                    ) : null}
-                    {(meta.category ?? item.exercise?.category) ? (
-                      <View style={{ flexBasis: "48%" }}>
-                        <Metric
-                          label="Category"
-                          value={String(
-                            meta.category ?? item.exercise?.category,
-                          )}
-                        />
-                      </View>
-                    ) : null}
-                    {meta.equipment ? (
-                      <View style={{ flexBasis: "48%" }}>
-                        <Metric
-                          label="Equipment"
-                          value={String(meta.equipment)}
-                        />
-                      </View>
-                    ) : null}
-                  </View>
+                  <ProgramMetricGrid
+                    items={[
+                      displaySets != null
+                        ? {
+                            key: "sets",
+                            label: "Sets",
+                            value: String(displaySets),
+                            icon: "hash",
+                            accent: true,
+                          }
+                        : null,
+                      displayReps != null
+                        ? {
+                            key: "reps",
+                            label: "Reps",
+                            value: String(displayReps),
+                            icon: "repeat",
+                          }
+                        : null,
+                      displayDuration != null
+                        ? {
+                            key: "duration",
+                            label: "Duration",
+                            value: String(displayDuration),
+                            unit: "s",
+                            icon: "clock",
+                          }
+                        : null,
+                      displayRest != null
+                        ? {
+                            key: "rest",
+                            label: "Rest",
+                            value: String(displayRest),
+                            unit: "s",
+                            icon: "pause-circle",
+                          }
+                        : null,
+                      (meta.category ?? item.exercise?.category)
+                        ? {
+                            key: "category",
+                            label: "Category",
+                            value: String(meta.category ?? item.exercise?.category),
+                            icon: "tag",
+                          }
+                        : null,
+                      meta.equipment
+                        ? {
+                            key: "equipment",
+                            label: "Equipment",
+                            value: String(meta.equipment),
+                            icon: "tool",
+                          }
+                        : null,
+                    ].filter(Boolean) as any}
+                  />
 
                   {bodyText ? (
                     <MarkdownText
