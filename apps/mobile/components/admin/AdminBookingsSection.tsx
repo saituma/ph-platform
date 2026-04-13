@@ -1,14 +1,15 @@
-import React from "react";
-import { View, Pressable } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, TouchableOpacity, ActivityIndicator, TextInput, ScrollView, Modal, Pressable } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { SmallAction } from "./AdminShared";
 import { ServiceType } from "@/types/admin";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather } from "@/components/ui/theme-icons";
+import { Shadows } from "@/constants/theme";
+import { formatIsoShort } from "@/lib/admin-utils";
 
 import { useAdminBookingsController } from "../../hooks/admin/controllers/useAdminBookingsController";
-import { BookingSearchForm } from "./bookings/BookingSearchForm";
 import { BookingListItem } from "./bookings/BookingListItem";
 import { CreateBookingModal } from "./bookings/CreateBookingModal";
 import { BookingDetailModal } from "./bookings/BookingDetailModal";
@@ -37,63 +38,90 @@ export function AdminBookingsSection({
     handleUpdateStatus,
   } = useAdminBookingsController(token, canLoad, services, initialAction);
 
+  const [selectedService, setSelectedService] = useState<string>("All Services");
+  const [selectedType, setSelectedType] = useState<string>("All Types");
+
+  const serviceOptions = useMemo(() => ["All Services", ...Array.from(new Set(services.map(s => s.name).filter(Boolean)))], [services]);
+  const typeOptions = ["All Types", "one_to_one", "semi_private", "call", "group_call"];
+
+  const filteredBookings = useMemo(() => {
+    return bookingsHook.bookings.filter(b => {
+      const matchService = selectedService === "All Services" || b.serviceName === selectedService;
+      const matchType = selectedType === "All Types" || b.serviceType === selectedType;
+      return matchService && matchType;
+    });
+  }, [bookingsHook.bookings, selectedService, selectedType]);
+
+  const upcomingBookings = useMemo(() => {
+    const now = new Date();
+    return filteredBookings.filter(b => new Date(b.startsAt) >= now).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  }, [filteredBookings]);
+
+  const pastBookings = useMemo(() => {
+    const now = new Date();
+    return filteredBookings.filter(b => new Date(b.startsAt) < now).sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+  }, [filteredBookings]);
+
   return (
-    <View className="gap-4">
-      {/* Create Trigger */}
-      <View className="gap-2">
-        <Text className="text-[13px] font-outfit-semibold text-app">
-          Create booking
+    <View className="px-6 pb-40">
+      {/* Book for a client */}
+      <View className="mb-10">
+        <Text className="text-2xl font-clash font-bold text-app mb-2">Book for a client</Text>
+        <Text className="text-sm font-outfit text-textSecondary mb-6">
+          Place a booking as admin (bypasses availability if needed).
         </Text>
-        <View className="flex-row gap-2">
-          <SmallAction
-            label="New booking"
-            tone="success"
-            onPress={() => create.setOpen(true)}
-            disabled={bookingsHook.createBookingBusy}
-          />
-        </View>
-        <Text className="text-[12px] font-outfit text-secondary">
-          Places a booking for a client as admin/coach (defaults to confirmed).
-        </Text>
+        <TouchableOpacity
+          onPress={() => create.setOpen(true)}
+          activeOpacity={0.8}
+          className="h-14 rounded-[18px] bg-[#22C55E] flex-row items-center justify-center gap-2 px-6 shadow-sm"
+        >
+          <Feather name="calendar" size={18} color="#FFFFFF" />
+          <Text className="font-outfit-bold text-white uppercase tracking-wider">Create booking</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Search Form */}
-      <BookingSearchForm
-        query={search.query}
-        setQuery={search.setQuery}
-        limit={search.limit}
-        setLimit={search.setLimit}
-        onRun={() =>
-          bookingsHook.loadBookings(search.query, search.limit, true)
-        }
-        onReset={() => {
-          search.setQuery("");
-          search.setLimit("50");
-          bookingsHook.loadBookings("", "50", true);
-        }}
-        isLoading={bookingsHook.bookingsLoading}
-        colors={colors}
-        isDark={isDark}
-      />
-
-      {/* List */}
-      {bookingsHook.bookingsLoading && bookingsHook.bookings.length === 0 ? (
-        <View className="gap-2">
-          <Skeleton width="92%" height={14} />
-          <Skeleton width="86%" height={14} />
-          <Skeleton width="90%" height={14} />
+      {/* Filters (Like Web) */}
+      <View className="mb-8 gap-4">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-xl font-clash font-bold text-app">Upcoming</Text>
+          <View className="px-3 py-1 rounded-full bg-accent/10">
+            <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-widest">
+              {upcomingBookings.length} Bookings
+            </Text>
+          </View>
         </View>
-      ) : bookingsHook.bookingsError ? (
-        <Text selectable className="text-sm font-outfit text-red-400">
-          {bookingsHook.bookingsError}
-        </Text>
-      ) : bookingsHook.bookings.length === 0 ? (
-        <Text className="text-sm font-outfit text-secondary">
-          No bookings found.
-        </Text>
+        
+        <View className="flex-row gap-3">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+            <View className="flex-row gap-2">
+              <FilterChip 
+                label={selectedService} 
+                options={serviceOptions} 
+                onSelect={setSelectedService} 
+              />
+              <FilterChip 
+                label={selectedType} 
+                options={typeOptions} 
+                onSelect={setSelectedType} 
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* Upcoming List */}
+      {bookingsHook.bookingsLoading && bookingsHook.bookings.length === 0 ? (
+        <View className="gap-4 mb-10">
+          <Skeleton width="100%" height={120} borderRadius={32} />
+          <Skeleton width="100%" height={120} borderRadius={32} />
+        </View>
+      ) : upcomingBookings.length === 0 ? (
+        <View className="py-12 items-center justify-center border border-dashed border-app/20 rounded-[32px] mb-10">
+          <Text className="text-textSecondary font-outfit italic">No upcoming bookings found.</Text>
+        </View>
       ) : (
-        <View className="gap-3">
-          {bookingsHook.bookings.map((b) => (
+        <View className="gap-4 mb-12">
+          {upcomingBookings.map((b) => (
             <BookingListItem
               key={String(b.id)}
               booking={b}
@@ -111,6 +139,38 @@ export function AdminBookingsSection({
         </View>
       )}
 
+      {/* Past Bookings */}
+      <View className="mb-6">
+        <Text className="text-xl font-clash font-bold text-app mb-2">Past Bookings</Text>
+        <Text className="text-sm font-outfit text-textSecondary">Completed sessions for the selected criteria.</Text>
+      </View>
+
+      {pastBookings.length === 0 ? (
+        <View className="py-8 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
+          <Text className="text-textSecondary font-outfit italic">No past bookings.</Text>
+        </View>
+      ) : (
+        <View className="gap-3">
+          {pastBookings.slice(0, 10).map((b) => (
+            <TouchableOpacity 
+              key={b.id}
+              onPress={() => detail.setOpenId(b.id)}
+              className="flex-row items-center justify-between p-5 rounded-2xl bg-secondary/5 border border-app/5"
+            >
+              <View className="flex-1">
+                <Text className="font-outfit-bold text-app" numberOfLines={1}>{b.serviceName}</Text>
+                <Text className="text-xs font-outfit text-textSecondary mt-0.5">
+                  {b.athleteName} • {new Date(b.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+              <View className="h-8 px-4 rounded-lg bg-secondary/10 items-center justify-center">
+                <Text className="text-[10px] font-outfit-bold text-app uppercase">View</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       {/* Modals */}
       <CreateBookingModal
         isVisible={create.isOpen}
@@ -119,6 +179,7 @@ export function AdminBookingsSection({
         services={services}
         users={bookingsHook.createBookingUsers}
         onSearchUsers={() => bookingsHook.searchUsers(create.userQuery, true)}
+        isBusy={bookingsHook.createBookingBusy}
         colors={colors}
         isDark={isDark}
         insetsTop={insets.top}
@@ -136,6 +197,45 @@ export function AdminBookingsSection({
         isDark={isDark}
         insetsTop={insets.top}
       />
+    </View>
+  );
+}
+
+function FilterChip({ label, options, onSelect }: any) {
+  const { colors, isDark } = useAppTheme();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <View>
+      <TouchableOpacity 
+        onPress={() => setOpen(true)}
+        className="px-4 h-10 rounded-full border flex-row items-center gap-2"
+        style={{
+          backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
+          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+        }}
+      >
+        <Text className="text-xs font-outfit-bold text-app">{label}</Text>
+        <Feather name="chevron-down" size={14} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade">
+        <Pressable className="flex-1 bg-black/60 items-center justify-center p-6" onPress={() => setOpen(false)}>
+          <View className="w-full max-w-xs rounded-[28px] overflow-hidden" style={{ backgroundColor: isDark ? "#161628" : "#FFFFFF" }}>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {options.map((opt: any, i: number) => (
+                <TouchableOpacity 
+                  key={i} 
+                  onPress={() => { onSelect(opt); setOpen(false); }}
+                  className="px-6 py-4 border-b border-app/5 last:border-0"
+                >
+                  <Text className={`text-sm ${opt === label ? 'font-outfit-bold text-accent' : 'font-outfit text-app'}`}>{opt}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
