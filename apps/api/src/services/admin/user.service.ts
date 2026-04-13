@@ -18,6 +18,21 @@ import {
   PlanPaymentType,
   legalAcceptanceTable,
   enrollmentTable,
+  athleteTrainingSessionCompletionTable,
+  athleteTrainingSessionWorkoutLogTable,
+  programSectionCompletionTable,
+  athleteTrainingSessionLogTable,
+  athleteAchievementUnlockTable,
+  athletePlanSessionTable,
+  athletePlanExerciseTable,
+  athletePlanExerciseCompletionTable,
+  athletePlanSessionCompletionTable,
+  referralGroupMemberTable,
+  bookingTable,
+  subscriptionRequestTable,
+  videoUploadTable,
+  foodDiaryTable,
+  physioRefferalsTable,
 } from "../../db/schema";
 import { env } from "../../config/env";
 import { sendAdminPasswordResetEmail, sendAdminWelcomeCredentialsEmail } from "../../lib/mailer";
@@ -262,12 +277,155 @@ export async function setUserBlocked(userId: number, blocked: boolean) {
 }
 
 export async function softDeleteUser(userId: number) {
-  const result = await db
-    .update(userTable)
-    .set({ isDeleted: true, updatedAt: new Date() })
-    .where(eq(userTable.id, userId))
-    .returning();
-  return result[0] ?? null;
+  const existing = await db.select().from(userTable).where(eq(userTable.id, userId)).limit(1);
+  const user = existing[0] ?? null;
+  if (!user) return null;
+
+  const now = new Date();
+  const stamp = `${user.id}-${Date.now()}`;
+  const deletedEmail = `deleted+${stamp}@deleted.local`;
+  const deletedSub = `deleted:${stamp}`;
+
+  const result = await db.transaction(async (tx) => {
+    const guardians = await tx
+      .select({ id: guardianTable.id })
+      .from(guardianTable)
+      .where(eq(guardianTable.userId, userId));
+    const guardianIds = guardians.map((g) => g.id);
+
+    const athletesByUser = await tx
+      .select({ id: athleteTable.id, guardianId: athleteTable.guardianId, userId: athleteTable.userId })
+      .from(athleteTable)
+      .where(eq(athleteTable.userId, userId));
+
+    const athletesByGuardian = guardianIds.length
+      ? await tx
+          .select({ id: athleteTable.id, guardianId: athleteTable.guardianId, userId: athleteTable.userId })
+          .from(athleteTable)
+          .where(inArray(athleteTable.guardianId, guardianIds))
+      : [];
+
+    const athleteMap = new Map<number, { id: number; userId: number }>();
+    for (const row of [...athletesByUser, ...athletesByGuardian]) {
+      athleteMap.set(row.id, { id: row.id, userId: row.userId });
+    }
+    const athleteRows = Array.from(athleteMap.values());
+    const athleteIds = athleteRows.map((row) => row.id);
+
+    if (athleteIds.length) {
+      await tx.delete(athletePlanExerciseCompletionTable).where(inArray(athletePlanExerciseCompletionTable.athleteId, athleteIds));
+      await tx.delete(athletePlanSessionCompletionTable).where(inArray(athletePlanSessionCompletionTable.athleteId, athleteIds));
+      await tx.delete(athleteTrainingSessionCompletionTable).where(inArray(athleteTrainingSessionCompletionTable.athleteId, athleteIds));
+      await tx.delete(athleteTrainingSessionWorkoutLogTable).where(inArray(athleteTrainingSessionWorkoutLogTable.athleteId, athleteIds));
+      await tx.delete(programSectionCompletionTable).where(inArray(programSectionCompletionTable.athleteId, athleteIds));
+      await tx.delete(athleteTrainingSessionLogTable).where(inArray(athleteTrainingSessionLogTable.athleteId, athleteIds));
+      await tx.delete(athleteAchievementUnlockTable).where(inArray(athleteAchievementUnlockTable.athleteId, athleteIds));
+      await tx.delete(referralGroupMemberTable).where(inArray(referralGroupMemberTable.athleteId, athleteIds));
+      await tx.delete(subscriptionRequestTable).where(inArray(subscriptionRequestTable.athleteId, athleteIds));
+      await tx.delete(videoUploadTable).where(inArray(videoUploadTable.athleteId, athleteIds));
+      await tx.delete(physioRefferalsTable).where(inArray(physioRefferalsTable.athleteId, athleteIds));
+      await tx.delete(legalAcceptanceTable).where(inArray(legalAcceptanceTable.athleteId, athleteIds));
+      await tx.delete(enrollmentTable).where(inArray(enrollmentTable.athleteId, athleteIds));
+      await tx.delete(bookingTable).where(inArray(bookingTable.athleteId, athleteIds));
+      await tx.delete(foodDiaryTable).where(inArray(foodDiaryTable.athleteId, athleteIds));
+
+      const planSessions = await tx
+        .select({ id: athletePlanSessionTable.id })
+        .from(athletePlanSessionTable)
+        .where(inArray(athletePlanSessionTable.athleteId, athleteIds));
+      const planSessionIds = planSessions.map((row) => row.id);
+
+      if (planSessionIds.length) {
+        const planExercises = await tx
+          .select({ id: athletePlanExerciseTable.id })
+          .from(athletePlanExerciseTable)
+          .where(inArray(athletePlanExerciseTable.planSessionId, planSessionIds));
+        const planExerciseIds = planExercises.map((row) => row.id);
+
+        if (planExerciseIds.length) {
+          await tx
+            .delete(athletePlanExerciseCompletionTable)
+            .where(inArray(athletePlanExerciseCompletionTable.planExerciseId, planExerciseIds));
+          await tx
+            .delete(athletePlanExerciseTable)
+            .where(inArray(athletePlanExerciseTable.id, planExerciseIds));
+        }
+
+        await tx
+          .delete(athletePlanSessionCompletionTable)
+          .where(inArray(athletePlanSessionCompletionTable.planSessionId, planSessionIds));
+        await tx
+          .delete(athletePlanSessionTable)
+          .where(inArray(athletePlanSessionTable.id, planSessionIds));
+      }
+
+      await tx.delete(athleteTable).where(inArray(athleteTable.id, athleteIds));
+    }
+
+    if (guardianIds.length) {
+      await tx.delete(bookingTable).where(inArray(bookingTable.guardianId, guardianIds));
+      await tx.delete(foodDiaryTable).where(inArray(foodDiaryTable.guardianId, guardianIds));
+      await tx.delete(guardianTable).where(inArray(guardianTable.id, guardianIds));
+    }
+
+    const athleteUserIds = athleteRows
+      .map((row) => row.userId)
+      .filter((id) => id !== userId);
+    for (const athleteUserId of athleteUserIds) {
+      const athleteStamp = `${athleteUserId}-${Date.now()}`;
+      await tx
+        .update(userTable)
+        .set({
+          isDeleted: true,
+          isBlocked: false,
+          role: "athlete",
+          name: `Deleted Athlete ${athleteUserId}`,
+          email: `deleted+${athleteStamp}@deleted.local`,
+          cognitoSub: `deleted:${athleteStamp}`,
+          profilePicture: null,
+          passwordHash: null,
+          passwordSalt: null,
+          emailVerified: false,
+          verificationCode: null,
+          verificationExpiresAt: null,
+          verificationAttempts: 0,
+          tokenVersion: sql`${userTable.tokenVersion} + 1`,
+          expoPushToken: null,
+          updatedAt: now,
+        })
+        .where(eq(userTable.id, athleteUserId));
+    }
+
+    const updated = await tx
+      .update(userTable)
+      .set({
+        isDeleted: true,
+        isBlocked: false,
+        name: `Deleted User ${user.id}`,
+        email: deletedEmail,
+        cognitoSub: deletedSub,
+        profilePicture: null,
+        passwordHash: null,
+        passwordSalt: null,
+        emailVerified: false,
+        verificationCode: null,
+        verificationExpiresAt: null,
+        verificationAttempts: 0,
+        tokenVersion: sql`${userTable.tokenVersion} + 1`,
+        expoPushToken: null,
+        updatedAt: now,
+      })
+      .where(eq(userTable.id, userId))
+      .returning();
+
+    return updated[0] ?? null;
+  });
+
+  if (env.authMode !== "local" && env.cognitoUserPoolId && !user.cognitoSub.startsWith("local:")) {
+    await deleteCognitoUserByEmail(user.email);
+  }
+
+  return result;
 }
 
 export async function getUserOnboarding(userId: number) {
