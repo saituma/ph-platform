@@ -5,7 +5,6 @@ import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { PulsingDot } from "../PulsingDot";
 import { OsmMapView } from "../OsmMapView";
-import MapNightStyle from "../../../constants/mapNightStyle.json";
 import { radius } from "@/constants/theme";
 
 interface LiveMapProps {
@@ -62,8 +61,8 @@ export function LiveMap({
           routeColor={colors.mapRoute}
           startColor={colors.lime}
           endColor={colors.cyan}
+          destinationColor={colors.coral}
           backgroundColor={colors.surfaceHigh}
-          isDark={isDark}
           destination={destination}
           activeRegion={activeRegion}
         />
@@ -72,8 +71,8 @@ export function LiveMap({
           ref={mapRef}
           style={{ flex: 1 }}
           initialRegion={activeRegion}
-          customMapStyle={isDark ? (MapNightStyle as any) : []}
-          mapType="standard"
+          customMapStyle={[]}
+          mapType="satellite"
           showsBuildings={false}
           userInterfaceStyle={isDark ? "dark" : "light"}
           showsUserLocation={locationPermissionGranted}
@@ -118,6 +117,14 @@ export function LiveMap({
                 </Marker>
               )}
             </>
+          )}
+          {destination && lastCoordinate && (
+            <Polyline
+              coordinates={[lastCoordinate, destination]}
+              strokeColor={`${colors.coral}cc`}
+              strokeWidth={3}
+              lineDashPattern={[10, 8]}
+            />
           )}
           {destination && (
             <Marker

@@ -130,10 +130,12 @@ export default function TrackingHomeScreen() {
       >
         {/* Section 1 - Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xxxl }}>
-          <View>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.textSecondary }}>Let's</Text>
-            <Text style={{ fontFamily: fonts.heroNumber, fontSize: 52, color: colors.accent, letterSpacing: -2, lineHeight: 52 }}>Run.</Text>
-          </View>
+	          <View>
+	            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.textSecondary }}>
+	              {"Let's"}
+	            </Text>
+	            <Text style={{ fontFamily: fonts.heroNumber, fontSize: 52, color: colors.accent, letterSpacing: -2, lineHeight: 52 }}>Run.</Text>
+	          </View>
           <View 
             style={{ 
               width: 44, 
@@ -369,11 +371,11 @@ export default function TrackingHomeScreen() {
 
         {/* Section 6 - Motivational quote footer */}
         <View style={{ alignItems: 'center', paddingVertical: spacing.md }}>
-          <Ionicons name={icons.heart.name as any} size={14} color={colors.coral} style={{ marginBottom: spacing.sm }} />
-          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary, fontStyle: 'italic', textAlign: 'center' }}>
-            "{todayQuote}"
-          </Text>
-        </View>
+	          <Ionicons name={icons.heart.name as any} size={14} color={colors.coral} style={{ marginBottom: spacing.sm }} />
+	          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary, fontStyle: 'italic', textAlign: 'center' }}>
+	            {`"${todayQuote}"`}
+	          </Text>
+	        </View>
       </ScrollView>
 
       <RunGoalSheet

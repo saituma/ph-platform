@@ -56,6 +56,7 @@ export async function reviveSoftDeletedUserForCognito(input: {
       name: input.name,
       role: input.role ?? row.role,
       isDeleted: false,
+      isBlocked: false,
       emailVerified: true,
       verificationCode: null,
       verificationExpiresAt: null,

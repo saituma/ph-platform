@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
+import * as Crypto from "expo-crypto";
 import { View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Polyline, Marker } from "react-native-maps";
 
 import { useRunStore } from "../../../store/useRunStore";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
@@ -15,7 +16,6 @@ import Animated, {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { fonts, radius, icons as themeIcons } from "@/constants/theme";
 import { PulsingDot } from "../../../components/tracking/PulsingDot";
-import MapNightStyle from "../../../constants/mapNightStyle.json";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import {
@@ -24,6 +24,13 @@ import {
   formatDistanceKm,
   formatDurationClock,
 } from "../../../lib/tracking/runUtils";
+import { thinRoutePointsForDisplay } from "../../../lib/tracking/thinRoute";
+import {
+  deleteRunRecord,
+  EFFORT_PENDING_FEEDBACK,
+  initSQLiteRuns,
+  saveRunRecord,
+} from "../../../lib/sqliteRuns";
 import { TrackingMetricTile } from "../../../components/tracking/TrackingMetricTile";
 import { OsmMapView } from "../../../components/tracking/OsmMapView";
 import { shouldUseOsmMap } from "@/lib/mapsConfig";
@@ -33,8 +40,77 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default function RunSummaryScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
-  const { distanceMeters, elapsedSeconds, coordinates, resetRun } =
-    useRunStore();
+  const {
+    distanceMeters,
+    distanceOverrideMeters,
+    elapsedSeconds,
+    coordinates,
+    resetRun,
+    currentRunId,
+    status,
+  } = useRunStore();
+
+  const persistedThisSummaryRef = useRef(false);
+
+  const mapCoordinates = useMemo(
+    () => thinRoutePointsForDisplay(coordinates, 22),
+    [coordinates],
+  );
+
+  useEffect(() => {
+    if (persistedThisSummaryRef.current) return;
+    if (status !== "stopped") return;
+
+    const finalDistanceMeters =
+      typeof distanceOverrideMeters === "number"
+        ? distanceOverrideMeters
+        : distanceMeters;
+    if (finalDistanceMeters <= 0 && elapsedSeconds <= 0) return;
+
+    let runId = currentRunId;
+    if (!runId) {
+      runId = Crypto.randomUUID();
+      useRunStore.setState({ currentRunId: runId });
+    }
+
+    const distanceKm = finalDistanceMeters / 1000;
+    const avg_speed =
+      distanceKm > 0 && elapsedSeconds > 0
+        ? distanceKm / (elapsedSeconds / 3600)
+        : 0;
+    const avg_pace =
+      distanceKm > 0 && elapsedSeconds > 0
+        ? elapsedSeconds / 60 / distanceKm
+        : 0;
+
+    try {
+      initSQLiteRuns();
+      saveRunRecord({
+        id: runId,
+        date: new Date().toISOString(),
+        distance_meters: finalDistanceMeters,
+        duration_seconds: elapsedSeconds,
+        avg_pace: Number.isNaN(avg_pace) || !isFinite(avg_pace) ? 0 : avg_pace,
+        avg_speed:
+          Number.isNaN(avg_speed) || !isFinite(avg_speed) ? 0 : avg_speed,
+        calories: estimateCalories(finalDistanceMeters),
+        coordinates: JSON.stringify(coordinates),
+        effort_level: EFFORT_PENDING_FEEDBACK,
+        feel_tags: "[]",
+        notes: "",
+      });
+      persistedThisSummaryRef.current = true;
+    } catch (e) {
+      console.warn("[summary] failed to persist run", e);
+    }
+  }, [
+    status,
+    currentRunId,
+    distanceMeters,
+    distanceOverrideMeters,
+    elapsedSeconds,
+    coordinates,
+  ]);
 
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
@@ -47,6 +123,14 @@ export default function RunSummaryScreen() {
 
   const handleDiscard = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    if (currentRunId) {
+      try {
+        initSQLiteRuns();
+        deleteRunRecord(currentRunId);
+      } catch (e) {
+        console.warn("[summary] failed to delete pending run", e);
+      }
+    }
     resetRun();
     router.replace("/(tabs)/tracking" as any);
   };
@@ -61,10 +145,10 @@ export default function RunSummaryScreen() {
   const calories = estimateCalories(distanceMeters);
 
   const initialRegion =
-    coordinates.length > 0
+    mapCoordinates.length > 0
       ? {
-          latitude: coordinates[0].latitude,
-          longitude: coordinates[0].longitude,
+          latitude: mapCoordinates[0].latitude,
+          longitude: mapCoordinates[0].longitude,
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         }
@@ -83,17 +167,25 @@ export default function RunSummaryScreen() {
   }));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <Animated.ScrollView
-        bounces={true}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 40,
-          paddingBottom: 40,
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+          animation: "slide_from_bottom",
         }}
-        style={animatedScreenStyle}
-      >
+      />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <Animated.ScrollView
+          bounces={true}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 40,
+            paddingBottom: 40,
+          }}
+          style={animatedScreenStyle}
+        >
         {/* Celebration Header */}
         <View style={{ alignItems: "center", marginBottom: 32 }}>
           <View
@@ -281,15 +373,15 @@ export default function RunSummaryScreen() {
               overflow: "hidden",
             }}
           >
-            {coordinates.length > 0 ? (
+            {mapCoordinates.length > 0 ? (
               useOsmMap ? (
                 <OsmMapView
-                  coordinates={coordinates}
+                  coordinates={mapCoordinates}
                   routeColor={colors.mapRoute}
                   startColor={colors.mapStart}
                   endColor={colors.mapEnd}
+                  destinationColor={colors.coral}
                   backgroundColor={colors.surfaceHigh}
-                  isDark={isDark}
                 />
               ) : (
                 <MapView
@@ -298,22 +390,24 @@ export default function RunSummaryScreen() {
                   userInterfaceStyle={isDark ? "dark" : "light"}
                   scrollEnabled={false}
                   zoomEnabled={false}
-                  mapType="standard"
+                  mapType="satellite"
                   showsBuildings={false}
-                  customMapStyle={isDark ? (MapNightStyle as any) : ([] as any)}
+                  customMapStyle={[]}
                 >
                   <Polyline
-                    coordinates={coordinates.map((c) => ({
+                    coordinates={mapCoordinates.map((c) => ({
                       latitude: c.latitude,
                       longitude: c.longitude,
                     }))}
                     strokeColor={colors.mapRoute}
                     strokeWidth={4}
                   />
-                  <Marker coordinate={coordinates[0]}>
+                  <Marker coordinate={mapCoordinates[0]}>
                     <PulsingDot size={12} color={colors.mapStart} />
                   </Marker>
-                  <Marker coordinate={coordinates[coordinates.length - 1]}>
+                  <Marker
+                    coordinate={mapCoordinates[mapCoordinates.length - 1]}
+                  >
                     <PulsingDot size={12} color={colors.mapEnd} />
                   </Marker>
                 </MapView>
@@ -410,7 +504,8 @@ export default function RunSummaryScreen() {
             </Text>
           </Pressable>
         </View>
-      </Animated.ScrollView>
-    </SafeAreaView>
+        </Animated.ScrollView>
+      </SafeAreaView>
+    </>
   );
 }

@@ -19,6 +19,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
         timestamp: loc.timestamp,
+        accuracy: loc.coords.accuracy ?? null,
       });
     });
   }

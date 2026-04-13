@@ -6,12 +6,19 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { AdminShell } from "../../components/admin/shell";
 import { EmptyState } from "../../components/admin/empty-state";
 import { SectionHeader } from "../../components/admin/section-header";
-import { UsersDialogs, type UsersDialog } from "../../components/admin/users/users-dialogs";
+import {
+  UsersDialogs,
+  type UsersDialog,
+} from "../../components/admin/users/users-dialogs";
 import { UsersFilters } from "../../components/admin/users/users-filters";
 import { UsersTable } from "../../components/admin/users/users-table";
 import { UsersCards } from "../../components/admin/users/users-cards";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
-import { useBlockUserMutation, useDeleteUserMutation, useGetUsersQuery } from "../../lib/apiSlice";
+import {
+  useBlockUserMutation,
+  useDeleteUserMutation,
+  useGetUsersQuery,
+} from "../../lib/apiSlice";
 
 type AdminUser = {
   id: number;
@@ -32,6 +39,9 @@ type UsersListItem = {
   name: string;
   email?: string;
   isBlocked: boolean;
+  athleteType: "Youth" | "Adult";
+  guardianName?: string;
+  guardianEmail?: string;
   tier: "Admin" | "Pro" | "Premium" | "Plus" | "Program";
   status: "Blocked" | "Active";
   lastActive: string;
@@ -63,7 +73,7 @@ function UsersPageContent() {
         (user.role === "athlete" &&
           (user.athleteType === "adult" ||
             // Fallback for older API responses that may not yet include athleteType.
-            !String(user.email ?? "").endsWith("@athlete.local")))
+            !String(user.email ?? "").endsWith("@athlete.local"))),
     );
     const mapped: UsersListItem[] = source.map((user) => {
       const resolvedTier = user.programTier ?? user.guardianProgramTier ?? null;
@@ -72,22 +82,37 @@ function UsersPageContent() {
           ? "Admin"
           : resolvedTier === "PHP_Pro"
             ? "Pro"
-          : resolvedTier === "PHP_Premium"
-            ? "Premium"
-            : resolvedTier === "PHP_Premium_Plus"
-              ? "Plus"
-              : "Program";
-      const createdAtMs = user?.createdAt ? new Date(user.createdAt).getTime() : 0;
-      const tierPriority = tierLabel === "Pro" ? 0 : tierLabel === "Premium" ? 1 : tierLabel === "Plus" ? 2 : 3;
+            : resolvedTier === "PHP_Premium"
+              ? "Premium"
+              : resolvedTier === "PHP_Premium_Plus"
+                ? "Plus"
+                : "Program";
+      const createdAtMs = user?.createdAt
+        ? new Date(user.createdAt).getTime()
+        : 0;
+      const tierPriority =
+        tierLabel === "Pro"
+          ? 0
+          : tierLabel === "Premium"
+            ? 1
+            : tierLabel === "Plus"
+              ? 2
+              : 3;
       return {
         id: user.id,
         name: user.name ?? user.email ?? `User ${user.id}`,
         email: user.email ?? undefined,
         isBlocked: Boolean(user.isBlocked),
+        athleteType: user.athleteType === "youth" ? "Youth" : "Adult",
+        guardianName:
+          user.athleteType === "youth" ? (user.name ?? undefined) : undefined,
+        guardianEmail:
+          user.athleteType === "youth" ? (user.email ?? undefined) : undefined,
         tier: tierLabel,
         status: user.isBlocked ? "Blocked" : "Active",
         lastActive: "Recently",
-        onboarding: user.onboardingCompleted === false ? "Awaiting review" : "Complete",
+        onboarding:
+          user.onboardingCompleted === false ? "Awaiting review" : "Complete",
         createdAtMs,
         tierPriority,
       };
@@ -96,7 +121,8 @@ function UsersPageContent() {
     return mapped
       .slice()
       .sort((a, b) => {
-        if (a.tierPriority !== b.tierPriority) return a.tierPriority - b.tierPriority;
+        if (a.tierPriority !== b.tierPriority)
+          return a.tierPriority - b.tierPriority;
         return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
       })
       .map((user) => ({
@@ -104,6 +130,9 @@ function UsersPageContent() {
         name: user.name,
         email: user.email,
         isBlocked: user.isBlocked,
+        athleteType: user.athleteType,
+        guardianName: user.guardianName,
+        guardianEmail: user.guardianEmail,
         tier: user.tier,
         status: user.status,
         lastActive: user.lastActive,
@@ -147,7 +176,9 @@ function UsersPageContent() {
     } else if (athleteIdParam && usersData?.users) {
       const parsed = Number(athleteIdParam);
       if (Number.isFinite(parsed)) {
-        const match = (usersData.users as AdminUser[]).find((user) => user.athleteId === parsed);
+        const match = (usersData.users as AdminUser[]).find(
+          (user) => user.athleteId === parsed,
+        );
         resolvedUserId = match?.id ?? null;
       }
     }
@@ -200,17 +231,23 @@ function UsersPageContent() {
                     try {
                       await blockUser({ userId, blocked }).unwrap();
                     } catch (err: unknown) {
-                      setActionError(getErrorMessage(err, "Failed to update user status."));
+                      setActionError(
+                        getErrorMessage(err, "Failed to update user status."),
+                      );
                     }
                   }}
                   onDelete={async (userId) => {
-                    const confirmed = window.confirm("Delete this user? This will remove them from the admin list.");
+                    const confirmed = window.confirm(
+                      "Delete this user? This will remove them from the admin list.",
+                    );
                     if (!confirmed) return;
                     setActionError(null);
                     try {
                       await deleteUser({ userId }).unwrap();
                     } catch (err: unknown) {
-                      setActionError(getErrorMessage(err, "Failed to delete user."));
+                      setActionError(
+                        getErrorMessage(err, "Failed to delete user."),
+                      );
                     }
                   }}
                 />
@@ -229,17 +266,23 @@ function UsersPageContent() {
                     try {
                       await blockUser({ userId, blocked }).unwrap();
                     } catch (err: unknown) {
-                      setActionError(getErrorMessage(err, "Failed to update user status."));
+                      setActionError(
+                        getErrorMessage(err, "Failed to update user status."),
+                      );
                     }
                   }}
                   onDelete={async (userId) => {
-                    const confirmed = window.confirm("Delete this user? This will remove them from the admin list.");
+                    const confirmed = window.confirm(
+                      "Delete this user? This will remove them from the admin list.",
+                    );
                     if (!confirmed) return;
                     setActionError(null);
                     try {
                       await deleteUser({ userId }).unwrap();
                     } catch (err: unknown) {
-                      setActionError(getErrorMessage(err, "Failed to delete user."));
+                      setActionError(
+                        getErrorMessage(err, "Failed to delete user."),
+                      );
                     }
                   }}
                 />
@@ -268,7 +311,10 @@ export default function UsersPage() {
   return (
     <Suspense
       fallback={
-        <AdminShell title="Users" subtitle="Manage athletes, parents, and onboarding.">
+        <AdminShell
+          title="Users"
+          subtitle="Manage athletes, parents, and onboarding."
+        >
           <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
             Loading users...
           </div>

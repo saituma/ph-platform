@@ -44,10 +44,7 @@ export default function RegisterScreen() {
   const { colors } = useAppTheme();
   const { token, apiUserRole } = useAppSelector((state) => state.user);
   const insets = useSafeAreaInsets();
-
-  if (isAdminRole(apiUserRole)) {
-    return <Redirect href="/(tabs)" />;
-  }
+  const isAdmin = isAdminRole(apiUserRole);
 
   const {
     profile,
@@ -125,6 +122,10 @@ export default function RegisterScreen() {
   const subtitle = profile?.name
     ? `For ${profile.name} • Step ${currentStep + 1} of ${STEPS.length}`
     : `Step ${currentStep + 1} of ${STEPS.length}`;
+
+  if (isAdmin) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   return (
     <View className="flex-1 bg-app" style={{ paddingTop: insets.top }}>
