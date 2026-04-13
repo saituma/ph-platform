@@ -313,6 +313,11 @@ export async function softDeleteUser(userId: number) {
     const athleteIds = athleteRows.map((row) => row.id);
 
     if (athleteIds.length) {
+      await tx
+        .update(guardianTable)
+        .set({ activeAthleteId: null, updatedAt: now })
+        .where(inArray(guardianTable.activeAthleteId, athleteIds));
+
       await tx.delete(athletePlanExerciseCompletionTable).where(inArray(athletePlanExerciseCompletionTable.athleteId, athleteIds));
       await tx.delete(athletePlanSessionCompletionTable).where(inArray(athletePlanSessionCompletionTable.athleteId, athleteIds));
       await tx.delete(athleteTrainingSessionCompletionTable).where(inArray(athleteTrainingSessionCompletionTable.athleteId, athleteIds));
