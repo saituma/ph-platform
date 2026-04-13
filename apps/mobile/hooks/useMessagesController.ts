@@ -90,7 +90,6 @@ export function useMessagesController() {
   const {
     loadMessages,
     loadGroupMessages,
-    sendReplyToThread,
     markDirectThreadReadById,
     markGroupThreadRead,
     handleDeleteMessage,
@@ -568,23 +567,14 @@ export function useMessagesController() {
       subscription = Notifications.addNotificationResponseReceivedListener(
         (response) => {
           const actionId = response.actionIdentifier;
+          if (actionId !== "expo.modules.notifications.actions.DEFAULT") {
+            return;
+          }
           const data = response.notification.request.content.data as
             | { threadId?: string }
             | undefined;
           const threadId = data?.threadId;
           if (!threadId) return;
-          if (actionId === "mark-read") {
-            markDirectThreadReadById(threadId);
-            return;
-          }
-          if (actionId === "reply") {
-            const replyText = response.userText ?? "";
-            if (replyText.trim()) {
-              sendReplyToThread(threadId, replyText);
-              markDirectThreadReadById(threadId);
-              return;
-            }
-          }
           const thread = threads.find((item) => item.id === threadId);
           if (thread) {
             openThread(thread);
@@ -602,7 +592,6 @@ export function useMessagesController() {
     markDirectThreadReadById,
     openThread,
     router,
-    sendReplyToThread,
     threads,
     rolePrefix,
   ]);

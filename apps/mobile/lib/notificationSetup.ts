@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { getNotifications } from "./notifications";
+import { configureInteractiveNotificationCategories } from "./localNotifications";
 import type { NotificationCategory } from "./notificationPresentation";
 
 /** Channel IDs must match backend push data.category when used for Android. */
@@ -28,6 +29,8 @@ const CHANNEL_NAMES: Record<string, string> = {
  * users can control them in system settings. Call once on app start.
  */
 export async function setupNotificationChannels(): Promise<void> {
+  await configureInteractiveNotificationCategories();
+
   const Notifications = await getNotifications();
   if (!Notifications || Platform.OS !== "android") return;
 

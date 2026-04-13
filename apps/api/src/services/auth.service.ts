@@ -184,6 +184,7 @@ export async function startForgotPasswordLocal(input: { email: string }) {
     .select()
     .from(userTable)
     .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .orderBy(desc(userTable.id))
     .limit(1);
   const user = users[0];
   if (!user) {
@@ -212,6 +213,7 @@ export async function confirmForgotPasswordLocal(input: { email: string; code: s
     .select()
     .from(userTable)
     .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .orderBy(desc(userTable.id))
     .limit(1);
   const user = users[0];
   if (!user) {
@@ -286,6 +288,7 @@ export async function registerLocal(input: { email: string; password: string; na
     .select()
     .from(userTable)
     .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .orderBy(desc(userTable.id))
     .limit(1);
 
   const otp = generateOtp();
@@ -369,6 +372,7 @@ export async function confirmLocal(input: { email: string; code: string }) {
     .select()
     .from(userTable)
     .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .orderBy(desc(userTable.id))
     .limit(1);
   const user = users[0];
   if (!user) {
@@ -408,6 +412,7 @@ export async function resendLocal(input: { email: string }) {
     .select()
     .from(userTable)
     .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .orderBy(desc(userTable.id))
     .limit(1);
   const user = users[0];
   if (!user) {
@@ -436,6 +441,7 @@ export async function loginLocal(input: { email: string; password: string }) {
     .select()
     .from(userTable)
     .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .orderBy(desc(userTable.id))
     .limit(1);
   const user = users[0];
   if (!user || !user.passwordHash || !user.passwordSalt) {
