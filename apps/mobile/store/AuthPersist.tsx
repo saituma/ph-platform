@@ -26,6 +26,7 @@ import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
 import { resolveAppRole } from "@/lib/appRole";
+import { promptBatteryOptimizationConsentOnce } from "@/lib/batteryOptimizationConsent";
 
 const STORAGE_KEYS = {
   token: "authToken",
@@ -424,6 +425,12 @@ export function AuthPersist() {
         });
         if (result.expoPushToken) {
           lastPushToken.current = result.expoPushToken;
+        }
+        if (
+          result.support === "supported" &&
+          result.permissionStatus === "granted"
+        ) {
+          await promptBatteryOptimizationConsentOnce();
         }
       } catch (error) {
         if (__DEV__) console.warn("[PushTokenSync] Failed:", error);
