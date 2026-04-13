@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Pressable,
@@ -10,7 +10,6 @@ import {
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
 import {
   formatWhen,
   stripPreview,
@@ -22,17 +21,18 @@ import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
 import {
   DirectMessage,
   PendingAttachment,
-  AdminDmThread,
 } from "@/types/admin-messages";
-import { Ionicons } from "@expo/vector-icons";
-import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSocket } from "@/context/SocketContext";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
 import { GifPickerModal } from "@/components/messages/GifPickerModal";
 import * as ImagePicker from "expo-image-picker";
-import { Image as ExpoImage } from "expo-image";
+import { ThreadHeader } from "@/components/messages/ThreadHeader";
+import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
+import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
+import type { MessageThread, TypingStatus } from "@/types/messages";
+import type { ChatMessage } from "@/constants/messages";
+import { useAppSelector } from "@/store/hooks";
 
 interface Props {
   token: string | null;
@@ -47,11 +47,11 @@ export function AdminDmSection({
   myUserId,
   initialUserId,
 }: Props) {
-  const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
   const { socket } = useSocket();
   const dms = useAdminDms(token, canLoad);
   const { uploadAttachment } = useMediaUpload(token);
+  const myName = useAppSelector((state) => state.user.profile?.name) ?? "Coach";
 
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
@@ -62,8 +62,29 @@ export function AdminDmSection({
   const [isUploading, setIsUploading] = useState(false);
   const [pendingAttachment, setPendingAttachment] =
     useState<PendingAttachment | null>(null);
+  const [replyTarget, setReplyTarget] = useState<{
+    messageId: number;
+    preview: string;
+    authorName?: string;
+  } | null>(null);
+  const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(null);
+  const [reactionEmojiTarget, setReactionEmojiTarget] = useState<ChatMessage | null>(null);
+  const reactionOptions = useMemo(() => ["👍", "🔥", "💪", "👏", "❤️"], []);
+  const [reactionsByMessageId, setReactionsByMessageId] = useState<
+    Record<string, { emoji: string; count: number; userIds: number[] }[]>
+  >({});
 
   const queryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const getInitials = useCallback((name?: string | null) => {
+    const trimmed = String(name ?? "").trim();
+    if (!trimmed) return "";
+    const parts = trimmed.split(" ").filter(Boolean);
+    if (parts.length === 1) return (parts[0][0] ?? "").toUpperCase();
+    const first = parts[0][0] ?? "";
+    const last = parts[parts.length - 1][0] ?? "";
+    return `${first}${last}`.toUpperCase();
+  }, []);
 
   useEffect(() => {
     if (canLoad) {
@@ -117,15 +138,19 @@ export function AdminDmSection({
         setIsUploading(false);
       }
 
-      await dms.sendDm({
+      const sent = await dms.sendDm({
         receiverId: dms.activeDmUserId,
         content: draft.trim(),
         mediaUrl,
         contentType,
+        replyToMessageId: replyTarget?.messageId,
+        replyPreview: replyTarget?.preview,
       });
 
       setDraft("");
       setPendingAttachment(null);
+      setReplyTarget(null);
+      if (sent) dms.setMessages((prev) => [...prev, sent]);
     } catch (e) {
       console.error(e);
     } finally {
@@ -152,6 +177,24 @@ export function AdminDmSection({
     }
   };
 
+  const pickVideo = async () => {
+    setComposerMenuOpen(false);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "videos",
+      quality: 1,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setPendingAttachment({
+        uri: asset.uri,
+        fileName: asset.fileName ?? "video.mp4",
+        mimeType: asset.mimeType ?? "video/mp4",
+        sizeBytes: asset.fileSize ?? 0,
+        isImage: false,
+      });
+    }
+  };
+
   const takePhoto = async () => {
     setComposerMenuOpen(false);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -172,18 +215,155 @@ export function AdminDmSection({
     }
   };
 
+  const recordVideo = async () => {
+    setComposerMenuOpen(false);
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: "videos",
+      quality: 1,
+      cameraType: ImagePicker.CameraType.front,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setPendingAttachment({
+        uri: asset.uri,
+        fileName: asset.fileName ?? "recording.mp4",
+        mimeType: asset.mimeType ?? "video/mp4",
+        sizeBytes: asset.fileSize ?? 0,
+        isImage: false,
+      });
+    }
+  };
+
+  const currentThread = useMemo<MessageThread | null>(() => {
+    if (dms.activeDmUserId == null) return null;
+    const thread = dms.threads.find((t) => t.userId === dms.activeDmUserId) ?? null;
+    const name = (thread?.name ?? dms.activeDmName ?? `User ${dms.activeDmUserId}`).trim();
+    const preview = stripPreview(thread?.preview) || "Direct messages";
+
+    return {
+      id: String(dms.activeDmUserId),
+      name,
+      role: thread?.programTier ? thread.programTier.replaceAll("_", " ") : "Athlete",
+      channelType: "direct",
+      preview,
+      time: formatWhen(thread?.time),
+      pinned: false,
+      premium: Boolean(thread?.premium),
+      unread: safeNumber(thread?.unread, 0),
+      lastSeen: "Active",
+      responseTime: thread?.premium ? "Priority thread" : "Direct thread",
+      updatedAtMs: Date.now(),
+    };
+  }, [dms.activeDmName, dms.activeDmUserId, dms.threads]);
+
+  const typingStatus = useMemo<TypingStatus>(() => ({}), []);
+
+  const mappedMessages = useMemo<ChatMessage[]>(() => {
+    if (!currentThread) return [];
+
+    const resolveContentType = (raw?: string | null) => {
+      const t = String(raw ?? "text").toLowerCase();
+      if (t === "image" || t.startsWith("image/")) return "image";
+      if (t === "video" || t.startsWith("video/")) return "video";
+      return "text";
+    };
+
+    return dms.messages
+      .map((m, idx) => {
+        const id =
+          typeof m.id === "number"
+            ? String(m.id)
+            : typeof m.clientId === "string" && m.clientId
+              ? m.clientId
+              : `fallback-${idx}`;
+        const from =
+          myUserId != null && m.senderId === myUserId ? "user" : "coach";
+        const authorName = from === "user" ? myName : currentThread.name;
+        const createdAt =
+          m.createdAt instanceof Date
+            ? m.createdAt
+            : m.createdAt
+              ? new Date(m.createdAt)
+              : null;
+        const time = createdAt && !Number.isNaN(createdAt.getTime())
+          ? createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "";
+        const text = (m.content ?? "").trim() || (m.mediaUrl ? "Attachment" : "");
+
+        return {
+          id,
+          threadId: currentThread.id,
+          from,
+          text,
+          contentType: resolveContentType(m.contentType),
+          mediaUrl: m.mediaUrl ?? undefined,
+          videoUploadId: typeof m.videoUploadId === "number" ? m.videoUploadId : undefined,
+          time,
+          status: from === "user" ? (m.read ? "read" : "delivered") : undefined,
+          authorName,
+          reactions: reactionsByMessageId[id] ?? undefined,
+        } satisfies ChatMessage;
+      })
+      .filter((m) => Boolean(m.id));
+  }, [currentThread, dms.messages, myName, myUserId, reactionsByMessageId]);
+
+  const setReplyTargetFromMessage = useCallback((message: ChatMessage) => {
+    const numericId = Number(message.id);
+    if (!Number.isFinite(numericId)) return;
+    const preview = (message.text || (message.mediaUrl ? "Media message" : "Message")).slice(0, 160);
+    setReplyTarget({
+      messageId: numericId,
+      preview,
+      authorName: message.authorName ?? undefined,
+    });
+  }, []);
+
+  const handleToggleReaction = useCallback((message: ChatMessage, emoji: string) => {
+    setReactionsByMessageId((prev) => {
+      const key = String(message.id);
+      const list = prev[key] ?? [];
+      const me = myUserId ?? -1;
+      const existing = list.find((r) => r.emoji === emoji);
+      const hasMine = existing?.userIds?.includes(me) ?? false;
+
+      const nextList = (() => {
+        if (!existing) {
+          return [...list, { emoji, count: 1, userIds: me > 0 ? [me] : [] }];
+        }
+        if (hasMine) {
+          const nextUserIds = (existing.userIds ?? []).filter((id) => id !== me);
+          const nextCount = Math.max(0, (existing.count ?? 1) - 1);
+          return nextCount === 0
+            ? list.filter((r) => r.emoji !== emoji)
+            : list.map((r) =>
+                r.emoji === emoji ? { ...r, count: nextCount, userIds: nextUserIds } : r,
+              );
+        }
+        return list.map((r) =>
+          r.emoji === emoji
+            ? {
+                ...r,
+                count: (r.count ?? 0) + 1,
+                userIds: [...(r.userIds ?? []), ...(me > 0 ? [me] : [])],
+              }
+            : r,
+        );
+      })();
+
+      return { ...prev, [key]: nextList };
+    });
+  }, [myUserId]);
+
+  const handleRemovePendingAttachment = useCallback(() => {
+    setPendingAttachment(null);
+  }, []);
+
   return (
     <View className="gap-4">
       <View
-        className="rounded-2xl border px-4 py-3"
-        style={{
-          backgroundColor: isDark
-            ? "rgba(255,255,255,0.03)"
-            : "rgba(15,23,42,0.03)",
-          borderColor: isDark
-            ? "rgba(255,255,255,0.06)"
-            : "rgba(15,23,42,0.06)",
-        }}
+        className="rounded-2xl border border-app/10 bg-card px-4 py-3"
       >
         <TextInput
           className="text-[14px] font-outfit text-app"
@@ -210,47 +390,35 @@ export function AdminDmSection({
                 dms.setActiveDmName(t.name ?? `User ${t.userId}`);
                 dms.loadMessages(t.userId, true);
               }}
-              style={({ pressed }) => [
-                {
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  padding: 14,
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.03)"
-                    : "rgba(15,23,42,0.03)",
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.06)"
-                    : "rgba(15,23,42,0.06)",
-                  opacity: pressed ? 0.9 : 1,
-                },
-              ]}
+              className="rounded-card border border-app/10 bg-card p-4 active:opacity-90"
             >
-              <View className="flex-row justify-between items-start">
-                <View className="flex-1 mr-2">
-                  <Text
-                    className="text-[14px] font-clash font-bold text-app"
-                    numberOfLines={1}
-                  >
-                    {t.name ?? `User ${t.userId}`}
-                  </Text>
-                  <Text
-                    className="text-[12px] font-outfit text-secondary"
-                    numberOfLines={1}
-                  >
-                    {stripPreview(t.preview)}
+              <View className="flex-row items-center gap-3">
+                <View className="w-12 h-12 rounded-2xl bg-accent-light border border-app/10 items-center justify-center">
+                  <Text className="text-[12px] font-outfit-bold text-accent">
+                    {getInitials(t.name) || "?"}
                   </Text>
                 </View>
-                <View className="items-end">
-                  <Text className="text-[10px] font-outfit text-secondary">
-                    {formatWhen(t.time)}
-                  </Text>
-                  {safeNumber(t.unread) > 0 && (
-                    <View className="bg-accent rounded-full px-1.5 py-0.5 mt-1">
-                      <Text className="text-[10px] font-outfit-bold text-white">
-                        {t.unread}
-                      </Text>
-                    </View>
-                  )}
+                <View className="flex-1">
+                  <View className="flex-row items-center justify-between gap-2">
+                    <Text className="text-[14px] font-clash font-bold text-app flex-1" numberOfLines={1}>
+                      {t.name ?? `User ${t.userId}`}
+                    </Text>
+                    <Text className="text-[10px] font-outfit text-secondary" numberOfLines={1}>
+                      {formatWhen(t.time)}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center justify-between gap-2 mt-1">
+                    <Text className="text-[12px] font-outfit text-secondary flex-1" numberOfLines={1}>
+                      {stripPreview(t.preview)}
+                    </Text>
+                    {safeNumber(t.unread) > 0 ? (
+                      <View className="bg-accent px-2 py-0.5 rounded-full">
+                        <Text className="text-[10px] font-outfit-bold text-white">
+                          {safeNumber(t.unread) > 99 ? "99+" : String(t.unread)}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
               </View>
             </Pressable>
@@ -263,177 +431,108 @@ export function AdminDmSection({
         visible={dms.activeDmUserId != null}
         animationType="slide"
         presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
-        onRequestClose={() => dms.setActiveDmUserId(null)}
+        onRequestClose={() => {
+          dms.setActiveDmUserId(null);
+          setReplyTarget(null);
+          setReactionTarget(null);
+        }}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.background,
-            paddingTop: insets.top,
-          }}
-        >
-          <View
-            className="px-4 pb-3 flex-row items-center justify-between border-b"
-            style={{ borderColor: colors.border }}
-          >
-            <View className="flex-1">
-              <Text
-                className="text-[18px] font-clash font-bold text-app"
-                numberOfLines={1}
-              >
-                {dms.activeDmName}
-              </Text>
-            </View>
-            <SmallAction
-              label="Close"
-              tone="neutral"
-              onPress={() => dms.setActiveDmUserId(null)}
-            />
-          </View>
-
-          <ThemedScrollView className="flex-1 p-4">
-            {dms.messagesLoading && dms.messages.length === 0 ? (
-              <ActivityIndicator color={colors.accent} />
-            ) : (
-              <View className="gap-4 pb-10">
-                {dms.messages.map((m, idx) => {
-                  const isMe = m.senderId === myUserId;
-                  return (
-                    <View
-                      key={m.id ?? idx}
-                      className={`max-w-[85%] rounded-2xl p-3 ${isMe ? "self-end bg-accent" : "self-start bg-card"}`}
-                      style={
-                        isMe
-                          ? {}
-                          : {
-                              backgroundColor: isDark
-                                ? "rgba(255,255,255,0.05)"
-                                : "rgba(0,0,0,0.05)",
-                            }
-                      }
-                    >
-                      {m.mediaUrl && (
-                        <ExpoImage
-                          source={{ uri: m.mediaUrl }}
-                          style={{
-                            width: 200,
-                            height: 200,
-                            borderRadius: 12,
-                            marginBottom: 4,
-                          }}
-                          contentFit="cover"
-                        />
-                      )}
-                      <Text
-                        className={`text-[14px] font-outfit ${isMe ? "text-white" : "text-app"}`}
-                      >
-                        {m.content}
-                      </Text>
-                      <Text
-                        className={`text-[10px] font-outfit mt-1 opacity-60 ${isMe ? "text-white" : "text-secondary"}`}
-                      >
-                        {formatWhen(m.createdAt)}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </ThemedScrollView>
-
-          <View
-            className="p-4 border-t"
-            style={{
-              borderColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, 16),
-            }}
-          >
-            {pendingAttachment && (
-              <View className="flex-row items-center gap-2 mb-2 bg-card p-2 rounded-xl">
-                <ExpoImage
-                  source={{ uri: pendingAttachment.uri }}
-                  style={{ width: 40, height: 40, borderRadius: 8 }}
-                />
-                <Text
-                  className="flex-1 text-[12px] text-secondary"
-                  numberOfLines={1}
-                >
-                  {pendingAttachment.fileName}
-                </Text>
-                <Pressable onPress={() => setPendingAttachment(null)}>
-                  <Ionicons
-                    name="close-circle"
-                    size={20}
-                    color={colors.danger}
-                  />
-                </Pressable>
-              </View>
-            )}
-            <View className="flex-row items-center gap-2">
-              <Pressable onPress={() => setComposerMenuOpen(true)}>
-                <Ionicons
-                  name="add-circle-outline"
-                  size={28}
-                  color={colors.accent}
-                />
-              </Pressable>
-              <View
-                className="flex-1 bg-card rounded-2xl px-4 py-2"
-                style={{
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.05)"
-                    : "rgba(0,0,0,0.05)",
+        <View className="flex-1 bg-app" style={{ backgroundColor: colors.background }}>
+          {currentThread ? (
+            <>
+              <ThreadHeader
+                thread={currentThread}
+                onBack={() => {
+                  dms.setActiveDmUserId(null);
+                  setReplyTarget(null);
+                  setReactionTarget(null);
                 }}
-              >
-                <TextInput
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder="Type a message..."
-                  placeholderTextColor={colors.placeholder}
-                  multiline
-                  className="text-[14px] font-outfit text-app max-h-32"
-                />
-              </View>
-              <Pressable
-                onPress={handleSend}
-                disabled={isSending || isUploading}
-              >
-                {isSending || isUploading ? (
-                  <ActivityIndicator size="small" color={colors.accent} />
-                ) : (
-                  <Ionicons name="send" size={24} color={colors.accent} />
-                )}
-              </Pressable>
+              />
+              <ThreadChatBody
+                thread={currentThread}
+                messages={mappedMessages}
+                effectiveProfileId={myUserId ?? 0}
+                effectiveProfileName={myName}
+                groupMembers={{}}
+                token={token}
+                draft={draft}
+                replyTarget={replyTarget}
+                onClearReplyTarget={() => setReplyTarget(null)}
+                onReplyMessage={setReplyTargetFromMessage}
+                isLoading={dms.threadsLoading}
+                isThreadLoading={dms.messagesLoading}
+                typingStatus={typingStatus}
+                textSecondaryColor={colors.textSecondary}
+                onDraftChange={setDraft}
+                onSend={handleSend}
+                onOpenComposerMenu={() => setComposerMenuOpen(true)}
+                onLongPressMessage={(message) => setReactionTarget(message)}
+                onReactionPress={handleToggleReaction}
+                onOpenReactionPicker={(message) => setReactionTarget(message)}
+                pendingAttachment={pendingAttachment}
+                onRemovePendingAttachment={handleRemovePendingAttachment}
+                isUploadingAttachment={isSending || isUploading}
+              />
+              <ReactionPickerModal
+                reactionTarget={reactionTarget}
+                options={reactionOptions}
+                onClose={() => setReactionTarget(null)}
+                onSelect={(message, emoji) => {
+                  handleToggleReaction(message, emoji);
+                  setReactionTarget(null);
+                }}
+                onOpenEmojiPicker={(message) => {
+                  setReactionTarget(null);
+                  setReactionEmojiTarget(message);
+                  setEmojiPickerOpen(true);
+                }}
+              />
+            </>
+          ) : (
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator size="large" color={colors.accent} />
             </View>
-          </View>
-        </View>
+          )}
 
         <ComposerActionsModal
           open={composerMenuOpen}
           onClose={() => setComposerMenuOpen(false)}
           onAttachFile={() => setComposerMenuOpen(false)}
           onAttachImage={pickImage}
-          onAttachVideo={() => setComposerMenuOpen(false)}
+          onAttachVideo={pickVideo}
           onTakePhoto={takePhoto}
-          onRecordVideo={() => setComposerMenuOpen(false)}
+          onRecordVideo={recordVideo}
           onOpenEmojis={() => setEmojiPickerOpen(true)}
           onOpenGifs={() => setGifPickerOpen(true)}
         />
         <EmojiPickerModal
-          open={emojiPickerOpen}
-          onClose={() => setEmojiPickerOpen(false)}
-          onSelectEmoji={(emoji: string) => setDraft((prev) => prev + emoji)}
-        />
-        <GifPickerModal
-          open={gifPickerOpen}
-          onClose={() => setGifPickerOpen(false)}
-          token={token}
-          onSelectGif={(url: string) => {
-            setDraft((prev) => prev + ` ${url}`);
-            setGifPickerOpen(false);
+          open={emojiPickerOpen || Boolean(reactionEmojiTarget)}
+          onClose={() => {
+            setEmojiPickerOpen(false);
+            setReactionEmojiTarget(null);
+          }}
+          onSelectEmoji={(emoji: string) => {
+            if (reactionEmojiTarget) {
+              const target = reactionEmojiTarget;
+              setReactionEmojiTarget(null);
+              setEmojiPickerOpen(false);
+              handleToggleReaction(target, emoji);
+              return;
+            }
+            setDraft((prev) => prev + emoji);
           }}
         />
-      </Modal>
+	        <GifPickerModal
+	          open={gifPickerOpen}
+	          onClose={() => setGifPickerOpen(false)}
+	          token={token}
+	          onSelectGif={(url: string) => {
+	            setDraft((prev) => prev + ` ${url}`);
+	            setGifPickerOpen(false);
+	          }}
+	        />
+        </View>
+	      </Modal>
     </View>
   );
 }

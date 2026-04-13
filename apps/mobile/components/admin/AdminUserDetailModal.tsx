@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Modal, Platform, TextInput, Alert, ScrollView } from "react-native";
+import React, { useMemo, useState, useEffect } from "react";
+import { View, Modal, Platform, TextInput, Alert, ScrollView, Pressable } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -31,6 +31,7 @@ export function AdminUserDetailModal({
 }: Props) {
   const { colors, isDark } = useAppTheme();
   const [tierDraft, setTierDraft] = useState("");
+  const [tierPickerOpen, setTierPickerOpen] = useState(false);
   const [passwordDraft, setPasswordDraft] = useState("");
   
   const [onboarding, setOnboarding] = useState<any>(null);
@@ -40,6 +41,7 @@ export function AdminUserDetailModal({
   useEffect(() => {
     if (user && visible) {
       setTierDraft(user.programTier ?? "");
+      setTierPickerOpen(false);
       setPasswordDraft("");
       loadOnboarding();
     }
@@ -89,6 +91,12 @@ export function AdminUserDetailModal({
   };
 
   const athlete = onboarding?.athlete;
+  const tierOptions = useMemo(
+    () => ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const,
+    [],
+  );
+  const normalizedTier = tierDraft.trim() || "PHP";
+  const tierLabel = normalizedTier.replaceAll("_", " ");
 
   return (
     <Modal
@@ -185,21 +193,33 @@ export function AdminUserDetailModal({
           <Text className="text-lg font-clash-semibold text-app mb-2">Admin Modifiers</Text>
           <View className="rounded-[28px] border p-5 bg-card" style={CardStyle}>
              <Text className="text-[11px] font-outfit-semibold text-secondary mb-2 uppercase tracking-widest">Swap Program Tier</Text>
-             <View className="flex-row gap-2 mb-6">
-                <TextInput
-                  value={tierDraft}
-                  onChangeText={setTierDraft}
-                  placeholder="e.g. PHP_Pro"
-                  placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"}
-                  className="flex-1 rounded-2xl border px-4 py-3 text-app bg-background font-outfit"
-                  style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }}
-                />
-                <SmallAction 
-                  label="Enforce" 
-                  tone="success" 
-                  onPress={() => user?.athleteId && user?.id && onSaveTier(user.athleteId, user.id, tierDraft)} 
-                  disabled={isBusy} 
-                />
+             <View className="gap-2 mb-6">
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setTierPickerOpen(true)}
+                  className="rounded-2xl border border-app/10 bg-background px-4 py-3 active:opacity-90"
+                >
+                  <Text className="text-[12px] font-outfit text-secondary mb-1">Selected tier</Text>
+                  <Text className="text-[14px] font-clash font-bold text-app">{tierLabel}</Text>
+                </Pressable>
+                <View className="flex-row gap-2">
+                  <SmallAction
+                    label="Change tier"
+                    tone="success"
+                    onPress={() =>
+                      user?.athleteId && user?.id
+                        ? onSaveTier(user.athleteId, user.id, normalizedTier)
+                        : Promise.resolve()
+                    }
+                    disabled={isBusy || !user?.athleteId || !user?.id}
+                  />
+                  <SmallAction
+                    label="Refresh"
+                    tone="neutral"
+                    onPress={loadOnboarding}
+                    disabled={isBusy || onboardingLoading}
+                  />
+                </View>
              </View>
 
              <Text className="text-[11px] font-outfit-semibold text-secondary mb-2 uppercase tracking-widest">Network Rules</Text>
@@ -216,6 +236,55 @@ export function AdminUserDetailModal({
 
         </ScrollView>
       </View>
+
+      <Modal
+        visible={tierPickerOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setTierPickerOpen(false)}
+      >
+        <Pressable
+          onPress={() => setTierPickerOpen(false)}
+          className="flex-1 items-center justify-center px-6"
+          style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
+        >
+          <Pressable
+            onPress={() => {}}
+            className="w-full rounded-[28px] border border-app/10 bg-card p-5"
+            style={{
+              backgroundColor: isDark ? colors.cardElevated : colors.card,
+            }}
+          >
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-lg font-clash font-bold text-app">Select tier</Text>
+              <SmallAction
+                label="Close"
+                tone="neutral"
+                onPress={() => setTierPickerOpen(false)}
+              />
+            </View>
+            <View className="gap-2">
+              {tierOptions.map((tier) => {
+                const selected = normalizedTier === tier;
+                return (
+                  <Pressable
+                    key={tier}
+                    onPress={() => {
+                      setTierDraft(tier);
+                      setTierPickerOpen(false);
+                    }}
+                    className={`rounded-2xl border px-4 py-3 ${selected ? "bg-accent-light border-app/10" : "bg-card border-app/10"}`}
+                  >
+                    <Text className={`text-[13px] font-outfit-bold ${selected ? "text-accent" : "text-app"}`}>
+                      {tier.replaceAll("_", " ")}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Modal>
   );
 }

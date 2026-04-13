@@ -51,7 +51,7 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
     setMessagesError(null);
     try {
       const res = await apiRequest<{ messages?: DirectMessage[] }>(
-        `/admin/messages/threads/${userId}?limit=50`,
+        `/admin/messages/${userId}?limit=50`,
         {
           token,
           skipCache: forceRefresh,
@@ -73,6 +73,8 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
     mediaUrl?: string;
     contentType?: string;
     videoUploadId?: number;
+    replyToMessageId?: number;
+    replyPreview?: string;
   }) => {
     if (!token || !canLoad) return;
     const { receiverId, ...body } = params;

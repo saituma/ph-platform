@@ -1,7 +1,6 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
-import { Shadows } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import React, { useMemo, useState } from "react";
 import { View } from "react-native";
@@ -10,15 +9,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HeaderTabKey } from "@/types/admin-messages";
 import { Chip } from "@/components/admin/AdminShared";
 import { AdminDmSection } from "@/components/admin/messages/AdminDmSection";
-import { AdminGroupSection } from "@/components/admin/messages/AdminGroupSection";
 import { AdminStatsSection } from "@/components/admin/messages/AdminStatsSection";
 import { useAdminDms } from "@/hooks/admin/useAdminDms";
 import { useAdminGroups } from "@/hooks/admin/useAdminGroups";
 import { safeNumber } from "@/lib/admin-messages-utils";
 import { consumeAdminMessagesNavTarget } from "@/lib/admin/adminMessagesNav";
+import { useAdminAnnouncements } from "@/hooks/admin/useAdminAnnouncements";
+import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
+import { AdminAnnouncementsSection } from "@/components/admin/messages/AdminAnnouncementsSection";
+import { AdminTeamsListSection } from "@/components/admin/messages/AdminTeamsListSection";
+import { AdminCard } from "@/roles/admin/components/AdminCard";
 
 export default function AdminMessagesScreen() {
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
@@ -37,6 +40,8 @@ export default function AdminMessagesScreen() {
   const canLoad = Boolean(token && bootstrapReady);
   const dms = useAdminDms(token, canLoad);
   const groups = useAdminGroups(token, canLoad);
+  const announcements = useAdminAnnouncements(token, canLoad);
+  const teams = useAdminTeams(token, canLoad);
 
   const dmUnreadTotal = useMemo(() => {
     return dms.threads.reduce((sum, t) => sum + safeNumber(t.unread, 0), 0);
@@ -55,14 +60,17 @@ export default function AdminMessagesScreen() {
       directUnread: dmUnreadTotal,
       groups: groups.groups.length,
       groupUnread: groupUnreadTotal,
-      announcementGroups: groups.groups.filter(
-        (g) => (g.category ?? "").toLowerCase() === "announcement",
-      ).length,
-      teamGroups: groups.groups.filter((g) =>
-        ["team", "coach_group"].includes((g.category ?? "").toLowerCase()),
-      ).length,
+      announcements: announcements.items.length,
+      teams: teams.teams.length,
     }),
-    [dms.threads.length, dmUnreadTotal, groups.groups, groupUnreadTotal],
+    [
+      announcements.items.length,
+      dmUnreadTotal,
+      dms.threads.length,
+      groupUnreadTotal,
+      groups.groups.length,
+      teams.teams.length,
+    ],
   );
 
   const headerTabs: { key: HeaderTabKey; label: string }[] = [
@@ -100,16 +108,7 @@ export default function AdminMessagesScreen() {
           ))}
         </View>
 
-        <View
-          className="rounded-[28px] border p-5"
-          style={{
-            backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-            borderColor: isDark
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.md),
-          }}
-        >
+        <AdminCard className="rounded-card-lg border border-app bg-card-elevated p-5">
           {!canLoad ? (
             <Text className="text-sm font-outfit text-secondary">
               Tools will load after auth bootstrap.
@@ -125,25 +124,15 @@ export default function AdminMessagesScreen() {
                 />
               )}
               {activeTab === "announcement" && (
-                <AdminGroupSection
-                  token={token}
-                  canLoad={canLoad}
-                  myUserId={myUserId}
-                  category="announcement"
-                />
+                <AdminAnnouncementsSection controller={announcements} canLoad={canLoad} />
               )}
               {activeTab === "teams" && (
-                <AdminGroupSection
-                  token={token}
-                  canLoad={canLoad}
-                  myUserId={myUserId}
-                  category="team"
-                />
+                <AdminTeamsListSection controller={teams} canLoad={canLoad} />
               )}
               {activeTab === "stats" && <AdminStatsSection stats={stats} />}
             </>
           )}
-        </View>
+        </AdminCard>
       </ThemedScrollView>
     </View>
   );

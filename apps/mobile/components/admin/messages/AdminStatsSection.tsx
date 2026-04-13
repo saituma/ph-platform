@@ -10,8 +10,8 @@ interface Props {
     directUnread: number;
     groups: number;
     groupUnread: number;
-    announcementGroups: number;
-    teamGroups: number;
+    announcements: number;
+    teams: number;
   };
 }
 
@@ -21,8 +21,8 @@ export function AdminStatsSection({ stats }: Props) {
   const cards = [
     { label: "DMs", value: stats.directThreads, unread: stats.directUnread },
     { label: "Groups", value: stats.groups, unread: stats.groupUnread },
-    { label: "Announcements", value: stats.announcementGroups, unread: 0 },
-    { label: "Teams", value: stats.teamGroups, unread: 0 },
+    { label: "Announcements", value: stats.announcements, unread: 0 },
+    { label: "Teams", value: stats.teams, unread: 0 },
   ];
 
   return (

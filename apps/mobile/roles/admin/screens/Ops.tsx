@@ -1,71 +1,118 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
 import { subscribeToAdminOpsRequests } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
-import React, { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import React, { useCallback, useEffect } from "react";
+import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated from "react-native-reanimated";
+import { useRouter } from "expo-router";
 
-import { OpsSection } from "@/types/admin";
-import { useAdminServices } from "@/hooks/admin/useAdminServices";
-import { Chip } from "@/components/admin/AdminShared";
-import { AdminBookingsSection } from "@/components/admin/AdminBookingsSection";
-import { AdminAvailabilitySection } from "@/components/admin/AdminAvailabilitySection";
-import { AdminServicesSection } from "@/components/admin/AdminServicesSection";
-import { AdminTeamsSection } from "@/components/admin/AdminTeamsSection";
+import { Feather } from "@/components/ui/theme-icons";
+import { AdminCard } from "@/roles/admin/components/AdminCard";
 
 export default function AdminOpsScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const token = useAppSelector((state) => state.user.token);
+  const router = useRouter();
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
-  const [section, setSection] = useState<OpsSection>("bookings");
-  const [initialAction, setInitialAction] = useState<"createBooking" | null>(null);
-
-  const canLoad = Boolean(token && bootstrapReady);
-  const servicesHook = useAdminServices(token, canLoad);
+  const pushSchedule = useCallback(
+    (params?: { tab?: "bookings" | "services" | "availability"; action?: string }) => {
+      router.push({
+        pathname: "/admin/ops/schedule",
+        params: {
+          ...(params?.tab ? { tab: params.tab } : {}),
+          ...(params?.action ? { action: params.action } : {}),
+        },
+      } as any);
+    },
+    [router],
+  );
 
   useEffect(() => {
     return subscribeToAdminOpsRequests((payload) => {
-      if (payload.section) setSection(payload.section);
-      if (payload.action === "createBooking") {
-        setSection("bookings");
-        setInitialAction("createBooking");
+      if (payload.destination === "schedule") return pushSchedule();
+      if (payload.destination === "nutrition") return router.push("/admin/ops/nutrition");
+      if (payload.destination === "referrals") return router.push("/admin/ops/referrals");
+      if (payload.destination === "hub") return;
+
+      // ---- Legacy compatibility ----
+      if (payload.section === "bookings") {
+        return pushSchedule({
+          tab: "bookings",
+          action: payload.action === "createBooking" ? "createBooking" : undefined,
+        });
       }
-      if (payload.action === "createAvailability") {
-        setSection("availability");
+      if (payload.section === "services") {
+        return pushSchedule({
+          tab: "services",
+          action: payload.action === "createService" ? "createService" : undefined,
+        });
       }
-      if (payload.action === "createService") {
-        setSection("services");
+      if (payload.section === "availability") {
+        return pushSchedule({
+          tab: "availability",
+          action: payload.action === "createAvailability" ? "createAvailability" : undefined,
+        });
+      }
+      if (payload.section === "teams") {
+        router.push("/admin-teams");
+        return;
       }
     });
-  }, []);
+  }, [pushSchedule, router]);
 
-  useEffect(() => {
-    if (canLoad && (section === "bookings" || section === "availability" || section === "services")) {
-      servicesHook.loadServices(false);
-    }
-  }, [canLoad, section]);
-
-  const subtitle = useMemo(() => {
-    if (section === "bookings") return "Bookings management";
-    if (section === "availability") return "Availability blocks";
-    if (section === "teams") return "Teams & Rosters";
-    return "Service types";
-  }, [section]);
+  function NavRow({
+    icon,
+    title,
+    subtitle,
+    onPress,
+  }: {
+    icon: any;
+    title: string;
+    subtitle: string;
+    onPress: () => void;
+  }) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
+      >
+        <AdminCard>
+          <View className="flex-row items-center">
+            <View
+              className="h-12 w-12 rounded-2xl items-center justify-center border mr-4"
+              style={{
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+                borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
+              }}
+            >
+              <Feather name={icon} size={22} color={colors.accent} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[16px] font-outfit-bold font-bold text-app tracking-tight">
+                {title}
+              </Text>
+              <Text className="text-[12px] font-outfit text-secondary mt-0.5">
+                {subtitle}
+              </Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={20}
+              color={isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.35)"}
+            />
+          </View>
+        </AdminCard>
+      </Pressable>
+    );
+  }
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top }}>
-      <ThemedScrollView
-        onRefresh={() => {
-          if (section === "services") return servicesHook.loadServices(true);
-        }}
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
+      <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="pt-10 mb-8 px-6">
           <View className="flex-row items-center gap-3 mb-2">
             <View className="h-8 w-1.5 rounded-full bg-accent" />
@@ -78,74 +125,41 @@ export default function AdminOpsScreen() {
           </View>
           <Text
             className="text-base font-outfit text-secondary leading-relaxed"
-            numberOfLines={1}
           >
-            {subtitle}
+            Manage schedules, nutrition logs, and referrals — aligned with the web admin tools.
           </Text>
         </View>
 
-        <View className="mb-6">
-          <Animated.ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
-          >
-            {(
-              ["bookings", "availability", "teams", "services"] as OpsSection[]
-            ).map((s) => (
-              <Chip
-                key={s}
-                label={s.charAt(0).toUpperCase() + s.slice(1)}
-                selected={section === s}
-                onPress={() => {
-                  setSection(s);
-                  setInitialAction(null);
-                }}
-              />
-            ))}
-          </Animated.ScrollView>
-        </View>
-
-        <View className="px-6">
-          <View
-            className="rounded-[32px] border p-6"
-            style={{
-              backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(15,23,42,0.06)",
-              ...(isDark ? Shadows.none : Shadows.md),
-            }}
-          >
-            {!canLoad ? (
-              <Text selectable className="text-sm font-outfit text-secondary text-center py-8">
+        {!bootstrapReady ? (
+          <View className="px-6">
+            <AdminCard>
+              <Text className="text-sm font-outfit text-secondary text-center py-4">
                 Admin tools will load after auth bootstrap.
               </Text>
-            ) : (
-              <>
-                {section === "bookings" && (
-                  <AdminBookingsSection
-                    token={token}
-                    canLoad={canLoad}
-                    services={servicesHook.services}
-                    initialAction={initialAction}
-                  />
-                )}
-                {section === "availability" && (
-                  <AdminAvailabilitySection
-                    token={token}
-                    canLoad={canLoad}
-                    services={servicesHook.services}
-                  />
-                )}
-                {section === "services" && (
-                  <AdminServicesSection token={token} canLoad={canLoad} />
-                )}
-                {section === "teams" && <AdminTeamsSection />}
-              </>
-            )}
+            </AdminCard>
           </View>
-        </View>
+        ) : (
+          <View className="px-6 gap-4">
+            <NavRow
+              icon="calendar"
+              title="Schedule"
+              subtitle="Bookings, service types, availability, pending requests."
+              onPress={() => pushSchedule()}
+            />
+            <NavRow
+              icon="clipboard"
+              title="Nutrition"
+              subtitle="Nutrition + wellness logs, coach feedback, video response."
+              onPress={() => router.push("/admin/ops/nutrition")}
+            />
+            <NavRow
+              icon="activity"
+              title="Referrals"
+              subtitle="Manage referral logs and partner links."
+              onPress={() => router.push("/admin/ops/referrals")}
+            />
+          </View>
+        )}
       </ThemedScrollView>
     </View>
   );
