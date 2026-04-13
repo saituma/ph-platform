@@ -8,12 +8,13 @@ export function useAdminUsers(token: string | null, canLoad: boolean) {
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
-  const load = useCallback(async (forceRefresh = false) => {
+  const load = useCallback(async (q?: string, forceRefresh = false) => {
     if (!token || !canLoad) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await apiRequest<{ users?: AdminUser[] }>("/admin/users?limit=50", {
+      const query = q ? `&q=${encodeURIComponent(q)}` : "";
+      const res = await apiRequest<{ users?: AdminUser[] }>(`/admin/users?limit=50${query}`, {
         token,
         forceRefresh,
         skipCache: forceRefresh,
