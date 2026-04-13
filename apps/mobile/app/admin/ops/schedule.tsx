@@ -4,26 +4,25 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { AdminAvailabilitySection } from "@/components/admin/AdminAvailabilitySection";
 import { AdminBookingsSection } from "@/components/admin/AdminBookingsSection";
 import { AdminServicesSection } from "@/components/admin/AdminServicesSection";
-import { Chip } from "@/components/admin/AdminShared";
-import { AdminCard } from "@/roles/admin/components/AdminCard";
 import { useAdminServices } from "@/hooks/admin/useAdminServices";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { View, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Feather } from "@/components/ui/theme-icons";
 
-type ScheduleTab = "bookings" | "services" | "availability";
+type ScheduleTab = "bookings" | "services";
 
 function asScheduleTab(value: unknown): ScheduleTab | null {
-  if (value === "bookings" || value === "services" || value === "availability") {
+  if (value === "bookings" || value === "services") {
     return value;
   }
   return null;
 }
 
 export default function AdminOpsScheduleScreen() {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -37,7 +36,6 @@ export default function AdminOpsScheduleScreen() {
 
   const derivedInitialTab = useMemo<ScheduleTab>(() => {
     if (incomingAction === "createService") return "services";
-    if (incomingAction === "createAvailability") return "availability";
     if (incomingTab) return incomingTab;
     return "bookings";
   }, [incomingAction, incomingTab]);
@@ -53,7 +51,6 @@ export default function AdminOpsScheduleScreen() {
   useEffect(() => {
     if (!canLoad) return;
     servicesHook.loadServices(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canLoad]);
 
   const initialBookingAction =
@@ -61,48 +58,59 @@ export default function AdminOpsScheduleScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <View className="pt-10 mb-6 px-6">
+      <ThemedScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+        {/* Header */}
+        <View className="pt-10 mb-8 px-6">
           <View className="flex-row items-center gap-3 mb-2">
             <View className="h-8 w-1.5 rounded-full bg-accent" />
             <Text className="text-5xl font-telma-bold text-app tracking-tight">
               Schedule
             </Text>
           </View>
-          <Text className="text-base font-outfit text-secondary leading-relaxed">
-            Bookings, service types, and availability — matching the web schedule tooling.
+          <Text className="text-base font-outfit text-textSecondary leading-relaxed">
+            Manage services and client bookings.
           </Text>
         </View>
 
-        <View className="mb-5">
-          <View className="flex-row px-6 gap-3">
-            {(
-              [
-                { key: "bookings", label: "Bookings" },
-                { key: "services", label: "Services" },
-                { key: "availability", label: "Availability" },
-              ] as const
-            ).map((item) => (
-              <View key={item.key} className="flex-1">
-                <Chip
-                  label={item.label}
-                  selected={tab === item.key}
-                  onPress={() => setTab(item.key)}
-                />
-              </View>
+        {/* Custom Tab Switcher (Shadcn style) */}
+        <View className="px-6 mb-10">
+          <View 
+            className="flex-row p-1.5 rounded-[26px] border"
+            style={{
+              backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+              borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+            }}
+          >
+            {(["bookings", "services"] as const).map((key) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setTab(key)}
+                className="flex-1 h-14 rounded-[20px] items-center justify-center"
+                style={{
+                  backgroundColor: tab === key ? colors.accent : "transparent",
+                }}
+              >
+                <Text 
+                  className="font-outfit-bold text-[13px] uppercase tracking-wider"
+                  style={{ color: tab === key ? colors.textInverse : colors.textSecondary }}
+                >
+                  {key}
+                </Text>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        <View className="px-6">
+        <View>
           {!canLoad ? (
-            <AdminCard>
-              <Text className="text-sm font-outfit text-secondary text-center py-4">
-                Admin tools will load after auth bootstrap.
+            <View className="px-6 py-20 items-center">
+              <ActivityIndicator color={colors.accent} />
+              <Text className="text-sm font-outfit text-textSecondary mt-4">
+                Loading schedule tools...
               </Text>
-            </AdminCard>
+            </View>
           ) : (
-            <AdminCard>
+            <View>
               {tab === "bookings" && (
                 <AdminBookingsSection
                   token={token}
@@ -114,28 +122,8 @@ export default function AdminOpsScheduleScreen() {
               {tab === "services" && (
                 <AdminServicesSection token={token} canLoad={canLoad} />
               )}
-              {tab === "availability" && (
-                <AdminAvailabilitySection
-                  token={token}
-                  canLoad={canLoad}
-                  services={servicesHook.services}
-                />
-              )}
-            </AdminCard>
+            </View>
           )}
-        </View>
-
-        <View className="px-6 mt-6">
-          <Text className="text-[12px] font-outfit text-secondary text-center">
-            Need team rosters?{" "}
-            <Text
-              className="text-[12px] font-outfit-bold font-bold"
-              style={{ color: colors.accent }}
-              onPress={() => router.push("/admin-teams")}
-            >
-              Open Teams
-            </Text>
-          </Text>
         </View>
       </ThemedScrollView>
     </SafeAreaView>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Pressable, TextInput, Modal, Platform } from "react-native";
+import React, { useState, useEffect, useMemo } from "react";
+import { View, TouchableOpacity, TextInput, Modal, Platform, ActivityIndicator, Pressable, ScrollView } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -8,14 +8,176 @@ import {
   defaultServicePatchJson,
   parseIntOrUndefined,
 } from "@/lib/admin-utils";
-import { SmallAction } from "./AdminShared";
 import { useAdminServices } from "@/hooks/admin/useAdminServices";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
+import { Feather } from "@/components/ui/theme-icons";
 
 interface Props {
   token: string | null;
   canLoad: boolean;
+}
+
+// --- Internal Components ---
+
+const SERVICE_TYPES = [
+  { label: "1-on-1 Session", value: "one_on_one" },
+  { label: "Semi-Private Session", value: "semi_private" },
+  { label: "Lift Lab 1:1", value: "lift_lab_1on1" },
+  { label: "Group Call", value: "group_call" },
+  { label: "Individual Call", value: "individual_call" },
+  { label: "Coach Call", value: "call" },
+  { label: "Role Model", value: "role_model" },
+];
+
+function Dropdown({
+  label,
+  value,
+  onSelect,
+  options,
+}: {
+  label: string;
+  value: string;
+  onSelect: (val: string) => void;
+  options: { label: string; value: string }[];
+}) {
+  const { colors, isDark } = useAppTheme();
+  const [open, setOpen] = useState(false);
+
+  const displayLabel = useMemo(() => {
+    const found = options.find(o => o.value === value);
+    return found ? found.label : value || "Select...";
+  }, [options, value]);
+
+  return (
+    <View className="mb-6">
+      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
+        {label}
+      </Text>
+      <TouchableOpacity
+        onPress={() => setOpen(true)}
+        activeOpacity={0.7}
+        className="rounded-[18px] border flex-row items-center justify-between px-5 h-14"
+        style={{
+          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+        }}
+      >
+        <Text className="text-[16px] font-outfit text-app">{displayLabel}</Text>
+        <Feather name="chevron-down" size={20} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade">
+        <Pressable 
+          className="flex-1 bg-black/60 items-center justify-center p-6"
+          onPress={() => setOpen(false)}
+        >
+          <View 
+            className="w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl"
+            style={{ backgroundColor: isDark ? "#161628" : "#FFFFFF" }}
+          >
+            <View className="p-6 border-b border-app/5">
+              <Text className="text-xl font-clash font-bold text-app">{label}</Text>
+            </View>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {options.map((opt, i) => {
+                const isSelected = opt.value === value;
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => {
+                      onSelect(opt.value);
+                      setOpen(false);
+                    }}
+                    className="px-6 py-5 flex-row items-center justify-between border-b border-app/5"
+                  >
+                    <Text 
+                      className={`text-[16px] ${isSelected ? 'font-outfit-bold text-accent' : 'font-outfit text-app'}`}
+                    >
+                      {opt.label}
+                    </Text>
+                    {isSelected && <Feather name="check" size={20} color={colors.accent} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+function ServiceActionButton({ 
+  label, 
+  onPress, 
+  tone = "accent", 
+  icon 
+}: { 
+  label: string; 
+  onPress: () => void; 
+  tone?: "accent" | "neutral" | "danger" | "success";
+  icon?: any;
+}) {
+  const { colors, isDark } = useAppTheme();
+  
+  const bg = tone === "accent" ? colors.accent : 
+             tone === "success" ? "#22C55E" : 
+             tone === "danger" ? "#EF4444" : 
+             isDark ? "rgba(255,255,255,0.08)" : "#F1F5F9";
+             
+  const textColor = (tone === "neutral" && !isDark) ? "#0F172A" : "#FFFFFF";
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      className="h-12 px-6 rounded-2xl flex-row items-center justify-center gap-2 shadow-sm"
+      style={{ backgroundColor: bg }}
+    >
+      {icon && <Feather name={icon} size={16} color={textColor} />}
+      <Text className="text-[14px] font-outfit-bold uppercase tracking-wider" style={{ color: textColor }}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function FormField({ label, value, onChangeText, placeholder, keyboardType = "default", multiline = false }: any) {
+  const { colors, isDark } = useAppTheme();
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
+    <View className="mb-6">
+      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
+        {label}
+      </Text>
+      <View 
+        className="rounded-[18px] border px-5 justify-center"
+        style={{
+          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+          borderColor: isFocused ? colors.accent : (isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)"),
+          borderWidth: isFocused ? 2 : 1,
+          minHeight: multiline ? 120 : 62,
+          paddingVertical: multiline ? 16 : 0,
+        }}
+      >
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.placeholder}
+          keyboardType={keyboardType}
+          multiline={multiline}
+          textAlignVertical={multiline ? "top" : "center"}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          className="text-[16px] font-outfit text-app"
+          cursorColor={colors.accent}
+        />
+      </View>
+    </View>
+  );
 }
 
 export function AdminServicesSection({ token, canLoad }: Props) {
@@ -23,57 +185,18 @@ export function AdminServicesSection({ token, canLoad }: Props) {
   const insets = useSafeAreaInsets();
   const servicesHook = useAdminServices(token, canLoad);
 
-  // Create service state
+  const [createOpen, setCreateOpen] = useState(false);
   const [serviceCreateName, setServiceCreateName] = useState("");
   const [serviceCreateType, setServiceCreateType] = useState("call");
-  const [serviceCreateDurationMinutes, setServiceCreateDurationMinutes] =
-    useState("30");
-  const [serviceCreateCapacity, setServiceCreateCapacity] = useState("");
-  const [serviceCreateIsActive, setServiceCreateIsActive] = useState("true");
-  const [serviceCreateDefaultLocation, setServiceCreateDefaultLocation] =
-    useState("");
-  const [serviceCreateDefaultMeetingLink, setServiceCreateDefaultMeetingLink] =
-    useState("");
-  const [serviceCreateAdvancedJson, setServiceCreateAdvancedJson] =
-    useState("{}");
-  const [serviceCreateSchedulePattern, setServiceCreateSchedulePattern] =
-    useState<"temporary" | "permanent">("temporary");
-  const [serviceCreateDate, setServiceCreateDate] = useState<Date>(new Date());
-  const [serviceCreateTime, setServiceCreateTime] = useState<Date>(new Date());
-  const [showCreateDatePicker, setShowCreateDatePicker] = useState(false);
-  const [showCreateTimePicker, setShowCreateTimePicker] = useState(false);
+  const [serviceCreateDurationMinutes, setServiceCreateDurationMinutes] = useState("30");
+  const [serviceCreateDescription, setServiceCreateDescription] = useState("");
 
-  // Edit service state
-  const [serviceDetailOpenId, setServiceDetailOpenId] = useState<number | null>(
-    null,
-  );
+  const [serviceDetailOpenId, setServiceDetailOpenId] = useState<number | null>(null);
   const [serviceEditName, setServiceEditName] = useState("");
   const [serviceEditType, setServiceEditType] = useState("call");
-  const [serviceEditDurationMinutes, setServiceEditDurationMinutes] =
-    useState("30");
-  const [serviceEditCapacity, setServiceEditCapacity] = useState("");
-  const [serviceEditDefaultLocation, setServiceEditDefaultLocation] =
-    useState("");
-  const [serviceEditDefaultMeetingLink, setServiceEditDefaultMeetingLink] =
-    useState("");
-  const [serviceEditEligiblePlans, setServiceEditEligiblePlans] = useState<
-    string[]
-  >([]);
+  const [serviceEditDurationMinutes, setServiceEditDurationMinutes] = useState("30");
+  const [serviceEditDescription, setServiceEditDescription] = useState("");
   const [serviceEditIsActive, setServiceEditIsActive] = useState(true);
-  const [serviceEditAdvancedJson, setServiceEditAdvancedJson] = useState<
-    Record<number, string>
-  >({});
-  const [serviceEditSchedulePattern, setServiceEditSchedulePattern] = useState<
-    Record<number, "temporary" | "permanent">
-  >({});
-  const [serviceEditDate, setServiceEditDate] = useState<Record<number, Date>>(
-    {},
-  );
-  const [serviceEditTime, setServiceEditTime] = useState<Record<number, Date>>(
-    {},
-  );
-  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
-  const [showEditTimePicker, setShowEditTimePicker] = useState(false);
 
   useEffect(() => {
     if (canLoad) {
@@ -85,53 +208,11 @@ export function AdminServicesSection({ token, canLoad }: Props) {
     if (!serviceDetailOpenId) return;
     const svc = servicesHook.services.find((s) => s.id === serviceDetailOpenId);
     if (!svc) return;
-
     setServiceEditName(String(svc.name ?? ""));
     setServiceEditType(String(svc.type ?? "call"));
     setServiceEditDurationMinutes(String(svc.durationMinutes ?? 30));
-    setServiceEditCapacity(svc.capacity == null ? "" : String(svc.capacity));
-    setServiceEditDefaultLocation(String(svc.defaultLocation ?? ""));
-    setServiceEditDefaultMeetingLink(String(svc.defaultMeetingLink ?? ""));
-    setServiceEditEligiblePlans(
-      Array.isArray(svc.eligiblePlans)
-        ? svc.eligiblePlans
-        : svc.programTier
-          ? [String(svc.programTier)]
-          : [],
-    );
+    setServiceEditDescription(svc.description ?? "");
     setServiceEditIsActive(svc.isActive !== false);
-
-    setServiceEditSchedulePattern((prev) => ({
-      ...prev,
-      [serviceDetailOpenId]:
-        svc.schedulePattern === "permanent" ? "permanent" : "temporary",
-    }));
-    if (
-      svc.schedulePatternOptions &&
-      typeof svc.schedulePatternOptions === "object" &&
-      !Array.isArray(svc.schedulePatternOptions)
-    ) {
-      const opts = svc.schedulePatternOptions as any;
-      if (opts.oneTimeDate) {
-        setServiceEditDate((prev) => ({
-          ...prev,
-          [serviceDetailOpenId]: new Date(opts.oneTimeDate),
-        }));
-      }
-      if (opts.oneTimeTime) {
-        const t = new Date();
-        const [hr, mn] = opts.oneTimeTime.split(":");
-        t.setHours(Number(hr), Number(mn), 0, 0);
-        setServiceEditTime((prev) => ({ ...prev, [serviceDetailOpenId]: t }));
-      }
-    }
-
-    if (!serviceEditAdvancedJson[serviceDetailOpenId]) {
-      setServiceEditAdvancedJson((prev) => ({
-        ...prev,
-        [serviceDetailOpenId]: defaultServicePatchJson(svc),
-      }));
-    }
   }, [serviceDetailOpenId, servicesHook.services]);
 
   const handleCreate = async () => {
@@ -140,723 +221,178 @@ export function AdminServicesSection({ token, canLoad }: Props) {
         name: serviceCreateName,
         type: serviceCreateType,
         durationMinutes: serviceCreateDurationMinutes,
-        capacity: serviceCreateCapacity,
-        isActive: serviceCreateIsActive,
-        defaultLocation: serviceCreateDefaultLocation,
-        defaultMeetingLink: serviceCreateDefaultMeetingLink,
-        advancedJson: serviceCreateAdvancedJson,
+        description: serviceCreateDescription,
+        isActive: true,
       });
-
+      setCreateOpen(false);
       setServiceCreateName("");
-      setServiceCreateType("call");
-      setServiceCreateDurationMinutes("30");
-      setServiceCreateCapacity("");
-      setServiceCreateIsActive("true");
-      setServiceCreateDefaultLocation("");
-      setServiceCreateDefaultMeetingLink("");
-      setServiceCreateAdvancedJson("{}");
-      setServiceCreateSchedulePattern("temporary");
-    } catch (e) {
-      servicesHook.setServicesError(
-        e instanceof Error ? e.message : "Create failed",
-      );
-    }
+      setServiceCreateDescription("");
+    } catch (e) {}
+  };
+
+  const handleUpdate = async () => {
+    if (!serviceDetailOpenId) return;
+    try {
+      await servicesHook.updateServiceType(serviceDetailOpenId, {
+        name: serviceEditName,
+        type: serviceEditType,
+        durationMinutes: parseInt(serviceEditDurationMinutes),
+        description: serviceEditDescription,
+        isActive: serviceEditIsActive,
+      });
+      setServiceDetailOpenId(null);
+    } catch (e) {}
+  };
+
+  const handleToggleActive = async (service: any) => {
+    try {
+      await servicesHook.updateServiceType(service.id, {
+        isActive: !service.isActive,
+      });
+    } catch (e) {}
   };
 
   return (
-    <View className="gap-4">
-      <View className="gap-3">
-        <Text className="text-[13px] font-outfit-semibold text-app">
-          Create service type
+    <View className="px-6">
+      <View className="mb-8">
+        <Text className="text-2xl font-clash font-bold text-app mb-2">Services</Text>
+        <Text className="text-sm font-outfit text-textSecondary leading-relaxed mb-6">
+          See every bookable session type, edit details, and control visibility.
         </Text>
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">Name</Text>
-          <View
-            className="rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(15,23,42,0.03)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <TextInput
-              className="text-[14px] font-outfit text-app"
-              value={serviceCreateName}
-              onChangeText={setServiceCreateName}
-              placeholder="e.g. Coach Call"
-              placeholderTextColor={colors.placeholder}
-            />
-          </View>
-        </View>
-
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Type (call, group_call, individual_call, lift_lab_1on1, role_model,
-            one_on_one)
-          </Text>
-          <View
-            className="rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(15,23,42,0.03)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <TextInput
-              className="text-[14px] font-outfit text-app"
-              value={serviceCreateType}
-              onChangeText={setServiceCreateType}
-              placeholder="call"
-              placeholderTextColor={colors.placeholder}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        </View>
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Service Pattern
-          </Text>
-          <View className="flex-row gap-2">
-            {(["temporary", "permanent"] as const).map((p) => (
-              <Pressable
-                key={p}
-                onPress={() => setServiceCreateSchedulePattern(p)}
-                className="flex-1 rounded-2xl border py-3 items-center"
-                style={{
-                  backgroundColor:
-                    serviceCreateSchedulePattern === p
-                      ? `${colors.accent}22`
-                      : isDark
-                        ? "rgba(255,255,255,0.03)"
-                        : "rgba(15,23,42,0.03)",
-                  borderColor:
-                    serviceCreateSchedulePattern === p
-                      ? colors.accent
-                      : isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(15,23,42,0.06)",
-                }}
-              >
-                <Text
-                  className="text-[13px] font-outfit-semibold"
-                  style={{
-                    color:
-                      serviceCreateSchedulePattern === p
-                        ? colors.accent
-                        : colors.textSecondary,
-                  }}
-                >
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Schedule Date & Time
-          </Text>
-          <View className="flex-row gap-2">
-            <Pressable
-              onPress={() => setShowCreateDatePicker(true)}
-              className="flex-1 rounded-2xl border px-4 py-3"
-              style={{
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.03)"
-                  : "rgba(15,23,42,0.03)",
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(15,23,42,0.06)",
-              }}
-            >
-              <Text className="text-[14px] font-outfit text-app">
-                {serviceCreateDate.toLocaleDateString()}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setShowCreateTimePicker(true)}
-              className="flex-1 rounded-2xl border px-4 py-3"
-              style={{
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.03)"
-                  : "rgba(15,23,42,0.03)",
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(15,23,42,0.06)",
-              }}
-            >
-              <Text className="text-[14px] font-outfit text-app">
-                {serviceCreateTime.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Date Time pickers via React Native community standard (if needed we can use generic imports but they might fail. We inject generic DateTimePicker logic if it wasn't stripped) */}
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Duration minutes
-          </Text>
-          <View
-            className="rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(15,23,42,0.03)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <TextInput
-              className="text-[14px] font-outfit text-app"
-              value={serviceCreateDurationMinutes}
-              onChangeText={setServiceCreateDurationMinutes}
-              placeholder="30"
-              placeholderTextColor={colors.placeholder}
-              keyboardType="number-pad"
-            />
-          </View>
-        </View>
-
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Capacity (optional)
-          </Text>
-          <View
-            className="rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(15,23,42,0.03)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <TextInput
-              className="text-[14px] font-outfit text-app"
-              value={serviceCreateCapacity}
-              onChangeText={setServiceCreateCapacity}
-              placeholder="e.g. 1"
-              placeholderTextColor={colors.placeholder}
-              keyboardType="number-pad"
-            />
-          </View>
-        </View>
-
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Active? (true/false)
-          </Text>
-          <View
-            className="rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(15,23,42,0.03)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <TextInput
-              className="text-[14px] font-outfit text-app"
-              value={serviceCreateIsActive}
-              onChangeText={setServiceCreateIsActive}
-              placeholder="true"
-              placeholderTextColor={colors.placeholder}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        </View>
-
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Default location (optional)
-          </Text>
-          <View
-            className="rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(15,23,42,0.03)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <TextInput
-              className="text-[14px] font-outfit text-app"
-              value={serviceCreateDefaultLocation}
-              onChangeText={setServiceCreateDefaultLocation}
-              placeholder="e.g. Zoom"
-              placeholderTextColor={colors.placeholder}
-            />
-          </View>
-        </View>
-
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Default meeting link (optional)
-          </Text>
-          <View
-            className="rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(15,23,42,0.03)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <TextInput
-              className="text-[14px] font-outfit text-app"
-              value={serviceCreateDefaultMeetingLink}
-              onChangeText={setServiceCreateDefaultMeetingLink}
-              placeholder="https://…"
-              placeholderTextColor={colors.placeholder}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        </View>
-
-        <View className="gap-2">
-          <Text className="text-[12px] font-outfit text-secondary">
-            Advanced JSON (optional)
-          </Text>
-          <View
-            className="rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(15,23,42,0.03)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <TextInput
-              className="text-[12px] font-outfit text-app"
-              value={serviceCreateAdvancedJson}
-              onChangeText={setServiceCreateAdvancedJson}
-              placeholder='{"programTier":"PHP_Premium"}'
-              placeholderTextColor={colors.placeholder}
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-              style={{ minHeight: 72, textAlignVertical: "top" }}
-            />
-          </View>
-        </View>
-
-        <View className="flex-row gap-2">
-          <SmallAction
-            label={servicesHook.serviceCreateBusy ? "Creating…" : "Create"}
-            tone="success"
-            onPress={handleCreate}
-            disabled={servicesHook.serviceCreateBusy}
-          />
-          <SmallAction
-            label="Refresh"
-            tone="neutral"
-            onPress={() => servicesHook.loadServices(true)}
-            disabled={servicesHook.servicesLoading}
-          />
-        </View>
+        <ServiceActionButton 
+          label="Add Service" 
+          onPress={() => setCreateOpen(true)} 
+          icon="plus" 
+          tone="accent" 
+        />
       </View>
 
       {servicesHook.servicesLoading && servicesHook.services.length === 0 ? (
-        <View className="gap-2">
-          <Skeleton width="92%" height={14} />
-          <Skeleton width="86%" height={14} />
-          <Skeleton width="90%" height={14} />
+        <View className="gap-4">
+          <Skeleton width="100%" height={100} borderRadius={24} />
+          <Skeleton width="100%" height={100} borderRadius={24} />
         </View>
-      ) : servicesHook.servicesError ? (
-        <Text selectable className="text-sm font-outfit text-red-400">
-          {servicesHook.servicesError}
-        </Text>
-      ) : servicesHook.services.length === 0 ? (
-        <Text className="text-sm font-outfit text-secondary">
-          No service types.
-        </Text>
       ) : (
-        <View className="gap-3">
+        <View className="gap-4 pb-20">
           {servicesHook.services.map((s) => (
-            <Pressable
-              key={String(s.id)}
-              onPress={() => setServiceDetailOpenId(s.id)}
-              style={({ pressed }) => [
-                {
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.03)"
-                    : "rgba(15,23,42,0.03)",
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.06)"
-                    : "rgba(15,23,42,0.06)",
-                  opacity: pressed ? 0.9 : 1,
-                },
-              ]}
+            <View 
+              key={s.id}
+              className="rounded-[32px] border p-6"
+              style={{
+                backgroundColor: isDark ? colors.cardElevated : colors.card,
+                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                ...Shadows.sm
+              }}
             >
-              <View className="gap-1">
-                <View className="flex-row items-center justify-between gap-3">
-                  <Text
-                    className="text-[13px] font-clash font-bold text-app"
-                    numberOfLines={1}
-                  >
-                    #{s.id} {s.name ?? "(name)"}
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-1 mr-4">
+                  <Text className="text-lg font-clash font-bold text-app" numberOfLines={1}>
+                    {s.name}
                   </Text>
-                  <Text
-                    className="text-[11px] font-outfit text-secondary"
-                    numberOfLines={1}
-                  >
-                    {s.isActive === false ? "inactive" : "active"}
+                  <Text className="text-xs font-outfit text-textSecondary uppercase tracking-wider mt-1">
+                    {s.type?.replace(/_/g, ' ')}
                   </Text>
                 </View>
-                <Text
-                  className="text-[12px] font-outfit text-secondary"
-                  numberOfLines={1}
+                <TouchableOpacity 
+                  onPress={() => handleToggleActive(s)}
+                  className={`px-3 py-1.5 rounded-full border ${s.isActive !== false ? 'bg-success/10 border-success/20' : 'bg-secondary/10 border-app/10'}`}
                 >
-                  {s.type ?? "—"} • {s.durationMinutes ?? "—"}m • cap{" "}
-                  {s.capacity ?? "—"}
-                </Text>
+                  <Text className={`text-[10px] font-outfit-bold uppercase tracking-widest ${s.isActive !== false ? 'text-success' : 'text-textSecondary'}`}>
+                    {s.isActive !== false ? 'On' : 'Off'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            </Pressable>
+
+              {s.description ? (
+                <Text className="text-sm font-outfit text-textSecondary mb-4 leading-relaxed" numberOfLines={2}>
+                  {s.description}
+                </Text>
+              ) : null}
+
+              <View className="flex-row items-center gap-4 mb-6">
+                <View className="flex-row items-center gap-1.5 bg-secondary/5 px-3 py-2 rounded-xl">
+                  <Feather name="clock" size={12} color={colors.accent} />
+                  <Text className="text-xs font-outfit-bold text-app">{s.durationMinutes}m</Text>
+                </View>
+                {s.programTier && (
+                  <View className="flex-row items-center gap-1.5 bg-secondary/5 px-3 py-2 rounded-xl">
+                    <Feather name="shield" size={12} color={colors.accent} />
+                    <Text className="text-xs font-outfit-bold text-app">{s.programTier}</Text>
+                  </View>
+                )}
+              </View>
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity 
+                  onPress={() => setServiceDetailOpenId(s.id)}
+                  className="flex-1 h-11 rounded-xl bg-secondary/10 items-center justify-center flex-row gap-2"
+                >
+                  <Feather name="edit-2" size={14} color={colors.text} />
+                  <Text className="text-xs font-outfit-bold text-app uppercase tracking-wider">Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={() => servicesHook.deleteServiceType(s.id)}
+                  className="flex-1 h-11 rounded-xl bg-red-500/10 items-center justify-center flex-row gap-2"
+                >
+                  <Feather name="trash-2" size={14} color="#EF4444" />
+                  <Text className="text-xs font-outfit-bold text-red-400 uppercase tracking-wider">Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           ))}
         </View>
       )}
 
-      {/* SERVICE DETAIL MODAL */}
-      <Modal
-        visible={serviceDetailOpenId != null}
-        animationType="slide"
-        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
-        onRequestClose={() => setServiceDetailOpenId(null)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.background,
-            paddingTop: insets.top,
-          }}
-        >
-          <View className="px-4 pb-3 flex-row items-center justify-between gap-3">
-            <View style={{ flex: 1 }}>
-              <Text
-                className="text-[18px] font-clash font-bold text-app"
-                numberOfLines={1}
-              >
-                Service #{serviceDetailOpenId ?? ""}
-              </Text>
-              <Text className="text-[12px] font-outfit text-secondary">
-                Patch and manage
-              </Text>
-            </View>
-            <SmallAction
-              label="Done"
-              tone="neutral"
-              onPress={() => setServiceDetailOpenId(null)}
-            />
+      {/* CREATE MODAL */}
+      <Modal visible={createOpen} animationType="slide">
+        <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+          <View className="px-6 py-6 flex-row items-center justify-between border-b border-app/5">
+            <Text className="text-2xl font-clash font-bold text-app">New Service</Text>
+            <TouchableOpacity onPress={() => setCreateOpen(false)}>
+              <Feather name="x" size={24} color={colors.text} />
+            </TouchableOpacity>
           </View>
-
-          <ThemedScrollView>
-            {serviceDetailOpenId != null &&
-              (() => {
-                const s = servicesHook.services.find(
-                  (x) => x.id === serviceDetailOpenId,
-                );
-                const busy =
-                  servicesHook.serviceEditBusyId === serviceDetailOpenId;
-                const jsonValue =
-                  serviceEditAdvancedJson[serviceDetailOpenId] ?? "{}";
-
-                return (
-                  <View className="gap-4 p-4">
-                    <View
-                      className="rounded-[20px] border p-4"
-                      style={{
-                        backgroundColor: isDark
-                          ? colors.cardElevated
-                          : "#FFFFFF",
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(15,23,42,0.06)",
-                        ...(isDark ? Shadows.none : Shadows.md),
-                      }}
-                    >
-                      <Text
-                        className="text-[14px] font-clash font-bold text-app"
-                        numberOfLines={2}
-                      >
-                        {s?.name ?? "(name)"}
-                      </Text>
-                      <Text className="text-[12px] font-outfit text-secondary">
-                        {s?.type ?? "—"} • {s?.durationMinutes ?? "—"}m • cap{" "}
-                        {s?.capacity ?? "—"}
-                      </Text>
-                      <Text className="text-[11px] font-outfit text-secondary">
-                        Status: {s?.isActive === false ? "inactive" : "active"}
-                      </Text>
-                    </View>
-
-                    <View
-                      className="rounded-[20px] border p-4"
-                      style={{
-                        backgroundColor: isDark
-                          ? colors.cardElevated
-                          : "#FFFFFF",
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(15,23,42,0.06)",
-                        ...(isDark ? Shadows.none : Shadows.md),
-                      }}
-                    >
-                      <Text className="text-[13px] font-outfit-semibold text-app">
-                        Quick edit
-                      </Text>
-                      <View className="mt-3 gap-2">
-                        <View
-                          className="rounded-2xl border px-4 py-3"
-                          style={{
-                            backgroundColor: isDark
-                              ? "rgba(255,255,255,0.03)"
-                              : "rgba(15,23,42,0.03)",
-                            borderColor: isDark
-                              ? "rgba(255,255,255,0.06)"
-                              : "rgba(15,23,42,0.06)",
-                          }}
-                        >
-                          <TextInput
-                            className="text-[14px] font-outfit text-app"
-                            value={serviceEditName}
-                            onChangeText={setServiceEditName}
-                            placeholder="Service name"
-                            placeholderTextColor={colors.placeholder}
-                          />
-                        </View>
-
-                        <View className="flex-row flex-wrap gap-2">
-                          {[
-                            "call",
-                            "group_call",
-                            "individual_call",
-                            "lift_lab_1on1",
-                            "role_model",
-                          ].map((t) => (
-                            <Pressable
-                              key={`type-${t}`}
-                              accessibilityRole="button"
-                              onPress={() => setServiceEditType(t)}
-                              className="rounded-full border px-3 py-2"
-                              style={{
-                                backgroundColor:
-                                  serviceEditType === t
-                                    ? isDark
-                                      ? `${colors.accent}22`
-                                      : `${colors.accent}16`
-                                    : isDark
-                                      ? "rgba(255,255,255,0.03)"
-                                      : "rgba(15,23,42,0.03)",
-                                borderColor:
-                                  serviceEditType === t
-                                    ? isDark
-                                      ? `${colors.accent}44`
-                                      : `${colors.accent}2E`
-                                    : isDark
-                                      ? "rgba(255,255,255,0.06)"
-                                      : "rgba(15,23,42,0.06)",
-                              }}
-                            >
-                              <Text
-                                className="text-[11px] font-outfit-semibold"
-                                style={{
-                                  color:
-                                    serviceEditType === t
-                                      ? colors.accent
-                                      : colors.textSecondary,
-                                }}
-                              >
-                                {t}
-                              </Text>
-                            </Pressable>
-                          ))}
-                        </View>
-
-                        <View className="flex-row gap-2">
-                          <View
-                            className="flex-1 rounded-2xl border px-4 py-3"
-                            style={{
-                              backgroundColor: isDark
-                                ? "rgba(255,255,255,0.03)"
-                                : "rgba(15,23,42,0.03)",
-                              borderColor: isDark
-                                ? "rgba(255,255,255,0.06)"
-                                : "rgba(15,23,42,0.06)",
-                            }}
-                          >
-                            <TextInput
-                              className="text-[14px] font-outfit text-app"
-                              value={serviceEditDurationMinutes}
-                              onChangeText={setServiceEditDurationMinutes}
-                              placeholder="Duration"
-                              keyboardType="number-pad"
-                            />
-                          </View>
-                          <View
-                            className="flex-1 rounded-2xl border px-4 py-3"
-                            style={{
-                              backgroundColor: isDark
-                                ? "rgba(255,255,255,0.03)"
-                                : "rgba(15,23,42,0.03)",
-                              borderColor: isDark
-                                ? "rgba(255,255,255,0.06)"
-                                : "rgba(15,23,42,0.06)",
-                            }}
-                          >
-                            <TextInput
-                              className="text-[14px] font-outfit text-app"
-                              value={serviceEditCapacity}
-                              onChangeText={setServiceEditCapacity}
-                              placeholder="Capacity"
-                              keyboardType="number-pad"
-                            />
-                          </View>
-                        </View>
-
-                        <View className="flex-row gap-2">
-                          <SmallAction
-                            label={serviceEditIsActive ? "Active" : "Inactive"}
-                            tone="neutral"
-                            onPress={() => setServiceEditIsActive((v) => !v)}
-                            disabled={busy}
-                          />
-                          <SmallAction
-                            label={busy ? "Saving…" : "Save quick edit"}
-                            tone="success"
-                            onPress={() => {
-                              const duration = parseIntOrUndefined(
-                                serviceEditDurationMinutes,
-                              );
-                              const cap =
-                                parseIntOrUndefined(serviceEditCapacity);
-
-                              const dDate =
-                                serviceEditDate[serviceDetailOpenId] ??
-                                new Date();
-                              const dTime =
-                                serviceEditTime[serviceDetailOpenId] ??
-                                new Date();
-                              const dateStr = dDate.toISOString().slice(0, 10);
-                              const timeStr = dTime.toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: false,
-                              });
-
-                              servicesHook.updateServiceType(
-                                serviceDetailOpenId,
-                                {
-                                  name: serviceEditName.trim() || undefined,
-                                  type: serviceEditType,
-                                  durationMinutes: duration ?? undefined,
-                                  capacity: cap ?? undefined,
-                                  isActive: serviceEditIsActive,
-                                  schedulePattern:
-                                    serviceEditSchedulePattern[
-                                      serviceDetailOpenId
-                                    ],
-                                  schedulePatternOptions: {
-                                    oneTimeDate: dateStr,
-                                    oneTimeTime: timeStr,
-                                  },
-                                },
-                              );
-                            }}
-                            disabled={busy}
-                          />
-                        </View>
-                      </View>
-                    </View>
-
-                    <View className="gap-2">
-                      <Text className="text-[12px] font-outfit text-secondary">
-                        Patch JSON
-                      </Text>
-                      <View
-                        className="rounded-2xl border px-4 py-3"
-                        style={{
-                          backgroundColor: isDark
-                            ? "rgba(255,255,255,0.03)"
-                            : "rgba(15,23,42,0.03)",
-                          borderColor: isDark
-                            ? "rgba(255,255,255,0.06)"
-                            : "rgba(15,23,42,0.06)",
-                        }}
-                      >
-                        <TextInput
-                          className="text-[12px] font-outfit text-app"
-                          value={jsonValue}
-                          onChangeText={(t) =>
-                            setServiceEditAdvancedJson((prev) => ({
-                              ...prev,
-                              [serviceDetailOpenId]: t,
-                            }))
-                          }
-                          multiline
-                          style={{ minHeight: 120, textAlignVertical: "top" }}
-                        />
-                      </View>
-                    </View>
-
-                    <View className="flex-row gap-2">
-                      <SmallAction
-                        label={busy ? "Saving…" : "Save JSON"}
-                        tone="success"
-                        onPress={() => {
-                          try {
-                            const patch = JSON.parse(jsonValue);
-                            servicesHook.updateServiceType(
-                              serviceDetailOpenId,
-                              patch,
-                            );
-                          } catch {
-                            servicesHook.setServicesError("Invalid JSON");
-                          }
-                        }}
-                        disabled={busy}
-                      />
-                      <SmallAction
-                        label={busy ? "Deleting…" : "Delete"}
-                        tone="danger"
-                        onPress={() =>
-                          servicesHook.deleteServiceType(serviceDetailOpenId)
-                        }
-                        disabled={busy}
-                      />
-                    </View>
-                  </View>
-                );
-              })()}
+          <ThemedScrollView className="p-6">
+            <FormField label="Service Name" value={serviceCreateName} onChangeText={setServiceCreateName} placeholder="e.g. 1:1 Session" />
+            <FormField label="Description" value={serviceCreateDescription} onChangeText={setServiceCreateDescription} placeholder="Describe the session..." multiline />
+            <Dropdown label="Service Type" value={serviceCreateType} onSelect={setServiceCreateType} options={SERVICE_TYPES} />
+            <FormField label="Duration (Minutes)" value={serviceCreateDurationMinutes} onChangeText={setServiceCreateDurationMinutes} keyboardType="numeric" />
+            
+            <View className="mt-4">
+              <ServiceActionButton label="Create Service" onPress={handleCreate} tone="accent" />
+            </View>
           </ThemedScrollView>
-        </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* EDIT MODAL */}
+      <Modal visible={serviceDetailOpenId !== null} animationType="slide">
+        <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+          <View className="px-6 py-6 flex-row items-center justify-between border-b border-app/5">
+            <Text className="text-2xl font-clash font-bold text-app">Edit Service</Text>
+            <TouchableOpacity onPress={() => setServiceDetailOpenId(null)}>
+              <Feather name="x" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          <ThemedScrollView className="p-6">
+            <FormField label="Service Name" value={serviceEditName} onChangeText={setServiceEditName} />
+            <FormField label="Description" value={serviceEditDescription} onChangeText={setServiceEditDescription} placeholder="Describe the session..." multiline />
+            <Dropdown label="Service Type" value={serviceEditType} onSelect={setServiceEditType} options={SERVICE_TYPES} />
+            <FormField label="Duration (Minutes)" value={serviceEditDurationMinutes} onChangeText={setServiceEditDurationMinutes} keyboardType="numeric" />
+            
+            <View className="flex-row items-center justify-between mb-8 p-4 rounded-2xl bg-secondary/5">
+              <Text className="font-outfit-bold text-app uppercase tracking-wider text-xs">Service Active</Text>
+              <TouchableOpacity 
+                onPress={() => setServiceEditIsActive(!serviceEditIsActive)}
+                className={`w-14 h-8 rounded-full items-center justify-center ${serviceEditIsActive ? 'bg-success' : 'bg-secondary/20'}`}
+              >
+                <View className={`w-6 h-6 rounded-full bg-white shadow-sm self-${serviceEditIsActive ? 'end' : 'start'} mx-1`} />
+              </TouchableOpacity>
+            </View>
+
+            <ServiceActionButton label="Save Changes" onPress={handleUpdate} tone="accent" />
+          </ThemedScrollView>
+        </SafeAreaView>
       </Modal>
     </View>
   );
