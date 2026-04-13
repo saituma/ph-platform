@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { ActivityIndicator, Alert, Pressable, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
@@ -15,6 +16,7 @@ import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { apiRequest } from "@/lib/api";
+import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { Shadows } from "@/constants/theme";
 import { ProgramId } from "@/constants/program-details";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -89,6 +91,7 @@ export default function ProgramModuleDetailScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedOnceRef = useRef(false);
+  const wasLockedRef = useRef<boolean | null>(null);
 
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
@@ -175,6 +178,47 @@ export default function ProgramModuleDetailScreen() {
     hasLoadedOnceRef.current = true;
     void loadWorkspace({ force });
   }, [isFocused, loadWorkspace]);
+
+  useEffect(() => {
+    const notifyModuleOpened = async () => {
+      if (!module || module.locked || !token) return;
+      const moduleKey = `ph:module-opened:${module.id}`;
+      const alreadyNotified = await AsyncStorage.getItem(moduleKey);
+      if (alreadyNotified === "1") return;
+
+      await scheduleLocalNotification({
+        title: "Module available",
+        body: `Module ${module.order}: ${module.title} is now open for you.`,
+        data: {
+          type: "module-open",
+          moduleId: String(module.id),
+          url: `/programs/module/${module.id}`,
+        },
+        channelId: "progress",
+      });
+      await AsyncStorage.setItem(moduleKey, "1");
+    };
+
+    void notifyModuleOpened();
+  }, [module, token]);
+
+  useEffect(() => {
+    if (!module) return;
+    const wasLocked = wasLockedRef.current;
+    if (wasLocked === true && module.locked === false) {
+      void scheduleLocalNotification({
+        title: "New module unlocked",
+        body: `You just unlocked Module ${module.order}: ${module.title}.`,
+        data: {
+          type: "module-unlocked",
+          moduleId: String(module.id),
+          url: `/programs/module/${module.id}`,
+        },
+        channelId: "progress",
+      });
+    }
+    wasLockedRef.current = module.locked;
+  }, [module]);
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>

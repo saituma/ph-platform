@@ -36,6 +36,12 @@ function getChannelId(type?: string) {
   return "default";
 }
 
+function getCategoryId(type?: string) {
+  const value = String(type ?? "").toLowerCase();
+  if (/(message|chat|group-message)/.test(value)) return "chat-message";
+  return undefined;
+}
+
 /** Structured logs for push delivery debugging; grep host logs for `PH_PUSH_DEBUG`. */
 function logDebugPush(payload: Record<string, unknown>) {
   console.info(
@@ -165,6 +171,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
         tokenPrefix: `${token.slice(0, 12)}…`,
       },
     });
+    const categoryId = getCategoryId(data?.type);
     const message: ExpoPushMessage = {
       to: token,
       title,
@@ -172,6 +179,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
       data: dataForDevice,
       sound: "default",
       channelId,
+      categoryId,
       priority: "high",
     };
 

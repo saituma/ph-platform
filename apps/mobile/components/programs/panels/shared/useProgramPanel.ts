@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
+import { scheduleLocalNotification } from "@/lib/localNotifications";
 
 export function useProgramPanel() {
   const { isDark, colors } = useAppTheme();
@@ -8,18 +9,10 @@ export function useProgramPanel() {
   const scheduleLocalNotification = useCallback(
     async (title: string, body: string, data?: Record<string, unknown>) => {
       try {
-        const { getNotifications } = await import("@/lib/notifications");
-        const Notifications = await getNotifications();
-        if (!Notifications) return;
-
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title,
-            body,
-            data: data ?? {},
-            sound: "default",
-          },
-          trigger: null,
+        await scheduleLocalNotification({
+          title,
+          body,
+          data,
         });
       } catch (err) {
         if (__DEV__) console.warn("[useProgramPanel] Failed to schedule notification:", err);

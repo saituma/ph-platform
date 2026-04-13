@@ -23,6 +23,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
+import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { canAccessTier } from "@/lib/planAccess";
 import { ProgramId } from "@/constants/program-details";
 
@@ -488,6 +489,17 @@ export default function ProgramSessionDetailScreen() {
       try {
         await finishTrainingContentV2Session(token, sessionIdNum, workoutLog);
         const updated = await load(true);
+        const sessionTitle = session?.title ?? "Your session";
+        await scheduleLocalNotification({
+          title: "Session completed",
+          body: `${sessionTitle} has been marked as complete. Great work!`,
+          data: {
+            type: "session-complete",
+            screen: "programs",
+            sessionId: String(sessionIdNum),
+          },
+          channelId: "progress",
+        });
         const path = computeNextPath(updated);
         setWorkoutSheetOpen(false);
         if (path) {

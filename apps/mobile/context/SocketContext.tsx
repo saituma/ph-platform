@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import { io, Socket } from "socket.io-client";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { useAppSelector } from "@/store/hooks";
+import { scheduleLocalNotification } from "@/lib/localNotifications";
 
 
 interface SocketContextType {
@@ -104,6 +105,41 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
 
+    const onReferralUpdated = (payload: {
+      content?: string;
+      athleteId?: number | string;
+      referralId?: number | string;
+    }) => {
+      void scheduleLocalNotification({
+        title: "Referral update",
+        body: payload?.content?.trim() || "A new referral has been shared with you.",
+        data: {
+          type: "physio-referral",
+          screen: "physio-referral",
+          url: "/physio-referral",
+          athleteId: payload?.athleteId != null ? String(payload.athleteId) : undefined,
+          referralId: payload?.referralId != null ? String(payload.referralId) : undefined,
+        },
+        channelId: "account",
+      });
+    };
+
+    const onReferralDeleted = () => {
+      void scheduleLocalNotification({
+        title: "Referral changed",
+        body: "Your referral details were updated. Tap to review.",
+        data: {
+          type: "physio-referral",
+          screen: "physio-referral",
+          url: "/physio-referral",
+        },
+        channelId: "account",
+      });
+    };
+
+    newSocket.on("physio:referral:updated", onReferralUpdated);
+    newSocket.on("physio:referral:deleted", onReferralDeleted);
+
     // Message and group chat alerts are delivered via server-side Expo push so they appear
     // in the system tray when the app is backgrounded or killed. Foreground handling uses
     // addNotificationReceivedListener in InAppNotificationsContext (no duplicate local socket notifications).
@@ -112,6 +148,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     setSocket(newSocket);
 
     return () => {
+      newSocket.off("physio:referral:updated", onReferralUpdated);
+      newSocket.off("physio:referral:deleted", onReferralDeleted);
       newSocket.disconnect();
       socketRef.current = null;
       setSocket(null);
