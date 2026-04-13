@@ -7,14 +7,20 @@ type Coordinate = {
   longitude: number;
 };
 
+/** Esri World Imagery — satellite, no API key (Leaflet y/x order). */
+const TILE_SATELLITE =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+
 type OsmMapViewProps = {
   coordinates: Coordinate[];
   routeColor: string;
   startColor: string;
   endColor: string;
+  /** Destination pin / line — must differ from `endColor` (live position). */
+  destinationColor: string;
   backgroundColor: string;
-  isDark?: boolean;
   destination?: Coordinate | null;
+  /** Latest GPS center (live puck); trail points may update less often. */
   activeRegion?: { latitude: number; longitude: number } | null;
 };
 
@@ -23,16 +29,14 @@ const buildHtml = (
   routeColor: string,
   startColor: string,
   endColor: string,
+  destinationColor: string,
   backgroundColor: string,
-  isDark: boolean,
   destination: Coordinate | null,
   activeRegion: { latitude: number; longitude: number } | null,
 ) => {
   const coordsJson = JSON.stringify(coordinates);
   const destinationJson = JSON.stringify(destination);
-  const tileUrl = isDark
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
-    : "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const activeJson = JSON.stringify(activeRegion);
 
   return `<!doctype html>
 <html>
@@ -66,36 +70,106 @@ const buildHtml = (
     <script>
       const coords = ${coordsJson};
       const destination = ${destinationJson};
+      const activeRegion = ${activeJson};
       const map = L.map("map", {
         zoomControl: false,
         attributionControl: true,
         zoomSnap: 0.5,
       });
 
-      L.tileLayer("${tileUrl}", {
+      L.tileLayer("${TILE_SATELLITE}", {
         maxZoom: 19,
-        attribution: "© OpenStreetMap contributors",
+        attribution: "Imagery © Esri, © OpenStreetMap",
       }).addTo(map);
+
+      function extendBounds(bounds, lat, lng) {
+        if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
+          bounds.extend([lat, lng]);
+        }
+      }
 
       if (coords.length > 0) {
         const latlngs = coords.map(c => [c.latitude, c.longitude]);
         const route = L.polyline(latlngs, { color: "${routeColor}", weight: 4 });
         route.addTo(map);
-        map.fitBounds(route.getBounds(), { padding: [24, 24] });
 
         const first = latlngs[0];
-        const last = latlngs[latlngs.length - 1];
-        L.circleMarker(first, { radius: 4, color: "${startColor}", fillColor: "${startColor}", fillOpacity: 1 }).addTo(map);
-        L.circleMarker(last, { radius: 4, color: "${endColor}", fillColor: "${endColor}", fillOpacity: 1 }).addTo(map);
-        if (destination) {
-          L.circleMarker([destination.latitude, destination.longitude], { radius: 5, color: "${endColor}", fillColor: "${endColor}", fillOpacity: 1 }).addTo(map);
+        L.circleMarker(first, {
+          radius: 5,
+          color: "${startColor}",
+          fillColor: "${startColor}",
+          fillOpacity: 1,
+          weight: 2,
+        }).addTo(map);
+
+        const trailEnd = latlngs[latlngs.length - 1];
+        const live = activeRegion && isFinite(activeRegion.latitude) && isFinite(activeRegion.longitude)
+          ? [activeRegion.latitude, activeRegion.longitude]
+          : null;
+
+        if (live) {
+          L.circleMarker(live, {
+            radius: 6,
+            color: "${endColor}",
+            fillColor: "${endColor}",
+            fillOpacity: 1,
+            weight: 2,
+          }).addTo(map);
+        } else if (latlngs.length > 1) {
+          L.circleMarker(trailEnd, {
+            radius: 5,
+            color: "${endColor}",
+            fillColor: "${endColor}",
+            fillOpacity: 1,
+            weight: 2,
+          }).addTo(map);
         }
-      } else if (destination) {
+
+        const lineFrom = live || trailEnd;
+        if (destination && destination.latitude != null && destination.longitude != null) {
+          const destLatLng = [destination.latitude, destination.longitude];
+          L.circleMarker(destLatLng, {
+            radius: 7,
+            color: "${destinationColor}",
+            fillColor: "${destinationColor}",
+            fillOpacity: 1,
+            weight: 2,
+          }).addTo(map);
+          L.polyline([lineFrom, destLatLng], {
+            color: "${destinationColor}",
+            weight: 3,
+            dashArray: "10 8",
+            opacity: 0.95,
+          }).addTo(map);
+        }
+
+        let bounds = route.getBounds();
+        if (!bounds.isValid() && latlngs.length === 1) {
+          bounds = L.latLngBounds(latlngs[0], latlngs[0]);
+        }
+        extendBounds(bounds, destination && destination.latitude, destination && destination.longitude);
+        if (live) extendBounds(bounds, live[0], live[1]);
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [36, 36], maxZoom: 17 });
+        }
+      } else if (destination && destination.latitude != null && destination.longitude != null) {
         map.setView([destination.latitude, destination.longitude], 15);
-        L.circleMarker([destination.latitude, destination.longitude], { radius: 5, color: "${endColor}", fillColor: "${endColor}", fillOpacity: 1 }).addTo(map);
-      } else if (activeRegion) {
+        L.circleMarker([destination.latitude, destination.longitude], {
+          radius: 7,
+          color: "${destinationColor}",
+          fillColor: "${destinationColor}",
+          fillOpacity: 1,
+          weight: 2,
+        }).addTo(map);
+      } else if (activeRegion && isFinite(activeRegion.latitude) && isFinite(activeRegion.longitude)) {
         map.setView([activeRegion.latitude, activeRegion.longitude], 15);
-        L.circleMarker([activeRegion.latitude, activeRegion.longitude], { radius: 5, color: "${startColor}", fillColor: "${startColor}", fillOpacity: 1 }).addTo(map);
+        L.circleMarker([activeRegion.latitude, activeRegion.longitude], {
+          radius: 6,
+          color: "${endColor}",
+          fillColor: "${endColor}",
+          fillOpacity: 1,
+          weight: 2,
+        }).addTo(map);
       } else {
         map.setView([0, 0], 2);
       }
@@ -109,8 +183,8 @@ export function OsmMapView({
   routeColor,
   startColor,
   endColor,
+  destinationColor,
   backgroundColor,
-  isDark = false,
   destination = null,
   activeRegion = null,
 }: OsmMapViewProps) {
@@ -121,8 +195,8 @@ export function OsmMapView({
         routeColor,
         startColor,
         endColor,
+        destinationColor,
         backgroundColor,
-        isDark,
         destination,
         activeRegion,
       ),
@@ -131,8 +205,8 @@ export function OsmMapView({
       routeColor,
       startColor,
       endColor,
+      destinationColor,
       backgroundColor,
-      isDark,
       destination,
       activeRegion,
     ],
@@ -144,6 +218,8 @@ export function OsmMapView({
         originWhitelist={[
           "https://*.openstreetmap.org",
           "https://*.cartocdn.com",
+          "https://server.arcgisonline.com",
+          "https://*.arcgisonline.com",
         ]}
         source={{ html }}
         javaScriptEnabled

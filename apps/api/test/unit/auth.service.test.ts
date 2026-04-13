@@ -128,6 +128,47 @@ describe("auth.service", () => {
       });
     });
 
+    test("TC-A006b: registerLocal revives soft-deleted users and clears blocked status", async () => {
+      const mockSelect = db.select as jest.Mock;
+      const mockUpdate = db.update as jest.Mock;
+
+      mockSelect
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValueOnce([]),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValueOnce([
+                  {
+                    id: 99,
+                    cognitoSub: "local:old",
+                    tokenVersion: 2,
+                    isDeleted: true,
+                    isBlocked: true,
+                  },
+                ]),
+              }),
+            }),
+          }),
+        });
+
+      const setMock = jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue([{ id: 99 }]),
+      });
+      mockUpdate.mockReturnValue({ set: setMock });
+
+      const result = await registerLocal(baseInput);
+      expect(result).toEqual({ ok: true });
+      expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ isDeleted: false, isBlocked: false }));
+      expect(sendOtpEmail).toHaveBeenCalledWith(expect.objectContaining({ to: baseInput.email }));
+    });
+
     test("TC-A007: confirmLocal marks email as verified with correct code", async () => {
       const mockSelect = db.select as jest.Mock;
       const mockUpdate = db.update as jest.Mock;

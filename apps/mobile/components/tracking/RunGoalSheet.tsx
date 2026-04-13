@@ -246,8 +246,8 @@ export function RunGoalSheet({
                       <OsmTapPickMap
                         region={region}
                         destination={destination}
-                        isDark={isDark}
                         backgroundColor={colors.surfaceHigh}
+                        markerColor={colors.coral}
                         onPick={setDestination}
                       />
                     ) : (

@@ -6,6 +6,9 @@ type UserCard = {
   name: string;
   email?: string;
   isBlocked?: boolean;
+  athleteType: "Youth" | "Adult";
+  guardianName?: string;
+  guardianEmail?: string;
   tier: string;
   status: string;
   onboarding: string;
@@ -20,7 +23,13 @@ type UsersCardsProps = {
   onDelete: (userId: number) => void;
 };
 
-export function UsersCards({ users, onSelect, onChangePlan, onToggleBlock, onDelete }: UsersCardsProps) {
+export function UsersCards({
+  users,
+  onSelect,
+  onChangePlan,
+  onToggleBlock,
+  onDelete,
+}: UsersCardsProps) {
   return (
     <div className="space-y-3 md:hidden">
       {users.map((user) => (
@@ -40,10 +49,27 @@ export function UsersCards({ users, onSelect, onChangePlan, onToggleBlock, onDel
               {user.isBlocked ? "Blocked" : "Active"}
             </span>
             {user.email ? (
-              <span className="truncate text-[11px] text-muted-foreground">{user.email}</span>
+              <span className="truncate text-[11px] text-muted-foreground">
+                {user.email}
+              </span>
             ) : null}
           </div>
           <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <span>Athlete Type</span>
+              <span className="text-foreground">{user.athleteType}</span>
+            </div>
+            {user.athleteType === "Youth" ? (
+              <div className="flex items-start justify-between gap-4">
+                <span>Guardian</span>
+                <span className="text-right text-foreground">
+                  <span className="block">{user.guardianName ?? "-"}</span>
+                  <span className="block text-muted-foreground">
+                    {user.guardianEmail ?? "-"}
+                  </span>
+                </span>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between">
               <span>Status</span>
               <span className="text-foreground">{user.status}</span>

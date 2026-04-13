@@ -22,6 +22,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import Purchases from "react-native-purchases";
 import Constants, { ExecutionEnvironment } from "expo-constants";
+import { RootErrorBoundary } from "@/components/RootErrorBoundary";
+import { runStartupSelfTest } from "@/lib/startupDiagnostics";
 
 const GestureRoot = ({ children }: { children: ReactElement }) => (
   <GestureHandlerRootView style={{ flex: 1 }}>{children}</GestureHandlerRootView>
@@ -38,15 +40,31 @@ export default function RootLayout() {
       return;
     }
 
+    const iosKey = process.env.EXPO_PUBLIC_RC_IOS_KEY?.trim();
+    const androidKey = process.env.EXPO_PUBLIC_RC_ANDROID_KEY?.trim();
+    const key = Platform.OS === "ios" ? iosKey : Platform.OS === "android" ? androidKey : undefined;
+    if (!key) {
+      console.warn(
+        "RevenueCat API key missing; skipping Purchases.configure. Set EXPO_PUBLIC_RC_IOS_KEY / EXPO_PUBLIC_RC_ANDROID_KEY for IAP builds.",
+      );
+      return;
+    }
+    // Test Store keys (test_…) are blocked by the SDK in release/preview APKs — only use them in dev/debug (e.g. EAS development client).
+    if (key.startsWith("test_") && !__DEV__) {
+      console.warn(
+        "RevenueCat Test Store API key skipped in release build. Use Google Play / App Store public keys (goog_… / appl_…) for preview or production APKs, or test IAP from a development client build.",
+      );
+      return;
+    }
     try {
-      if (Platform.OS === "ios") {
-        Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_IOS_KEY || "" });
-      } else if (Platform.OS === "android") {
-        Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_ANDROID_KEY || "" });
-      }
+      Purchases.configure({ apiKey: key });
     } catch (e) {
       console.warn("Failed to configure Purchases:", e);
     }
+  }, []);
+
+  useEffect(() => {
+    void runStartupSelfTest();
   }, []);
 
   return (
@@ -68,6 +86,7 @@ export default function RootLayout() {
         RefreshProvider,
       ]}
     >
+      <RootErrorBoundary>
       <View style={{ flex: 1 }}>
         <AuthPersist />
         <Stack
@@ -160,6 +179,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="auto" />
       </View>
+      </RootErrorBoundary>
     </Compose>
   );
 }

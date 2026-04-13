@@ -1,5 +1,8 @@
 import * as SQLite from "expo-sqlite";
 
+/** Saved on the summary screen before feedback; replaced when the user saves feedback. */
+export const EFFORT_PENDING_FEEDBACK = -1;
+
 export interface RunRecord {
   id: string;
   date: string;
@@ -91,20 +94,27 @@ export function getRecentRuns(limit: number = 3): RunRecord[] {
   );
 }
 
-export function getWeeklySummaries() {
+/**
+ * Matches the "THIS WEEK" card: last 7 calendar days through end of today
+ * (same window as `getLastNDaysRangeLabel(7)`).
+ */
+export function getWeeklySummaries(now: Date = new Date()) {
   ensureInitialized();
   const runs = db.getAllSync<RunRecord>("SELECT * FROM runs");
-  
-  const now = Date.now();
-  const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-  
+
+  const windowEnd = new Date(now);
+  windowEnd.setHours(23, 59, 59, 999);
+  const windowStart = new Date(now);
+  windowStart.setDate(windowStart.getDate() - 6);
+  windowStart.setHours(0, 0, 0, 0);
+
   let totalDistance = 0;
   let totalTime = 0;
   let numRuns = 0;
-  
+
   runs.forEach((r) => {
-    const runDate = new Date(r.date).getTime();
-    if (now - runDate < ONE_WEEK) {
+    const runDate = new Date(r.date);
+    if (runDate >= windowStart && runDate <= windowEnd) {
       totalDistance += r.distance_meters;
       totalTime += r.duration_seconds;
       numRuns += 1;
@@ -123,6 +133,8 @@ export function getPersonalBests(): PersonalBests {
   let bestPaceMinPerKm: number | null = null;
 
   runs.forEach((r) => {
+    if (r.effort_level === EFFORT_PENDING_FEEDBACK) return;
+
     if (Number.isFinite(r.distance_meters)) {
       longestRunMeters = longestRunMeters === null ? r.distance_meters : Math.max(longestRunMeters, r.distance_meters);
     }
@@ -147,6 +159,11 @@ export function getPersonalBests(): PersonalBests {
 export function getUnsyncedRuns(): RunRecord[] {
   ensureInitialized();
   return db.getAllSync<RunRecord>("SELECT * FROM runs WHERE synced_at IS NULL");
+}
+
+export function deleteRunRecord(id: string) {
+  ensureInitialized();
+  db.runSync("DELETE FROM runs WHERE id = ?", [id]);
 }
 
 export function markRunsSynced(ids: string[]) {

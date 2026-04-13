@@ -6,21 +6,22 @@ import type { Region } from "react-native-maps";
 type Props = {
   region: Region;
   destination: { latitude: number; longitude: number } | null;
-  isDark: boolean;
   backgroundColor: string;
+  /** Pin / tap marker color (should match app accent for destination). */
+  markerColor: string;
   onPick: (coord: { latitude: number; longitude: number }) => void;
 };
+
+const TILE_SATELLITE =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 function buildHtml(
   region: Region,
   destination: { latitude: number; longitude: number } | null,
-  isDark: boolean,
   backgroundColor: string,
+  markerColor: string,
 ) {
   const destJson = JSON.stringify(destination);
-  const tileUrl = isDark
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
-    : "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
   const lat = region.latitude;
   const lng = region.longitude;
   const zoom = 14;
@@ -41,18 +42,31 @@ function buildHtml(
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script>
       const destination = ${destJson};
+      const markerColor = "${markerColor}";
       const map = L.map("map", { zoomControl: true, attributionControl: true });
-      L.tileLayer("${tileUrl}", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+      L.tileLayer("${TILE_SATELLITE}", {
+        maxZoom: 19,
+        attribution: "Imagery © Esri, © OpenStreetMap",
+      }).addTo(map);
       map.setView([${lat}, ${lng}], ${zoom});
       let marker = null;
+      function placeMarker(lat, lng) {
+        if (marker) { map.removeLayer(marker); }
+        marker = L.circleMarker([lat, lng], {
+          radius: 8,
+          color: markerColor,
+          fillColor: markerColor,
+          fillOpacity: 0.95,
+          weight: 2,
+        }).addTo(map);
+      }
       if (destination && destination.latitude && destination.longitude) {
-        marker = L.marker([destination.latitude, destination.longitude]).addTo(map);
+        placeMarker(destination.latitude, destination.longitude);
       }
       map.on("click", function (e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
-        if (marker) { map.removeLayer(marker); }
-        marker = L.marker([lat, lng]).addTo(map);
+        placeMarker(lat, lng);
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: "pick", lat, lng }));
         }
@@ -65,10 +79,24 @@ function buildHtml(
 /**
  * OpenStreetMap (Leaflet) tap-to-pick — avoids Google Maps SDK on Android when no API key is baked in.
  */
-export function OsmTapPickMap({ region, destination, isDark, backgroundColor, onPick }: Props) {
+export function OsmTapPickMap({
+  region,
+  destination,
+  backgroundColor,
+  markerColor,
+  onPick,
+}: Props) {
   const html = useMemo(
-    () => buildHtml(region, destination, isDark, backgroundColor),
-    [region.latitude, region.longitude, region.latitudeDelta, region.longitudeDelta, destination, isDark, backgroundColor],
+    () => buildHtml(region, destination, backgroundColor, markerColor),
+    [
+      region.latitude,
+      region.longitude,
+      region.latitudeDelta,
+      region.longitudeDelta,
+      destination,
+      backgroundColor,
+      markerColor,
+    ],
   );
 
   return (

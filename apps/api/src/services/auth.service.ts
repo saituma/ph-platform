@@ -326,6 +326,7 @@ export async function registerLocal(input: { email: string; password: string; na
       .update(userTable)
       .set({
         isDeleted: false,
+        isBlocked: false,
         name: input.name,
         passwordHash: hash,
         passwordSalt: salt,

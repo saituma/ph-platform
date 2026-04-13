@@ -4,7 +4,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,
@@ -201,8 +201,16 @@ export default function ActiveRunScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-      <Animated.View style={screenStyle}>
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+          animation: "fade",
+        }}
+      />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+        <Animated.View style={screenStyle}>
         <LiveMap
           useOsmMap={useOsmMap}
           activeRegion={activeRegion}
@@ -309,7 +317,8 @@ export default function ActiveRunScreen() {
           colors={colors}
           insetsBottom={insets.bottom}
         />
-      </Animated.View>
-    </SafeAreaView>
+        </Animated.View>
+      </SafeAreaView>
+    </>
   );
 }

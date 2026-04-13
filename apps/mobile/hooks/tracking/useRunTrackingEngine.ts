@@ -17,7 +17,6 @@ export function useRunTrackingEngine(
     tick,
     addCoordinate,
     distanceMeters,
-    coordinates,
     goalKm,
     destination,
     goalReached,
@@ -32,6 +31,11 @@ export function useRunTrackingEngine(
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [followUser, setFollowUser] = useState(true);
   const [initialRegion, setInitialRegion] = useState<Region | null>(null);
+  /** Latest GPS fix (unfiltered) for map position; trail in the store is jitter-filtered. */
+  const [liveCoordinate, setLiveCoordinate] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const watchRef = useRef<Location.LocationSubscription | null>(null);
@@ -51,10 +55,13 @@ export function useRunTrackingEngine(
         timeInterval: 1000,
       },
       (loc) => {
+        const { latitude, longitude } = loc.coords;
+        setLiveCoordinate({ latitude, longitude });
         addCoordinate({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
+          latitude,
+          longitude,
           timestamp: loc.timestamp,
+          accuracy: loc.coords.accuracy ?? null,
         });
       },
     );
@@ -113,12 +120,14 @@ export function useRunTrackingEngine(
       const current = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
+      const { latitude, longitude } = current.coords;
       setInitialRegion({
-        latitude: current.coords.latitude,
-        longitude: current.coords.longitude,
+        latitude,
+        longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       });
+      setLiveCoordinate({ latitude, longitude });
 
       setHasGps(true);
     } catch {
@@ -151,11 +160,10 @@ export function useRunTrackingEngine(
       markGoalReached();
       triggerGoalFeedback("Goal reached", "Goal reached!");
     }
-    if (destination && !destinationReached && coordinates.length > 0) {
-      const lastCoord = coordinates[coordinates.length - 1];
+    if (destination && !destinationReached && liveCoordinate) {
       const dist = haversineDistance(
-        lastCoord.latitude,
-        lastCoord.longitude,
+        liveCoordinate.latitude,
+        liveCoordinate.longitude,
         destination.latitude,
         destination.longitude,
       );
@@ -170,27 +178,25 @@ export function useRunTrackingEngine(
     distanceMeters,
     destination,
     destinationReached,
-    coordinates,
+    liveCoordinate,
     markGoalReached,
     markDestinationReached,
     triggerGoalFeedback,
   ]);
 
-  const lastCoordinate = useMemo(() => 
-    coordinates.length > 0 ? coordinates[coordinates.length - 1] : null,
-  [coordinates]);
+  const lastCoordinate = liveCoordinate;
 
   const activeRegion: Region | null = useMemo(() => {
-    if (lastCoordinate) {
+    if (liveCoordinate) {
       return {
-        latitude: lastCoordinate.latitude,
-        longitude: lastCoordinate.longitude,
+        latitude: liveCoordinate.latitude,
+        longitude: liveCoordinate.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       };
     }
     return initialRegion;
-  }, [initialRegion, lastCoordinate]);
+  }, [initialRegion, liveCoordinate]);
 
   return {
     hasGps,

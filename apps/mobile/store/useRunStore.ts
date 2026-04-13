@@ -1,13 +1,25 @@
 import { create } from "zustand";
+import * as Crypto from "expo-crypto";
 import { haversineDistance } from "../lib/haversine";
 import { Platform } from "react-native";
 
 const DEV_MODE = __DEV__ && Platform.OS === 'ios';
 
+/** Minimum movement between recorded trail points (filters GPS jitter). */
+export const MIN_RUN_SEGMENT_METERS = 12;
+
+/** Ignore location updates worse than this horizontal accuracy when appending trail points. */
+const MAX_TRAIL_ACCURACY_METERS = 48;
+
+/** First fix is often noisier; allow a slightly looser bound so the run can start. */
+const FIRST_POINT_MAX_ACCURACY_METERS = 100;
+
 interface Coordinate {
   latitude: number;
   longitude: number;
   timestamp: number;
+  /** Meters; when present, very poor fixes are skipped for the trail/distance. */
+  accuracy?: number | null;
 }
 
 interface Destination {
@@ -28,6 +40,8 @@ interface RunStore {
   destination: Destination | null;
   goalReached: boolean;
   destinationReached: boolean;
+  /** Stable id for this session — used to save the run before feedback completes. */
+  currentRunId: string | null;
 
   startRun: () => void;
   pauseRun: () => void;
@@ -56,6 +70,7 @@ export const useRunStore = create<RunStore>((set) => ({
   destination: null,
   goalReached: false,
   destinationReached: false,
+  currentRunId: null,
 
   startRun: () => {
     set({
@@ -67,6 +82,7 @@ export const useRunStore = create<RunStore>((set) => ({
       distanceOverrideMeters: null,
       coordinates: [],
       elapsedSeconds: 0,
+      currentRunId: Crypto.randomUUID(),
     });
   },
 
@@ -107,6 +123,7 @@ export const useRunStore = create<RunStore>((set) => ({
       destination: null,
       goalReached: false,
       destinationReached: false,
+      currentRunId: null,
     });
   },
 
@@ -118,23 +135,36 @@ export const useRunStore = create<RunStore>((set) => ({
     set((state) => {
       if (state.status !== "running") return state;
 
-      const newCoordinates = [...state.coordinates, coord];
-      let newDistance = state.distanceMeters;
+      const acc = coord.accuracy;
+      const accuracyOk =
+        acc == null || !Number.isFinite(acc) || acc <= MAX_TRAIL_ACCURACY_METERS;
+      const firstPointOk =
+        acc == null ||
+        !Number.isFinite(acc) ||
+        acc <= FIRST_POINT_MAX_ACCURACY_METERS;
 
-      if (state.coordinates.length > 0) {
-        const last = state.coordinates[state.coordinates.length - 1];
-        const dist = haversineDistance(
-          last.latitude,
-          last.longitude,
-          coord.latitude,
-          coord.longitude
-        );
-        newDistance += dist;
+      if (state.coordinates.length === 0) {
+        if (!firstPointOk) return state;
+        return {
+          coordinates: [coord],
+          distanceMeters: 0,
+        };
       }
 
+      if (!accuracyOk) return state;
+
+      const last = state.coordinates[state.coordinates.length - 1];
+      const dist = haversineDistance(
+        last.latitude,
+        last.longitude,
+        coord.latitude,
+        coord.longitude
+      );
+      if (dist < MIN_RUN_SEGMENT_METERS) return state;
+
       return {
-        coordinates: newCoordinates,
-        distanceMeters: newDistance,
+        coordinates: [...state.coordinates, coord],
+        distanceMeters: state.distanceMeters + dist,
       };
     });
   },

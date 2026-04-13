@@ -1,6 +1,12 @@
 import { apiRequest } from "@/lib/api";
 import { store } from "@/store";
-import { getUnsyncedRuns, markRunsSynced, upsertRunFromServer, initSQLiteRuns } from "./sqliteRuns";
+import {
+  getUnsyncedRuns,
+  markRunsSynced,
+  upsertRunFromServer,
+  initSQLiteRuns,
+  EFFORT_PENDING_FEEDBACK,
+} from "./sqliteRuns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const LAST_PULL_KEY = "run_sync_last_pull";
@@ -32,7 +38,9 @@ export async function pushRunsToCloud(): Promise<void> {
     if (!token) return;
 
     initSQLiteRuns();
-    const unsynced = getUnsyncedRuns();
+    const unsynced = getUnsyncedRuns().filter(
+      (r) => r.effort_level !== EFFORT_PENDING_FEEDBACK,
+    );
     if (!unsynced.length) return;
 
     // Batch into chunks of 50 (API limit)
@@ -51,7 +59,8 @@ export async function pushRunsToCloud(): Promise<void> {
         avgSpeed: r.avg_speed || null,
         calories: r.calories || null,
         coordinates: safeJsonParse(r.coordinates),
-        effortLevel: r.effort_level || null,
+        effortLevel:
+          r.effort_level != null && r.effort_level >= 0 ? r.effort_level : null,
         feelTags: safeJsonParse(r.feel_tags),
         notes: r.notes || null,
       }));

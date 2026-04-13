@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,9 @@ type UserRow = {
   name: string;
   email?: string;
   isBlocked?: boolean;
+  athleteType: "Youth" | "Adult";
+  guardianName?: string;
+  guardianEmail?: string;
   tier: string;
   status: string;
   onboarding: string;
@@ -31,7 +34,13 @@ type UsersTableProps = {
   onDelete: (userId: number) => void;
 };
 
-export function UsersTable({ users, onSelect, onChangePlan, onToggleBlock, onDelete }: UsersTableProps) {
+export function UsersTable({
+  users,
+  onSelect,
+  onChangePlan,
+  onToggleBlock,
+  onDelete,
+}: UsersTableProps) {
   const router = useRouter();
   return (
     <div className="hidden md:block">
@@ -39,6 +48,8 @@ export function UsersTable({ users, onSelect, onChangePlan, onToggleBlock, onDel
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
+            <TableHead>Athlete Type</TableHead>
+            <TableHead>Guardian</TableHead>
             <TableHead>Tier</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Onboarding</TableHead>
@@ -62,12 +73,30 @@ export function UsersTable({ users, onSelect, onChangePlan, onToggleBlock, onDel
               }}
             >
               <TableCell className="font-medium text-foreground">
-                <Link href={`/users/${user.id}`} className="hover:underline focus:outline-none">
+                <Link
+                  href={`/users/${user.id}`}
+                  className="hover:underline focus:outline-none"
+                >
                   {user.name}
                 </Link>
               </TableCell>
+              <TableCell>{user.athleteType}</TableCell>
               <TableCell>
-                <Badge variant={user.tier === "Premium" ? "primary" : "default"}>
+                {user.athleteType === "Youth" ? (
+                  <div className="text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground">
+                      {user.guardianName ?? "-"}
+                    </p>
+                    <p>{user.guardianEmail ?? "-"}</p>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={user.tier === "Premium" ? "primary" : "default"}
+                >
                   {user.tier}
                 </Badge>
               </TableCell>

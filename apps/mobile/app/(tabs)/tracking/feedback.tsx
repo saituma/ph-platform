@@ -10,7 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -46,6 +46,7 @@ export default function FeedbackScreen() {
     elapsedSeconds,
     coordinates,
     resetRun,
+    currentRunId,
   } = useRunStore();
 
   const [effort, setEffort] = useState<number | null>(null);
@@ -107,7 +108,7 @@ export default function FeedbackScreen() {
       const rpeEffort = effort * 2;
 
       saveRunRecord({
-        id: Crypto.randomUUID(),
+        id: currentRunId ?? Crypto.randomUUID(),
         date: new Date().toISOString(),
         distance_meters: finalDistanceMeters,
         duration_seconds: elapsedSeconds,
@@ -154,21 +155,28 @@ export default function FeedbackScreen() {
   }));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
-        <Animated.ScrollView
-          bounces={true}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingTop: 40,
-            paddingBottom: 60,
-          }}
-          style={animatedScreenStyle}
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          presentation: "modal",
+        }}
+      />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
         >
+          <Animated.ScrollView
+            bounces={true}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingTop: 40,
+              paddingBottom: 60,
+            }}
+            style={animatedScreenStyle}
+          >
           {/* Header */}
           <View style={{ alignItems: "center", marginBottom: 40 }}>
             <Ionicons
@@ -426,8 +434,8 @@ export default function FeedbackScreen() {
               SAVE RUN
             </ScaledText>
           </AnimatedPressable>
-        </Animated.ScrollView>
-      </KeyboardAvoidingView>
+          </Animated.ScrollView>
+        </KeyboardAvoidingView>
 
       {/* Success Toast */}
       {showToast && (
@@ -475,6 +483,7 @@ export default function FeedbackScreen() {
           </ScaledText>
         </Animated.View>
       )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
