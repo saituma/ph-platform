@@ -3,10 +3,8 @@ import { Text } from "@/components/ScaledText";
 import { ActionButton } from "@/components/dashboard/ActionButton";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
-import { requestAdminOps } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -20,9 +18,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   FadeInDown,
-  FadeInUp,
   ZoomIn,
 } from "react-native-reanimated";
+import { AdminCard } from "../components/AdminCard";
 
 type AdminDashboard = {
   kpis: {
@@ -79,8 +77,24 @@ type HomeDetail =
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+function formatTierLabel(raw: string) {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return "—";
+  if (trimmed === "PHP") return "PHP";
+  if (trimmed.startsWith("PHP_")) return trimmed.replaceAll("_", " ");
+  return trimmed;
+}
+
+function chunk<T>(items: T[], size: number) {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+
 export default function AdminHomeScreen() {
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
@@ -89,10 +103,9 @@ export default function AdminHomeScreen() {
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [detail, setDetail] = useState<HomeDetail | null>(null);
 
-  const load = useCallback(
+  const loadDashboard = useCallback(
     async (forceRefresh: boolean) => {
       if (!token || !bootstrapReady) return;
       setLoading(true);
@@ -111,7 +124,6 @@ export default function AdminHomeScreen() {
         );
       } finally {
         setLoading(false);
-        setHasLoadedOnce(true);
       }
     },
     [bootstrapReady, token],
@@ -119,8 +131,8 @@ export default function AdminHomeScreen() {
 
   useEffect(() => {
     if (!canLoad) return;
-    void load(false);
-  }, [canLoad, load]);
+    void loadDashboard(false);
+  }, [canLoad, loadDashboard]);
 
   const kpis = useMemo(
     () => [
@@ -135,22 +147,11 @@ export default function AdminHomeScreen() {
   const bookings = useMemo(() => data?.bookingsToday ?? [], [data]);
   const athletes = useMemo(() => data?.topAthletes?.slice(0, 5) ?? [], [data]);
 
-  const CardStyle = {
-    backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-    ...(isDark ? Shadows.none : Shadows.md),
-  };
-
-  const InnerCardStyle = {
-    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-  };
-
   return (
     <View style={{ flex: 1, paddingTop: insets.top }}>
       <ThemedScrollView
-        onRefresh={() => load(true)}
-        contentContainerStyle={{ paddingBottom: 56 }}
+        onRefresh={() => loadDashboard(true)}
+        contentContainerStyle={{ paddingBottom: 56 + insets.bottom }}
       >
         {/* Header Region */}
         <Animated.View
@@ -207,19 +208,13 @@ export default function AdminHomeScreen() {
               icon="calendar"
               label="Schedule"
               color="bg-accent"
-              onPress={() => {
-                requestGlobalTabChange(6);
-                requestAdminOps({ section: "bookings" });
-              }}
+              onPress={() => router.push("/admin/ops/schedule")}
             />
             <ActionButton
               icon="settings"
               label="Ops"
               color="bg-accent"
-              onPress={() => {
-                requestGlobalTabChange(6);
-                requestAdminOps({ section: "services" });
-              }}
+              onPress={() => requestGlobalTabChange(6)}
             />
           </View>
           <View className="flex-row gap-4 mt-4">
@@ -227,9 +222,14 @@ export default function AdminHomeScreen() {
               icon="clipboard"
               label="Nutrition"
               color="bg-accent"
-              onPress={() => router.push("/admin-nutrition")}
+              onPress={() => router.push("/admin/ops/nutrition")}
             />
-            <View className="flex-1" />
+            <ActionButton
+              icon="activity"
+              label="Referrals"
+              color="bg-accent"
+              onPress={() => router.push("/admin/ops/referrals")}
+            />
             <View className="flex-1" />
           </View>
         </Animated.View>
@@ -238,235 +238,286 @@ export default function AdminHomeScreen() {
           {/* Daily KPIs */}
           <Animated.View
             entering={FadeInDown.delay(200).duration(400)}
-            className="rounded-[32px] border p-6"
-            style={CardStyle}
           >
-            <View className="flex-row justify-between items-center mb-6">
-              <View className="flex-row items-center gap-2">
-                <View className="w-2 h-2 rounded-full bg-accent" />
-                <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
-                  Performance KPI
-                </Text>
+            <AdminCard>
+              <View className="flex-row items-start justify-between mb-5">
+                <View className="flex-1 pr-3">
+                  <View className="flex-row items-center gap-2">
+                    <View className="w-2 h-2 rounded-full bg-accent" />
+                    <Text className="text-[12px] font-outfit-bold font-bold uppercase tracking-[1.2px] text-app">
+                      Performance KPI
+                    </Text>
+                  </View>
+                  <Text className="text-[12px] font-outfit text-secondary mt-1">
+                    Quick snapshot for today.
+                  </Text>
+                </View>
+                <View className="items-end">
+                  {loading && !data ? (
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  ) : (
+                    <View className="px-3 py-1.5 rounded-full border border-app/10 bg-card">
+                      <Text className="text-[10px] font-outfit-bold text-secondary uppercase tracking-[1.1px]">
+                        Tap for details
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
-              {loading && !data && (
-                <ActivityIndicator size="small" color={colors.accent} />
-              )}
-            </View>
 
-            {error ? (
-              <Text className="text-sm font-outfit text-red-500">{error}</Text>
-            ) : (
-              <View className="flex-row flex-wrap gap-4">
-                {kpis.map((item, index) => (
-                  <AnimatedPressable
-                    entering={ZoomIn.delay(200 + index * 50)}
-                    key={item.label}
-                    onPress={() =>
-                      setDetail({
-                        kind: "stat",
-                        label: item.label,
-                        value: String(item.value ?? "—"),
-                      })
-                    }
-                    className="rounded-[24px] border px-5 py-4 flex-1 min-w-[42%]"
-                    style={InnerCardStyle}
-                  >
-                    <Text className="text-[11px] font-outfit-bold font-bold text-secondary tracking-widest uppercase mb-1.5">
-                      {item.label}
-                    </Text>
-                    <Text
-                      className="text-3xl font-clash-bold font-bold text-app"
-                      style={{ fontVariant: ["tabular-nums"] }}
-                    >
-                      {item.value ?? "—"}
-                    </Text>
-                  </AnimatedPressable>
-                ))}
-              </View>
-            )}
+              {error ? (
+                <Text className="text-sm font-outfit text-danger">{error}</Text>
+              ) : (
+                <View className="gap-3">
+                  {chunk(kpis, 2).map((row, rowIndex) => (
+                    <View key={`kpi-row-${rowIndex}`} className="flex-row gap-3">
+                      {row.map((item, colIndex) => {
+                        const index = rowIndex * 2 + colIndex;
+                        return (
+                          <AnimatedPressable
+                            entering={ZoomIn.delay(140 + index * 45)}
+                            key={item.label}
+                            onPress={() =>
+                              setDetail({
+                                kind: "stat",
+                                label: item.label,
+                                value: String(item.value ?? "—"),
+                              })
+                            }
+                            className="flex-1 rounded-card-lg border border-app/10 bg-card px-5 py-4 active:opacity-90"
+                            style={{ minHeight: 92 }}
+                          >
+                            <Text className="text-[10px] font-outfit-bold font-bold text-secondary uppercase tracking-[1.15px]">
+                              {item.label}
+                            </Text>
+                            <Text
+                              className="mt-2 text-[34px] leading-[38px] font-clash-bold font-bold text-app"
+                              style={{ fontVariant: ["tabular-nums"] }}
+                              numberOfLines={1}
+                            >
+                              {item.value ?? "—"}
+                            </Text>
+                          </AnimatedPressable>
+                        );
+                      })}
+                      {row.length === 1 ? <View className="flex-1" /> : null}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </AdminCard>
           </Animated.View>
 
           {/* Bookings Today List */}
           <Animated.View
             entering={FadeInDown.delay(250).duration(400)}
-            className="rounded-[32px] border p-6"
-            style={CardStyle}
           >
-            <View className="flex-row items-center gap-2 mb-6">
-              <View className="w-2 h-2 rounded-full bg-accent" />
-              <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
-                Live Schedule
-              </Text>
-            </View>
-            {loading && !data ? (
-              <View className="gap-4">
-                <Skeleton width="100%" height={60} />
-                <Skeleton width="100%" height={60} />
-              </View>
-            ) : bookings.length === 0 ? (
-              <View className="py-4 items-center justify-center">
-                <Text className="text-sm font-outfit text-dim">
-                  No sessions scheduled for today.
+            <AdminCard>
+              <View className="flex-row items-center gap-2 mb-6">
+                <View className="w-2 h-2 rounded-full bg-accent" />
+                <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
+                  Live Schedule
                 </Text>
               </View>
-            ) : (
-              <View className="gap-3">
-                {bookings.map((booking, idx) => (
-                  <Pressable
-                    key={booking.id}
-                    onPress={() =>
-                      setDetail({
-                        kind: "booking",
-                        name: booking.serviceName,
-                        athlete: booking.athleteName,
-                        time: booking.startsAt,
-                        type: booking.type,
-                      })
-                    }
-                    className="flex-row items-center justify-between rounded-[22px] border p-4 active:opacity-80"
-                    style={InnerCardStyle}
-                  >
-                    <View className="flex-1">
-                      <Text
-                        className="text-[10px] font-outfit-bold font-bold uppercase tracking-widest text-accent mb-1.5"
-                        numberOfLines={1}
-                      >
-                        {booking.type?.replace("_", " ")}
-                      </Text>
-                      <Text
-                        className="text-base font-clash-bold font-bold text-app"
-                        numberOfLines={1}
-                      >
-                        {booking.athleteName}
-                      </Text>
-                    </View>
-                    <View className="bg-accent/10 px-4 py-2 rounded-full border border-accent/20">
-                      <Text className="text-[13px] font-outfit-bold font-bold text-accent">
-                        {new Date(booking.startsAt).toLocaleTimeString([], {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+              {loading && !data ? (
+                <View className="gap-4">
+                  <Skeleton width="100%" height={60} />
+                  <Skeleton width="100%" height={60} />
+                </View>
+              ) : bookings.length === 0 ? (
+                <View className="py-4 items-center justify-center">
+                  <Text className="text-sm font-outfit text-muted">
+                    No sessions scheduled for today.
+                  </Text>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  {bookings.map((booking) => (
+                    <Pressable
+                      key={booking.id}
+                      onPress={() =>
+                        setDetail({
+                          kind: "booking",
+                          name: booking.serviceName,
+                          athlete: booking.athleteName,
+                          time: booking.startsAt,
+                          type: booking.type,
+                        })
+                      }
+                      className="flex-row items-center justify-between rounded-card border border-app/10 bg-card p-4 active:opacity-80"
+                    >
+                      <View className="flex-1">
+                        <Text
+                          className="text-[10px] font-outfit-bold font-bold uppercase tracking-widest text-accent mb-1.5"
+                          numberOfLines={1}
+                        >
+                          {booking.type?.replace("_", " ")}
+                        </Text>
+                        <Text
+                          className="text-base font-clash-bold font-bold text-app"
+                          numberOfLines={1}
+                        >
+                          {booking.athleteName}
+                        </Text>
+                      </View>
+                      <View className="bg-accent-light px-4 py-2 rounded-full border border-app/10">
+                        <Text className="text-[13px] font-outfit-bold font-bold text-accent">
+                          {new Date(booking.startsAt).toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </AdminCard>
           </Animated.View>
 
           {/* Priority Queue */}
           <Animated.View
             entering={FadeInDown.delay(300).duration(400)}
-            className="rounded-[32px] border p-6"
-            style={CardStyle}
           >
-            <View className="flex-row items-center gap-2 mb-6">
-              <View className="w-2 h-2 rounded-full bg-amber-500" />
-              <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
-                Priority Actions
-              </Text>
-            </View>
-            {(data?.priorityQueue?.length ?? 0) === 0 ? (
-              <View className="py-4 items-center justify-center">
-                <Text className="text-sm font-outfit text-dim">
-                  Inbox zero. All caught up.
+            <AdminCard>
+              <View className="flex-row items-center gap-2 mb-6">
+                <View className="w-2 h-2 rounded-full bg-warning" />
+                <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
+                  Priority Actions
                 </Text>
               </View>
-            ) : (
-              <View className="gap-3">
-                {data?.priorityQueue?.map((item, idx) => (
-                  <Pressable
-                    key={idx}
-                    onPress={() =>
-                      setDetail({
-                        kind: "priority",
-                        title: item.title,
-                        detail: item.detail,
-                        status: item.status,
-                      })
-                    }
-                    className="rounded-[22px] border p-5 active:opacity-80"
-                    style={InnerCardStyle}
-                  >
-                    <View className="flex-row justify-between items-center mb-2">
-                      <Text className="text-base font-clash-bold font-bold text-app">
-                        {item.title}
+              {(data?.priorityQueue?.length ?? 0) === 0 ? (
+                <View className="py-4 items-center justify-center">
+                  <Text className="text-sm font-outfit text-muted">
+                    Inbox zero. All caught up.
+                  </Text>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  {data?.priorityQueue?.map((item, idx) => (
+                    <Pressable
+                      key={idx}
+                      onPress={() =>
+                        setDetail({
+                          kind: "priority",
+                          title: item.title,
+                          detail: item.detail,
+                          status: item.status,
+                        })
+                      }
+                      className="rounded-card border border-app/10 bg-card p-5 active:opacity-80"
+                    >
+                      <View className="flex-row justify-between items-center mb-2">
+                        <Text className="text-base font-clash-bold font-bold text-app">
+                          {item.title}
+                        </Text>
+                        {item.status && (
+                          <View className="bg-warning-soft px-2.5 py-1 rounded-full border border-app/10">
+                            <Text className="text-[10px] font-outfit-bold font-bold text-warning uppercase tracking-wider">
+                              {item.status}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text className="text-[13px] font-outfit text-secondary leading-5">
+                        {item.detail}
                       </Text>
-                      {item.status && (
-                        <View className="bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-                          <Text className="text-[10px] font-outfit-bold font-bold text-amber-500 uppercase tracking-wider">
-                            {item.status}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text className="text-[13px] font-outfit text-secondary leading-5">
-                      {item.detail}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </AdminCard>
           </Animated.View>
 
           {/* Top Athletes */}
           <Animated.View
             entering={FadeInDown.delay(350).duration(400)}
-            className="rounded-[32px] border p-6"
-            style={CardStyle}
           >
-            <View className="flex-row items-center gap-2 mb-6">
-              <View className="w-2 h-2 rounded-full bg-accent" />
-              <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
-                Top Engagement
-              </Text>
-            </View>
-            {athletes.length === 0 ? (
-              <View className="py-4 items-center justify-center">
-                <Text className="text-sm font-outfit text-dim">
-                  No athletes indexed.
-                </Text>
+            <AdminCard>
+              <View className="flex-row items-start justify-between mb-5">
+                <View className="flex-1 pr-3">
+                  <View className="flex-row items-center gap-2">
+                    <View className="w-2 h-2 rounded-full bg-accent" />
+                    <Text className="text-[12px] font-outfit-bold font-bold uppercase tracking-[1.2px] text-app">
+                      Top Engagement
+                    </Text>
+                  </View>
+                  <Text className="text-[12px] font-outfit text-secondary mt-1">
+                    Highest activity and coaching touchpoints.
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => requestGlobalTabChange(3)}
+                  className="px-3 py-1.5 rounded-full border border-app/10 bg-card active:opacity-90"
+                >
+                  <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-[1.1px]">
+                    View users
+                  </Text>
+                </Pressable>
               </View>
-            ) : (
-              <View className="gap-3">
-                {athletes.map((athlete, idx) => (
-                  <Pressable
-                    key={idx}
-                    onPress={() =>
-                      setDetail({
-                        kind: "athlete",
-                        name: athlete.name,
-                        score: athlete.score,
-                        tier: athlete.tier,
-                      })
-                    }
-                    className="flex-row items-center justify-between rounded-[22px] border p-4 active:opacity-80"
-                    style={InnerCardStyle}
-                  >
-                    <View className="flex-row items-center gap-4">
-                      <View className="w-8 h-8 rounded-xl bg-accent/15 items-center justify-center border border-accent/20">
-                        <Text className="text-[12px] font-outfit-bold font-bold text-accent">
-                          {idx + 1}
+              {athletes.length === 0 ? (
+                <View className="py-4 items-center justify-center">
+                  <Text className="text-sm font-outfit text-muted">
+                    No athletes indexed.
+                  </Text>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  {athletes.map((athlete, idx) => (
+                    <Pressable
+                      key={idx}
+                      onPress={() =>
+                        setDetail({
+                          kind: "athlete",
+                          name: athlete.name,
+                          score: athlete.score,
+                          tier: athlete.tier,
+                        })
+                      }
+                      className="flex-row items-center justify-between rounded-card-lg border border-app/10 bg-card px-4 py-3.5 active:opacity-90"
+                    >
+                      <View className="flex-row items-center gap-3 flex-1 pr-3">
+                        <View className="w-10 h-10 rounded-button-lg bg-accent-light items-center justify-center border border-app/10">
+                          <Text
+                            className="text-[12px] font-outfit-bold font-bold text-accent tabular-nums"
+                            style={{ fontVariant: ["tabular-nums"] }}
+                          >
+                            {idx + 1}
+                          </Text>
+                        </View>
+                        <View className="flex-1">
+                          <Text
+                            className="text-[15px] font-clash-bold font-bold text-app"
+                            numberOfLines={1}
+                          >
+                            {athlete.name}
+                          </Text>
+                          <Text
+                            className="text-[12px] font-outfit text-secondary mt-0.5"
+                            numberOfLines={1}
+                          >
+                            {formatTierLabel(athlete.tier)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View className="items-end">
+                        <View className="bg-background-secondary px-3 py-1.5 rounded-full border border-app/10">
+                          <Text
+                            className="text-[12px] font-outfit-bold font-bold text-app tabular-nums"
+                            style={{ fontVariant: ["tabular-nums"] }}
+                          >
+                            {athlete.score}
+                          </Text>
+                        </View>
+                        <Text className="text-[10px] font-outfit text-secondary mt-1">
+                          Engagement score
                         </Text>
                       </View>
-                      <View>
-                        <Text className="text-[15px] font-clash-bold font-bold text-app">
-                          {athlete.name}
-                        </Text>
-                        <Text className="text-[12px] font-outfit text-secondary mt-0.5">
-                          {athlete.tier.replace("PHP_", "Tier ")}
-                        </Text>
-                      </View>
-                    </View>
-                    <View className="bg-background-secondary px-3 py-1 rounded-lg">
-                      <Text className="text-[13px] font-outfit-bold font-bold text-app">
-                        {athlete.score}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </AdminCard>
           </Animated.View>
         </View>
 
@@ -480,7 +531,7 @@ export default function AdminHomeScreen() {
             style={{
               flex: 1,
               paddingTop: insets.top,
-              backgroundColor: isDark ? colors.background : "#FFFFFF",
+              backgroundColor: colors.background,
             }}
           >
             <ThemedScrollView
@@ -511,16 +562,16 @@ export default function AdminHomeScreen() {
                       borderRadius: 999,
                       borderWidth: 1,
                       opacity: pressed ? 0.7 : 1,
-                      ...InnerCardStyle,
                     },
                   ]}
+                  className="bg-card border-app/10"
                 >
                   <Text className="text-[12px] font-outfit-semibold text-app">
                     Close
                   </Text>
                 </Pressable>
               </View>
-              <View className="rounded-[28px] border p-6" style={CardStyle}>
+              <AdminCard className="rounded-card-lg border border-app bg-card-elevated p-6">
                 {detail?.kind === "stat" ? (
                   <Text className="text-5xl font-clash font-bold text-app tabular-nums">
                     {detail.value}
@@ -561,13 +612,13 @@ export default function AdminHomeScreen() {
                       {detail.detail || "No additional context."}
                     </Text>
                     {detail.status && (
-                      <Text className="text-xs font-outfit-semibold text-[#F59E0B] uppercase tracking-widest">
+                      <Text className="text-xs font-outfit-semibold text-warning uppercase tracking-widest">
                         {detail.status}
                       </Text>
                     )}
                   </View>
                 ) : null}
-              </View>
+              </AdminCard>
             </ThemedScrollView>
           </View>
         </Modal>

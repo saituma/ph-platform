@@ -13,6 +13,11 @@ export type AdminOpsAction =
   | "createTeam";
 
 type RequestPayload = {
+  /**
+   * Preferred routing target for Admin Ops (new UI).
+   * Kept optional to preserve legacy callers that send `section`.
+   */
+  destination?: "hub" | "schedule" | "nutrition" | "referrals";
   section?: AdminOpsSection;
   action?: AdminOpsAction;
 };
