@@ -1,15 +1,14 @@
 FROM node:20 AS base
 WORKDIR /app
 
-# Install pnpm explicitly
-RUN npm install -g pnpm@10.26.0
+RUN corepack enable
+RUN corepack prepare pnpm@10.26.0 --activate
 
 # Install dependencies (monorepo root context)
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/tsconfig.json apps/api/drizzle.config.ts ./apps/api/
 
-# Install with frozen lockfile and increased network timeout
-RUN pnpm install --frozen-lockfile --filter ./apps/api... || (sleep 5 && pnpm install --frozen-lockfile --filter ./apps/api...)
+RUN pnpm install --filter ./apps/api...
 
 # Build
 COPY apps/api/src ./apps/api/src
