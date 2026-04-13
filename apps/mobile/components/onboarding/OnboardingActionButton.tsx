@@ -36,6 +36,7 @@ export function OnboardingActionButton({
       disabled={disabled}
       icon={icon}
       iconPosition={iconPosition}
+      centerLabel={Boolean(label && icon)}
       variant={mapVariant}
       size="lg"
       radius={16}
