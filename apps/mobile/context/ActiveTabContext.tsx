@@ -1,4 +1,12 @@
-import { useEffect, useState } from "react";
+import { usePathname } from "expo-router";
+import React, {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 /**
  * Global active tab tracker.
@@ -34,10 +42,9 @@ export function setGlobalActiveTab(index: number) {
   if (_activeIndex === index) return;
 
   _activeIndex = index;
-  if (__DEV__)
-    console.log(
-      `[ActiveTabContext] setGlobalActiveTab called with index: ${index}. Notifying ${_listeners.size} listeners.`,
-    );
+  if (__DEV__) {
+    // console.log(`[ActiveTabContext] setGlobalActiveTab: ${index}`);
+  }
   _listeners.forEach((fn) => fn(index));
 }
 
@@ -52,20 +59,21 @@ export function subscribeToGlobalTabRequests(listener: RequestListener) {
   };
 }
 
-import { usePathname } from "expo-router";
-
 /** Returns the currently active tab index. Re-renders when it changes. */
 export function useActiveTabIndex(): number {
   const [index, setIndex] = useState(_activeIndex);
   const pathname = usePathname();
+  const lastPathnameRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Sync in case it changed between render and effect
-    setIndex(_activeIndex);
     const listener: Listener = (newIndex) => {
       setIndex(newIndex);
     };
     _listeners.add(listener);
+    // Sync immediately in case it changed between initialization and effect
+    if (_activeIndex !== index) {
+      setIndex(_activeIndex);
+    }
     return () => {
       _listeners.delete(listener);
     };
@@ -73,7 +81,9 @@ export function useActiveTabIndex(): number {
 
   // Forcefully derive index from pathname as a permanent fallback for Expo Router
   useEffect(() => {
-    if (!pathname) return;
+    if (!pathname || pathname === lastPathnameRef.current) return;
+    lastPathnameRef.current = pathname;
+
     const normalizedPath = pathname
       .replace(/^\//, "")
       .replace(/^\(tabs\)\/?/, "");
@@ -81,10 +91,11 @@ export function useActiveTabIndex(): number {
 
     const foundIndex = _tabRouteKeys.indexOf(routeName);
     if (foundIndex >= 0 && _activeIndex !== foundIndex) {
-      if (__DEV__)
+      if (__DEV__) {
         console.log(
-          `[ActiveTabContext] PATHNAME CHANGED: ${pathname} -> Setting activeIndex to ${foundIndex}`,
+          `[ActiveTabContext] Path sync: ${pathname} -> index ${foundIndex}`,
         );
+      }
       setGlobalActiveTab(foundIndex);
     }
   }, [pathname]);
@@ -95,8 +106,6 @@ export function useActiveTabIndex(): number {
 // ---- Legacy compatibility shim ----
 // Some components still import `useActiveTab` / `ActiveTabProvider`.
 // Keep them working but driven by the global emitter.
-
-import React, { createContext, useContext, ReactNode } from "react";
 
 type ActiveTabContextType = {
   activeTabIndex: number;
