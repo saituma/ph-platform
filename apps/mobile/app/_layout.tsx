@@ -167,6 +167,18 @@ export default function RootLayout() {
           })}
         />
           <Stack.Screen
+            name="admin-audience-workspace/[audienceLabel]"
+            options={{ title: "Content Workspace" }}
+          />
+          <Stack.Screen
+            name="admin-audience-workspace/modules/[moduleId]"
+            options={{ title: "Module Detail" }}
+          />
+          <Stack.Screen
+            name="admin-audience-workspace/sessions/[sessionId]"
+            options={{ title: "Session Detail" }}
+          />
+          <Stack.Screen
             name="schedule/event"
             options={({ route }: any) => ({
               gestureEnabled: true,
