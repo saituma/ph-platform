@@ -71,6 +71,7 @@ export function LiveMap({
           activeRegion={activeRegion}
           routePolyline={routePolyline}
           followUser={followUser}
+          isDark={isDark}
           onRecenter={onRecenter}
         />
       ) : (

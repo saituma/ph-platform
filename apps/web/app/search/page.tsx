@@ -58,7 +58,8 @@ type SearchVideo = {
 type SearchTeam = {
   team?: string | null;
   memberCount?: number | null;
-  guardianCount?: number | null;
+  youthCount?: number | null;
+  adultCount?: number | null;
 };
 
 type SearchProgram = {
@@ -203,11 +204,11 @@ function SearchContent() {
     [usersData, queryTokens]
   );
 
-  const teams = useMemo(
+          const teams = useMemo(
     () =>
       queryTokens.length
         ? rankByQuery((teamsData?.teams ?? []) as SearchTeam[], queryTokens, (team) =>
-            buildSearchText([team.team, team.memberCount, team.guardianCount])
+            buildSearchText([team.team, team.memberCount, team.youthCount, team.adultCount])
           )
         : [],
     [teamsData, queryTokens]
