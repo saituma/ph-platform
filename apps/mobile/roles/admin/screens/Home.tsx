@@ -21,6 +21,7 @@ import Animated, {
   ZoomIn,
 } from "react-native-reanimated";
 import { AdminCard } from "../components/AdminCard";
+import { ADMIN_TAB_ROUTES } from "../tabs";
 
 type AdminDashboard = {
   kpis: {
@@ -105,6 +106,12 @@ export default function AdminHomeScreen() {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<HomeDetail | null>(null);
 
+  const requestAdminTab = useCallback((key: (typeof ADMIN_TAB_ROUTES)[number]["key"]) => {
+    const index = ADMIN_TAB_ROUTES.findIndex((tab) => tab.key === key);
+    if (index < 0) return;
+    requestGlobalTabChange(index);
+  }, []);
+
   const loadDashboard = useCallback(
     async (forceRefresh: boolean) => {
       if (!token || !bootstrapReady) return;
@@ -182,27 +189,22 @@ export default function AdminHomeScreen() {
               icon="users"
               label="Users"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(3)}
+              onPress={() => requestAdminTab("admin-users")}
             />
             <ActionButton
               icon="video"
               label="Videos"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(2)}
+              onPress={() => requestAdminTab("admin-videos")}
             />
-            <ActionButton
-              icon="shield"
-              label="Teams"
-              color="bg-accent"
-              onPress={() => router.push("/admin-teams")}
-            />
+            <View className="flex-1" />
           </View>
           <View className="flex-row gap-4">
             <ActionButton
               icon="layers"
               label="Content"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(5)}
+              onPress={() => requestAdminTab("admin-content")}
             />
             <ActionButton
               icon="calendar"
@@ -214,7 +216,7 @@ export default function AdminHomeScreen() {
               icon="settings"
               label="Ops"
               color="bg-accent"
-              onPress={() => requestGlobalTabChange(6)}
+              onPress={() => requestAdminTab("admin-ops")}
             />
           </View>
           <View className="flex-row gap-4 mt-4">
@@ -447,7 +449,7 @@ export default function AdminHomeScreen() {
                   </Text>
                 </View>
                 <Pressable
-                  onPress={() => requestGlobalTabChange(3)}
+                  onPress={() => requestAdminTab("admin-users")}
                   className="px-3 py-1.5 rounded-full border border-app/10 bg-card active:opacity-90"
                 >
                   <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-[1.1px]">

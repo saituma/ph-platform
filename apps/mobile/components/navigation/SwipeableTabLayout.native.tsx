@@ -202,7 +202,47 @@ export function SwipeableTabLayout({
         </View>
       );
     });
-  }, [childrenArray, tabs, activeIndex, navigationContext, routeContext, containerRefContext]);
+  }, [
+    childrenArray,
+    tabs,
+    activeIndex,
+    navigationContext,
+    routeContext,
+    containerRefContext,
+  ]);
+
+  // Android + native pickers (camera/library) can trigger transient remounts where PagerView breaks
+  // React Navigation context propagation, causing "Couldn't find a navigation context" crashes.
+  // Fallback to a non-PagerView implementation on non-iOS platforms (press-to-switch only).
+  if (Platform.OS !== "ios") {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.pager}>
+          {childrenArray.map((child, index) => {
+            const key = tabs[index]?.key ?? `page-${index}`;
+            const isActive = index === activeIndex;
+            return (
+              <View
+                key={key}
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  { display: isActive ? "flex" : "none" },
+                ]}
+              >
+                <ActiveTabProvider activeTabIndex={activeIndex} currentTabIndex={index}>
+                  {child}
+                </ActiveTabProvider>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.tabBarWrapper}>
+          <TabBar tabs={tabs} activeIndex={activeIndex} onTabPress={handleTabPress} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -216,7 +256,7 @@ export function SwipeableTabLayout({
         onPageScrollStateChanged={handlePageScrollStateChanged}
         scrollEnabled={true}
         overdrag={false}
-        overScrollMode={Platform.OS === "android" ? "never" : undefined}
+        overScrollMode={Platform.OS === "ios" ? undefined : "never"}
         offscreenPageLimit={Math.min(4, Math.max(1, tabs.length - 1))}
       >
         {pagerChildren}

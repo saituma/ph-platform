@@ -237,7 +237,10 @@ export function SwipeableTabLayout({
             <NavigationContext.Provider value={navigationContext}>
               <NavigationRouteContext.Provider value={routeContext}>
                 {shouldRenderChild ? (
-                  <ActiveTabProvider activeTabIndex={index} currentTabIndex={index}>
+                  <ActiveTabProvider
+                    activeTabIndex={index}
+                    currentTabIndex={index}
+                  >
                     {child}
                   </ActiveTabProvider>
                 ) : (
@@ -249,7 +252,14 @@ export function SwipeableTabLayout({
         </View>
       );
     });
-  }, [childrenArray, tabs, visitedSet, navigationContext, routeContext, containerRefContext]);
+  }, [
+    childrenArray,
+    tabs,
+    visitedSet,
+    navigationContext,
+    routeContext,
+    containerRefContext,
+  ]);
 
   if (Platform.OS === "web" || !PagerView) {
     return (

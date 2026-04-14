@@ -15,7 +15,7 @@ import { RunCard } from "../../../components/tracking/RunCard";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
-import { useIsFocused } from "@react-navigation/native";
+import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 import { formatDurationClock, formatHoursMinutes } from "../../../lib/tracking/runUtils";
 import { getLastNDaysLabel, getLastNDaysRangeLabel } from "../../../lib/tracking/dateRange";
 import { RunGoalSheet } from "../../../components/tracking/RunGoalSheet";
@@ -38,7 +38,7 @@ export default function TrackingHomeScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const isFocused = useIsFocused();
+  const isFocused = useSafeIsFocused(true);
   const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState({ totalDistance: 0, totalTime: 0, numRuns: 0 });
   const [personalBests, setPersonalBests] = useState(() => getPersonalBests());
