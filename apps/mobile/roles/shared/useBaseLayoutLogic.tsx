@@ -1,14 +1,18 @@
 import { useCallback, useMemo } from "react";
-import { usePathname } from "expo-router";
 import { TabConfig } from "@/components/navigation";
 import React from "react";
+import { useSafePathname } from "@/hooks/navigation/useSafeExpoRouter";
 
 let lastTabKey = "index";
 
 export function useBaseLayoutLogic(visibleTabs: TabConfig[], tabComponents: Record<string, React.ComponentType<any>>) {
-  const pathname = usePathname();
+  const pathname = useSafePathname("");
 
   const initialIndex = useMemo(() => {
+    if (!pathname) {
+      const storedIndex = visibleTabs.findIndex((tab) => tab.key === lastTabKey);
+      return storedIndex >= 0 ? storedIndex : 0;
+    }
     if (!pathname.startsWith("/(tabs)")) {
       const storedIndex = visibleTabs.findIndex(
         (tab) => tab.key === lastTabKey,

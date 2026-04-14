@@ -62,7 +62,13 @@ export function subscribeToGlobalTabRequests(listener: RequestListener) {
 /** Returns the currently active tab index. Re-renders when it changes. */
 export function useActiveTabIndex(): number {
   const [index, setIndex] = useState(_activeIndex);
-  const pathname = usePathname();
+  let pathname = "";
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    pathname = usePathname();
+  } catch {
+    // Context not ready
+  }
   const lastPathnameRef = useRef<string | null>(null);
 
   useEffect(() => {

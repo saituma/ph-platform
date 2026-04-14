@@ -1,5 +1,19 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import {
+  ActiveTabProvider,
+  setGlobalActiveTab,
+  subscribeToGlobalTabRequests,
+} from "@/context/ActiveTabContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Platform, StyleSheet, View } from "react-native";
+import PagerView, {
+  PagerViewOnPageScrollEvent,
+  PagerViewOnPageSelectedEvent,
+  PageScrollStateChangedNativeEvent,
+} from "react-native-pager-view";
+import { useSharedValue } from "react-native-reanimated";
+import { TabBar, TabConfig } from "./TabBar";
 
 // Cache haptics module at the top level to avoid dynamic import on every press
 let _hapticsPromise: Promise<any> | null = null;
@@ -9,19 +23,6 @@ const getHaptics = () => {
   }
   return _hapticsPromise;
 };
-import { Platform, StyleSheet, View } from "react-native";
-import PagerView, {
-  PagerViewOnPageScrollEvent,
-  PagerViewOnPageSelectedEvent,
-  PageScrollStateChangedNativeEvent,
-} from "react-native-pager-view";
-import { useSharedValue } from "react-native-reanimated";
-import { TabBar, TabConfig } from "./TabBar";
-import {
-  setGlobalActiveTab,
-  subscribeToGlobalTabRequests,
-} from "@/context/ActiveTabContext";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
@@ -40,7 +41,6 @@ export function SwipeableTabLayout({
   const insets = useSafeAreaInsets();
   const pagerRef = useRef<PagerView>(null);
   const barHeight = Platform.OS === "ios" ? 64 : 68;
-  const paddingBottom = barHeight + insets.bottom;
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
 
@@ -176,11 +176,13 @@ export function SwipeableTabLayout({
       const key = tabs[index]?.key ?? `page-${index}`;
       return (
         <View key={key} style={styles.page}>
-          {child}
+          <ActiveTabProvider activeTabIndex={activeIndex} currentTabIndex={index}>
+            {child}
+          </ActiveTabProvider>
         </View>
       );
     });
-  }, [childrenArray, tabs]);
+  }, [childrenArray, tabs, activeIndex]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

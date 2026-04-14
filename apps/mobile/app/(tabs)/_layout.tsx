@@ -3,9 +3,6 @@ import { View } from "react-native";
 import {
   Redirect,
   Slot,
-  useRouter,
-  usePathname,
-  useSegments,
 } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { isAdminRole } from "@/lib/isAdminRole";
@@ -18,6 +15,11 @@ import { YouthLayout } from "@/roles/youth/YouthLayout";
 
 import { usePushNotificationResponses } from "@/hooks/navigation/usePushNotificationResponses";
 import { useProfileSync } from "@/hooks/navigation/useProfileSync";
+import {
+  useSafePathname,
+  useSafeRouter,
+  useSafeSegments,
+} from "@/hooks/navigation/useSafeExpoRouter";
 
 export default function TabLayout() {
   const {
@@ -33,9 +35,9 @@ export default function TabLayout() {
   } = useAppSelector((state) => state.user);
 
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
-  const router = useRouter();
-  const pathname = usePathname();
-  const segments = useSegments();
+  const router = useSafeRouter();
+  const pathname = useSafePathname("");
+  const segments = useSafeSegments([]);
 
   const forceLogout =
     process.env.EXPO_PUBLIC_FORCE_LOGOUT === "1" ||
@@ -94,7 +96,7 @@ export default function TabLayout() {
           },
         );
       }
-      router.replace("/(tabs)/onboarding");
+      router?.replace("/(tabs)/onboarding");
     }
   }, [
     bootstrapReady,

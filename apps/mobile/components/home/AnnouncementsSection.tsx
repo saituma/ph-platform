@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -8,7 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused, NavigationContext } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 
@@ -83,10 +83,22 @@ const extractAnnouncements = (item: AnnouncementItem): ParsedAnnouncement => {
   return { text, images, videos };
 };
 
-export function AnnouncementsSection({ items }: AnnouncementsSectionProps) {
+export function AnnouncementsSection(props: AnnouncementsSectionProps) {
+  const navContext = React.useContext(NavigationContext);
+  if (!navContext) {
+    return <AnnouncementsSectionBase {...props} isFocused={true} />;
+  }
+  return <AnnouncementsSectionWithNav {...props} />;
+}
+
+function AnnouncementsSectionWithNav(props: AnnouncementsSectionProps) {
+  const isFocused = useIsFocused();
+  return <AnnouncementsSectionBase {...props} isFocused={isFocused} />;
+}
+
+function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProps & { isFocused: boolean }) {
   const { width } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
-  const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);

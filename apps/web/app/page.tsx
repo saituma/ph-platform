@@ -181,7 +181,8 @@ export default function Home() {
 
   const totalTeams = teamRows.length;
   const totalTeamAthletes = teamRows.reduce((sum, team) => sum + (team.memberCount ?? 0), 0);
-  const totalGuardians = teamRows.reduce((sum, team) => sum + (team.guardianCount ?? 0), 0);
+  const totalYouthAthletes = teamRows.reduce((sum, team) => sum + (team.youthCount ?? 0), 0);
+  const totalAdultAthletes = teamRows.reduce((sum, team) => sum + (team.adultCount ?? 0), 0);
 
   const tierSummary = dashboardData?.tierDistribution;
   const tierDistributionData: TierDistributionDatum[] = tierSummary
@@ -272,7 +273,7 @@ export default function Home() {
               description="LIVE TEAM ROSTER SUMMARY."
             />
             <Card>
-              <CardContent className="grid gap-3 p-5 sm:grid-cols-3">
+              <CardContent className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-xl border border-border bg-secondary/20 p-3">
                   <p className="text-[10px] uppercase text-muted-foreground">Teams</p>
                   <p className="mt-1 text-2xl font-black font-mono text-foreground">
@@ -286,9 +287,15 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="rounded-xl border border-border bg-secondary/20 p-3">
-                  <p className="text-[10px] uppercase text-muted-foreground">Guardians In Teams</p>
+                  <p className="text-[10px] uppercase text-muted-foreground">Youth Athletes</p>
                   <p className="mt-1 text-2xl font-black font-mono text-foreground">
-                    {isTeamsLoading ? "--" : totalGuardians}
+                    {isTeamsLoading ? "--" : totalYouthAthletes}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-secondary/20 p-3">
+                  <p className="text-[10px] uppercase text-muted-foreground">Adult Athletes</p>
+                  <p className="mt-1 text-2xl font-black font-mono text-foreground">
+                    {isTeamsLoading ? "--" : totalAdultAthletes}
                   </p>
                 </div>
               </CardContent>
