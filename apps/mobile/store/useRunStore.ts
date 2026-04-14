@@ -31,6 +31,7 @@ interface RunStore {
   goalReached: boolean;
   destinationReached: boolean;
   warmupUntil: number | null;
+  currentRunId: string | null;
 
   startRun: () => void;
   pauseRun: () => void;
@@ -64,6 +65,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
   goalReached: false,
   destinationReached: false,
   warmupUntil: null,
+  currentRunId: null,
 
   startRun: () => {
     set({
@@ -76,6 +78,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
       coordinates: [],
       elapsedSeconds: 0,
       warmupUntil: Date.now() + 8000,
+      currentRunId: Crypto.randomUUID(),
     });
   },
 
@@ -117,6 +120,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
       goalReached: false,
       destinationReached: false,
       warmupUntil: null,
+      currentRunId: null,
     });
   },
 
@@ -158,8 +162,6 @@ export const useRunStore = create<RunStore>((set, get) => ({
       return {
         coordinates: [...state.coordinates, coord],
         distanceMeters: state.distanceMeters + dist,
-        coordinates: [...state.coordinates, coord],
-        distanceMeters: state.distanceMeters + dist,
       };
     });
   },
@@ -176,6 +178,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
     });
   },
 
+  setDistanceOverrideMeters: (meters) => set({ distanceOverrideMeters: meters }),
   setGoalKm: (km) => set({ goalKm: km, goalReached: false }),
   setDestination: (dest) => set({ destination: dest, destinationReached: false }),
   markGoalReached: () => set({ goalReached: true }),

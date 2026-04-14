@@ -209,14 +209,14 @@ export function useRunTrackingEngine(
       if (routePolyline && routePolyline.length > 0 && !isFetchingRoute) {
         let minDistance = Infinity;
         for (const pt of routePolyline) {
-          const d = haversineDistance(lastCoord.latitude, lastCoord.longitude, pt.latitude, pt.longitude);
+          const d = haversineDistance(liveCoordinate.latitude, liveCoordinate.longitude, pt.latitude, pt.longitude);
           if (d < minDistance) minDistance = d;
         }
         if (minDistance > 200 && (now - lastRouteFetchTime.current >= 30000)) {
-          fetchRoute(lastCoord.latitude, lastCoord.longitude, destination.latitude, destination.longitude);
+          fetchRoute(liveCoordinate.latitude, liveCoordinate.longitude, destination.latitude, destination.longitude);
         }
       } else if (!routePolyline && !isFetchingRoute && (now - lastRouteFetchTime.current >= 30000)) {
-        fetchRoute(lastCoord.latitude, lastCoord.longitude, destination.latitude, destination.longitude);
+        fetchRoute(liveCoordinate.latitude, liveCoordinate.longitude, destination.latitude, destination.longitude);
       }
     }
   }, [
