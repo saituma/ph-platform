@@ -19,7 +19,6 @@ import {
 } from "react-native";
 import { VideoView } from "expo-video";
 import {
-  useIsFocused,
   NavigationContext,
   NavigationContainerRefContext,
 } from "@react-navigation/native";
@@ -41,6 +40,7 @@ import { VideoPoster } from "./video/VideoPoster";
 import { VideoLoadingOverlay } from "./video/VideoLoadingOverlay";
 import { VideoControls } from "./video/VideoControls";
 import { useVideoPlayerEngine } from "../../hooks/media/useVideoPlayerEngine";
+import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 
 export { YouTubeEmbed, isYoutubeUrl, normalizeUrl, YouTubeEmbedHandle };
 
@@ -136,7 +136,7 @@ export function VideoPlayer(props: VideoPlayerProps) {
 }
 
 function VideoPlayerWithNav(props: VideoPlayerProps) {
-  const isFocused = useIsFocused();
+  const isFocused = useSafeIsFocused(true);
   return <VideoPlayerBase {...props} navFocused={isFocused} />;
 }
 

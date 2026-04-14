@@ -1,10 +1,8 @@
-import { usePathname } from "expo-router";
 import React, {
   createContext,
   ReactNode,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
 
@@ -62,14 +60,9 @@ export function subscribeToGlobalTabRequests(listener: RequestListener) {
 /** Returns the currently active tab index. Re-renders when it changes. */
 export function useActiveTabIndex(): number {
   const [index, setIndex] = useState(_activeIndex);
-  let pathname = "";
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    pathname = usePathname();
-  } catch {
-    // Context not ready
-  }
-  const lastPathnameRef = useRef<string | null>(null);
+  // NOTE: Do not call Expo Router hooks (usePathname/useSegments) here.
+  // After returning from native pickers (camera/library), navigation context can be transiently unavailable
+  // and those hooks can throw, crashing the whole app. We rely on the tab layout to drive active index.
 
   useEffect(() => {
     const listener: Listener = (newIndex) => {
@@ -84,27 +77,6 @@ export function useActiveTabIndex(): number {
       _listeners.delete(listener);
     };
   }, []);
-
-  // Forcefully derive index from pathname as a permanent fallback for Expo Router
-  useEffect(() => {
-    if (!pathname || pathname === lastPathnameRef.current) return;
-    lastPathnameRef.current = pathname;
-
-    const normalizedPath = pathname
-      .replace(/^\//, "")
-      .replace(/^\(tabs\)\/?/, "");
-    const routeName = normalizedPath.split("/")[0] || "index";
-
-    const foundIndex = _tabRouteKeys.indexOf(routeName);
-    if (foundIndex >= 0 && _activeIndex !== foundIndex) {
-      if (__DEV__) {
-        console.log(
-          `[ActiveTabContext] Path sync: ${pathname} -> index ${foundIndex}`,
-        );
-      }
-      setGlobalActiveTab(foundIndex);
-    }
-  }, [pathname]);
 
   return index;
 }

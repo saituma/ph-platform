@@ -5,7 +5,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { useIsFocused, NavigationContext } from "@react-navigation/native";
+import { NavigationContext } from "@react-navigation/native";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
@@ -36,6 +36,7 @@ import { AdminProgramTabs } from "./AdminProgramTabs";
 import { PremiumPlanPanel } from "./PremiumPlanPanel";
 import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
 import { Skeleton } from "@/components/Skeleton";
+import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 
 const PROGRAM_TITLES: Record<ProgramId, string> = {
   php: "PHP Program",
@@ -53,7 +54,7 @@ export function ProgramDetailPanel(props: ProgramDetailPanelProps) {
 }
 
 function ProgramDetailPanelWithNav(props: ProgramDetailPanelProps) {
-  const isFocused = useIsFocused();
+  const isFocused = useSafeIsFocused(true);
   return <ProgramDetailPanelBase {...props} isFocused={isFocused} />;
 }
 

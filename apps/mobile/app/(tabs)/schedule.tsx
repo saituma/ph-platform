@@ -9,7 +9,7 @@ import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { useRouter } from "expo-router";
-import { useIsFocused } from "@react-navigation/native";
+import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 
 import { ScheduleHeader } from "@/components/tracking/schedule/ScheduleHeader";
 import { CalendarGrid } from "@/components/tracking/schedule/CalendarGrid";
@@ -25,7 +25,7 @@ export default function ScheduleScreen() {
   const { token, programTier } = useAppSelector((state) => state.user);
   const canCreateBookings = hasPaidProgramTier(programTier);
   const { isSectionHidden } = useAgeExperience();
-  const isFocused = useIsFocused();
+  const isFocused = useSafeIsFocused(true);
   const insets = useSafeAreaInsets();
 
   const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));

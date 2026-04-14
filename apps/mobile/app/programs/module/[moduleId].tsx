@@ -9,7 +9,7 @@ import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { useIsFocused } from "@react-navigation/native";
+import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
@@ -51,7 +51,7 @@ type TrainingContentV2Workspace = {
 
 export default function ProgramModuleDetailScreen() {
   const router = useRouter();
-  const isFocused = useIsFocused();
+  const isFocused = useSafeIsFocused(true);
   const { moduleId, programId } = useLocalSearchParams<{
     moduleId?: string | string[];
     programId?: ProgramId | string;

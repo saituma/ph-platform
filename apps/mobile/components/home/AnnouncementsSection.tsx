@@ -8,7 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useIsFocused, NavigationContext } from "@react-navigation/native";
+import { NavigationContext } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 
@@ -16,6 +16,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
+import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 
 const AUTO_SCROLL_INTERVAL = 6000;
 
@@ -92,7 +93,7 @@ export function AnnouncementsSection(props: AnnouncementsSectionProps) {
 }
 
 function AnnouncementsSectionWithNav(props: AnnouncementsSectionProps) {
-  const isFocused = useIsFocused();
+  const isFocused = useSafeIsFocused(true);
   return <AnnouncementsSectionBase {...props} isFocused={isFocused} />;
 }
 
