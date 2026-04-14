@@ -11,6 +11,7 @@ import {
   setGlobalActiveTab,
   subscribeToGlobalTabRequests,
 } from "@/context/ActiveTabContext";
+import { NavigationContext, NavigationRouteContext, NavigationContainerRefContext } from "@react-navigation/native";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import React, {
@@ -218,6 +219,10 @@ export function SwipeableTabLayout({
   }
   const childrenArray = childrenRef.current;
 
+  const navigationContext = React.useContext(NavigationContext);
+  const routeContext = React.useContext(NavigationRouteContext);
+  const containerRefContext = React.useContext(NavigationContainerRefContext);
+
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {
       const key = tabs[index]?.key ?? `page-${index}`;
@@ -228,17 +233,23 @@ export function SwipeableTabLayout({
           key={key}
           style={[styles.page, { backgroundColor: "transparent" }]}
         >
-          {shouldRenderChild ? (
-            <ActiveTabProvider activeTabIndex={index} currentTabIndex={index}>
-              {child}
-            </ActiveTabProvider>
-          ) : (
-            <View style={{ flex: 1 }} />
-          )}
+          <NavigationContainerRefContext.Provider value={containerRefContext}>
+            <NavigationContext.Provider value={navigationContext}>
+              <NavigationRouteContext.Provider value={routeContext}>
+                {shouldRenderChild ? (
+                  <ActiveTabProvider activeTabIndex={index} currentTabIndex={index}>
+                    {child}
+                  </ActiveTabProvider>
+                ) : (
+                  <View style={{ flex: 1 }} />
+                )}
+              </NavigationRouteContext.Provider>
+            </NavigationContext.Provider>
+          </NavigationContainerRefContext.Provider>
         </View>
       );
     });
-  }, [childrenArray, tabs, visitedSet]);
+  }, [childrenArray, tabs, visitedSet, navigationContext, routeContext, containerRefContext]);
 
   if (Platform.OS === "web" || !PagerView) {
     return (

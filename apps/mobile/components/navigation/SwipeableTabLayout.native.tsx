@@ -6,6 +6,11 @@ import {
 } from "@/context/ActiveTabContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  NavigationContainerRefContext,
+  NavigationContext,
+  NavigationRouteContext,
+} from "@react-navigation/native";
 import { Platform, StyleSheet, View } from "react-native";
 import PagerView, {
   PagerViewOnPageScrollEvent,
@@ -171,18 +176,33 @@ export function SwipeableTabLayout({
   }
   const childrenArray = childrenRef.current;
 
+  const navigationContext = React.useContext(NavigationContext);
+  const routeContext = React.useContext(NavigationRouteContext);
+  const containerRefContext = React.useContext(NavigationContainerRefContext);
+
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {
       const key = tabs[index]?.key ?? `page-${index}`;
+      
+      // Forward contexts because PagerView might break context propagation
       return (
         <View key={key} style={styles.page}>
-          <ActiveTabProvider activeTabIndex={activeIndex} currentTabIndex={index}>
-            {child}
-          </ActiveTabProvider>
+          <NavigationContainerRefContext.Provider value={containerRefContext}>
+            <NavigationContext.Provider value={navigationContext}>
+              <NavigationRouteContext.Provider value={routeContext}>
+                <ActiveTabProvider
+                  activeTabIndex={activeIndex}
+                  currentTabIndex={index}
+                >
+                  {child}
+                </ActiveTabProvider>
+              </NavigationRouteContext.Provider>
+            </NavigationContext.Provider>
+          </NavigationContainerRefContext.Provider>
         </View>
       );
     });
-  }, [childrenArray, tabs, activeIndex]);
+  }, [childrenArray, tabs, activeIndex, navigationContext, routeContext, containerRefContext]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
