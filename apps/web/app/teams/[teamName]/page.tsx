@@ -21,7 +21,8 @@ type TeamDetails = {
   team: string;
   summary: {
     memberCount: number;
-    guardianCount: number;
+    youthCount: number;
+    adultCount: number;
     createdAt: string | Date | null;
     updatedAt: string | Date | null;
   };
@@ -339,9 +340,15 @@ export default function TeamDetailPage() {
                   </p>
                 </div>
                 <div className="rounded-xl border border-border p-3">
-                  <p className="text-xs text-muted-foreground">Guardians</p>
+                  <p className="text-xs text-muted-foreground">Youth</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">
-                    {details?.summary.guardianCount ?? 0}
+                    {details?.summary.youthCount ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border p-3">
+                  <p className="text-xs text-muted-foreground">Adult</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {details?.summary.adultCount ?? 0}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border p-3">

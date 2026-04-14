@@ -43,7 +43,8 @@ type AudienceCard = {
 type TeamSummary = {
   team: string;
   memberCount: number;
-  guardianCount: number;
+  youthCount: number;
+  adultCount: number;
 };
 
 export default function ExerciseLibraryAudiencePage() {

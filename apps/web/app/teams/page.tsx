@@ -11,7 +11,8 @@ import { SectionHeader } from "../../components/admin/section-header";
 type TeamSummary = {
   team: string;
   memberCount: number;
-  guardianCount: number;
+  youthCount: number;
+  adultCount: number;
   createdAt: string | Date | null;
   updatedAt: string | Date | null;
 };
@@ -103,8 +104,10 @@ export default function TeamsPage() {
                             {team.memberCount === 1 ? "" : "s"}
                           </span>
                           <span className="rounded-full border border-border px-2 py-1">
-                            {team.guardianCount} guardian
-                            {team.guardianCount === 1 ? "" : "s"}
+                            {team.youthCount} youth
+                          </span>
+                          <span className="rounded-full border border-border px-2 py-1">
+                            {team.adultCount} adult
                           </span>
                         </div>
                       </div>

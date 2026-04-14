@@ -46,7 +46,8 @@ import { OTHER_SECTION_CONFIGS } from "./others/shared";
 type TeamSummary = {
   team: string;
   memberCount: number;
-  guardianCount: number;
+  youthCount: number;
+  adultCount: number;
 };
 
 function toPlanStorageAudienceLabel(planName: string) {
@@ -1292,10 +1293,7 @@ export default function TeamDetailPage() {
                           {item.team}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {item.memberCount} athlete
-                          {item.memberCount === 1 ? "" : "s"} ·{" "}
-                          {item.guardianCount} guardian
-                          {item.guardianCount === 1 ? "" : "s"}
+                          {item.youthCount} youth · {item.adultCount} adult
                         </p>
                       </div>
                       <span className="text-xs text-muted-foreground">

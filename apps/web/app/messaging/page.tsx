@@ -83,7 +83,8 @@ type ThreadListItem = {
 type AdminTeamItem = {
   team: string;
   memberCount: number;
-  guardianCount: number;
+  youthCount: number;
+  adultCount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -1785,8 +1786,7 @@ export default function MessagingPage() {
                           {team.team}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {team.memberCount} athletes · {team.guardianCount}{" "}
-                          guardians
+                          {team.youthCount} youth · {team.adultCount} adult
                         </p>
                       </div>
                       <div className="text-right text-xs text-muted-foreground">
