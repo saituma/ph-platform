@@ -425,7 +425,7 @@ export const apiSlice = createApi({
           memberCount: number;
           youthCount: number;
           adultCount: number;
-          guardianCount: number;
+          guardianCount?: number;
           createdAt: string;
           updatedAt: string;
         }>;

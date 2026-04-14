@@ -25,6 +25,8 @@ type OsmMapViewProps = {
   routePolyline?: Coordinate[] | null;
   onRecenter?: () => void;
   followUser?: boolean;
+  isDark?: boolean;
+  splitPoints?: any[];
 };
 
 const buildHtml = (
@@ -188,6 +190,8 @@ export function OsmMapView({
   routePolyline = null,
   onRecenter,
   followUser = false,
+  isDark = false,
+  splitPoints = [],
 }: OsmMapViewProps) {
   const webViewRef = useRef<WebView | null>(null);
 
@@ -240,7 +244,7 @@ export function OsmMapView({
       <WebView
         ref={webViewRef}
         originWhitelist={["*"]}
-        source={{ html: buildHtml(routeColor, startColor, endColor, backgroundColor, isDark) }}
+        source={{ html: buildHtml(routeColor, startColor, endColor, destinationColor, backgroundColor, isDark) }}
         javaScriptEnabled
         domStorageEnabled
         scrollEnabled={true}

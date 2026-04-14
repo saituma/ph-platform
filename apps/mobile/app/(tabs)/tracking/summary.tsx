@@ -12,15 +12,45 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Crypto from "expo-crypto";
 import { fonts, radius, icons as themeIcons } from "@/constants/theme";
 import { PulsingDot } from "../../../components/tracking/PulsingDot";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import { calculateRunMetrics, formatDistanceKm, formatDurationClock } from "../../../lib/tracking/runUtils";
+import { calculateRunMetrics, formatDistanceKm, formatDurationClock, estimateCalories } from "../../../lib/tracking/runUtils";
+import { thinRoutePointsForDisplay } from "../../../lib/tracking/thinRoute";
+import { deleteRunRecord, EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveRunRecord } from "../../../lib/sqliteRuns";
 import { TrackingMetricTile } from "../../../components/tracking/TrackingMetricTile";
 import { OsmMapView } from "../../../components/tracking/OsmMapView";
 import { shouldUseOsmMap } from "../../../lib/mapsConfig";
 import { haversineDistance } from "../../../lib/haversine";
+
+const MapNightStyle = [
+  {
+    elementType: "geometry",
+    stylers: [
+      {
+        color: "#242f3e",
+      },
+    ],
+  },
+  {
+    elementType: "labels.text.fill",
+    stylers: [
+      {
+        color: "#746855",
+      },
+    ],
+  },
+  {
+    elementType: "labels.text.stroke",
+    stylers: [
+      {
+        color: "#242f3e",
+      },
+    ],
+  },
+];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -37,7 +67,7 @@ export default function RunSummaryScreen() {
     status,
   } = useRunStore();
 
-  const persistedThisSummaryRef = useRef(false);
+  const persistedThisSummaryRef = React.useRef(false);
 
   const mapCoordinates = useMemo(
     () => thinRoutePointsForDisplay(coordinates, 22),
@@ -130,7 +160,7 @@ export default function RunSummaryScreen() {
   const metrics = calculateRunMetrics(distanceMeters, elapsedSeconds, coordinates, 70);
 
   const splitPoints = useMemo(() => {
-    const points: Array<{latitude: number; longitude: number; altitude?: number}> = [];
+    const points: Array<{latitude: number; longitude: number; altitude?: number | null}> = [];
     let currentSplitDistance = 0;
     let lastCoord = coordinates.length > 0 ? coordinates[0] : null;
 
@@ -175,7 +205,6 @@ export default function RunSummaryScreen() {
         }
       : undefined;
 
-  const useOsmMap = shouldUseOsmMap();
   const useOsmMap = shouldUseOsmMap();
 
   const animatedScreenStyle = useAnimatedStyle(() => ({
@@ -258,7 +287,7 @@ export default function RunSummaryScreen() {
             KILOMETERS
           </Text>
           
-          <View style={{ marginTop: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: `${metrics.paceZone.color}22`, borderRadius: radius.full, flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ marginTop: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: `${metrics.paceZone.color}22`, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center' }}>
              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: metrics.paceZone.color, marginRight: 6 }} />
              <Text style={{ color: metrics.paceZone.color, fontFamily: fonts.labelMedium, fontSize: 11, textTransform: 'uppercase' }}>
                Zone {metrics.paceZone.zone} · {metrics.paceZone.label}
@@ -372,6 +401,7 @@ export default function RunSummaryScreen() {
                    routeColor={colors.mapRoute}
                    startColor={colors.mapStart}
                    endColor={colors.mapEnd}
+                   destinationColor={colors.coral}
                    backgroundColor={colors.surfaceHigh}
                    isDark={isDark}
                    splitPoints={splitPoints}
@@ -506,6 +536,5 @@ export default function RunSummaryScreen() {
         </View>
         </Animated.ScrollView>
       </SafeAreaView>
-    </>
   );
 }

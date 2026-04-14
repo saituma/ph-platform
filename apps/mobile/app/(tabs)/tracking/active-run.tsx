@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { SafeAreaView, Text, View, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,

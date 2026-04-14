@@ -180,9 +180,9 @@ export default function Home() {
   }, [teamsData]);
 
   const totalTeams = teamRows.length;
-  const totalTeamAthletes = teamRows.reduce((sum, team) => sum + (team.memberCount ?? 0), 0);
-  const totalYouthAthletes = teamRows.reduce((sum, team) => sum + (team.youthCount ?? 0), 0);
-  const totalAdultAthletes = teamRows.reduce((sum, team) => sum + (team.adultCount ?? 0), 0);
+  const totalTeamAthletes = teamRows.reduce((sum, team) => sum + Number(team.memberCount ?? 0), 0);
+  const totalYouthAthletes = teamRows.reduce((sum, team) => sum + Number(team.youthCount ?? 0), 0);
+  const totalAdultAthletes = teamRows.reduce((sum, team) => sum + Number(team.adultCount ?? 0), 0);
 
   const tierSummary = dashboardData?.tierDistribution;
   const tierDistributionData: TierDistributionDatum[] = tierSummary
