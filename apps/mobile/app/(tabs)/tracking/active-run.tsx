@@ -1,10 +1,7 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { Text, View, Pressable } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { Stack, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { SafeAreaView, Text, View, Pressable } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,
@@ -28,7 +25,7 @@ import { RunActionButtons } from "../../../components/tracking/active-run/RunAct
 import { RunBottomBar } from "../../../components/tracking/active-run/RunBottomBar";
 import { RunStopSheet } from "../../../components/tracking/active-run/RunStopSheet";
 import { RunToast } from "../../../components/tracking/active-run/RunToast";
-import { shouldUseOsmMap } from "@/lib/mapsConfig";
+import { shouldUseOsmMap } from "../../../lib/mapsConfig";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
@@ -63,14 +60,17 @@ export default function ActiveRunScreen() {
     stopForegroundWatch,
     setupLocationAndPermissions,
     lastCoordinate,
+    routePolyline,
+    isFetchingRoute,
+    isWarmedUp,
   } = useRunTrackingEngine(toastTranslateY, insets.top);
 
   const useOsmMap = shouldUseOsmMap();
-
   const bottomBarHeight = 88;
   const overlayGap = 16;
+  const showWarmupBanner = !isWarmedUp && status === "running";
+  const warmupSecondsLeft = Math.max(0, 8 - elapsedSeconds);
 
-  // Glass Morphism Styles
   const glassBg = isDark ? "rgba(20,20,20,0.55)" : "rgba(255,255,255,0.72)";
   const glassBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
   const glassShadow = isDark
@@ -220,16 +220,15 @@ export default function ActiveRunScreen() {
           isDark={isDark}
           colors={colors}
           followUser={followUser}
+          routePolyline={routePolyline}
+          isWarmedUp={isWarmedUp}
           onManualMove={() => setFollowUser(false)}
           onRecenter={() => {
             setFollowUser(true);
-            if (activeRegion) {
-              // Recenter logic already inside LiveMap's useEffect for followUser
-            }
           }}
         />
 
-        {coordinates.length < 2 && (
+        {showWarmupBanner && (
           <View
             pointerEvents="none"
             style={{
@@ -245,22 +244,33 @@ export default function ActiveRunScreen() {
               borderColor: colors.borderSubtle,
             }}
           >
-            <Text
-              style={{
-                fontFamily: fonts.bodyMedium,
-                color: colors.textPrimary,
-              }}
-            >
-              Waiting for GPS lock…
+            <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
+              GPS stabilizing… ({warmupSecondsLeft}s)
             </Text>
-            <Text
-              style={{
-                fontFamily: fonts.bodyRegular,
-                color: colors.textSecondary,
-                marginTop: 2,
-              }}
-            >
-              Start moving to see your route.
+            <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textSecondary, marginTop: 2 }}>
+              Warmup period, please stand still or stretch.
+            </Text>
+          </View>
+        )}
+
+        {isFetchingRoute && destination && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: 12,
+              top: showWarmupBanner ? 80 : 12,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: colors.surfaceHigh,
+              borderWidth: 1,
+              borderColor: colors.borderSubtle,
+              opacity: 0.9,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }}>
+              Calculating route…
             </Text>
           </View>
         )}

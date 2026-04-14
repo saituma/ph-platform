@@ -16,6 +16,8 @@ interface LiveMapProps {
   isDark: boolean;
   colors: any;
   followUser: boolean;
+  routePolyline?: {latitude: number; longitude: number}[] | null;
+  isWarmedUp?: boolean;
   onManualMove: () => void;
   onRecenter: () => void;
 }
@@ -29,6 +31,8 @@ export function LiveMap({
   isDark,
   colors,
   followUser,
+  routePolyline,
+  isWarmedUp,
   onManualMove,
   onRecenter,
 }: LiveMapProps) {
@@ -65,6 +69,9 @@ export function LiveMap({
           backgroundColor={colors.surfaceHigh}
           destination={destination}
           activeRegion={activeRegion}
+          routePolyline={routePolyline}
+          followUser={followUser}
+          onRecenter={onRecenter}
         />
       ) : (
         <MapView
@@ -77,62 +84,55 @@ export function LiveMap({
           userInterfaceStyle={isDark ? "dark" : "light"}
           showsUserLocation={locationPermissionGranted}
           showsMyLocationButton={false}
+          followsUserLocation={followUser}
           pitchEnabled={false}
           rotateEnabled={false}
+          scrollEnabled={true}
+          zoomEnabled={true}
           onTouchStart={onManualMove}
         >
+          {routePolyline && routePolyline.length > 1 && (
+            <Polyline
+              coordinates={routePolyline}
+              strokeColor={`${colors.cyan}b3`}
+              strokeWidth={3}
+              geodesic={true}
+            />
+          )}
+
           {coordinates.length > 1 && (
             <Polyline
               coordinates={coordinates}
               strokeColor={colors.mapRoute}
               strokeWidth={4}
+              geodesic={true}
             />
           )}
 
           {coordinates.length > 0 && (
-            <>
-              <Marker
-                coordinate={coordinates[0]}
-                anchor={{ x: 0.5, y: 0.5 }}
-                tracksViewChanges={false}
-              >
-                <View
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: radius.pill,
-                    backgroundColor: colors.lime,
-                    borderWidth: 2,
-                    borderColor: colors.bg,
-                  }}
-                />
-              </Marker>
-              {lastCoordinate && (
-                <Marker
-                  coordinate={lastCoordinate}
-                  anchor={{ x: 0.5, y: 0.5 }}
-                  tracksViewChanges={false}
-                >
-                  <PulsingDot size={8} color={colors.cyan} />
-                </Marker>
-              )}
-            </>
+            <Marker coordinate={coordinates[0]} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.lime,
+                  borderWidth: 2,
+                  borderColor: colors.bg,
+                }}
+              />
+            </Marker>
           )}
-          {destination && lastCoordinate && (
-            <Polyline
-              coordinates={[lastCoordinate, destination]}
-              strokeColor={`${colors.coral}cc`}
-              strokeWidth={3}
-              lineDashPattern={[10, 8]}
-            />
-          )}
+
           {destination && (
-            <Marker
-              coordinate={destination}
-              anchor={{ x: 0.5, y: 1 }}
-              tracksViewChanges={false}
-            >
+            <Marker coordinate={destination} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false}>
               <Ionicons name="flag" size={24} color={colors.coral} />
+            </Marker>
+          )}
+
+          {lastCoordinate && (
+            <Marker coordinate={lastCoordinate} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+              <PulsingDot size={8} color={colors.cyan} />
             </Marker>
           )}
         </MapView>
@@ -153,7 +153,7 @@ export function LiveMap({
       />
 
       {/* Recenter control */}
-      {!useOsmMap && (
+      {!followUser && (
         <View style={{ position: "absolute", top: 12, right: 12 }}>
           <Pressable
             onPress={onRecenter}

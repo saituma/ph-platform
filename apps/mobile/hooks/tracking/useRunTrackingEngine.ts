@@ -25,6 +25,7 @@ export function useRunTrackingEngine(
     markDestinationReached,
     startRun,
     stopRun,
+    getIsWarmedUp,
   } = useRunStore();
 
   const [hasGps, setHasGps] = useState(false);
@@ -38,8 +39,15 @@ export function useRunTrackingEngine(
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const [routePolyline, setRoutePolyline] = useState<{ latitude: number; longitude: number }[] | null>(null);
+  const [isFetchingRoute, setIsFetchingRoute] = useState(false);
+
+  // Poll for warmup status instead of triggering standard react state updates on every frame
+  const [isWarmedUp, setIsWarmedUp] = useState(false);
+
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   const notificationsRef = useRef<any | null>(null);
+  const lastRouteFetchTime = useRef<number>(0);
 
   const stopForegroundWatch = useCallback(() => {
     watchRef.current?.remove();
@@ -51,7 +59,7 @@ export function useRunTrackingEngine(
     watchRef.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
-        distanceInterval: 5,
+        distanceInterval: 8,
         timeInterval: 1000,
       },
       (loc) => {
@@ -61,8 +69,8 @@ export function useRunTrackingEngine(
           latitude,
           longitude,
           timestamp: loc.timestamp,
-          accuracy: loc.coords.accuracy ?? null,
-        });
+          altitude: loc.coords.altitude || undefined,
+        }, loc.coords.accuracy);
       },
     );
   }, [addCoordinate, stopForegroundWatch]);
@@ -136,6 +144,29 @@ export function useRunTrackingEngine(
     }
   }, []);
 
+  const fetchRoute = useCallback(async (startLat: number, startLng: number, destLat: number, destLng: number) => {
+    const now = Date.now();
+    if (now - lastRouteFetchTime.current < 30000 || isFetchingRoute) return;
+
+    setIsFetchingRoute(true);
+    lastRouteFetchTime.current = now;
+
+    try {
+      const url = `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        const lineString = data.routes[0].geometry.coordinates;
+        setRoutePolyline(lineString.map((c: [number, number]) => ({ latitude: c[1], longitude: c[0] })));
+      }
+    } catch (e) {
+      console.warn("OSRM route fetch failed", e);
+      setRoutePolyline(null);
+    } finally {
+      setIsFetchingRoute(false);
+    }
+  }, [isFetchingRoute]);
+
   useEffect(() => {
     if (useRunStore.getState().status === "idle") {
       startRun();
@@ -144,6 +175,8 @@ export function useRunTrackingEngine(
 
     const timer = setInterval(() => {
       tick();
+      // Also poll warmup state to trigger UI changes without rerendering the whole tree on every coordinate
+      setIsWarmedUp(useRunStore.getState().getIsWarmedUp());
     }, 1000);
 
     getNotifications().then((n) => (notificationsRef.current = n));
@@ -171,6 +204,20 @@ export function useRunTrackingEngine(
         markDestinationReached();
         triggerGoalFeedback("Destination reached", "Destination reached!");
       }
+
+      const now = Date.now();
+      if (routePolyline && routePolyline.length > 0 && !isFetchingRoute) {
+        let minDistance = Infinity;
+        for (const pt of routePolyline) {
+          const d = haversineDistance(lastCoord.latitude, lastCoord.longitude, pt.latitude, pt.longitude);
+          if (d < minDistance) minDistance = d;
+        }
+        if (minDistance > 200 && (now - lastRouteFetchTime.current >= 30000)) {
+          fetchRoute(lastCoord.latitude, lastCoord.longitude, destination.latitude, destination.longitude);
+        }
+      } else if (!routePolyline && !isFetchingRoute && (now - lastRouteFetchTime.current >= 30000)) {
+        fetchRoute(lastCoord.latitude, lastCoord.longitude, destination.latitude, destination.longitude);
+      }
     }
   }, [
     goalKm,
@@ -182,6 +229,9 @@ export function useRunTrackingEngine(
     markGoalReached,
     markDestinationReached,
     triggerGoalFeedback,
+    fetchRoute,
+    routePolyline,
+    isFetchingRoute
   ]);
 
   const lastCoordinate = liveCoordinate;
@@ -209,5 +259,8 @@ export function useRunTrackingEngine(
     stopForegroundWatch,
     setupLocationAndPermissions,
     lastCoordinate,
+    routePolyline,
+    isFetchingRoute,
+    isWarmedUp,
   };
 }

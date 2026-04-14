@@ -5,21 +5,11 @@ import { Platform } from "react-native";
 
 const DEV_MODE = __DEV__ && Platform.OS === 'ios';
 
-/** Minimum movement between recorded trail points (filters GPS jitter). */
-export const MIN_RUN_SEGMENT_METERS = 12;
-
-/** Ignore location updates worse than this horizontal accuracy when appending trail points. */
-const MAX_TRAIL_ACCURACY_METERS = 48;
-
-/** First fix is often noisier; allow a slightly looser bound so the run can start. */
-const FIRST_POINT_MAX_ACCURACY_METERS = 100;
-
-interface Coordinate {
+export interface Coordinate {
   latitude: number;
   longitude: number;
   timestamp: number;
-  /** Meters; when present, very poor fixes are skipped for the trail/distance. */
-  accuracy?: number | null;
+  altitude?: number | null;
 }
 
 interface Destination {
@@ -40,24 +30,27 @@ interface RunStore {
   destination: Destination | null;
   goalReached: boolean;
   destinationReached: boolean;
-  /** Stable id for this session — used to save the run before feedback completes. */
-  currentRunId: string | null;
+  warmupUntil: number | null;
 
   startRun: () => void;
   pauseRun: () => void;
   resumeRun: () => void;
   stopRun: () => void;
   resetRun: () => void;
-  addCoordinate: (coord: Coordinate) => void;
+  addCoordinate: (coord: Coordinate, accuracy: number | null) => void;
   tick: () => void;
   setDistanceOverrideMeters: (meters: number | null) => void;
   setGoalKm: (km: number | null) => void;
   setDestination: (dest: Destination | null) => void;
   markGoalReached: () => void;
   markDestinationReached: () => void;
+  getIsWarmedUp: () => boolean;
 }
 
-export const useRunStore = create<RunStore>((set) => ({
+const MIN_RUN_SEGMENT_METERS = 12;
+const MAX_TRAIL_ACCURACY_METERS = 32;
+
+export const useRunStore = create<RunStore>((set, get) => ({
   status: "idle",
   startTime: null,
   pauseStart: null,
@@ -70,7 +63,7 @@ export const useRunStore = create<RunStore>((set) => ({
   destination: null,
   goalReached: false,
   destinationReached: false,
-  currentRunId: null,
+  warmupUntil: null,
 
   startRun: () => {
     set({
@@ -82,7 +75,7 @@ export const useRunStore = create<RunStore>((set) => ({
       distanceOverrideMeters: null,
       coordinates: [],
       elapsedSeconds: 0,
-      currentRunId: Crypto.randomUUID(),
+      warmupUntil: Date.now() + 8000,
     });
   },
 
@@ -123,46 +116,48 @@ export const useRunStore = create<RunStore>((set) => ({
       destination: null,
       goalReached: false,
       destinationReached: false,
-      currentRunId: null,
+      warmupUntil: null,
     });
   },
 
-  setDistanceOverrideMeters: (meters) => {
-    set({ distanceOverrideMeters: meters });
-  },
-
-  addCoordinate: (coord: Coordinate) => {
+  addCoordinate: (coord: Coordinate, accuracy: number | null) => {
     set((state) => {
-      if (state.status !== "running") return state;
+      if (state.status !== "running" || !state.startTime) return state;
 
-      const acc = coord.accuracy;
-      const accuracyOk =
-        acc == null || !Number.isFinite(acc) || acc <= MAX_TRAIL_ACCURACY_METERS;
-      const firstPointOk =
-        acc == null ||
-        !Number.isFinite(acc) ||
-        acc <= FIRST_POINT_MAX_ACCURACY_METERS;
+      if (state.warmupUntil && Date.now() < state.warmupUntil) {
+        return state;
+      }
+
+      if (accuracy != null && Number.isFinite(accuracy) && accuracy > MAX_TRAIL_ACCURACY_METERS) {
+        return state;
+      }
 
       if (state.coordinates.length === 0) {
-        if (!firstPointOk) return state;
         return {
-          coordinates: [coord],
-          distanceMeters: 0,
+          coordinates: [coord]
         };
       }
 
-      if (!accuracyOk) return state;
-
       const last = state.coordinates[state.coordinates.length - 1];
+      const timeDeltaSeconds = (coord.timestamp - last.timestamp) / 1000;
+
+      if (timeDeltaSeconds < 0.5) return state;
+
       const dist = haversineDistance(
         last.latitude,
         last.longitude,
         coord.latitude,
         coord.longitude
       );
+
+      const speed = dist / timeDeltaSeconds;
+      if (speed < 0.5) return state;
+
       if (dist < MIN_RUN_SEGMENT_METERS) return state;
 
       return {
+        coordinates: [...state.coordinates, coord],
+        distanceMeters: state.distanceMeters + dist,
         coordinates: [...state.coordinates, coord],
         distanceMeters: state.distanceMeters + dist,
       };
@@ -174,12 +169,7 @@ export const useRunStore = create<RunStore>((set) => ({
       if (state.status !== "running" || !state.startTime) return state;
       const now = Date.now();
       const elapsedMilliseconds = now - state.startTime - state.totalPausedMs;
-      
-      if (DEV_MODE && state.elapsedSeconds % 5 === 0 && state.elapsedSeconds > 0) {
-          // Internal simulation map coordinates dispatch logic removed from here and placed into ActiveRunScreen
-          // To prevent mutating coordinates explicitly from a tick payload without action intent
-      }
-      
+
       return {
         elapsedSeconds: Math.floor(elapsedMilliseconds / 1000),
       };
@@ -190,4 +180,10 @@ export const useRunStore = create<RunStore>((set) => ({
   setDestination: (dest) => set({ destination: dest, destinationReached: false }),
   markGoalReached: () => set({ goalReached: true }),
   markDestinationReached: () => set({ destinationReached: true }),
+
+  getIsWarmedUp: () => {
+    const warmupUntil = get().warmupUntil;
+    if (!warmupUntil) return false;
+    return Date.now() >= warmupUntil;
+  },
 }));
