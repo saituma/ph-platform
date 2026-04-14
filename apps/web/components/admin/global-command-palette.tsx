@@ -46,7 +46,8 @@ type PaletteUser = {
 type PaletteTeam = {
   team: string;
   memberCount: number;
-  guardianCount: number;
+  youthCount: number;
+  adultCount: number;
 };
 
 type PaletteBooking = {
@@ -399,19 +400,21 @@ export function GlobalCommandPalette() {
         matchesQuery(query, [
           team?.team,
           team?.memberCount,
-          team?.guardianCount,
+          team?.youthCount,
+          team?.adultCount,
         ]),
       )
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((team) => ({
         id: `team-${team.team}`,
-        children: `Team: ${team.team} (${team.memberCount} athletes, ${team.guardianCount} guardians)`,
+        children: `Team: ${team.team} (${team.youthCount} youth, ${team.adultCount} adult)`,
         closeOnSelect: true,
         onClick: () => router.push(`/teams/${encodeURIComponent(team.team)}`),
         keywords: toKeywords([
           team?.team,
           team?.memberCount,
-          team?.guardianCount,
+          team?.youthCount,
+          team?.adultCount,
         ]),
       }));
 
