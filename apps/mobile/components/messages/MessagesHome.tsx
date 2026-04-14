@@ -18,11 +18,11 @@ import {
   setProgramTier,
 } from "@/store/slices/userSlice";
 import { Ionicons } from "@expo/vector-icons";
-import { usePathname, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BASE_TEAM_TAB_ROUTES } from "@/roles/shared/tabs";
+import { useSafePathname, useSafeRouter } from "@/hooks/navigation/useSafeExpoRouter";
 
 export type MessagesHomeMode = "team" | "adult" | "youth";
 
@@ -58,8 +58,8 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
     loadMessages,
     resetOpeningThread,
   } = useMessagesController();
-  const router = useRouter();
-  const pathname = usePathname() ?? "";
+  const router = useSafeRouter();
+  const pathname = useSafePathname("");
   const activeTabIndex = useActiveTabIndex();
   const messagesTabIndex = React.useMemo(
     () => BASE_TEAM_TAB_ROUTES.findIndex((t) => t.key === "messages"),
@@ -278,7 +278,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
             <Pressable
               onPress={() => {
                 requestGlobalTabChange(0);
-                router.replace("/(tabs)/programs");
+                router?.replace("/(tabs)/programs");
               }}
               className="mt-8 rounded-full px-8 py-3 bg-accent"
             >
@@ -373,7 +373,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 
       <View className="px-6 pb-8">
         <Pressable
-          onPress={() => router.push("/announcements" as any)}
+          onPress={() => router?.push("/announcements" as any)}
           className="rounded-[32px] border p-6 active:opacity-90"
           style={{
             backgroundColor: colors.card,

@@ -5,7 +5,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused, NavigationContext } from "@react-navigation/native";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
@@ -44,15 +44,28 @@ const PROGRAM_TITLES: Record<ProgramId, string> = {
   pro: "PHP Pro",
 };
 
-export function ProgramDetailPanel({
+export function ProgramDetailPanel(props: ProgramDetailPanelProps) {
+  const navContext = React.useContext(NavigationContext);
+  if (!navContext) {
+    return <ProgramDetailPanelBase {...props} isFocused={true} />;
+  }
+  return <ProgramDetailPanelWithNav {...props} />;
+}
+
+function ProgramDetailPanelWithNav(props: ProgramDetailPanelProps) {
+  const isFocused = useIsFocused();
+  return <ProgramDetailPanelBase {...props} isFocused={isFocused} />;
+}
+
+function ProgramDetailPanelBase({
   programId,
   showBack = false,
   onBack,
   onNavigate,
-}: ProgramDetailPanelProps) {
+  isFocused,
+}: ProgramDetailPanelProps & { isFocused: boolean }) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const isFocused = useIsFocused();
   const { token, athleteUserId, managedAthletes, appRole } = useAppSelector(
     (state) => state.user,
   );

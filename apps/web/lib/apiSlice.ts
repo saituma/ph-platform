@@ -423,6 +423,8 @@ export const apiSlice = createApi({
         teams: Array<{
           team: string;
           memberCount: number;
+          youthCount: number;
+          adultCount: number;
           guardianCount: number;
           createdAt: string;
           updatedAt: string;

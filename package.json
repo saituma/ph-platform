@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "turbo run build",
+    "db:migrate": "pnpm --filter api db:migrate",
     "test": "turbo run test",
     "test:watch": "turbo run test --watch",
     "test:coverage": "turbo run test --coverage",
@@ -33,7 +34,8 @@
   "pnpm": {
     "overrides": {
       "react": "19.2.0",
-      "react-dom": "19.2.0"
+      "react-dom": "19.2.0",
+      "@react-navigation/native": "7.1.33"
     }
   }
 }

@@ -31,13 +31,13 @@ apps/
 │   └── index.ts
 packages/        # Shared libraries (optional)
 
-````
+```
 
 ## Getting Started
 Install dependencies:
 ```bash
 pnpm install
-````
+```
 
 Run each app:
 
@@ -45,4 +45,8 @@ Run each app:
 pnpm --filter mobile dev    # Mobile app
 pnpm --filter web dev       # Admin dashboard
 pnpm --filter api dev       # Backend API
+pnpm db:migrate             # Run API DB migrations locally
+```
 
+## Database (API)
+Create `apps/api/.env` with `DATABASE_URL=postgres://...`, then run `pnpm db:migrate`.

@@ -1,5 +1,5 @@
 import React from "react";
-import { usePathname } from "expo-router";
+import { useSafePathname } from "@/hooks/navigation/useSafeExpoRouter";
 
 import HomeScreen from "@/app/(tabs)/index";
 import MessagesScreen from "@/app/(tabs)/messages";
@@ -10,9 +10,10 @@ import TrackingHomeScreen from "@/app/(tabs)/tracking/index";
 import TrackingLayout from "@/app/(tabs)/tracking/_layout";
 
 const TrackingWrapper = React.memo(() => {
-  const pathname = usePathname();
+  const pathname = useSafePathname("");
   const isTrackingRoute =
-    pathname.startsWith("/(tabs)/tracking") || pathname.startsWith("/tracking");
+    !!pathname &&
+    (pathname.startsWith("/(tabs)/tracking") || pathname.startsWith("/tracking"));
   return isTrackingRoute ? <TrackingLayout /> : <TrackingHomeScreen />;
 });
 
@@ -27,4 +28,3 @@ export const SHARED_TAB_COMPONENTS: Record<
   tracking: TrackingWrapper,
   more: React.memo(MoreScreen),
 };
-

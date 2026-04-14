@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
+  useContext,
 } from "react";
 import {
   View,
@@ -17,7 +18,11 @@ import {
   Platform,
 } from "react-native";
 import { VideoView } from "expo-video";
-import { useIsFocused } from "@react-navigation/native";
+import {
+  useIsFocused,
+  NavigationContext,
+  NavigationContainerRefContext,
+} from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
 import { Text } from "@/components/ScaledText";
@@ -90,7 +95,52 @@ interface VideoPlayerProps {
   onEnded?: () => void;
 }
 
-export function VideoPlayer({
+export function VideoPlayer(props: VideoPlayerProps) {
+  const navigation = useContext(NavigationContext);
+  const containerRef = useContext(NavigationContainerRefContext);
+  const branchLogKeyRef = useRef("");
+  // #region agent log
+  const usesWithNav = !(navigation === undefined && containerRef === undefined);
+  const branchKey = `${usesWithNav}|${String(props.uri ?? "").slice(0, 64)}`;
+  if (branchKey !== branchLogKeyRef.current) {
+    branchLogKeyRef.current = branchKey;
+    fetch("http://127.0.0.1:7392/ingest/3e8b9f8d-6d0f-4ca7-943c-7327a18df494", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "f7e5bb",
+      },
+      body: JSON.stringify({
+        sessionId: "f7e5bb",
+        location: "VideoPlayer.tsx:VideoPlayer",
+        message: "VideoPlayer nav branch",
+        data: {
+          hypothesisId: "H1",
+          navUndefined: navigation === undefined,
+          containerRefUndefined: containerRef === undefined,
+          usesWithNav,
+          uriPrefix: String(props.uri ?? "").slice(0, 48),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }
+  // #endregion
+  // Match `useNavigation()` preconditions so we never mount `useIsFocused` without a provider.
+  // Also avoids crashes when duplicate @react-navigation/native copies split context (pnpm dedupe fixes that).
+  if (navigation === undefined && containerRef === undefined) {
+    return <VideoPlayerBase {...props} navFocused={true} />;
+  }
+
+  return <VideoPlayerWithNav {...props} />;
+}
+
+function VideoPlayerWithNav(props: VideoPlayerProps) {
+  const isFocused = useIsFocused();
+  return <VideoPlayerBase {...props} navFocused={isFocused} />;
+}
+
+function VideoPlayerBase({
   uri,
   height = 220,
   autoPlay = false,
@@ -119,9 +169,10 @@ export function VideoPlayer({
   pauseOthers,
   onDurationMs,
   onEnded,
-}: VideoPlayerProps) {
+  navFocused,
+}: VideoPlayerProps & { navFocused: boolean }) {
   const { colors, isDark } = useAppTheme();
-  const navFocused = useIsFocused();
+
   const { activeTabIndex, currentTabIndex } = useActiveTab();
   const isTabActive = activeTabIndex === currentTabIndex;
   const playbackController = useVideoPlaybackController();
