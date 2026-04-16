@@ -91,6 +91,7 @@ export function ExerciseOverview({
                   label: "Category",
                   value: String(meta.category),
                   icon: "tag",
+                  valueKind: "text" as const,
                 }
               : null,
             meta.equipment
@@ -99,6 +100,7 @@ export function ExerciseOverview({
                   label: "Equipment",
                   value: String(meta.equipment),
                   icon: "tool",
+                  valueKind: "text" as const,
                 }
               : null,
           ].filter(Boolean) as any}

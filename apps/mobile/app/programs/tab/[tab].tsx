@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
@@ -38,6 +38,7 @@ type ProgramSectionContent = {
 
 export default function ProgramTabDetailScreen() {
   const router = useRouter();
+  const deepLinkFallbackDoneRef = useRef(false);
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   const tabName = useMemo(() => {
     const raw = Array.isArray(tab) ? tab[0] : tab;
@@ -72,7 +73,9 @@ export default function ProgramTabDetailScreen() {
   const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   useEffect(() => {
+    if (deepLinkFallbackDoneRef.current) return;
     if (router.canGoBack()) return;
+    deepLinkFallbackDoneRef.current = true;
     router.replace("/(tabs)");
   }, [router]);
   const handleBack = useCallback(() => {

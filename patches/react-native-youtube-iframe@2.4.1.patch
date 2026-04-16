@@ -1,0 +1,57 @@
+diff --git a/lib/commonjs/PlayerScripts.js b/lib/commonjs/PlayerScripts.js
+index 7867fe77e05f2243eff921af237c4b73026e2f6c..419b53389f6f393dd88bec9afb1d930266c48a12 100644
+--- a/lib/commonjs/PlayerScripts.js
++++ b/lib/commonjs/PlayerScripts.js
+@@ -81,8 +81,10 @@ const MAIN_SCRIPT = (videoId, playList, initialPlayerParams, allowWebViewZoom, c
+     modestbranding,
+     controls = true,
+     showClosedCaptions,
+-    preventFullScreen = false
+-  } = initialPlayerParams;
++    preventFullScreen = false,
++    /** Width ÷ height of the WebView (e.g. 16/9 landscape, 9/16 portrait). Drives responsive padding; default 16:9. */
++    aspectRatio: aspectRatioWH = 16 / 9
++  } = initialPlayerParams || {};
+ 
+   // _s postfix to refer to "safe"
+   const rel_s = rel ? 1 : 0;
+@@ -128,6 +130,9 @@ const MAIN_SCRIPT = (videoId, playList, initialPlayerParams, allowWebViewZoom, c
+   const listParam = list ? `list: '${list}',` : '';
+   const listTypeParam = listType ? `listType: '${list}',` : '';
+   const playlistParam = playList ? `playlist: '${playList}',` : '';
++  const ar = Number(aspectRatioWH);
++  const safeAspect = Number.isFinite(ar) && ar > 0 ? ar : 16 / 9;
++  const paddingBottomPct = (1 / safeAspect) * 100;
+   const htmlString = `
+ <!DOCTYPE html>
+ <html>
+@@ -144,7 +149,7 @@ const MAIN_SCRIPT = (videoId, playList, initialPlayerParams, allowWebViewZoom, c
+         position: relative;
+         width: 100%;
+         height: 0;
+-        padding-bottom: 56.25%;
++        padding-bottom: ${paddingBottomPct}%;
+       }
+       .video {
+           position: absolute;
+diff --git a/lib/commonjs/YoutubeIframe.js b/lib/commonjs/YoutubeIframe.js
+index 0be2dad8ab785444d08e7a166d2fe83d2c14a4f0..e4b99cd2af063f587a1f5144499815dcc710809f 100644
+--- a/lib/commonjs/YoutubeIframe.js
++++ b/lib/commonjs/YoutubeIframe.js
+@@ -44,6 +44,7 @@ const YoutubeIframe = (props, ref) => {
+   const lastVideoIdRef = (0, _react.useRef)(videoId);
+   const lastPlayListRef = (0, _react.useRef)(playList);
+   const initialPlayerParamsRef = (0, _react.useRef)(initialPlayerParams || {});
++  initialPlayerParamsRef.current = initialPlayerParams || {};
+   const webViewRef = (0, _react.useRef)(null);
+   const eventEmitter = (0, _react.useRef)(new _events.EventEmitter());
+   const sendPostMessage = (0, _react.useCallback)((eventName, meta) => {
+@@ -220,7 +221,7 @@ const YoutubeIframe = (props, ref) => {
+     return {
+       uri: base + '?data=' + data
+     };
+-  }, [useLocalHTML, contentScale, baseUrlOverride, allowWebViewZoom]);
++  }, [useLocalHTML, contentScale, baseUrlOverride, allowWebViewZoom, initialPlayerParams]);
+   return /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+     style: [{
+       height,

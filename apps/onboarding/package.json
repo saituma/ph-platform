@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
+    "@phosphor-icons/react": "^2.1.10",
     "@sentry/tanstackstart-react": "^10.42.0",
     "@t3-oss/env-core": "^0.13.10",
     "@tailwindcss/vite": "^4.1.18",
@@ -39,6 +40,7 @@
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.9",
     "drizzle-orm": "^0.45.1",
+    "jose": "^5.10.0",
     "lucide-react": "^0.577.0",
     "pg": "^8.16.3",
     "radix-ui": "^1.4.3",

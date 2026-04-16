@@ -5,6 +5,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION } from "@/lib/media/videoPickerNativeResolution";
 import { useAdminUsers } from "@/hooks/admin/useAdminUsers";
 import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
 import { useAppSelector } from "@/store/hooks";
@@ -12,7 +13,16 @@ import type { PendingAttachment } from "@/types/admin-messages";
 import type { AdminUser } from "@/types/admin";
 import * as ImagePicker from "expo-image-picker";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, View, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  BackHandler,
+  Modal,
+  Platform,
+  Pressable,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@/components/ui/theme-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -306,6 +316,22 @@ export default function AdminNutritionScreen() {
     void loadUsers(searchQuery);
   }, [loadUsers, searchQuery]);
 
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (selectedLogId != null) {
+        setSelectedLogId(null);
+        return true;
+      }
+      if (selectedUserId != null) {
+        setSelectedUserId(null);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [selectedLogId, selectedUserId]);
+
   const loadLogsForUser = useCallback(
     async (userId: number, forceRefresh = false) => {
       if (!token || !bootstrapReady) return;
@@ -408,14 +434,12 @@ export default function AdminNutritionScreen() {
       const result =
         source === "camera"
           ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              cameraType: ImagePicker.CameraType.Front,
-              quality: 1,
+              ...VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
+              cameraType: ImagePicker.CameraType.front,
             })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              quality: 1,
-            });
+          : await ImagePicker.launchImageLibraryAsync(
+              VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
+            );
 
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];

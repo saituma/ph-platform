@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo } from "react";
-import { View, Pressable, SafeAreaView, Platform, ScrollView } from "react-native";
-import MapView, { Polyline, Marker } from "react-native-maps";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, Pressable, SafeAreaView, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRunStore } from "../../../store/useRunStore";
 import { Stack, useRouter } from "expo-router";
@@ -14,48 +14,26 @@ import Animated, {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
 import { fonts, radius, icons as themeIcons } from "@/constants/theme";
-import { PulsingDot } from "../../../components/tracking/PulsingDot";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { calculateRunMetrics, formatDistanceKm, formatDurationClock, estimateCalories } from "../../../lib/tracking/runUtils";
 import { thinRoutePointsForDisplay } from "../../../lib/tracking/thinRoute";
 import { deleteRunRecord, EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveRunRecord } from "../../../lib/sqliteRuns";
 import { TrackingMetricTile } from "../../../components/tracking/TrackingMetricTile";
-import { OsmMapView } from "../../../components/tracking/OsmMapView";
-import { shouldUseOsmMap } from "../../../lib/mapsConfig";
 import { haversineDistance } from "../../../lib/haversine";
-
-const MapNightStyle = [
-  {
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#242f3e",
-      },
-    ],
-  },
-  {
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#746855",
-      },
-    ],
-  },
-  {
-    elementType: "labels.text.stroke",
-    stylers: [
-      {
-        color: "#242f3e",
-      },
-    ],
-  },
-];
+import { TrackingMapView } from "../../../components/tracking/TrackingMapView";
+import { MapStyleSwitcher } from "../../../components/tracking/MapStyleSwitcher";
+import type {
+  TrackingMapLayer,
+  TrackingMapStyle,
+} from "../../../components/tracking/trackingMapLayers";
+import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function RunSummaryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const {
     distanceMeters,
@@ -68,6 +46,7 @@ export default function RunSummaryScreen() {
   } = useRunStore();
 
   const persistedThisSummaryRef = React.useRef(false);
+  const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
 
   const mapCoordinates = useMemo(
     () => thinRoutePointsForDisplay(coordinates, 22),
@@ -178,6 +157,66 @@ export default function RunSummaryScreen() {
     return points;
   }, [coordinates]);
 
+  const summaryMapLayers = useMemo((): TrackingMapLayer[] => {
+    if (mapCoordinates.length === 0) return [];
+    const pts = mapCoordinates.map((c) => ({
+      latitude: c.latitude,
+      longitude: c.longitude,
+    }));
+    const layers: TrackingMapLayer[] = [
+      {
+        id: "route",
+        type: "polyline",
+        coordinates: pts,
+        strokeColor: colors.mapRoute,
+        strokeWidth: 4,
+      },
+      {
+        id: "start",
+        type: "marker",
+        coordinate: pts[0],
+        title: "Start",
+        marker: {
+          kind: "circle",
+          color: colors.mapStart,
+          borderColor: "#fff",
+          borderWidth: 2,
+          size: 8,
+        },
+      },
+      {
+        id: "end",
+        type: "marker",
+        coordinate: pts[pts.length - 1],
+        title: "End",
+        marker: {
+          kind: "circle",
+          color: colors.mapEnd,
+          borderColor: "#fff",
+          borderWidth: 2,
+          size: 8,
+        },
+      },
+    ];
+    splitPoints.forEach((sp, idx) => {
+      layers.push({
+        id: `split-${idx}`,
+        type: "marker",
+        coordinate: { latitude: sp.latitude, longitude: sp.longitude },
+        title: `${idx + 1} km`,
+        marker: {
+          kind: "label",
+          color: colors.textPrimary,
+          backgroundColor: colors.surfaceHigh,
+          borderColor: colors.mapRoute,
+          text: `${idx + 1}k`,
+          fontSize: 10,
+        },
+      });
+    });
+    return layers;
+  }, [mapCoordinates, splitPoints, colors]);
+
   const elevationData = useMemo(() => {
     if (coordinates.length < 2) return null;
     let gain = 0;
@@ -205,8 +244,6 @@ export default function RunSummaryScreen() {
         }
       : undefined;
 
-  const useOsmMap = shouldUseOsmMap();
-
   const animatedScreenStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [{ translateY: translateY.value }],
@@ -222,7 +259,11 @@ export default function RunSummaryScreen() {
       <Animated.ScrollView 
         bounces={true} 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 40,
+          paddingBottom: trackingScrollBottomPad(insets),
+        }}
         style={animatedScreenStyle}
       >
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
@@ -394,55 +435,26 @@ export default function RunSummaryScreen() {
             </Text>
           </View>
           <View style={{ height: 220, borderRadius: radius.xxl, borderColor: colors.border, borderWidth: 1, overflow: 'hidden' }}>
-             {coordinates.length > 0 ? (
-               useOsmMap ? (
-                 <OsmMapView
-                   coordinates={coordinates}
-                   routeColor={colors.mapRoute}
-                   startColor={colors.mapStart}
-                   endColor={colors.mapEnd}
-                   destinationColor={colors.coral}
-                   backgroundColor={colors.surfaceHigh}
-                   isDark={isDark}
-                   splitPoints={splitPoints}
+             {coordinates.length > 0 && initialRegion ? (
+               <View style={{ flex: 1, position: "relative" }}>
+                 <TrackingMapView
+                   style={{ flex: 1 }}
+                   initialRegion={initialRegion}
+                   userInterfaceStyle={isDark ? "dark" : "light"}
+                   scrollEnabled
+                   zoomEnabled
+                   layers={summaryMapLayers}
+                   fitBounds
+                   mapStyle={mapStyle}
                  />
-               ) : (
-                 <MapView 
-                   style={{ flex: 1 }} 
-                   initialRegion={initialRegion} 
-                   userInterfaceStyle={isDark ? "dark" : "light"} 
-                   scrollEnabled={true} 
-                   zoomEnabled={true}
-                   provider={Platform.OS === "android" ? "google" : undefined}
-                   mapType="standard"
-                   showsBuildings={false}
-                   customMapStyle={isDark ? (MapNightStyle as any) : ([] as any)} 
-                 >
-                   <Polyline 
-                     coordinates={coordinates.map(c => ({ latitude: c.latitude, longitude: c.longitude }))} 
-                     strokeColor={colors.mapRoute} 
-                     strokeWidth={4} 
-                     geodesic={true}
-                   />
-                   <Marker coordinate={coordinates[0]}>
-                     <PulsingDot size={12} color={colors.mapStart} />
-                   </Marker>
-                   <Marker coordinate={coordinates[coordinates.length - 1]}>
-                     <PulsingDot size={12} color={colors.mapEnd} />
-                   </Marker>
-                   
-                   {splitPoints.map((sp, idx) => (
-                      <Marker key={`split-\${idx}`} coordinate={sp} title={`\${idx + 1} km`}>
-                        <View style={{
-                           backgroundColor: colors.surfaceHigh, borderColor: colors.mapRoute, borderWidth: 1, 
-                           borderRadius: 8, paddingHorizontal: 4, paddingVertical: 2
-                        }}>
-                           <Text style={{ fontSize: 10, fontFamily: fonts.labelMedium, color: colors.textPrimary }}>{idx + 1}k</Text>
-                        </View>
-                      </Marker>
-                   ))}
-                 </MapView>
-               )
+                 <MapStyleSwitcher
+                   value={mapStyle}
+                   onChange={setMapStyle}
+                   colors={colors}
+                   bottomOffset={8}
+                   left={10}
+                 />
+               </View>
              ) : (
                <View style={{ flex: 1, backgroundColor: colors.surfaceHigh }} />
              )}

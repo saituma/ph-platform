@@ -556,6 +556,7 @@ export default function PremiumExerciseDetailScreen() {
                             label: "Category",
                             value: String(meta.category ?? item.exercise?.category),
                             icon: "tag",
+                            valueKind: "text" as const,
                           }
                         : null,
                       meta.equipment
@@ -564,6 +565,7 @@ export default function PremiumExerciseDetailScreen() {
                             label: "Equipment",
                             value: String(meta.equipment),
                             icon: "tool",
+                            valueKind: "text" as const,
                           }
                         : null,
                     ].filter(Boolean) as any}

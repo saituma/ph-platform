@@ -96,11 +96,15 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
     const interval = setInterval(() => {
       let nextIndex = activeIndex + 1;
       if (nextIndex >= testimonials.length) nextIndex = 0;
-      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true, viewPosition: 0.5 });
+      // scrollToIndex requires getItemLayout/onScrollToIndexFailed; fixed-width items use offset instead.
+      flatListRef.current?.scrollToOffset({
+        offset: nextIndex * cardWidth,
+        animated: true,
+      });
       setActiveIndex(nextIndex);
     }, AUTO_SCROLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [activeIndex, testimonials.length]);
+  }, [activeIndex, cardWidth, testimonials.length]);
 
   if (!testimonials.length) return null;
 

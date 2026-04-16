@@ -109,16 +109,37 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
 
   const effectiveWidth = typeof width === "number" && width > 0 ? width : layout.width;
   const effectiveHeight = typeof height === "number" && height > 0 ? height : layout.height;
+  /** Always 16:9 for YouTube (matches hosted iframe + forced layout in VideoPlayer). */
+  const initialPlayerParams = useMemo(
+    () => ({
+      preventFullScreen: true,
+      modestbranding: true,
+      rel: false,
+      controls: true,
+      aspectRatio: 16 / 9,
+    }),
+    [],
+  );
   const playerKey =
     videoId && effectiveWidth > 0 && effectiveHeight > 0
       ? `${videoId}:${Math.round(effectiveWidth)}x${Math.round(effectiveHeight)}`
       : videoId ?? "youtube";
 
+  const explicitSize =
+    typeof width === "number" &&
+    width > 0 &&
+    typeof height === "number" &&
+    height > 0;
+
   return (
     <View
-      style={{ flex: 1, backgroundColor: "#000" }}
+      style={
+        explicitSize
+          ? { width, height, backgroundColor: "#000" }
+          : { flex: 1, backgroundColor: "#000" }
+      }
       onLayout={(e) => {
-        if (typeof width === "number" && width > 0 && typeof height === "number" && height > 0) return;
+        if (explicitSize) return;
         setLayout(e.nativeEvent.layout);
       }}
     >
@@ -165,12 +186,7 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
               setHasEmbedError(true);
               setIsReady(true);
             }}
-            initialPlayerParams={{
-              preventFullScreen: true,
-              modestbranding: true,
-              rel: false,
-              controls: true
-            }}
+            initialPlayerParams={initialPlayerParams}
             webViewProps={{
               allowsFullscreenVideo: true,
               allowsInlineMediaPlayback: true,

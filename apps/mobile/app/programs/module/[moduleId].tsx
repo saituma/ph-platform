@@ -91,6 +91,7 @@ export default function ProgramModuleDetailScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedOnceRef = useRef(false);
+  const deepLinkFallbackDoneRef = useRef(false);
   const wasLockedRef = useRef<boolean | null>(null);
 
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
@@ -168,7 +169,9 @@ export default function ProgramModuleDetailScreen() {
   );
 
   useEffect(() => {
+    if (deepLinkFallbackDoneRef.current) return;
     if (router.canGoBack()) return;
+    deepLinkFallbackDoneRef.current = true;
     router.replace("/(tabs)");
   }, [router]);
 

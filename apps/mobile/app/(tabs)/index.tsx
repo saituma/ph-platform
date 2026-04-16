@@ -85,7 +85,7 @@ export default function HomeScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, token, programTier, athleteUserId, managedAthletes } =
+  const { profile, token, programTier, athleteUserId, managedAthletes, appRole } =
     useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const { isSectionHidden } = useAgeExperience();

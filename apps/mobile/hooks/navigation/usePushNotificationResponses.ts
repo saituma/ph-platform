@@ -8,7 +8,56 @@ import {
   isDefaultNotificationAction,
 } from "@/lib/localNotifications";
 import { useAppSelector } from "@/store/hooks";
-import { getMessagesRolePrefix, messagesThreadHref } from "@/lib/messages/roleMessageRoutes";
+import {
+  getMessagesRolePrefix,
+  messagesThreadHref,
+  type MessagesRolePrefix,
+} from "@/lib/messages/roleMessageRoutes";
+import { getDateKey } from "@/lib/notificationPresentation";
+
+/** Map web-only or legacy push `url` values to Expo Router paths (esp. coach/admin). */
+function resolveNavigationPathFromPushData(
+  rolePrefix: MessagesRolePrefix,
+  data: Record<string, unknown> | undefined,
+): string | null {
+  if (!data) return null;
+  const type = typeof data.type === "string" ? data.type : undefined;
+  const dateKeyRaw = data.dateKey;
+  const dateKey =
+    typeof dateKeyRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateKeyRaw)
+      ? dateKeyRaw
+      : null;
+
+  if (type === "nutrition_reminder") {
+    const dk = dateKey ?? getDateKey(new Date());
+    return `/nutrition/log/${encodeURIComponent(dk)}`;
+  }
+
+  if (type === "progress_reminder") {
+    return "/progress";
+  }
+
+  const rawUrl = typeof data.url === "string" ? data.url.trim() : "";
+  if (!rawUrl) return null;
+
+  const pathOnly = rawUrl.split("?")[0];
+  if (rolePrefix === "admin") {
+    if (
+      pathOnly === "/exercise-library" ||
+      type === "food_diary_submitted" ||
+      rawUrl.includes("exercise-library")
+    ) {
+      return "/admin/ops/nutrition";
+    }
+  }
+
+  if (pathOnly === "/nutrition") {
+    const dk = dateKey ?? getDateKey(new Date());
+    return `/nutrition/log/${encodeURIComponent(dk)}`;
+  }
+
+  return rawUrl;
+}
 
 export function usePushNotificationResponses(enabled: boolean) {
   const router = useRouter();
@@ -91,6 +140,7 @@ export function usePushNotificationResponses(enabled: boolean) {
             type?: string;
             screen?: string;
             url?: string;
+            dateKey?: string;
             contentId?: string | number;
             videoUploadId?: string | number;
           }
@@ -115,15 +165,18 @@ export function usePushNotificationResponses(enabled: boolean) {
         return;
       }
 
-      if (data?.url) {
-        if (!isSafeInternalPath(data.url)) return;
-        const url = data.url.trim();
-        if (url.startsWith("/messages/")) {
-          const thread = url.replace("/messages/", "");
+      const mappedPath = resolveNavigationPathFromPushData(
+        rolePrefix,
+        data as Record<string, unknown> | undefined,
+      );
+      if (mappedPath) {
+        if (!isSafeInternalPath(mappedPath)) return;
+        if (mappedPath.startsWith("/messages/")) {
+          const thread = mappedPath.replace("/messages/", "");
           router.push(messagesThreadHref(rolePrefix, thread));
           return;
         }
-        router.push(url as any);
+        router.push(mappedPath as any);
         return;
       }
       const threadId = data?.threadId;
@@ -137,6 +190,10 @@ export function usePushNotificationResponses(enabled: boolean) {
       }
       if (data?.screen === "messages") {
         router.push("/(tabs)/messages");
+        return;
+      }
+      if (data?.screen === "progress" || data?.type === "progress_reminder") {
+        router.push("/progress");
         return;
       }
       if (data?.screen === "plans" || data?.type === "plan_approved") {

@@ -14,6 +14,8 @@ import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
+/** Registers expo-task-manager background location task at startup (before any screen). */
+import "@/lib/backgroundTask";
 import AppThemeProvider from "./theme/AppThemeProvider";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -23,6 +25,7 @@ import { queryClient } from "@/lib/queryClient";
 import Purchases from "react-native-purchases";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
+import { AndroidBackToTabs } from "@/components/navigation/AndroidBackToTabs";
 import { runStartupSelfTest } from "@/lib/startupDiagnostics";
 
 const GestureRoot = ({ children }: { children: ReactElement }) => (
@@ -89,6 +92,7 @@ export default function RootLayout() {
       <RootErrorBoundary>
       <View style={{ flex: 1 }}>
         <AuthPersist />
+        <AndroidBackToTabs />
         <Stack
           screenOptions={{
             ...slideFromRight,
@@ -121,51 +125,51 @@ export default function RootLayout() {
               gestureEnabled: false,
             })}
           />
-        <Stack.Screen
-          name="messages/[id]"
-          options={({ route }: any) => ({
-            ...Transition.Presets.SharedAppleMusic({
-              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
-            }),
-            gestureEnabled: false,
-          })}
-        />
-        <Stack.Screen
-          name="team/messages/[id]"
-          options={({ route }: any) => ({
-            ...Transition.Presets.SharedAppleMusic({
-              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
-            }),
-            gestureEnabled: false,
-          })}
-        />
-        <Stack.Screen
-          name="adult/messages/[id]"
-          options={({ route }: any) => ({
-            ...Transition.Presets.SharedAppleMusic({
-              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
-            }),
-            gestureEnabled: false,
-          })}
-        />
-        <Stack.Screen
-          name="youth/messages/[id]"
-          options={({ route }: any) => ({
-            ...Transition.Presets.SharedAppleMusic({
-              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
-            }),
-            gestureEnabled: false,
-          })}
-        />
-        <Stack.Screen
-          name="admin/messages/[id]"
-          options={({ route }: any) => ({
-            ...Transition.Presets.SharedAppleMusic({
-              sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
-            }),
-            gestureEnabled: false,
-          })}
-        />
+          <Stack.Screen
+            name="messages/[id]"
+            options={({ route }: any) => ({
+              ...Transition.Presets.SharedAppleMusic({
+                sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+              }),
+              gestureEnabled: false,
+            })}
+          />
+          <Stack.Screen
+            name="team/messages/[id]"
+            options={({ route }: any) => ({
+              ...Transition.Presets.SharedAppleMusic({
+                sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+              }),
+              gestureEnabled: false,
+            })}
+          />
+          <Stack.Screen
+            name="adult/messages/[id]"
+            options={({ route }: any) => ({
+              ...Transition.Presets.SharedAppleMusic({
+                sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+              }),
+              gestureEnabled: false,
+            })}
+          />
+          <Stack.Screen
+            name="youth/messages/[id]"
+            options={({ route }: any) => ({
+              ...Transition.Presets.SharedAppleMusic({
+                sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+              }),
+              gestureEnabled: false,
+            })}
+          />
+          <Stack.Screen
+            name="admin/messages/[id]"
+            options={({ route }: any) => ({
+              ...Transition.Presets.SharedAppleMusic({
+                sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
+              }),
+              gestureEnabled: false,
+            })}
+          />
           <Stack.Screen
             name="admin-audience-workspace/[audienceLabel]"
             options={{ title: "Content Workspace" }}
@@ -188,6 +192,8 @@ export default function RootLayout() {
               }),
             })}
           />
+          {/* Standalone route (same pattern as nutrition.tsx) — explicit screen helps blank-stack registration */}
+          <Stack.Screen name="progress" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
       </View>

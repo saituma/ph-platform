@@ -40,7 +40,11 @@ export default function AdminUsersScreen() {
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top }}>
-      <ThemedScrollView onRefresh={() => load(true)}>
+      <ThemedScrollView
+        onRefresh={() =>
+          load(searchQuery.trim() ? searchQuery.trim() : undefined, true)
+        }
+      >
         <View className="pt-6 mb-4 px-6">
           <View className="flex-row items-center gap-3 mb-4">
             <View className="h-6 w-1.5 rounded-full bg-accent" />
