@@ -35,18 +35,11 @@ function ratioFromTrack(
 ): number | null {
   if (!(width > 0) || !(height > 0)) return null;
   const r = normalizeRotation(rotation);
-  const base = width / height;
-  const swapped = height / width;
   const rotationSuggestsSwap = r === 90 || r === 270;
-
-  // expo-video can report:
-  // 1) raw encoded size + rotation metadata (needs swap when rotation is 90/270)
-  // 2) already-rotated size + rotation metadata (must NOT swap, or you'll invert)
-  //
-  // Simple rule that covers both:
-  // - if rotation suggests swap AND the reported size is portrait (w<h), apply swap
-  // - otherwise, use base ratio
-  const chosen = rotationSuggestsSwap && width < height ? swapped : base;
+  // Display size: swap W/H when the stream is tagged 90°/270° (common for phone portrait).
+  const dw = rotationSuggestsSwap ? height : width;
+  const dh = rotationSuggestsSwap ? width : height;
+  const chosen = dw / dh;
   if (!(chosen > 0.2 && chosen < 5)) return null;
   return chosen;
 }
@@ -81,6 +74,11 @@ export function useVideoPlayerEngine({
   const [position, setPosition] = useState(0);
   const [resolution, setResolution] = useState<{ width: number; height: number } | null>(null);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    setAspectRatio(null);
+    setResolution(null);
+  }, [sourceUri]);
 
   const safePause = useCallback(() => {
     try { player.pause(); } catch {}
@@ -131,7 +129,7 @@ export function useVideoPlayerEngine({
     const sourceRatio = ratioFromTrack(maybeWidth, maybeHeight, maybeRotation);
     if (maybeWidth > 0 && maybeHeight > 0 && sourceRatio) {
       setResolution((prev) => prev ?? { width: maybeWidth, height: maybeHeight });
-      setAspectRatio((prev) => prev ?? sourceRatio);
+      setAspectRatio(sourceRatio);
     }
     if (payload.duration > 0) {
       setIsLoading(false);

@@ -17,6 +17,8 @@ interface RunStopSheetProps {
   onResume: () => void;
   colors: any;
   insetsBottom: number;
+  /** Extra padding so sheet actions sit above the root tab bar. */
+  mainTabBarOverlap: number;
 }
 
 export function RunStopSheet({
@@ -28,6 +30,7 @@ export function RunStopSheet({
   onResume,
   colors,
   insetsBottom,
+  mainTabBarOverlap,
 }: RunStopSheetProps) {
   if (!isVisible) return null;
 
@@ -62,7 +65,7 @@ export function RunStopSheet({
             borderTopRightRadius: 32,
             paddingTop: 16,
             paddingHorizontal: 24,
-            paddingBottom: 32 + insetsBottom,
+            paddingBottom: 32 + insetsBottom + mainTabBarOverlap,
             zIndex: 100,
           },
         ]}

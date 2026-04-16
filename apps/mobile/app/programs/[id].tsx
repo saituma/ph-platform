@@ -1,5 +1,4 @@
-import React from "react";
-import { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ProgramDetailPanel } from "@/components/programs/ProgramDetailPanel";
@@ -9,10 +8,13 @@ import { SafeMaskedView } from "@/components/navigation/TransitionStack";
 export default function ProgramDetailScreen() {
   const { id, sharedBoundTag } = useLocalSearchParams<{ id: ProgramId; sharedBoundTag?: string }>();
   const router = useRouter();
+  const deepLinkFallbackDoneRef = useRef(false);
   const programId =
     id && ["php", "plus", "premium", "pro"].includes(id) ? (id as ProgramId) : "php";
   useEffect(() => {
+    if (deepLinkFallbackDoneRef.current) return;
     if (router.canGoBack()) return;
+    deepLinkFallbackDoneRef.current = true;
     router.replace("/(tabs)");
   }, [router]);
   const handleBack = () => {

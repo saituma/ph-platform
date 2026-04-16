@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION } from "@/lib/media/videoPickerNativeResolution";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { setAdminMessagesNavTarget } from "@/lib/admin/adminMessagesNav";
 import { useAppSelector } from "@/store/hooks";
@@ -12,12 +13,27 @@ import type { PendingAttachment } from "@/types/admin-messages";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { NavigationRecoveryBoundary } from "@/components/NavigationRecoveryBoundary";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Platform, Pressable, StyleSheet, View, TouchableOpacity, ActivityIndicator } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, View, TouchableOpacity, ActivityIndicator } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Feather } from "@/components/ui/theme-icons";
 
 import { ADMIN_TAB_ROUTES } from "../tabs";
+
+/** Matches web `video-review/athletes/[athleteId]` section filters */
+const VIDEO_SECTION_TABS = [
+  { value: "all", label: "All" },
+  { value: "program", label: "Program" },
+  { value: "screening", label: "Movement Screening" },
+  { value: "warmup", label: "Warmups" },
+  { value: "cooldown", label: "Cool Downs" },
+  { value: "stretching", label: "Stretching" },
+  { value: "mobility", label: "Mobility" },
+  { value: "recovery", label: "Recovery" },
+  { value: "offseason", label: "Off Season" },
+  { value: "inseason", label: "In Season" },
+  { value: "nutrition", label: "Athlete Platform" },
+] as const;
 
 type AdminVideoItem = Record<string, any> & {
   id?: number | string;
@@ -58,8 +74,8 @@ function ActionButton({
   loading?: boolean;
   icon?: any;
 }) {
-  const { colors, isDark } = useAppTheme();
-  
+  const { isDark } = useAppTheme();
+
   const bg = tone === "accent" || tone === "success" ? "#22C55E" : 
              tone === "danger" ? "#EF4444" : 
              isDark ? "rgba(255,255,255,0.15)" : "#F1F5F9";
@@ -126,6 +142,10 @@ export default function AdminVideosScreen() {
 
   const [responseVideoAttachment, setResponseVideoAttachment] = useState<PendingAttachment | null>(null);
 
+  const [selectedAthleteId, setSelectedAthleteId] = useState<number | null>(null);
+  const [athleteSearch, setAthleteSearch] = useState("");
+  const [sectionTab, setSectionTab] = useState<string>("all");
+
   const load = useCallback(
     async (forceRefresh: boolean) => {
       if (!token || !bootstrapReady) return;
@@ -133,7 +153,7 @@ export default function AdminVideosScreen() {
       setError(null);
       try {
         const res = await apiRequest<{ items?: AdminVideoItem[] }>(
-          "/admin/videos?limit=50",
+          "/admin/videos?limit=200",
           {
             token,
             suppressStatusCodes: [403],
@@ -156,6 +176,47 @@ export default function AdminVideosScreen() {
     void load(false);
   }, [load]);
 
+  const athleteRows = useMemo(() => {
+    const m = new Map<number, { name: string; count: number }>();
+    for (const it of items) {
+      const aid = Number(it.athleteId);
+      if (!Number.isFinite(aid) || aid <= 0) continue;
+      const name =
+        typeof it.athleteName === "string" && it.athleteName.trim()
+          ? it.athleteName.trim()
+          : `Athlete #${aid}`;
+      const prev = m.get(aid);
+      if (!prev) m.set(aid, { name, count: 1 });
+      else prev.count += 1;
+    }
+    return [...m.entries()]
+      .map(([athleteId, v]) => ({ athleteId, name: v.name, count: v.count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [items]);
+
+  const filteredAthleteRows = useMemo(() => {
+    const q = athleteSearch.trim().toLowerCase();
+    if (!q) return athleteRows;
+    return athleteRows.filter((a) => a.name.toLowerCase().includes(q));
+  }, [athleteRows, athleteSearch]);
+
+  const videosForAthlete = useMemo(() => {
+    if (selectedAthleteId == null) return [];
+    return items.filter((v) => Number(v.athleteId) === selectedAthleteId);
+  }, [items, selectedAthleteId]);
+
+  const filteredVideos = useMemo(() => {
+    if (sectionTab === "all") return videosForAthlete;
+    return videosForAthlete.filter(
+      (v) => (v.programSectionType ?? "program") === sectionTab,
+    );
+  }, [videosForAthlete, sectionTab]);
+
+  const selectedAthleteName = useMemo(() => {
+    if (selectedAthleteId == null) return null;
+    return athleteRows.find((a) => a.athleteId === selectedAthleteId)?.name ?? null;
+  }, [athleteRows, selectedAthleteId]);
+
   const selectedVideo = useMemo(() => {
     if (videoDetailOpenId == null) return null;
     return (
@@ -165,6 +226,10 @@ export default function AdminVideosScreen() {
       }) ?? null
     );
   }, [items, videoDetailOpenId]);
+
+  useEffect(() => {
+    setSectionTab("all");
+  }, [selectedAthleteId]);
 
   useEffect(() => {
     setVideoDetailError(null);
@@ -229,14 +294,12 @@ export default function AdminVideosScreen() {
       const result =
         source === "camera"
           ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              ...VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
               cameraType: ImagePicker.CameraType.front,
-              quality: 1,
             })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              quality: 1,
-            });
+          : await ImagePicker.launchImageLibraryAsync(
+              VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
+            );
 
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
@@ -248,26 +311,6 @@ export default function AdminVideosScreen() {
         sizeBytes: asset.fileSize ?? 0,
         isImage: false,
       });
-      // #region agent log
-      fetch("http://127.0.0.1:7392/ingest/3e8b9f8d-6d0f-4ca7-943c-7327a18df494", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "f7e5bb",
-        },
-        body: JSON.stringify({
-          sessionId: "f7e5bb",
-          location: "Videos.tsx:pickResponseVideo",
-          message: "picked response video asset",
-          data: {
-            hypothesisId: "H4",
-            source,
-            uriPrefix: String(asset.uri ?? "").slice(0, 64),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
     },
     [],
   );
@@ -290,26 +333,6 @@ export default function AdminVideosScreen() {
     setVideoDetailError(null);
 
     try {
-      // #region agent log
-      fetch("http://127.0.0.1:7392/ingest/3e8b9f8d-6d0f-4ca7-943c-7327a18df494", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "f7e5bb",
-        },
-        body: JSON.stringify({
-          sessionId: "f7e5bb",
-          location: "Videos.tsx:submitUnifiedResponse",
-          message: "submit unified response start",
-          data: {
-            hypothesisId: "H4",
-            hasAttachment: !!responseVideoAttachment,
-            hasFeedback: trimmedFeedback.length > 0,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       let finalFeedback = trimmedFeedback;
 
       // 1. If there's a video, upload it and send as message
@@ -368,11 +391,36 @@ export default function AdminVideosScreen() {
     }
   }, [bootstrapReady, feedbackDraft, responseVideoAttachment, selectedVideo, token, uploadAttachment]);
 
+  const sectionLabelByValue = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of VIDEO_SECTION_TABS) m.set(t.value, t.label);
+    return m;
+  }, []);
+
   const headerLine = useMemo(() => {
     if (loading) return "Loading…";
     if (error) return "Error";
-    return `${items.length} items`;
-  }, [error, items.length, loading]);
+    if (items.length === 0) return "No uploads yet";
+    if (selectedAthleteId == null) {
+      return `${athleteRows.length} athlete${athleteRows.length === 1 ? "" : "s"} · ${items.length} upload${items.length === 1 ? "" : "s"}`;
+    }
+    const name = selectedAthleteName ?? "Athlete";
+    const tabLabel =
+      sectionTab === "all"
+        ? "All sections"
+        : sectionLabelByValue.get(sectionTab) ?? sectionTab;
+    return `${name} · ${tabLabel} · ${filteredVideos.length} upload${filteredVideos.length === 1 ? "" : "s"}`;
+  }, [
+    athleteRows.length,
+    error,
+    filteredVideos.length,
+    items.length,
+    loading,
+    sectionLabelByValue,
+    sectionTab,
+    selectedAthleteId,
+    selectedAthleteName,
+  ]);
 
   const cardStyle = {
     backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
@@ -423,62 +471,199 @@ export default function AdminVideosScreen() {
                 No videos found.
               </Text>
             </View>
-          ) : (
-            <View className="gap-4">
-              {items.map((v, idx) => {
-                const title =
-                  typeof v.athleteName === "string" && v.athleteName.trim()
-                    ? v.athleteName.trim()
-                    : `Video ${String(v.id ?? idx)}`;
-                const status = v.reviewedAt ? "Reviewed" : "Pending";
-                const note = typeof v.notes === "string" ? v.notes : null;
-
-                const idNum = v.id == null ? NaN : Number(v.id);
-
-                return (
-                  <TouchableOpacity
-                    key={String(v.id ?? idx)}
-                    activeOpacity={0.9}
-                    onPress={() => {
-                      if (Number.isFinite(idNum) && idNum > 0) {
-                        setVideoDetailOpenId(idNum);
-                      }
-                    }}
-                    className="rounded-[32px] border p-6"
-                    style={cardStyle}
-                  >
-                    <View className="flex-row items-center justify-between mb-2">
-                      <Text
-                        className="text-xl font-clash font-bold text-app flex-1 mr-4"
-                        numberOfLines={1}
-                      >
-                        {title}
-                      </Text>
-                      <View className={`px-3 py-1 rounded-full ${v.reviewedAt ? 'bg-success/10' : 'bg-amber-500/10'}`}>
-                        <Text className={`text-[10px] font-outfit-bold uppercase tracking-wider ${v.reviewedAt ? 'text-success' : 'text-amber-600'}`}>
-                          {status}
+          ) : selectedAthleteId == null ? (
+            <View className="gap-5">
+              <Text className="text-sm font-outfit text-textSecondary leading-relaxed">
+                Upload history and coach responses. Select an athlete to filter by program section and review uploads.
+              </Text>
+              <View
+                className="rounded-[24px] border px-4 py-3"
+                style={{
+                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
+                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+                }}
+              >
+                <TextInput
+                  value={athleteSearch}
+                  onChangeText={setAthleteSearch}
+                  placeholder="Search athletes…"
+                  placeholderTextColor={colors.placeholder}
+                  className="text-base font-outfit text-app"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+              </View>
+              {filteredAthleteRows.length === 0 ? (
+                <View className="py-12 items-center">
+                  <Text className="text-textSecondary font-outfit">No athletes match your search.</Text>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  {filteredAthleteRows.map((row) => (
+                    <TouchableOpacity
+                      key={row.athleteId}
+                      activeOpacity={0.9}
+                      onPress={() => setSelectedAthleteId(row.athleteId)}
+                      className="rounded-[28px] border p-5 flex-row items-center justify-between"
+                      style={cardStyle}
+                    >
+                      <View className="flex-1 min-w-0 mr-4">
+                        <Text className="text-lg font-clash font-bold text-app" numberOfLines={1}>
+                          {row.name}
+                        </Text>
+                        <Text className="text-xs font-outfit text-textSecondary mt-1">
+                          {row.count} upload{row.count === 1 ? "" : "s"}
                         </Text>
                       </View>
-                    </View>
-                    
-                    {note && (
+                      <Feather name="chevron-right" size={22} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : (
+            <View className="gap-4">
+              <TouchableOpacity
+                onPress={() => setSelectedAthleteId(null)}
+                activeOpacity={0.85}
+                className="flex-row items-center gap-2 self-start"
+              >
+                <Feather name="arrow-left" size={20} color={colors.accent} />
+                <Text className="text-sm font-outfit-bold text-accent uppercase tracking-wider">
+                  All athletes
+                </Text>
+              </TouchableOpacity>
+              <Text className="text-sm font-outfit text-textSecondary leading-relaxed">
+                Click a video to review, respond, and mark as reviewed.
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+              >
+                {VIDEO_SECTION_TABS.map((tab) => {
+                  const active = sectionTab === tab.value;
+                  return (
+                    <TouchableOpacity
+                      key={tab.value}
+                      onPress={() => setSectionTab(tab.value)}
+                      activeOpacity={0.85}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderRadius: 999,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: active
+                          ? colors.accent
+                          : isDark
+                            ? "rgba(255,255,255,0.12)"
+                            : "rgba(15,23,42,0.10)",
+                        backgroundColor: active
+                          ? isDark
+                            ? "rgba(34,197,94,0.18)"
+                            : "rgba(34,197,94,0.12)"
+                          : isDark
+                            ? "rgba(255,255,255,0.04)"
+                            : "rgba(15,23,42,0.03)",
+                      }}
+                    >
                       <Text
-                        className="text-sm font-outfit text-textSecondary mb-3 leading-relaxed"
-                        numberOfLines={2}
+                        className="text-[12px] font-outfit-bold uppercase tracking-wider"
+                        style={{ color: active ? colors.accent : colors.textSecondary }}
+                        numberOfLines={1}
                       >
-                        {note}
+                        {tab.label}
                       </Text>
-                    )}
-                    
-                    <View className="flex-row items-center gap-2 mt-2 pt-4 border-t border-app/5">
-                      <Feather name="clock" size={12} color={colors.textSecondary} />
-                      <Text className="text-xs font-outfit text-textSecondary uppercase tracking-widest">
-                        {formatIsoShort(v.createdAt)}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              {filteredVideos.length === 0 ? (
+                <View className="py-16 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
+                  <Feather name="filter" size={28} color={colors.textSecondary} />
+                  <Text className="text-textSecondary font-outfit mt-3 text-center px-6">
+                    No uploads in this section for {selectedAthleteName ?? "this athlete"}.
+                  </Text>
+                </View>
+              ) : (
+                filteredVideos.map((v, idx) => {
+                  const topic =
+                    typeof v.programSectionTitle === "string" && v.programSectionTitle.trim()
+                      ? v.programSectionTitle.trim()
+                      : "Video upload";
+                  const sectionType = v.programSectionType ?? "program";
+                  const sectionPretty =
+                    sectionLabelByValue.get(sectionType) ?? sectionType;
+                  const reviewed = Boolean(v.reviewedAt);
+                  const statusLabel = reviewed ? "Reviewed" : "Awaiting";
+                  const feedbackRaw =
+                    typeof v.feedback === "string" && v.feedback.trim() ? v.feedback.trim() : null;
+                  const feedbackLine = feedbackRaw
+                    ? `Feedback: ${feedbackRaw}`
+                    : "No feedback yet.";
+                  const idNum = v.id == null ? NaN : Number(v.id);
+
+                  return (
+                    <TouchableOpacity
+                      key={String(v.id ?? idx)}
+                      activeOpacity={0.9}
+                      onPress={() => {
+                        if (Number.isFinite(idNum) && idNum > 0) {
+                          setVideoDetailOpenId(idNum);
+                        }
+                      }}
+                      className="rounded-[32px] border p-6"
+                      style={cardStyle}
+                    >
+                      <View className="flex-row items-start justify-between gap-3 mb-2">
+                        <View className="flex-1 min-w-0">
+                          <Text
+                            className="text-lg font-clash font-bold text-app"
+                            numberOfLines={2}
+                          >
+                            {topic}
+                          </Text>
+                          <Text
+                            className="text-[11px] font-outfit text-textSecondary mt-1 uppercase tracking-widest"
+                            numberOfLines={1}
+                          >
+                            {sectionPretty}
+                          </Text>
+                        </View>
+                        <View
+                          className={`px-3 py-1 rounded-full shrink-0 ${reviewed ? "bg-success/10" : "bg-amber-500/10"}`}
+                        >
+                          <Text
+                            className={`text-[10px] font-outfit-bold uppercase tracking-wider ${reviewed ? "text-success" : "text-amber-600"}`}
+                          >
+                            {statusLabel}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        className="text-sm font-outfit text-textSecondary leading-relaxed mb-3"
+                        numberOfLines={4}
+                      >
+                        {feedbackLine}
                       </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+                      <View className="flex-row items-center justify-between pt-4 border-t border-app/5">
+                        <View className="flex-row items-center gap-2 flex-1 min-w-0">
+                          <Feather name="clock" size={12} color={colors.textSecondary} />
+                          <Text
+                            className="text-xs font-outfit text-textSecondary uppercase tracking-widest flex-1"
+                            numberOfLines={1}
+                          >
+                            {formatIsoShort(v.createdAt)}
+                          </Text>
+                        </View>
+                        <Text className="text-[11px] font-outfit-bold text-accent uppercase tracking-widest">
+                          Review
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </View>
           )}
         </View>

@@ -3,12 +3,12 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "EXPO_ROUTER_APP_ROOT=app expo start",
+    "start": "EXPO_ROUTER_APP_ROOT=app pnpm exec expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "EXPO_ROUTER_APP_ROOT=app expo run:android",
-    "ios": "EXPO_ROUTER_APP_ROOT=app expo run:ios",
-    "web": "EXPO_ROUTER_APP_ROOT=app expo start --web",
-    "lint": "expo lint",
+    "android": "EXPO_ROUTER_APP_ROOT=app pnpm exec expo run:android",
+    "ios": "EXPO_ROUTER_APP_ROOT=app pnpm exec expo run:ios",
+    "web": "EXPO_ROUTER_APP_ROOT=app pnpm exec expo start --web",
+    "lint": "pnpm exec expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest --config ./jest.config.js",
     "test:watch": "jest --config ./jest.config.js --watch"

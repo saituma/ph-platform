@@ -13,7 +13,8 @@ interface RunActionButtonsProps {
   glassBg: string;
   glassBorder: string;
   glassShadow: any;
-  insetsBottom: number;
+  /** Clearance for the root floating tab bar (`SwipeableTabLayout`). */
+  mainTabBarOverlap: number;
   bottomBarHeight: number;
   overlayGap: number;
 }
@@ -27,7 +28,7 @@ export function RunActionButtons({
   glassBg,
   glassBorder,
   glassShadow,
-  insetsBottom,
+  mainTabBarOverlap,
   bottomBarHeight,
   overlayGap,
 }: RunActionButtonsProps) {
@@ -39,7 +40,7 @@ export function RunActionButtons({
         position: "absolute",
         left: 16,
         right: 16,
-        bottom: insetsBottom + bottomBarHeight + overlayGap + 8,
+        bottom: mainTabBarOverlap + bottomBarHeight + overlayGap + 8,
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",

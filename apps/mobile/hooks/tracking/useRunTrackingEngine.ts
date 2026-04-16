@@ -7,6 +7,12 @@ import { getNotifications } from "@/lib/notifications";
 import { Region } from "react-native-maps";
 import { withSpring } from "react-native-reanimated";
 import { SharedValue } from "react-native-reanimated";
+import { BACKGROUND_LOCATION_TASK } from "../../lib/backgroundTask";
+
+export type RouteMetrics = {
+  durationSec: number;
+  distanceM: number;
+};
 
 export function useRunTrackingEngine(
   toastTranslateY: SharedValue<number>,
@@ -40,6 +46,7 @@ export function useRunTrackingEngine(
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [routePolyline, setRoutePolyline] = useState<{ latitude: number; longitude: number }[] | null>(null);
+  const [routeMetrics, setRouteMetrics] = useState<RouteMetrics | null>(null);
   const [isFetchingRoute, setIsFetchingRoute] = useState(false);
 
   // Poll for warmup status instead of triggering standard react state updates on every frame
@@ -56,23 +63,38 @@ export function useRunTrackingEngine(
 
   const startForegroundWatch = useCallback(async () => {
     stopForegroundWatch();
-    watchRef.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.BestForNavigation,
-        distanceInterval: 8,
-        timeInterval: 1000,
-      },
-      (loc) => {
-        const { latitude, longitude } = loc.coords;
-        setLiveCoordinate({ latitude, longitude });
-        addCoordinate({
-          latitude,
-          longitude,
-          timestamp: loc.timestamp,
-          altitude: loc.coords.altitude || undefined,
-        }, loc.coords.accuracy);
-      },
-    );
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        return;
+      }
+      watchRef.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          distanceInterval: 8,
+          timeInterval: 1000,
+        },
+        (loc) => {
+          const lat = loc?.coords?.latitude;
+          const lng = loc?.coords?.longitude;
+          if (typeof lat !== "number" || typeof lng !== "number" || !isFinite(lat) || !isFinite(lng)) {
+            return;
+          }
+          setLiveCoordinate({ latitude: lat, longitude: lng });
+          addCoordinate(
+            {
+              latitude: lat,
+              longitude: lng,
+              timestamp: loc.timestamp,
+              altitude: loc.coords?.altitude ?? undefined,
+            },
+            loc.coords?.accuracy ?? null,
+          );
+        },
+      );
+    } catch (e) {
+      console.warn("startForegroundWatch failed", e);
+    }
   }, [addCoordinate, stopForegroundWatch]);
 
   const triggerGoalFeedback = useCallback(
@@ -128,14 +150,20 @@ export function useRunTrackingEngine(
       const current = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      const { latitude, longitude } = current.coords;
+      const lat = current?.coords?.latitude;
+      const lng = current?.coords?.longitude;
+      if (typeof lat !== "number" || typeof lng !== "number" || !isFinite(lat) || !isFinite(lng)) {
+        setGpsError("Couldn't read a valid GPS position. Please try again.");
+        setHasGps(false);
+        return;
+      }
       setInitialRegion({
-        latitude,
-        longitude,
+        latitude: lat,
+        longitude: lng,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       });
-      setLiveCoordinate({ latitude, longitude });
+      setLiveCoordinate({ latitude: lat, longitude: lng });
 
       setHasGps(true);
     } catch {
@@ -152,16 +180,25 @@ export function useRunTrackingEngine(
     lastRouteFetchTime.current = now;
 
     try {
-      const url = `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.routes && data.routes.length > 0) {
-        const lineString = data.routes[0].geometry.coordinates;
+        const r = data.routes[0];
+        const lineString = r.geometry.coordinates;
         setRoutePolyline(lineString.map((c: [number, number]) => ({ latitude: c[1], longitude: c[0] })));
+        setRouteMetrics({
+          durationSec: typeof r.duration === "number" ? r.duration : 0,
+          distanceM: typeof r.distance === "number" ? r.distance : 0,
+        });
+      } else {
+        setRoutePolyline(null);
+        setRouteMetrics(null);
       }
     } catch (e) {
       console.warn("OSRM route fetch failed", e);
       setRoutePolyline(null);
+      setRouteMetrics(null);
     } finally {
       setIsFetchingRoute(false);
     }
@@ -184,8 +221,16 @@ export function useRunTrackingEngine(
     return () => {
       clearInterval(timer);
       stopForegroundWatch();
+      Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK).catch(() => {});
     };
   }, [setupLocationAndPermissions, startRun, stopForegroundWatch, tick]);
+
+  useEffect(() => {
+    if (!destination) {
+      setRoutePolyline(null);
+      setRouteMetrics(null);
+    }
+  }, [destination]);
 
   useEffect(() => {
     const destinationThresholdMeters = 40;
@@ -260,6 +305,7 @@ export function useRunTrackingEngine(
     setupLocationAndPermissions,
     lastCoordinate,
     routePolyline,
+    routeMetrics,
     isFetchingRoute,
     isWarmedUp,
   };

@@ -13,8 +13,9 @@ import {
   isTeamStorageAudienceLabel,
   fromTeamStorageAudienceLabel,
 } from "@/lib/training-content-utils";
+import { goBackOrFallbackTabs } from "@/lib/navigation/androidBackToTabs";
 import { useAppSelector } from "@/store/hooks";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { View, TouchableOpacity, Pressable, Modal, ActivityIndicator, Alert, ScrollView } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +24,7 @@ import { Feather } from "@/components/ui/theme-icons";
 export default function AdminAudienceWorkspaceScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const router = useRouter();
   const { audienceLabel: rawLabel, mode } = useLocalSearchParams<{ audienceLabel: string; mode?: string }>();
   
@@ -189,7 +191,7 @@ export default function AdminAudienceWorkspaceScreen() {
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <View className="px-6 py-6 flex-row items-center justify-between border-b border-app/5">
         <TouchableOpacity 
-          onPress={() => router.back()}
+          onPress={() => goBackOrFallbackTabs(router, pathname)}
           className="h-10 w-10 rounded-full bg-secondary/5 items-center justify-center border border-app/5"
         >
           <Feather name="chevron-left" size={24} color={colors.text} />

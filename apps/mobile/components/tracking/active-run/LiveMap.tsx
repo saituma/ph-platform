@@ -1,29 +1,30 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
-import MapView, { Marker, Polyline, Region } from "react-native-maps";
-import * as Location from "expo-location";
+import type { Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
-import { PulsingDot } from "../PulsingDot";
-import { OsmMapView } from "../OsmMapView";
-import { radius } from "@/constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TrackingMapView } from "../TrackingMapView";
+import { MapErrorBoundary } from "../MapErrorBoundary";
+import { MapStyleSwitcher } from "../MapStyleSwitcher";
+import type { TrackingMapLayer, TrackingMapStyle, TrackingMapViewRef } from "../trackingMapLayers";
+import { mainTabBarTotalHeight } from "../../../lib/tracking/mainTabBarInset";
 
 interface LiveMapProps {
-  useOsmMap: boolean;
   activeRegion: Region | null;
-  coordinates: any[];
-  lastCoordinate: any;
-  destination: any;
+  coordinates: { latitude: number; longitude: number }[];
+  lastCoordinate: { latitude: number; longitude: number } | null;
+  destination: { latitude: number; longitude: number } | null;
   isDark: boolean;
-  colors: any;
+  colors: Record<string, string>;
   followUser: boolean;
-  routePolyline?: {latitude: number; longitude: number}[] | null;
-  isWarmedUp?: boolean;
+  routePolyline?: { latitude: number; longitude: number }[] | null;
   onManualMove: () => void;
   onRecenter: () => void;
+  /** When set, map style control sits this many px from the bottom (e.g. above pause/stop). */
+  mapStyleAnchorBottom?: number;
 }
 
 export function LiveMap({
-  useOsmMap,
   activeRegion,
   coordinates,
   lastCoordinate,
@@ -32,114 +33,139 @@ export function LiveMap({
   colors,
   followUser,
   routePolyline,
-  isWarmedUp,
   onManualMove,
   onRecenter,
+  mapStyleAnchorBottom,
 }: LiveMapProps) {
-  const mapRef = useRef<MapView | null>(null);
-  const [locationPermissionGranted, setLocationPermissionGranted] =
-    useState(false);
+  const insets = useSafeAreaInsets();
+  const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
+  const mapRef = useRef<TrackingMapViewRef | null>(null);
+  const hasAnimatedToFirstFix = useRef(false);
+
+  const layers = useMemo((): TrackingMapLayer[] => {
+    const out: TrackingMapLayer[] = [];
+    if (routePolyline && routePolyline.length > 1) {
+      out.push({
+        id: "route-osrm",
+        type: "polyline",
+        coordinates: routePolyline,
+        strokeColor: `${colors.cyan}b3`,
+        strokeWidth: 3,
+      });
+    }
+    if (coordinates.length > 1) {
+      out.push({
+        id: "path",
+        type: "polyline",
+        coordinates,
+        strokeColor: colors.mapRoute,
+        strokeWidth: 4,
+      });
+    }
+    if (coordinates.length > 0) {
+      out.push({
+        id: "start",
+        type: "marker",
+        coordinate: coordinates[0],
+        title: "Start",
+        marker: {
+          kind: "circle",
+          color: colors.lime,
+          borderColor: "#fff",
+          borderWidth: 2,
+          size: 6,
+        },
+      });
+    }
+    if (destination?.latitude != null && destination?.longitude != null) {
+      out.push({
+        id: "destination",
+        type: "marker",
+        coordinate: {
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+        },
+        title: "Destination",
+        marker: { kind: "flag", color: colors.coral, size: 26 },
+      });
+    }
+    if (lastCoordinate?.latitude != null && lastCoordinate?.longitude != null) {
+      out.push({
+        id: "user",
+        type: "marker",
+        coordinate: {
+          latitude: lastCoordinate.latitude,
+          longitude: lastCoordinate.longitude,
+        },
+        title: "You",
+        marker: {
+          kind: "circle",
+          color: "#2979FF",
+          borderColor: "#ffffff",
+          borderWidth: 3,
+          size: 8,
+        },
+      });
+    }
+    return out;
+  }, [coordinates, lastCoordinate, destination, routePolyline, colors]);
 
   useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setLocationPermissionGranted(status === "granted");
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (followUser && activeRegion && !useOsmMap) {
+    if (followUser && activeRegion) {
       mapRef.current?.animateToRegion(activeRegion, 450);
     }
-  }, [activeRegion, followUser, useOsmMap]);
+  }, [activeRegion, followUser]);
+
+  useEffect(() => {
+    if (!lastCoordinate || !mapRef.current) return;
+    if (hasAnimatedToFirstFix.current) return;
+    hasAnimatedToFirstFix.current = true;
+    mapRef.current.animateToRegion(
+      {
+        latitude: lastCoordinate.latitude,
+        longitude: lastCoordinate.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      600,
+    );
+  }, [lastCoordinate]);
 
   if (!activeRegion) {
     return <View style={{ flex: 1, backgroundColor: colors.surfaceHigh }} />;
   }
 
+  const mapFallback = (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.surfaceHigh,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+    >
+      <Ionicons name="map-outline" size={40} color={colors.textSecondary} />
+    </View>
+  );
+
   return (
     <View style={{ flex: 1 }}>
-      {useOsmMap ? (
-        <OsmMapView
-          coordinates={coordinates}
-          routeColor={colors.mapRoute}
-          startColor={colors.lime}
-          endColor={colors.cyan}
-          destinationColor={colors.coral}
-          backgroundColor={colors.surfaceHigh}
-          destination={destination}
-          activeRegion={activeRegion}
-          routePolyline={routePolyline}
-          followUser={followUser}
-          isDark={isDark}
-          onRecenter={onRecenter}
-        />
-      ) : (
-        <MapView
+      <MapErrorBoundary fallback={mapFallback}>
+        <TrackingMapView
           ref={mapRef}
           style={{ flex: 1 }}
           initialRegion={activeRegion}
-          customMapStyle={[]}
-          mapType="satellite"
-          showsBuildings={false}
           userInterfaceStyle={isDark ? "dark" : "light"}
-          showsUserLocation={locationPermissionGranted}
-          showsMyLocationButton={false}
-          followsUserLocation={followUser}
-          pitchEnabled={false}
-          rotateEnabled={false}
-          scrollEnabled={true}
-          zoomEnabled={true}
+          scrollEnabled
+          zoomEnabled
           onTouchStart={onManualMove}
-        >
-          {routePolyline && routePolyline.length > 1 && (
-            <Polyline
-              coordinates={routePolyline}
-              strokeColor={`${colors.cyan}b3`}
-              strokeWidth={3}
-              geodesic={true}
-            />
-          )}
+          layers={layers}
+          mapStyle={mapStyle}
+        />
+      </MapErrorBoundary>
 
-          {coordinates.length > 1 && (
-            <Polyline
-              coordinates={coordinates}
-              strokeColor={colors.mapRoute}
-              strokeWidth={4}
-              geodesic={true}
-            />
-          )}
-
-          {coordinates.length > 0 && (
-            <Marker coordinate={coordinates[0]} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-              <View
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.lime,
-                  borderWidth: 2,
-                  borderColor: colors.bg,
-                }}
-              />
-            </Marker>
-          )}
-
-          {destination && (
-            <Marker coordinate={destination} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false}>
-              <Ionicons name="flag" size={24} color={colors.coral} />
-            </Marker>
-          )}
-
-          {lastCoordinate && (
-            <Marker coordinate={lastCoordinate} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-              <PulsingDot size={8} color={colors.cyan} />
-            </Marker>
-          )}
-        </MapView>
-      )}
-
-      {/* Tone map */}
+      {/* Dim sits under controls so Map / Satellite stays visible (see MapStyleSwitcher). */}
       <View
         pointerEvents="none"
         style={{
@@ -153,9 +179,19 @@ export function LiveMap({
         }}
       />
 
-      {/* Recenter control */}
+      <MapStyleSwitcher
+        value={mapStyle}
+        onChange={setMapStyle}
+        colors={colors}
+        left={16}
+        anchorBottom={
+          mapStyleAnchorBottom ??
+          12 + mainTabBarTotalHeight(insets.bottom)
+        }
+      />
+
       {!followUser && (
-        <View style={{ position: "absolute", top: 12, right: 12 }}>
+        <View style={{ position: "absolute", top: 12, right: 12, zIndex: 6 }}>
           <Pressable
             onPress={onRecenter}
             style={{

@@ -5,8 +5,9 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Shadows } from "@/constants/theme";
 import { useAdminSessions } from "@/hooks/admin/useAdminSessions";
 import { useAdminAudienceWorkspace, Module, ModuleSession } from "@/hooks/admin/useAdminAudienceWorkspace";
+import { goBackOrFallbackTabs } from "@/lib/navigation/androidBackToTabs";
 import { useAppSelector } from "@/store/hooks";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { View, TouchableOpacity, Modal, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +17,7 @@ export default function AdminModuleDetailScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
   const { moduleId: rawModuleId, audienceLabel: rawLabel } = useLocalSearchParams<{ moduleId: string; audienceLabel: string }>();
   const moduleId = parseInt(rawModuleId);
 
@@ -93,7 +95,7 @@ export default function AdminModuleDetailScreen() {
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
       <View className="px-6 py-6 flex-row items-center justify-between border-b border-app/5">
         <TouchableOpacity 
-          onPress={() => router.back()}
+          onPress={() => goBackOrFallbackTabs(router, pathname)}
           className="h-10 w-10 rounded-full bg-secondary/5 items-center justify-center border border-app/5"
         >
           <Feather name="chevron-left" size={24} color={colors.text} />

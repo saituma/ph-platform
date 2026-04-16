@@ -25,6 +25,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { canAccessTier } from "@/lib/planAccess";
+import { isAdultAthleteAppRole } from "@/lib/appRole";
 import { ProgramId } from "@/constants/program-details";
 
 import { useSessionData } from "@/hooks/programs/useSessionData";
@@ -60,9 +61,8 @@ export default function ProgramSessionDetailScreen() {
       moduleId: string;
       backToModule?: string;
     }>();
-  const { token, programTier, athleteUserId, managedAthletes } = useAppSelector(
-    (state) => state.user,
-  );
+  const { token, programTier, athleteUserId, managedAthletes, appRole } =
+    useAppSelector((state) => state.user);
 
   const activeAthlete = useMemo(() => {
     return (
@@ -196,7 +196,7 @@ export default function ProgramSessionDetailScreen() {
     return (lastCooldown ?? lastMain ?? lastWarmup)?.id;
   }, [cooldownItems, mainItems, warmupItems]);
 
-  const isAdult = (activeAge ?? 0) >= 18;
+  const needsWorkoutLogSheet = isAdultAthleteAppRole(appRole);
   const sessionIdNum = Number(sessionId);
   const moduleIdNum = Number(moduleId);
 
@@ -490,17 +490,32 @@ export default function ProgramSessionDetailScreen() {
         await finishTrainingContentV2Session(token, sessionIdNum, workoutLog);
         const updated = await load(true);
         const sessionTitle = session?.title ?? "Your session";
+        const hasWorkoutLog =
+          !!workoutLog &&
+          Boolean(
+            (workoutLog.weightsUsed && workoutLog.weightsUsed.trim()) ||
+              (workoutLog.repsCompleted && workoutLog.repsCompleted.trim()) ||
+              (workoutLog.rpe != null &&
+                Number.isFinite(workoutLog.rpe) &&
+                workoutLog.rpe > 0),
+          );
+        const nextPath = computeNextPath(updated);
+        const unlockHint = nextPath
+          ? " Next workout or module is unlocked."
+          : "";
         await scheduleLocalNotification({
-          title: "Session completed",
-          body: `${sessionTitle} has been marked as complete. Great work!`,
+          title: hasWorkoutLog ? "Workout logged" : "Session completed",
+          body: hasWorkoutLog
+            ? `Your log for ${sessionTitle} was saved.${unlockHint}`
+            : `${sessionTitle} is marked complete.${unlockHint}`,
           data: {
-            type: "session-complete",
+            type: hasWorkoutLog ? "workout-log-saved" : "session-complete",
             screen: "programs",
             sessionId: String(sessionIdNum),
           },
           channelId: "progress",
         });
-        const path = computeNextPath(updated);
+        const path = nextPath;
         setWorkoutSheetOpen(false);
         if (path) {
           const separator = path.includes("?") ? "&" : "?";
@@ -517,13 +532,13 @@ export default function ProgramSessionDetailScreen() {
         setIsFinishing(false);
       }
     },
-    [computeNextPath, load, moduleHref, router, sessionIdNum, token],
+    [computeNextPath, load, moduleHref, router, session?.title, sessionIdNum, token],
   );
 
   const handleCompleteSession = useCallback(async () => {
     if (isFinishing) return;
 
-    if (isAdult) {
+    if (needsWorkoutLogSheet) {
       setWeightsUsed("");
       setRepsCompleted("");
       setRpeText("");
@@ -539,7 +554,7 @@ export default function ProgramSessionDetailScreen() {
         e instanceof Error ? e.message : "Failed to complete session.";
       Alert.alert("Couldn't complete", message);
     }
-  }, [finishAndNavigate, isAdult, isFinishing]);
+  }, [finishAndNavigate, needsWorkoutLogSheet, isFinishing]);
 
   if (isLoading && !workspace)
     return (
@@ -733,7 +748,7 @@ export default function ProgramSessionDetailScreen() {
                     color: colors.textPrimary,
                   }}
                 >
-                  Log workout (optional)
+                  Workout log
                 </Text>
                 <Pressable
                   onPress={() => setWorkoutSheetOpen(false)}
@@ -752,7 +767,8 @@ export default function ProgramSessionDetailScreen() {
                     color: colors.textSecondary,
                   }}
                 >
-                  Totally optional — you can complete without logging.
+                  Log weights, reps, and RPE if you like, then mark the session
+                  complete. You can also finish without logging.
                 </Text>
 
                 <View style={{ marginTop: spacing.lg, gap: 10 }}>
@@ -896,12 +912,17 @@ export default function ProgramSessionDetailScreen() {
                       const rpeNum = rpeTrimmed
                         ? Number.parseInt(rpeTrimmed, 10)
                         : null;
-                      if (
-                        rpeTrimmed &&
-                        (!Number.isFinite(rpeNum) || Number.isNaN(rpeNum))
-                      ) {
-                        setFinishError("RPE must be a number 1–10.");
-                        return;
+                      if (rpeTrimmed) {
+                        if (
+                          rpeNum == null ||
+                          !Number.isFinite(rpeNum) ||
+                          Number.isNaN(rpeNum) ||
+                          rpeNum < 1 ||
+                          rpeNum > 10
+                        ) {
+                          setFinishError("RPE must be a whole number from 1 to 10.");
+                          return;
+                        }
                       }
 
                       const payload: FinishTrainingSessionWorkoutLog = {};

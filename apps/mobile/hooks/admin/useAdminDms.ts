@@ -60,6 +60,12 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
         }
       );
       setMessages(Array.isArray(res?.messages) ? res.messages.reverse() : []);
+      void apiRequest(`/admin/messages/${userId}/read`, {
+        method: "POST",
+        token,
+        suppressStatusCodes: [401, 403, 404],
+        suppressLog: true,
+      }).catch(() => {});
     } catch (e) {
       setMessagesError(e instanceof Error ? e.message : "Failed to load thread");
     } finally {

@@ -58,8 +58,9 @@ export default function MoreScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated, programTier, token, appRole } =
-    useAppSelector((state) => state.user);
+  const { profile, isAuthenticated, programTier, token } = useAppSelector(
+    (state) => state.user,
+  );
   const {
     config: ageConfig,
     isLoading: ageExperienceLoading,
@@ -67,12 +68,8 @@ export default function MoreScreen() {
   } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
-  const isAdultAthlete =
-    appRole === "adult_athlete" || appRole === "adult_athlete_team";
   const showParentPlatform = Boolean(
-    isAuthenticated &&
-      hasPaidProgramTier(programTier) &&
-      !isAdultAthlete,
+    isAuthenticated && hasPaidProgramTier(programTier),
   );
   const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
   const canAccessFoodDiary = canAccessTier(

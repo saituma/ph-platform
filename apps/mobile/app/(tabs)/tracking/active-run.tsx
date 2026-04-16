@@ -25,7 +25,7 @@ import { RunActionButtons } from "../../../components/tracking/active-run/RunAct
 import { RunBottomBar } from "../../../components/tracking/active-run/RunBottomBar";
 import { RunStopSheet } from "../../../components/tracking/active-run/RunStopSheet";
 import { RunToast } from "../../../components/tracking/active-run/RunToast";
-import { shouldUseOsmMap } from "../../../lib/mapsConfig";
+import { mainTabBarTotalHeight } from "../../../lib/tracking/mainTabBarInset";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
@@ -61,13 +61,19 @@ export default function ActiveRunScreen() {
     setupLocationAndPermissions,
     lastCoordinate,
     routePolyline,
+    routeMetrics,
     isFetchingRoute,
     isWarmedUp,
   } = useRunTrackingEngine(toastTranslateY, insets.top);
 
-  const useOsmMap = shouldUseOsmMap();
   const bottomBarHeight = 88;
   const overlayGap = 16;
+  const actionRowHeight = 56;
+  /** Root tab bar (`SwipeableTabLayout`) overlays this screen — lift controls above it. */
+  const mainTabBarOverlap = mainTabBarTotalHeight(insets.bottom);
+  /** Map / Satellite control sits just above the pause–stop row (aligned with pause, left: 16). */
+  const mapStyleAnchorBottom =
+    mainTabBarOverlap + bottomBarHeight + overlayGap + 8 + actionRowHeight + 10;
   const showWarmupBanner = !isWarmedUp && status === "running";
   const warmupSecondsLeft = Math.max(0, 8 - elapsedSeconds);
 
@@ -212,7 +218,6 @@ export default function ActiveRunScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
         <Animated.View style={screenStyle}>
         <LiveMap
-          useOsmMap={useOsmMap}
           activeRegion={activeRegion}
           coordinates={coordinates}
           lastCoordinate={lastCoordinate}
@@ -221,11 +226,11 @@ export default function ActiveRunScreen() {
           colors={colors}
           followUser={followUser}
           routePolyline={routePolyline}
-          isWarmedUp={isWarmedUp}
           onManualMove={() => setFollowUser(false)}
           onRecenter={() => {
             setFollowUser(true);
           }}
+          mapStyleAnchorBottom={mapStyleAnchorBottom}
         />
 
         {showWarmupBanner && (
@@ -253,7 +258,7 @@ export default function ActiveRunScreen() {
           </View>
         )}
 
-        {isFetchingRoute && destination && (
+        {destination && (isFetchingRoute || routeMetrics) ? (
           <View
             pointerEvents="none"
             style={{
@@ -266,19 +271,25 @@ export default function ActiveRunScreen() {
               backgroundColor: colors.surfaceHigh,
               borderWidth: 1,
               borderColor: colors.borderSubtle,
-              opacity: 0.9,
+              opacity: 0.92,
             }}
           >
             <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }}>
-              Calculating route…
+              {isFetchingRoute
+                ? "Calculating route…"
+                : routeMetrics
+                  ? `Driving route ~${Math.max(1, Math.round(routeMetrics.durationSec / 60))} min · ${(routeMetrics.distanceM / 1000).toFixed(2)} km`
+                  : ""}
             </Text>
           </View>
-        )}
+        ) : null}
 
         <RunStatusOverlay
           status={status}
           goalKm={goalKm}
           destination={destination}
+          lastCoordinate={lastCoordinate}
+          distanceMeters={distanceMeters}
           colors={colors}
           glassBg={glassBg}
           glassBorder={glassBorder}
@@ -295,7 +306,7 @@ export default function ActiveRunScreen() {
           glassBg={glassBg}
           glassBorder={glassBorder}
           glassShadow={glassShadow}
-          insetsBottom={insets.bottom}
+          mainTabBarOverlap={mainTabBarOverlap}
           bottomBarHeight={bottomBarHeight}
           overlayGap={overlayGap}
         />
@@ -307,7 +318,7 @@ export default function ActiveRunScreen() {
           glassBg={glassBg}
           glassBorder={glassBorder}
           glassShadow={glassShadow}
-          insetsBottom={insets.bottom}
+          mainTabBarOverlap={mainTabBarOverlap}
           bottomBarHeight={bottomBarHeight}
         />
 
@@ -326,6 +337,7 @@ export default function ActiveRunScreen() {
           onResume={closeStopDialogAndResume}
           colors={colors}
           insetsBottom={insets.bottom}
+          mainTabBarOverlap={mainTabBarOverlap}
         />
         </Animated.View>
       </SafeAreaView>

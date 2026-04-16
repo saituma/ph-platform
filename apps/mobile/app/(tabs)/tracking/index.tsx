@@ -21,6 +21,7 @@ import { getLastNDaysLabel, getLastNDaysRangeLabel } from "../../../lib/tracking
 import { RunGoalSheet } from "../../../components/tracking/RunGoalSheet";
 import { useRunStore } from "../../../store/useRunStore";
 import { syncRuns } from "../../../lib/runSync";
+import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
 
 const QUOTES = [
   "Rest is a weapon. Use it wisely.", // Sunday
@@ -126,7 +127,12 @@ export default function TrackingHomeScreen() {
       <ScrollView 
         bounces={true} 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: insets.top + 24, paddingBottom: 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.xl,
+          paddingTop: insets.top + 24,
+          paddingBottom: trackingScrollBottomPad(insets),
+          flexGrow: 1,
+        }}
       >
         {/* Section 1 - Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xxxl }}>

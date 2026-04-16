@@ -13,7 +13,8 @@ interface RunBottomBarProps {
   glassBg: string;
   glassBorder: string;
   glassShadow: any;
-  insetsBottom: number;
+  /** Clearance for the root floating tab bar (`SwipeableTabLayout`). */
+  mainTabBarOverlap: number;
   bottomBarHeight: number;
 }
 
@@ -24,7 +25,7 @@ export function RunBottomBar({
   glassBg,
   glassBorder,
   glassShadow,
-  insetsBottom,
+  mainTabBarOverlap,
   bottomBarHeight,
 }: RunBottomBarProps) {
   return (
@@ -33,7 +34,7 @@ export function RunBottomBar({
         position: "absolute",
         left: 16,
         right: 16,
-        bottom: insetsBottom + 16,
+        bottom: mainTabBarOverlap + 16,
         height: bottomBarHeight,
         backgroundColor: glassBg,
         borderColor: glassBorder,

@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
@@ -34,11 +34,13 @@ import {
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text as ScaledText } from "@/components/ScaledText";
 import { estimateCalories } from "../../../lib/tracking/runUtils";
+import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function FeedbackScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const {
     distanceMeters,
@@ -173,7 +175,7 @@ export default function FeedbackScreen() {
             contentContainerStyle={{
               paddingHorizontal: 20,
               paddingTop: 40,
-              paddingBottom: 60,
+              paddingBottom: trackingScrollBottomPad(insets),
             }}
             style={animatedScreenStyle}
           >

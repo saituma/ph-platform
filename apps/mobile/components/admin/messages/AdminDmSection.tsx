@@ -27,6 +27,7 @@ import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
 import { GifPickerModal } from "@/components/messages/GifPickerModal";
 import * as ImagePicker from "expo-image-picker";
+import { VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION } from "@/lib/media/videoPickerNativeResolution";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
@@ -179,10 +180,9 @@ export function AdminDmSection({
 
   const pickVideo = async () => {
     setComposerMenuOpen(false);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "videos",
-      quality: 1,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync(
+      VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
+    );
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       setPendingAttachment({
@@ -220,8 +220,7 @@ export function AdminDmSection({
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return;
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: "videos",
-      quality: 1,
+      ...VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
       cameraType: ImagePicker.CameraType.front,
     });
     if (!result.canceled && result.assets[0]) {

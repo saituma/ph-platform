@@ -68,58 +68,68 @@ export function SessionExerciseBlock({
 
   const MetaSectionCard = ({
     icon,
-    title,
+    title: sectionTitle,
     body,
   }: {
     icon: React.ComponentProps<typeof Feather>["name"];
     title: string;
     body: string;
-  }) => (
-    <View
-      className="rounded-[22px] border px-4 py-4 gap-3"
-      style={{
-        backgroundColor: colors.surfaceHigh,
-        borderColor: borderSoft,
-      }}
-    >
-      <View className="flex-row items-center gap-3">
-        <View
-          className="h-9 w-9 rounded-full items-center justify-center"
-          style={{ backgroundColor: colors.accentLight }}
-        >
-          <Feather name={icon} size={16} color={colors.accent} />
+  }) => {
+    const raw = body.trim();
+    const len = raw.length;
+    const baseSize = len > 420 ? 13 : len > 220 ? 14 : 15;
+    const lineHeight = Math.round(baseSize * 1.55);
+    const headSize = len > 420 ? 15 : 16;
+    return (
+      <View
+        className="rounded-[22px] border px-4 py-4 gap-3"
+        style={{
+          backgroundColor: colors.surfaceHigh,
+          borderColor: borderSoft,
+          width: "100%",
+          alignSelf: "stretch",
+        }}
+      >
+        <View className="flex-row items-center gap-3" style={{ flexShrink: 1 }}>
+          <View
+            className="h-9 w-9 rounded-full items-center justify-center"
+            style={{ backgroundColor: colors.accentLight }}
+          >
+            <Feather name={icon} size={16} color={colors.accent} />
+          </View>
+          <Text
+            className="text-[11px] font-outfit-bold uppercase tracking-[1.4px] flex-1"
+            style={{ color: colors.textSecondary }}
+          >
+            {sectionTitle}
+          </Text>
         </View>
-        <Text
-          className="text-[11px] font-outfit-bold uppercase tracking-[1.6px]"
-          style={{ color: colors.textSecondary }}
-        >
-          {title}
-        </Text>
+        <MarkdownText
+          text={raw}
+          baseStyle={{
+            fontSize: baseSize,
+            lineHeight,
+            color: colors.text,
+            fontWeight: "500",
+          }}
+          headingStyle={{
+            fontSize: headSize,
+            lineHeight: headSize + 8,
+            color: colors.text,
+            fontWeight: "700",
+          }}
+          subheadingStyle={{
+            fontSize: baseSize + 1,
+            lineHeight: lineHeight + 2,
+            color: colors.text,
+            fontWeight: "700",
+          }}
+          listItemStyle={{ paddingLeft: 6 }}
+          containerStyle={{ width: "100%" }}
+        />
       </View>
-      <MarkdownText
-        text={body}
-        baseStyle={{
-          fontSize: 15,
-          lineHeight: 24,
-          color: colors.text,
-          fontWeight: "500",
-        }}
-        headingStyle={{
-          fontSize: 16,
-          lineHeight: 24,
-          color: colors.text,
-          fontWeight: "700",
-        }}
-        subheadingStyle={{
-          fontSize: 15,
-          lineHeight: 22,
-          color: colors.text,
-          fontWeight: "700",
-        }}
-        listItemStyle={{ paddingLeft: 6 }}
-      />
-    </View>
-  );
+    );
+  };
 
   const isDirectVideoUrl = (url: string) =>
     /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url) || /\.(m3u8)(\?.*)?$/i.test(url);
@@ -190,7 +200,8 @@ export function SessionExerciseBlock({
                           autoPlay={false}
                           initialMuted
                           isLooping={false}
-                          maxHeightRatio={0.55}
+                          useVideoResolution
+                          maxHeightRatio={0.92}
                         />
                       </View>
                     );
@@ -230,14 +241,17 @@ export function SessionExerciseBlock({
               : null}
 
             <View className="flex-row items-start gap-4">
-              <View className="flex-1">
-                <Text className="text-lg font-clash font-bold text-app">
+              <View className="flex-1 min-w-0">
+                <Text
+                  className="text-lg font-clash font-bold text-app"
+                  style={{ width: "100%" }}
+                >
                   {item.title}
                 </Text>
                 {item.body?.trim() ? (
                   <Text
                     className="text-sm font-outfit text-secondary mt-1"
-                    numberOfLines={20}
+                    style={{ width: "100%" }}
                   >
                     {item.body.trim()}
                   </Text>
@@ -272,7 +286,10 @@ export function SessionExerciseBlock({
                             <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
                               Your notes
                             </Text>
-                            <Text className="text-sm font-outfit text-secondary">
+                            <Text
+                              className="text-sm font-outfit text-secondary"
+                              style={{ width: "100%" }}
+                            >
                               {u.notes.trim()}
                             </Text>
                           </View>
@@ -288,7 +305,10 @@ export function SessionExerciseBlock({
                             <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
                               Coach response
                             </Text>
-                            <Text className="text-sm font-outfit text-secondary">
+                            <Text
+                              className="text-sm font-outfit text-secondary"
+                              style={{ width: "100%" }}
+                            >
                               {u.feedback.trim()}
                             </Text>
                           </View>
@@ -308,7 +328,10 @@ export function SessionExerciseBlock({
                                   Coach response video
                                 </Text>
                                 {res.text ? (
-                                  <Text className="text-sm font-outfit text-secondary">
+                                  <Text
+                                    className="text-sm font-outfit text-secondary"
+                                    style={{ width: "100%" }}
+                                  >
                                     {res.text}
                                   </Text>
                                 ) : null}
@@ -477,6 +500,7 @@ export function SessionExerciseBlock({
                               label: "Category",
                               value: item.metadata.category.trim(),
                               icon: "tag",
+                              valueKind: "text" as const,
                             }
                           : null,
                         item.metadata.equipment?.trim()
@@ -485,6 +509,7 @@ export function SessionExerciseBlock({
                               label: "Equipment",
                               value: item.metadata.equipment.trim(),
                               icon: "tool",
+                              valueKind: "text" as const,
                             }
                           : null,
                       ].filter(Boolean) as any}

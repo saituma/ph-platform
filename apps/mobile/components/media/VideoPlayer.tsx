@@ -41,27 +41,31 @@ import { VideoLoadingOverlay } from "./video/VideoLoadingOverlay";
 import { VideoControls } from "./video/VideoControls";
 import { useVideoPlayerEngine } from "../../hooks/media/useVideoPlayerEngine";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
+import { fetchOembedAspectRatio } from "@/lib/video/oembedAspect";
+import { fitVideoBoxInMaxBounds } from "@/lib/video/fitVideoBox";
 
 export { YouTubeEmbed, isYoutubeUrl, normalizeUrl, YouTubeEmbedHandle };
 
-function isYoutubeShortsUrl(url: string): boolean {
-  const raw = normalizeUrl(url);
-  if (!raw) return false;
-  try {
-    const u = new URL(raw);
-    const host = u.hostname.toLowerCase();
-    // Shorts are only reliably identifiable by the pathname, not by query params like `feature=shorts`.
-    const isYoutubeHost =
-      host === "youtube.com" ||
-      host === "www.youtube.com" ||
-      host === "m.youtube.com" ||
-      host.endsWith(".youtube.com");
-    if (!isYoutubeHost) return false;
-    return u.pathname.toLowerCase().startsWith("/shorts/");
-  } catch {
-    // Fallback: only match actual path segment, not `feature=shorts` etc.
-    return /(^|\/)shorts\/[A-Za-z0-9_-]{6,}/i.test(raw);
-  }
+/** True for Loom share/embed links (including useloom.com). */
+export function isLoomUrl(url?: string) {
+  const u = normalizeUrl(url ?? "");
+  if (!u) return false;
+  return /(?:^|\/\/)(?:www\.)?(?:loom\.com|useloom\.com)\b/i.test(u);
+}
+
+/** Prefer Loom’s embed player URL so WebView can play inline. */
+export function resolveLoomEmbedUrl(url: string): string {
+  const u = normalizeUrl(url);
+  if (!isLoomUrl(u)) return u;
+  const embed = u.match(
+    /(?:www\.)?loom\.com\/embed\/([A-Za-z0-9_-]+)/i,
+  );
+  if (embed?.[1]) return `https://www.loom.com/embed/${embed[1]}`;
+  const share = u.match(
+    /(?:www\.)?(?:loom\.com|useloom\.com)\/share\/([A-Za-z0-9_-]+)/i,
+  );
+  if (share?.[1]) return `https://www.loom.com/embed/${share[1]}`;
+  return u;
 }
 
 interface VideoPlayerProps {
@@ -98,34 +102,6 @@ interface VideoPlayerProps {
 export function VideoPlayer(props: VideoPlayerProps) {
   const navigation = useContext(NavigationContext);
   const containerRef = useContext(NavigationContainerRefContext);
-  const branchLogKeyRef = useRef("");
-  // #region agent log
-  const usesWithNav = !(navigation === undefined && containerRef === undefined);
-  const branchKey = `${usesWithNav}|${String(props.uri ?? "").slice(0, 64)}`;
-  if (branchKey !== branchLogKeyRef.current) {
-    branchLogKeyRef.current = branchKey;
-    fetch("http://127.0.0.1:7392/ingest/3e8b9f8d-6d0f-4ca7-943c-7327a18df494", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "f7e5bb",
-      },
-      body: JSON.stringify({
-        sessionId: "f7e5bb",
-        location: "VideoPlayer.tsx:VideoPlayer",
-        message: "VideoPlayer nav branch",
-        data: {
-          hypothesisId: "H1",
-          navUndefined: navigation === undefined,
-          containerRefUndefined: containerRef === undefined,
-          usesWithNav,
-          uriPrefix: String(props.uri ?? "").slice(0, 48),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
   // Match `useNavigation()` preconditions so we never mount `useIsFocused` without a provider.
   // Also avoids crashes when duplicate @react-navigation/native copies split context (pnpm dedupe fixes that).
   if (navigation === undefined && containerRef === undefined) {
@@ -140,39 +116,52 @@ function VideoPlayerWithNav(props: VideoPlayerProps) {
   return <VideoPlayerBase {...props} navFocused={isFocused} />;
 }
 
-function VideoPlayerBase({
+function VideoPlayerBase(props: VideoPlayerProps & { navFocused: boolean }) {
+  const normalizedUri = normalizeUrl(props.uri);
+  const isY = isYoutubeUrl(normalizedUri);
+  const isL = isLoomUrl(normalizedUri);
+  const loomEmbed = useMemo(
+    () => resolveLoomEmbedUrl(normalizedUri),
+    [normalizedUri],
+  );
+
+  const { cachedUri } = useVideoCache(
+    props.disableCache || isY || isL ? null : normalizedUri,
+    props.cacheKey,
+  );
+  const finalSource = props.disableCache ? normalizedUri : cachedUri || normalizedUri;
+
+  if (isY) return <VideoPlayerYoutubeMode {...props} />;
+  if (isL) {
+    return (
+      <VideoPlayerLoomMode
+        {...props}
+        embedUri={loomEmbed}
+        pageLinkUri={normalizedUri}
+      />
+    );
+  }
+  return <VideoPlayerExpoNativeMode {...props} sourceUri={finalSource} />;
+}
+
+function VideoPlayerYoutubeMode({
   uri,
   height = 220,
-  autoPlay = false,
   initialMuted = true,
-  isLooping = true,
   useVideoResolution = true,
-  controllerKey,
   maxHeightRatio = 1,
-  showLoadingOverlay = true,
-  ignoreTabFocus = false,
-  contentFitOverride,
-  previewOnly = false,
-  onPreviewPress,
-  hideTopChrome = false,
-  hideControls = false,
-  disableCache = false,
-  cacheKey,
-  hideCenterControls = false,
-  posterUri,
-  immersive = false,
-  cinematic = false,
   shouldPlay: propShouldPlay = true,
   title,
-  initialAspectRatio,
   isVisible = true,
+  ignoreTabFocus = false,
+  hideTopChrome = false,
+  immersive = false,
+  cinematic = false,
+  controllerKey,
   pauseOthers,
-  onDurationMs,
-  onEnded,
   navFocused,
 }: VideoPlayerProps & { navFocused: boolean }) {
-  const { colors, isDark } = useAppTheme();
-
+  const { isDark } = useAppTheme();
   const { activeTabIndex, currentTabIndex } = useActiveTab();
   const isTabActive = activeTabIndex === currentTabIndex;
   const playbackController = useVideoPlaybackController();
@@ -192,29 +181,420 @@ function VideoPlayerBase({
     appActive &&
     isVisible;
 
-  const normalizedUri = normalizeUrl(uri);
-  const isYoutube = isYoutubeUrl(normalizedUri);
-  const enableYoutubeShortsAspect =
-    process.env.EXPO_PUBLIC_ENABLE_YOUTUBE_SHORTS_ASPECT === "1" ||
-    process.env.EXPO_PUBLIC_ENABLE_YOUTUBE_SHORTS_ASPECT === "true";
-  const isYoutubeShorts =
-    enableYoutubeShortsAspect && isYoutube && isYoutubeShortsUrl(normalizedUri);
-  const isLoom = /loom\.com/i.test(normalizedUri);
-  const loomEmbedUrl = useMemo(() => {
-    if (!isLoom) return null;
-    const match = normalizedUri.match(
-      /loom\.com\/(share|embed)\/([A-Za-z0-9]+)/i,
-    );
-    const id = match?.[2] ?? null;
-    return id ? `https://www.loom.com/embed/${id}` : normalizedUri;
-  }, [isLoom, normalizedUri]);
-  const { cachedUri } = useVideoCache(
-    disableCache || isYoutube || isLoom ? null : normalizedUri,
-    cacheKey,
+  /** All YouTube embeds use a 16:9 frame (Shorts/portrait content is letterboxed inside). */
+  const effectiveAspectRatio = 16 / 9;
+  const effectiveMaxHeightRatio = maxHeightRatio;
+
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      setAppActive(next === "active");
+    });
+    return () => sub.remove();
+  }, []);
+
+  const containerSize = useMemo(() => {
+    const ratio =
+      effectiveAspectRatio > 0 ? effectiveAspectRatio : 16 / 9;
+    const maxW = containerWidth ?? screenWidth;
+    const maxH =
+      screenHeight * Math.max(0.5, Math.min(1, effectiveMaxHeightRatio));
+    return fitVideoBoxInMaxBounds(maxW, maxH, ratio);
+  }, [
+    containerWidth,
+    effectiveAspectRatio,
+    effectiveMaxHeightRatio,
+    screenHeight,
+    screenWidth,
+  ]);
+
+  const resolvedHeight = useVideoResolution ? containerSize.height : height;
+
+  const onContainerLayout = useCallback((e: any) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setContainerWidth(w);
+  }, []);
+
+  const rotation = screenWidth < screenHeight ? "90deg" : "0deg";
+  const fullscreenWidth = Math.max(screenWidth, screenHeight);
+  const fullscreenHeight = Math.min(screenWidth, screenHeight);
+
+  const fullscreenVideoSize = useMemo(() => {
+    const ar =
+      effectiveAspectRatio > 0 ? effectiveAspectRatio : 16 / 9;
+    let vw = fullscreenWidth;
+    let vh = vw / ar;
+    if (vh > fullscreenHeight) {
+      vh = fullscreenHeight;
+      vw = vh * ar;
+    }
+    return { width: vw, height: vh };
+  }, [effectiveAspectRatio, fullscreenHeight, fullscreenWidth]);
+
+  const openFullscreen = useCallback(() => {
+    void (async () => {
+      const t = await inlineYouTubeRef.current?.getCurrentTime();
+      setYoutubeResumeTime(typeof t === "number" ? t : 0);
+      if (pauseOthers) pauseOthers();
+      if (playbackController && controllerKey)
+        playbackController.pauseOthers(controllerKey);
+      setFullscreenOpen(true);
+    })();
+  }, [controllerKey, pauseOthers, playbackController]);
+
+  const closeFullscreen = useCallback(() => {
+    void (async () => {
+      const t = await modalYouTubeRef.current?.getCurrentTime();
+      setYoutubeResumeTime(typeof t === "number" ? t : 0);
+      setFullscreenOpen(false);
+      setTimeout(() => {
+        inlineYouTubeRef.current?.seekTo(typeof t === "number" ? t : 0);
+      }, 50);
+    })();
+  }, []);
+
+  return (
+    <View
+      onLayout={onContainerLayout}
+      style={{
+        width: "100%",
+        height: resolvedHeight,
+        backgroundColor: "#000",
+        overflow: "hidden",
+        borderRadius: immersive || cinematic ? 0 : 24,
+        borderWidth: immersive || cinematic ? 0 : 1,
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+        alignItems: "center",
+      }}
+    >
+      <YouTubeEmbed
+        ref={inlineYouTubeRef as any}
+        url={uri}
+        width={containerSize.width}
+        height={containerSize.height}
+        shouldPlay={
+          !fullscreenOpen && effectiveShouldPlay && youtubeIsPlaying
+        }
+        initialMuted={initialMuted}
+        onPlayerStateChange={(state: string) => {
+          if (fullscreenOpen) return;
+          if (state === "playing") setYoutubeIsPlaying(true);
+          if (state === "paused" || state === "ended")
+            setYoutubeIsPlaying(false);
+        }}
+      />
+
+      {!ignoreTabFocus && !hideTopChrome && (
+        <View
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            right: 12,
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            zIndex: 30,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            {title ? (
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 14,
+                  backgroundColor: "rgba(0,0,0,0.6)",
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                }}
+              >
+                {title}
+              </Text>
+            ) : null}
+            <Pressable
+              onPress={openFullscreen}
+              style={{
+                backgroundColor: "rgba(0,0,0,0.6)",
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 20,
+              }}
+            >
+              <Feather name="maximize" size={18} color="#fff" />
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      <Modal
+        visible={fullscreenOpen}
+        animationType="fade"
+        onRequestClose={closeFullscreen}
+        supportedOrientations={["portrait", "landscape"]}
+      >
+        <View style={{ flex: 1, backgroundColor: "#000" }}>
+          <Pressable
+            onPress={closeFullscreen}
+            style={{
+              position: "absolute",
+              top: 18,
+              right: 18,
+              zIndex: 10,
+              backgroundColor: "rgba(0,0,0,0.55)",
+              borderRadius: 999,
+              padding: 10,
+            }}
+          >
+            <Feather name="x" size={22} color="#fff" />
+          </Pressable>
+
+          <View
+            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          >
+            <View
+              style={{
+                width: fullscreenVideoSize.width,
+                height: fullscreenVideoSize.height,
+                transform: [{ rotate: rotation }],
+              }}
+            >
+              <YouTubeEmbed
+                ref={modalYouTubeRef as any}
+                url={uri}
+                shouldPlay={youtubeIsPlaying}
+                initialMuted={initialMuted}
+                width={fullscreenVideoSize.width}
+                height={fullscreenVideoSize.height}
+                onPlayerReady={() => {
+                  if (youtubeResumeTime > 0) {
+                    modalYouTubeRef.current?.seekTo(youtubeResumeTime);
+                  }
+                }}
+                onPlayerStateChange={(state: string) => {
+                  if (!fullscreenOpen) return;
+                  if (state === "playing") setYoutubeIsPlaying(true);
+                  if (state === "paused" || state === "ended")
+                    setYoutubeIsPlaying(false);
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
-  const finalUri = disableCache ? normalizedUri : cachedUri || normalizedUri;
-  const sourceForPlayer =
-    (finalUri && typeof finalUri === "string" ? finalUri : normalizedUri) || "";
+}
+
+const LOOM_WEBVIEW_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+function VideoPlayerLoomMode({
+  height = 220,
+  useVideoResolution = true,
+  maxHeightRatio = 1,
+  initialAspectRatio,
+  title,
+  hideTopChrome = false,
+  immersive = false,
+  cinematic = false,
+  embedUri,
+  pageLinkUri,
+}: VideoPlayerProps & {
+  navFocused: boolean;
+  embedUri: string;
+  pageLinkUri: string;
+}) {
+  const { isDark } = useAppTheme();
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const [oembedAspectRatio, setOembedAspectRatio] = useState<number | null>(
+    null,
+  );
+
+  useEffect(() => {
+    setOembedAspectRatio(null);
+    let cancelled = false;
+    void (async () => {
+      const r = await fetchOembedAspectRatio(pageLinkUri, "loom");
+      if (!cancelled && r != null && Number.isFinite(r) && r > 0) {
+        setOembedAspectRatio(r);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pageLinkUri]);
+
+  const effectiveAspectRatio =
+    oembedAspectRatio ?? initialAspectRatio ?? 16 / 9;
+  const effectiveMaxHeightRatio =
+    effectiveAspectRatio > 0 && effectiveAspectRatio < 1
+      ? Math.max(maxHeightRatio, 0.95)
+      : maxHeightRatio;
+
+  const containerSize = useMemo(() => {
+    const ratio = effectiveAspectRatio > 0 ? effectiveAspectRatio : 16 / 9;
+    const maxW = containerWidth ?? screenWidth;
+    const maxH =
+      screenHeight * Math.max(0.5, Math.min(1, effectiveMaxHeightRatio));
+    return fitVideoBoxInMaxBounds(maxW, maxH, ratio);
+  }, [
+    containerWidth,
+    effectiveAspectRatio,
+    effectiveMaxHeightRatio,
+    screenHeight,
+    screenWidth,
+  ]);
+
+  const resolvedHeight = useVideoResolution ? containerSize.height : height;
+
+  const onContainerLayout = useCallback((e: any) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setContainerWidth(w);
+  }, []);
+
+  const webSourceUri =
+    /^https?:\/\//i.test(embedUri) && embedUri.includes("loom.com/embed")
+      ? embedUri
+      : /^https?:\/\//i.test(pageLinkUri)
+        ? pageLinkUri
+        : embedUri;
+
+  return (
+    <View
+      onLayout={onContainerLayout}
+      style={{
+        width: "100%",
+        height: resolvedHeight,
+        backgroundColor: "#000",
+        overflow: "hidden",
+        borderRadius: immersive || cinematic ? 0 : 24,
+        borderWidth: immersive || cinematic ? 0 : 1,
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <WebView
+        source={{ uri: webSourceUri }}
+        style={{
+          width: containerSize.width,
+          height: containerSize.height,
+          backgroundColor: "#000",
+        }}
+        allowsFullscreenVideo
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        javaScriptEnabled
+        domStorageEnabled
+        thirdPartyCookiesEnabled
+        sharedCookiesEnabled
+        setSupportMultipleWindows={true}
+        mixedContentMode="always"
+        scrollEnabled={false}
+        originWhitelist={["*"]}
+        userAgent={LOOM_WEBVIEW_UA}
+        {...(Platform.OS === "android"
+          ? { nestedScrollEnabled: false }
+          : {})}
+      />
+
+      {!hideTopChrome ? (
+        <View
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            right: 12,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            zIndex: 30,
+          }}
+        >
+          {title ? (
+            <Text
+              style={{
+                color: "white",
+                fontSize: 14,
+                backgroundColor: "rgba(0,0,0,0.6)",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 20,
+                flexShrink: 1,
+              }}
+            >
+              {title}
+            </Text>
+          ) : (
+            <View />
+          )}
+          <Pressable
+            onPress={() => Linking.openURL(pageLinkUri)}
+            style={{
+              backgroundColor: "rgba(0,0,0,0.6)",
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Feather name="external-link" size={16} color="#fff" />
+            <Text style={{ color: "white", fontSize: 13 }}>Open</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function VideoPlayerExpoNativeMode({
+  sourceUri,
+  height = 220,
+  autoPlay = false,
+  initialMuted = true,
+  isLooping = true,
+  useVideoResolution = true,
+  controllerKey,
+  maxHeightRatio = 1,
+  showLoadingOverlay = true,
+  ignoreTabFocus = false,
+  contentFitOverride,
+  previewOnly = false,
+  onPreviewPress,
+  hideTopChrome = false,
+  hideControls = false,
+  hideCenterControls = false,
+  posterUri,
+  immersive = false,
+  cinematic = false,
+  shouldPlay: propShouldPlay = true,
+  title,
+  initialAspectRatio,
+  isVisible = true,
+  pauseOthers,
+  onDurationMs,
+  onEnded,
+  navFocused,
+}: VideoPlayerProps & { navFocused: boolean; sourceUri: string }) {
+  const { colors, isDark } = useAppTheme();
+  const { activeTabIndex, currentTabIndex } = useActiveTab();
+  const isTabActive = activeTabIndex === currentTabIndex;
+  const playbackController = useVideoPlaybackController();
+
+  const [appActive, setAppActive] = useState(
+    AppState.currentState === "active",
+  );
+
+  const effectiveShouldPlay =
+    propShouldPlay &&
+    (ignoreTabFocus || (navFocused && isTabActive)) &&
+    appActive &&
+    isVisible;
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -233,7 +613,7 @@ function VideoPlayerBase({
     safePlay,
     toggleMute,
   } = useVideoPlayerEngine({
-    sourceUri: sourceForPlayer,
+    sourceUri: sourceUri || "",
     autoPlay,
     initialMuted,
     isLooping,
@@ -244,7 +624,7 @@ function VideoPlayerBase({
     fadeAnim,
   });
 
-  const videoRef = useRef<VideoView>(null);
+  const videoRef = useRef<InstanceType<typeof VideoView> | null>(null);
   const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
@@ -282,15 +662,25 @@ function VideoPlayerBase({
     controllerKey,
   ]);
 
+  const [posterAspectRatio, setPosterAspectRatio] = useState<number | null>(
+    null,
+  );
+
   useEffect(() => {
-    if (posterUri && !aspectRatio) {
-      Image.getSize(
-        posterUri,
-        (w, h) => {},
-        () => {},
-      );
+    if (!posterUri) {
+      setPosterAspectRatio(null);
+      return;
     }
-  }, [posterUri, aspectRatio]);
+    Image.getSize(
+      posterUri,
+      (w, h) => {
+        if (w > 0 && h > 0) setPosterAspectRatio(w / h);
+      },
+      () => setPosterAspectRatio(null),
+    );
+  }, [posterUri]);
+
+  const finalUri = sourceUri;
 
   const togglePlay = () => {
     if (error) {
@@ -307,30 +697,54 @@ function VideoPlayerBase({
   };
 
   const progress = duration > 0 ? Math.min(1, position / duration) : 0;
-  const fitMode = contentFitOverride ?? "contain";
-  const youtubeDetectedAspectRatio = isYoutubeShorts ? 9 / 16 : null;
-  // For YouTube/Loom we don't control the media pipeline (iframe/webview).
-  // expo-video metadata can be missing or misleading for those URLs, so don't let it
-  // drive the container sizing.
-  const effectiveAspectRatio =
-    isYoutube || isLoom
-      ? (youtubeDetectedAspectRatio ?? initialAspectRatio ?? 16 / 9)
-      : (aspectRatio ?? initialAspectRatio ?? 16 / 9);
+  const aspectFromResolution =
+    resolution &&
+    resolution.width > 0 &&
+    resolution.height > 0
+      ? resolution.width / resolution.height
+      : null;
+  const intrinsicAspect = useMemo(() => {
+    const fromEngine = aspectRatio ?? posterAspectRatio ?? null;
+    const fromPixels = aspectFromResolution;
+    if (fromPixels != null && fromEngine != null) {
+      const pPort = fromPixels < 1;
+      const ePort = fromEngine < 1;
+      if (pPort !== ePort) return fromPixels;
+    }
+    return (
+      aspectRatio ??
+      posterAspectRatio ??
+      aspectFromResolution ??
+      initialAspectRatio ??
+      null
+    );
+  }, [
+    aspectRatio,
+    posterAspectRatio,
+    aspectFromResolution,
+    initialAspectRatio,
+  ]);
+  const fitMode =
+    contentFitOverride ??
+    (intrinsicAspect != null && intrinsicAspect < 1 ? "cover" : "contain");
   const effectiveMaxHeightRatio =
-    effectiveAspectRatio > 0 && effectiveAspectRatio < 1
-      ? Math.max(maxHeightRatio, 0.9)
+    intrinsicAspect != null && intrinsicAspect > 0 && intrinsicAspect < 1
+      ? Math.max(maxHeightRatio, 0.95)
       : maxHeightRatio;
 
   const containerSize = useMemo(() => {
-    const ratio = effectiveAspectRatio > 0 ? effectiveAspectRatio : 16 / 9;
-    const w = containerWidth ?? screenWidth;
-    const naturalH = w / ratio;
+    const maxW = containerWidth ?? screenWidth;
     const maxH =
       screenHeight * Math.max(0.5, Math.min(1, effectiveMaxHeightRatio));
-    return { width: w, height: Math.min(naturalH, maxH) };
+    if (intrinsicAspect == null || !(intrinsicAspect > 0)) {
+      // No metadata yet — avoid assuming 16:9 (prevents squishing portrait into a wide box).
+      return { width: maxW, height };
+    }
+    return fitVideoBoxInMaxBounds(maxW, maxH, intrinsicAspect);
   }, [
     containerWidth,
-    effectiveAspectRatio,
+    height,
+    intrinsicAspect,
     effectiveMaxHeightRatio,
     screenHeight,
     screenWidth,
@@ -344,37 +758,16 @@ function VideoPlayerBase({
   }, []);
 
   const showPoster = !isPlaying && position < 0.5 && !error && !previewOnly;
-  const rotation = screenWidth < screenHeight ? "90deg" : "0deg";
-  const fullscreenWidth = Math.max(screenWidth, screenHeight);
-  const fullscreenHeight = Math.min(screenWidth, screenHeight);
 
   const openFullscreen = useCallback(() => {
-    if (!isYoutube) {
-      Linking.openURL(finalUri).catch(() => {});
-      return;
+    if (pauseOthers) pauseOthers();
+    if (playbackController && controllerKey) {
+      playbackController.pauseOthers(controllerKey);
     }
-    (async () => {
-      const t = await inlineYouTubeRef.current?.getCurrentTime();
-      setYoutubeResumeTime(typeof t === "number" ? t : 0);
-      if (pauseOthers) pauseOthers();
-      if (playbackController && controllerKey)
-        playbackController.pauseOthers(controllerKey);
-      setFullscreenOpen(true);
-    })();
-  }, [controllerKey, finalUri, isYoutube, pauseOthers, playbackController]);
+    void videoRef.current?.enterFullscreen();
+  }, [controllerKey, pauseOthers, playbackController]);
 
-  const closeFullscreen = useCallback(() => {
-    (async () => {
-      const t = await modalYouTubeRef.current?.getCurrentTime();
-      setYoutubeResumeTime(typeof t === "number" ? t : 0);
-      setFullscreenOpen(false);
-      setTimeout(() => {
-        inlineYouTubeRef.current?.seekTo(typeof t === "number" ? t : 0);
-      }, 50);
-    })();
-  }, []);
-
-  if (error && !isYoutube && !isLoom) {
+  if (error) {
     return (
       <Pressable
         onPress={() => Linking.openURL(finalUri)}
@@ -383,6 +776,7 @@ function VideoPlayerBase({
           backgroundColor: "#000",
           justifyContent: "center",
           alignItems: "center",
+          minHeight: height,
         }}
       >
         <Text style={{ color: "white" }}>{error}</Text>
@@ -407,52 +801,30 @@ function VideoPlayerBase({
         borderRadius: immersive || cinematic ? 0 : 24,
         borderWidth: immersive || cinematic ? 0 : 1,
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
-      {isYoutube ? (
-        <YouTubeEmbed
-          ref={inlineYouTubeRef as any}
-          url={uri}
-          width={containerSize.width}
-          height={resolvedHeight}
-          shouldPlay={
-            !fullscreenOpen && effectiveShouldPlay && youtubeIsPlaying
-          }
-          initialMuted={initialMuted}
-          onPlayerStateChange={(state: string) => {
-            if (fullscreenOpen) return;
-            if (state === "playing") setYoutubeIsPlaying(true);
-            if (state === "paused" || state === "ended")
-              setYoutubeIsPlaying(false);
-          }}
+      <Animated.View
+        style={{
+          width: containerSize.width,
+          height: containerSize.height,
+          opacity: fadeAnim,
+        }}
+      >
+        <VideoView
+          ref={videoRef}
+          player={player}
+          style={{ flex: 1, width: "100%", height: "100%" }}
+          contentFit={fitMode}
+          nativeControls={ignoreTabFocus}
+          fullscreenOptions={{ enable: true, orientation: "default" }}
+          allowsPictureInPicture
+          {...(Platform.OS === "android" ? { surfaceType: "textureView" } : {})}
         />
-      ) : isLoom ? (
-        <WebView
-          source={loomEmbedUrl ? { uri: loomEmbedUrl } : { uri: normalizedUri }}
-          style={{ flex: 1, backgroundColor: "#000" }}
-          allowsFullscreenVideo
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction
-          scrollEnabled={false}
-          originWhitelist={["https://*"]}
-        />
-      ) : (
-        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-          <VideoView
-            ref={videoRef}
-            player={player}
-            style={{ flex: 1 }}
-            contentFit={fitMode}
-            nativeControls={ignoreTabFocus}
-            allowsPictureInPicture
-            {...(Platform.OS === "android"
-              ? { surfaceType: "textureView" }
-              : {})}
-          />
-        </Animated.View>
-      )}
+      </Animated.View>
 
-      {!isYoutube && !ignoreTabFocus && showPoster && (
+      {!ignoreTabFocus && showPoster && (
         <VideoPoster
           posterUri={posterUri}
           onPress={togglePlay}
@@ -461,7 +833,7 @@ function VideoPlayerBase({
         />
       )}
 
-      {!isYoutube && showLoadingOverlay && (
+      {showLoadingOverlay && (
         <VideoLoadingOverlay
           isLoading={isLoading}
           isBuffering={isBuffering}
@@ -469,7 +841,7 @@ function VideoPlayerBase({
         />
       )}
 
-      {!isYoutube && !ignoreTabFocus && !cinematic && !showPoster && (
+      {!ignoreTabFocus && !cinematic && !showPoster && (
         <VideoControls
           isPlaying={isPlaying}
           isMuted={isMuted}
@@ -497,7 +869,7 @@ function VideoPlayerBase({
             zIndex: 30,
           }}
         >
-          {resolution && !isYoutube && !isLoom && (
+          {resolution ? (
             <View
               style={{
                 backgroundColor: "rgba(0,0,0,0.6)",
@@ -510,9 +882,11 @@ function VideoPlayerBase({
                 {`${resolution.width}×${resolution.height}`}
               </Text>
             </View>
+          ) : (
+            <View />
           )}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            {title && (
+            {title ? (
               <Text
                 style={{
                   color: "white",
@@ -525,80 +899,10 @@ function VideoPlayerBase({
               >
                 {title}
               </Text>
-            )}
-            {isYoutube && (
-              <Pressable
-                onPress={openFullscreen}
-                style={{
-                  backgroundColor: "rgba(0,0,0,0.6)",
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                }}
-              >
-                <Feather name="maximize" size={18} color="#fff" />
-              </Pressable>
-            )}
+            ) : null}
           </View>
         </View>
       )}
-
-      <Modal
-        visible={fullscreenOpen}
-        animationType="fade"
-        onRequestClose={closeFullscreen}
-        supportedOrientations={["portrait", "landscape"]}
-      >
-        <View style={{ flex: 1, backgroundColor: "#000" }}>
-          <Pressable
-            onPress={closeFullscreen}
-            style={{
-              position: "absolute",
-              top: 18,
-              right: 18,
-              zIndex: 10,
-              backgroundColor: "rgba(0,0,0,0.55)",
-              borderRadius: 999,
-              padding: 10,
-            }}
-          >
-            <Feather name="x" size={22} color="#fff" />
-          </Pressable>
-
-          <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-          >
-            <View
-              style={{
-                width: fullscreenWidth,
-                height: fullscreenHeight,
-                transform: [{ rotate: rotation }],
-              }}
-            >
-              <YouTubeEmbed
-                ref={modalYouTubeRef as any}
-                url={uri}
-                shouldPlay={youtubeIsPlaying}
-                initialMuted={initialMuted}
-                // Fullscreen sizing is explicit; keep the player locked to the rotated container.
-                width={fullscreenWidth}
-                height={fullscreenHeight}
-                onPlayerReady={() => {
-                  if (youtubeResumeTime > 0) {
-                    modalYouTubeRef.current?.seekTo(youtubeResumeTime);
-                  }
-                }}
-                onPlayerStateChange={(state: string) => {
-                  if (!fullscreenOpen) return;
-                  if (state === "playing") setYoutubeIsPlaying(true);
-                  if (state === "paused" || state === "ended")
-                    setYoutubeIsPlaying(false);
-                }}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

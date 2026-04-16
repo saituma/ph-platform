@@ -23,6 +23,11 @@ function hasTeam(team: string | null | undefined) {
   return hasAssignedTeam(team);
 }
 
+/** Adult athletes (solo or team) see athlete-facing flows like workout logging after sessions. */
+export function isAdultAthleteAppRole(role: AppRole | null | undefined): boolean {
+  return role === "adult_athlete" || role === "adult_athlete_team";
+}
+
 export function resolveAppRole(input: ResolveAppRoleInput): AppRole {
   const role = (input.userRole ?? "").toLowerCase();
   const athlete = input.athlete ?? null;

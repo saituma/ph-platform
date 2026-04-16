@@ -27,8 +27,15 @@ export function useVideoCache(
       return;
     }
 
-    // Skip caching for local files (recorded videos, etc.)
-    if (url.startsWith('file://')) {
+    // Skip caching for on-device media (expo-video plays these directly).
+    const lower = url.toLowerCase();
+    if (
+      url.startsWith("file://") ||
+      url.startsWith("content://") ||
+      url.startsWith("ph://") ||
+      url.startsWith("asset://") ||
+      lower.startsWith("blob:")
+    ) {
       setCachedUri(url);
       return;
     }
