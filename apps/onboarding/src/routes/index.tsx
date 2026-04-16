@@ -79,7 +79,9 @@ function App() {
                             className="h-12 w-12 p-0 rounded-none transition-colors"
                             aria-label="Submit email to create account"
                         >
-                            <ArrowRightIcon weight="bold" className="w-5 h-5" />
+                            <Link to="/verification">
+                                <ArrowRightIcon weight="bold" className="w-5 h-5" />
+                            </Link>
                         </Button>
                     </div>
                 </section>
