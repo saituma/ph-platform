@@ -51,6 +51,11 @@ export function createApp() {
     }
   };
   addOrigin(env.adminWebUrl);
+  // Always allow localhost for onboarding/web dev
+  addOrigin("http://localhost:3000");
+  addOrigin("http://localhost:3001");
+  addOrigin("http://127.0.0.1:3000");
+  
   (env.corsOrigins ?? "")
     .split(",")
     .map((origin) => origin.trim())
@@ -64,8 +69,8 @@ export function createApp() {
         if (allowedOrigins.has("*")) return callback(null, true);
         if (allowedOrigins.has(origin)) return callback(null, true);
         
-        // Auto-allow localhost for development convenience
-        if (env.nodeEnv !== "production" && origin.includes("localhost")) {
+        // Final fallback for any localhost variation
+        if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
           return callback(null, true);
         }
         
