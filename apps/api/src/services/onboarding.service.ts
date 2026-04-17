@@ -432,8 +432,13 @@ export async function getOnboardingByUser(userId: number) {
   if (!guardian) return null;
   const athletes = guardian.activeAthleteId
     ? await db
-        .select()
+        .select({
+          athlete: athleteTable,
+          guardianName: userTable.name,
+        })
         .from(athleteTable)
+        .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+        .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
         .where(eq(athleteTable.guardianId, guardian.id))
         .orderBy(
           sql`CASE WHEN ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`,
@@ -441,20 +446,31 @@ export async function getOnboardingByUser(userId: number) {
         )
         .limit(1)
     : await db
-        .select()
+        .select({
+          athlete: athleteTable,
+          guardianName: userTable.name,
+        })
         .from(athleteTable)
+        .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+        .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
         .where(eq(athleteTable.guardianId, guardian.id))
         .orderBy(desc(athleteTable.createdAt))
         .limit(1);
-  const athlete = athletes[0] ?? null;
-  if (!athlete) return null;
-  let ensured = athlete;
+  
+  const athleteRow = athletes[0]?.athlete ?? null;
+  const guardianName = athletes[0]?.guardianName ?? null;
+  
+  if (!athleteRow) return null;
+  let ensured = athleteRow;
   try {
-    ensured = await ensureAthleteUserRecord(athlete);
+    ensured = await ensureAthleteUserRecord(athleteRow);
   } catch (error) {
     console.warn("[Onboarding] Failed to ensure athlete user record during status lookup", error);
   }
   const decorated = decorateAthlete(ensured);
+  if (decorated) {
+    (decorated as any).guardianName = guardianName;
+  }
   try {
     await maybeSendBirthdayNotifications(decorated);
   } catch (error) {
@@ -845,9 +861,12 @@ export async function getGuardianAthleteOnboardingData(input: {
       performanceGoals: athleteTable.performanceGoals,
       equipmentAccess: athleteTable.equipmentAccess,
       extraResponses: athleteTable.extraResponses,
+      guardianName: userTable.name,
     })
     .from(athleteTable)
     .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+    .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+    .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
     .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
     .limit(1);
 
@@ -869,6 +888,7 @@ export async function getGuardianAthleteOnboardingData(input: {
     id: athlete.id,
     athleteType: athlete.athleteType,
     name: athlete.name,
+    guardianName: athlete.guardianName,
     age: athlete.age,
     birthDate,
     team: athlete.team,
