@@ -7,6 +7,9 @@ import {
 	IdentificationCard,
 	User,
 	Calendar as CalendarIcon,
+	SoccerBall,
+	TrendUp,
+	Hash,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
@@ -23,11 +26,17 @@ export const Route = createFileRoute("/onboarding/step-2")({
 function OnboardingStep2() {
 	const [userType, setUserType] = useState<string | null>(null);
 	const [formData, setFormData] = useState({
+		// Youth fields
 		guardianName: "",
 		athleteName: "",
 		age: "",
 		// Adult fields
 		name: "",
+		// Team fields
+		teamName: "",
+		minAge: "",
+		maxAge: "",
+		maxAthletes: "",
 	});
 	const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,8 +94,25 @@ function OnboardingStep2() {
 					name: formData.name,
 					birthDate: format(birthDate, "yyyy-MM-dd"),
 				};
+			} else if (userType === "team") {
+				const minAge = Number(formData.minAge);
+				const maxAge = Number(formData.maxAge);
+				const maxAthletes = Number(formData.maxAthletes);
+
+				if (!formData.teamName || !formData.minAge || !formData.maxAge || !formData.maxAthletes) {
+					throw new Error("Please fill in all fields");
+				}
+				if (minAge > maxAge) {
+					throw new Error("Min age cannot be greater than Max age");
+				}
+				endpoint = "/api/onboarding/team-basic";
+				body = {
+					name: formData.teamName,
+					minAge,
+					maxAge,
+					maxAthletes,
+				};
 			} else {
-				// Handle team or unknown
 				throw new Error("Invalid user type");
 			}
 
@@ -109,7 +135,13 @@ function OnboardingStep2() {
 			}
 
 			toast.success("Profile updated!", {
-				description: `Welcome to the platform, ${userType === "youth" ? formData.athleteName : formData.name}.`,
+				description: `Welcome to the platform, ${
+					userType === "youth"
+						? formData.athleteName
+						: userType === "team"
+							? formData.teamName
+							: formData.name
+				}.`,
 			});
 
 			// Navigate to Step 3 when ready
@@ -138,7 +170,9 @@ function OnboardingStep2() {
 					<p className="text-lg text-muted-foreground leading-relaxed">
 						{userType === "youth"
 							? "Tell us about yourself and the athlete you're signing up."
-							: "Tell us a bit more about yourself to get started."}
+							: userType === "team"
+								? "Tell us about your team or club."
+								: "Tell us a bit more about yourself to get started."}
 					</p>
 				</div>
 
@@ -203,6 +237,91 @@ function OnboardingStep2() {
 											placeholder="Enter athlete's age (5-18)"
 											value={formData.age}
 											onChange={(e) => handleInputChange("age", e.target.value)}
+											required
+											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+										/>
+									</div>
+								</>
+							) : userType === "team" ? (
+								<>
+									<div className="space-y-2">
+										<label
+											htmlFor="teamName"
+											className="text-sm font-bold text-foreground flex items-center gap-2"
+										>
+											<SoccerBall size={18} className="text-primary" />
+											Team / Club Name
+										</label>
+										<Input
+											id="teamName"
+											placeholder="Enter team name"
+											value={formData.teamName}
+											onChange={(e) => handleInputChange("teamName", e.target.value)}
+											required
+											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+										/>
+									</div>
+
+									<div className="grid grid-cols-2 gap-4">
+										<div className="space-y-2">
+											<label
+												htmlFor="minAge"
+												className="text-sm font-bold text-foreground flex items-center gap-2"
+											>
+												<TrendUp size={18} className="text-primary" />
+												Min Age
+											</label>
+											<Input
+												id="minAge"
+												type="number"
+												min="5"
+												max="99"
+												placeholder="e.g. 12"
+												value={formData.minAge}
+												onChange={(e) => handleInputChange("minAge", e.target.value)}
+												required
+												className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+											/>
+										</div>
+										<div className="space-y-2">
+											<label
+												htmlFor="maxAge"
+												className="text-sm font-bold text-foreground flex items-center gap-2"
+											>
+												<TrendUp size={18} className="rotate-90 text-primary" />
+												Max Age
+											</label>
+											<Input
+												id="maxAge"
+												type="number"
+												min="5"
+												max="99"
+												placeholder="e.g. 16"
+												value={formData.maxAge}
+												onChange={(e) => handleInputChange("maxAge", e.target.value)}
+												required
+												className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+											/>
+										</div>
+									</div>
+
+									<div className="space-y-2">
+										<label
+											htmlFor="maxAthletes"
+											className="text-sm font-bold text-foreground flex items-center gap-2"
+										>
+											<Hash size={18} className="text-primary" />
+											Expected Number of Athletes
+										</label>
+										<Input
+											id="maxAthletes"
+											type="number"
+											min="1"
+											placeholder="e.g. 25"
+											value={formData.maxAthletes}
+											onChange={(e) =>
+												handleInputChange("maxAthletes", e.target.value)
+											}
 											required
 											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
 										/>
@@ -277,7 +396,9 @@ function OnboardingStep2() {
 				<p className="text-center text-xs text-muted-foreground max-w-md mx-auto">
 					{userType === "youth"
 						? "We use this information to customize the training programs and ensure age-appropriate coaching content."
-						: "Your information helps us tailor the training and performance insights to your specific age and physical needs."}
+						: userType === "team"
+							? "Team accounts allow for centralized management and group-based performance tracking."
+							: "Your information helps us tailor the training and performance insights to your specific age and physical needs."}
 				</p>
 			</section>
 		</main>
