@@ -27,6 +27,8 @@ export async function createTeamCheckoutSession(input: {
   teamId: number;
   adminId: number;
   priceLookupKey: string;
+  tier: (typeof ProgramType.enumValues)[number];
+  interval: "monthly" | "yearly" | "six_months";
   quantity: number;
   mode: "subscription" | "payment";
   customerEmail?: string;
@@ -34,15 +36,30 @@ export async function createTeamCheckoutSession(input: {
 }) {
   const stripeClient = getStripeClient();
 
-  // Find the price using the lookup key you created in Stripe
-  const prices = await stripeClient.prices.list({
-    lookup_keys: [input.priceLookupKey],
-    expand: ["data.product"],
-  });
+  let priceId: string | undefined;
 
-  const price = prices.data[0];
-  if (!price) {
-    throw new Error(`Price with lookup key '${input.priceLookupKey}' not found in Stripe`);
+  // 1. Try to find the price using the lookup key in Stripe (handles all intervals)
+  try {
+    const prices = await stripeClient.prices.list({
+      lookup_keys: [input.priceLookupKey],
+      active: true,
+    });
+    if (prices.data[0]) {
+      priceId = prices.data[0].id;
+    }
+  } catch (err) {
+    console.warn(`[Stripe] Lookup key search failed for '${input.priceLookupKey}':`, err);
+  }
+
+  // 2. If lookup key failed, fallback to ENV variables (only valid for monthly)
+  if (!priceId && input.interval === "monthly") {
+    priceId = resolveTierFallbackPrice(input.tier, "monthly");
+  }
+
+  if (!priceId) {
+    throw new Error(
+      `Price not found. Please ensure Lookup Key '${input.priceLookupKey}' is set in Stripe, or ${input.tier} environment variable is configured.`
+    );
   }
 
   const session = await stripeClient.checkout.sessions.create({
@@ -51,7 +68,7 @@ export async function createTeamCheckoutSession(input: {
     payment_method_types: ["card"],
     line_items: [
       {
-        price: price.id,
+        price: priceId,
         quantity: input.quantity,
       },
     ],
@@ -70,24 +87,16 @@ export async function createTeamCheckoutSession(input: {
 
 export function resolveTierFallbackPrice(
   tier: (typeof ProgramType.enumValues)[number],
-  interval?: "monthly" | "yearly"
+  interval?: "monthly" | "yearly" | "six_months"
 ) {
-  if (interval === "monthly") {
-    if (tier === "PHP") return env.stripePricePhpMonthly || env.stripePricePhp;
-    if (tier === "PHP_Premium") return env.stripePricePremiumMonthly || env.stripePricePremium;
-    if (tier === "PHP_Premium_Plus") return env.stripePricePlusMonthly || env.stripePricePlus;
-    if (tier === "PHP_Pro") return env.stripePriceProMonthly || env.stripePricePro;
+  // We only have fallbacks in .env for monthly.
+  // Upfront (six_months/yearly) MUST be configured in Stripe via Lookup Keys.
+  if (interval === "monthly" || !interval) {
+    if (tier === "PHP") return env.stripePricePhp;
+    if (tier === "PHP_Premium") return env.stripePricePremium;
+    if (tier === "PHP_Premium_Plus") return env.stripePricePlus;
+    if (tier === "PHP_Pro") return env.stripePricePro;
   }
-  if (interval === "yearly") {
-    if (tier === "PHP") return env.stripePricePhpYearly || env.stripePricePhp;
-    if (tier === "PHP_Premium") return env.stripePricePremiumYearly || env.stripePricePremium;
-    if (tier === "PHP_Premium_Plus") return env.stripePricePlusYearly || env.stripePricePlus;
-    if (tier === "PHP_Pro") return env.stripePriceProYearly || env.stripePricePro;
-  }
-  if (tier === "PHP") return env.stripePricePhp;
-  if (tier === "PHP_Premium") return env.stripePricePremium;
-  if (tier === "PHP_Premium_Plus") return env.stripePricePlus;
-  if (tier === "PHP_Pro") return env.stripePricePro;
   return "";
 }
 

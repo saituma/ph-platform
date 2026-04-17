@@ -159,10 +159,12 @@ export async function startYouthOnboarding(input: {
 	} else {
 		await db.insert(athleteTable).values({
 			guardianId: guardianId,
-			userId: null, // Will be linked later if needed
+			userId: 3, // Assigned to Admin (Piers) as placeholder during initial onboarding
 			name: input.athleteName,
 			age: input.age,
 			athleteType: "youth",
+			team: "",
+			trainingPerWeek: 0,
 		});
 	}
 

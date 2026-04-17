@@ -220,6 +220,8 @@ export async function createTeamAdmin(input: {
         teamId: created.id,
         adminId: input.adminId,
         priceLookupKey: lookupKey,
+        tier: plan.tier as any,
+        interval: billingCycle === "monthly" ? "monthly" : billingCycle === "6months" ? "six_months" : "yearly",
         quantity: input.maxAthletes,
         mode: billingCycle === "monthly" ? "subscription" : "payment",
         customerEmail: paymentMethod === "email_link" ? adminUser[0]?.email : undefined,

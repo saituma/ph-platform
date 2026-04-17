@@ -447,8 +447,8 @@ export async function updateUserRole(input: {
 	}
 
 	const roleMap = {
-		youth: "youth_athlete",
-		adult: "adult_athlete",
+		youth: "guardian",
+		adult: "athlete",
 		team: "coach",
 	} as const;
 
@@ -457,7 +457,7 @@ export async function updateUserRole(input: {
 	await db
 		.update(userTable)
 		.set({
-			role: role,
+			role: role as any,
 			updatedAt: new Date(),
 		})
 		.where(eq(userTable.id, user.id));
