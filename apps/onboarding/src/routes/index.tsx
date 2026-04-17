@@ -32,7 +32,15 @@ function App() {
 
 			if (!response.ok) {
 				if (response.status === 409) {
-					throw new Error("This email is already registered. Please sign in to your account.");
+					toast.error("Account already exists", {
+						description: "This email is already registered. Would you like to sign in instead?",
+						action: {
+							label: "Sign In",
+							onClick: () => navigate({ to: "/onboarding/create-account" }), // Assuming this handles login too
+						},
+					});
+					setIsLoading(false);
+					return;
 				}
 				throw new Error(data.error || "Failed to start registration");
 			}
