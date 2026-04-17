@@ -241,3 +241,20 @@ h1, h2, h3, h4, h5, h6 {
   border-top: 1px solid hsl(var(--border));
   background: linear-gradient(180deg, transparent, hsl(var(--secondary) / 0.45));
 }
+
+/* React Day Picker v9 Styles */
+.rdp-dropdown {
+  @apply bg-background border border-border rounded-lg px-2 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary outline-none hover:bg-accent transition-colors cursor-pointer appearance-none;
+}
+
+.rdp-dropdown_month, .rdp-dropdown_year {
+  @apply relative inline-flex items-center;
+}
+
+.rdp-caption_dropdowns {
+  @apply flex items-center justify-center gap-2 mb-2;
+}
+
+.rdp-vhidden {
+  @apply hidden;
+}
