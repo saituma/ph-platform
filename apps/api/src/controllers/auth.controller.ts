@@ -116,8 +116,8 @@ export async function updateRole(req: Request, res: Response) {
 export async function confirmRegistration(req: Request, res: Response) {
   const input = confirmSchema.parse(req.body);
   if (env.authMode === "local") {
-    await confirmLocal(input);
-    return res.status(200).json({ ok: true });
+    const result = await confirmLocal(input);
+    return res.status(200).json(result);
   }
   await confirmSignUp(input);
   return res.status(200).json({ ok: true });
