@@ -70,6 +70,8 @@ const onboardingGoalsSchema = z.object({
   performanceGoals: z.string().min(1),
   injuries: z.any().optional(),
   equipmentAccess: z.string().optional(),
+  growthNotes: z.string().optional(),
+  phone: z.string().min(1),
 });
 
 const performanceSchema = z.object({

@@ -46,9 +46,6 @@ export function DatePicker({
 					initialFocus
 					startMonth={new Date(fromYear, 0)}
 					endMonth={new Date(toYear, 11)}
-					disabled={(date) =>
-						date > new Date() || date < new Date(fromYear, 0, 1)
-					}
 				/>
 			</PopoverContent>
 		</Popover>

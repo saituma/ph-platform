@@ -337,6 +337,8 @@ export async function saveOnboardingGoals(input: {
 	performanceGoals: string;
 	injuries?: any;
 	equipmentAccess?: string;
+	growthNotes?: string;
+	phone: string;
 }) {
 	const user = await db
 		.select()
@@ -345,6 +347,27 @@ export async function saveOnboardingGoals(input: {
 		.limit(1);
 
 	if (!user[0]) throw new Error("User not found");
+
+	// Update phone on user table
+	// Since userTable doesn't have phone, we'll check if guardian exists
+	const guardian = await db
+		.select()
+		.from(guardianTable)
+		.where(eq(guardianTable.userId, input.userId))
+		.limit(1);
+
+	if (guardian[0]) {
+		await db
+			.update(guardianTable)
+			.set({
+				phoneNumber: input.phone,
+				updatedAt: new Date(),
+			})
+			.where(eq(guardianTable.id, guardian[0].id));
+	} else if (user[0].role === "athlete") {
+		// For adult athletes, we can store phone in extraResponses or similar if no column exists
+		// Actually, let's check if we can add it to user table if needed, but for now we'll use extraResponses on athleteTable
+	}
 
 	let athleteId: number | null = null;
 
@@ -357,12 +380,6 @@ export async function saveOnboardingGoals(input: {
 		athleteId = athlete[0]?.id ?? null;
 	} else {
 		// For guardians/coaches, update their active/primary athlete
-		const guardian = await db
-			.select()
-			.from(guardianTable)
-			.where(eq(guardianTable.userId, input.userId))
-			.limit(1);
-		
 		if (guardian[0]) {
 			const athlete = await db
 				.select()
@@ -382,6 +399,8 @@ export async function saveOnboardingGoals(input: {
 			performanceGoals: input.performanceGoals,
 			injuries: input.injuries ?? null,
 			equipmentAccess: input.equipmentAccess ?? null,
+			growthNotes: input.growthNotes ?? null,
+			extraResponses: user[0].role === "athlete" ? sql`COALESCE(extra_responses, '{}'::jsonb) || ${JSON.stringify({ phone: input.phone })}::jsonb` : undefined,
 			updatedAt: new Date(),
 		})
 		.where(eq(athleteTable.id, athleteId));

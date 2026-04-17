@@ -9,9 +9,15 @@ import {
 	Warning,
 	Lightning,
 	ChartLineUp,
+	NotePencil,
+	Trophy,
+	Wrench,
+	DotsThreeCircle,
+	Phone,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
+import { Input } from "#/components/ui/input";
 import { toast } from "sonner";
 import { env } from "#/env";
 import { cn } from "#/lib/utils";
@@ -20,16 +26,21 @@ export const Route = createFileRoute("/onboarding/step-3")({
 	component: OnboardingStep3,
 });
 
-const PERFORMANCE_GOALS = [
-	{ id: "speed", label: "Speed & Agility", icon: Lightning },
-	{ id: "strength", label: "Pure Strength", icon: Barbell },
-	{ id: "recovery", label: "Recovery & Longevity", icon: ChartLineUp },
-	{ id: "weight", label: "Body Composition", icon: Target },
+const EQUIPMENT_OPTIONS = [
+	{ id: "full", label: "Full Gym", icon: Barbell },
+	{ id: "home", label: "Home Gym / Basic", icon: Wrench },
+	{ id: "minimal", label: "Minimal / Bands", icon: Lightning },
+	{ id: "none", label: "No Equipment", icon: Target },
+	{ id: "other", label: "Other", icon: DotsThreeCircle },
 ] as const;
 
 function OnboardingStep3() {
 	const [trainingPerWeek, setTrainingPerWeek] = useState<number>(3);
-	const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+	const [performanceGoals, setPerformanceGoals] = useState("");
+	const [growthNotes, setGrowthNotes] = useState("");
+	const [equipmentAccess, setEquipmentAccess] = useState<string>("full");
+	const [otherEquipment, setOtherEquipment] = useState("");
+	const [phone, setPhone] = useState("");
 	const [injuries, setInjuries] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isValidating, setIsValidating] = useState(true);
@@ -49,20 +60,22 @@ function OnboardingStep3() {
 		setIsValidating(false);
 	}, [navigate]);
 
-	const toggleGoal = (goalId: string) => {
-		setSelectedGoals((prev) =>
-			prev.includes(goalId)
-				? prev.filter((id) => id !== goalId)
-				: [...prev, goalId],
-		);
-	};
-
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (isSubmitting) return;
 
-		if (selectedGoals.length === 0) {
-			toast.error("Please select at least one goal");
+		if (!performanceGoals.trim()) {
+			toast.error("Please enter your performance goals");
+			return;
+		}
+
+		if (equipmentAccess === "other" && !otherEquipment.trim()) {
+			toast.error("Please specify your equipment access");
+			return;
+		}
+
+		if (!phone.trim()) {
+			toast.error("Please enter your phone number");
 			return;
 		}
 
@@ -80,7 +93,10 @@ function OnboardingStep3() {
 				},
 				body: JSON.stringify({
 					trainingPerWeek,
-					performanceGoals: selectedGoals.join(", "),
+					performanceGoals,
+					growthNotes,
+					phone,
+					equipmentAccess: equipmentAccess === "other" ? otherEquipment : equipmentAccess,
 					injuries: injuries ? { notes: injuries } : null,
 				}),
 			});
@@ -94,8 +110,7 @@ function OnboardingStep3() {
 				description: "Your training path is being customized.",
 			});
 
-			// Navigate to Step 4 when ready
-			// navigate({ to: "/onboarding/step-4" });
+			navigate({ to: "/onboarding/step-4" });
 		} catch (error: any) {
 			toast.error("Error", {
 				description: error.message || "An unexpected error occurred.",
@@ -124,7 +139,8 @@ function OnboardingStep3() {
 
 				<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-8 rounded-3xl ring-1 ring-border/50">
 					<form onSubmit={handleSubmit} className="space-y-10">
-						<div className="space-y-6">
+						<div className="space-y-8">
+							{/* Training Frequency */}
 							<div className="space-y-4">
 								<label className="text-sm font-bold text-foreground flex items-center gap-2">
 									<Lightning size={18} className="text-primary" />
@@ -149,20 +165,62 @@ function OnboardingStep3() {
 								</div>
 							</div>
 
+							{/* Performance Goals */}
+							<div className="space-y-2">
+								<label
+									htmlFor="performanceGoals"
+									className="text-sm font-bold text-foreground flex items-center gap-2"
+								>
+									<Trophy size={18} className="text-primary" />
+									Performance Goals
+								</label>
+								<Input
+									id="performanceGoals"
+									placeholder="e.g. Increase vertical jump, improve 40yd dash..."
+									value={performanceGoals}
+									onChange={(e) => setPerformanceGoals(e.target.value)}
+									required
+									className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6 transition-all"
+								/>
+							</div>
+
+							{/* Phone Number */}
+							<div className="space-y-2">
+								<label
+									htmlFor="phone"
+									className="text-sm font-bold text-foreground flex items-center gap-2"
+								>
+									<Phone size={18} className="text-primary" />
+									{sessionStorage.getItem("user_type") === "youth"
+										? "Guardian Phone Number"
+										: "Your Phone Number"}
+								</label>
+								<Input
+									id="phone"
+									type="tel"
+									placeholder="e.g. +1 234 567 8900"
+									value={phone}
+									onChange={(e) => setPhone(e.target.value)}
+									required
+									className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6 transition-all"
+								/>
+							</div>
+
+							{/* Equipment Access */}
 							<div className="space-y-4">
 								<label className="text-sm font-bold text-foreground flex items-center gap-2">
-									<Target size={18} className="text-primary" />
-									Your Primary Goals
+									<Wrench size={18} className="text-primary" />
+									Equipment Access
 								</label>
-								<div className="grid grid-cols-2 gap-3">
-									{PERFORMANCE_GOALS.map((goal) => {
-										const Icon = goal.icon;
-										const isSelected = selectedGoals.includes(goal.id);
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+									{EQUIPMENT_OPTIONS.map((option) => {
+										const Icon = option.icon;
+										const isSelected = equipmentAccess === option.id;
 										return (
 											<button
-												key={goal.id}
+												key={option.id}
 												type="button"
-												onClick={() => toggleGoal(goal.id)}
+												onClick={() => setEquipmentAccess(option.id)}
 												className={cn(
 													"flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left group",
 													isSelected
@@ -178,13 +236,43 @@ function OnboardingStep3() {
 														isSelected ? "text-primary" : "text-muted-foreground group-hover:text-primary/60",
 													)}
 												/>
-												<span className="text-sm font-bold">{goal.label}</span>
+												<span className="text-sm font-bold">{option.label}</span>
 											</button>
 										);
 									})}
 								</div>
+								{equipmentAccess === "other" && (
+									<div className="animate-in fade-in slide-in-from-top-2 duration-300">
+										<Input
+											placeholder="Describe your equipment access..."
+											value={otherEquipment}
+											onChange={(e) => setOtherEquipment(e.target.value)}
+											required
+											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+										/>
+									</div>
+								)}
 							</div>
 
+							{/* Growth Notes */}
+							<div className="space-y-3">
+								<label
+									htmlFor="growthNotes"
+									className="text-sm font-bold text-foreground flex items-center gap-2"
+								>
+									<NotePencil size={18} className="text-primary" />
+									Growth Notes (Optional)
+								</label>
+								<textarea
+									id="growthNotes"
+									placeholder="Tell us about your current level, height/weight changes, or general health notes..."
+									value={growthNotes}
+									onChange={(e) => setGrowthNotes(e.target.value)}
+									className="w-full min-h-[100px] rounded-2xl bg-background/50 border-2 border-border/60 focus:border-primary focus:ring-primary/10 transition-all p-4 text-sm placeholder:text-muted-foreground/50 resize-none outline-none"
+								/>
+							</div>
+
+							{/* Injuries */}
 							<div className="space-y-3">
 								<label
 									htmlFor="injuries"
@@ -198,7 +286,7 @@ function OnboardingStep3() {
 									placeholder="e.g. Previous ACL surgery, recurring hamstring issues..."
 									value={injuries}
 									onChange={(e) => setInjuries(e.target.value)}
-									className="w-full min-h-[120px] rounded-2xl bg-background/50 border-2 border-border/60 focus:border-primary focus:ring-primary/10 transition-all p-4 text-sm placeholder:text-muted-foreground/50 resize-none outline-none"
+									className="w-full min-h-[100px] rounded-2xl bg-background/50 border-2 border-border/60 focus:border-primary focus:ring-primary/10 transition-all p-4 text-sm placeholder:text-muted-foreground/50 resize-none outline-none"
 								/>
 							</div>
 						</div>
