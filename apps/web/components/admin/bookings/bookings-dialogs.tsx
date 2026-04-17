@@ -18,6 +18,7 @@ import {
   useCreateServiceMutation,
   useUpdateServiceMutation,
   useCreateAdminBookingMutation,
+  useGetAdminTeamsQuery,
 } from "@/lib/apiSlice";
 
 export type BookingsDialog =
@@ -61,6 +62,7 @@ type ServiceType = {
   defaultMeetingLink?: string | null;
   programTier?: string | null;
   eligiblePlans?: string[] | null;
+  eligibleTargets?: string[] | null;
   schedulePattern?: string | null;
   recurrenceEndMode?: string | null;
   recurrenceCount?: number | null;
@@ -127,6 +129,19 @@ export const BOOKING_TYPE_LABELS: Record<string, string> = {
   semi_private: "Semi-private session",
   in_person: "In-person session",
 };
+
+const PROGRAM_TIERS = [
+  { label: "PHP", value: "PHP" },
+  { label: "PHP Pro", value: "PHP_Pro" },
+  { label: "PHP Premium", value: "PHP_Premium" },
+  { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
+];
+
+const TARGET_AUDIENCES = [
+  { label: "All Users", value: "all" },
+  { label: "Youth Athletes", value: "youth" },
+  { label: "Adult Athletes", value: "adult" },
+];
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: "Confirmed",
@@ -202,6 +217,11 @@ export function BookingsDialogs({
   const [serviceDescription, setServiceDescription] = useState("");
   const [serviceType, setServiceType] = useState("one_to_one");
   const [durationMinutes, setDurationMinutes] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [eligiblePlans, setEligiblePlans] = useState<string[]>([]);
+  const [eligibleTargets, setEligibleTargets] = useState<string[]>([]);
+
+  const { data: teamsData } = useGetAdminTeamsQuery();
   const [bookingUserId, setBookingUserId] = useState("");
   const [bookingServiceId, setBookingServiceId] = useState("");
   const [guardianSearch, setGuardianSearch] = useState("");
@@ -216,6 +236,7 @@ export function BookingsDialogs({
   const [approveDate, setApproveDate] = useState("");
   const [approveHour, setApproveHour] = useState("");
   const [approveMinute, setApproveMinute] = useState("");
+  const [approveLocation, setApproveLocation] = useState("");
   const [approveMeetingLink, setApproveMeetingLink] = useState("");
   const [approveError, setApproveError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -240,6 +261,9 @@ export function BookingsDialogs({
         ? services.find((item) => item.id === selectedBooking.serviceTypeId)
         : undefined;
 
+    setApproveLocation(
+      selectedBooking?.location ?? service?.defaultLocation ?? "",
+    );
     setApproveMeetingLink(
       selectedBooking?.meetingLink ?? service?.defaultMeetingLink ?? "",
     );
@@ -251,6 +275,9 @@ export function BookingsDialogs({
       setServiceDescription("");
       setServiceType("one_to_one");
       setDurationMinutes(String(DEFAULT_SERVICE_DURATION_MINUTES.one_to_one));
+      setCapacity("");
+      setEligiblePlans([]);
+      setEligibleTargets([]);
       setError(null);
       return;
     }
@@ -275,6 +302,9 @@ export function BookingsDialogs({
       setServiceDescription(selectedService.description ?? "");
       setServiceType(selectedService.type ?? "one_to_one");
       setDurationMinutes(String(selectedService.durationMinutes ?? 30));
+      setCapacity(selectedService.capacity != null ? String(selectedService.capacity) : "");
+      setEligiblePlans(selectedService.eligiblePlans ?? []);
+      setEligibleTargets(selectedService.eligibleTargets ?? []);
       setError(null);
     }
   }, [active, selectedService]);
@@ -297,6 +327,14 @@ export function BookingsDialogs({
     if (!guardianSearch.trim() || !showGuardianSuggestions) return [];
     return filteredGuardians.slice(0, 6);
   }, [filteredGuardians, guardianSearch, showGuardianSuggestions]);
+
+  const teamOptions = useMemo(() => {
+    return (teamsData?.teams ?? []).map(t => ({ label: `Team: ${t.team}`, value: `team:${t.team}` }));
+  }, [teamsData]);
+
+  const combinedTargetOptions = useMemo(() => {
+    return [...TARGET_AUDIENCES, ...teamOptions];
+  }, [teamOptions]);
 
   const calendarDays = useMemo(() => {
     const start = new Date();
@@ -403,6 +441,61 @@ export function BookingsDialogs({
                 </Select>
               </div>
               {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              <div className="space-y-1">
+                <Label htmlFor="capacity">Slots (Capacity)</Label>
+                <Input
+                  id="capacity"
+                  type="number"
+                  placeholder="Unlimited"
+                  value={capacity}
+                  onChange={(e) => setCapacity(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Eligible Tiers</Label>
+                <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-3">
+                  {PROGRAM_TIERS.map((tier) => (
+                    <label key={tier.value} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={eligiblePlans.includes(tier.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEligiblePlans([...eligiblePlans, tier.value]);
+                          } else {
+                            setEligiblePlans(eligiblePlans.filter(p => p !== tier.value));
+                          }
+                        }}
+                      />
+                      {tier.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Target Audience</Label>
+                <div className="max-h-40 overflow-y-auto rounded-lg border border-border p-3 space-y-2">
+                  {combinedTargetOptions.map((target) => (
+                    <label key={target.value} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={eligibleTargets.includes(target.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEligibleTargets([...eligibleTargets, target.value]);
+                          } else {
+                            setEligibleTargets(eligibleTargets.filter(t => t !== target.value));
+                          }
+                        }}
+                      />
+                      {target.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>
                   Cancel
@@ -427,13 +520,14 @@ export function BookingsDialogs({
                           Number.isFinite(duration) && duration > 0
                             ? duration
                             : fallbackDuration,
-                        capacity: null,
-                        eligiblePlans: [],
-                        schedulePattern: "weekly_recurring",
-                        weeklyEntries: [],
-                        oneTimeDate: null,
-                        oneTimeTime: null,
-                        isActive: true,
+                        capacity: capacity ? Number(capacity) : null,
+                        eligiblePlans: eligiblePlans,
+                        eligibleTargets: eligibleTargets,
+                        schedulePattern: active === "edit-service" ? selectedService?.schedulePattern : "weekly_recurring",
+                        weeklyEntries: active === "edit-service" ? selectedService?.weeklyEntries : [],
+                        oneTimeDate: active === "edit-service" ? selectedService?.oneTimeDate : null,
+                        oneTimeTime: active === "edit-service" ? selectedService?.oneTimeTime : null,
+                        isActive: active === "edit-service" ? selectedService?.isActive : true,
                       };
                       if (active === "new-service") {
                         await createService(payload).unwrap();
@@ -839,6 +933,14 @@ export function BookingsDialogs({
                         onChange={(e) => setApproveMeetingLink(e.target.value)}
                       />
                     </div>
+                    <div className="space-y-1">
+                      <Label>Location</Label>
+                      <Input
+                        placeholder="e.g. Virtual / Studio A"
+                        value={approveLocation}
+                        onChange={(e) => setApproveLocation(e.target.value)}
+                      />
+                    </div>
                     {approveError ? (
                       <div className="text-sm text-red-500">{approveError}</div>
                     ) : null}
@@ -903,7 +1005,8 @@ export function BookingsDialogs({
                               meetingLink: approveMeetingLink.trim()
                                 ? approveMeetingLink.trim()
                                 : null,
-                            });
+                              location: approveLocation.trim() || null,
+                            } as any);
                             setIsApprovePromptOpen(false);
                           } catch (err: unknown) {
                             setApproveError(

@@ -57,7 +57,14 @@ function safeAdminErrorMessage(error: unknown, fallback: string) {
 
 export async function createTeamAdminDetails(req: Request, res: Response) {
   const parsed = z
-    .object({ teamName: z.string().min(1) })
+    .object({
+      teamName: z.string().min(1),
+      athleteType: z.enum(["youth", "adult"]).default("youth"),
+      minAge: z.coerce.number().int().min(1).optional().nullable(),
+      maxAge: z.coerce.number().int().min(1).optional().nullable(),
+      planId: z.coerce.number().int().min(1),
+      maxAthletes: z.coerce.number().int().min(1),
+    })
     .safeParse(req.body);
   if (!parsed.success) {
     return res
@@ -68,6 +75,12 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
   try {
     const result = await createTeamAdmin({
       teamName: parsed.data.teamName,
+      athleteType: parsed.data.athleteType,
+      minAge: parsed.data.minAge ?? undefined,
+      maxAge: parsed.data.maxAge ?? undefined,
+      adminId: req.user!.id,
+      planId: parsed.data.planId,
+      maxAthletes: parsed.data.maxAthletes,
       createdByUserId: req.user!.id,
     });
     return res.status(201).json(result);

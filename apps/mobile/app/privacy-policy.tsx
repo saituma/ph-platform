@@ -38,7 +38,7 @@ export default function PrivacyPolicyScreen() {
         "Your data is used to track athletic progress, manage schedules, and communicate important updates. We do not sell your personal information to third parties.",
         "",
         "3. Storage & Security",
-        "We implement industry-standard security measures to protect your data. All sensitive communications and payments are encrypted.",
+        "We implement industry-standard security measures to protect your data. All sensitive communications are encrypted.",
         "",
         "4. Your Rights",
         "You have the right to access, correct, or delete your personal data at any time through the Privacy & Security settings or by contacting support.",

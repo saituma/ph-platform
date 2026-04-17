@@ -67,6 +67,10 @@ export function usePushNotificationResponses(enabled: boolean) {
 
   const markThreadRead = async (threadId: string) => {
     if (!token) return;
+    
+    // Clear badge count locally immediately for better "lively" feel
+    getNotifications().then(n => n?.setBadgeCountAsync(0));
+
     if (threadId.startsWith("group:")) {
       const groupId = Number(threadId.replace("group:", ""));
       if (!Number.isFinite(groupId) || groupId <= 0) return;

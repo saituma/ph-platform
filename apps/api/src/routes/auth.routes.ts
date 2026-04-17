@@ -5,6 +5,7 @@ import {
   login,
   refreshToken,
   register,
+  startRegistration,
   resendConfirmation,
   startPasswordReset,
   confirmPasswordReset,
@@ -32,6 +33,7 @@ const deleteAccountLimiter = rateLimit({
 });
 
 router.post("/auth/register", authLimiter, register);
+router.post("/auth/register/start", authLimiter, startRegistration);
 router.post("/auth/confirm", authLimiter, confirmRegistration);
 router.post("/auth/resend", authLimiter, resendConfirmation);
 router.post("/auth/login", authLimiter, login);

@@ -138,19 +138,42 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     newSocket.on("physio:referral:updated", onReferralUpdated);
-    newSocket.on("physio:referral:deleted", onReferralDeleted);
+    new_socket.on("physio:referral:deleted", onReferralDeleted);
+
+    const onProgramChanged = (payload: any) => {
+      void scheduleLocalNotification({
+        title: "Program Update",
+        body: payload?.message || "Your training program has been updated.",
+        data: { type: "program", url: "/(tabs)/programs" },
+        channelId: "progress",
+      });
+    };
+
+    const onScheduleChanged = (payload: any) => {
+      void scheduleLocalNotification({
+        title: "Schedule Update",
+        body: payload?.message || "A change was made to your schedule.",
+        data: { type: "booking", url: "/(tabs)/schedule" },
+        channelId: "schedule",
+      });
+    };
+
+    new_socket.on("program:changed", onProgramChanged);
+    new_socket.on("schedule:changed", onScheduleChanged);
 
     // Message and group chat alerts are delivered via server-side Expo push so they appear
     // in the system tray when the app is backgrounded or killed. Foreground handling uses
     // addNotificationReceivedListener in InAppNotificationsContext (no duplicate local socket notifications).
 
-    socketRef.current = newSocket;
-    setSocket(newSocket);
+    socketRef.current = new_socket;
+    setSocket(new_socket);
 
     return () => {
-      newSocket.off("physio:referral:updated", onReferralUpdated);
-      newSocket.off("physio:referral:deleted", onReferralDeleted);
-      newSocket.disconnect();
+      new_socket.off("physio:referral:updated", onReferralUpdated);
+      new_socket.off("physio:referral:deleted", onReferralDeleted);
+      new_socket.off("program:changed", onProgramChanged);
+      new_socket.off("schedule:changed", onScheduleChanged);
+      new_socket.disconnect();
       socketRef.current = null;
       setSocket(null);
       setIsConnected(false);

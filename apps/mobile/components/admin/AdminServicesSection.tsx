@@ -13,6 +13,8 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@/components/ui/theme-icons";
 
+import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
+
 interface Props {
   token: string | null;
   canLoad: boolean;
@@ -29,6 +31,106 @@ const SERVICE_TYPES = [
   { label: "Coach Call", value: "call" },
   { label: "Role Model", value: "role_model" },
 ];
+
+const PROGRAM_TIERS = [
+  { label: "PHP", value: "PHP" },
+  { label: "PHP Pro", value: "PHP_Pro" },
+  { label: "PHP Premium", value: "PHP_Premium" },
+  { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
+];
+
+const TARGET_AUDIENCES = [
+  { label: "All Users", value: "all" },
+  { label: "Youth Athletes", value: "youth" },
+  { label: "Adult Athletes", value: "adult" },
+];
+
+function MultiSelect({
+  label,
+  values,
+  onSelect,
+  options,
+}: {
+  label: string;
+  values: string[];
+  onSelect: (val: string) => void;
+  options: { label: string; value: string }[];
+}) {
+  const { colors, isDark } = useAppTheme();
+  const [open, setOpen] = useState(false);
+
+  const displayLabel = useMemo(() => {
+    if (!values?.length) return "Select...";
+    if (values.length === 1) {
+      const found = options.find(o => o.value === values[0]);
+      return found ? found.label : values[0];
+    }
+    return `${values.length} selected`;
+  }, [options, values]);
+
+  return (
+    <View className="mb-6">
+      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
+        {label}
+      </Text>
+      <TouchableOpacity
+        onPress={() => setOpen(true)}
+        activeOpacity={0.7}
+        className="rounded-[18px] border flex-row items-center justify-between px-5 h-14"
+        style={{
+          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+        }}
+      >
+        <Text className="text-[16px] font-outfit text-app">{displayLabel}</Text>
+        <Feather name="chevron-down" size={20} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade">
+        <Pressable 
+          className="flex-1 bg-black/60 items-center justify-center p-6"
+          onPress={() => setOpen(false)}
+        >
+          <View 
+            className="w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl"
+            style={{ backgroundColor: isDark ? "#161628" : "#FFFFFF" }}
+          >
+            <View className="p-6 border-b border-app/5">
+              <Text className="text-xl font-clash font-bold text-app">{label}</Text>
+            </View>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {options.map((opt, i) => {
+                const isSelected = values?.includes(opt.value);
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => {
+                      onSelect(opt.value);
+                    }}
+                    className="px-6 py-5 flex-row items-center justify-between border-b border-app/5"
+                  >
+                    <Text 
+                      className={`text-[16px] ${isSelected ? 'font-outfit-bold text-accent' : 'font-outfit text-app'}`}
+                    >
+                      {opt.label}
+                    </Text>
+                    {isSelected && <Feather name="check" size={20} color={colors.accent} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity 
+              onPress={() => setOpen(false)}
+              className="p-6 bg-accent items-center justify-center"
+            >
+              <Text className="text-white font-outfit-bold uppercase tracking-wider">Done</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
 
 function Dropdown({
   label,
@@ -184,12 +286,16 @@ export function AdminServicesSection({ token, canLoad }: Props) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const servicesHook = useAdminServices(token, canLoad);
+  const { teams, load: loadTeams } = useAdminTeams(token, canLoad);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [serviceCreateName, setServiceCreateName] = useState("");
   const [serviceCreateType, setServiceCreateType] = useState("call");
   const [serviceCreateDurationMinutes, setServiceCreateDurationMinutes] = useState("30");
   const [serviceCreateDescription, setServiceCreateDescription] = useState("");
+  const [serviceCreateCapacity, setServiceCreateCapacity] = useState("");
+  const [serviceCreateEligiblePlans, setServiceCreateEligiblePlans] = useState<string[]>([]);
+  const [serviceCreateEligibleTargets, setServiceCreateEligibleTargets] = useState<string[]>([]);
 
   const [serviceDetailOpenId, setServiceDetailOpenId] = useState<number | null>(null);
   const [serviceEditName, setServiceEditName] = useState("");
@@ -197,12 +303,24 @@ export function AdminServicesSection({ token, canLoad }: Props) {
   const [serviceEditDurationMinutes, setServiceEditDurationMinutes] = useState("30");
   const [serviceEditDescription, setServiceEditDescription] = useState("");
   const [serviceEditIsActive, setServiceEditIsActive] = useState(true);
+  const [serviceEditCapacity, setServiceEditCapacity] = useState("");
+  const [serviceEditEligiblePlans, setServiceEditEligiblePlans] = useState<string[]>([]);
+  const [serviceEditEligibleTargets, setServiceEditEligibleTargets] = useState<string[]>([]);
 
   useEffect(() => {
     if (canLoad) {
       servicesHook.loadServices(false);
+      loadTeams(false);
     }
   }, [canLoad]);
+
+  const teamOptions = useMemo(() => {
+    return teams.map(t => ({ label: `Team: ${t.team}`, value: `team:${t.id}` }));
+  }, [teams]);
+
+  const combinedTargetOptions = useMemo(() => {
+    return [...TARGET_AUDIENCES, ...teamOptions];
+  }, [teamOptions]);
 
   useEffect(() => {
     if (!serviceDetailOpenId) return;
@@ -213,6 +331,9 @@ export function AdminServicesSection({ token, canLoad }: Props) {
     setServiceEditDurationMinutes(String(svc.durationMinutes ?? 30));
     setServiceEditDescription(svc.description ?? "");
     setServiceEditIsActive(svc.isActive !== false);
+    setServiceEditCapacity(String(svc.capacity ?? ""));
+    setServiceEditEligiblePlans(Array.isArray(svc.eligiblePlans) ? svc.eligiblePlans : []);
+    setServiceEditEligibleTargets(Array.isArray(svc.eligibleTargets) ? svc.eligibleTargets : []);
   }, [serviceDetailOpenId, servicesHook.services]);
 
   const handleCreate = async () => {
@@ -222,11 +343,17 @@ export function AdminServicesSection({ token, canLoad }: Props) {
         type: serviceCreateType,
         durationMinutes: serviceCreateDurationMinutes,
         description: serviceCreateDescription,
+        capacity: serviceCreateCapacity,
+        eligiblePlans: serviceCreateEligiblePlans,
+        eligibleTargets: serviceCreateEligibleTargets,
         isActive: true,
       });
       setCreateOpen(false);
       setServiceCreateName("");
       setServiceCreateDescription("");
+      setServiceCreateCapacity("");
+      setServiceCreateEligiblePlans([]);
+      setServiceCreateEligibleTargets([]);
     } catch (e) {}
   };
 
@@ -239,6 +366,9 @@ export function AdminServicesSection({ token, canLoad }: Props) {
         durationMinutes: parseInt(serviceEditDurationMinutes),
         description: serviceEditDescription,
         isActive: serviceEditIsActive,
+        capacity: parseIntOrUndefined(serviceEditCapacity),
+        eligiblePlans: serviceEditEligiblePlans,
+        eligibleTargets: serviceEditEligibleTargets,
       });
       setServiceDetailOpenId(null);
     } catch (e) {}
@@ -357,6 +487,29 @@ export function AdminServicesSection({ token, canLoad }: Props) {
             <FormField label="Description" value={serviceCreateDescription} onChangeText={setServiceCreateDescription} placeholder="Describe the session..." multiline />
             <Dropdown label="Service Type" value={serviceCreateType} onSelect={setServiceCreateType} options={SERVICE_TYPES} />
             <FormField label="Duration (Minutes)" value={serviceCreateDurationMinutes} onChangeText={setServiceCreateDurationMinutes} keyboardType="numeric" />
+            <FormField label="Slots (Capacity)" value={serviceCreateCapacity} onChangeText={setServiceCreateCapacity} keyboardType="numeric" placeholder="Leave empty for unlimited" />
+            
+            <MultiSelect 
+              label="Eligible Tiers" 
+              values={serviceCreateEligiblePlans} 
+              onSelect={(val) => {
+                setServiceCreateEligiblePlans(prev => 
+                  prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+                );
+              }}
+              options={PROGRAM_TIERS}
+            />
+
+            <MultiSelect 
+              label="Target Audience" 
+              values={serviceCreateEligibleTargets} 
+              onSelect={(val) => {
+                setServiceCreateEligibleTargets(prev => 
+                  prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+                );
+              }}
+              options={combinedTargetOptions}
+            />
             
             <View className="mt-4">
               <ServiceActionButton label="Create Service" onPress={handleCreate} tone="accent" />
@@ -379,6 +532,29 @@ export function AdminServicesSection({ token, canLoad }: Props) {
             <FormField label="Description" value={serviceEditDescription} onChangeText={setServiceEditDescription} placeholder="Describe the session..." multiline />
             <Dropdown label="Service Type" value={serviceEditType} onSelect={setServiceEditType} options={SERVICE_TYPES} />
             <FormField label="Duration (Minutes)" value={serviceEditDurationMinutes} onChangeText={setServiceEditDurationMinutes} keyboardType="numeric" />
+            <FormField label="Slots (Capacity)" value={serviceEditCapacity} onChangeText={setServiceEditCapacity} keyboardType="numeric" placeholder="Leave empty for unlimited" />
+
+            <MultiSelect 
+              label="Eligible Tiers" 
+              values={serviceEditEligiblePlans} 
+              onSelect={(val) => {
+                setServiceEditEligiblePlans(prev => 
+                  prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+                );
+              }}
+              options={PROGRAM_TIERS}
+            />
+
+            <MultiSelect 
+              label="Target Audience" 
+              values={serviceEditEligibleTargets} 
+              onSelect={(val) => {
+                setServiceEditEligibleTargets(prev => 
+                  prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+                );
+              }}
+              options={combinedTargetOptions}
+            />
             
             <View className="flex-row items-center justify-between mb-8 p-4 rounded-2xl bg-secondary/5">
               <Text className="font-outfit-bold text-app uppercase tracking-wider text-xs">Service Active</Text>

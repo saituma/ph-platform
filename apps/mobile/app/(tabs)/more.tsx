@@ -7,7 +7,6 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
-import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
@@ -16,11 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   logout,
-  setAthleteUserId,
-  setLatestSubscriptionRequest,
-  setMessagingAccessTiers,
-  setOnboardingCompleted,
-  setProgramTier,
   updateProfile,
 } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
@@ -58,7 +52,7 @@ export default function MoreScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated, programTier, token } = useAppSelector(
+  const { profile, isAuthenticated, token } = useAppSelector(
     (state) => state.user,
   );
   const {
@@ -69,13 +63,10 @@ export default function MoreScreen() {
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
   const showParentPlatform = Boolean(
-    isAuthenticated && hasPaidProgramTier(programTier),
+    isAuthenticated,
   );
-  const canUploadVideo = canAccessTier(programTier ?? null, "PHP_Premium");
-  const canAccessFoodDiary = canAccessTier(
-    programTier ?? null,
-    "PHP_Premium_Plus",
-  );
+  const canUploadVideo = true;
+  const canAccessFoodDiary = true;
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -129,65 +120,6 @@ export default function MoreScreen() {
           }
         } catch {
           /* keep existing profile */
-        }
-      })(),
-      (async () => {
-        try {
-          const status = await apiRequest<{
-            currentProgramTier?: string | null;
-            messagingAccessTiers?: string[] | null;
-            latestRequest?: {
-              status?: string | null;
-              paymentStatus?: string | null;
-              planTier?: string | null;
-              createdAt?: string | null;
-            } | null;
-          }>("/billing/status", {
-            token,
-            suppressStatusCodes: [401, 403, 404],
-            skipCache: true,
-            forceRefresh: true,
-          });
-          const nextRequestStatus = status?.latestRequest?.status ?? null;
-          const nextTier =
-            status?.currentProgramTier ??
-            (nextRequestStatus === "approved"
-              ? (status?.latestRequest?.planTier ?? null)
-              : null);
-          dispatch(setProgramTier(nextTier));
-          dispatch(
-            setMessagingAccessTiers(
-              Array.isArray(status?.messagingAccessTiers)
-                ? status!.messagingAccessTiers!
-                : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
-            ),
-          );
-          dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
-        } catch {
-          /* keep existing billing snapshot */
-        }
-      })(),
-      (async () => {
-        try {
-          const onboarding = await apiRequest<{
-            athlete: { onboardingCompleted?: boolean; userId?: number } | null;
-          }>("/onboarding", {
-            token,
-            suppressStatusCodes: [401, 403, 500],
-            skipCache: true,
-            forceRefresh: true,
-          });
-          if (onboarding.athlete == null) {
-            return;
-          }
-          const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
-          dispatch(setOnboardingCompleted(next.onboardingCompleted));
-          dispatch(setAthleteUserId(next.athleteUserId));
-        } catch (error) {
-          if (isUnauthorizedError(error)) {
-            dispatch(setOnboardingCompleted(null));
-            dispatch(setAthleteUserId(null));
-          }
         }
       })(),
     ]);
@@ -347,7 +279,7 @@ export default function MoreScreen() {
                       Access
                     </Text>
                     <Text className="mt-2 text-lg font-clash text-app">
-                      {programTier ?? "Free"}
+                      Standard
                     </Text>
                   </View>
                   <View
@@ -436,15 +368,13 @@ export default function MoreScreen() {
                       accentColor={colors.accent}
                     />
                   ) : null}
-                  {canAccessTier(programTier ?? null, "PHP_Premium_Plus") ? (
-                    <MenuItem
-                      icon="activity"
-                      label="Referrals"
-                      isLast={false}
-                      onPress={() => router.push("/physio-referral")}
-                      accentColor={colors.accent}
-                    />
-                  ) : null}
+                  <MenuItem
+                    icon="activity"
+                    label="Referrals"
+                    isLast={false}
+                    onPress={() => router.push("/physio-referral")}
+                    accentColor={colors.accent}
+                  />
                   <MenuItem
                     icon="bell"
                     label="Notifications"

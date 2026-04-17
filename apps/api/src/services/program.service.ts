@@ -13,13 +13,13 @@ import {
 import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 import { getAthleteForUser } from "./user.service";
 
-function resolveAgeFromAthlete(row: typeof athleteTable.$inferSelect | null | undefined) {
+function resolveAgeFromAthlete(row: { birthDate?: string | null; athleteType?: string | null; age?: number | null } | null | undefined) {
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
   if (birthDate) {
-    return clampYouthAge(calculateAge(birthDate), row.athleteType);
+    return clampYouthAge(calculateAge(birthDate), (row.athleteType || "youth") as any);
   }
-  return clampYouthAge(row.age ?? null, row.athleteType);
+  return clampYouthAge(row.age ?? null, (row.athleteType || "youth") as any);
 }
 
 function matchesAgeRange(item: { minAge?: number | null; maxAge?: number | null }, age: number | null) {

@@ -42,13 +42,13 @@ export function useAdminBookingsController(token: string | null, canLoad: boolea
     }
   }, [initialAction]);
 
-  const handleUpdateStatus = useCallback(async (id: number, status: "confirmed" | "declined" | "cancelled") => {
+  const handleUpdateStatus = useCallback(async (id: number, status: "confirmed" | "declined" | "cancelled", updates?: Record<string, any>) => {
     await bookingsHook.updateBookingStatus(id, status, async () => {
       await bookingsHook.loadBookings(bookingQuery, bookingLimit, true);
       if (bookingDetailOpenId === id) {
         await bookingsHook.loadBookingDetail(id, true);
       }
-    });
+    }, updates);
   }, [bookingDetailOpenId, bookingLimit, bookingQuery, bookingsHook]);
 
   const submitCreateBooking = useCallback(async () => {

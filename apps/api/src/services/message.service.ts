@@ -251,6 +251,7 @@ export async function sendMessage(input: {
         type: "message",
         threadId: String(input.senderId),
         url: `/messages/${String(input.senderId)}`,
+        mediaUrl: input.mediaUrl ?? null,
       });
     } catch (error) {
       console.error("[Push] Failed to send message push notification:", error);

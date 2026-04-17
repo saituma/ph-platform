@@ -122,7 +122,7 @@ export function ArticleList({ articles, selectedCategory, onReset }: ArticleList
             </View>
             <Text className="font-clash text-xl text-app mb-2">No direct matches yet</Text>
             <Text className="font-outfit text-sm text-secondary leading-relaxed mb-4">
-              Try a broader term like password, schedule, billing, or notifications. You can also message support directly.
+              Try a broader term like password, schedule, or notifications. You can also message support directly.
             </Text>
             <ActionButton
               label="Contact Support"

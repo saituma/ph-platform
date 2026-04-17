@@ -1,9 +1,43 @@
 import * as TaskManager from "expo-task-manager";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { useRunStore } from "../store/useRunStore";
 import { Alert } from "react-native";
 
 export const BACKGROUND_LOCATION_TASK = "BACKGROUND_LOCATION_TASK";
+
+const formatTime = (seconds: number) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h > 0 ? `${h}:` : ""}${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+};
+
+export const refreshRunNotification = async () => {
+  const { distanceMeters, elapsedSeconds, status } = useRunStore.getState();
+  if (status !== "running") return;
+
+  const kms = (distanceMeters / 1000).toFixed(2);
+  const time = formatTime(elapsedSeconds);
+
+  try {
+    // Re-calling startLocationUpdatesAsync with updated foregroundService settings
+    // effectively updates the existing sticky notification on Android.
+    await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
+      accuracy: Location.Accuracy.BestForNavigation,
+      activityType: Location.ActivityType.Fitness,
+      distanceInterval: 5,
+      showsBackgroundLocationIndicator: true,
+      foregroundService: {
+        notificationTitle: `Run Tracking: ${kms}km`,
+        notificationBody: `Time: ${time} • Tap to return to app`,
+        notificationColor: "#00FF87",
+      },
+    });
+  } catch (e) {
+    // silent
+  }
+};
 
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (error) {
@@ -13,7 +47,9 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (data) {
     const { locations } = data as { locations: Location.LocationObject[] };
     const addCoordinate = useRunStore.getState().addCoordinate;
+    const tick = useRunStore.getState().tick;
 
+    let changed = false;
     locations.forEach((loc) => {
       const lat = loc?.coords?.latitude;
       const lng = loc?.coords?.longitude;
@@ -29,7 +65,13 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         },
         loc.coords?.accuracy ?? null,
       );
+      changed = true;
     });
+
+    if (changed) {
+      tick();
+      void refreshRunNotification();
+    }
   }
 });
 
@@ -45,11 +87,11 @@ export async function startLocationTracking() {
     if (bgStatusBefore.status !== "granted") {
       const userProceeds = await new Promise<boolean>((resolve) => {
         Alert.alert(
-          "Background Location Usage",
-          "PHP Performance collects location data to track your run distance and pace even when the app is closed or not in use.",
+          "Location Disclosure",
+          "PHP Performance collects location data to enable run tracking, distance calculation, and pace monitoring even when the app is closed or not in use.\n\nThis data is only collected during an active run session that you start manually.",
           [
-            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-            { text: "Continue", onPress: () => resolve(true) },
+            { text: "Deny", style: "cancel", onPress: () => resolve(false) },
+            { text: "Accept & Continue", onPress: () => resolve(true) },
           ],
         );
       });

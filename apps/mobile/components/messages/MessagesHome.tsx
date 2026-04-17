@@ -4,19 +4,12 @@ import { InboxScreen } from "@/components/messages/InboxScreen";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import {
-  requestGlobalTabChange,
   useActiveTabIndex,
 } from "@/context/ActiveTabContext";
 import { apiRequest } from "@/lib/api";
 import { hasPaidProgramTier } from "@/lib/planAccess";
-import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  setLatestSubscriptionRequest,
-  setMessagingAccessTiers,
-  setProgramTier,
-} from "@/store/slices/userSlice";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, View } from "react-native";
@@ -71,8 +64,8 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
     pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
   /** Pager swipe does not always update URL; pathname alone can miss the messages tab. */
   const isMessagesSurface = isOnMessagesTab || isMessagesRoute;
-  const canMessage = canUseCoachMessaging(programTier, messagingAccessTiers);
-  const paidPlan = hasPaidProgramTier(programTier);
+  const canMessage = true;
+  const paidPlan = true;
   const isYouthAthleteRole =
     appRole === "youth_athlete_guardian_only" ||
     appRole === "youth_athlete_team_guardian";
@@ -188,42 +181,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   }, [athleteUserId, token]);
 
   React.useEffect(() => {
-    if (!token) return;
-    const syncBillingStatus = async () => {
-      try {
-        const status = await apiRequest<{
-          currentProgramTier?: string | null;
-          messagingAccessTiers?: string[] | null;
-          latestRequest?: {
-            status?: string | null;
-            paymentStatus?: string | null;
-            planTier?: string | null;
-            createdAt?: string | null;
-          } | null;
-        }>("/billing/status", {
-          token,
-          suppressStatusCodes: [401, 403, 404],
-          skipCache: true,
-        });
-
-        dispatch(setProgramTier(status?.currentProgramTier ?? null));
-        dispatch(
-          setMessagingAccessTiers(
-            Array.isArray(status?.messagingAccessTiers)
-              ? status.messagingAccessTiers
-              : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
-          ),
-        );
-        dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
-      } catch {
-        // no-op
-      }
-    };
-
-    syncBillingStatus();
-  }, [dispatch, token]);
-
-  React.useEffect(() => {
     if (!isMessagesSurface) return;
     resetOpeningThread();
   }, [isMessagesSurface, resetOpeningThread]);
@@ -234,61 +191,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
         title="Messages locked"
         message="Messaging is restricted for this age."
       />
-    );
-  }
-
-  // ====================== LOCKED / UPGRADE STATE ======================
-  // Youth team guardians may still have access to team chat groups even when
-  // direct coach messaging is plan-locked.
-  if (!canMessage && appRole !== "youth_athlete_team_guardian") {
-    return (
-      <SafeAreaView
-        className="flex-1"
-        edges={["top"]}
-        style={{ backgroundColor: colors.background }}
-      >
-        <View className="flex-1 items-center justify-center px-8">
-          <View
-            className="w-20 h-20 rounded-2xl items-center justify-center mb-6"
-            style={{
-              backgroundColor: colors.backgroundSecondary,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Ionicons name="chatbubbles" size={40} color={colors.accent} />
-          </View>
-          <Text
-            className="text-2xl font-clash font-bold text-center mb-3"
-            style={{ color: colors.text }}
-          >
-            Messages
-          </Text>
-          <Text
-            className="text-base font-outfit text-center max-w-[280px]"
-            style={{ color: colors.textSecondary }}
-          >
-            {paidPlan
-              ? "Messaging is not enabled for your current plan. Ask your coach if you need access."
-              : isYouthAthleteRole
-                ? "Open your current plan in Programs and unlock coach messaging for this athlete."
-                : "Choose a training plan in the Programs tab to unlock messaging with your coach."}
-          </Text>
-          {!paidPlan ? (
-            <Pressable
-              onPress={() => {
-                requestGlobalTabChange(0);
-                router?.replace("/(tabs)/programs");
-              }}
-              className="mt-8 rounded-full px-8 py-3 bg-accent"
-            >
-              <Text className="text-sm font-outfit font-semibold text-white">
-                Open Programs
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </SafeAreaView>
     );
   }
 

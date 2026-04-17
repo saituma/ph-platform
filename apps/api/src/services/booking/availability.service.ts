@@ -110,8 +110,13 @@ export async function listGeneratedAvailability(input: {
   to: Date;
   viewerProgramTier?: ProgramTier | null;
   serviceTypeId?: number;
+  athlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null;
 }) {
-  const services = await listServiceTypes({ includeInactive: false, viewerProgramTier: input.viewerProgramTier });
+  const services = await listServiceTypes({ 
+    includeInactive: false, 
+    viewerProgramTier: input.viewerProgramTier,
+    athlete: input.athlete,
+  });
   const filteredServices = input.serviceTypeId
     ? services.filter((service: ServiceTypeRecord) => service.id === input.serviceTypeId)
     : services;

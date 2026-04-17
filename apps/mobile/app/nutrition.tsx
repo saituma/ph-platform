@@ -10,23 +10,6 @@ import { Text } from "@/components/ScaledText";
 export default function NutritionScreen() {
   const insets = useSafeAreaInsets();
   const appRole = useAppSelector((state) => state.user.appRole);
-  
-  // Youths in team or PHP generally get standard access, Adult is Premium Plus restricted unless stated otherwise, but let's just make it universally accessible for now as part of "Nutrition Tracking".
-  // The system relies on Coach setting targets anyway.
-  const canAccessNutrition = true;
-
-  if (!canAccessNutrition) {
-    return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <MoreStackHeader title="Nutrition" subtitle="Track wellness and intake." />
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-base font-outfit text-secondary text-center">
-            Nutrition and Wellness is available on Premium plans.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>

@@ -54,6 +54,7 @@ const serviceTypeSchema = z.object({
   defaultMeetingLink: z.string().optional().nullable(),
   programTier: planEnum.optional().nullable(),
   eligiblePlans: z.array(planEnum).optional(),
+  eligibleTargets: z.array(z.string()).optional(),
   schedulePattern: z.enum(["one_time", "weekly_recurring"]).optional(),
   recurrenceEndMode: z.enum(["weeks", "months", "forever"]).optional().nullable(),
   recurrenceCount: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional().nullable(),
@@ -112,6 +113,7 @@ export async function listServices(req: Request, res: Response) {
     includeInactive,
     includeLocked,
     viewerProgramTier: athlete?.currentProgramTier as any,
+    athlete,
   });
   if (includeInactive || ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "")) {
     return res.status(200).json({ items });
@@ -133,6 +135,7 @@ export async function createService(req: Request, res: Response) {
     defaultMeetingLink: input.defaultMeetingLink,
     programTier: input.programTier,
     eligiblePlans: input.eligiblePlans,
+    eligibleTargets: input.eligibleTargets,
     schedulePattern: input.schedulePattern,
     recurrenceEndMode: input.recurrenceEndMode,
     recurrenceCount: input.recurrenceCount,
@@ -221,6 +224,7 @@ export async function listGeneratedAvailabilityForUser(req: Request, res: Respon
     to: new Date(query.to),
     serviceTypeId: query.serviceTypeId,
     viewerProgramTier: athlete?.currentProgramTier as any,
+    athlete,
   });
   return res.status(200).json({ items });
 }
@@ -249,7 +253,7 @@ export async function createBookingForUser(req: Request, res: Response) {
       occurrenceKey: input.occurrenceKey ?? null,
       slotKey: input.slotKey ?? null,
       createdBy: req.user!.id,
-      viewerProgramTier: athlete.currentProgramTier as any,
+      viewerAthlete: athlete,
       notes: input.notes ?? null,
       timezoneOffsetMinutes: input.timezoneOffsetMinutes,
     });

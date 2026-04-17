@@ -1,12 +1,50 @@
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRightIcon } from "@phosphor-icons/react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowRightIcon, CircleNotch } from "@phosphor-icons/react";
+import { useState } from "react";
+import { env } from "#/env";
 
 export const Route = createFileRoute("/")({ component: App });
 
 function App() {
-    return (
+	const [email, setEmail] = useState("");
+	const [isLoading, setIsLoading] = useState(false);
+	const navigate = useNavigate();
+
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!email || isLoading) return;
+
+		setIsLoading(true);
+		try {
+			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+			const response = await fetch(`${baseUrl}/api/auth/register/start`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ email }),
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || "Failed to start registration");
+			}
+
+			// Store email for verification page
+			sessionStorage.setItem("pending_email", email);
+
+			navigate({ to: "/verification" });
+		} catch (error: any) {
+			alert(error.message || "An unexpected error occurred");
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	return (
         <main className="relative min-h-screen bg-background flex flex-col items-center justify-center p-4 overflow-hidden selection:bg-primary/20">
             <div
                 className="absolute inset-0 z-0 pointer-events-none opacity-40 dark:opacity-20"
@@ -67,23 +105,34 @@ function App() {
                         <div className="flex-grow border-t border-muted group-hover:border-primary/20 transition-colors" />
                     </div>
 
-                    <div className="group flex w-full overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all duration-300 shadow-sm hover:shadow-md">
+                    <form
+                        onSubmit={handleSubmit}
+                        className="group flex w-full overflow-hidden rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all duration-300 shadow-sm hover:shadow-md"
+                    >
                         <Input
                             type="email"
                             placeholder="name@example.com"
                             aria-label="Email address"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            disabled={isLoading}
+                            required
                             className="flex-1 border-0 h-12 px-5 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent placeholder:text-muted-foreground/50"
                         />
                         <Button
+                            type="submit"
                             variant="ghost"
+                            disabled={isLoading}
                             className="h-12 w-12 p-0 rounded-none transition-colors"
                             aria-label="Submit email to create account"
                         >
-                            <Link to="/verification">
+                            {isLoading ? (
+                                <CircleNotch weight="bold" className="w-5 h-5 animate-spin text-primary" />
+                            ) : (
                                 <ArrowRightIcon weight="bold" className="w-5 h-5" />
-                            </Link>
+                            )}
                         </Button>
-                    </div>
+                    </form>
                 </section>
 
                 <p className="text-xs text-muted-foreground animate-in fade-in duration-1000 delay-700 fill-mode-both">

@@ -7,7 +7,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
-import { Pool } from "pg";
+import { Client, Pool } from "pg";
 
 import { env } from "../config/env";
 
@@ -82,32 +82,54 @@ function readSqlMigrationTags(migrationsFolder: string) {
     .map((file) => file.replace(/\.sql$/, ""));
 }
 
-async function tableExists(db: ReturnType<typeof drizzle>, tableName: string) {
-  const result = await db.execute(sql`
-    select to_regclass('public.' || ${tableName}) is not null as exists
-  `);
-  return Boolean(result.rows[0]?.exists);
+async function executeWithRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      if (err.code === "ECONNRESET" || err.message?.includes("ECONNRESET")) {
+        const delay = Math.pow(2, i) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
+async function tableExists(db: any, tableName: string) {
+  return executeWithRetry(async () => {
+    const result = await db.execute(sql`
+      select to_regclass('public.' || ${tableName}) is not null as exists
+    `);
+    return Boolean(result.rows[0]?.exists);
+  });
 }
 
 async function columnExists(
-  db: ReturnType<typeof drizzle>,
+  db: any,
   tableName: string,
   columnName: string,
 ) {
-  const result = await db.execute(sql`
-    select exists(
-      select 1
-      from pg_attribute a
-      join pg_class t on t.oid = a.attrelid
-      join pg_namespace n on n.oid = t.relnamespace
-      where n.nspname = 'public'
-        and t.relname = ${tableName}
-        and a.attname = ${columnName}
-        and a.attnum > 0
-        and not a.attisdropped
-    ) as exists
-  `);
-  return Boolean(result.rows[0]?.exists);
+  return executeWithRetry(async () => {
+    const result = await db.execute(sql`
+      select exists(
+        select 1
+        from pg_attribute a
+        join pg_class t on t.oid = a.attrelid
+        join pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'public'
+          and t.relname = ${tableName}
+          and a.attname = ${columnName}
+          and a.attnum > 0
+          and not a.attisdropped
+      ) as exists
+    `);
+    return Boolean(result.rows[0]?.exists);
+  });
 }
 
 function isSafePgIdentifier(value: string) {
@@ -115,7 +137,7 @@ function isSafePgIdentifier(value: string) {
 }
 
 async function renameColumnTo(
-  db: ReturnType<typeof drizzle>,
+  db: any,
   tableName: string,
   from: string,
   to: string,
@@ -128,7 +150,7 @@ async function renameColumnTo(
 }
 
 async function renameColumnIfPresent(
-  db: ReturnType<typeof drizzle>,
+  db: any,
   tableName: string,
   fromCandidates: string[],
   to: string,
@@ -145,74 +167,92 @@ async function renameColumnIfPresent(
   }
 }
 
-async function normalizeRunLogsSchema(db: ReturnType<typeof drizzle>) {
+async function getTableColumns(db: any, tableName: string): Promise<string[]> {
+  return executeWithRetry(async () => {
+    const result = await db.execute(sql`
+      select a.attname as name
+      from pg_attribute a
+      join pg_class t on t.oid = a.attrelid
+      join pg_namespace n on n.oid = t.relnamespace
+      where n.nspname = 'public'
+        and t.relname = ${tableName}
+        and a.attnum > 0
+        and not a.attisdropped
+    `);
+    return result.rows.map((r: any) => String(r.name));
+  });
+}
+
+async function normalizeRunLogsSchema(db: any) {
   const hasRunLogs = await tableExists(db, "run_logs");
   if (!hasRunLogs) return;
 
-  // Legacy variants we've seen:
-  // - snake_case (user_id)
-  // - unquoted camelCase ends up lowercased (userid)
-  await renameColumnIfPresent(db, "run_logs", ["client_id", "clientid"], "clientId");
-  await renameColumnIfPresent(db, "run_logs", ["user_id", "userid"], "userId");
-  await renameColumnIfPresent(
-    db,
-    "run_logs",
-    ["distance_meters", "distancemeters"],
-    "distanceMeters",
-  );
-  await renameColumnIfPresent(
-    db,
-    "run_logs",
-    ["duration_seconds", "durationseconds"],
-    "durationSeconds",
-  );
-  await renameColumnIfPresent(db, "run_logs", ["avg_pace", "avgpace"], "avgPace");
-  await renameColumnIfPresent(db, "run_logs", ["avg_speed", "avgspeed"], "avgSpeed");
-  await renameColumnIfPresent(
-    db,
-    "run_logs",
-    ["effort_level", "effortlevel"],
-    "effortLevel",
-  );
-  await renameColumnIfPresent(db, "run_logs", ["feel_tags", "feeltags"], "feelTags");
-  await renameColumnIfPresent(db, "run_logs", ["created_at", "createdat"], "createdAt");
-  await renameColumnIfPresent(db, "run_logs", ["updated_at", "updatedat"], "updatedAt");
+  const existingColumns = await getTableColumns(db, "run_logs");
+  const colSet = new Set(existingColumns);
+
+  const renames: Array<{ from: string[]; to: string }> = [
+    { from: ["client_id", "clientid"], to: "clientId" },
+    { from: ["user_id", "userid"], to: "userId" },
+    { from: ["distance_meters", "distancemeters"], to: "distanceMeters" },
+    { from: ["duration_seconds", "durationseconds"], to: "durationSeconds" },
+    { from: ["avg_pace", "avgpace"], to: "avgPace" },
+    { from: ["avg_speed", "avgspeed"], to: "avgSpeed" },
+    { from: ["effort_level", "effortlevel"], to: "effortLevel" },
+    { from: ["feel_tags", "feeltags"], to: "feelTags" },
+    { from: ["created_at", "createdat"], to: "createdAt" },
+    { from: ["updated_at", "updatedat"], to: "updatedAt" },
+  ];
+
+  for (const mapping of renames) {
+    if (colSet.has(mapping.to)) continue;
+    const found = mapping.from.find((f) => colSet.has(f));
+    if (found) {
+      await executeWithRetry(() => db.execute(
+        sql.raw(`ALTER TABLE "run_logs" RENAME COLUMN "${found}" TO "${mapping.to}"`),
+      ));
+    }
+  }
 
   // If an older schema created the FK constraint under a different name,
   // rename it to match what newer drizzle snapshots expect.
   const desiredFkName = "run_logs_userId_users_id_fk";
-  const desiredFkExists = await db.execute(sql`
-    select exists(
-      select 1
-      from pg_constraint
-      where conname = ${desiredFkName}
-    ) as exists
-  `);
-
-  if (!Boolean(desiredFkExists.rows[0]?.exists)) {
-    const existingFk = await db.execute(sql`
-      select c.conname
-      from pg_constraint c
-      join pg_class t on t.oid = c.conrelid
-      join pg_namespace n on n.oid = t.relnamespace
-      where n.nspname = 'public'
-        and t.relname = 'run_logs'
-        and c.contype = 'f'
-        and c.confrelid = 'public.users'::regclass
-      limit 1
+  const desiredFkExists = await executeWithRetry(async () => {
+    const res = await db.execute(sql`
+      select exists(
+        select 1
+        from pg_constraint
+        where conname = ${desiredFkName}
+      ) as exists
     `);
+    return Boolean(res.rows[0]?.exists);
+  });
+
+  if (!desiredFkExists) {
+    const existingFk = await executeWithRetry(async () => {
+      return db.execute(sql`
+        select c.conname
+        from pg_constraint c
+        join pg_class t on t.oid = c.conrelid
+        join pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'public'
+          and t.relname = 'run_logs'
+          and c.contype = 'f'
+          and c.confrelid = 'public.users'::regclass
+        limit 1
+      `);
+    });
     const conname = String(existingFk.rows[0]?.conname ?? "");
     if (conname && conname !== desiredFkName && isSafePgIdentifier(conname)) {
-      await db.execute(
+      await executeWithRetry(() => db.execute(
         sql.raw(
           `ALTER TABLE "run_logs" RENAME CONSTRAINT "${conname}" TO "${desiredFkName}"`,
         ),
-      );
+      ));
     }
   }
 }
 
-async function normalizeLegacyBookingTypes(db: ReturnType<typeof drizzle>) {
+async function normalizeLegacyBookingTypes(db: any) {
   const hasBookings = await tableExists(db, "bookings");
   const hasServiceTypes = await tableExists(db, "service_types");
 
@@ -247,7 +287,7 @@ async function normalizeLegacyBookingTypes(db: ReturnType<typeof drizzle>) {
   }
 }
 
-async function assertTrainingContentV2Schema(db: ReturnType<typeof drizzle>) {
+async function assertTrainingContentV2Schema(db: any) {
   const [
     hasModules,
     hasOthers,
@@ -294,23 +334,31 @@ export async function runMigrations(options?: {
   const connectionString = normalizeConnectionString(rawUrl);
   const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(rawUrl);
 
-  const pool = new Pool({
+  const client = new Client({
     connectionString,
     ssl: useSsl ? { rejectUnauthorized: false } : undefined,
-    connectionTimeoutMillis: 60_000,
-    keepAlive: true,
-    max: 1,
+    connectionTimeoutMillis: 30_000,
   });
 
   try {
-    const db = drizzle(pool);
+    await client.connect();
+    const db = drizzle(client);
 
-      // Compatibility shim: older DBs may have snake_case run_logs columns.
-      // Newer migrations expect camelCase columns (e.g. "userId").
+    // Compatibility shim: older DBs may have snake_case run_logs columns.
+    // Newer migrations expect camelCase columns (e.g. "userId").
+    try {
       await normalizeRunLogsSchema(db);
-      // Compatibility shim: older booking/service type values (group_call, one_on_one, etc.)
-      // must be normalized before enum-cast migrations run.
+    } catch (e) {
+      console.warn("[Migrations] Could not normalize run_logs schema (discovery failed), proceeding...");
+    }
+    
+    // Compatibility shim: older booking/service type values (group_call, one_on_one, etc.)
+    // must be normalized before enum-cast migrations run.
+    try {
       await normalizeLegacyBookingTypes(db);
+    } catch (e) {
+      console.warn("[Migrations] Could not normalize legacy booking types (discovery failed), proceeding...");
+    }
 
     const migrationsFolder =
       options?.migrationsFolder ??
@@ -407,6 +455,6 @@ export async function runMigrations(options?: {
     );
     throw error;
   } finally {
-    await pool.end();
+    await client.end();
   }
 }

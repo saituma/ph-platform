@@ -58,6 +58,8 @@ export function BookingModal({
   const selectedService =
     activeServices.find((s) => s.id === selectedServiceId) ?? null;
 
+  const isSlotFull = selectedService?.capacity != null && selectedService?.remainingCapacity != null && selectedService.remainingCapacity <= 0;
+
   const tbd = "TBD (coach will confirm)";
   const locationLabel = selectedService?.defaultLocation?.trim() || tbd;
   const meetingLinkLabel = selectedService?.defaultMeetingLink?.trim() || tbd;
@@ -143,6 +145,10 @@ export function BookingModal({
         selectedService.lockReason ||
           "This session type is locked for your plan.",
       );
+      return;
+    }
+    if (isSlotFull) {
+      setBookingError("This session is full.");
       return;
     }
     setBookingError(null);
@@ -516,12 +522,14 @@ export function BookingModal({
                     !selectedService ||
                     isSubmitting ||
                     !canCreateBookings ||
-                    selectedService?.isLocked === true
+                    selectedService?.isLocked === true ||
+                    isSlotFull
                   }
                   className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
                     selectedService &&
                     canCreateBookings &&
-                    !selectedService?.isLocked
+                    !selectedService?.isLocked &&
+                    !isSlotFull
                       ? "bg-accent"
                       : "bg-secondary/20"
                   }`}
@@ -531,7 +539,7 @@ export function BookingModal({
                   )}
                   <Text
                     className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                      selectedService && canCreateBookings
+                      selectedService && canCreateBookings && !isSlotFull
                         ? "text-white"
                         : "text-secondary"
                     }`}
@@ -540,9 +548,11 @@ export function BookingModal({
                       ? "Sending..."
                       : selectedService?.isLocked
                         ? "Locked"
-                        : !canCreateBookings
-                          ? "Plan required to book"
-                          : "Send request"}
+                        : isSlotFull
+                          ? "Slot Full"
+                          : !canCreateBookings
+                            ? "Plan required to book"
+                            : "Send request"}
                   </Text>
                 </Pressable>
                 {bookingError && (

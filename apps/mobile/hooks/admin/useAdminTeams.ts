@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { apiRequest } from "@/lib/api";
 
 export type AdminTeamSummary = {
+  id: number;
   team: string;
   memberCount: number;
   guardianCount: number;

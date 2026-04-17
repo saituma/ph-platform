@@ -3,7 +3,7 @@ import { View, ScrollView, RefreshControl } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
 import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
-import { TrainingContentV2Workspace } from "@/types/billing";
+import { TrainingContentV2Workspace } from "@/types/programs";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 

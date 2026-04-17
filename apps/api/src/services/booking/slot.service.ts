@@ -22,6 +22,13 @@ export function normalizeEligiblePlans(service: Pick<ServiceTypeRecord, "eligibl
   return [];
 }
 
+export function normalizeEligibleTargets(service: Pick<ServiceTypeRecord, "eligibleTargets">): string[] {
+  if (Array.isArray(service.eligibleTargets)) {
+    return service.eligibleTargets.map(String);
+  }
+  return [];
+}
+
 export function normalizeWeeklyEntries(service: Pick<ServiceTypeRecord, "weeklyEntries" | "fixedStartTime">): WeeklyEntry[] {
   if (Array.isArray(service.weeklyEntries)) {
     return (service.weeklyEntries as any[])
@@ -88,6 +95,34 @@ export function serviceAllowsTier(service: Pick<ServiceTypeRecord, "eligiblePlan
   if (!eligiblePlans.length) return true;
   if (!viewerProgramTier) return false;
   return eligiblePlans.includes(viewerProgramTier);
+}
+
+export function serviceAllowsAthlete(
+  service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "eligibleTargets" | "type">, 
+  athlete: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null
+) {
+  // Check tier
+  if (!serviceAllowsTier(service, athlete?.currentProgramTier as ProgramTier)) {
+    return false;
+  }
+
+  // Check targets
+  const eligibleTargets = normalizeEligibleTargets(service);
+  if (!eligibleTargets.length || eligibleTargets.includes("all")) {
+    return true;
+  }
+
+  if (!athlete) return false;
+
+  if (athlete.athleteType && eligibleTargets.includes(athlete.athleteType)) {
+    return true;
+  }
+
+  if (athlete.teamId && eligibleTargets.includes(`team:${athlete.teamId}`)) {
+    return true;
+  }
+
+  return false;
 }
 
 export type GeneratedSlot = {

@@ -10,6 +10,7 @@ import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
 import { createBookingActionToken } from "../../lib/booking-actions";
 import { sendPushNotification } from "../push.service";
+import { getSocketServer } from "../../socket-hub";
 
 export async function notifyBookingRequested(input: {
   bookingId: number;
@@ -98,6 +99,13 @@ export async function notifyBookingRequested(input: {
     } catch (error) {
       console.error("Failed to send booking confirmation email", error);
     }
+  }
+
+  const io = getSocketServer();
+  if (io) {
+    const payload = { message: `New booking requested: ${input.serviceName}` };
+    io.to(`user:${guardian.userId}`).emit("schedule:changed", payload);
+    io.to("admin:all").emit("schedule:changed", payload);
   }
 
   if (env.pushWebhookUrl) {

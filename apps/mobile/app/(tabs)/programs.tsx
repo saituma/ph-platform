@@ -14,12 +14,9 @@ import { normalizeProgramTier } from "@/lib/planAccess";
 import { Shadows } from "@/constants/theme";
 import { PROGRAM_TIERS } from "@/constants/Programs";
 
-import { useBillingManager } from "@/hooks/billing/useBillingManager";
-import { useProgramPlans } from "@/hooks/billing/useProgramPlans";
 import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 import { ProgramTierCard } from "@/components/programs/ProgramTierCard";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
-import { ProgramTierUI } from "@/types/billing";
 import { hasAssignedTeam } from "@/lib/teamMembership";
 
 export default function ProgramsScreen() {
@@ -29,8 +26,6 @@ export default function ProgramsScreen() {
   const { isSectionHidden } = useAgeExperience();
   const {
     token,
-    programTier,
-    latestSubscriptionRequest,
     profile,
     athleteUserId,
     managedAthletes,
@@ -48,14 +43,6 @@ export default function ProgramsScreen() {
 
   const isTeamMode = hasAssignedTeam(activeAthlete?.team);
 
-  const { refreshStatus, processPayment, isProcessing } =
-    useBillingManager(token);
-  const {
-    plansByTier,
-    pricingByTier,
-    loadPlans,
-    isLoading: plansLoading,
-  } = useProgramPlans();
   const {
     workspace,
     activeTab,
@@ -67,10 +54,7 @@ export default function ProgramsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!isTeamMode) {
-      refreshStatus();
-      loadPlans();
-    } else {
+    if (isTeamMode) {
       loadTeam();
     }
   }, [isTeamMode]);
@@ -78,17 +62,16 @@ export default function ProgramsScreen() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     if (isTeamMode) await loadTeam(true);
-    else await Promise.all([refreshStatus(), loadPlans(true)]);
     setIsRefreshing(false);
   };
 
-  const tiers = useMemo<ProgramTierUI[]>(
+  const tiers = useMemo(
     () =>
       PROGRAM_TIERS.map((t) => ({
         ...t,
         icon: t.id === "php" ? "activity" : t.id === "plus" ? "layers" : "star",
         popular: t.id === "plus",
-      })) as ProgramTierUI[],
+      })),
     [],
   );
 
@@ -126,8 +109,6 @@ export default function ProgramsScreen() {
     );
   }
 
-  const currentTier = normalizeProgramTier(programTier);
-
   return (
     <SafeAreaView
       className="flex-1"
@@ -152,27 +133,11 @@ export default function ProgramsScreen() {
         </View>
 
         {tiers.map((tier) => {
-          const required =
-            tier.id === "pro"
-              ? "PHP_Pro"
-              : tier.id === "plus"
-                ? "PHP_Premium_Plus"
-                : tier.id === "premium"
-                  ? "PHP_Premium"
-                  : "PHP";
           return (
             <ProgramTierCard
               key={tier.id}
               tier={tier}
-              isCurrent={currentTier === required}
-              pricing={pricingByTier[required]}
-              latestRequest={latestSubscriptionRequest}
               onOpen={(id) => router.push(`/programs/${id}`)}
-              onApply={(id) => {
-                const pid = plansByTier[required];
-                if (pid) processPayment(pid);
-              }}
-              isProcessing={isProcessing}
             />
           );
         })}

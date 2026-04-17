@@ -25,6 +25,8 @@ export type BookingServiceRow = {
   durationMinutes: number;
   capacity?: number | null;
   programTier?: string | null;
+  eligiblePlans?: string[] | null;
+  eligibleTargets?: string[] | null;
   isActive?: boolean | null;
 };
 
@@ -137,16 +139,22 @@ export function BookingServicesPanel({
             <tbody>
               {sorted.map((row) => {
                 const active = row.isActive ?? true;
-                const tier = row.programTier
-                  ? (TIER_LABELS[row.programTier] ?? row.programTier)
-                  : "—";
+                const tier = row.eligiblePlans && row.eligiblePlans.length > 0
+                  ? row.eligiblePlans.map(p => TIER_LABELS[p] ?? p).join(", ")
+                  : (row.programTier ? (TIER_LABELS[row.programTier] ?? row.programTier) : "—");
+                const targets = row.eligibleTargets && row.eligibleTargets.length > 0
+                  ? row.eligibleTargets.join(", ")
+                  : "All";
                 return (
                   <tr
                     key={row.id}
                     className={`border-b border-border last:border-0 ${active ? "" : "bg-muted/30 opacity-90"}`}
                   >
                     <td className="px-4 py-3 font-medium text-foreground">
-                      {row.name}
+                      <div>
+                        <div>{row.name}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Target: {targets}</div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {BOOKING_TYPE_LABELS[row.type] ?? row.type}
@@ -157,7 +165,7 @@ export function BookingServicesPanel({
                     <td className="px-4 py-3 text-muted-foreground">
                       {row.capacity != null ? row.capacity : "∞"}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{tier}</td>
+                    <td className="px-4 py-3 text-muted-foreground max-w-[150px] truncate" title={tier}>{tier}</td>
                     <td className="px-4 py-3">
                       <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                         <input

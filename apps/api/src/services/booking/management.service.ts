@@ -11,6 +11,7 @@ import {
   WeeklyEntry,
   SlotDefinition,
   serviceAllowsTier,
+  serviceAllowsAthlete,
   normalizeEligiblePlans,
 } from "./slot.service";
 import {
@@ -28,7 +29,12 @@ function errorMentionsMissingColumn(error: unknown, columnName: string) {
   return message.toLowerCase().includes(`column`) && message.includes(columnName);
 }
 
-export async function listServiceTypes(options?: { includeInactive?: boolean; includeLocked?: boolean; viewerProgramTier?: ProgramTier | null }) {
+export async function listServiceTypes(options?: { 
+  includeInactive?: boolean; 
+  includeLocked?: boolean; 
+  viewerProgramTier?: ProgramTier | null;
+  athlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null;
+}) {
   const shouldTryEligiblePlans = cachedSupportsServiceEligiblePlans !== false;
 
   const selectAll = async () =>
@@ -51,6 +57,7 @@ export async function listServiceTypes(options?: { includeInactive?: boolean; in
             defaultLocation: serviceTypeTable.defaultLocation,
             defaultMeetingLink: serviceTypeTable.defaultMeetingLink,
             programTier: serviceTypeTable.programTier,
+            eligibleTargets: serviceTypeTable.eligibleTargets,
             schedulePattern: serviceTypeTable.schedulePattern,
             recurrenceEndMode: serviceTypeTable.recurrenceEndMode,
             recurrenceCount: serviceTypeTable.recurrenceCount,
@@ -79,6 +86,7 @@ export async function listServiceTypes(options?: { includeInactive?: boolean; in
             defaultLocation: serviceTypeTable.defaultLocation,
             defaultMeetingLink: serviceTypeTable.defaultMeetingLink,
             programTier: serviceTypeTable.programTier,
+            eligibleTargets: serviceTypeTable.eligibleTargets,
             schedulePattern: serviceTypeTable.schedulePattern,
             recurrenceEndMode: serviceTypeTable.recurrenceEndMode,
             recurrenceCount: serviceTypeTable.recurrenceCount,
@@ -119,7 +127,9 @@ export async function listServiceTypes(options?: { includeInactive?: boolean; in
   if (options?.includeLocked) {
     return rows.map((service) => {
       const eligiblePlans = normalizeEligiblePlans(service);
-      const allowed = serviceAllowsTier(service, options?.viewerProgramTier);
+      const allowed = options?.athlete 
+        ? serviceAllowsAthlete(service, options.athlete)
+        : serviceAllowsTier(service, options?.viewerProgramTier);
       const isLocked = eligiblePlans.length > 0 && !allowed;
       return {
         ...service,
@@ -129,7 +139,24 @@ export async function listServiceTypes(options?: { includeInactive?: boolean; in
     });
   }
 
-  return rows.filter((service) => serviceAllowsTier(service, options?.viewerProgramTier));
+  const rowsWithCapacity = await Promise.all(
+    rows.map(async (service) => {
+      if (service.capacity == null) {
+        return { ...service, remainingCapacity: null };
+      }
+      const activeCount = await countActiveBookingsForService(service.id);
+      return {
+        ...service,
+        remainingCapacity: Math.max(0, service.capacity - activeCount),
+      };
+    })
+  );
+
+  return rowsWithCapacity.filter((service) => 
+    options?.athlete 
+      ? serviceAllowsAthlete(service, options.athlete)
+      : serviceAllowsTier(service, options?.viewerProgramTier)
+  );
 }
 
 export async function getServiceTypeById(id: number) {
@@ -148,6 +175,7 @@ export async function createServiceType(input: {
   defaultMeetingLink?: string | null;
   programTier?: ProgramTier | null;
   eligiblePlans?: ProgramTier[] | null;
+  eligibleTargets?: string[] | null;
   schedulePattern?: string | null;
   recurrenceEndMode?: string | null;
   recurrenceCount?: number | null;
@@ -178,6 +206,7 @@ export async function createServiceType(input: {
       defaultMeetingLink: input.defaultMeetingLink ?? null,
       programTier,
       eligiblePlans,
+      eligibleTargets: input.eligibleTargets ?? [],
       schedulePattern: input.schedulePattern ?? "one_time",
       recurrenceEndMode: input.recurrenceEndMode ?? null,
       recurrenceCount: input.recurrenceCount ?? null,
@@ -208,6 +237,7 @@ export async function updateServiceType(
     defaultMeetingLink?: string | null;
     programTier?: ProgramTier | null;
     eligiblePlans?: ProgramTier[] | null;
+    eligibleTargets?: string[] | null;
     schedulePattern?: string | null;
     recurrenceEndMode?: string | null;
     recurrenceCount?: number | null;
@@ -258,6 +288,7 @@ export async function updateServiceType(
           : existing[0].defaultMeetingLink ?? null,
       programTier,
       eligiblePlans,
+      eligibleTargets: input.eligibleTargets ?? existing[0].eligibleTargets ?? [],
       schedulePattern: input.schedulePattern ?? existing[0].schedulePattern ?? "one_time",
       recurrenceEndMode: input.recurrenceEndMode ?? existing[0].recurrenceEndMode ?? null,
       recurrenceCount: input.recurrenceCount ?? existing[0].recurrenceCount ?? null,
@@ -314,7 +345,7 @@ export async function createBooking(input: {
   occurrenceKey?: string | null;
   slotKey?: string | null;
   createdBy: number;
-  viewerProgramTier?: ProgramTier | null;
+  viewerAthlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null;
   location?: string | null;
   meetingLink?: string | null;
   notes?: string | null;
@@ -330,7 +361,7 @@ export async function createBooking(input: {
     throw new Error("Service type not available");
   }
 
-  if (!serviceAllowsTier(serviceType[0], input.viewerProgramTier)) {
+  if (!serviceAllowsAthlete(serviceType[0], input.viewerAthlete ?? null)) {
     throw new Error("Service type not available");
   }
 

@@ -181,7 +181,24 @@ export async function sendPushNotification(userId: number, title: string, body: 
       channelId,
       categoryId,
       priority: "high",
+      mutableContent: true,
     };
+
+    // Stacking/Grouping support
+    const threadId = data?.threadId || data?.groupId;
+    if (threadId) {
+      // iOS: Stacks notifications by threadIdentifier
+      (message as any).threadIdentifier = String(threadId);
+    }
+
+    // Media Preview Support (Images/Videos)
+    if (data?.mediaUrl && typeof data.mediaUrl === "string") {
+      const url = data.mediaUrl.trim();
+      if (url.startsWith("http")) {
+        // Expo supports basic attachments for rich notifications
+        (message as any).attachments = [{ url }];
+      }
+    }
 
     const tickets = await expo.sendPushNotificationsAsync([message]);
     await applyPushTickets(userId, tickets);

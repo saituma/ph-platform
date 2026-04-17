@@ -13,9 +13,6 @@ import {
   setOnboardingCompleted,
   setAthleteUserId,
   setHydrated,
-  setProgramTier,
-  setMessagingAccessTiers,
-  setLatestSubscriptionRequest,
   updateProfile,
   setManagedAthletes,
   setAppRole,
@@ -23,7 +20,6 @@ import {
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
-import { reduxStateFromOnboardingAthlete } from "@/lib/onboardingFromApi";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
 import { resolveAppRole } from "@/lib/appRole";
 import { promptBatteryOptimizationConsentOnce } from "@/lib/batteryOptimizationConsent";
@@ -35,8 +31,6 @@ const STORAGE_KEYS = {
   name: "profileName",
   email: "profileEmail",
   avatar: "profileAvatar",
-  onboardingCompleted: "onboardingCompleted",
-  athleteUserId: "athleteUserId",
 };
 
 const isUnauthorizedError = (error: unknown) => {
@@ -55,20 +49,12 @@ export function AuthPersist() {
   const token = useAppSelector((state) => state.user.token);
   const refreshToken = useAppSelector((state) => state.user.refreshToken);
   const profile = useAppSelector((state) => state.user.profile);
-  const onboardingCompleted = useAppSelector(
-    (state) => state.user.onboardingCompleted,
-  );
-  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const bootstrapReady = useAppSelector(selectBootstrapReady);
   const pushRegistration = useAppSelector(selectPushRegistration);
   const isAuthRoute = false;
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
   const lastSavedRefreshToken = useRef<string | null>(null);
-  const lastBillingSnapshot = useRef<{
-    tier: string | null;
-    requestStatus: string | null;
-  } | null>(null);
   const lastPushToken = useRef<string | null>(null);
 
   useEffect(() => {
@@ -86,8 +72,6 @@ export function AuthPersist() {
           await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
           await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
           await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.onboardingCompleted);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.athleteUserId);
           dispatch(logout());
           return;
         }
@@ -189,8 +173,6 @@ export function AuthPersist() {
           await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
           await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
           await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.onboardingCompleted);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.athleteUserId);
           dispatch(logout());
           return;
         }
@@ -202,13 +184,6 @@ export function AuthPersist() {
           STORAGE_KEYS.refreshToken,
         );
         const activeToken = currentTokenRaw?.trim() || storedToken;
-
-        const storedOnboarding = await SecureStore.getItemAsync(
-          STORAGE_KEYS.onboardingCompleted,
-        );
-        const storedAthleteUserId = await SecureStore.getItemAsync(
-          STORAGE_KEYS.athleteUserId,
-        );
 
         dispatch(
           setCredentials({
@@ -222,19 +197,6 @@ export function AuthPersist() {
             },
           }),
         );
-        const parsedAid = (() => {
-          const raw = storedAthleteUserId?.trim();
-          if (!raw) return null;
-          const n = parseInt(raw, 10);
-          return Number.isFinite(n) ? n : null;
-        })();
-        if (storedOnboarding === "1") {
-          dispatch(setOnboardingCompleted(true));
-          dispatch(setAthleteUserId(parsedAid));
-        } else if (storedOnboarding === "0") {
-          dispatch(setOnboardingCompleted(false));
-          dispatch(setAthleteUserId(parsedAid));
-        }
         lastSavedToken.current = activeToken;
         lastSavedRefreshToken.current =
           currentRefreshToken ?? storedRefreshToken ?? null;
@@ -298,47 +260,6 @@ export function AuthPersist() {
       }
     };
 
-    const syncOnboarding = async () => {
-      try {
-        const onboarding = await apiRequest<{
-          athlete: {
-            onboardingCompleted?: boolean;
-            userId?: number;
-            athleteType?: "youth" | "adult" | null;
-            team?: string | null;
-          } | null;
-        }>("/onboarding", {
-          token,
-          suppressStatusCodes: [401, 403, 500],
-          skipCache: true,
-          forceRefresh: true,
-        });
-        if (!active) return;
-        latestOnboardingAthlete = onboarding.athlete ?? null;
-        if (onboarding.athlete == null) {
-          if (__DEV__) {
-            console.log(
-              "[AuthPersist] GET /onboarding returned no athlete; keeping existing onboarding state",
-            );
-          }
-          return;
-        }
-        const next = reduxStateFromOnboardingAthlete(onboarding.athlete);
-        dispatch(setOnboardingCompleted(next.onboardingCompleted));
-        dispatch(setAthleteUserId(next.athleteUserId));
-        if (__DEV__) {
-          console.log("[AuthPersist] onboarding synced", next);
-        }
-      } catch (error) {
-        if (!active) return;
-        if (isUnauthorizedError(error)) {
-          latestOnboardingAthlete = null;
-          dispatch(setOnboardingCompleted(null));
-          dispatch(setAthleteUserId(null));
-        }
-      }
-    };
-
     const syncManagedAthletes = async () => {
       try {
         const data = await apiRequest<{
@@ -364,59 +285,6 @@ export function AuthPersist() {
       }
     };
 
-    const syncBillingStatus = async (allowNotify: boolean) => {
-      try {
-        const status = await apiRequest<{
-          currentProgramTier?: string | null;
-          messagingAccessTiers?: string[] | null;
-          latestRequest?: {
-            status?: string | null;
-            paymentStatus?: string | null;
-            planTier?: string | null;
-            createdAt?: string | null;
-          } | null;
-        }>("/billing/status", {
-          token,
-          suppressStatusCodes: [401, 403, 404],
-          skipCache: true,
-        });
-        if (!active) return;
-
-        const nextRequestStatus = status?.latestRequest?.status ?? null;
-        const nextTier =
-          status?.currentProgramTier ??
-          (nextRequestStatus === "approved"
-            ? (status?.latestRequest?.planTier ?? null)
-            : null);
-        const previous = lastBillingSnapshot.current;
-        const becameApproved =
-          previous &&
-          previous.requestStatus !== "approved" &&
-          nextRequestStatus === "approved";
-        const tierChanged = previous && previous.tier !== nextTier;
-
-        dispatch(setProgramTier(nextTier));
-        dispatch(
-          setMessagingAccessTiers(
-            Array.isArray(status?.messagingAccessTiers)
-              ? status!.messagingAccessTiers!
-              : ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
-          ),
-        );
-        dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
-        lastBillingSnapshot.current = {
-          tier: nextTier,
-          requestStatus: nextRequestStatus,
-        };
-
-        if (allowNotify && (becameApproved || tierChanged)) {
-          // Push notifications are handled server-side.
-        }
-      } catch {
-        if (!active) return;
-      }
-    };
-
     const syncPushToken = async () => {
       try {
         const result = await registerDevicePushToken({
@@ -438,9 +306,7 @@ export function AuthPersist() {
     };
 
     void Promise.allSettled([
-      syncBillingStatus(false),
       syncProfile(),
-      syncOnboarding(),
       syncManagedAthletes(),
       syncPushToken(),
     ]).then(() => {
@@ -453,12 +319,11 @@ export function AuthPersist() {
     });
 
     const interval = setInterval(() => {
-      void syncBillingStatus(initialized);
+      /* Periodic background syncs */
     }, 30000);
 
     const appStateSub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        void syncBillingStatus(initialized);
         void syncProfile();
         void syncPushToken();
       }
@@ -529,16 +394,6 @@ export function AuthPersist() {
           lastSavedToken.current = token;
           lastSavedRefreshToken.current = refreshToken ?? null;
         }
-        if (onboardingCompleted !== null) {
-          await SecureStore.setItemAsync(
-            STORAGE_KEYS.onboardingCompleted,
-            onboardingCompleted ? "1" : "0",
-          );
-          await SecureStore.setItemAsync(
-            STORAGE_KEYS.athleteUserId,
-            athleteUserId != null ? String(athleteUserId) : "",
-          );
-        }
       } else {
         dispatch(setBootstrapReady(false));
         await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
@@ -547,8 +402,6 @@ export function AuthPersist() {
         await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
         await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
-        await SecureStore.deleteItemAsync(STORAGE_KEYS.onboardingCompleted);
-        await SecureStore.deleteItemAsync(STORAGE_KEYS.athleteUserId);
         lastSavedToken.current = null;
         lastSavedRefreshToken.current = null;
         clearApiCache();
@@ -561,8 +414,6 @@ export function AuthPersist() {
     token,
     refreshToken,
     profile,
-    onboardingCompleted,
-    athleteUserId,
     isAuthRoute,
   ]);
 

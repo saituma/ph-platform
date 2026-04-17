@@ -19,12 +19,12 @@ const NORMALIZED_TIER_MAP: Record<string, ProgramTierName> = {
 };
 
 export function normalizeProgramTier(tier?: string | null): ProgramTierName | null {
-  if (!tier) return null;
+  if (!tier) return "PHP";
   if (PROGRAM_TIER_ORDER.includes(tier as ProgramTierName)) {
     return tier as ProgramTierName;
   }
   const key = tier.trim().toLowerCase().replace(/\s+/g, " ");
-  return NORMALIZED_TIER_MAP[key] ?? null;
+  return NORMALIZED_TIER_MAP[key] ?? "PHP";
 }
 
 export function programIdToTier(id: "php" | "plus" | "premium" | "pro"): ProgramTierName {
@@ -35,21 +35,18 @@ export function programIdToTier(id: "php" | "plus" | "premium" | "pro"): Program
 }
 
 export function tierRank(tier?: string | null): number {
-  const normalized = normalizeProgramTier(tier);
-  if (!normalized) return -1;
-  return PROGRAM_TIER_ORDER.indexOf(normalized);
+  return 0; // Everything is same rank
 }
 
 export function canAccessTier(userTier: string | null, requiredTier?: string | null): boolean {
-  if (!requiredTier) return true;
-  return tierRank(userTier) >= tierRank(requiredTier);
+  return true; // Always true
 }
 
 export function isPremium(userTier?: string | null): boolean {
-  return normalizeProgramTier(userTier) === "PHP_Premium";
+  return true; // Everything is premium now
 }
 
 /** Any coach-approved paid plan (PHP / Plus / Premium). Until then the user is on the free path. */
 export function hasPaidProgramTier(tier?: string | null): boolean {
-  return normalizeProgramTier(tier ?? null) !== null;
+  return true; // Always true
 }

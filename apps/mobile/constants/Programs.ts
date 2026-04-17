@@ -5,7 +5,6 @@ export const PROGRAM_TIERS: ProgramTier[] = [
     id: "php",
     name: "PHP Program",
     description: "Core age-appropriate training for development.",
-    price: "£34.99/mo",
     features: [
       "Age-appropriate structured sessions",
       "Built-in warmups and cooldowns",
@@ -20,7 +19,6 @@ export const PROGRAM_TIERS: ProgramTier[] = [
     id: "plus",
     name: "PHP Premium",
     description: "Higher-touch coaching with premium support.",
-    price: "£69.99/mo",
     features: [
       "Everything in PHP Program",
       "Stretching and foam rolling",
@@ -37,7 +35,6 @@ export const PROGRAM_TIERS: ProgramTier[] = [
     id: "premium",
     name: "PHP Premium Plus",
     description: "Includes semi-private sessions and advanced coaching.",
-    price: "£99/mo",
     features: [
       "Everything in PHP Premium",
       "Semi-private sessions (small group coaching)",
@@ -54,7 +51,6 @@ export const PROGRAM_TIERS: ProgramTier[] = [
     id: "pro",
     name: "PHP Pro",
     description: "Top-tier service with maximum coaching support.",
-    price: "£249.99/mo",
     features: [
       "Everything in PHP Premium Plus",
       "Maximum priority access",

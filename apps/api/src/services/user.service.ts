@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { athleteTable, guardianTable, userTable } from "../db/schema";
+import { athleteTable, guardianTable, userTable, teamTable } from "../db/schema";
 
 export async function getUserByCognitoSub(sub: string) {
   const users = await db
@@ -171,12 +171,68 @@ export async function getGuardianAndAthlete(userId: number) {
 }
 
 export async function getAthleteForUser(userId: number) {
-  const directAthlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, userId)).limit(1);
+  const directAthlete = await db
+    .select({
+      id: athleteTable.id,
+      userId: athleteTable.userId,
+      guardianId: athleteTable.guardianId,
+      athleteType: athleteTable.athleteType,
+      name: athleteTable.name,
+      age: athleteTable.age,
+      birthDate: athleteTable.birthDate,
+      teamId: athleteTable.teamId,
+      team: teamTable.name,
+      trainingPerWeek: athleteTable.trainingPerWeek,
+      injuries: athleteTable.injuries,
+      growthNotes: athleteTable.growthNotes,
+      performanceGoals: athleteTable.performanceGoals,
+      equipmentAccess: athleteTable.equipmentAccess,
+      profilePicture: athleteTable.profilePicture,
+      currentProgramTier: athleteTable.currentProgramTier,
+      onboardingCompleted: athleteTable.onboardingCompleted,
+      createdAt: athleteTable.createdAt,
+      updatedAt: athleteTable.updatedAt,
+    })
+    .from(athleteTable)
+    .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+    .where(eq(athleteTable.userId, userId))
+    .limit(1);
+
   if (directAthlete[0]) {
     return directAthlete[0];
   }
   const { athlete } = await getGuardianAndAthlete(userId);
-  return athlete;
+  if (!athlete) return null;
+
+  // For guardian-owned athletes, we also need to join the team name
+  const [athleteWithTeam] = await db
+    .select({
+      id: athleteTable.id,
+      userId: athleteTable.userId,
+      guardianId: athleteTable.guardianId,
+      athleteType: athleteTable.athleteType,
+      name: athleteTable.name,
+      age: athleteTable.age,
+      birthDate: athleteTable.birthDate,
+      teamId: athleteTable.teamId,
+      team: teamTable.name,
+      trainingPerWeek: athleteTable.trainingPerWeek,
+      injuries: athleteTable.injuries,
+      growthNotes: athleteTable.growthNotes,
+      performanceGoals: athleteTable.performanceGoals,
+      equipmentAccess: athleteTable.equipmentAccess,
+      profilePicture: athleteTable.profilePicture,
+      currentProgramTier: athleteTable.currentProgramTier,
+      onboardingCompleted: athleteTable.onboardingCompleted,
+      createdAt: athleteTable.createdAt,
+      updatedAt: athleteTable.updatedAt,
+    })
+    .from(athleteTable)
+    .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+    .where(eq(athleteTable.id, athlete.id))
+    .limit(1);
+
+  return athleteWithTeam ?? null;
 }
 
 export async function listGuardianAthletes(userId: number) {

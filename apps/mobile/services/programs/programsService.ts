@@ -1,10 +1,5 @@
 import { apiRequest } from "@/lib/api";
-import { PlanDetail, TrainingContentV2Workspace } from "@/types/billing";
-import { ProgramSectionContent } from "@/types/programs";
-
-export async function fetchPublicPlans(forceRefresh = true) {
-  return apiRequest<{ plans: PlanDetail[] }>("/public/plans", { forceRefresh });
-}
+import { ProgramSectionContent, TrainingContentV2Workspace } from "@/types/programs";
 
 export async function fetchTeamWorkspace(token: string, age: number | null, forceRefresh = false) {
   const ageQ = age != null ? `?age=${age}` : "";

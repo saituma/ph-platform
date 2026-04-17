@@ -35,6 +35,9 @@ type TeamDetails = {
     guardianEmail: string | null;
     guardianPhone: string | null;
     relationToAthlete: string | null;
+    sessionsCompleted: number;
+    modulesCompleted: number;
+    rank: number;
     createdAt: string | Date | null;
     updatedAt: string | Date | null;
   }>;
@@ -385,31 +388,55 @@ export default function TeamDetailPage() {
                 No members found for this team.
               </p>
             ) : (
-              details.members.map((member) => (
-                <Link
-                  key={member.athleteId}
-                  href={`/teams/${encodeURIComponent(teamName)}/members/${member.athleteId}`}
-                  className="block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">
-                        {member.athleteName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Tier: {member.currentProgramTier ?? "—"} ·
-                        Training/week: {member.trainingPerWeek ?? "—"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Guardian: {member.guardianEmail ?? "N/A"}
-                      </p>
+              <div className="space-y-3">
+                {details.members.map((member) => (
+                  <Link
+                    key={member.athleteId}
+                    href={`/teams/${encodeURIComponent(teamName)}/members/${member.athleteId}`}
+                    className="block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5 group"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow-sm ring-1 ring-border transition group-hover:ring-primary/20 ${
+                          member.rank === 1 ? "bg-amber-100 text-amber-700 ring-amber-200" :
+                          member.rank === 2 ? "bg-slate-100 text-slate-700 ring-slate-200" :
+                          member.rank === 3 ? "bg-orange-100 text-orange-700 ring-orange-200" :
+                          "bg-muted/50 text-muted-foreground"
+                        }`}>
+                          {member.rank}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-foreground">
+                            {member.athleteName}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                            <span>Tier: {member.currentProgramTier ?? "—"}</span>
+                            <span>•</span>
+                            <span>Guardian: {member.guardianEmail ?? "N/A"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-6 text-right">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sessions</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {member.sessionsCompleted}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Modules</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {member.modulesCompleted}
+                          </p>
+                        </div>
+                        <span className="hidden sm:inline-flex items-center text-xs font-medium text-primary">
+                          Details
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-xs font-medium text-primary">
-                      Open member
-                    </span>
-                  </div>
-                </Link>
-              ))
+                  </Link>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

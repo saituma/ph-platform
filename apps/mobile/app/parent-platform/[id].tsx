@@ -2,8 +2,6 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { apiRequest } from "@/lib/api";
 import { getParentContentCache } from "@/lib/parentContentCache";
-import { canAccessTier, tierRank } from "@/lib/planAccess";
-import { formatPlanList, getUnlockingPlanNames } from "@/lib/unlockPlans";
 import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -45,7 +43,7 @@ export default function ParentCourseDetail() {
   const idValue = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
   const { colors } = useAppTheme();
-  const { token, programTier } = useAppSelector((state) => state.user);
+  const { token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
 
   const cached = Number.isFinite(Number(idValue))
@@ -93,7 +91,7 @@ export default function ParentCourseDetail() {
     return () => {
       mounted = false;
     };
-  }, [idValue, token, programTier]);
+  }, [idValue, token]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -125,12 +123,8 @@ export default function ParentCourseDetail() {
   const isImageDataUrl = (url?: string) =>
     typeof url === "string" && url.startsWith("data:image/");
 
-  const isLocked =
-    item &&
-    !canAccessTier(programTier, item.programTier ?? null) &&
-    !item.isPreview;
-  const hasParentProgramAccess =
-    tierRank(programTier) >= tierRank("PHP_Premium_Plus");
+  const isLocked = false;
+  const hasParentProgramAccess = true;
 
   return (
     <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
@@ -167,29 +161,6 @@ export default function ParentCourseDetail() {
               </View>
             ))}
           </View>
-        ) : !hasParentProgramAccess ? (
-          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
-            <View className="flex-row items-center gap-2 mb-2">
-              <Feather name="lock" size={16} color={colors.textSecondary} />
-              <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.4px]">
-                Locked
-              </Text>
-            </View>
-            <Text className="text-base font-clash text-app mb-2">
-              Parent Program is locked on PHP
-            </Text>
-            <Text className="text-base font-outfit text-secondary leading-relaxed">
-              This content is locked for your current plan.
-            </Text>
-            <Text className="mt-3 text-base font-outfit text-secondary leading-relaxed">
-              {(() => {
-                const plans = getUnlockingPlanNames("PHP_Premium_Plus");
-                return plans.length
-                  ? `To unlock it, purchase ${formatPlanList(plans)}.`
-                  : "To unlock it, purchase an eligible plan.";
-              })()}
-            </Text>
-          </View>
         ) : item ? (
           <View className="space-y-6">
             <View className="rounded-[28px] border border-app/10 bg-input px-6 py-5">
@@ -208,20 +179,6 @@ export default function ParentCourseDetail() {
                     </Text>
                   </View>
                 ) : null}
-                {item.programTier ? (
-                  <View className="px-3 py-1 rounded-full bg-accent/15 border border-accent/20">
-                    <Text className="text-[10px] font-outfit text-accent uppercase tracking-[1.2px]">
-                      {item.programTier.replace("_", " ")}
-                    </Text>
-                  </View>
-                ) : null}
-                {item.isPreview ? (
-                  <View className="px-3 py-1 rounded-full bg-amber-100 border border-amber-200">
-                    <Text className="text-[10px] font-outfit text-amber-900 uppercase tracking-[1.2px]">
-                      Preview access
-                    </Text>
-                  </View>
-                ) : null}
               </View>
               <Text className="text-3xl font-telma-bold text-app">
                 {item.title}
@@ -236,124 +193,100 @@ export default function ParentCourseDetail() {
               ) : null}
             </View>
 
-            {isLocked ? (
-              <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
-                <View className="flex-row items-center gap-2 mb-2">
-                  <Feather name="lock" size={16} color={colors.textSecondary} />
-                  <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.4px]">
-                    Locked Content
-                  </Text>
-                </View>
-                <Text className="text-base font-clash text-app mb-2">
-                  This course is locked for your current plan
-                </Text>
-                <Text className="text-base font-outfit text-secondary leading-relaxed">
-                  {(() => {
-                    const plans = getUnlockingPlanNames(
-                      item.programTier ?? "PHP_Premium_Plus",
-                    );
-                    return plans.length
-                      ? `To unlock it, purchase ${formatPlanList(plans)}.`
-                      : "To unlock it, purchase an eligible plan.";
-                  })()}
-                </Text>
-              </View>
-            ) : (
-              <View className="space-y-3">
-                <Text className="text-xl font-clash text-app">
-                  Course Modules
-                </Text>
-                {modules.length ? (
-                  modules.map((module) => (
-                    <View
-                      key={module.id}
-                      className="rounded-[24px] border border-app/10 bg-app px-5 py-4"
-                    >
-                      <View className="flex-row flex-wrap items-center justify-between gap-2">
-                        <View className="flex-row items-center gap-2">
-                          <View className="h-9 w-9 rounded-2xl bg-secondary/10 items-center justify-center">
-                            <Feather
-                              name="book"
-                              size={16}
-                              color={colors.textSecondary}
-                            />
-                          </View>
-                          <View>
-                            <Text className="text-base font-outfit text-app font-semibold">
-                              {module.title}
-                            </Text>
-                            <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
-                              {module.type}
-                              {module.preview ? " • Preview" : ""}
-                            </Text>
-                          </View>
+            <View className="space-y-3">
+              <Text className="text-xl font-clash text-app">
+                Course Modules
+              </Text>
+              {modules.length ? (
+                modules.map((module) => (
+                  <View
+                    key={module.id}
+                    className="rounded-[24px] border border-app/10 bg-app px-5 py-4"
+                  >
+                    <View className="flex-row flex-wrap items-center justify-between gap-2">
+                      <View className="flex-row items-center gap-2">
+                        <View className="h-9 w-9 rounded-2xl bg-secondary/10 items-center justify-center">
+                          <Feather
+                            name="book"
+                            size={16}
+                            color={colors.textSecondary}
+                          />
                         </View>
-                        {(module.type === "pdf" || isPdfUrl(module.mediaUrl)) &&
-                        module.mediaUrl ? (
-                          <TouchableOpacity
-                            onPress={() => openDocument(module.mediaUrl)}
-                            className="rounded-2xl bg-accent px-4 py-2"
-                          >
-                            <Text className="text-white text-xs font-outfit font-bold">
-                              Open PDF
-                            </Text>
-                          </TouchableOpacity>
-                        ) : module.mediaUrl ? (
-                          <TouchableOpacity
-                            onPress={() => openMedia(module.mediaUrl)}
-                            className="rounded-2xl bg-accent px-4 py-2"
-                          >
-                            <Text className="text-white text-xs font-outfit font-bold">
-                              Open File
-                            </Text>
-                          </TouchableOpacity>
-                        ) : null}
+                        <View>
+                          <Text className="text-base font-outfit text-app font-semibold">
+                            {module.title}
+                          </Text>
+                          <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                            {module.type}
+                            {module.preview ? " • Preview" : ""}
+                          </Text>
+                        </View>
                       </View>
-                      {(module.type === "video" ||
-                        isYoutubeUrl(module.mediaUrl) ||
-                        isVideoUrl(module.mediaUrl)) &&
+                      {(module.type === "pdf" || isPdfUrl(module.mediaUrl)) &&
                       module.mediaUrl ? (
-                        <View className="mt-3">
-                          {isYoutubeUrl(module.mediaUrl) ? (
-                            <View className="rounded-3xl overflow-hidden bg-white/5">
-                              <VideoPlayer
-                                uri={module.mediaUrl}
-                                ignoreTabFocus
-                              />
-                            </View>
-                          ) : isImageDataUrl(module.mediaUrl) ? (
-                            <View className="rounded-2xl border border-app/10 bg-input px-4 py-4">
-                              <Text className="text-sm font-outfit text-secondary">
-                                Video file not detected. Please upload an .mp4
-                                or YouTube link.
-                              </Text>
-                            </View>
-                          ) : (
-                            <VideoPlayer
-                              uri={module.mediaUrl}
-                              title={module.title}
-                              useVideoResolution
-                              ignoreTabFocus
-                            />
-                          )}
-                        </View>
-                      ) : null}
-                      {module.content ? (
-                        <Text className="text-base font-outfit text-secondary leading-relaxed mt-3">
-                          {module.content}
-                        </Text>
+                        <TouchableOpacity
+                          onPress={() => openDocument(module.mediaUrl)}
+                          className="rounded-2xl bg-accent px-4 py-2"
+                        >
+                          <Text className="text-white text-xs font-outfit font-bold">
+                            Open PDF
+                          </Text>
+                        </TouchableOpacity>
+                      ) : module.mediaUrl ? (
+                        <TouchableOpacity
+                          onPress={() => openMedia(module.mediaUrl)}
+                          className="rounded-2xl bg-accent px-4 py-2"
+                        >
+                          <Text className="text-white text-xs font-outfit font-bold">
+                            Open File
+                          </Text>
+                        </TouchableOpacity>
                       ) : null}
                     </View>
-                  ))
-                ) : (
-                  <View className="rounded-3xl border border-dashed border-app/20 p-4">
-                    <Text className="text-base font-outfit text-secondary">
-                      No modules available.
-                    </Text>
+                    {(module.type === "video" ||
+                      isYoutubeUrl(module.mediaUrl) ||
+                      isVideoUrl(module.mediaUrl)) &&
+                    module.mediaUrl ? (
+                      <View className="mt-3">
+                        {isYoutubeUrl(module.mediaUrl) ? (
+                          <View className="rounded-3xl overflow-hidden bg-white/5">
+                            <VideoPlayer
+                              uri={module.mediaUrl}
+                              ignoreTabFocus
+                            />
+                          </View>
+                        ) : isImageDataUrl(module.mediaUrl) ? (
+                          <View className="rounded-2xl border border-app/10 bg-input px-4 py-4">
+                            <Text className="text-sm font-outfit text-secondary">
+                              Video file not detected. Please upload an .mp4
+                              or YouTube link.
+                            </Text>
+                          </View>
+                        ) : (
+                          <VideoPlayer
+                            uri={module.mediaUrl}
+                            title={module.title}
+                            useVideoResolution
+                            ignoreTabFocus
+                          />
+                        )}
+                      </View>
+                    ) : null}
+                    {module.content ? (
+                      <Text className="text-base font-outfit text-secondary leading-relaxed mt-3">
+                        {module.content}
+                      </Text>
+                    ) : null}
                   </View>
-                )}
-              </View>
-            )}
+                ))
+              ) : (
+                <View className="rounded-3xl border border-dashed border-app/20 p-4">
+                  <Text className="text-base font-outfit text-secondary">
+                    No modules available.
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         ) : (
           <View className="rounded-3xl border border-dashed border-app/20 p-4">

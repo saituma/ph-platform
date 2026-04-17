@@ -35,18 +35,7 @@ interface UserState {
   apiUserRole: string | null;
   isLoading: boolean;
   hydrated: boolean;
-  onboardingCompleted: boolean | null;
-  athleteUserId: number | null;
   managedAthletes: ManagedAthlete[];
-  programTier: string | null;
-  /** Coach-controlled: which tiers may message (defaults match server until billing/status loads). */
-  messagingAccessTiers: string[];
-  latestSubscriptionRequest: {
-    status?: string | null;
-    paymentStatus?: string | null;
-    planTier?: string | null;
-    createdAt?: string | null;
-  } | null;
   appRole: AppRole | null;
 }
 
@@ -63,12 +52,7 @@ const initialState: UserState = {
   apiUserRole: null,
   isLoading: false,
   hydrated: false,
-  onboardingCompleted: null,
-  athleteUserId: null,
   managedAthletes: [],
-  programTier: null,
-  messagingAccessTiers: ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"],
-  latestSubscriptionRequest: null,
   appRole: null,
 };
 
@@ -91,34 +75,11 @@ const userSlice = createSlice({
     setApiUserRole: (state, action: PayloadAction<string | null>) => {
       state.apiUserRole = action.payload;
     },
-    setOnboardingCompleted: (state, action: PayloadAction<boolean | null>) => {
-      // Onboarding completion is monotonic for a user session: ignore stale false writes
-      // that can arrive from slower background sync calls after a successful completion.
-      if (state.onboardingCompleted === true && action.payload === false) {
-        return;
-      }
-      state.onboardingCompleted = action.payload;
-    },
-    setAthleteUserId: (state, action: PayloadAction<number | null>) => {
-      state.athleteUserId = action.payload;
-    },
     setManagedAthletes: (state, action: PayloadAction<ManagedAthlete[]>) => {
       state.managedAthletes = action.payload.map((athlete) => ({
         ...athlete,
         age: normalizeManagedAthleteAge(athlete.age),
       }));
-    },
-    setProgramTier: (state, action: PayloadAction<string | null>) => {
-      state.programTier = action.payload;
-    },
-    setMessagingAccessTiers: (state, action: PayloadAction<string[]>) => {
-      state.messagingAccessTiers = action.payload;
-    },
-    setLatestSubscriptionRequest: (
-      state,
-      action: PayloadAction<UserState["latestSubscriptionRequest"]>
-    ) => {
-      state.latestSubscriptionRequest = action.payload;
     },
     setAppRole: (state, action: PayloadAction<AppRole | null>) => {
       state.appRole = action.payload;
@@ -135,12 +96,7 @@ const userSlice = createSlice({
       state.refreshToken = null;
       state.profile = initialState.profile;
       state.apiUserRole = null;
-      state.onboardingCompleted = null;
-      state.athleteUserId = null;
       state.managedAthletes = [];
-      state.programTier = null;
-      state.messagingAccessTiers = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"];
-      state.latestSubscriptionRequest = null;
       state.appRole = null;
     },
   },
@@ -150,12 +106,7 @@ export const {
   setCredentials,
   updateProfile,
   setApiUserRole,
-  setOnboardingCompleted,
-  setAthleteUserId,
   setManagedAthletes,
-  setProgramTier,
-  setMessagingAccessTiers,
-  setLatestSubscriptionRequest,
   setAppRole,
   setLoading,
   setHydrated,

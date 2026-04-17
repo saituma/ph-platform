@@ -42,32 +42,24 @@ export function useAdminServices(token: string | null, canLoad: boolean) {
     name: string;
     type: string;
     durationMinutes: string;
-    capacity: string;
-    isActive: string;
-    defaultLocation: string;
-    defaultMeetingLink: string;
-    advancedJson: string;
+    description?: string;
+    capacity?: string;
+    isActive?: boolean;
+    defaultLocation?: string;
+    defaultMeetingLink?: string;
+    eligiblePlans?: string[];
+    eligibleTargets?: string[];
   }) => {
     if (!canLoad || !token) return;
     const name = params.name.trim();
     const type = params.type.trim();
     const durationMinutes = parseIntOrUndefined(params.durationMinutes);
     const capacity = parseIntOrUndefined(params.capacity);
-    const isActive = params.isActive.trim().toLowerCase();
+    const isActive = params.isActive !== false;
 
     if (!name) throw new Error("Name is required");
     if (!type) throw new Error("Type is required");
     if (!durationMinutes || durationMinutes < 1) throw new Error("Duration minutes is required");
-
-    let advanced: Record<string, unknown> = {};
-    try {
-      const parsed = JSON.parse(params.advancedJson || "{}");
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        advanced = parsed;
-      }
-    } catch {
-      throw new Error("Advanced JSON must be valid JSON");
-    }
 
     setServiceCreateBusy(true);
     try {
@@ -75,17 +67,17 @@ export function useAdminServices(token: string | null, canLoad: boolean) {
         name,
         type,
         durationMinutes,
+        description: params.description,
         ...(capacity !== undefined ? { capacity } : {}),
-        ...(params.defaultLocation.trim().length
+        ...(params.defaultLocation?.trim().length
           ? { defaultLocation: params.defaultLocation.trim() }
           : {}),
-        ...(params.defaultMeetingLink.trim().length
+        ...(params.defaultMeetingLink?.trim().length
           ? { defaultMeetingLink: params.defaultMeetingLink.trim() }
           : {}),
-        ...(isActive === "true" || isActive === "false"
-          ? { isActive: isActive === "true" }
-          : {}),
-        ...advanced,
+        isActive,
+        eligiblePlans: params.eligiblePlans,
+        eligibleTargets: params.eligibleTargets,
       };
 
       await apiRequest("/bookings/services", {

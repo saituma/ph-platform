@@ -387,6 +387,7 @@ export async function createGroupMessage(input: {
         type: "group-message",
         threadId: `group:${input.groupId}`,
         url: `/messages/group:${input.groupId}`,
+        mediaUrl: input.mediaUrl ?? null,
       });
     }
   } catch (error) {

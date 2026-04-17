@@ -26,7 +26,6 @@ export default function TabLayout() {
     hydrated,
     token,
     profile,
-    onboardingCompleted,
     appRole,
     apiUserRole,
     programTier,
@@ -47,67 +46,11 @@ export default function TabLayout() {
     : isAuthenticated && !!token && !!profile.id;
 
   const isAdmin = isAdminRole(apiUserRole);
-  const isOnboarding =
-    segments.some((segment) => segment === "onboarding") ||
-    pathname.includes("/onboarding");
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
-  const onboardingDebug =
-    process.env.EXPO_PUBLIC_ONBOARDING_DEBUG === "1" ||
-    process.env.EXPO_PUBLIC_ONBOARDING_DEBUG === "true";
 
   // Shared Logic Hooks
   usePushNotificationResponses(effectiveAuth && bootstrapReady);
   useProfileSync(token, effectiveAuth && bootstrapReady, hasMessaging);
-
-  useEffect(() => {
-    if (!onboardingDebug || !effectiveAuth || !bootstrapReady) return;
-    console.log("[OnboardingDebug][TabLayout] state", {
-      pathname,
-      segments,
-      onboardingCompleted,
-      isOnboarding,
-      isAdmin,
-      appRole,
-      apiUserRole,
-    });
-  }, [
-    onboardingDebug,
-    effectiveAuth,
-    bootstrapReady,
-    pathname,
-    segments,
-    onboardingCompleted,
-    isOnboarding,
-    isAdmin,
-    appRole,
-    apiUserRole,
-  ]);
-
-  useEffect(() => {
-    if (!effectiveAuth || !bootstrapReady) return;
-    if (!isAdmin && onboardingCompleted === false && !isOnboarding) {
-      if (onboardingDebug) {
-        console.log(
-          "[OnboardingDebug][TabLayout] redirect -> /(tabs)/onboarding",
-          {
-            pathname,
-            onboardingCompleted,
-            isOnboarding,
-          },
-        );
-      }
-      router?.replace("/(tabs)/onboarding");
-    }
-  }, [
-    bootstrapReady,
-    effectiveAuth,
-    isAdmin,
-    onboardingCompleted,
-    isOnboarding,
-    onboardingDebug,
-    pathname,
-    router,
-  ]);
 
   const containerStyle = [
     {
@@ -122,14 +65,6 @@ export default function TabLayout() {
 
   if (!effectiveAuth) {
     return <Redirect href="/(auth)/login" />;
-  }
-
-  if (isOnboarding) {
-    return (
-      <View style={containerStyle}>
-        <Slot />
-      </View>
-    );
   }
 
   // Role Switching Logic
