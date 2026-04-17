@@ -96,6 +96,79 @@ const normalizePhpPlusTabs = (input: unknown) => {
   return normalized;
 };
 
+export async function startYouthOnboarding(input: {
+	userId: number;
+	guardianName: string;
+	athleteName: string;
+	age: number;
+}) {
+	// Update guardian (user) name
+	await db
+		.update(userTable)
+		.set({
+			name: input.guardianName,
+			updatedAt: new Date(),
+		})
+		.where(eq(userTable.id, input.userId));
+
+	// Get or create guardian record
+	let guardianId: number;
+	const guardians = await db
+		.select()
+		.from(guardianTable)
+		.where(eq(guardianTable.userId, input.userId))
+		.limit(1);
+
+	if (guardians[0]) {
+		guardianId = guardians[0].id;
+	} else {
+		const [user] = await db
+			.select({ email: userTable.email })
+			.from(userTable)
+			.where(eq(userTable.id, input.userId))
+			.limit(1);
+
+		const [newGuardian] = await db
+			.insert(guardianTable)
+			.values({
+				userId: input.userId,
+				email: user?.email ?? "",
+				relationToAthlete: "Parent",
+			})
+			.returning();
+		guardianId = newGuardian.id;
+	}
+
+	// Create or update athlete record
+	const athletes = await db
+		.select()
+		.from(athleteTable)
+		.where(eq(athleteTable.guardianId, guardianId))
+		.limit(1);
+
+	if (athletes[0]) {
+		await db
+			.update(athleteTable)
+			.set({
+				name: input.athleteName,
+				age: input.age,
+				athleteType: "youth",
+				updatedAt: new Date(),
+			})
+			.where(eq(athleteTable.id, athletes[0].id));
+	} else {
+		await db.insert(athleteTable).values({
+			guardianId: guardianId,
+			userId: null, // Will be linked later if needed
+			name: input.athleteName,
+			age: input.age,
+			athleteType: "youth",
+		});
+	}
+
+	return { ok: true };
+}
+
 export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;
