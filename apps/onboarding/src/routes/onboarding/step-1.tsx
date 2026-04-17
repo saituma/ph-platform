@@ -74,7 +74,8 @@ function OnboardingStep1() {
 				description: `You've joined as a ${USER_TYPES.find((t) => t.id === selected)?.title}.`,
 			});
 
-			// navigate({ to: "/onboarding/step-2" });
+			sessionStorage.setItem("user_type", selected as string);
+			navigate({ to: "/onboarding/step-2" });
 		} catch (error: any) {
 			toast.error("Could not save selection", {
 				description: error.message || "An unexpected error occurred.",
