@@ -64,6 +64,8 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       maxAge: z.coerce.number().int().min(1).optional().nullable(),
       planId: z.coerce.number().int().min(1),
       maxAthletes: z.coerce.number().int().min(1),
+      paymentMethod: z.enum(["pay_now", "email_link", "cash"]).default("pay_now"),
+      billingCycle: z.enum(["monthly", "6months", "yearly"]).default("monthly"),
     })
     .safeParse(req.body);
   if (!parsed.success) {
@@ -82,6 +84,8 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       planId: parsed.data.planId,
       maxAthletes: parsed.data.maxAthletes,
       createdByUserId: req.user!.id,
+      paymentMethod: parsed.data.paymentMethod,
+      billingCycle: parsed.data.billingCycle,
     });
     return res.status(201).json(result);
   } catch (error: any) {

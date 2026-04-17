@@ -23,6 +23,51 @@ export function getCancelUrl() {
   return env.stripeCancelUrl;
 }
 
+export async function createTeamCheckoutSession(input: {
+  teamId: number;
+  adminId: number;
+  priceLookupKey: string;
+  quantity: number;
+  mode: "subscription" | "payment";
+  customerEmail?: string;
+  metadata?: Record<string, string>;
+}) {
+  const stripeClient = getStripeClient();
+
+  // Find the price using the lookup key you created in Stripe
+  const prices = await stripeClient.prices.list({
+    lookup_keys: [input.priceLookupKey],
+    expand: ["data.product"],
+  });
+
+  const price = prices.data[0];
+  if (!price) {
+    throw new Error(`Price with lookup key '${input.priceLookupKey}' not found in Stripe`);
+  }
+
+  const session = await stripeClient.checkout.sessions.create({
+    mode: input.mode,
+    customer_email: input.customerEmail,
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        price: price.id,
+        quantity: input.quantity,
+      },
+    ],
+    metadata: {
+      teamId: input.teamId,
+      adminId: input.adminId,
+      type: "team_subscription",
+      ...input.metadata,
+    },
+    success_url: `${getSuccessUrl()}?team_created=${input.teamId}`,
+    cancel_url: getCancelUrl(),
+  });
+
+  return session;
+}
+
 export function resolveTierFallbackPrice(
   tier: (typeof ProgramType.enumValues)[number],
   interval?: "monthly" | "yearly"

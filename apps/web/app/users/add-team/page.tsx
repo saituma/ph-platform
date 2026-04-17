@@ -55,6 +55,8 @@ export default function AddTeamPage() {
   const [maxAge, setMaxAge] = useState("");
   const [planId, setPlanId] = useState<string>("");
   const [maxAthletes, setMaxAthletes] = useState<number>(10);
+  const [paymentMethod, setPaymentMethod] = useState<"pay_now" | "email_link" | "cash">("pay_now");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "6months" | "yearly">("monthly");
   const [plans, setPlans] = useState<Plan[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,7 +83,10 @@ export default function AddTeamPage() {
 
   const selectedPlan = plans.find((p) => String(p.id) === planId);
   const unitPrice = selectedPlan ? parseFloat(selectedPlan.displayPrice.replace(/[^0-9.]/g, "")) : 0;
-  const subtotal = unitPrice * maxAthletes;
+  
+  const multiplier = billingCycle === "6months" ? 6 : billingCycle === "yearly" ? 12 : 1;
+  const intervalTotal = unitPrice * multiplier; 
+  const subtotal = intervalTotal * maxAthletes;
 
   const createTeam = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -114,6 +119,8 @@ export default function AddTeamPage() {
           maxAge: maxAge ? parseInt(maxAge, 10) : null,
           planId: parseInt(planId, 10),
           maxAthletes: maxAthletes,
+          paymentMethod,
+          billingCycle,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -124,6 +131,11 @@ export default function AddTeamPage() {
       // If Stripe Checkout URL is returned, redirect there
       if (payload?.checkoutUrl) {
         window.location.href = payload.checkoutUrl;
+        return;
+      }
+
+      if (payload?.sentToEmail) {
+        router.push("/teams?success=email_sent");
         return;
       }
 
@@ -209,6 +221,42 @@ export default function AddTeamPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Billing & Payment</CardTitle>
+            <CardDescription>Choose how and when to pay for this team.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Payment Method</Label>
+              <select
+                id="paymentMethod"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as any)}
+              >
+                <option value="pay_now">Stripe (Pay Immediately)</option>
+                <option value="email_link">Stripe (Email Link to Admin)</option>
+                <option value="cash">Cash / Manual (Offline Payment)</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="billingCycle">Billing Cycle</Label>
+              <select
+                id="billingCycle"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={billingCycle}
+                onChange={(e) => setBillingCycle(e.target.value as any)}
+              >
+                <option value="monthly">Monthly Recurring</option>
+                <option value="6months">6 Months Upfront</option>
+                <option value="yearly">Yearly Upfront (Best Value)</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Plan & Slots</CardTitle>
             <CardDescription>Select the subscription plan and number of athletes.</CardDescription>
           </CardHeader>
@@ -251,20 +299,30 @@ export default function AddTeamPage() {
               <div className="col-span-full rounded-xl bg-primary/5 p-4 border border-primary/10">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Price per athlete:</span>
-                  <span className="font-medium text-foreground">{selectedPlan.displayPrice}</span>
+                  <span className="font-medium text-foreground">
+                    {selectedPlan.displayPrice.split(" ")[0]} {unitPrice.toFixed(2)} / month
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-muted-foreground">Interval:</span>
+                  <span className="font-medium text-foreground uppercase">{billingCycle}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-sm border-b border-primary/10 pb-2">
                   <span className="text-muted-foreground">Total slots:</span>
                   <span className="font-medium text-foreground">{maxAthletes}</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-base font-bold">
-                  <span className="text-foreground">Estimated Subtotal:</span>
+                  <span className="text-foreground">Total Due:</span>
                   <span className="text-primary font-black">
                     {selectedPlan.displayPrice.split(" ")[0]} {subtotal.toFixed(2)}
                   </span>
                 </div>
                 <p className="mt-2 text-[10px] text-muted-foreground italic">
-                  * Admin will be redirected to Stripe to finalize the payment based on the subtotal.
+                  {paymentMethod === "cash" 
+                    ? "* Confirm that you have received this amount in cash before proceeding. Team will be activated immediately."
+                    : paymentMethod === "email_link"
+                    ? "* An email will be sent to the admin with a secure Stripe link to pay this amount."
+                    : "* You will be redirected to Stripe to pay this amount immediately."}
                 </p>
               </div>
             )}
@@ -276,7 +334,13 @@ export default function AddTeamPage() {
             <Link href="/teams">Cancel</Link>
           </Button>
           <Button type="submit" disabled={!teamName.trim() || !planId || isSubmitting}>
-            {isSubmitting ? "Creating…" : "Register Team & Pay"}
+            {isSubmitting 
+              ? "Processing…" 
+              : paymentMethod === "cash" 
+              ? "Confirm Cash & Activate" 
+              : paymentMethod === "email_link" 
+              ? "Create Team & Email Link" 
+              : "Register Team & Pay"}
           </Button>
         </div>
       </form>
