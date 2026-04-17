@@ -38,13 +38,14 @@ function applyThemeMode(mode: ThemeMode) {
 }
 
 export default function ThemeToggle() {
-	const [mode, setMode] = useState<ThemeMode>(getInitialMode());
+	const [mode, setMode] = useState<ThemeMode>("light");
+	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
-		// Sync initial state and handle storage events from other tabs
 		const initialMode = getInitialMode();
 		setMode(initialMode);
 		applyThemeMode(initialMode);
+		setMounted(true);
 
 		const handleStorage = (e: StorageEvent) => {
 			if (e.key === "theme" && (e.newValue === "light" || e.newValue === "dark")) {
@@ -64,8 +65,11 @@ export default function ThemeToggle() {
 		window.localStorage.setItem("theme", nextMode);
 	}
 
-	const Icon = mode === "light" ? Sun : Moon;
-	const label = `Switch to ${mode === "light" ? "dark" : "light"} mode`;
+	// Use stable values for SSR to prevent hydration mismatch
+	const Icon = !mounted ? Sun : mode === "light" ? Sun : Moon;
+	const label = !mounted
+		? "Switch theme"
+		: `Switch to ${mode === "light" ? "dark" : "light"} mode`;
 
 	return (
 		<button
