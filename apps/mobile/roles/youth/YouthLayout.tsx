@@ -14,13 +14,16 @@ export function YouthLayout() {
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
 
   const visibleTabs = useMemo(() => {
-    return YOUTH_TAB_ROUTES.map((tab) => {
+    const base = hasMessaging
+      ? YOUTH_TAB_ROUTES
+      : YOUTH_TAB_ROUTES.filter((tab) => tab.key !== "messages");
+    return base.map((tab) => {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
       return tab;
     });
-  }, [messagesUnread]);
+  }, [hasMessaging, messagesUnread]);
 
   const tabComponents = useMemo(
     () => ({

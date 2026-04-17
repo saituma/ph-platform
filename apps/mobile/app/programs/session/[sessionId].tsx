@@ -659,7 +659,7 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             coachResponsesByUploadId={coachResponsesByUploadId}
-            canUpload={canAccessTier(programTier, "PHP_Premium")}
+            canUpload={canAccessTier(programTier, "PHP_Premium_Plus")}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
             isUploading={isUploading}
@@ -677,7 +677,7 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             coachResponsesByUploadId={coachResponsesByUploadId}
-            canUpload={canAccessTier(programTier, "PHP_Premium")}
+            canUpload={canAccessTier(programTier, "PHP_Premium_Plus")}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
             isUploading={isUploading}
@@ -695,7 +695,7 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             coachResponsesByUploadId={coachResponsesByUploadId}
-            canUpload={canAccessTier(programTier, "PHP_Premium")}
+            canUpload={canAccessTier(programTier, "PHP_Premium_Plus")}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
             isUploading={isUploading}

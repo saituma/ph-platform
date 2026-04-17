@@ -219,7 +219,7 @@ export function EventList({
                     onPress={() => setShowDetails(true)}
                   >
                     <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                      View Plan
+                      View details
                     </Text>
                   </Pressable>
                   <Pressable

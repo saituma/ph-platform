@@ -8,7 +8,7 @@ import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { setParentContentCache } from "@/lib/parentContentCache";
-import { canAccessTier, hasPaidProgramTier, tierRank } from "@/lib/planAccess";
+import { canAccessTier, hasPremiumPlanFeatures } from "@/lib/planAccess";
 import { formatPlanList, getUnlockingPlanNames } from "@/lib/unlockPlans";
 import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
@@ -151,11 +151,10 @@ export default function ParentPlatformScreen() {
     }));
   }, [filteredItems]);
 
-  const hasParentProgramAccess =
-    tierRank(programTier) >= tierRank("PHP_Premium_Plus");
-  const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium");
+  const hasParentProgramAccess = hasPremiumPlanFeatures(programTier);
+  const hasPremiumAccess = hasParentProgramAccess;
   const parentPlatformUnlockPlans = useMemo(
-    () => getUnlockingPlanNames("PHP_Premium_Plus"),
+    () => getUnlockingPlanNames("PHP_Premium"),
     [],
   );
   const visibleGroups = grouped.filter((cat) => cat.items.length > 0);
@@ -178,10 +177,10 @@ export default function ParentPlatformScreen() {
       );
       const list = formatPlanList(unlockingPlans);
       Alert.alert(
-        "Locked",
+        "Not available",
         list
-          ? `This content is locked for your current plan. To unlock it, purchase ${list}.`
-          : "This content is locked for your current plan. Purchase an eligible plan to unlock it.",
+          ? `This content isn’t available for your account. Unlocks with: ${list}.`
+          : "This content isn’t available for your account.",
         [{ text: "OK" }],
       );
       return;
@@ -205,7 +204,7 @@ export default function ParentPlatformScreen() {
     return <AgeGate title={lockedTitle} message={lockedMessage} />;
   }
 
-  if (!hasPaidProgramTier(programTier)) {
+  if (!hasPremiumPlanFeatures(programTier)) {
     return (
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
         <MoreStackHeader
@@ -218,8 +217,7 @@ export default function ParentPlatformScreen() {
             Parent education
           </Text>
           <Text className="text-base font-outfit text-secondary text-center max-w-[300px]">
-            Choose a training plan in the Programs tab to unlock parent platform
-            content.
+            This section isn’t available for your account yet. Check the Programs tab for more.
           </Text>
           <Pressable
             onPress={() => router.push("/(tabs)/programs")}
@@ -338,7 +336,7 @@ export default function ParentPlatformScreen() {
             <MetricCard
               title="Previews"
               value={String(previewCount)}
-              caption="Open without upgrading"
+              caption="Try previews anytime"
               isDark={isDark}
             />
           </View>
@@ -398,19 +396,19 @@ export default function ParentPlatformScreen() {
                   Locked library
                 </Text>
                 <Text className="text-lg font-clash text-app">
-                  Upgrade to unlock Parent education
+                  More parent education
                 </Text>
               </View>
             </View>
 
             <Text className="text-base font-outfit text-secondary leading-relaxed">
-              This library is locked for your current plan.
+              Some courses aren’t available for your account yet.
             </Text>
 
             <Text className="mt-3 text-base font-outfit text-secondary leading-relaxed">
               {parentPlatformUnlockPlans.length
-                ? `To unlock it, purchase ${formatPlanList(parentPlatformUnlockPlans)}.`
-                : "To unlock it, purchase an eligible plan."}
+                ? `Additional access may include: ${formatPlanList(parentPlatformUnlockPlans)}.`
+                : "Ask your coach if you need access."}
             </Text>
 
             <View className="mt-4 gap-3">

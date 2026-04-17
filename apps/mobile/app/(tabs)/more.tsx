@@ -18,7 +18,11 @@ import {
   updateProfile,
 } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
-import { canAccessTier, hasPaidProgramTier } from "@/lib/planAccess";
+import {
+  hasPhpProPlanFeatures,
+  hasPremiumPlanFeatures,
+  normalizeProgramTier,
+} from "@/lib/planAccess";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -38,21 +42,23 @@ function formatExperienceLabel(cfg: {
   return "Standard";
 }
 
-const isUnauthorizedError = (error: unknown) => {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "";
-  return message.startsWith("401 ") || message.startsWith("403 ");
-};
+function formatAccessTierLabel(tier: string | null | undefined): string {
+  const n = normalizeProgramTier(tier ?? null);
+  const labels: Record<string, string> = {
+    PHP: "PHP",
+    PHP_Premium: "Premium",
+    PHP_Premium_Plus: "Plus",
+    PHP_Pro: "Pro",
+  };
+  if (!n) return "Standard";
+  return labels[n] ?? n.replace(/_/g, " ");
+}
 
 export default function MoreScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated, token } = useAppSelector(
+  const { profile, isAuthenticated, token, programTier } = useAppSelector(
     (state) => state.user,
   );
   const {
@@ -62,11 +68,10 @@ export default function MoreScreen() {
   } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
-  const showParentPlatform = Boolean(
-    isAuthenticated,
-  );
-  const canUploadVideo = true;
-  const canAccessFoodDiary = true;
+  const showParentPlatform =
+    isAuthenticated && hasPremiumPlanFeatures(programTier);
+  const canAccessFoodDiary = hasPremiumPlanFeatures(programTier);
+  const showPhysioReferrals = hasPhpProPlanFeatures(programTier);
 
   const openParentPlatform = () => {
     router.push("/parent-platform");
@@ -279,7 +284,7 @@ export default function MoreScreen() {
                       Access
                     </Text>
                     <Text className="mt-2 text-lg font-clash text-app">
-                      Standard
+                      {formatAccessTierLabel(programTier)}
                     </Text>
                   </View>
                   <View
@@ -368,13 +373,15 @@ export default function MoreScreen() {
                       accentColor={colors.accent}
                     />
                   ) : null}
-                  <MenuItem
-                    icon="activity"
-                    label="Referrals"
-                    isLast={false}
-                    onPress={() => router.push("/physio-referral")}
-                    accentColor={colors.accent}
-                  />
+                  {showPhysioReferrals ? (
+                    <MenuItem
+                      icon="activity"
+                      label="Referrals"
+                      isLast={false}
+                      onPress={() => router.push("/physio-referral")}
+                      accentColor={colors.accent}
+                    />
+                  ) : null}
                   <MenuItem
                     icon="bell"
                     label="Notifications"

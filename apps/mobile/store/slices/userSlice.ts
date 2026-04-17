@@ -27,6 +27,16 @@ function normalizeManagedAthleteAge(age?: number | null) {
   return Math.max(MIN_YOUTH_DISPLAY_AGE, Math.trunc(age));
 }
 
+export type AppCapabilities = {
+  schedule: boolean;
+  messaging: boolean;
+  nutrition: boolean;
+  parentContent: boolean;
+  semiPrivateBooking: boolean;
+  coachVideoUpload: boolean;
+  physioReferrals: boolean;
+};
+
 interface UserState {
   isAuthenticated: boolean;
   token: string | null;
@@ -42,6 +52,8 @@ interface UserState {
   programTier: string | null;
   /** Tiers allowed for coach messaging; empty means “use defaults”. */
   messagingAccessTiers: string[];
+  /** Server-derived feature flags from `/auth/me`; null before first sync. */
+  capabilities: AppCapabilities | null;
   /** When acting as a youth athlete account (guardian), target user id. */
   athleteUserId: number | null;
   /** Onboarding questionnaire completion for the active athlete context. */
@@ -65,6 +77,7 @@ const initialState: UserState = {
   appRole: null,
   programTier: null,
   messagingAccessTiers: [],
+  capabilities: null,
   athleteUserId: null,
   onboardingCompleted: null,
 };
@@ -109,6 +122,9 @@ const userSlice = createSlice({
     setMessagingAccessTiers: (state, action: PayloadAction<string[]>) => {
       state.messagingAccessTiers = action.payload;
     },
+    setCapabilities: (state, action: PayloadAction<AppCapabilities | null>) => {
+      state.capabilities = action.payload;
+    },
     setAthleteUserId: (state, action: PayloadAction<number | null>) => {
       state.athleteUserId = action.payload;
     },
@@ -125,6 +141,7 @@ const userSlice = createSlice({
       state.appRole = null;
       state.programTier = null;
       state.messagingAccessTiers = [];
+      state.capabilities = null;
       state.athleteUserId = null;
       state.onboardingCompleted = null;
     },
@@ -141,6 +158,7 @@ export const {
   setHydrated,
   setProgramTier,
   setMessagingAccessTiers,
+  setCapabilities,
   setAthleteUserId,
   setOnboardingCompleted,
   logout,

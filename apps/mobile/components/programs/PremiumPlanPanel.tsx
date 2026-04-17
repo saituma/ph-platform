@@ -59,7 +59,7 @@ export function PremiumPlanPanel({
         setActiveWeek((prev) => (prev != null && weeks.includes(prev) ? prev : weeks[0]));
       }
     } catch (err: any) {
-      setError(err?.message ?? "Failed to load plan.");
+      setError(err?.message ?? "Failed to load training.");
       setItems([]);
     } finally {
       setIsLoading(false);
@@ -155,10 +155,10 @@ export function PremiumPlanPanel({
         <View className="flex-row items-center gap-2">
           <Feather name="star" size={16} color={colors.accent} />
           <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
-            Your Personalized Plan
+            Your training
           </Text>
         </View>
-        <Text className="text-xl font-clash text-app font-bold">This week&apos;s plan</Text>
+        <Text className="text-xl font-clash text-app font-bold">This week</Text>
         {weekStats.total > 0 && activeWeek != null && (
           <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
             <Text className="text-sm font-outfit text-app font-semibold">Week {activeWeek}: {weekStats.done}/{weekStats.total} exercises done</Text>

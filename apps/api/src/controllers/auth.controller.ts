@@ -12,11 +12,10 @@ import {
   updateUserRole,
   startForgotPasswordLocal,
 } from "../services/auth.service";
-import { updateUserProfile } from "../services/user.service";
 import { deleteOwnAccount } from "../services/account-deletion.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
 import { verifyAccessToken } from "../lib/jwt";
-import { getAthleteForUser } from "../services/user.service";
+import { getAthleteForUser, updateUserProfile } from "../services/user.service";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { buildAppCapabilities } from "../services/app-capabilities.service";
 
@@ -170,6 +169,8 @@ export async function getMe(req: Request, res: Response) {
     user: {
       ...user,
       programTier,
+      athleteType: athlete?.athleteType ?? null,
+      athleteName: athlete?.name ?? null,
       capabilities,
       messagingAccessTiers,
     },

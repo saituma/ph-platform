@@ -131,7 +131,7 @@ export default function HomeScreen() {
         ? "You're set up for a strong start today."
         : greeting === "Good afternoon"
           ? "Keep your momentum going and stay locked in."
-          : "Finish the day strong and stay connected to your plan.";
+          : "Finish the day strong and stay connected to your training.";
 
     return `${opening} Check your next steps, stay consistent, and keep building.`;
   }, [greeting]);
@@ -348,7 +348,7 @@ export default function HomeScreen() {
               >
                 {welcomeHeroState === "ready"
                   ? "Your latest home message is ready."
-                  : "Your plan is still here and ready even when content needs a moment."}
+                  : "Your training is still here and ready even when content needs a moment."}
               </Text>
             </View>
           </View>

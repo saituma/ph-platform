@@ -15,6 +15,10 @@ import {
   setManagedAthletes,
   setAppRole,
   setApiUserRole,
+  setProgramTier,
+  setMessagingAccessTiers,
+  setCapabilities,
+  type AppCapabilities,
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
@@ -241,11 +245,17 @@ export function AuthPersist() {
             email?: string | null;
             role?: string | null;
             profilePicture?: string | null;
+            programTier?: string | null;
+            messagingAccessTiers?: string[];
+            capabilities?: AppCapabilities | null;
           };
         }>("/auth/me", { token, suppressStatusCodes: [401, 403] });
         if (!active || !me.user) return;
         latestUserRole = me.user.role ?? null;
         dispatch(setApiUserRole(latestUserRole));
+        dispatch(setProgramTier(me.user.programTier ?? null));
+        dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
+        dispatch(setCapabilities(me.user.capabilities ?? null));
         dispatch(
           updateProfile({
             name: me.user.name ?? null,

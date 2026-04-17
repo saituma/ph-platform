@@ -11,7 +11,7 @@
     "lint": "eslint . --max-warnings=0",
     "dev": "nodemon src/index.ts",
     "start": "node dist/index.js",
-    "build": "tsc",
+    "build": "tsc --pretty false",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/scripts/run-migrations.ts",
     "db:migrate:smoke": "bash scripts/migration-smoke.sh",

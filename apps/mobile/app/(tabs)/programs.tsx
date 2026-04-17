@@ -1,29 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, ScrollView, RefreshControl } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import React, { useEffect, useMemo, useState } from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { useRouter } from "expo-router";
-import { Text } from "@/components/ScaledText";
+import { Redirect, useRouter } from "expo-router";
 import { AgeGate } from "@/components/AgeGate";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
-import { normalizeProgramTier } from "@/lib/planAccess";
-import { Shadows } from "@/constants/theme";
-import { PROGRAM_TIERS } from "@/constants/Programs";
+import { programDetailRouteIdFromTier } from "@/lib/planAccess";
 
 import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
-import { ProgramTierCard } from "@/components/programs/ProgramTierCard";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
 import { hasAssignedTeam } from "@/lib/teamMembership";
 
 export default function ProgramsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const { isSectionHidden } = useAgeExperience();
+  const programTier = useAppSelector((state) => state.user.programTier);
   const {
     token,
     profile,
@@ -48,7 +40,6 @@ export default function ProgramsScreen() {
     activeTab,
     setActiveTab,
     load: loadTeam,
-    isLoading: teamLoading,
   } = useTeamWorkspace(token, activeAthlete?.age ?? null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -64,16 +55,6 @@ export default function ProgramsScreen() {
     if (isTeamMode) await loadTeam(true);
     setIsRefreshing(false);
   };
-
-  const tiers = useMemo(
-    () =>
-      PROGRAM_TIERS.map((t) => ({
-        ...t,
-        icon: t.id === "php" ? "activity" : t.id === "plus" ? "layers" : "star",
-        popular: t.id === "plus",
-      })),
-    [],
-  );
 
   if (isSectionHidden("programs")) {
     return (
@@ -109,39 +90,6 @@ export default function ProgramsScreen() {
     );
   }
 
-  return (
-    <SafeAreaView
-      className="flex-1"
-      style={{ backgroundColor: colors.background }}
-    >
-      <ScrollView
-        contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-        }
-      >
-        <View className="mb-8">
-          <Text className="text-sm font-outfit text-accent font-bold uppercase tracking-widest">
-            Available Plans
-          </Text>
-          <Text className="text-4xl font-clash font-bold text-app mt-1">
-            Our Programs
-          </Text>
-          <Text className="text-sm font-outfit text-secondary mt-2">
-            Professional coaching and performance tracking.
-          </Text>
-        </View>
-
-        {tiers.map((tier) => {
-          return (
-            <ProgramTierCard
-              key={tier.id}
-              tier={tier}
-              onOpen={(id) => router.push(`/programs/${id}`)}
-            />
-          );
-        })}
-      </ScrollView>
-    </SafeAreaView>
-  );
+  const detailId = programDetailRouteIdFromTier(programTier);
+  return <Redirect href={`/programs/${detailId}`} />;
 }

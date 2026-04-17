@@ -1,6 +1,8 @@
+import { hasAssignedProgramTier } from "@/lib/planAccess";
+
 /**
  * Whether the user may use coach messaging (tab + socket acting).
- * When the API does not send access metadata, default to allowing messaging for signed-in users.
+ * Explicit API allow/deny lists override tier checks. Otherwise PHP Program (any assigned tier) includes messaging.
  */
 export function canUseCoachMessaging(
   programTier: string | null | undefined,
@@ -12,8 +14,5 @@ export function canUseCoachMessaging(
       return s.length > 0 && s !== "none" && s !== "off";
     });
   }
-  if (programTier != null && String(programTier).trim() !== "") {
-    return true;
-  }
-  return true;
+  return hasAssignedProgramTier(programTier);
 }

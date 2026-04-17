@@ -5,6 +5,7 @@ import { ChatMessage } from "@/constants/messages";
 import { MessageThread } from "@/types/messages";
 import { apiRequest } from "@/lib/api";
 import { parseReplyPrefix } from "@/lib/messages/reply";
+import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
   classifyGroupThread,
@@ -80,7 +81,7 @@ export function useChatActions({
           .map(mapGroupToThread);
 
         const selfId = String(effectiveProfileId ?? "");
-        const isPremium = programTier === "PHP_Premium";
+        const isPremium = hasPaidProgramTier(programTier);
         const coaches = data.coaches ?? (data.coach ? [data.coach] : []);
 
         const coachThreads = coaches

@@ -11,14 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OnboardingSuccessRouteImport } from './routes/onboarding/success'
 import { Route as OnboardingStep5RouteImport } from './routes/onboarding/step-5'
 import { Route as OnboardingStep4RouteImport } from './routes/onboarding/step-4'
 import { Route as OnboardingStep3RouteImport } from './routes/onboarding/step-3'
 import { Route as OnboardingStep2RouteImport } from './routes/onboarding/step-2'
 import { Route as OnboardingStep1RouteImport } from './routes/onboarding/step-1'
+import { Route as OnboardingDashboardRouteImport } from './routes/onboarding/dashboard'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const VerificationRoute = VerificationRouteImport.update({
@@ -29,6 +32,11 @@ const VerificationRoute = VerificationRouteImport.update({
 const TermsPrivacyRoute = TermsPrivacyRouteImport.update({
   id: '/terms-privacy',
   path: '/terms-privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EducationFaqRoute = EducationFaqRouteImport.update({
@@ -44,6 +52,11 @@ const AboutRoute = AboutRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingSuccessRoute = OnboardingSuccessRouteImport.update({
+  id: '/onboarding/success',
+  path: '/onboarding/success',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingStep5Route = OnboardingStep5RouteImport.update({
@@ -71,6 +84,11 @@ const OnboardingStep1Route = OnboardingStep1RouteImport.update({
   path: '/onboarding/step-1',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingDashboardRoute = OnboardingDashboardRouteImport.update({
+  id: '/onboarding/dashboard',
+  path: '/onboarding/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -81,26 +99,32 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/education-faq': typeof EducationFaqRoute
+  '/login': typeof LoginRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
+  '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
+  '/onboarding/success': typeof OnboardingSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/education-faq': typeof EducationFaqRoute
+  '/login': typeof LoginRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
+  '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
+  '/onboarding/success': typeof OnboardingSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -108,13 +132,16 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/education-faq': typeof EducationFaqRoute
+  '/login': typeof LoginRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
+  '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
+  '/onboarding/success': typeof OnboardingSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -123,39 +150,48 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/education-faq'
+    | '/login'
     | '/terms-privacy'
     | '/verification'
+    | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
     | '/onboarding/step-5'
+    | '/onboarding/success'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
     | '/education-faq'
+    | '/login'
     | '/terms-privacy'
     | '/verification'
+    | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
     | '/onboarding/step-5'
+    | '/onboarding/success'
     | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/education-faq'
+    | '/login'
     | '/terms-privacy'
     | '/verification'
+    | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
     | '/onboarding/step-5'
+    | '/onboarding/success'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -163,13 +199,16 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   EducationFaqRoute: typeof EducationFaqRoute
+  LoginRoute: typeof LoginRoute
   TermsPrivacyRoute: typeof TermsPrivacyRoute
   VerificationRoute: typeof VerificationRoute
+  OnboardingDashboardRoute: typeof OnboardingDashboardRoute
   OnboardingStep1Route: typeof OnboardingStep1Route
   OnboardingStep2Route: typeof OnboardingStep2Route
   OnboardingStep3Route: typeof OnboardingStep3Route
   OnboardingStep4Route: typeof OnboardingStep4Route
   OnboardingStep5Route: typeof OnboardingStep5Route
+  OnboardingSuccessRoute: typeof OnboardingSuccessRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -187,6 +226,13 @@ declare module '@tanstack/react-router' {
       path: '/terms-privacy'
       fullPath: '/terms-privacy'
       preLoaderRoute: typeof TermsPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/education-faq': {
@@ -208,6 +254,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/success': {
+      id: '/onboarding/success'
+      path: '/onboarding/success'
+      fullPath: '/onboarding/success'
+      preLoaderRoute: typeof OnboardingSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding/step-5': {
@@ -245,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingStep1RouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/dashboard': {
+      id: '/onboarding/dashboard'
+      path: '/onboarding/dashboard'
+      fullPath: '/onboarding/dashboard'
+      preLoaderRoute: typeof OnboardingDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -259,13 +319,16 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   EducationFaqRoute: EducationFaqRoute,
+  LoginRoute: LoginRoute,
   TermsPrivacyRoute: TermsPrivacyRoute,
   VerificationRoute: VerificationRoute,
+  OnboardingDashboardRoute: OnboardingDashboardRoute,
   OnboardingStep1Route: OnboardingStep1Route,
   OnboardingStep2Route: OnboardingStep2Route,
   OnboardingStep3Route: OnboardingStep3Route,
   OnboardingStep4Route: OnboardingStep4Route,
   OnboardingStep5Route: OnboardingStep5Route,
+  OnboardingSuccessRoute: OnboardingSuccessRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

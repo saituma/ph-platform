@@ -1,4 +1,14 @@
-import { canAccessTier, isPremium, normalizeProgramTier, programIdToTier, tierRank } from "@/lib/planAccess";
+import {
+  canAccessTier,
+  hasAssignedProgramTier,
+  hasPhpPlusPlanFeatures,
+  hasPhpProPlanFeatures,
+  hasPremiumPlanFeatures,
+  isPremium,
+  normalizeProgramTier,
+  programIdToTier,
+  tierRank,
+} from "@/lib/planAccess";
 
 describe("planAccess", () => {
   it("normalizes tier names", () => {
@@ -33,5 +43,16 @@ describe("planAccess", () => {
   it("detects premium", () => {
     expect(isPremium("PHP_Premium")).toBe(true);
     expect(isPremium("PHP_Premium_Plus")).toBe(false);
+  });
+
+  it("gates feature bundles by tier", () => {
+    expect(hasAssignedProgramTier(null)).toBe(false);
+    expect(hasAssignedProgramTier("PHP")).toBe(true);
+    expect(hasPremiumPlanFeatures("PHP")).toBe(false);
+    expect(hasPremiumPlanFeatures("PHP_Premium")).toBe(true);
+    expect(hasPhpPlusPlanFeatures("PHP_Premium")).toBe(false);
+    expect(hasPhpPlusPlanFeatures("PHP_Premium_Plus")).toBe(true);
+    expect(hasPhpProPlanFeatures("PHP_Premium_Plus")).toBe(false);
+    expect(hasPhpProPlanFeatures("PHP_Pro")).toBe(true);
   });
 });

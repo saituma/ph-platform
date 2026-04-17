@@ -93,8 +93,8 @@ export function AgeBasedTrainingPanel({
     if (module.lockedReason === "tier") {
       const available = formatUnlockTiers(module.unlockTiers);
       return available
-        ? `Locked for this plan. Purchase ${available}`
-        : "Locked for this plan.";
+        ? `Not available with your current access. Unlocks with: ${available}.`
+        : "Not available with your current access.";
     }
     return "Locked. Complete the previous sessions/modules to unlock this module.";
   };

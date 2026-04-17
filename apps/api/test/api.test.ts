@@ -115,6 +115,15 @@ jest.mock("../src/services/user.service", () => ({
   getAthleteForUser: jest.fn(async () => ({ id: 1, guardianId: 1, currentProgramTier: "PHP_Premium" })),
 }));
 
+jest.mock("../src/services/messaging-policy.service", () => ({
+  getMessagingAccessTiers: jest.fn(async () => [
+    "PHP",
+    "PHP_Premium",
+    "PHP_Premium_Plus",
+    "PHP_Pro",
+  ]),
+}));
+
 jest.mock("../src/services/booking.service", () => ({
   listServiceTypes: jest.fn(async () => []),
   createServiceType: jest.fn(async () => ({ id: 1 })),
@@ -281,6 +290,9 @@ describe("API routes", () => {
     const res = await request(app).get("/api/auth/me");
     expect(res.status).toBe(200);
     expect(res.body.user.email).toBe("test@example.com");
+    expect(res.body.user.programTier).toBe("PHP_Premium");
+    expect(res.body.user.capabilities?.nutrition).toBe(true);
+    expect(Array.isArray(res.body.user.messagingAccessTiers)).toBe(true);
   });
 
   it("POST /api/auth/change-password", async () => {

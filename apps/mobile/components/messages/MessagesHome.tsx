@@ -7,7 +7,6 @@ import {
   useActiveTabIndex,
 } from "@/context/ActiveTabContext";
 import { apiRequest } from "@/lib/api";
-import { hasPaidProgramTier } from "@/lib/planAccess";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,7 +64,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   /** Pager swipe does not always update URL; pathname alone can miss the messages tab. */
   const isMessagesSurface = isOnMessagesTab || isMessagesRoute;
   const canMessage = true;
-  const paidPlan = true;
   const isYouthAthleteRole =
     appRole === "youth_athlete_guardian_only" ||
     appRole === "youth_athlete_team_guardian";
@@ -88,7 +86,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   }, [athleteUserId, managedAthletes]);
   const focusName = activeAthlete?.name || profile?.name || "Athlete";
   const heroSubtitle = isYouthAthleteRole
-    ? `Stay connected with your coach and keep ${focusName}'s plan on track.`
+    ? `Stay connected with your coach and keep ${focusName}'s training on track.`
     : mode === "team"
       ? "Team chat, groups, and announcements — in one place."
       : "Cleaner chat, faster replies, and a calmer mobile flow.";

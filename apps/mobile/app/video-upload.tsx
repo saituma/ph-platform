@@ -3,7 +3,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
-import { canAccessTier } from "@/lib/planAccess";
+import { hasPhpPlusPlanFeatures } from "@/lib/planAccess";
 import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
@@ -28,6 +28,8 @@ export default function VideoUploadScreen() {
       : null;
   const refreshToken = params.refreshToken ? Number(params.refreshToken) : 0;
   const { colors, isDark } = useAppTheme();
+  const programTier = useAppSelector((state) => state.user.programTier);
+  const canUploadForCoach = hasPhpPlusPlanFeatures(programTier);
 
   // This screen is used as a contextual upload surface (e.g. from a session/exercise),
   // not as a global "inbox" of videos from the More tab.
@@ -73,18 +75,53 @@ export default function VideoUploadScreen() {
           </View>
           </SafeAreaView>
           );
-          }
+  }
 
-          return (
-          <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-          <MoreStackHeader
-          title={sectionTitle ? "Section Video Upload" : "Video Upload"}
-          subtitle={
+  if (!canUploadForCoach) {
+    return (
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <MoreStackHeader
+          title="Video upload"
+          subtitle="Coach video reviews from session detail."
+        />
+        <View className="flex-1 items-center justify-center px-8 pb-12">
+          <View
+            className="w-full max-w-[360px] overflow-hidden rounded-[32px] border px-6 py-8"
+            style={{
+              backgroundColor: colors.cardElevated,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            <Text className="text-2xl font-telma-bold font-bold text-app text-center mb-3">
+              Upload not available
+            </Text>
+            <Text className="text-[15px] font-outfit text-center text-secondary leading-relaxed mb-6">
+              Video upload for coach feedback isn’t enabled for your account.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.replace("/(tabs)/programs")}
+              className="w-full bg-accent py-4 rounded-2xl active:opacity-90"
+              style={isDark ? Shadows.none : Shadows.md}
+            >
+              <Text className="text-white font-bold text-base text-center">Open training</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      <MoreStackHeader
+        title={sectionTitle ? "Section Video Upload" : "Video Upload"}
+        subtitle={
           sectionTitle
             ? `Upload a focused clip for ${sectionTitle}.`
             : "Drop in your best reps, movement clips, or match footage for faster coach review."
-          }
-          />
+        }
+      />
       <ThemedScrollView
         contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 32 }}
       >

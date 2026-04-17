@@ -64,3 +64,34 @@ export function hasPaidProgramTier(tier?: string | null): boolean {
   if (!n) return false;
   return tierRank(n) >= tierRank("PHP_Premium");
 }
+
+/** Any assigned ladder tier (PHP Program through PHP Pro). */
+export function hasAssignedProgramTier(tier?: string | null): boolean {
+  return normalizeProgramTier(tier ?? null) != null;
+}
+
+/** PHP Premium+ — nutrition, parent platform, expanded coach messaging treatment. */
+export function hasPremiumPlanFeatures(tier?: string | null): boolean {
+  return canAccessTier(tier ?? null, "PHP_Premium");
+}
+
+/** PHP Plus / Pro — semi-private booking type & session video upload for coach review. */
+export function hasPhpPlusPlanFeatures(tier?: string | null): boolean {
+  return canAccessTier(tier ?? null, "PHP_Premium_Plus");
+}
+
+/** PHP Pro — full tier (e.g. physio referrals in-app). */
+export function hasPhpProPlanFeatures(tier?: string | null): boolean {
+  return canAccessTier(tier ?? null, "PHP_Pro");
+}
+
+export type ProgramDetailRouteId = "php" | "plus" | "premium" | "pro";
+
+/** Route segment for `/programs/[id]` from the user’s assigned program tier. */
+export function programDetailRouteIdFromTier(tier?: string | null): ProgramDetailRouteId {
+  const n = normalizeProgramTier(tier ?? null);
+  if (n === "PHP_Premium") return "premium";
+  if (n === "PHP_Premium_Plus") return "plus";
+  if (n === "PHP_Pro") return "pro";
+  return "php";
+}
