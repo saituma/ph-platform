@@ -153,8 +153,7 @@ function OnboardingStep2() {
 				}.`,
 			});
 
-			// Navigate to Step 3 when ready
-			// navigate({ to: "/onboarding/step-3" });
+			navigate({ to: "/onboarding/step-3" });
 		} catch (error: any) {
 			toast.error("Error", {
 				description: error.message || "An unexpected error occurred.",
