@@ -865,6 +865,8 @@ export const subscriptionRequestTable = pgTable("subscription_requests", {
   userId: integer().notNull().references(() => userTable.id),
   athleteId: integer().notNull().references(() => athleteTable.id),
   planId: integer().notNull().references(() => subscriptionPlanTable.id),
+  /** monthly | six_months | yearly — how the athlete chose to pay (Stripe lookup + checkout mode). */
+  planBillingCycle: varchar({ length: 20 }),
   stripeSessionId: varchar({ length: 255 }),
   paymentStatus: varchar({ length: 100 }),
   status: subscriptionStatus().notNull().default("pending_payment"),

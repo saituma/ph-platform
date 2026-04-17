@@ -53,8 +53,8 @@ export function useAdminServices(token: string | null, canLoad: boolean) {
     if (!canLoad || !token) return;
     const name = params.name.trim();
     const type = params.type.trim();
-    const durationMinutes = parseIntOrUndefined(params.durationMinutes);
-    const capacity = parseIntOrUndefined(params.capacity);
+    const durationMinutes = parseIntOrUndefined(params.durationMinutes ?? "");
+    const capacity = parseIntOrUndefined(params.capacity ?? "");
     const isActive = params.isActive !== false;
 
     if (!name) throw new Error("Name is required");

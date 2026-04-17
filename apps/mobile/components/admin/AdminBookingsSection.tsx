@@ -3,7 +3,7 @@ import { View, TouchableOpacity, ActivityIndicator, TextInput, ScrollView, Modal
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { ServiceType } from "@/types/admin";
+import { ServiceType, type AdminBooking } from "@/types/admin";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
@@ -13,6 +13,12 @@ import { useAdminBookingsController } from "../../hooks/admin/controllers/useAdm
 import { BookingListItem } from "./bookings/BookingListItem";
 import { CreateBookingModal } from "./bookings/CreateBookingModal";
 import { BookingDetailModal } from "./bookings/BookingDetailModal";
+function bookingStartMs(b: AdminBooking): number {
+  const s = b.startsAt;
+  if (!s) return 0;
+  const t = new Date(s).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
 
 interface Props {
   token: string | null;
@@ -53,13 +59,23 @@ export function AdminBookingsSection({
   }, [bookingsHook.bookings, selectedService, selectedType]);
 
   const upcomingBookings = useMemo(() => {
-    const now = new Date();
-    return filteredBookings.filter(b => new Date(b.startsAt) >= now).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    const now = Date.now();
+    return filteredBookings
+      .filter((b) => {
+        const ms = bookingStartMs(b);
+        return ms > 0 && ms >= now;
+      })
+      .sort((a, b) => bookingStartMs(a) - bookingStartMs(b));
   }, [filteredBookings]);
 
   const pastBookings = useMemo(() => {
-    const now = new Date();
-    return filteredBookings.filter(b => new Date(b.startsAt) < now).sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+    const now = Date.now();
+    return filteredBookings
+      .filter((b) => {
+        const ms = bookingStartMs(b);
+        return ms > 0 && ms < now;
+      })
+      .sort((a, b) => bookingStartMs(b) - bookingStartMs(a));
   }, [filteredBookings]);
 
   return (
@@ -160,7 +176,13 @@ export function AdminBookingsSection({
               <View className="flex-1">
                 <Text className="font-outfit-bold text-app" numberOfLines={1}>{b.serviceName}</Text>
                 <Text className="text-xs font-outfit text-textSecondary mt-0.5">
-                  {b.athleteName} • {new Date(b.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {b.athleteName} •{" "}
+                  {b.startsAt
+                    ? new Date(b.startsAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
                 </Text>
               </View>
               <View className="h-8 px-4 rounded-lg bg-secondary/10 items-center justify-center">

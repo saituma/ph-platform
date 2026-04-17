@@ -120,7 +120,7 @@ const PHQuickActionsWidget = () => {
         <View style={{ alignItems: 'center', gap: 6 }}>
           <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#1A1A1C', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="restaurant" size={20} color="#00FF87" />
-          </Text>
+          </View>
           <Text style={{ color: '#F2F6F2', fontSize: 10, fontWeight: '600' }}>Log Food</Text>
         </View>
       </View>
@@ -129,7 +129,7 @@ const PHQuickActionsWidget = () => {
 };
 
 // This task runs whenever the widget needs to refresh
-const widgetTask: WidgetTask = async (props) => {
+const widgetTask: WidgetTask = async (_props: Record<string, unknown>) => {
   return {
     nextSession: "Strength & Power",
     time: "4:00 PM",

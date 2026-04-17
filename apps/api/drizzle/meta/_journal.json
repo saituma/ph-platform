@@ -568,6 +568,20 @@
       "when": 1776500000000,
       "tag": "0080_better_auth_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1776600000000,
+      "tag": "0081_subscription_plans_tier_hygiene",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1776700000000,
+      "tag": "0082_subscription_requests_plan_billing_cycle",
+      "breakpoints": true
     }
   ]
 }

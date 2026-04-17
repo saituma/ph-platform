@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/api";
 import { useCallback, useState } from "react";
 
 export type AdminPhysioReferralMetadata = {
+  assignmentMode?: string | null;
   referralType?: string | null;
   providerName?: string | null;
   organizationName?: string | null;

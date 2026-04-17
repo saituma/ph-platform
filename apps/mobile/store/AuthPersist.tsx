@@ -10,8 +10,6 @@ import {
 import {
   setCredentials,
   logout,
-  setOnboardingCompleted,
-  setAthleteUserId,
   setHydrated,
   updateProfile,
   setManagedAthletes,
@@ -218,7 +216,7 @@ export function AuthPersist() {
     let latestUserRole: string | null = null;
     let latestOnboardingAthlete: {
       onboardingCompleted?: boolean;
-      userId?: number;
+      userId?: number | null;
       athleteType?: "youth" | "adult" | null;
       team?: string | null;
     } | null = null;
@@ -268,13 +266,13 @@ export function AuthPersist() {
             userId?: number | null;
             name?: string | null;
             age?: number | null;
-            athleteType?: \"youth\" | \"adult\" | null;
+            athleteType?: "youth" | "adult" | null;
             team?: string | null;
             level?: string | null;
             trainingPerWeek?: number | null;
             profilePicture?: string | null;
           }[];
-        }>(\"/onboarding/athletes\", {
+        }>("/onboarding/athletes", {
           token,
           suppressStatusCodes: [401, 403, 404],
         });

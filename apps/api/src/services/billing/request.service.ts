@@ -14,8 +14,11 @@ import {
   getSuccessUrl,
   getCancelUrl,
   ensureStripePriceId,
+  ensureAthleteCheckoutPriceId,
+  checkoutModeForBillingCycle,
+  type AthleteBillingCycle,
 } from "./stripe.service";
-import { computePlanPeriodEnd } from "./plan.service";
+import { computePlanPeriodEnd, computeAthleteAccessEnd } from "./plan.service";
 import { sendPushNotification } from "../push.service";
 import {
   notifySubscriptionEnteredPendingApproval,
@@ -34,7 +37,9 @@ export async function createCheckoutSession(input: {
   userEmail: string;
   athleteId: number;
   planId: number;
+  /** @deprecated use billingCycle */
   interval?: "monthly" | "yearly";
+  billingCycle?: AthleteBillingCycle;
 }) {
   const plans = await db
     .select()
@@ -45,10 +50,12 @@ export async function createCheckoutSession(input: {
   if (!plan || !plan.isActive) {
     throw new Error("Plan not available");
   }
-  const priceId = ensureStripePriceId(plan, input.interval);
+
+  const billingCycle: AthleteBillingCycle = input.billingCycle ?? "monthly";
+  const priceId = await ensureAthleteCheckoutPriceId(plan, billingCycle);
+  const mode = checkoutModeForBillingCycle(billingCycle);
 
   const stripeClient = getStripeClient();
-  const mode = plan.billingInterval === "one_time" ? "payment" : "subscription";
   const session = await stripeClient.checkout.sessions.create({
     mode,
     line_items: [{ price: priceId, quantity: 1 }],
@@ -59,6 +66,7 @@ export async function createCheckoutSession(input: {
       planId: String(plan.id),
       userId: String(input.userId),
       athleteId: String(input.athleteId),
+      planBillingCycle: billingCycle,
     },
     client_reference_id: `${input.userId}:${input.athleteId}:${plan.id}`,
   });
@@ -69,6 +77,7 @@ export async function createCheckoutSession(input: {
       userId: input.userId,
       athleteId: input.athleteId,
       planId: plan.id,
+      planBillingCycle: billingCycle,
       stripeSessionId: session.id,
       paymentStatus: session.payment_status ?? "unpaid",
       status: "pending_payment",
@@ -339,6 +348,7 @@ export async function getLatestSubscriptionRequest(input: { userId: number; athl
       paymentStatus: subscriptionRequestTable.paymentStatus,
       stripeSessionId: subscriptionRequestTable.stripeSessionId,
       createdAt: subscriptionRequestTable.createdAt,
+      planBillingCycle: subscriptionRequestTable.planBillingCycle,
       planId: subscriptionPlanTable.id,
       planName: subscriptionPlanTable.name,
       planTier: subscriptionPlanTable.tier,
@@ -379,6 +389,7 @@ export async function approveSubscriptionRequest(requestId: number) {
         athleteId: subscriptionRequestTable.athleteId,
         planTier: subscriptionPlanTable.tier,
         billingInterval: subscriptionPlanTable.billingInterval,
+        planBillingCycle: subscriptionRequestTable.planBillingCycle,
         guardianId: athleteTable.guardianId,
       })
       .from(subscriptionRequestTable)
@@ -392,13 +403,29 @@ export async function approveSubscriptionRequest(requestId: number) {
       return { row: null as null, planApprovedEmail: null as null };
     }
 
-    const planExpiresAt = computePlanPeriodEnd(request.billingInterval, new Date());
-    const tierPayload = {
+    const cycle = request.planBillingCycle as AthleteBillingCycle | null;
+    const planExpiresAt = cycle
+      ? computeAthleteAccessEnd(cycle, new Date())
+      : computePlanPeriodEnd(request.billingInterval, new Date());
+
+    const tierPayload: {
+      currentProgramTier: typeof request.planTier;
+      planExpiresAt: Date | null;
+      planRenewalReminderSentAt: null;
+      planPaymentType?: "monthly" | "upfront";
+      planCommitmentMonths?: number | null;
+      updatedAt: Date;
+    } = {
       currentProgramTier: request.planTier,
       planExpiresAt,
-      planRenewalReminderSentAt: null as null,
+      planRenewalReminderSentAt: null,
       updatedAt: new Date(),
     };
+
+    if (cycle) {
+      tierPayload.planPaymentType = cycle === "monthly" ? "monthly" : "upfront";
+      tierPayload.planCommitmentMonths = cycle === "monthly" ? 1 : cycle === "six_months" ? 6 : 12;
+    }
 
     if (request.guardianId) {
       await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.guardianId, request.guardianId));
