@@ -85,18 +85,14 @@ function OnboardingStep2() {
 			let body = {};
 
 			if (userType === "youth") {
-				const ageNum = Number(formData.age);
-				if (!formData.guardianName || !formData.athleteName || !formData.age) {
+				if (!formData.guardianName || !formData.athleteName || !birthDate) {
 					throw new Error("Please fill in all fields");
-				}
-				if (isNaN(ageNum) || ageNum < 5 || ageNum > 18) {
-					throw new Error("Youth athletes must be between 5 and 18 years old.");
 				}
 				endpoint = "/api/onboarding/youth-basic";
 				body = {
 					guardianName: formData.guardianName,
 					athleteName: formData.athleteName,
-					age: ageNum,
+					birthDate: format(birthDate, "yyyy-MM-dd"),
 				};
 			} else if (userType === "adult") {
 				if (!formData.name || !birthDate) {
@@ -236,22 +232,18 @@ function OnboardingStep2() {
 
 									<div className="space-y-2">
 										<label
-											htmlFor="age"
+											htmlFor="birthDate"
 											className="text-sm font-bold text-foreground flex items-center gap-2"
 										>
 											<CalendarIcon size={18} className="text-primary" />
-											Athlete's Age
+											Athlete's Birth Date
 										</label>
-										<Input
-											id="age"
-											type="number"
-											min="5"
-											max="18"
-											placeholder="Enter athlete's age (5-18)"
-											value={formData.age}
-											onChange={(e) => handleInputChange("age", e.target.value)}
-											required
-											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+										<DatePicker
+											date={birthDate}
+											setDate={setBirthDate}
+											placeholder="Select athlete's birth date"
+											fromYear={new Date().getFullYear() - 18}
+											toYear={new Date().getFullYear() - 5}
 										/>
 									</div>
 								</>
