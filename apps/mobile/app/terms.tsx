@@ -36,7 +36,7 @@ export default function TermsScreen() {
         "The app is designed for athletes and their guardians. Guardians are responsible for the management of minor accounts and all coaching bookings.",
         "",
         "3. Coaching & Subscriptions",
-        "Subscriptions provide access to specific training tiers (PHP, Plus, Premium). Features and availability may vary based on your selected plan.",
+        "Subscriptions provide access to specific training tiers (PHP, Plus, Premium). Features and availability may vary based on your tier.",
         "",
         "4. Safety & Liability",
         "Physical training involves inherent risks. Users must ensure they are in proper physical condition before proceeding with any training program provided.",

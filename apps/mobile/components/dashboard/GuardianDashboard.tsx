@@ -84,7 +84,7 @@ export function GuardianDashboard() {
           style={{ borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)" }}
         >
           <View>
-            <Text className="text-xs font-outfit text-secondary">Active Plan</Text>
+            <Text className="text-xs font-outfit text-secondary">Access</Text>
             <Text className="text-sm font-outfit font-bold text-app mt-0.5">
               {programTier?.replace("PHP_", "") || "Free Starter"}
             </Text>

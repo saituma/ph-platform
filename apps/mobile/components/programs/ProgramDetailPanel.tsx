@@ -187,12 +187,12 @@ function ProgramDetailPanelBase({
           />
         </View>
         <Text className="text-2xl font-clash font-bold text-app">
-          {isPendingApproval ? "Approval Pending" : "Plan Locked"}
+          {isPendingApproval ? "Approval Pending" : "Access locked"}
         </Text>
         <Text className="text-sm font-outfit text-secondary leading-relaxed">
           {isPendingApproval
-            ? "Coach will review your plan shortly."
-            : `Your current plan doesn't include ${PROGRAM_TITLES[programId]}.`}
+            ? "Coach will review your enrollment shortly."
+            : `Your current access doesn’t include ${PROGRAM_TITLES[programId]}.`}
         </Text>
         {onNavigate && (
           <Pressable
@@ -200,7 +200,7 @@ function ProgramDetailPanelBase({
             className="mt-2 rounded-full bg-accent py-4 items-center"
           >
             <Text className="text-sm font-outfit text-white font-bold uppercase">
-              View Plans
+              View training
             </Text>
           </Pressable>
         )}

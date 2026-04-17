@@ -287,23 +287,23 @@ export default function AthleteStatsScreen() {
               Athlete Stats
             </Text>
             <Text className="text-base font-outfit text-secondary leading-relaxed">
-              This dashboard is locked for your current plan.
+              This dashboard isn’t available for your account yet.
             </Text>
           </View>
           <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
             <View className="flex-row items-center gap-2 mb-2">
               <Feather name="lock" size={16} className="text-secondary" />
               <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
-                Premium Only
+                Expanded access
               </Text>
             </View>
             <Text className="text-lg font-clash text-app mb-2">
-              Unlock athlete analytics
+              Athlete analytics
             </Text>
             <Text className="text-base font-outfit text-secondary leading-relaxed">
               {unlockingPlans.length
-                ? `To unlock it, purchase ${formatPlanList(unlockingPlans)}.`
-                : "To unlock it, purchase an eligible plan."}
+                ? `May be available with: ${formatPlanList(unlockingPlans)}.`
+                : "Ask your coach if you need access."}
             </Text>
           </View>
         </ThemedScrollView>

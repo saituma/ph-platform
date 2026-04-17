@@ -109,8 +109,8 @@ export default function ProgramModuleDetailScreen() {
     if (item.lockedReason === "tier") {
       const available = formatUnlockTiers(item.unlockTiers);
       return available
-        ? `Locked for this plan. Purchase ${available}`
-        : "Locked for this plan.";
+        ? `Not available with your current access. Unlocks with: ${available}.`
+        : "Not available with your current access.";
     }
     return "Complete the previous modules/sessions to unlock this module.";
   };
@@ -119,8 +119,8 @@ export default function ProgramModuleDetailScreen() {
     if (item.lockedReason === "tier") {
       const available = formatUnlockTiers(item.unlockTiers);
       return available
-        ? `Locked for this plan. Purchase ${available}`
-        : "Locked for this plan.";
+        ? `Not available with your current access. Unlocks with: ${available}.`
+        : "Not available with your current access.";
     }
     return "Finish the previous session(s) to unlock this one.";
   };

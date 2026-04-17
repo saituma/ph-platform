@@ -143,7 +143,7 @@ export function BookingModal({
     if (selectedService.isLocked) {
       setBookingError(
         selectedService.lockReason ||
-          "This session type is locked for your plan.",
+          "This session type isn’t available for your account.",
       );
       return;
     }
@@ -238,8 +238,7 @@ export function BookingModal({
                 }}
               >
                 <Text className="text-xs font-outfit text-app leading-5">
-                  Pick a service, date, and time below. Sending a request needs
-                  an approved paid plan (PHP, Plus, or Premium).
+                  Pick a service, date, and time below. Booking requests need the right access level for your account.
                 </Text>
                 <Pressable
                   onPress={() => {
@@ -252,7 +251,7 @@ export function BookingModal({
                     className="text-xs font-outfit font-semibold"
                     style={{ color: colors.accent }}
                   >
-                    View programs & plans →
+                    Open training →
                   </Text>
                 </Pressable>
               </View>
@@ -382,7 +381,7 @@ export function BookingModal({
                   >
                     <Text className="text-xs font-outfit text-app leading-5">
                       {selectedService.lockReason ||
-                        "This session type is locked for your current plan."}
+                        "This session type isn’t available for your account."}
                     </Text>
                     <Pressable
                       onPress={() => {
@@ -395,7 +394,7 @@ export function BookingModal({
                         className="text-xs font-outfit font-semibold"
                         style={{ color: colors.accent }}
                       >
-                        View programs & plans →
+                        Open training →
                       </Text>
                     </Pressable>
                   </View>
@@ -551,7 +550,7 @@ export function BookingModal({
                         : isSlotFull
                           ? "Slot Full"
                           : !canCreateBookings
-                            ? "Plan required to book"
+                            ? "Access required"
                             : "Send request"}
                   </Text>
                 </Pressable>

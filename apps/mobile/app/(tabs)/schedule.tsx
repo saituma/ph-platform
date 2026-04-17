@@ -1,6 +1,9 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { hasPaidProgramTier } from "@/lib/planAccess";
+import {
+  hasAssignedProgramTier,
+  hasPhpPlusPlanFeatures,
+} from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
@@ -23,7 +26,8 @@ export default function ScheduleScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
-  const canCreateBookings = hasPaidProgramTier(programTier);
+  const canUseSchedule = hasAssignedProgramTier(programTier);
+  const canCreateBookings = canUseSchedule;
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useSafeIsFocused(true);
   const insets = useSafeAreaInsets();
@@ -44,6 +48,13 @@ export default function ScheduleScreen() {
     refreshEvents,
     refreshServices,
   } = useScheduleData(token, isFocused);
+
+  const bookingServices = useMemo(() => {
+    if (hasPhpPlusPlanFeatures(programTier)) return services;
+    return services.filter(
+      (s) => String(s.type).toLowerCase() !== "semi_private",
+    );
+  }, [services, programTier]);
 
   const availabilityWindow = useMemo(() => {
     const year = calendarMonth.getFullYear();
@@ -165,16 +176,16 @@ export default function ScheduleScreen() {
     return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
   }
 
-  if (!hasPaidProgramTier(programTier)) {
+  if (!canUseSchedule) {
     return (
       <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.background }}>
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-2xl font-clash font-bold text-app text-center mb-3">Schedule</Text>
           <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
-            Choose a training plan in the Programs tab to book sessions and manage your schedule.
+            Use the Programs tab to book sessions and manage your schedule.
           </Text>
           <Pressable onPress={() => router.push("/(tabs)/programs")} className="mt-8 rounded-full px-8 py-3 bg-accent">
-            <Text className="text-sm font-outfit font-semibold text-white">Open Programs</Text>
+            <Text className="text-sm font-outfit font-semibold text-white">Open training</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -215,7 +226,7 @@ export default function ScheduleScreen() {
         visible={bookingOpen}
         onClose={() => setBookingOpen(false)}
         token={token}
-        services={services}
+        services={bookingServices}
         servicesLoading={servicesLoading}
         servicesError={servicesError}
         canCreateBookings={canCreateBookings}

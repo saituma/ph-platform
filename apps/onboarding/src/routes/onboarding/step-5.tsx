@@ -45,21 +45,73 @@ const BILLING_OPTIONS: {
 ];
 
 /** Order matches API tier ladder (see billing downgradePlan). */
-const TIER_METADATA: Record<string, { cardTitle: string; tierLine: string; icon: any; order: number }> = {
-	PHP: { cardTitle: "Foundation", tierLine: "Entry program", icon: TrendUp, order: 1 },
-	PHP_Premium: { cardTitle: "Premium", tierLine: "PHP Premium", icon: Trophy, order: 2 },
-	PHP_Premium_Plus: { cardTitle: "Plus", tierLine: "PHP Premium Plus", icon: Crown, order: 3 },
-	PHP_Pro: { cardTitle: "PHP Pro", tierLine: "Top tier coaching", icon: Star, order: 4 },
+const TIER_METADATA: Record<
+	string,
+	{ cardTitle: string; tierLine: string; icon: any; order: number; features: string[] }
+> = {
+	PHP: {
+		cardTitle: "PHP Program",
+		tierLine: "Core athlete access",
+		icon: TrendUp,
+		order: 1,
+		features: [
+			"Coach module access",
+			"Messaging features",
+			"Schedule & calendar",
+		],
+	},
+	PHP_Premium: {
+		cardTitle: "PHP Premium",
+		tierLine: "Program + family tools",
+		icon: Trophy,
+		order: 2,
+		features: [
+			"Coach module access",
+			"Messaging features",
+			"Schedule & calendar",
+			"Nutrition logging",
+			"Parent platform",
+		],
+	},
+	PHP_Premium_Plus: {
+		cardTitle: "PHP Plus",
+		tierLine: "Groups & video feedback",
+		icon: Crown,
+		order: 3,
+		features: [
+			"Coach module access",
+			"Messaging features",
+			"Schedule & calendar",
+			"Nutrition logging",
+			"Parent platform",
+			"Includes semi-private sessions (small group coaching)",
+			"Video upload for coach response",
+		],
+	},
+	PHP_Pro: {
+		cardTitle: "PHP Pro",
+		tierLine: "Full access to everything",
+		icon: Star,
+		order: 4,
+		features: [
+			"Everything in PHP Plus — coach module, messaging, schedule",
+			"Nutrition logging & parent platform",
+			"Semi-private sessions (small group coaching)",
+			"Video upload for coach response",
+			"Full programs library & progress tracking",
+			"Bookings, physio referrals & parent education",
+			"Priority messaging & faster coach turnaround",
+			"Advanced periodization & competition windows",
+			"1:1 review blocks & bespoke progression",
+			"Highest-touch pathway — unlock all app areas",
+		],
+	},
 };
 
-/** Legacy DB labels from migration 0051 — prefer structured card titles. */
-const LEGACY_NAMES = /^php program$/i;
-
-function planCardTitle(plan: { name?: string | null; tier: string }) {
+function planCardTitle(plan: { tier: string }) {
 	const meta = TIER_METADATA[plan.tier];
-	const raw = String(plan.name ?? "").trim();
-	if (raw && !LEGACY_NAMES.test(raw)) return raw;
-	return meta?.cardTitle ?? raw || plan.tier;
+	if (meta?.cardTitle) return meta.cardTitle;
+	return plan.tier;
 }
 
 function formatTierLine(tier: string) {
@@ -264,9 +316,20 @@ function OnboardingStep5() {
 							tierLine: plan.tier,
 							icon: TrendUp,
 							order: 99,
+							features: [
+								"Elite Training Protocols",
+								"Mobile App Access",
+								"Progress Tracking",
+								"Coach Support",
+							],
 						};
 						const Icon = meta.icon;
 						const title = planCardTitle(plan);
+						const featureList =
+							TIER_METADATA[plan.tier]?.features ??
+							(Array.isArray(plan.features) && plan.features.length > 0
+								? plan.features
+								: meta.features);
 
 						return (
 							<Card
@@ -310,21 +373,14 @@ function OnboardingStep5() {
 									</div>
 
 									<div className="space-y-4 flex-1">
-										{(plan.features || [
-											"Elite Training Protocols",
-											"Mobile App Access",
-											"Progress Tracking",
-											"Coach Support",
-										])
-											.slice(0, 5)
-											.map((feature: string, i: number) => (
-												<div key={i} className="flex items-start gap-3">
-													<Check size={14} weight="bold" className="text-primary mt-0.5 shrink-0" />
-													<span className="text-[13px] font-bold text-foreground/80 leading-tight">
-														{feature}
-													</span>
-												</div>
-											))}
+										{featureList.map((feature: string, i: number) => (
+											<div key={i} className="flex items-start gap-3">
+												<Check size={14} weight="bold" className="text-primary mt-0.5 shrink-0" />
+												<span className="text-[13px] font-bold text-foreground/80 leading-tight">
+													{feature}
+												</span>
+											</div>
+										))}
 									</div>
 								</div>
 							</Card>

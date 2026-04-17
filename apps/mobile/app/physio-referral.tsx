@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
+import { hasPhpProPlanFeatures } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import { useSocket } from "@/context/SocketContext";
 
@@ -33,7 +34,8 @@ type ReferralData = {
 
 export default function PhysioReferralScreen() {
   const router = useRouter();
-  const { token } = useAppSelector((state) => state.user);
+  const { token, programTier } = useAppSelector((state) => state.user);
+  const hasProReferrals = hasPhpProPlanFeatures(programTier);
   const { socket } = useSocket();
   const [loading, setLoading] = useState(true);
   const [referral, setReferral] = useState<ReferralData | null>(null);
@@ -54,11 +56,12 @@ export default function PhysioReferralScreen() {
   }, [token]);
 
   useEffect(() => {
+    if (!hasProReferrals || !token) return;
     void loadReferral();
-  }, [loadReferral]);
+  }, [hasProReferrals, token, loadReferral]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !hasProReferrals) return;
 
     const handleReferralChange = () => {
       void loadReferral();
@@ -71,7 +74,31 @@ export default function PhysioReferralScreen() {
       socket.off("physio:referral:updated", handleReferralChange);
       socket.off("physio:referral:deleted", handleReferralChange);
     };
-  }, [loadReferral, socket]);
+  }, [hasProReferrals, loadReferral, socket]);
+
+  if (!hasProReferrals) {
+    return (
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <MoreStackHeader
+          title="Referrals"
+          subtitle="Physio and partner referrals from your coach."
+          onBack={() => router.back()}
+        />
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="text-2xl font-clash font-bold text-app text-center mb-3">Referrals</Text>
+          <Text className="text-base font-outfit text-secondary text-center max-w-[300px]">
+            This area isn’t available for your account yet.
+          </Text>
+          <Pressable
+            onPress={() => router.push("/(tabs)/programs")}
+            className="mt-8 rounded-full px-8 py-3 bg-[#2F8F57]"
+          >
+            <Text className="text-sm font-outfit font-semibold text-white">Open training</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const meta = referral?.metadata ?? {};
   const hasMeta = !!(

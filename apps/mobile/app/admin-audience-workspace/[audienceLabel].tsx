@@ -451,7 +451,7 @@ export default function AdminAudienceWorkspaceScreen() {
       <Modal visible={lockModalOpen} transparent animationType="fade">
         <Pressable className="flex-1 bg-black/60 items-center justify-center p-6" onPress={() => setLockModalOpen(false)}>
           <View className="w-full max-w-sm rounded-[32px] overflow-hidden p-8" style={{ backgroundColor: isDark ? "#161628" : "#FFFFFF" }}>
-            <Text className="text-2xl font-clash font-bold text-app mb-2">Lock Plans</Text>
+            <Text className="text-2xl font-clash font-bold text-app mb-2">Lock tiers</Text>
             <Text className="text-sm font-outfit text-textSecondary mb-6">Select tiers to lock from this module onwards.</Text>
             
             <View className="mb-8 gap-3">

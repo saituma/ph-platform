@@ -55,7 +55,7 @@ export function ProgramCard({
   onSecondaryPress,
   helperNote,
 }: ProgramCardProps) {
-  const primaryText = primaryLabel ?? "Select Plan";
+  const primaryText = primaryLabel ?? "Open";
   const secondaryText = secondaryLabel ?? "View Details";
   const handlePrimary = onPrimaryPress ?? onPress;
   const handleSecondary = onSecondaryPress ?? onPress;

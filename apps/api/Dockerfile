@@ -9,6 +9,8 @@ COPY src src
 COPY drizzle drizzle
 
 RUN npm install
+# Avoid OOM during `tsc` on small CI/Render builders; harmless locally.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 FROM node:20-slim AS runner
