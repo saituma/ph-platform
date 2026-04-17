@@ -63,7 +63,13 @@ export function createApp() {
         if (!origin) return callback(null, true);
         if (allowedOrigins.has("*")) return callback(null, true);
         if (allowedOrigins.has(origin)) return callback(null, true);
-        return callback(new Error("Origin not allowed"), false);
+        
+        // Auto-allow localhost for development convenience
+        if (env.nodeEnv !== "production" && origin.includes("localhost")) {
+          return callback(null, true);
+        }
+        
+        return callback(new Error(`Origin ${origin} not allowed by CORS`), false);
       },
       credentials: true,
     })
