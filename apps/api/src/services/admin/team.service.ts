@@ -13,7 +13,7 @@ import {
   trainingModuleSessionTable,
   trainingModuleTable,
 } from "../../db/schema";
-import { getStripeClient, getSuccessUrl, getCancelUrl } from "../billing/stripe.service";
+import { getStripeClient, getSuccessUrl, getCancelUrl, createTeamCheckoutSession } from "../billing/stripe.service";
 
 async function ensureTeamExists(input: {
   name: string;
@@ -147,6 +147,8 @@ export async function createTeamAdmin(input: {
   planId: number;
   maxAthletes: number;
   createdByUserId: number;
+  paymentMethod?: "pay_now" | "email_link" | "cash";
+  billingCycle?: "monthly" | "6months" | "yearly";
 }) {
   const cleanTeamName = input.teamName.trim();
   if (!cleanTeamName) {
@@ -163,17 +165,17 @@ export async function createTeamAdmin(input: {
   }
 
   const plans = await db
-    .select({
-      id: subscriptionPlanTable.id,
-      name: subscriptionPlanTable.name,
-      stripePriceId: subscriptionPlanTable.stripePriceId,
-    })
+    .select()
     .from(subscriptionPlanTable)
     .where(eq(subscriptionPlanTable.id, input.planId))
     .limit(1);
   const plan = plans[0];
   if (!plan) throw { status: 404, message: "Subscription plan not found." };
 
+  const paymentMethod = input.paymentMethod ?? "pay_now";
+  const billingCycle = input.billingCycle ?? "monthly";
+
+  // Create the team record first
   const created = await ensureTeamExists({
     name: cleanTeamName,
     athleteType: input.athleteType,
@@ -183,46 +185,69 @@ export async function createTeamAdmin(input: {
     planId: input.planId,
     maxAthletes: input.maxAthletes,
   });
+
   if (!created) {
     throw { status: 500, message: "Failed to create team record." };
   }
 
-  // Create Stripe Checkout Session
   let checkoutUrl: string | null = null;
-  try {
-    const stripe = getStripeClient();
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: plan.stripePriceId,
-          quantity: input.maxAthletes,
-        },
-      ],
-      metadata: {
+
+  if (paymentMethod === "cash") {
+    // 1. CASH FLOW: Activate immediately
+    const expiresAt = new Date();
+    if (billingCycle === "6months") expiresAt.setMonth(expiresAt.getMonth() + 6);
+    else if (billingCycle === "yearly") expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    else expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+    await db.update(teamTable).set({
+      subscriptionStatus: "active",
+      planPaymentType: billingCycle === "monthly" ? "monthly" : "upfront",
+      planCommitmentMonths: billingCycle === "6months" ? 6 : billingCycle === "yearly" ? 12 : 1,
+      planExpiresAt: expiresAt,
+      updatedAt: new Date(),
+    }).where(eq(teamTable.id, created.id));
+
+  } else {
+    // 2. STRIPE FLOW (Pay Now or Email Link)
+    // Construct the Lookup Key based on your convention: tier_interval
+    // e.g. "php_pro_six_months"
+    const intervalKey = billingCycle === "monthly" ? "monthly" : billingCycle === "6months" ? "six_months" : "yearly";
+    const lookupKey = `${plan.tier.toLowerCase()}_${intervalKey}`;
+
+    try {
+      const adminUser = await db.select({ email: userTable.email }).from(userTable).where(eq(userTable.id, input.adminId)).limit(1);
+      const session = await createTeamCheckoutSession({
         teamId: created.id,
         adminId: input.adminId,
-        type: "team_subscription",
-      },
-      success_url: `${getSuccessUrl()}?team_created=${created.id}`,
-      cancel_url: getCancelUrl(),
-    });
-    checkoutUrl = session.url;
-  } catch (err: any) {
-    console.error("[Stripe] Failed to create team checkout session:", err);
-    // Don't fail the entire team creation, but return no checkout URL
+        priceLookupKey: lookupKey,
+        quantity: input.maxAthletes,
+        mode: billingCycle === "monthly" ? "subscription" : "payment",
+        customerEmail: paymentMethod === "email_link" ? adminUser[0]?.email : undefined,
+      });
+
+      checkoutUrl = session.url;
+
+      if (paymentMethod === "email_link") {
+        // Send the link via email (mocking for now, replace with your email service)
+        console.log(`[Email] Sending payment link to ${adminUser[0]?.email}: ${checkoutUrl}`);
+        // await sendPaymentLinkEmail(adminUser[0]?.email, checkoutUrl);
+      }
+    } catch (err: any) {
+      console.error("[Stripe] Failed to create team checkout session:", err);
+    }
   }
 
   const group = await ensureTeamChatGroup(cleanTeamName, input.createdByUserId);
   if (group?.id) {
     await syncTeamChatMembers(created.id, group.id);
   }
+
   return {
     ok: true,
     team: created.name,
     teamId: created.id,
-    checkoutUrl,
+    checkoutUrl: paymentMethod === "pay_now" ? checkoutUrl : null,
+    sentToEmail: paymentMethod === "email_link",
   };
 }
 

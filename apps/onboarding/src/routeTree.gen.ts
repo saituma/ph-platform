@@ -14,6 +14,7 @@ import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OnboardingStep1RouteImport } from './routes/onboarding/step-1'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const VerificationRoute = VerificationRouteImport.update({
@@ -41,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingStep1Route = OnboardingStep1RouteImport.update({
+  id: '/onboarding/step-1',
+  path: '/onboarding/step-1',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/education-faq': typeof EducationFaqRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
+  '/onboarding/step-1': typeof OnboardingStep1Route
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/education-faq': typeof EducationFaqRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
+  '/onboarding/step-1': typeof OnboardingStep1Route
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   '/education-faq': typeof EducationFaqRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
+  '/onboarding/step-1': typeof OnboardingStep1Route
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/terms-privacy'
     | '/verification'
+    | '/onboarding/step-1'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/terms-privacy'
     | '/verification'
+    | '/onboarding/step-1'
     | '/api/auth/$'
   id:
     | '__root__'
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/terms-privacy'
     | '/verification'
+    | '/onboarding/step-1'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -105,6 +117,7 @@ export interface RootRouteChildren {
   EducationFaqRoute: typeof EducationFaqRoute
   TermsPrivacyRoute: typeof TermsPrivacyRoute
   VerificationRoute: typeof VerificationRoute
+  OnboardingStep1Route: typeof OnboardingStep1Route
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -145,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/step-1': {
+      id: '/onboarding/step-1'
+      path: '/onboarding/step-1'
+      fullPath: '/onboarding/step-1'
+      preLoaderRoute: typeof OnboardingStep1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -161,6 +181,7 @@ const rootRouteChildren: RootRouteChildren = {
   EducationFaqRoute: EducationFaqRoute,
   TermsPrivacyRoute: TermsPrivacyRoute,
   VerificationRoute: VerificationRoute,
+  OnboardingStep1Route: OnboardingStep1Route,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
