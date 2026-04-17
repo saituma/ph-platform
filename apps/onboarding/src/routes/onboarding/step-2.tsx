@@ -17,7 +17,7 @@ import { Card } from "#/components/ui/card";
 import { toast } from "sonner";
 import { env } from "#/env";
 import { DatePicker } from "#/components/ui/date-picker";
-import { format } from "date-fns";
+import { format, differenceInYears } from "date-fns";
 
 export const Route = createFileRoute("/onboarding/step-2")({
 	component: OnboardingStep2,
@@ -39,9 +39,23 @@ function OnboardingStep2() {
 		maxAthletes: "",
 	});
 	const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
+	const [ageError, setAgeError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isValidating, setIsValidating] = useState(true);
 	const navigate = useNavigate();
+
+	useEffect(() => {
+		if (userType === "youth" && birthDate) {
+			const age = differenceInYears(new Date(), birthDate);
+			if (age < 7 || age > 18) {
+				setAgeError("Youth athletes must be between 7 and 18 years old.");
+			} else {
+				setAgeError(null);
+			}
+		} else {
+			setAgeError(null);
+		}
+	}, [birthDate, userType]);
 
 	useEffect(() => {
 		const email = sessionStorage.getItem("pending_email");
@@ -88,6 +102,12 @@ function OnboardingStep2() {
 				if (!formData.guardianName || !formData.athleteName || !birthDate) {
 					throw new Error("Please fill in all fields");
 				}
+
+				const age = differenceInYears(new Date(), birthDate);
+				if (age < 7 || age > 18) {
+					throw new Error("Youth athletes must be between 7 and 18 years old.");
+				}
+
 				endpoint = "/api/onboarding/youth-basic";
 				body = {
 					guardianName: formData.guardianName,
@@ -241,9 +261,14 @@ function OnboardingStep2() {
 											date={birthDate}
 											setDate={setBirthDate}
 											placeholder="Select athlete's birth date"
-											fromYear={new Date().getFullYear() - 18}
-											toYear={new Date().getFullYear() - 5}
+											fromYear={new Date().getFullYear() - 100}
+											toYear={new Date().getFullYear()}
 										/>
+										{ageError && (
+											<p className="text-xs font-semibold text-destructive animate-in fade-in slide-in-from-top-1">
+												{ageError}
+											</p>
+										)}
 									</div>
 								</>
 							) : userType === "team" ? (
@@ -381,8 +406,8 @@ function OnboardingStep2() {
 							</Button>
 							<Button
 								type="submit"
-								disabled={isSubmitting}
-								className="flex-[2] h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+								disabled={isSubmitting || !!ageError}
+								className="flex-[2] h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100"
 							>
 								{isSubmitting ? (
 									<CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />
