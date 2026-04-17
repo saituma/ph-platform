@@ -7,6 +7,10 @@ import {
 	Star,
 	TrendUp,
 	ArrowRight,
+	Lightning,
+	ShieldCheck,
+	Flame,
+	Trophy,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
@@ -17,54 +21,6 @@ import { cn } from "#/lib/utils";
 export const Route = createFileRoute("/onboarding/step-5")({
 	component: OnboardingStep5,
 });
-
-const PLANS = [
-	{
-		id: "basic",
-		name: "Essential",
-		price: "29",
-		description: "Perfect for youth athletes starting their performance journey.",
-		features: [
-			"Core Performance Training",
-			"Mobile App Access",
-			"Progress Tracking",
-			"Basic Nutrition Guide",
-		],
-		accent: "primary",
-		icon: TrendUp,
-	},
-	{
-		id: "pro",
-		name: "Elite Pro",
-		price: "59",
-		description: "Comprehensive coaching with personalized targets and analytics.",
-		features: [
-			"Everything in Essential",
-			"Personalized Performance Goals",
-			"Advanced Analytics",
-			"Priority Coach Support",
-			"Custom Meal Plans",
-		],
-		accent: "primary",
-		popular: true,
-		icon: Star,
-	},
-	{
-		id: "premium",
-		name: "Grandmaster",
-		price: "99",
-		description: "The ultimate 1-on-1 experience for serious competitors.",
-		features: [
-			"Everything in Elite Pro",
-			"Monthly 1-on-1 Video Review",
-			"Custom Recovery Protocols",
-			"Elite Mental Coaching",
-			"Family Account Access",
-		],
-		accent: "primary",
-		icon: Crown,
-	},
-] as const;
 
 function OnboardingStep5() {
 	const [plans, setPlans] = useState<any[]>([]);
@@ -77,19 +33,13 @@ function OnboardingStep5() {
 		const fetchPlans = async () => {
 			try {
 				const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-				const response = await fetch(`${baseUrl}/api/onboarding/config`);
-				if (!response.ok) throw new Error("Failed to fetch plans");
-				const data = await response.json();
-				
-				// Assuming the config returns the plans/tiers
-				// If not in config, we might need a separate endpoint
-				// For now, let's try to get them from config or use a dedicated endpoint if available
-				const plansResponse = await fetch(`${baseUrl}/api/billing/plans`);
-				if (plansResponse.ok) {
-					const plansData = await plansResponse.json();
-					setPlans(plansData.plans || []);
-					if (plansData.plans?.length > 0) {
-						setSelectedPlan(plansData.plans[0].tier);
+				const response = await fetch(`${baseUrl}/api/billing/plans`);
+				if (response.ok) {
+					const data = await response.json();
+					setPlans(data.plans || []);
+					if (data.plans?.length > 0) {
+						// Default to the second plan (usually Pro) or the first
+						setSelectedPlan(data.plans[1]?.tier || data.plans[0].tier);
 					}
 				}
 			} catch (error) {
@@ -108,7 +58,7 @@ function OnboardingStep5() {
 		setIsSubmitting(true);
 		try {
 			toast.success("Redirecting to Checkout", {
-				description: `Preparing your subscription...`,
+				description: `Preparing your ${selectedPlan.replace(/_/g, ' ')} subscription...`,
 			});
 			
 			setTimeout(() => {
@@ -123,114 +73,194 @@ function OnboardingStep5() {
 	if (isLoading) {
 		return (
 			<div className="flex h-[60vh] items-center justify-center">
-				<CircleNotch className="w-10 h-10 animate-spin text-primary" />
+				<div className="relative">
+					<CircleNotch className="w-12 h-12 animate-spin text-primary" />
+					<div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<main className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
-			<section className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-				<div className="space-y-4 text-center">
-					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
-						Step 5 of 5
-					</p>
-					<h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl leading-[1.1]">
-						Choose Your <span className="text-primary">Plan</span>
+		<main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+			{/* Animated Background Elements */}
+			<div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px] animate-pulse pointer-events-none" />
+			<div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/10 rounded-full blur-[100px] animate-pulse delay-700 pointer-events-none" />
+
+			<section className="space-y-16 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+				<div className="space-y-6 text-center max-w-3xl mx-auto">
+					<div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-2">
+						<Flame weight="fill" className="text-primary w-4 h-4" />
+						<span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+							Elite Performance Awaits
+						</span>
+					</div>
+					<h1 className="text-5xl font-black tracking-tight text-foreground sm:text-7xl leading-[0.9] uppercase italic">
+						Elevate Your <span className="text-primary">Game</span>
 					</h1>
-					<p className="text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-						Unlock your full potential with elite performance coaching tailored to your goals.
+					<p className="text-lg text-muted-foreground leading-relaxed font-medium">
+						Stop guessing. Start growing. Join the elite rank of athletes who refuse to settle for average.
 					</p>
 				</div>
 
 				<div className={cn(
-					"grid gap-8",
-					plans.length === 4 ? "md:grid-cols-2 lg:grid-cols-4" : 
+					"grid gap-6",
+					plans.length === 4 ? "md:grid-cols-2 xl:grid-cols-4" : 
 					plans.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
 				)}>
-					{plans.map((plan) => {
+					{plans.map((plan, index) => {
 						const isSelected = selectedPlan === plan.tier;
 						const monthlyPrice = plan.pricing?.monthly?.discounted || plan.displayPrice;
 						
+						// Premium mapping for visuals
+						const isPlus = plan.tier.includes("Plus");
+						const isPremium = plan.tier.includes("Premium") && !isPlus;
+						const isPro = plan.tier.includes("Pro");
+						const isBasic = !isPlus && !isPremium && !isPro;
+
 						return (
-							<Card 
+							<div 
 								key={plan.id}
 								onClick={() => setSelectedPlan(plan.tier)}
 								className={cn(
-									"relative cursor-pointer transition-all duration-300 p-8 flex flex-col h-full rounded-[2.5rem] border-2",
-									isSelected 
-										? "border-primary bg-primary/[0.03] shadow-2xl scale-[1.02] ring-4 ring-primary/5" 
-										: "border-border/60 bg-card/40 hover:border-primary/40"
+									"group relative flex flex-col h-full transition-all duration-500 cursor-pointer outline-none",
+									isSelected ? "scale-[1.03] z-20" : "scale-100 hover:scale-[1.01] opacity-90 hover:opacity-100"
 								)}
 							>
-								<div className="space-y-6 flex-1">
-									<div className="flex items-center justify-between">
-										<div className={cn(
-											"p-3 rounded-2xl",
-											isSelected ? "bg-primary text-primary-foreground" : "bg-accent/50 text-primary"
-										)}>
-											{plan.tier.includes("Plus") ? <Crown size={28} weight="bold" /> : 
-											 plan.tier.includes("Premium") ? <Star size={28} weight="bold" /> : 
-											 <TrendUp size={28} weight="bold" />}
-										</div>
-										{isSelected && (
-											<div className="bg-primary rounded-full p-1 shadow-md">
-												<Check size={16} weight="bold" className="text-primary-foreground" />
+								{/* Card Glow/Shadow */}
+								<div className={cn(
+									"absolute -inset-1 rounded-[3rem] blur-2xl transition-opacity duration-500 pointer-events-none opacity-0 group-hover:opacity-40",
+									isSelected && "opacity-60",
+									isPlus ? "bg-primary" : isPremium ? "bg-primary/80" : "bg-primary/40"
+								)} />
+
+								<Card className={cn(
+									"relative flex-1 p-8 flex flex-col rounded-[2.5rem] border-2 transition-all duration-500 overflow-hidden backdrop-blur-xl",
+									isSelected 
+										? "border-primary bg-card/90 shadow-2xl ring-8 ring-primary/5" 
+										: "border-border/40 bg-card/40 hover:border-primary/30"
+								)}>
+									{/* Interior Liquid Effect */}
+									{isSelected && (
+										<div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-primary/10 rounded-full blur-[60px] animate-pulse" />
+									)}
+
+									<div className="space-y-8 flex-1 relative z-10">
+										{/* Header */}
+										<div className="flex items-start justify-between">
+											<div className={cn(
+												"p-4 rounded-2xl transition-all duration-500 transform group-hover:rotate-6",
+												isSelected ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-primary/10 text-primary"
+											)}>
+												{isPlus ? <Crown size={32} weight="bold" /> : 
+												 isPremium ? <Trophy size={32} weight="bold" /> : 
+												 isPro ? <Star size={32} weight="bold" /> : 
+												 <TrendUp size={32} weight="bold" />}
 											</div>
-										)}
-									</div>
-
-									<div className="space-y-1">
-										<h3 className="text-2xl font-black leading-tight">{plan.name}</h3>
-										<p className="text-[10px] uppercase tracking-widest font-bold text-primary/60">
-											{plan.tier.replace(/_/g, ' ')}
-										</p>
-									</div>
-
-									<div className="flex items-baseline gap-1">
-										<span className="text-4xl font-black text-foreground">{monthlyPrice}</span>
-										<span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">/ mo</span>
-									</div>
-
-									<div className="space-y-4 pt-4">
-										{/* Default features if none provided by API */}
-										{(plan.features || [
-											"Core Training",
-											"App Access",
-											"Progress Tracking",
-											"Coach Support"
-										]).map((feature: string, i: number) => (
-											<div key={i} className="flex items-center gap-3">
-												<div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-													<Check size={12} weight="bold" className="text-primary" />
+											
+											{isPlus && (
+												<div className="bg-primary text-primary-foreground text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full shadow-md animate-bounce">
+													Ultimate
 												</div>
-												<span className="text-sm font-medium text-foreground/80">{feature}</span>
+											)}
+											{(isPremium || isPro) && isSelected && (
+												<div className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full">
+													Most Popular
+												</div>
+											)}
+										</div>
+
+										{/* Name & Tier */}
+										<div className="space-y-1">
+											<h3 className="text-3xl font-black leading-[0.8] uppercase italic group-hover:text-primary transition-colors">
+												{plan.name.split(' ').map((word: string, i: number) => (
+													<span key={i} className="block">{word}</span>
+												))}
+											</h3>
+											<p className="text-[10px] uppercase tracking-[0.3em] font-black text-muted-foreground opacity-60">
+												{plan.tier.replace(/_/g, ' ')}
+											</p>
+										</div>
+
+										{/* Pricing */}
+										<div className="flex items-baseline gap-2 py-2 border-y border-border/20">
+											<span className="text-5xl font-black text-foreground tracking-tighter italic">
+												{monthlyPrice.replace(/[^\d]/g, '')}
+											</span>
+											<div className="flex flex-col">
+												<span className="text-xl font-black text-primary italic leading-none">$</span>
+												<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">/mo</span>
 											</div>
-										))}
+										</div>
+
+										{/* Features */}
+										<div className="space-y-5 flex-1">
+											<p className="text-[10px] font-black uppercase tracking-widest text-primary/80 mb-2">Included Features</p>
+											{(plan.features || [
+												"Elite Training Protocols",
+												"24/7 Mobile App Access",
+												"Performance Analytics",
+												"Expert Coach Support"
+											]).map((feature: string, i: number) => (
+												<div key={i} className="flex items-start gap-3 group/item">
+													<div className={cn(
+														"mt-1 h-5 w-5 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300",
+														isSelected ? "bg-primary/20" : "bg-primary/5 group-hover/item:bg-primary/10"
+													)}>
+														<Check size={12} weight="bold" className="text-primary" />
+													</div>
+													<span className="text-[13px] font-bold text-foreground/80 group-hover/item:text-foreground transition-colors leading-tight">
+														{feature}
+													</span>
+												</div>
+											))}
+										</div>
 									</div>
-								</div>
-							</Card>
+
+									{/* Bottom Selection Indicator */}
+									<div className={cn(
+										"mt-8 w-full h-1.5 rounded-full transition-all duration-500",
+										isSelected ? "bg-primary scale-x-100" : "bg-border/40 scale-x-50 group-hover:scale-x-75 group-hover:bg-primary/30"
+									)} />
+								</Card>
+							</div>
 						);
 					})}
 				</div>
 
-				<div className="flex flex-col items-center gap-6 pt-4">
-					<Button
-						onClick={handlePayment}
-						disabled={isSubmitting || !selectedPlan}
-						className="w-full max-w-md h-16 rounded-[2rem] text-xl font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-					>
-						{isSubmitting ? (
-							<CircleNotch className="w-8 h-8 animate-spin text-primary-foreground" />
-						) : (
-							<>
-								Continue to Checkout
-								<ArrowRight weight="bold" className="ml-3 w-6 h-6" />
-							</>
-						)}
-					</Button>
-					<p className="text-xs text-muted-foreground text-center max-w-md">
-						Secure payment powered by Stripe. You can cancel your subscription at any time from your account settings.
+				{/* Final Checkout Action */}
+				<div className="flex flex-col items-center gap-8 pt-8 max-w-2xl mx-auto">
+					<div className="w-full relative group">
+						<div className="absolute -inset-1 bg-gradient-to-r from-primary to-primary/60 rounded-[2.5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
+						<Button
+							onClick={handlePayment}
+							disabled={isSubmitting || !selectedPlan}
+							className="relative w-full h-20 rounded-[2.5rem] text-2xl font-black uppercase italic shadow-2xl transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-4"
+						>
+							{isSubmitting ? (
+								<CircleNotch className="w-8 h-8 animate-spin text-primary-foreground" />
+							) : (
+								<>
+									Secure My Spot
+									<Lightning weight="fill" className="w-6 h-6 animate-pulse" />
+								</>
+							)}
+						</Button>
+					</div>
+					
+					<div className="flex flex-wrap justify-center gap-x-8 gap-y-4">
+						<div className="flex items-center gap-2 text-muted-foreground">
+							<ShieldCheck size={18} className="text-primary" />
+							<span className="text-[10px] font-bold uppercase tracking-widest">Encrypted Payment</span>
+						</div>
+						<div className="flex items-center gap-2 text-muted-foreground">
+							<Check size={18} className="text-primary" />
+							<span className="text-[10px] font-bold uppercase tracking-widest">Cancel Anytime</span>
+						</div>
+					</div>
+
+					<p className="text-[10px] text-muted-foreground text-center max-w-md font-medium leading-relaxed opacity-60">
+						Payments processed via Stripe. By subscribing, you agree to our Terms of Service and Privacy Policy. All plans are billed monthly.
 					</p>
 				</div>
 			</section>
