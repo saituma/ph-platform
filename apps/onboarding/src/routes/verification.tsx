@@ -97,6 +97,11 @@ function VerificationComponent() {
                 throw new Error(data.error || "The code you entered is incorrect or has expired.");
             }
 
+            // Store token for subsequent onboarding steps
+            if (data.accessToken) {
+                sessionStorage.setItem("auth_token", data.accessToken);
+            }
+
             toast.success("Account verified!", {
                 description: "Welcome to PH Platform. Let's finish your profile.",
             });
